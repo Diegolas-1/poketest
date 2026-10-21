@@ -17,7 +17,7 @@ If `web/pokered.gbc` is missing, the page asks for a ROM file instead and rememb
 
 ## Online
 
-The player (without any ROM) is published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches `web/`: https://diegolas-1.github.io/poketest/. Open it, pick the `pokered.gbc` you built, and it loads by itself from then on.
+The player (without any ROM) is published to GitHub Pages, from the `gh-pages` branch that `.github/workflows/pages.yml` rewrites on every push to `main` touching `web/`: https://diegolas-1.github.io/poketest/. Open it, pick the `pokered.gbc` you built, and it loads by itself from then on.
 
 ## Controls
 

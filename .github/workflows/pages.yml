@@ -1,5 +1,6 @@
-# Publishes the player in web/ to GitHub Pages. The ROM is never part of the
-# site: players pick the pokered.gbc they built, and the page remembers it.
+# Publishes the player in web/ to the gh-pages branch, which GitHub Pages
+# serves. The ROM is never part of the site: players pick the pokered.gbc they
+# built, and the page remembers it.
 name: Pages
 
 on:
@@ -9,27 +10,25 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Leave out any ROM
-        run: rm -f web/*.gb web/*.gbc
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: web
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Push web/ (without any ROM) to gh-pages
+        run: |
+          rm -f web/*.gb web/*.gbc
+          touch web/.nojekyll
+          cd web
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish the player from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}" gh-pages
