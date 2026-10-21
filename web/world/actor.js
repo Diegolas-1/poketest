@@ -8,6 +8,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toon } from './toon.js';
 import { dressAsh } from './ashcloth.js';
+import { addNeck } from './cast.js';
 
 const V2 = (x, y) => new THREE.Vector2(x, y), V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const DS = THREE.DoubleSide;
@@ -709,6 +710,7 @@ function calemActor(look) {
     if (!base) return;
     const m = base.SU.clone(base.scene);
     const cloth = look.cloth === 'ash' ? dressAsh(m, base) : null;   // before the ink hulls, so the garments get theirs
+    if (look.cloth === 'ash') smoothNormals(addNeck(m, look.skin || '#f8d6b8', SKIN).geometry);   // likewise; the cast make their own
     const holder = new THREE.Group(); holder.scale.setScalar(base.k); holder.position.y = -base.minY * base.k; holder.add(m);
     const bones = {}, hulls = [];
     let eyes = null;

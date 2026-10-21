@@ -251,6 +251,18 @@ function seamNormals(g, rows, cols) {
   }
 }
 // the cel material for added parts: a flat colour, or a small canvas painted with fn(ctx, w, h)
+// a neck (the base head is open underneath, hidden in its game by a tall collar): a skin tube
+// from the chest to the jaw, bending with the neck; on the model before its ink hulls are made
+export function addNeck(model, color, cel) {
+  let hairM = null;
+  model.traverse((o) => { if (o.isSkinnedMesh && o.material.name === 'hair01_on') hairM = o; });
+  const geo = skinGeo(sheet(3, 16, (t, u) => { const a = u * 2 * Math.PI, r = 0.034; return [Math.sin(a) * r, 1.035 + t * 0.085, -0.013 + Math.cos(a) * r * 1.05]; }),
+    hairM.skeleton, (p) => [['Neck', sstep(1.04, 1.09, p.y)], ['Spine3', 1 - sstep(1.04, 1.09, p.y)]]);
+  const m = new THREE.SkinnedMesh(geo, flatMat(color, cel, { name: 'ash_neck' }));
+  m.name = 'neck'; m.castShadow = true; m.frustumCulled = false;
+  hairM.parent.add(m); m.bind(hairM.skeleton, hairM.bindMatrix);
+  return m;
+}
 const flatMat = (color, cel, o = {}) => { const m = toon(color, { cel, side: o.side }); m.name = o.name || 'cast_' + color; return m; };
 function canvasMat(w, h, draw, cel, o = {}) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
