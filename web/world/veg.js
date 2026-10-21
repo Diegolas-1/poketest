@@ -1,10 +1,10 @@
-// Where the stylized plants grow: a forest ring of broadleaf trees, poplars
-// and hill pines, blossom trees in the village, palms on the beach, bushes and
-// hedges, fern beds in the shade, flower clumps and mossy rocks. Seeded, so the
-// town always looks the same.
+// Where the stylized plants grow: a forest ring of big painted broadleaves,
+// birches, poplars and cypresses, willows by the pond, Scots pines and giants
+// on the hills, palms on the beach, bushes and hedges, fern beds in the shade,
+// flower clumps and mossy rocks. Seeded, so the town always looks the same.
 import { height, roadMask, isWater, fbm, rng, POND } from './terrain.js';
 import { Scatter, Impostor } from './assets.js';
-import { makeTree, makeBush, makeRock, makeClump, TILE } from './foliage.js';
+import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
 import { BEDS } from './town.js';
 
 const inTown = (x, z) => Math.abs(x) < 44 && z > -36 && z < 44;
@@ -23,14 +23,38 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   const yieldUI = () => new Promise((r) => setTimeout(r, 0));
 
   // ---------- trees ----------
+  // Big painted broadleaves round the village (tiered park trees, shade
+  // trees, lindens, beeches, oaks), birches and young trees at the edges,
+  // poplars and cypresses as accents, willows by the pond, Scots pines and
+  // giants on the northern hills, a couple of dead snags deep in the woods,
+  // palms on the beach. Fewer, bigger trees than before: each has a few
+  // thousand leaf cards, so the count stays low and canopies overlap.
   onProgress('Growing the forest');
   await yieldUI();
-  const kinds = { round: [11, 12, 13, 14], cypress: [61, 62, 63], poplar: [21, 22], pine: [31, 32, 33], blossom: [41, 42], palm: [51, 52, 53] };
-  const models = Object.fromEntries(Object.entries(kinds).map(([k, seeds]) => [k, seeds.map((s) => makeTree(k, s))]));
-  const pts = { round: [], cypress: [], poplar: [], pine: [], blossom: [], palm: [] };
+  const kinds = {
+    tiered: [11, 12, 13], shade: [14, 15], linden: [16, 17], beech: [18, 19], oak: [20, 21], spreading: [22],
+    multistem: [23, 24], bushy: [25, 26], sapling: [27, 28], birch: [29, 30], lombardy: [31, 32], cypress: [61, 62],
+    giant: [33, 34], oldgrowth: [35], scotspine: [36, 37], dead: [38], willow: [39, 40], palm: [51, 52, 53], maple: [41],
+  };
+  const models = {}, pts = {};
+  setTreeDetail(quality.trees < 0.8 ? 0.55 : 0.75);   // fewer, bigger leaf cards than the close-up models
+  for (const [k, seeds] of Object.entries(kinds)) { models[k] = seeds.map((s) => makeTree(k, s)); pts[k] = []; await yieldUI(); }
+  setTreeDetail(1);
   const all = [];
-  const tooClose = (x, z, d) => all.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < d * d);
-  for (let i = 0; i < 12000 && all.length < 520 * quality.trees; i++) {
+  // canopies may overlap a little (a forest), trunks never
+  const tooClose = (x, z, r) => all.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < ((t.r + r) * 0.5) ** 2);
+  const place = (k, x, z, s) => {
+    const m = models[k][0], t = { x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s, k, r: m.radius * s, trunk: m.trunk * s };
+    pts[k].push(t); all.push(t);
+  };
+  // shade and accent trees in the village and by the pond, placed by hand
+  for (const [x, z, k, s] of [[-34, -27, 'tiered', 1.0], [34, -28, 'linden', 0.9], [-37, 22, 'shade', 0.9], [-9, 39, 'tiered', 0.85], [31, 3, 'shade', 0.85],
+    [-38, -3, 'cypress', 1.0], [-30, 2, 'tiered', 0.8], [-31, -6, 'cypress', 1.0], [9, -3, 'lombardy', 0.55], [-4, 54, 'palm', 1.0], [12, 54, 'palm', 1.0],
+    [-34.5, 37, 'willow', 0.85], [-10.5, 29, 'willow', 0.75], [40, 37, 'maple', 0.9]]) place(k, x, z, s);
+  const north = [['scotspine', 2.5], ['giant', 2], ['linden', 3], ['beech', 2], ['tiered', 3], ['shade', 2], ['cypress', 1.5], ['oldgrowth', 1], ['multistem', 1], ['birch', 1], ['bushy', 1], ['dead', 0.25]];
+  const edge = [['tiered', 5], ['shade', 3], ['linden', 3], ['oak', 3], ['beech', 2], ['multistem', 2], ['bushy', 3], ['sapling', 2], ['birch', 2], ['lombardy', 1.5], ['cypress', 1.5], ['spreading', 1], ['oldgrowth', 0.7], ['giant', 0.7]];
+  const far = [['tiered', 3], ['linden', 3], ['beech', 2], ['oak', 2], ['giant', 2], ['shade', 2], ['oldgrowth', 1], ['scotspine', 1], ['cypress', 1], ['dead', 0.3], ['birch', 1]];
+  for (let i = 0; i < 12000 && all.length < 400 * quality.trees; i++) {
     const x = (R() - 0.5) * 320, z = -200 + R() * 260;
     if (inTown(x, z)) continue;
     if (Math.abs(x + Math.sin(z * 0.02) * 6) < 10 && z < -34) continue;
@@ -38,25 +62,23 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     const beach = z > 46;
     const ring = Math.abs(x) < 70 && z > -56 && z < 52;
     const dens = beach ? 0.25 : ring ? 0.95 : 0.35 + fbm(x * 0.025, z * 0.025, 2) * 0.6;
-    if (R() > dens || !free(x, z, 2.5) || tooClose(x, z, beach ? 7 : 4.6)) continue;
-    const kind = beach ? 'palm' : z < -60 ? pick([['cypress', 4], ['round', 4], ['pine', 1]]) : pick([['round', 8], ['cypress', 3], ['poplar', 1]]);
-    const t = { x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s: 0.85 + R() * 0.4 };
-    pts[kind].push(t); all.push(t);
+    if (R() > dens || !free(x, z, 2.5)) continue;
+    let k = beach ? 'palm' : pick(z < -60 ? north : ring ? edge : far);
+    if (k === 'dead' && (ring || R() < 0.5)) k = 'tiered';   // snags only deep in the woods
+    const s = k === 'palm' ? 0.9 + R() * 0.3 : 0.8 + R() * 0.35, r = models[k][0].radius * s;
+    if (tooClose(x, z, r)) continue;
+    place(k, x, z, s);
   }
-  // shade and blossom trees in the village
-  for (const [x, z, k] of [[-34, -27, 'round'], [34, -28, 'round'], [-37, 22, 'round'], [-9, 39, 'round'], [31, 3, 'round'], [-38, -3, 'cypress'], [-30, 2, 'round'], [-4, 54, 'palm'], [12, 54, 'palm'], [-31, -6, 'cypress'], [9, -3, 'cypress']]) {
-    const t = { x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s: 1.0 };
-    pts[k].push(t); all.push(t);
-  }
-  for (const t of all) colliders.push({ x: t.x, z: t.z, r: 0.45 * t.s });
+  for (const t of all) colliders.push({ x: t.x, z: t.z, r: Math.max(0.45, t.trunk + 0.1) });
   for (const [k, list] of Object.entries(pts)) {
-    sow(models[k], list, (m) => {
-      const imp = new Impostor(renderer, m);
-      impostors.push(imp);
-      return { chunk: 30, maxDist: 75 * quality.lod, wind: 0, impostor: imp };
-    });
+    if (!list.length) continue;
+    // one billboard set per kind (its first shape), shared by its variants
+    const imp = new Impostor(renderer, models[k][0]);
+    impostors.push(imp);
+    sow(models[k], list, () => ({ chunk: 30, maxDist: 75 * quality.lod, wind: 0, impostor: imp }));
     await yieldUI();
   }
+  window.__trees = Object.fromEntries(Object.entries(pts).map(([k, l]) => [k, l.length]));
 
   // ---------- bushes and hedges ----------
   onProgress('Planting bushes');

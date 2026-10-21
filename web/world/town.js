@@ -367,9 +367,10 @@ function cottage({ x, z, wall, roof, door, name, seed, side = -1, lines }, world
     plant(makeBush(seed + 50 + px, { size: s }), G, px, height(x + px, z + pz) - G.position.y, pz);
     world.colliders.push({ x: x + px, z: z + pz, r: 0.8 * s });
   }
-  for (const [px, pz, s] of [[-side * 6.6, 6.8, 0.42], [-side * 6.8, -3.8, 0.75], [side * 7.0, -4.3, 0.7]]) {
-    plant(makeTree('cypress', seed + Math.round(px * 3 + pz)), G, px, height(x + px, z + pz) - G.position.y, pz, s);
-    world.colliders.push({ x: x + px, z: z + pz, r: 0.6 * s + 0.2 });
+  for (const [px, pz, k, s] of [[-side * 6.6, 6.8, 'bushy', 0.85], [-side * 6.8, -3.8, 'lombardy', 0.5], [side * 7.0, -4.3, 'cypress', 0.7]]) {
+    const m = makeTree(k, seed + Math.round(px * 3 + pz));
+    plant(m, G, px, height(x + px, z + pz) - G.position.y, pz, s);
+    world.colliders.push({ x: x + px, z: z + pz, r: Math.max(0.4, m.trunk * s + 0.15) });
   }
   world.solid.push(G);
   return G;
@@ -543,9 +544,10 @@ function hillPlants(world) {
     for (const [x, z, , s] of list) world.colliders.push({ x, z, r: 0.75 * s });
   });
   // cypresses and broad trees on the hill around the lab
-  for (const [x, z, k, s] of [[14.5, 14, 'cypress', 1.0], [16.5, 11, 'cypress', 1.2], [33.5, 13, 'round', 1.1], [36.5, 19, 'cypress', 1.1], [35.5, 27, 'cypress', 0.9], [30.5, 32, 'round', 1.0], [19, 10, 'round', 1.2], [27, 9.5, 'cypress', 1.1]]) {
-    plant(makeTree(k, Math.round(x * 13 + z)), world.group, x, height(x, z) - 0.1, z, s, x);
-    world.colliders.push({ x, z, r: 0.6 });
+  for (const [x, z, k, s] of [[14.5, 14, 'cypress', 1.0], [16.5, 11, 'lombardy', 0.6], [33.5, 13, 'tiered', 0.8], [36.5, 19, 'cypress', 1.1], [35.5, 27, 'lombardy', 0.55], [30.5, 32, 'shade', 0.7], [19, 10, 'linden', 0.7], [27, 9.5, 'cypress', 1.1]]) {
+    const m = makeTree(k, Math.round(x * 13 + z));
+    plant(m, world.group, x, height(x, z) - 0.1, z, s, x);
+    world.colliders.push({ x, z, r: Math.max(0.6, m.trunk * s + 0.15) });
   }
 }
 

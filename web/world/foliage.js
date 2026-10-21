@@ -374,7 +374,7 @@ function puff(out, c, r, n, tiles, R, treeCenter) {
     const centre = treeCenter ? c.clone().lerp(treeCenter, 0.15) : c;
     // deeper and lower cards sit in shade
     out.ao = Math.min(1, 0.3 + depth * 0.5 + (d.y + 1) * 0.16);
-    pushCard(out, p, facing, r * (0.9 + R() * 0.45), tiles[Math.floor(R() * tiles.length)], R() * 6.28, centre, R());
+    pushCard(out, p, facing, r * (0.9 + R() * 0.45) * treeDetail.grow, tiles[Math.floor(R() * tiles.length)], R() * 6.28, centre, R());
     out.ao = 1;
   }
 }
@@ -419,6 +419,10 @@ function mergeGeos(list) {
 }
 
 // ---------- tree building blocks ----------
+// Leaf detail for the big painted trees: k scales how many cards a lobe gets
+// (the game uses fewer), grow makes each card a little bigger to make up.
+export const treeDetail = { k: 1, grow: 1 };
+export function setTreeDetail(k) { treeDetail.k = k; treeDetail.grow = 1 + (1 - k) * 0.45; }
 // A lobe of leaf cards on an ellipsoid (rx wide, ry tall): one mass of a
 // canopy. Its underside sits in deep shade, so stacked masses read apart.
 function lobe(out, c, rx, ry, n, tiles, R, treeCenter) {
@@ -430,7 +434,7 @@ function lobe(out, c, rx, ry, n, tiles, R, treeCenter) {
     const p = c.clone().add(new THREE.Vector3(d.x * rx, d.y * ry, d.z * rx).multiplyScalar(depth));
     const facing = d.clone().lerp(new THREE.Vector3(R() - 0.5, R() - 0.5, R() - 0.5), 0.25).normalize();
     out.ao = Math.max(0.12, Math.min(1, 0.22 + depth * 0.45 + (d.y + 1) * 0.22 - (d.y < -0.25 ? 0.24 : 0)));
-    pushCard(out, p, facing, (rx + ry) * 0.5 * (0.85 + R() * 0.4), tiles[Math.floor(R() * tiles.length)], R() * 6.28, centre, R());
+    pushCard(out, p, facing, (rx + ry) * 0.5 * (0.85 + R() * 0.4) * treeDetail.grow, tiles[Math.floor(R() * tiles.length)], R() * 6.28, centre, R());
     out.ao = 1;
   }
 }
@@ -475,6 +479,17 @@ function limb(wood, R, p, dir, len, r, lv, o, tips) {
     limb(wood, R, i === 0 ? pts[3] : pts[R() < 0.5 ? 2 : 3], cd, len * (o.shrink + R() * 0.15), r1 * 0.9, lv + 1, o, tips);
   }
 }
+// Masses on the shell of an ellipsoid (centre c, half sizes ax ay az): n of
+// size r spread evenly (golden spiral), flattened by fl; skip = the share of
+// the bottom left open (where the trunk comes in).
+function domeLobes(lobes, c, ax, ay, az, n, r, fl, R, skip = 0.15) {
+  for (let i = 0; i < n; i++) {
+    const u = 1 - ((i + 0.5) / n) * (2 - skip * 2), a = i * 2.39996 + R() * 0.4, rr = Math.sqrt(1 - u * u);
+    const d = new THREE.Vector3(rr * Math.cos(a), u, rr * Math.sin(a));
+    const k = 0.78 + R() * 0.14;
+    lobes.push({ c: new THREE.Vector3(c.x + d.x * ax * k, c.y + d.y * ay * k, c.z + d.z * az * k), rx: r * (0.85 + R() * 0.3), ry: r * fl * (0.85 + R() * 0.3) });
+  }
+}
 // Scales wood and lobes ({c, rx, ry}) so the top lands at height h (when
 // given), then fills the lobes with cards. Returns {height, radius}.
 function crown(leaves, wood, lobes, h, tiles, R, dens = 16, fill = 0) {
@@ -495,12 +510,12 @@ function crown(leaves, wood, lobes, h, tiles, R, dens = 16, fill = 0) {
   for (const L of lobes) centre.add(L.c); centre.multiplyScalar(sc / Math.max(1, lobes.length));
   let height = top * sc, radius = 0;
   for (const L of lobes) {
-    const n = Math.round(L.rx * L.ry * dens + 8);
+    const n = Math.round((L.rx * L.ry * dens + 8) * treeDetail.k);
     L.c.multiplyScalar(sc);
     lobe(leaves, L.c, L.rx * sc, L.ry * sc, n, L.tiles || tiles, R, centre);
     radius = Math.max(radius, Math.hypot(L.c.x, L.c.z) + L.rx * sc);
   }
-  for (const g of wood) { g.computeBoundingBox(); radius = Math.max(radius, Math.hypot(g.boundingBox.max.x, g.boundingBox.max.z)); }
+  for (const g of wood) { g.computeBoundingBox(); const b = g.boundingBox; radius = Math.max(radius, Math.hypot(Math.max(-b.min.x, b.max.x), Math.max(-b.min.z, b.max.z))); }
   return { height, radius };
 }
 
@@ -698,7 +713,7 @@ export function makeTree(kind, seed) {
     const sc = (17.5 + R() * 2.5) / Math.max(...lobes.map(([c, r]) => c.y + r));
     for (const g of wood) g.scale(sc, sc, sc);
     centre.multiplyScalar(sc);
-    for (const L of lobes) { puff(leaves, L[0].multiplyScalar(sc), L[1] * sc, Math.round(L[1] * L[1] * 14 + 8), tiles, R, centre); L[1] *= sc; }
+    for (const L of lobes) { puff(leaves, L[0].multiplyScalar(sc), L[1] * sc, Math.round((L[1] * L[1] * 14 + 8) * treeDetail.k), tiles, R, centre); L[1] *= sc; }
     for (const [c, r] of lobes) { height = Math.max(height, c.y + r); radius = Math.max(radius, Math.hypot(c.x, c.z) + r); }
     bark = '#8e8a6c';
   } else if (kind === 'tiered') {
@@ -873,7 +888,7 @@ export function makeTree(kind, seed) {
     let top = 0; for (const L of lobes) top = Math.max(top, L.c.y);
     const tiles = [TILE.bushA, TILE.bushB, TILE.leafB];
     // strands: from points over the dome, columns of small cards falling down
-    for (let k = 0; k < 130; k++) {
+    for (let k = 0; k < Math.round(130 * treeDetail.k); k++) {
       const L = lobes[Math.floor(R() * lobes.length)], a = R() * 6.28;
       const s0 = L.c.clone().add(V3(Math.cos(a) * L.rx * (0.6 + R() * 0.5), -0.2 + R() * 0.4, Math.sin(a) * L.rx * (0.6 + R() * 0.5)));
       const out = V3(s0.x, 0, s0.z).normalize(), len = (s0.y - 0.8) * (0.55 + R() * 0.45), sw = R() * 6.28;
@@ -969,15 +984,96 @@ export function makeTree(kind, seed) {
     ({ height, radius } = crown(leaves, [...wood, ...upper], lobes, 15 + R() * 2, [TILE.needles, TILE.needles2, TILE.leafC], R, 40));
     extraWood = { geo: upper, bark: '#c47a46', style: 'flaky' };
     bark = '#8a7a68'; tint = '#c8e2c8'; wind = 0.04;
+  } else if (kind === 'shade') {
+    // a big round shade tree: a short bole forking into heavy limbs under a
+    // full dome of large masses that skirts down low all round
+    const th = 2.4 + R() * 0.5;
+    wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(0.1, th * 0.6, 0), V3(0, th, 0.05)], 0.75, 0.6, 11), 0.08, R));
+    const tips = [], o = { up: 0.1, wob: 0.5, kids: [2, 3], keep: 0.7, spread: 0.7, rise: 0.35, shrink: 0.62, lv: 1 };
+    for (let i = 0; i < 5; i++) { const a = i * 1.257 + R() * 0.5; limb(wood, R, V3(0, th - 0.2, 0), V3(Math.cos(a), 1.1, Math.sin(a)), 3.4 + R(), 0.36, 0, o, tips); }
+    const lobes = [];
+    domeLobes(lobes, V3(0, 6.6, 0), 5.6, 3.9, 5.6, 22, 2.0, 0.6, R);   // the dome's outside
+    for (let i = 0; i < 4; i++) lobes.push({ c: V3((R() - 0.5) * 4, 6.5 + R() * 2, (R() - 0.5) * 4), rx: 2.4, ry: 2.0 });   // inside
+    ({ height, radius } = crown(leaves, wood, lobes, 12 + R() * 1.5, [TILE.leafA, TILE.leafB, TILE.leafC, TILE.leafA], R, 11));
+    bark = '#8c8468'; barkStyle = 'smooth';
+  } else if (kind === 'lombardy') {
+    // a Lombardy poplar: a tall narrow column of overlapping masses on a
+    // straight trunk with short upswept branches, tapering at the top
+    const h = 15 + R() * 2;
+    wood.push(gnarlGeo(tube([V3(0, -0.4, 0), V3(0.05, h * 0.5, 0), V3(0, h * 0.95, 0.05)], 0.48, 0.1, 9), 0.05, R));
+    const lobes = [];
+    for (let y = 2.4; y < h + 0.4; y += 0.7) {
+      const f = (y - 2.4) / (h - 2), w = 1.35 * Math.pow(Math.sin(Math.PI * Math.min(1, 0.18 + f * 0.86)), 0.7) + 0.35;
+      for (let k = 0; k < 3; k++) {
+        const a = R() * 6.28, c = V3(Math.cos(a) * w * 0.4, y + R() * 0.4, Math.sin(a) * w * 0.45);
+        lobes.push({ c, rx: w * (0.7 + R() * 0.2), ry: 1.0 + R() * 0.3 });
+        if (k === 0 && f < 0.85) wood.push(tube([V3(0, y - 1.0, 0), c.clone().multiplyScalar(0.6).add(V3(0, -0.3, 0))], 0.08, 0.03, 4));
+      }
+    }
+    ({ height, radius } = crown(leaves, wood, lobes, 0, [TILE.leafC, TILE.leafA, TILE.leafB], R, 13));
+    bark = '#8f8a6e';
+  } else if (kind === 'linden') {
+    // a broad linden / chestnut: a clear trunk under a tall dense egg shaped
+    // crown, widest a third of the way up, many masses all over it
+    const th = 4.5 + R() * 0.8;
+    wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(-0.1, th * 0.5, 0.1), V3(0.05, th, 0)], 0.75, 0.52, 11), 0.07, R));
+    const tips = [], o = { up: 0.14, wob: 0.45, kids: [2, 3], keep: 0.75, spread: 0.7, rise: 0.4, shrink: 0.62, lv: 1 };
+    for (let i = 0; i < 5; i++) { const a = i * 1.257 + R() * 0.5; limb(wood, R, V3(0, th - 0.3 + i * 0.4, 0), V3(Math.cos(a), 1.2, Math.sin(a)), 3.6 + R(), 0.3, 0, o, tips); }
+    wood.push(tube([V3(0, th, 0), V3(0.2, th + 4, 0), V3(0, th + 8, 0.2)], 0.4, 0.12, 7));
+    const lobes = [];
+    domeLobes(lobes, V3(0, th + 4.6, 0), 4.6, 5.6, 4.6, 26, 1.9, 0.9, R, 0.25);
+    for (let i = 0; i < 5; i++) lobes.push({ c: V3((R() - 0.5) * 3.5, th + 2 + R() * 5, (R() - 0.5) * 3.5), rx: 2.2, ry: 2.0 });
+    ({ height, radius } = crown(leaves, wood, lobes, 15 + R() * 1.5, [TILE.leafB, TILE.leafA, TILE.leafC], R, 11));
+    bark = '#7f7660';
+  } else if (kind === 'bushy') {
+    // a young bushy tree: a short trunk and a dense round crown starting low
+    const th = 1.2 + R() * 0.4;
+    wood.push(tube([V3(0, -0.3, 0), V3(0.05, th, 0)], 0.22, 0.17, 8));
+    const tips = [], o = { up: 0.15, wob: 0.5, kids: [2, 3], keep: 0.7, spread: 0.7, rise: 0.4, shrink: 0.6, lv: 1 };
+    for (let i = 0; i < 4; i++) { const a = i * 1.57 + R() * 0.5; limb(wood, R, V3(0, th - 0.1, 0), V3(Math.cos(a), 1.1, Math.sin(a)), 1.6 + R() * 0.5, 0.14, 0, o, tips); }
+    const lobes = [];
+    domeLobes(lobes, V3(0, 3.2, 0), 2.2, 1.9, 2.2, 16, 1.2, 0.8, R);
+    lobes.push({ c: V3(0, 3.2, 0), rx: 1.5, ry: 1.4 });
+    ({ height, radius } = crown(leaves, wood, lobes, 5 + R() * 0.8, [TILE.bushA, TILE.leafB, TILE.leafA], R, 26));
+    bark = '#8f8a70'; barkStyle = 'smooth';
+  } else if (kind === 'beech') {
+    // a lush beech: a smooth grey trunk, limbs sweeping up and out in
+    // layers, a broad domed crown of flattened sprays, the lowest hanging low
+    const th = 3.6 + R() * 0.6;
+    wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(0.1, th * 0.5, 0), V3(0, th, 0.1)], 0.8, 0.58, 12), 0.06, R));
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * 6.28 + R() * 0.6, dir = V3(Math.cos(a), 0, Math.sin(a));
+      wood.push(tube([V3(0, 1.3, 0).addScaledVector(dir, 0.15), V3(0, 0.3, 0).addScaledVector(dir, 0.9), V3(0, -0.3, 0).addScaledVector(dir, 1.5)], 0.35, 0.08, 6));
+    }
+    const tips = [], o = { up: 0.05, wob: 0.4, kids: [2, 3], keep: 0.75, spread: 0.7, rise: 0.15, shrink: 0.62, lv: 2 };
+    const nl = 6, a0 = R() * 6.28;
+    for (let i = 0; i < nl; i++) {
+      const a = a0 + i * 2.4, y = th - 0.4 + (i / nl) * 4.5;
+      limb(wood, R, V3(0, Math.min(y, th + 3), 0), V3(Math.cos(a), 0.9 + 0.9 * (i / nl), Math.sin(a)), 4.4 - i * 0.3 + R() * 0.8, 0.36 - i * 0.03, 0, o, tips);
+    }
+    wood.push(tube([V3(0, th, 0), V3(0.2, th + 3, 0), V3(-0.1, th + 6.5, 0.2)], 0.5, 0.15, 8));
+    const lobes = tips.map(([e]) => ({ c: e.clone().add(V3(0, 0.35, 0)), rx: 1.9 + R() * 0.5, ry: 1.2 + R() * 0.25 }));   // flattish sprays
+    lobes.push({ c: V3(0, th + 7.5, 0), rx: 2.6, ry: 1.8 }, { c: V3(1.2, th + 6, -0.8), rx: 2.2, ry: 1.6 }, { c: V3(-1.2, th + 6, 1), rx: 2.2, ry: 1.6 });
+    ({ height, radius } = crown(leaves, wood, lobes, 16 + R() * 1.5, [TILE.leafB, TILE.leafA, TILE.leafB, TILE.leafC], R, 12, 10));
+    bark = '#9c9f98'; barkStyle = 'smooth';
   }
-  return {
-    parts: [
-      { geometry: mergeGeos(wood), material: barkMaterial(bark, barkStyle) },
-      ...(extraWood ? [{ geometry: mergeGeos(extraWood.geo), material: barkMaterial(extraWood.bark, extraWood.style) }] : []),   // a second bark (pine's orange top)
-      { geometry: toGeometry(leaves), material: leafMaterial(tint, wind, leafVar) },
-    ].filter((p) => p.geometry.attributes.position.count),   // a dead tree has no leaves
-    height, radius,
-  };
+  const parts = [
+    { geometry: mergeGeos(wood), material: barkMaterial(bark, barkStyle) },
+    ...(extraWood ? [{ geometry: mergeGeos(extraWood.geo), material: barkMaterial(extraWood.bark, extraWood.style) }] : []),   // a second bark (pine's orange top)
+    { geometry: toGeometry(leaves), material: leafMaterial(tint, wind, leafVar) },
+  ].filter((p) => p.geometry.attributes.position.count);   // a dead tree has no leaves
+  // exact bounds for the impostor (the leaves' cards reach past the lobes),
+  // and the trunk's radius at 1.5-2.5 m for colliders
+  let top = 0, rad = 0, trunk = 0.2;
+  for (const p of parts) {
+    const a = p.geometry.attributes.position;
+    for (let i = 0; i < a.count; i++) {
+      const y = a.getY(i), d = Math.hypot(a.getX(i), a.getZ(i));
+      top = Math.max(top, y); rad = Math.max(rad, d);
+      if (p === parts[0] && y > 1.5 && y < 2.5) trunk = Math.max(trunk, d);
+    }
+  }
+  return { parts, height: Math.max(height, top), radius: Math.max(radius, rad), trunk: Math.min(trunk, 1.6) };
 }
 
 // A bush: a few overlapping puffs of small leaves (some with flowers).
