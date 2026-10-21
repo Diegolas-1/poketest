@@ -13,7 +13,11 @@ python3 -m http.server 8000 -d web  # then open http://localhost:8000
 
 `build.sh` downloads rgbds 1.0.4 into `tools/` (Linux x86-64 and macOS), builds the ROM, checks it against the original cartridge's checksum, and copies it to `web/pokered.gbc`. On other systems, install [rgbds 1.0.4](https://rgbds.gbdev.io/install) yourself first.
 
-If `web/pokered.gbc` is missing, the page asks for a ROM file instead.
+If `web/pokered.gbc` is missing, the page asks for a ROM file instead and remembers it on that device (IndexedDB). Add `?pick` to the address to choose a different one.
+
+## Online
+
+The player (without any ROM) is published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches `web/`: https://diegolas-1.github.io/poketest/. Open it, pick the `pokered.gbc` you built, and it loads by itself from then on.
 
 ## Controls
 

@@ -132,17 +132,43 @@ async function startRom(romBuffer) {
   emulator.setBuiltinPalette(vm.palIdx);
 }
 
-// Use the ROM built by build.sh; if it is not there, let the player pick one.
+// The ROM picked on this device is kept in IndexedDB, so it only has to be
+// picked once (the hosted page never carries the ROM itself).
+function romDb(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open(SAVE_KEY, 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('rom');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const req = fn(open.result.transaction('rom', mode).objectStore('rom'));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    };
+  });
+}
+
+// Use the ROM built by build.sh, else the one picked on this device, else ask.
+// Add ?pick to the address to choose a different ROM.
 (async function go() {
-  try {
-    const response = await fetch(ROM_FILENAME);
-    if (response.ok) return startRom(await response.arrayBuffer());
-  } catch (e) {}
+  const pick = new URLSearchParams(location.search).has('pick');
+  if (!pick) {
+    try {
+      const response = await fetch(ROM_FILENAME);
+      if (response.ok) return startRom(await response.arrayBuffer());
+    } catch (e) {}
+    try {
+      const saved = await romDb('readonly', (st) => st.get('rom'));
+      if (saved) return startRom(saved);
+    } catch (e) {}
+  }
   const picker = document.getElementById('romPicker');
   picker.hidden = false;
   picker.querySelector('input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
-    if (file) startRom(await file.arrayBuffer());
+    if (!file) return;
+    const buffer = await file.arrayBuffer();
+    try { await romDb('readwrite', (st) => st.put(buffer.slice(0), 'rom')); } catch (e) {}
+    startRom(buffer);
   });
 })();
 

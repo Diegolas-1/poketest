@@ -1,0 +1,35 @@
+# Publishes the player in web/ to GitHub Pages. The ROM is never part of the
+# site: players pick the pokered.gbc they built, and the page remembers it.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Leave out any ROM
+        run: rm -f web/*.gb web/*.gbc
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
