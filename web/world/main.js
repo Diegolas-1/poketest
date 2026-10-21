@@ -92,11 +92,34 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
+// the FPS counter beside the cog: frames per second over the last half second,
+// the slowest frame in that window, and the resolution being drawn
+const fpsEl = document.createElement('div');
+fpsEl.id = 'fps';
+fpsEl.style.cssText = 'position:fixed;top:10px;left:188px;z-index:6;height:28px;padding:0 9px;border-radius:8px;background:rgba(20,30,40,.4);color:#fff;font:600 13px/28px ui-monospace,Menlo,monospace;pointer-events:none;white-space:nowrap';
+document.body.appendChild(fpsEl);
+const fps = { on: localStorage.getItem('pallet-fps') !== '0', n: 0, acc: 0, worst: 0, last: performance.now() };
+const setFps = (on) => { fps.on = on; localStorage.setItem('pallet-fps', on ? '1' : '0'); fpsEl.style.display = on ? '' : 'none'; };
+setFps(fps.on);
+function fpsTick() {
+  const now = performance.now(), d = now - fps.last; fps.last = now;
+  if (!fps.on || d > 1000) return;
+  fps.n++; fps.acc += d; fps.worst = Math.max(fps.worst, d);
+  if (fps.acc >= 500) {
+    const f = Math.round(fps.n * 1000 / fps.acc);
+    fpsEl.style.color = f >= 55 ? '#9ef0a0' : f >= 30 ? '#ffd27a' : '#ff8a7a';
+    fpsEl.textContent = `${f} fps · ${Math.round(fps.worst)} ms · ${renderer.getPixelRatio().toFixed(2).replace(/\.?0+$/, '')}x`;
+    fps.n = 0; fps.acc = 0; fps.worst = 0;
+  }
+}
+addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat && !e.target.closest?.('input,textarea')) { setFps(!fps.on); gfx?.redraw(); } });
+
 // the graphics settings window (settings.js)
 const pct = (v) => Math.round(v * 100) + '%';
 const gfx = createSettings({
   presets: PRESETS, preset: level, values: QUALITY,
   ink: () => inkOn, onInk: setInk,
+  toggles: [{ label: 'FPS counter', hint: 'F key', get: () => fps.on, set: setFps }],
   rows: [
     { key: 'dpr', label: 'Resolution', values: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3], fmt: (v) => v + 'x', live: true },
     { key: 'aa', label: 'Anti-aliasing', values: [0, 1], fmt: (v) => (v ? 'On' : 'Off') },
@@ -515,6 +538,7 @@ function frame(fixed) {
   } else dialog.prompt = null;
   draw();
   dialog.draw(dt, t, innerWidth, innerHeight, Math.min(devicePixelRatio, 2));
+  fpsTick();
   if (!TEST) requestAnimationFrame(frame);
 }
 

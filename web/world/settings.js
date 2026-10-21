@@ -9,7 +9,7 @@ export function loadSettings() {
 function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
 
 // rows: [{ key, label, values, fmt?, live? }], presets: { name: {key: value} }
-export function createSettings({ rows, presets, preset, values, ink, onLive, onInk }) {
+export function createSettings({ rows, presets, preset, values, ink, onLive, onInk, toggles = [] }) {
   const saved = loadSettings();
   const state = { preset, o: { ...(saved.o || {}) } };
   let dirty = false;
@@ -53,6 +53,7 @@ export function createSettings({ rows, presets, preset, values, ink, onLive, onI
     const pnames = Object.keys(presets);
     box.innerHTML = `<h3>Graphics<button data-close>×</button></h3>
       <div class="row"><span class="l">Outlines<small>O key</small></span><div class="step"><button class="s" data-ink>${ink() ? 'On' : 'Off'}</button></div></div>
+      ${toggles.map((t, i) => `<div class="row"><span class="l">${t.label}<small>${t.hint || ''}</small></span><div class="step"><button class="s" data-t="${i}">${t.get() ? 'On' : 'Off'}</button></div></div>`).join('')}
       <div class="row"><span class="l">Preset<small>sets everything below</small></span><div class="step">
         <button class="s" data-p="-1">‹</button><b>${state.preset}</b><button class="s" data-p="1">›</button></div></div>
       ${rows.map((r, i) => {
@@ -63,6 +64,7 @@ export function createSettings({ rows, presets, preset, values, ink, onLive, onI
       <div class="acts"><button class="reset" data-reset>Reset to ${state.preset}</button><button class="apply" data-apply ${dirty ? '' : 'disabled'}>Reload to apply</button></div>`;
     box.querySelector('[data-close]').onclick = () => box.classList.remove('open');
     box.querySelector('[data-ink]').onclick = () => { onInk(!ink()); draw(); };
+    box.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { const t = toggles[+b.dataset.t]; t.set(!t.get()); draw(); }));
     box.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => {
       const i = (pnames.indexOf(state.preset) + +b.dataset.p + pnames.length) % pnames.length;
       state.preset = pnames[i]; state.o = {}; persist(); dirty = true;
