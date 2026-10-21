@@ -354,7 +354,7 @@ lineMat.userData.u = { uCore: { value: 2 }, uPull: { value: EDGE.pull }, uFadeL:
 lineMat.onBeforeCompile = (sh) => {
   Object.assign(sh.uniforms, lineMat.userData.u);
   sh.vertexShader = sh.vertexShader
-    .replace('attribute vec3 instanceStart;', 'attribute vec3 instanceStart;\nattribute vec3 instanceN1, instanceN2;\nattribute float instanceK;\nuniform float uPull;\nuniform vec2 uFadeL;\nvarying float vFadeL;')
+    .replace('attribute vec3 instanceStart;', 'attribute vec3 instanceStart;\nattribute vec3 instanceN1, instanceN2;\nattribute float instanceK;\nuniform float uPull;\nuniform vec2 uFadeL;\nvarying float vFadeL, vInkW;')
     .replace('vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );', `vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );
       vec3 inkN1 = normalMatrix * instanceN1, inkN2 = normalMatrix * instanceN2, eMid = 0.5 * (start.xyz + end.xyz);
       float f1 = dot(inkN1, -eMid), f2 = dot(inkN2, -eMid);
@@ -363,6 +363,10 @@ lineMat.onBeforeCompile = (sh) => {
       vec3 inkOut = f1 > 0.0 ? inkN1 : inkN2;
       bool show = instanceK > 1.5 || (instanceK > 0.5 && (f1 > 0.0 || f2 > 0.0)) || inkSil;
       vFadeL = 1.0 - smoothstep(uFadeL.x, uFadeL.y, -eMid.z);
+      // creases inside a shape are detail: a little thinner than the outline,
+      // and gone sooner, so small parts far off (balusters, window bars) stay light
+      vInkW = inkSil ? 1.0 : 0.72;
+      if (!inkSil) vFadeL *= 1.0 - smoothstep(uFadeL.x * 0.35, uFadeL.x * 0.85, -eMid.z);
       if (!show || vFadeL <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
       start.xyz *= 1.0 - uPull; end.xyz *= 1.0 - uPull;`)
     // a silhouette line sits wholly outside the shape (its inner side on the
@@ -371,12 +375,13 @@ lineMat.onBeforeCompile = (sh) => {
       if (inkSil && length(inkOut.xy) > 1e-4) {
         vec2 pu = offset * (position.x < 0.0 ? -1.0 : 1.0);
         offset += pu * sign(dot(pu * vec2(aspect, 1.0), inkOut.xy));
-      }`);
+      }
+      offset *= vInkW;`);
   sh.fragmentShader = sh.fragmentShader
-    .replace('uniform float linewidth;', 'uniform float linewidth;\nuniform float uCore;\nvarying float vFadeL;')
+    .replace('uniform float linewidth;', 'uniform float linewidth;\nuniform float uCore;\nvarying float vFadeL, vInkW;')
     .replace('float alpha = opacity;', `float alpha = opacity * vFadeL;
       // soft sides: the quad is a pixel and a half wider than the line
-      alpha *= clamp(uCore * 0.5 + 0.5 - abs(vUv.x) * linewidth * 0.5, 0.0, 1.0);`);
+      alpha *= clamp((uCore * 0.5 - abs(vUv.x) * linewidth * 0.5) * vInkW + 0.5, 0.0, 1.0);`);
 };
 lineMat.customProgramCacheKey = () => 'inkedges';
 
