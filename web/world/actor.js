@@ -625,14 +625,13 @@ export const LOOKS = {
 };
 
 // ---------- optional local base model ----------
-// On a dev machine, web/world/local/ash.glb (gitignored, never published) holds a
-// skinned 3D-game body dressed as Ash. When it is there, the player look uses it:
+// web/world/local/ash.glb holds a skinned 3D-game body dressed as Ash. When it
+// loads, the player look uses it:
 // makeActor returns at once with the procedural Ash and swaps in the model when
 // it has loaded. Bones are driven procedurally about axes taken from the rest
 // pose, with the same angles as the procedural rig. ?base=proc turns it off.
 const QS = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
-const CALEM_ON = QS.get('base') !== 'proc' && (QS.get('base') === 'calem' ||
-  (typeof location !== 'undefined' && /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname)));
+const CALEM_ON = QS.get('base') !== 'proc';
 const CALEM_H = 1.55;   // metres, cap included
 let calemP = null, calemBase = null;
 function loadCalem() {
