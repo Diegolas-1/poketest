@@ -11,8 +11,8 @@
 //     parts the person doesn't wear dropped (Ash's cap, spikes and logo);
 //   - props added as skinned meshes on the same skeleton (a hair crown, ponytail
 //     and ribbon, a bucket hat, a backpack);
-//   - clothes made as real garments over the body (garments.js): Oak's lab coat,
-//     the girl's dress, the fisher's vest, the kid's tee and shorts, standing off
+//   - clothes made as real garments over the body (garments.js): Oak's lab coat
+//     (labcoat.js: shell, collar, lapels, pockets, sleeves and cuffs), the girl's dress, the fisher's vest, the kid's tee and shorts, standing off
 //     the body and hanging from the shoulders, the long ones moving as cloth;
 //   - proportions changed by scaling and moving bones in the rest pose and
 //     baking that into the meshes and the bind pose, so the clips (rotations
@@ -21,6 +21,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
+import { labCoat } from './labcoat.js';
 import { Build, slab, hangGrid, gridWeights, gridChains, paintGrid, clothSim, trisOf, nearW, mixW, ringOf, cast, fixRing, ZC, ARM_Y, ARM_Z } from './garments.js';
 
 const V3 = THREE.Vector3, M4 = THREE.Matrix4;
@@ -584,19 +585,22 @@ const BUILD = {
   },
   oak(v) {
     const c = C.oak, skin = hex(c.skin), shirt = hex(c.shirt), coat = hex(c.coat), coat2 = hex(c.coat2), pants = hex(c.pants);
+    // the body as what he wears under the coat (garments: below): the red shirt, its collar
+    // turned down at the neck and its sleeves to the wrists, and the brown trousers
     v.paint('topsjer', 0.5, (p, n, o, part) => {
-      if (part === 'hand') return ax(p) < 0.462 ? coat2 : skin;   // the cuff right to the wrist
-      if (isArm(part)) return ax(p) > 0.43 ? coat2 : keepShade(coat, o, 0.8, 0.12);
-      const x = ax(p), open = p.y > 0.86 ? 0.03 + (p.y - 0.86) * 0.32 : 0.03;   // the coat's V over the red shirt
-      if (p.z > 0 && p.y < 1.05 && x < open) return x > open - 0.006 ? mul(shirt, 0.8) : keepShade(shirt, o, 0.5, 0.3);
-      if (p.z > 0 && p.y < 1.04 && x < open + 0.007) return coat2;   // lapel edge
-      return coat;   // the yoke (the coat itself hangs from it: see below)
+      if (part === 'hand') return skin;   // (the wrist, inside the cuff)
+      if (isArm(part)) return ax(p) > 0.43 ? skin : keepShade(shirt, o, 0.6, 0.2);   // (bare wrists inside the cuffs)
+      if (p.y > 1.05) return p.y > 1.072 ? mul(shirt, 0.78) : mul(shirt, 0.9);   // the shirt's collar, its edge
+      return keepShade(shirt, o, 0.5, 0.3);
     });
     v.paint('btmsskin', 0.5, (p, n, o) => (p.y > 0.69 ? hex(c.belt) : keepShade(pants, o, 0.55, 0.6)));
     v.shoes({ up: c.shoes, sole: c.sole, rim: c.shoes, sock: c.pants, sockY: 0.1, slim: false });
     v.hair(c.hair, 0.8);
     v.shape('ash_extra', (p) => { if (p.y > 1.3) p.set(0, 1.2, -0.02); });   // drop Ash's cap button
     v.shape('hair01_on', foldFringe);
+    v.shape('hair01_on', liftNape);
+    v.shape('topsjer', lowerCollar(1.05, 0.38));   // Ash's tall collar down to a shirt collar
+    v.neck();
     v.crown({ top: 1.312, back: 0.018, bulge: 1.04, rimY: 1.232, front: 0.03, strands: false });
     // grey hair swept up off the forehead and back in spikes
     const S = [];
@@ -611,50 +615,20 @@ const BUILD = {
     }
     S.push([0, 0.5, 0.12, 0.045, [0, 0.75, -0.65], 0.5], [Math.PI, 0.3, 0.12, 0.042, [0, -0.25, -1], 0.35], [0, 1.0, 0.12, 0.045, [0, 0.4, -1], 0.4]);
     v.spikes(c.hair, S);
-    // the coat's sleeves: loose round the arm, the cuffs closer
-    v.shape('topsjer', looseSleeves(0.12, 0.425, 0.13));
-    // the lab coat: hung from the shoulders, open in front over the red shirt, straight down
-    // the sides from the armpits and past the hips to the knees, moving as cloth
+    // the lab coat, every part of it real cloth over the body (labcoat.js): the shell hung
+    // from the shoulders and moving as cloth below the chest, the collar, lapels, pockets,
+    // sleeves and cuffs
     v.garment((G) => {
-      const ys = rowsOf([0.958, 0.945], 0.93, 0.39, 0.02), hem = ys.length - 1, nc = 44;
-      const openX = (y) => (y > 0.86 ? 0.03 + (y - 0.86) * 0.32 : 0.03);   // as the V painted on the chest
-      const line = mul(coat2, 0.88);
-      G.hang({
-        name: 'oak_coat', ys, nc, pin: 2, mid: rowAt(ys, 0.85), floor: 0.6,
-        gap: (y) => Math.asin(Math.min(0.9, openX(y) / 0.105)) + 0.1 * sstep(0.74, 0.45, y),
-        off: (y) => offTop(0.004, 0.013)(y) + 0.008 * sstep(0.72, 0.55, y),
-        tuck: 0.01, lining: coat2,
-        paint: (p, i, j) => {
-          const y = p.y, x = Math.abs(p.x), front = p.z > 0.02, je = Math.min(j, nc - j);   // je: columns from the front edge
-          // lapels up the chest, outlined, with a notch; the front edges stitched below
-          const lw = 0.7 + 2.3 * sstep(0.78, 0.93, y);
-          if (je < 0.22) return line;
-          if (y > 0.78 && je < lw) return je > lw - 0.22 || Math.abs(y - 0.89) < 0.002 ? line : coat;
-          if (y <= 0.78 && Math.abs(je - 0.7) < 0.12) return line;
-          // patch pockets low on the front and on the left breast
-          const pocket = (y0, y1, x0, x1) => y > y0 && y < y1 && x > x0 && x < x1 && (y > y1 - 0.004 || y < y0 + 0.003 || x < x0 + 0.003 || x > x1 - 0.003 || Math.abs(y - (y1 - 0.016)) < 0.0015);
-          if (front && pocket(0.555, 0.65, 0.05, 0.118)) return line;
-          if (front && p.x > 0 && pocket(0.85, 0.9, 0.035, 0.082)) return line;
-          // a seam down the back, the vent below the hips; the hem's stitching
-          if (!front && p.z < 0 && x < 0.0022 && y < 0.92) return line;
-          if (!front && p.z < 0 && y < 0.56 && Math.abs(x - 0.007) < 0.0018) return line;
-          if (Math.abs(y - 0.403) < 0.0018) return line;
-          return coat;
-        },
-        sim: {
-          tag: 'C', ns: 15, rows: [2, rowAt(ys, 0.75), rowAt(ys, 0.57), hem], parent: 'Spine2',
-          // a medium cloth, heavier towards the hem, riding partly with the hips
-          prm: (ch) => ({
-            ks: [40, 30, 24], drag: [0.5, 0.7, ch.edge ? 1.0 : 0.85], damp: 5, vmax: 1.5, flut: ch.edge ? 0.7 : 0.5,
-            cone: ch.edge ? [0.5, 0.6, 0.7] : [0.4, 0.5, 0.6], hangBone: 'Hips', hang: [0, 0.25, 0.5, 0.65], quad: true,
-            coll: [{ ring: 'Spine1', caps: ['arms'], seg: ['arms'] },
-              { ring: 'Hips', mid: 'Spine1', caps: ['arms'], seg: ['arms', 'thighs'], after: ['thighs'] },
-              { caps: ['arms'], seg: ['legs'], after: ['legs'] }],
-          }),
-        },
-      });
-      // the shirt under the coat's back and sides drawn in, the opening left as it is
+      labCoat(G, { coat, coat2, shirt });
+      // the shirt drawn in under the coat's back and sides (the opening left as it is),
+      // and the arms a little inside their sleeves
       G.late('topsjer', drawIn((p, th) => 0.012 * sstep(0.95, 0.92, p.y) * sstep(0.55, 0.95, Math.abs(th))));
+      G.late('topsjer', (p, part) => {
+        if (part !== 'upper' && part !== 'fore') return;
+        const x = ax(p), k = sstep(0.1, 0.14, x) * sstep(0.45, 0.43, x), dy = p.y - ARM_Y, dz = p.z - ARM_Z, r = Math.hypot(dy, dz);
+        if (!k || r < 1e-4) return;
+        const f = 1 - 0.004 * k / r; p.y = ARM_Y + dy * f; p.z = ARM_Z + dz * f;
+      });
     });
   },
 };
@@ -662,6 +636,11 @@ const BUILD = {
 function foldFringe(p) {
   if (p.z < 0.035 || Math.abs(p.x) > 0.085 || p.y > 1.25) return;
   p.set(p.x * 0.8, 1.255, Math.min(p.z, 0.07));
+}
+// and the ends at the nape taken up a little, clear of the coat's collar
+function liftNape(p) {
+  if (p.z > -0.02 || p.y > 1.112) return;
+  p.y = 1.112 - (1.112 - p.y) * 0.45;
 }
 
 // bare legs from Ash's wide jeans: below y0 every ring is pulled in toward the bone
@@ -769,11 +748,11 @@ function dressUp(scene, meshes, hairM, fns, extras, cel) {
       return b;
     },
     hang(o) {
-      const g = hangGrid({ T: [...G.torsoT, ...G.hipT, ...G.extraT], ...o });
+      const g = o.grid || hangGrid({ T: [...G.torsoT, ...G.hipT, ...G.extraT], ...o });
       const sim = o.sim && { ...o.sim, loop: g.closed };
-      const W = gridWeights(g.P, o.weights || G.bodyW, sim);
+      const W = g.W = gridWeights(g.P, o.weights || G.bodyW, sim);
       const B = G.build();
-      slab(B, g.P, W, o.th ?? 0.0045, { loop: g.closed, out: (p) => V(p.x, 0, p.z - ZC), rims: g.closed ? { bottom: true } : { bottom: true, left: true, right: true } });
+      slab(B, g.P, W, o.th ?? 0.0045, { loop: g.closed, out: (p) => V(p.x, 0, p.z - ZC), rims: o.rims || (g.closed ? { bottom: true } : { bottom: true, left: true, right: true }) });
       G.add(B, paintGrid(g.P, 512, 256, o.paint, o.lining), o.name, !!sim);
       if (sim) {
         const from = G.chains.length, cs = gridChains(g.P, sim);
@@ -836,9 +815,10 @@ function simKit(G, scene, meshes, D) {
   };
   for (const [L, s] of [['L', 1], ['R', -1]]) {
     const sh = at(L + 'ArmA'), el = at(L + 'ForeArm'), wr = at(L + 'Hand'), tip = wr.clone().lerp(el, -0.45);
-    const cap = (n, bone, a, b, r) => { caps[n] = { bone, a, b, r0: r + 0.006, r1: r + 0.006, out: bone.endsWith('Thigh') || bone.endsWith('Leg') }; };
-    cap(L + 'arm', L + 'ArmA', sh, el, radius(top, tp, 'upper', s, sh, el));
-    cap(L + 'fore', L + 'ForeArm', el, wr, radius(top, tp, 'fore', s, el, wr));
+    const cap = (n, bone, a, b, r) => { caps[n] = { bone, a, b, r0: r + 0.006, r1: r + 0.006, out: bone.endsWith('Thigh') || bone.endsWith('Leg'), inn: !!G.armsOutside && /Arm|Hand/.test(bone) }; };
+    // (the arms fatter by what is worn over them: G.armPad, a sleeve standing off the skin)
+    cap(L + 'arm', L + 'ArmA', sh, el, radius(top, tp, 'upper', s, sh, el) + (G.armPad || 0));
+    cap(L + 'fore', L + 'ForeArm', el, wr, radius(top, tp, 'fore', s, el, wr) + (G.armPad || 0));
     cap(L + 'hand', L + 'Hand', wr, tip, radius(top, tp, 'hand', s, wr, tip));
     const hp = at(L + 'Thigh'), kn = at(L + 'Leg'), an = at(L + 'Foot');
     // (the legs a little fatter: the cloth between two particles must clear them too)

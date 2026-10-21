@@ -78,6 +78,30 @@ export function fixRing(r, loop, passes = 0, w = 0.25) {
 const dirOf = (th) => V3(Math.sin(th), 0, Math.cos(th));
 // the body's girth all round at height y (48 radii from the trunk's axis, from the front round by the left)
 export const ringOf = (T, y, n = 48) => fixRing(Array.from({ length: n }, (_, k) => cast(T, V3(0, y, ZC), dirOf(k / n * TAU), 0.4)), true, 1);
+// convex hull of 2D points [x, z] (counter-clockwise)
+function hull2(P) {
+  const p = P.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+// the convex outline of the body round the trunk's axis at height y (bridging its hollows,
+// as cloth stretched over it does): th -> radius
+export function hullRing(T, y, tMax = 0.2, n = 96) {
+  const r = fixRing(Array.from({ length: n }, (_, k) => cast(T, V3(0, y, ZC), dirOf(k / n * TAU), tMax)), true, 1);
+  const H = hull2(r.map((v, k) => [v * Math.sin(k / n * TAU), v * Math.cos(k / n * TAU)]));
+  return (th) => {
+    const dx = Math.sin(th), dz = Math.cos(th); let best = 0;
+    for (let k = 0; k < H.length; k++) {
+      const [ax, az] = H[k], [bx, bz] = H[(k + 1) % H.length], ex = bx - ax, ez = bz - az, den = dx * ez - dz * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const t = (ax * ez - az * ex) / den, u = (ax * dz - az * dx) / den;
+      if (t > 0 && u >= -1e-6 && u <= 1 + 1e-6) best = Math.max(best, t);
+    }
+    return best;
+  };
+}
 // skin weights near a point, by bone name: from the closest vertices of the
 // meshes (each { mesh, keep(x, y, z, i) }), by inverse square distance
 export function nearW(list) {
@@ -305,7 +329,7 @@ export function clothSim(m, kit, meshes) {
   const S = {}, Si = {}, Pq = {}, sc = {};
   for (const n of used) { S[n] = new THREE.Matrix4(); Si[n] = new THREE.Matrix4(); Pq[n] = new THREE.Quaternion(); sc[n] = 1; }
   // the capsules in the world, each frame
-  const W = {}; for (const n in kit.caps) W[n] = { a: V3(), b: V3(), r0: 0, r1: 0, ab: V3(), l2: 1, out: !!kit.caps[n].out };
+  const W = {}; for (const n in kit.caps) W[n] = { a: V3(), b: V3(), r0: 0, r1: 0, ab: V3(), l2: 1, out: !!kit.caps[n].out, inn: !!kit.caps[n].inn };
   const hipW = V3(), ro = V3();
   const tv = V3(), ts = V3(), a = V3(), b = V3(), q = V3(), mp = V3(), wind = V3(), vAir = V3(), rootP = V3(), rootPrev = V3(), vRoot = V3(), fwd = V3(), rv = V3();
   const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qr = new THREE.Quaternion(), qd = new THREE.Quaternion();
@@ -353,9 +377,9 @@ export function clothSim(m, kit, meshes) {
     a.copy(w.a).addScaledVector(w.ab, u); b.subVectors(x, a);
     let d = b.length(); const r = lerp(w.r0, w.r1, u);
     if (d >= r || d < 1e-7) return false;
-    if (w.out) {
+    if (w.out || w.inn) {
       ro.set(a.x - hipW.x, 0, a.z - hipW.z); const l = ro.length();
-      if (l > 1e-6) { ro.divideScalar(l); const k = b.dot(ro); if (k < 0) { b.addScaledVector(ro, -2 * k); d = b.length(); } }
+      if (l > 1e-6) { ro.divideScalar(l); const k = b.dot(ro); if (w.out ? k < 0 : k > 0) { b.addScaledVector(ro, -2 * k); d = b.length(); } }
     }
     x.copy(a).addScaledVector(b, r / d);
     return true;
