@@ -624,6 +624,9 @@ export const LOOKS = {
   },
 };
 
+// the others are made from the same base model too, reworked in cast.js
+for (const k of ['girl', 'fisher', 'kid', 'oak']) Object.assign(LOOKS[k], { base: 'calem', cast: k });
+
 // ---------- optional local base model ----------
 // web/world/local/ash.glb holds a skinned 3D-game body dressed as Ash. When it
 // loads, the player look uses it:
@@ -750,7 +753,9 @@ function calemActor(look) {
       rig.clips = { mixer, act, meta: A.meta, w: { idle: 1, walk: 0, run: 0 } };
     }
   };
-  if (calemBase) attach(calemBase); else loadCalem().then(attach);
+  // the town's people are variants of the same model (cast.js), built once per look
+  const ready = (base) => (base && look.cast ? import('./cast.js').then((c) => c.castReady(base, look.cast, { SKIN, CLOTH, smoothNormals })).then(attach).catch((e) => console.warn('cast:', e)) : attach(base));
+  if (calemBase) ready(calemBase); else loadCalem().then(ready);
 
   // jump: the posed rig's air pose, blended over whatever the clips play
   const jumpPose = () => {
