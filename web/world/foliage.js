@@ -16,9 +16,12 @@ export const TILE = {
   ivy: 12, ivy2: 13,                            // heart-shaped climbing leaves
   flowersY: 14, flowersR: 15,                   // little flower heads among leaves
 };
-let atlas = null;
-export function leafAtlas() {
-  if (atlas) return atlas;
+// variant 'autumn' paints the broadleaf and bush tiles in reds and oranges
+// (same layout and TILE indices; every other tile is the same)
+const atlases = new Map();
+export function leafAtlas(variant = 'green') {
+  if (atlases.has(variant)) return atlases.get(variant);
+  const fall = variant === 'autumn', LH = fall ? 14 : -16, SH = fall ? -12 : 22;
   const S = 256, c = document.createElement('canvas'); c.width = c.height = S * 4;
   const ctx = c.getContext('2d');
   const R = rng(9001);
@@ -85,19 +88,24 @@ export function leafAtlas() {
     for (let n = 0; n < 110 * dot; n++) {   // light and shade strokes
       const x = 20 + R() * (S - 40), y = 20 + R() * (S - 40);
       const up = (S - y) / S + (x / S) * 0.3 + (R() - 0.5) * 0.45;
-      if (up > 0.64) ctx.fillStyle = hsl(h - 16, s + 10, l + 14 + R() * 10);
-      else if (up < 0.4) ctx.fillStyle = hsl(h + 22, s - 4, l - 13 - R() * 9);
+      if (up > 0.64) ctx.fillStyle = hsl(h + LH, s + 10, l + 14 + R() * 10);
+      else if (up < 0.4) ctx.fillStyle = hsl(h + SH, s - 4, l - 13 - R() * 9);
       else continue;
       const ang = Math.PI * 0.5 + (R() - 0.5) * 2.2 + (x < C ? 0.4 : -0.4);
       brush(x, y, (14 + R() * 18) * k, (5 + R() * 4) * k, ang, (R() - 0.5) * 0.7);
     }
     ctx.restore();
   });
-  dapple(TILE.leafA, 118, 52, 42);
-  dapple(TILE.leafB, 108, 55, 45);
-  dapple(TILE.leafC, 128, 48, 38);
-  dapple(TILE.bushA, 116, 52, 41, 1.8);
-  dapple(TILE.bushB, 126, 48, 38, 1.8);
+  if (fall) {   // maple reds, a scarlet, a crimson, orange and amber bushes
+    dapple(TILE.leafA, 8, 78, 52); dapple(TILE.leafB, 22, 85, 55); dapple(TILE.leafC, 354, 66, 44);
+    dapple(TILE.bushA, 34, 88, 55, 1.8); dapple(TILE.bushB, 14, 76, 50, 1.8);
+  } else {
+    dapple(TILE.leafA, 118, 52, 42);
+    dapple(TILE.leafB, 108, 55, 45);
+    dapple(TILE.leafC, 128, 48, 38);
+    dapple(TILE.bushA, 116, 52, 41, 1.8);
+    dapple(TILE.bushB, 126, 48, 38, 1.8);
+  }
   // cypress: upward flames of dark blue-green brush strokes
   tile(TILE.leafD, () => {
     for (let k = 0; k < 120; k++) {
@@ -190,7 +198,7 @@ export function leafAtlas() {
   t.anisotropy = 8;
   t.generateMipmaps = true;
   t.minFilter = THREE.LinearMipmapLinearFilter;
-  atlas = t;
+  atlases.set(variant, t);
   return t;
 }
 
@@ -198,10 +206,10 @@ export function leafAtlas() {
 // light through the leaves (backlit leaves glow warm) and soft wind.
 export const foliageTime = { value: 0 };
 const leafMats = new Map();
-export function leafMaterial(tint = '#ffffff', wind = 0.08) {
-  const key = tint + wind;
+export function leafMaterial(tint = '#ffffff', wind = 0.08, variant = 'green') {
+  const key = tint + wind + variant;
   if (leafMats.has(key)) return leafMats.get(key);
-  const m = new THREE.MeshLambertMaterial({ map: leafAtlas(), color: new THREE.Color(tint), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true });
+  const m = new THREE.MeshLambertMaterial({ map: leafAtlas(variant), color: new THREE.Color(tint), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = foliageTime;
     sh.vertexShader = 'uniform float uTime;\nattribute float flutter;\n' + sh.vertexShader.replace('#include <begin_vertex>', `
@@ -224,17 +232,23 @@ export function leafMaterial(tint = '#ffffff', wind = 0.08) {
       if (diffuseColor.a < alphaTest || length(tl) > mix(0.0, 0.75, smoothstep(0.1, 0.5, edgeOn))) discard;`);
   };
   m.customProgramCacheKey = () => 'leaf' + wind;
-  celify(m, { ao: true, noflip: true, detail: 0.55, mid: 0.26, bands: [0.24, 0.44, 0.57], soft: 0.02,
-    deep: [0.13, 0.33, 0.6], shade: [0.36, 0.66, 0.9], lit: [1.45, 1.3, 0.62], litAdd: [0.07, 0.08, 0.0] });
+  // green leaves go teal in shade and yellow-green in sun; autumn leaves go
+  // plum in shade and golden in sun (the green numbers would turn red olive)
+  const fall = variant === 'autumn';
+  celify(m, { ao: true, noflip: true, detail: 0.55, mid: fall ? 0.3 : 0.26, bands: [0.24, 0.44, 0.57], soft: 0.02,
+    deep: fall ? [0.32, 0.12, 0.26] : [0.13, 0.33, 0.6], shade: fall ? [0.62, 0.36, 0.48] : [0.36, 0.66, 0.9],
+    lit: fall ? [1.2, 1.18, 0.75] : [1.45, 1.3, 0.62], litAdd: fall ? [0.06, 0.04, 0.0] : [0.07, 0.08, 0.0] });
   leafMats.set(key, m);
   return m;
 }
 
-// Barks: painted in flat anime strokes on a canvas that tiles both ways (so
-// no seams band the trunk), one per colour and style:
-//  ridged  furrowed plates split by dark fissures, lit ridge edges, knots
-//  smooth  pale thin bark (beech, young trees): soft streaks, eyes, lichen
-//  dead    weathered grey wood: long split cracks, no moss
+// Barks: painted like an anime background, in broad flat brush strokes on a
+// canvas that tiles both ways (so no seams band the trunk): a few tones of
+// the colour in long vertical strokes, the lit ridges as long pale dabs,
+// fissures as soft dark streaks with a few darker accents. Styles:
+//  ridged  furrowed (oak, old trees)    smooth  pale thin bark (young trees)
+//  dead    weathered grey, long splits  birch   white with black marks
+//  flaky   orange papery plates (pine)
 // Ridged and smooth get a little moss low on one side (in the shader).
 const barkMats = new Map();
 export function barkMaterial(color = '#7a5638', style = 'ridged') {
@@ -243,65 +257,53 @@ export function barkMaterial(color = '#7a5638', style = 'ridged') {
   const W = 256, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d');
   const base = new THREE.Color(color), R = rng(77 + style.length);
-  const dark = new THREE.Color('#2a2a22'), light = new THREE.Color(style === 'dead' ? '#f2f0e6' : '#ece4c2');
+  const dark = new THREE.Color(style === 'birch' ? '#1e1d1c' : '#2a2a22'), light = new THREE.Color(style === 'dead' || style === 'birch' ? '#f6f4ec' : style === 'flaky' ? '#f4cf9a' : '#ece4c2');
   const col = (k) => '#' + (k < 0 ? base.clone().lerp(dark, -k) : base.clone().lerp(light, k)).getHexString();
   // draw f at every wrapped offset, so shapes crossing an edge come back on the other side
   const wrap = (f) => { for (const ox of [-W, 0, W]) for (const oy of [-H, 0, H]) { ctx.save(); ctx.translate(ox, oy); f(); ctx.restore(); } };
-  const crack = (x, y, len, w, k) => wrap(() => {   // a thin wavy vertical line
-    ctx.strokeStyle = col(k); ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y);
-    for (let s = 1; s <= 6; s++) ctx.lineTo(x + (R() - 0.5) * 6, y + (len * s) / 6);
-    ctx.stroke();
+  // one brush stroke: pointed ends, widest a third of the way down, a slight lean
+  const stroke = (x, y, len, w, k, lean = (R() - 0.5) * 10, ang = 0) => wrap(() => {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = col(k);
+    const b = 0.25 + R() * 0.2, wl = w * (0.8 + R() * 0.4);
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-w, len * b, -wl * 0.7 + lean, len * 0.75, lean, len);
+    ctx.bezierCurveTo(wl * 0.6 + lean, len * 0.7, w * 0.9, len * b * 0.8, 0, 0);
+    ctx.fill(); ctx.restore();
   });
-  const knot = (x, y, s) => wrap(() => {   // a healed branch scar: a dark slit in a raised lip
-    ctx.fillStyle = col(-0.2); ctx.beginPath(); ctx.ellipse(x, y, s * 0.9, s * 2.2, 0, 0, 6.28); ctx.fill();
-    ctx.fillStyle = col(0.25); ctx.beginPath(); ctx.ellipse(x - s * 0.25, y - s * 0.2, s * 0.5, s * 1.7, 0.05, 0, 6.28); ctx.fill();
-    ctx.fillStyle = col(-0.7); ctx.beginPath(); ctx.ellipse(x + s * 0.1, y, s * 0.22, s * 1.3, 0, 0, 6.28); ctx.fill();
-  });
-  if (style === 'smooth') {
-    ctx.fillStyle = col(0); ctx.fillRect(0, 0, W, H);
-    for (let i = 0; i < 26; i++) {   // soft vertical streaks, full height so they tile
-      const x = R() * W, w = 4 + R() * 14;
-      ctx.fillStyle = col(R() < 0.5 ? -0.12 : 0.12); ctx.globalAlpha = 0.6;
-      wrap(() => { ctx.beginPath(); ctx.moveTo(x, 0); ctx.bezierCurveTo(x + w, H * 0.3, x - w, H * 0.6, x + w * 0.3, H); ctx.lineTo(x + w * 1.3, H); ctx.bezierCurveTo(x + w * 0.2, H * 0.6, x + w * 2, H * 0.3, x + w, 0); ctx.fill(); });
+  const rx = () => R() * W, ry = () => R() * H;
+  ctx.fillStyle = col(0); ctx.fillRect(0, 0, W, H);
+  if (style === 'birch') {
+    for (let i = 0; i < 12; i++) stroke(rx(), ry(), 200 + R() * 260, 16 + R() * 18, (R() - 0.5) * 0.12);
+    for (let i = 0; i < 10; i++) stroke(rx(), ry(), 70 + R() * 120, 5 + R() * 6, -0.18);   // soft grey shading streaks
+    for (let i = 0; i < 44; i++) stroke(rx(), ry(), 18 + R() * 46, 2.5 + R() * 3, -0.85, (R() - 0.5) * 6, Math.PI / 2 + (R() - 0.5) * 0.25);   // lenticels: dark horizontal dashes
+    for (let i = 0; i < 3; i++) {   // black chevron patches where twigs fell
+      const x = rx(), y = ry(), s = 16 + R() * 14;
+      stroke(x, y, s * 2.2, s * 0.5, -0.9, 0, Math.PI / 2 + 0.45); stroke(x, y, s * 2.2, s * 0.5, -0.9, 0, Math.PI / 2 + 2.7);
     }
-    ctx.globalAlpha = 1;
-    for (let i = 0; i < 40; i++) {   // lichen and darker patches
-      const x = R() * W, y = R() * H, s = 3 + R() * 9;
-      ctx.fillStyle = R() < 0.6 ? col(0.3) : col(-0.25);
-      wrap(() => { ctx.beginPath(); ctx.ellipse(x, y, s, s * 0.7, R(), 0, 6.28); ctx.fill(); });
+    for (let i = 0; i < 10; i++) stroke(rx(), ry(), 50 + R() * 100, 4 + R() * 5, 0.6);
+  } else if (style === 'flaky') {
+    for (let i = 0; i < 16; i++) stroke(rx(), ry(), 140 + R() * 220, 18 + R() * 20, (R() - 0.5) * 0.2);
+    for (let i = 0; i < 22; i++) {   // papery plates: short broad patches with a dark edge under them
+      const x = rx(), y = ry(), w = 14 + R() * 16, l = 30 + R() * 40;
+      stroke(x + 2, y + 6, l, w, -0.4); stroke(x, y, l, w, R() < 0.5 ? 0.18 : -0.08);
     }
-    knot(R() * W, R() * H, 6 + R() * 4);
-    for (let i = 0; i < 10; i++) crack(R() * W, R() * H, 30 + R() * 50, 1.5, -0.4);
+    for (let i = 0; i < 12; i++) stroke(rx(), ry(), 40 + R() * 80, 3 + R() * 4, 0.45);
+  } else if (style === 'smooth') {
+    for (let i = 0; i < 14; i++) stroke(rx(), ry(), 200 + R() * 260, 18 + R() * 22, (R() - 0.5) * 0.14);
+    for (let i = 0; i < 6; i++) stroke(rx(), ry(), 80 + R() * 120, 3 + R() * 4, -0.32);
+    for (let i = 0; i < 3; i++) { const x = rx(), y = ry(); stroke(x, y, 22 + R() * 14, 6, -0.55, 0, Math.PI / 2 + (R() - 0.5) * 0.3); stroke(x - 4, y - 5, 20, 3, 0.35, 0, Math.PI / 2); }   // eyes where twigs were
+    for (let i = 0; i < 14; i++) stroke(rx(), ry(), 60 + R() * 140, 4 + R() * 6, 0.32);
   } else {
-    // fissured plates: dark ground, ridges in columns broken into plates
     const dead = style === 'dead';
-    ctx.fillStyle = col(dead ? -0.4 : -0.42); ctx.fillRect(0, 0, W, H);
-    const N = dead ? 7 : 9;
-    for (let i = 0; i < N; i++) {
-      const xc = ((i + R() * 0.4) / N) * W, w = (W / N) * (0.62 + R() * 0.25);
-      let y = R() * H;
-      const y1 = y + H;
-      while (y < y1 - 20) {
-        const L = dead ? 120 + R() * 200 : 70 + R() * 130, x = xc + (R() - 0.5) * 10, ww = w * (0.85 + R() * 0.35), k = (R() - 0.5) * 0.16 + 0.04;
-        const yy = y, sk = (R() - 0.5) * 16, j1 = (R() - 0.5) * 0.5, j2 = (R() - 0.5) * 0.5;
-        wrap(() => {
-          // a lens shaped plate: body, a lit left edge, a shaded right edge
-          // irregular: the sides bulge at different heights, the ends are blunt
-          const plate = (dx, wk) => { ctx.beginPath(); ctx.moveTo(x + dx - ww * wk * 0.3, yy); ctx.bezierCurveTo(x + dx - ww * wk, yy + L * (0.15 + j1 * 0.2), x + dx - ww * wk * (0.8 + j2) + sk, yy + L * 0.85, x + dx + sk - ww * wk * 0.2, yy + L); ctx.lineTo(x + dx + sk + ww * wk * 0.25, yy + L); ctx.bezierCurveTo(x + dx + ww * wk * (0.9 - j1) + sk, yy + L * 0.75, x + dx + ww * wk, yy + L * (0.25 + j2 * 0.2), x + dx + ww * wk * 0.35, yy); ctx.closePath(); ctx.fill(); };
-          ctx.fillStyle = col(k - 0.22); plate(ww * 0.12, 0.56);
-          ctx.fillStyle = col(k); plate(0, 0.5);
-          ctx.fillStyle = col(k + 0.3); plate(-ww * 0.2, 0.22);
-        });
-        if (R() < 0.5) crack(x + (R() - 0.5) * ww * 0.5, yy + L * 0.2, L * 0.6, dead ? 2 : 1.5, -0.55);
-        y += L * (0.82 + R() * 0.12);
-      }
-    }
-    for (let i = 0; i < (dead ? 6 : 14); i++) crack(R() * W, R() * H, 60 + R() * 140, dead ? 3 : 2, dead ? -0.75 : -0.7);
-    knot(R() * W, R() * H, 7 + R() * 4);
+    for (let i = 0; i < 18; i++) stroke(rx(), ry(), 160 + R() * 260, 16 + R() * 18, (R() - 0.5) * 0.24);   // broad tones
+    for (let i = 0; i < (dead ? 9 : 12); i++) stroke(rx(), ry(), (dead ? 260 : 130) + R() * 220, (dead ? 3 : 5) + R() * 4, dead ? -0.62 : -0.48);   // fissures
+    for (let i = 0; i < 8; i++) stroke(rx(), ry(), 30 + R() * 50, 3 + R() * 3, -0.68);   // dark accents
+    for (let i = 0; i < 12; i++) stroke(rx(), ry(), 110 + R() * 160, 6 + R() * 6, dead ? 0.5 : 0.32);   // lit ridges: long pale dabs
+    for (let i = 0; i < 5; i++) stroke(rx(), ry(), 50 + R() * 60, 3 + R() * 2, dead ? 0.7 : 0.5);
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
   const m = new THREE.MeshLambertMaterial({ map: t });
-  if (style !== 'dead') {
+  if (style === 'ridged' || style === 'smooth') {
     // moss: low on the trunk, on the side facing -x -z, breaking up along the bark's grooves
     const moss = new THREE.Color('#6f9a3e');
     m.onBeforeCompile = (sh) => {
@@ -432,6 +434,17 @@ function lobe(out, c, rx, ry, n, tiles, R, treeCenter) {
     out.ao = 1;
   }
 }
+// One stretched card from a down to b, w wide along side, normals leaning
+// out along nrm (willow strands).
+function ribbon(out, a, b, side, w, nrm, tile, flutter, ao) {
+  const tx = (tile % 4) / 4, ty = 1 - (Math.floor(tile / 4) + 1) / 4, base = out.pos.length / 3;
+  const n = nrm.clone().add(new THREE.Vector3(0, 0.35, 0)).normalize(), hw = side.clone().normalize().multiplyScalar(w / 2);
+  for (const [p, uu, vv] of [[a.clone().sub(hw), 0, 1], [a.clone().add(hw), 1, 1], [b.clone().add(hw), 1, 0], [b.clone().sub(hw), 0, 0]]) {
+    out.pos.push(p.x, p.y, p.z); out.nor.push(n.x, n.y, n.z);
+    out.uv.push(tx + uu * 0.245 + 0.0025, ty + vv * 0.245 + 0.0025); out.fl.push(flutter); out.col.push(ao, ao, ao);
+  }
+  out.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+}
 // Pushes a tube's surface in and out along its normals: fluting and burls.
 function gnarlGeo(g, amt, R, f = 1.3) {
   const p = g.attributes.position, n = g.attributes.normal, k = R() * 10;
@@ -498,7 +511,7 @@ export function makeTree(kind, seed) {
   const R = rng(seed);
   const leaves = cards(), wood = [];
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  let height = 0, radius = 0, bark = '#7a5638', barkStyle = 'ridged', tint = '#ffffff';
+  let height = 0, radius = 0, bark = '#7a5638', barkStyle = 'ridged', tint = '#ffffff', wind = kind === 'pine' ? 0.04 : 0.07, leafVar = 'green', extraWood = null;
   if (kind === 'round' || kind === 'blossom') {
     // the show's broadleaf: a slim pale trunk that forks into a few rising
     // branches, under a broad canopy of big rounded clumps
@@ -822,11 +835,146 @@ export function makeTree(kind, seed) {
     }
     ({ height, radius } = crown(leaves, wood, [], 0, [], R));
     bark = '#a3a096'; barkStyle = 'dead';
+  } else if (kind === 'birch') {
+    // white birch: one or two slender white stems, thin rising branches with
+    // drooping tips, a small airy crown of light little clumps
+    const ns = R() < 0.5 ? 1 : 2, lobes = [], tips = [];
+    const o = { up: 0.05, wob: 0.4, kids: [2, 2], keep: 0.8, spread: 0.6, rise: 0.2, shrink: 0.62, lv: 2, droop: 0.06 };
+    for (let k = 0; k < ns; k++) {
+      const a = R() * 6.28, lean = ns > 1 ? 0.1 : 0.04, h = 10 + R() * 2 - k * 1.5;
+      const st = [V3(k * 0.25, -0.3, 0)];
+      for (let i = 1; i <= 4; i++) st.push(V3(k * 0.25 + Math.cos(a) * lean * h * i / 4 + (R() - 0.5) * 0.25, (h * i) / 4, Math.sin(a) * lean * h * i / 4 + (R() - 0.5) * 0.25));
+      wood.push(tube(st, 0.26 - k * 0.04, 0.06, 8));
+      for (let i = 0; i < 10; i++) {
+        const t = 0.36 + i * 0.062, p = st[Math.min(4, Math.floor(t * 4))].clone().lerp(st[Math.min(4, Math.floor(t * 4) + 1)], (t * 4) % 1), b = i * 2.4 + R();
+        limb(wood, R, p, V3(Math.cos(b), 0.9, Math.sin(b)), (3.0 - t * 1.8) + R() * 0.6, 0.07, 1, o, tips);
+      }
+      lobes.push({ c: st[4].clone().add(V3(0, 0.4, 0)), rx: 0.8, ry: 0.9 });
+    }
+    for (const [e, d, m] of tips) {
+      lobes.push({ c: e.clone().add(V3(0, 0.1, 0)), rx: 0.85 + R() * 0.35, ry: 0.75 + R() * 0.25 });
+      if (R() < 0.7) lobes.push({ c: m.clone().add(V3(0, -0.1, 0)), rx: 0.7, ry: 0.6 });
+    }
+    ({ height, radius } = crown(leaves, wood, lobes, 0, [TILE.leafB, TILE.bushA, TILE.leafB], R, 24));
+    bark = '#ebe8de'; barkStyle = 'birch'; tint = '#f3ffcf';
+  } else if (kind === 'willow') {
+    // weeping willow: a short stout trunk, limbs arching up and out, and
+    // long curtains of leaf strands hanging nearly to the ground
+    const th = 2.6 + R() * 0.6;
+    wood.push(gnarlGeo(tube([V3(0, -0.4, 0), V3(0.15, th * 0.5, 0), V3(0, th, 0.1)], 0.75, 0.55, 11), 0.08, R));
+    const tips = [], o = { up: 0.1, wob: 0.4, kids: [2, 3], keep: 0.75, spread: 0.7, rise: 0.25, shrink: 0.65, lv: 2, droop: 0.05 };
+    const nl = 4 + Math.floor(R() * 2), a0 = R() * 6.28;
+    for (let i = 0; i < nl; i++) {
+      const a = a0 + (i / nl) * 6.28;
+      limb(wood, R, V3(0, th - 0.2, 0), V3(Math.cos(a) * 0.6, 1, Math.sin(a) * 0.6), 3.4 + R() * 0.8, 0.36, 0, o, tips);
+    }
+    // the crown's top: a low dome of masses over the arching limbs
+    const lobes = tips.map(([e]) => ({ c: e.clone().add(V3(0, 0.2, 0)), rx: 1.6 + R() * 0.4, ry: 0.95 }));
+    let top = 0; for (const L of lobes) top = Math.max(top, L.c.y);
+    const tiles = [TILE.bushA, TILE.bushB, TILE.leafB];
+    // strands: from points over the dome, columns of small cards falling down
+    for (let k = 0; k < 130; k++) {
+      const L = lobes[Math.floor(R() * lobes.length)], a = R() * 6.28;
+      const s0 = L.c.clone().add(V3(Math.cos(a) * L.rx * (0.6 + R() * 0.5), -0.2 + R() * 0.4, Math.sin(a) * L.rx * (0.6 + R() * 0.5)));
+      const out = V3(s0.x, 0, s0.z).normalize(), len = (s0.y - 0.8) * (0.55 + R() * 0.45), sw = R() * 6.28;
+      // the strand: two crossed ribbons of stretched leaf tiles, segment by segment
+      const side = V3(-out.z, 0, out.x), seg = 0.6;
+      let prev = s0.clone();
+      for (let y = seg; y < len + seg * 0.5; y += seg) {
+        const f = Math.min(1, y / len), p = s0.clone().add(V3(out.x * (0.35 * f + Math.sin(sw + y) * 0.08), -Math.min(y, len), out.z * (0.35 * f + Math.sin(sw + y) * 0.08)));
+        const ao = Math.min(1, 0.6 + (1 - f) * 0.25 + (out.z * 0.5 - out.x * 0.6) * 0.15), w = 0.5 * (1 - f * 0.45);
+        const tl = tiles[Math.floor(R() * 3)];
+        // each card runs well past its step, so the leaf blobs overlap into one strand
+        const a0 = prev.clone().add(V3(0, 0.5, 0)), b0 = p.clone().add(V3(0, -0.35, 0));
+        ribbon(leaves, a0, b0, side, w, out, tl, 0.4 + f * 0.6, ao);
+        ribbon(leaves, a0, b0, out, w * 0.8, side, tl, 0.4 + f * 0.6, ao * 0.9);
+        prev = p;
+      }
+    }
+    ({ height, radius } = crown(leaves, wood, lobes, 0, tiles, R, 18));
+    bark = '#7e7660'; tint = '#f0ffb8'; wind = 0.1;
+  } else if (kind === 'maple') {
+    // Japanese maple in autumn: a short trunk splitting into sinuous stems,
+    // a low layered crown of thin flat tiers in reds and oranges
+    const lobes = [], tips = [];
+    const o = { up: 0.0, wob: 0.6, kids: [2, 3], keep: 0.6, spread: 0.85, rise: 0.05, shrink: 0.62, lv: 2 };
+    wood.push(gnarlGeo(tube([V3(0, -0.3, 0), V3(0.1, 0.9, 0)], 0.32, 0.26, 8), 0.04, R));
+    const ns = 3 + Math.floor(R() * 2), a0 = R() * 6.28;
+    for (let i = 0; i < ns; i++) {
+      const a = a0 + (i / ns) * 6.28, h = 2.4 + R() * 1.6;
+      const st = [V3(0.1, 0.8, 0), V3(Math.cos(a) * 0.5, h * 0.5, Math.sin(a) * 0.5), V3(Math.cos(a) * 1.2, h, Math.sin(a) * 1.2)];
+      wood.push(tube(st, 0.17, 0.1, 7));
+      limb(wood, R, st[2], V3(Math.cos(a), 0.35, Math.sin(a)), 2.2 + R() * 0.8, 0.1, 1, o, tips);
+    }
+    for (const [e] of tips) lobes.push({ c: e.clone().add(V3(0, 0.25, 0)), rx: 1.5 + R() * 0.5, ry: 0.6 + R() * 0.15 });
+    // tiers above, smaller toward the top, so the crown stacks in thin layers
+    for (let t = 0; t < 3; t++) {
+      const y = 4.3 + t * 0.95, n = 7 - t * 2;
+      for (let i = 0; i < n; i++) {
+        const a = R() * 6.28, rr = (2.6 - t * 0.7) * Math.sqrt(R());
+        lobes.push({ c: V3(Math.cos(a) * rr, y + (R() - 0.5) * 0.3, Math.sin(a) * rr), rx: 1.45 - t * 0.15 + R() * 0.3, ry: 0.55 });
+      }
+    }
+    ({ height, radius } = crown(leaves, wood, lobes, 7.5 + R() * 1.0, [TILE.leafA, TILE.leafB, TILE.leafB, TILE.bushA, TILE.leafC], R, 34));
+    bark = '#857c6e'; barkStyle = 'smooth'; leafVar = 'autumn';
+  } else if (kind === 'oak') {
+    // English oak: a thick gnarled bole, crooked zigzag limbs, a tall broad
+    // rounded crown broken into many lobed clumps of dark leaves
+    const th = 4.0 + R() * 0.8;
+    wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(0.2, th * 0.5, -0.1), V3(-0.1, th, 0.1)], 1.0, 0.7, 12), 0.12, R));
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * 6.28 + R() * 0.7, dir = V3(Math.cos(a), 0, Math.sin(a));
+      wood.push(gnarlGeo(tube([V3(0, 1.5, 0).addScaledVector(dir, 0.15), V3(0, 0.35, 0).addScaledVector(dir, 1.0), V3(0, -0.3, 0).addScaledVector(dir, 1.8)], 0.38, 0.08, 6), 0.04, R));
+    }
+    const tips = [], o = { up: 0.1, wob: 0.85, kids: [2, 3], keep: 0.65, spread: 0.7, rise: 0.45, shrink: 0.62, lv: 2 };
+    const nl = 5 + Math.floor(R() * 2), a0 = R() * 6.28;
+    for (let i = 0; i < nl; i++) {
+      const a = a0 + (i / nl) * 6.28 + (R() - 0.5) * 0.5, y = th - 0.4 + (i % 2) * 0.9;
+      limb(wood, R, V3(0, y, 0), V3(Math.cos(a), 1.4 + R() * 0.6, Math.sin(a)), 3.6 + R() * 1.0, 0.42, 0, o, tips);
+    }
+    const lobes = tips.map(([e, d]) => ({ c: e.clone().addScaledVector(d, 0.3).add(V3(0, 0.4, 0)), rx: 1.55 + R() * 0.5, ry: 1.3 + R() * 0.35 }));
+    for (const [, , m] of tips) if (R() < 0.6) lobes.push({ c: m.clone().add(V3(0, 0.5, 0)), rx: 1.3, ry: 1.1 });
+    ({ height, radius } = crown(leaves, wood, lobes, 14 + R() * 1.5, [TILE.leafC, TILE.leafC, TILE.leafA], R, 13, 10));
+    bark = '#7c7058'; tint = '#e2f2d8';
+  } else if (kind === 'scotspine') {
+    // Scots pine: a tall bare trunk, grey below and orange above, curving a
+    // little, with a few limbs at the top holding flat clumped pads of needles
+    const th = 11 + R() * 2, la = R() * 6.28, trunk = [V3(0, -0.4, 0)];
+    for (let i = 1; i <= 5; i++) { const t = i / 5; trunk.push(V3(Math.cos(la) * Math.sin(t * 2.4) * 0.9, th * t, Math.sin(la) * Math.sin(t * 2.4) * 0.9)); }
+    // the grey base overlaps the orange top a little: the fluting breaks the join into a ragged edge
+    // (both sampled from one curve so they follow the same line)
+    const cv = new THREE.CatmullRomCurve3(trunk), part = (t0, t1) => Array.from({ length: 8 }, (_, i) => cv.getPointAt(t0 + ((t1 - t0) * i) / 7));
+    const low = tube(part(0, 0.6), 0.62, 0.4, 10), up = tube(part(0.45, 1), 0.38, 0.16, 9);
+    // a ragged top to the grey: per column, the rings above a random height sink inside the orange
+    const lp = low.attributes.position, segs = lp.count / 11 - 1, cut = Array.from({ length: 11 }, () => 0.6 + R() * 0.35);
+    cut[10] = cut[0];
+    for (let i = 0; i <= segs; i++) {
+      const c = V3(0, 0, 0); for (let j = 0; j < 10; j++) c.add(V3(lp.getX(i * 11 + j), lp.getY(i * 11 + j), lp.getZ(i * 11 + j))); c.multiplyScalar(0.1);
+      for (let j = 0; j <= 10; j++) if (i / segs > cut[j]) { const k = i * 11 + j; lp.setXYZ(k, c.x + (lp.getX(k) - c.x) * 0.8, lp.getY(k), c.z + (lp.getZ(k) - c.z) * 0.8); }
+    }
+    low.computeVertexNormals();
+    wood.push(gnarlGeo(low, 0.03, R));
+    const tips = [], o = { up: 0.12, wob: 0.6, kids: [2, 2], keep: 0.7, spread: 0.75, rise: 0.2, shrink: 0.6, lv: 2 };
+    const upper = [gnarlGeo(up, 0.03, R)];
+    for (let i = 0; i < 6; i++) {
+      const t = 0.66 + i * 0.06, p = trunk[Math.min(5, Math.round(t * 5))], a = i * 2.5 + R() * 0.6;
+      limb(upper, R, p, V3(Math.cos(a), 0.55, Math.sin(a)), 3.2 - i * 0.25 + R() * 0.6, 0.18, 1, o, tips);
+    }
+    for (let i = 0; i < 3; i++) {   // dead stubs on the bare trunk
+      const p = trunk[2 + i % 2].clone().lerp(trunk[3], R()), a = R() * 6.28;
+      wood.push(tube([p, p.clone().add(V3(Math.cos(a) * 0.6, -0.1, Math.sin(a) * 0.6))], 0.06, 0.02, 4));
+    }
+    const lobes = tips.map(([e]) => ({ c: e.clone().add(V3(0, 0.3, 0)), rx: 1.6 + R() * 0.4, ry: 0.7 + R() * 0.15 }));
+    lobes.push({ c: trunk[5].clone().add(V3(0, 0.4, 0)), rx: 1.3, ry: 0.8 });
+    ({ height, radius } = crown(leaves, [...wood, ...upper], lobes, 15 + R() * 2, [TILE.needles, TILE.needles2, TILE.leafC], R, 40));
+    extraWood = { geo: upper, bark: '#c47a46', style: 'flaky' };
+    bark = '#8a7a68'; tint = '#c8e2c8'; wind = 0.04;
   }
   return {
     parts: [
       { geometry: mergeGeos(wood), material: barkMaterial(bark, barkStyle) },
-      { geometry: toGeometry(leaves), material: leafMaterial(tint, kind === 'pine' ? 0.04 : 0.07) },
+      ...(extraWood ? [{ geometry: mergeGeos(extraWood.geo), material: barkMaterial(extraWood.bark, extraWood.style) }] : []),   // a second bark (pine's orange top)
+      { geometry: toGeometry(leaves), material: leafMaterial(tint, wind, leafVar) },
     ].filter((p) => p.geometry.attributes.position.count),   // a dead tree has no leaves
     height, radius,
   };
