@@ -1024,7 +1024,7 @@ export function buildTown() {
   laneFurniture(world);
   for (const b of BEDS) bedBorder(b, world);
   // the square: the well, benches, the town sign, fingerposts
-  well(4.2, -6.8, world);
+  well(1.8, 1.3, world);
   bench(-9.5, 5.5, 0.5, world);
   bench(6.6, 1.0, -Math.PI / 2 - 0.2, world);
   sign(-10.5, -4.2, 0.9, ['PALLET TOWN', 'Shades of your journey await!'], ['PALLET TOWN', 'Shades of your journey await!'], world);

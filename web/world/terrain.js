@@ -265,10 +265,93 @@ export const STREAM_LEVELS = SPROF;
 
 // ---------- roads ----------
 export function roadDist(x, z) { return RL.query(x, z).d; }
-// 1 on a road, 0 off it, with a ragged painted edge
+// 1 on the dirt (roads, the square, the plaza), 0 off it, with a ragged edge
 export function roadMask(x, z) {
-  const d = roadDist(x, z) + (fbm(x * 0.6, z * 0.6, 2) - 0.5) * 0.9;
-  return 1 - smooth(ROAD_W - 0.4, ROAD_W + 0.5, d);
+  const d = pathSD(x, z) + (fbm(x * 0.6, z * 0.6, 2) - 0.5) * 0.5;
+  return 1 - smooth(-0.4, 0.5, d);
+}
+
+// ---------- the path map ----------
+// Every dirt surface in town as ONE shape: the roads (each a little wider or
+// narrower as it wanders), the square and the plaza before the lab gate,
+// joined with a smooth union so forks and crossings fillet into each other
+// like one worn track. Baked once on a 0.25 m grid over the town; the terrain
+// shader paints the dirt from it (no separate meshes, so nothing z-fights)
+// and the grass and flowers keep off it.
+//   sd    signed distance to the dirt's edge in metres (negative on the dirt)
+//   lat   distance from the nearest road's centre line (for the ruts)
+//   rut   how much the ruts show (fades at forks, the square and the plaza)
+//   pale  the square and the plaza: paler, packed sand
+const PM_RES = 0.25, PM_CLAMP = 4;
+const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
+let PM = null;
+export function pathMap() {
+  if (PM) return PM;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const r of ROADS) for (const [x, z] of r) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+  x0 = Math.min(x0, SQUARE.x - SQUARE.r, PLAZA.x0) - 5; x1 = Math.max(x1, SQUARE.x + SQUARE.r, PLAZA.x1) + 5;
+  z0 = Math.min(z0, SQUARE.z - SQUARE.r, PLAZA.z0) - 5; z1 = Math.max(z1, SQUARE.z + SQUARE.r, PLAZA.z1) + 5;
+  const nx = Math.ceil((x1 - x0) / PM_RES), nz = Math.ceil((z1 - z0) / PM_RES), N = nx * nz;
+  const best = new Float32Array(N).fill(99), second = new Float32Array(N).fill(99), lat = new Float32Array(N).fill(9);
+  const one = new Float32Array(N).fill(99), oneLat = new Float32Array(N), wob = new Float32Array(N);
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) wob[j * nx + i] = fbm((x0 + (i + 0.5) * PM_RES) * 0.15 + 5, (z0 + (j + 0.5) * PM_RES) * 0.15, 2);
+  const R = 3.2, touched = [];
+  ROADS.forEach((road, ri) => {
+    touched.length = 0;
+    const w = ri <= 1 ? 1.62 : 1.38;
+    for (let k = 0; k < road.length - 1; k++) {
+      const [ax, az] = road[k], [bx, bz] = road[k + 1];
+      const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - R - x0) / PM_RES)), i1 = Math.min(nx - 1, Math.ceil((Math.max(ax, bx) + R - x0) / PM_RES));
+      const j0 = Math.max(0, Math.floor((Math.min(az, bz) - R - z0) / PM_RES)), j1 = Math.min(nz - 1, Math.ceil((Math.max(az, bz) + R - z0) / PM_RES));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const x = x0 + (i + 0.5) * PM_RES, z = z0 + (j + 0.5) * PM_RES, id = j * nx + i;
+        const d = Math.sqrt(segDist2(x, z, ax, az, bx, bz)[0]);
+        const sd = d - w * (0.9 + wob[id] * 0.24);
+        if (one[id] === 99) touched.push(id);
+        if (sd < one[id]) { one[id] = sd; oneLat[id] = d; }
+      }
+    }
+    for (const id of touched) {
+      const v = one[id];
+      if (v < best[id]) { second[id] = best[id]; best[id] = v; lat[id] = oneLat[id]; } else if (v < second[id]) second[id] = v;
+      one[id] = 99;
+    }
+  });
+  const sd = new Float32Array(N), data = new Uint8Array(N * 4);
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+    const id = j * nx + i, x = x0 + (i + 0.5) * PM_RES, z = z0 + (j + 0.5) * PM_RES;
+    // roads: the two nearest, filleted together where they meet
+    let d = best[id] < 98 ? smin(best[id], second[id], 1.4) : 99;
+    // the square: a round of packed sand, a little uneven at its rim
+    const a = Math.atan2(z - SQUARE.z, x - SQUARE.x);
+    const sq = Math.hypot(x - SQUARE.x, z - SQUARE.z) - (4.4 + Math.sin(a * 3 + 1) * 0.4 + Math.sin(a * 7) * 0.2);
+    // the plaza before the lab gate: a rounded rectangle
+    const P = PLAZA, qx = Math.abs(x - (P.x0 + P.x1) / 2) - (P.x1 - P.x0) / 2 + 1.2, qz = Math.abs(z - (P.z0 + P.z1) / 2) - (P.z1 - P.z0) / 2 + 1.2;
+    const pl = Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - 1.2 + 0.4;
+    // the lab bridge lands on the plaza: a short worn stretch joins them
+    const LB = BRIDGES[0], lb = Math.sqrt(segDist2(x, z, LB.x1 - 1, LB.z, PLAZA.x0 + 2.5, LB.z)[0]) - 1.45 * (0.9 + wob[id] * 0.24);
+    const open = Math.min(sq, pl, lb);
+    d = smin(d, open, 2.6);
+    sd[id] = d;
+    const rut = smooth(0.6, 2.2, second[id] - best[id]) * smooth(-1, 2.5, open) * (1 - smooth(-0.2, 0.4, best[id]));
+    const pale = 1 - smooth(-2.5, 1.5, open);
+    const k = id * 4;
+    data[k] = Math.round(Math.min(1, Math.max(0, (d + PM_CLAMP) / (2 * PM_CLAMP))) * 255);
+    data[k + 1] = Math.round(Math.min(1, lat[id] / 3) * 255);
+    data[k + 2] = Math.round(rut * 255);
+    data[k + 3] = Math.round(pale * 255);
+  }
+  PM = { x0, z0, nx, nz, w: nx * PM_RES, d: nz * PM_RES, sd, data };
+  return PM;
+}
+// the signed distance to the dirt's edge (bilinear, like the shader sees it)
+export function pathSD(x, z) {
+  const M = pathMap();
+  const fx = (x - M.x0) / PM_RES - 0.5, fz = (z - M.z0) / PM_RES - 0.5;
+  if (fx < 0 || fz < 0 || fx >= M.nx - 1 || fz >= M.nz - 1) return PM_CLAMP;
+  const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j, k = j * M.nx + i;
+  const a = M.sd[k], b = M.sd[k + 1], c = M.sd[k + M.nx], d = M.sd[k + M.nx + 1];
+  return Math.min(PM_CLAMP, (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz);
 }
 // how far a point is from anything built: roads, yards, the square
 export function townDist(x, z) {
@@ -412,15 +495,12 @@ export function groundColor(x, z, h, slope, out) {
   out.lerp(GRASS_DRY, smooth(0.62, 0.8, fbm(x * 0.02 + 40, z * 0.02, 2)) * 0.35);
   // purple-brown rock where banks and hillsides are steep
   out.lerp(ROCK.clone().lerp(ROCK_D, n2), smooth(0.5, 0.8, slope));
-  // a darker damp green at the road edges, so the fringe reads as shade
-  const rd = roadDist(x, z);
-  if (rd < 2.6) out.lerp(GRASS_C, (1 - smooth(1.6, 2.6, rd)) * 0.5);
-  // the stairs and the plaza
+  // a deeper green along the dirt's edge (the dirt itself is painted by the
+  // terrain shader from the path map)
+  const ps = pathSD(x, z);
+  if (ps < 1.4) out.lerp(GRASS_C, (1 - smooth(0.2, 1.4, ps)) * 0.4);
+  // under the stairs
   if (onStairs(x, z, 0.3)) out.lerp(DIRT_D, 0.8);
-  const P = PLAZA, pd = Math.hypot(Math.max(P.x0 - x, x - P.x1, 0), Math.max(P.z0 - z, z - P.z1, 0));
-  out.lerp(PLAZA_C, (1 - smooth(0, 1.6, pd + (n2 - 0.5) * 1.2)) * 0.95);
-  const sq = Math.hypot(x - SQUARE.x, z - SQUARE.z);
-  out.lerp(PLAZA_C, (1 - smooth(SQUARE.r - 2.5, SQUARE.r - 0.5, sq + (n2 - 0.5) * 1.5)) * 0.9);
   // soil under the fields (their painted rows cover it)
   if (fieldAt(x, z, 1.5)) out.lerp(SOIL, fieldAt(x, z, 0.2) ? 0.9 : 0.35);
   // muddy banks
@@ -616,11 +696,10 @@ export function grassMap(x0, z0, w, d, res) {
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const x = x0 + (i + 0.5) * res, z = z0 + (j + 0.5) * res;
     const h = height(x, z);
-    let g = smooth(1.55, 2.0, roadDist(x, z));
+    // grass stops at the dirt's edge (a few blades lean over it)
+    let g = smooth(-0.15, 0.55, pathSD(x, z));
     if (isWater(x, z) || h < SEA_Y + 1.6 && z > coastZ(x) - 16) g = 0;
     if (onStairs(x, z, 0.4) || fieldAt(x, z, 0.3)) g = 0;
-    if (Math.hypot(x - SQUARE.x, z - SQUARE.z) < SQUARE.r - 1) g = 0;
-    { const P = PLAZA; if (x > P.x0 - 0.5 && x < P.x1 + 0.5 && z > P.z0 - 0.5 && z < P.z1 + 0.5) g = 0; }
     if (streamAt(x, z).d < 3.2) g = 0;
     // patchy: tufts and drifts, open lawn between
     g *= 0.12 + smooth(0.42, 0.68, fbm(x * 0.11 + 3, z * 0.11, 3)) * 0.88;

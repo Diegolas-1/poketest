@@ -5,7 +5,7 @@ import { buildSky, buildClouds, buildMountains, TALL_GRASS } from './nature.js';
 import { buildTown, BEDS, PIER } from './town.js';
 import { celify } from './toon.js';
 import { foliageTime } from './foliage.js';
-import { buildPaths, buildFields, grassTexture } from './paths.js';
+import { buildPaths, buildFields, grassTexture, pathGround } from './paths.js';
 import { buildVegetation } from './veg.js';
 import { grassField, wind, surface } from './assets.js';
 import { makeActor, LOOKS } from './actor.js';
@@ -72,7 +72,7 @@ const terrain = buildTerrain();
   // flat anime ground: bright in the sun, cool where shadows fall
   const pos = terrain.geometry.attributes.position, uv = terrain.geometry.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / 4, pos.getZ(i) / 4);
-  terrain.material = celify(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() }), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
+  terrain.material = celify(pathGround(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() })), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
     deep: [0.5, 0.62, 0.8], shade: [0.66, 0.78, 0.9], lit: [1.06, 1.06, 0.98] });
 }
 scene.add(terrain);
@@ -281,7 +281,7 @@ function oakScene() {
         if (tgt) {
           for (const [o, off] of [[oak, -0.9], [me, 0.9]]) {
             const dx = tgt[0] + off - o.pos.x, dz = tgt[1] - o.pos.z, d = Math.hypot(dx, dz);
-            if (d > 0.2) { const v = Math.min(d, dt * 3.5); o.pos.x += dx / d * v; o.pos.z += dz / d * v; o.yaw = Math.atan2(dx, dz); o.speed = 3.5; moved = true; }
+            if (d > 0.2) { const v = Math.min(d, dt * 4.5); o.pos.x += dx / d * v; o.pos.z += dz / d * v; o.yaw = Math.atan2(dx, dz); o.speed = 4.5; moved = true; }
           }
           if (Math.hypot(tgt[0] + 0.9 - me.pos.x, tgt[1] - me.pos.z) < 0.5 || !moved) walkPath.shift();
           oak.pos.y = height(oak.pos.x, oak.pos.z);
@@ -320,7 +320,7 @@ function frame(fixed) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * c.x - fx * c.y, mz = rz * c.x - fz * c.y;
     const m = Math.hypot(mx, mz);
-    const want = m > 0.05 ? (c.run ? 5 : 3.5) * Math.min(1, m) : 0;
+    const want = m > 0.05 ? (c.run ? 8.5 : 4.5) * Math.min(1, m) : 0;
     me.speed += (want - me.speed) * (1 - Math.exp(-dt * 10));
     if (m > 0.05) {
       const ty = Math.atan2(mx, mz);
