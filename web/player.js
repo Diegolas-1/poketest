@@ -10,7 +10,7 @@
 "use strict";
 
 // User configurable.
-const ROM_FILENAME = 'pokered.gbc';
+const ROM_FILENAME = window.ROM_URL || 'pokered.gbc';
 const SAVE_KEY = 'pokered';  // localStorage prefix for battery saves and save states
 const ENABLE_FAST_FORWARD = true;
 const ENABLE_REWIND = true;
@@ -127,6 +127,7 @@ const vm = new VM();
 // Load a ROM.
 async function startRom(romBuffer) {
   document.getElementById('romPicker').hidden = true;
+  window.gbRom = new Uint8Array(romBuffer.slice(0));  // read by the 3D view (hd/)
   const extRam = new Uint8Array(JSON.parse(localStorage.getItem(SAVE_KEY + ':extram')));
   Emulator.start(await binjgbPromise, romBuffer, extRam);
   emulator.setBuiltinPalette(vm.palIdx);
@@ -208,7 +209,7 @@ class Emulator {
     }
 
     this.audio = new Audio(module, this.e);
-    this.video = new Video(module, this.e, $('canvas'));
+    this.video = new Video(module, this.e, $('#mainCanvas'));
     this.rewind = new Rewind(module, this.e);
     this.rewindIntervalId = 0;
 
@@ -425,6 +426,7 @@ class Emulator {
     const lerp = (from, to, alpha) => (alpha * from) + (1 - alpha) * to;
     this.fps = lerp(this.fps, Math.min(1 / deltaSec, 10000), 0.3);
     this.video.renderTexture();
+    if (window.onGbFrame) window.onGbFrame(this);  // the 3D view (hd/) draws here
   }
 
   updateOnscreenGamepad() {

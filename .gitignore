@@ -2,4 +2,4 @@
 *.gb
 *.gbc
 web/pokered.gbc
-tools/
+tools/rgbds-*/

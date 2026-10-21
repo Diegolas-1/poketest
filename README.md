@@ -19,6 +19,16 @@ If `web/pokered.gbc` is missing, the page asks for a ROM file instead and rememb
 
 The player (without any ROM) is published to GitHub Pages, from the `gh-pages` branch that `.github/workflows/pages.yml` rewrites on every push to `main` touching `web/`: https://diegolas-1.github.io/poketest/. Open it, pick the `pokered.gbc` you built, and it loads by itself from then on.
 
+## HD-2D (work in progress)
+
+`web/hd/` (the "HD-2D" link, or https://diegolas-1.github.io/poketest/hd/) plays the same game in 3D. The real game keeps running in the emulator; every frame the page reads the game's memory (map, positions, facing, text on screen) and draws it as an HD-2D scene with three.js: pixel-art ground, trees, signs, houses and furniture that stand up out of the map, characters as sprites facing the camera, shadows, a tilt-shift blur and bloom. Text boxes and menus are redrawn in a new style from the text the game writes to its screen. Battles, menus that fill the screen and the intro show the Game Boy screen.
+
+So far Pallet Town is done: Red's house, Blue's house, Oak's lab and the town, from a new game to the edge of Route 1 (Oak stopping you, choosing a starter, the first rival battle). Other places show the Game Boy screen.
+
+- `web/hd/gb.js` reads the game's memory and the ROM; `web/hd/syms.js` holds the memory addresses, generated from the build's symbol file by `tools/gen-syms.sh` (run by `build.sh`).
+- `web/hd/world.js` builds the 3D map and the characters; `web/hd/tilesets.js` says which tiles stand up, which become furniture and how each is coloured.
+- `web/hd/textbox.js` draws the text boxes and menus.
+
 ## Controls
 
 | Key | Button |
@@ -50,3 +60,5 @@ The built ROM is a copy of Nintendo's game, so it is never committed (see `.giti
 
 - [pret/pokered](https://github.com/pret/pokered) disassembly.
 - [binjgb](https://github.com/binji/binjgb) by Ben Smith, MIT (`web/LICENSE.binjgb`); the player page and controller come from GB Studio (`web/LICENSE.gbstudio`).
+- [three.js](https://threejs.org) r169, MIT (`web/hd/lib/three/LICENSE`).
+- [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans), SIL Open Font License (`web/hd/fonts/OFL.txt`).

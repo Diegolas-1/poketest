@@ -44,5 +44,6 @@ make -C pokered -j"$JOBS" "$GAME"
 ROM="pokered/poke$GAME.gbc"
 (cd pokered && sha1sum -c --ignore-missing roms.sha1) || echo "warning: checksum does not match the original ROM" >&2
 cp "$ROM" web/pokered.gbc
+./tools/gen-syms.sh "$GAME"
 echo "Built $ROM -> web/pokered.gbc"
 echo "Play: python3 -m http.server 8000 -d web, then open http://localhost:8000"
