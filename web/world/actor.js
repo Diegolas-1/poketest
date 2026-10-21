@@ -628,8 +628,10 @@ export const LOOKS = {
 // web/world/local/ash.glb holds a skinned 3D-game body dressed as Ash. When it
 // loads, the player look uses it:
 // makeActor returns at once with the procedural Ash and swaps in the model when
-// it has loaded. Bones are driven procedurally about axes taken from the rest
-// pose, with the same angles as the procedural rig. ?base=proc turns it off.
+// it has loaded. web/world/anims/ash.json (made by tools/world/retarget.mjs from
+// Mixamo clips) moves it: idle, walk and run blended by speed, with a posed jump.
+// Without the clips, bones are driven procedurally about axes taken from the
+// rest pose, with the same angles as the procedural rig. ?base=proc turns it off.
 const QS = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
 const CALEM_ON = QS.get('base') !== 'proc';
 const CALEM_H = 1.55;   // metres, cap included
@@ -639,8 +641,11 @@ function loadCalem() {
     try {
       const url = new URL('./local/ash.glb', import.meta.url).href;
       const [{ GLTFLoader }, SU] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]);
-      const g = await new GLTFLoader().loadAsync(url);
-      return (calemBase = prepCalem(g.scene, SU));
+      const [g, anims] = await Promise.all([new GLTFLoader().loadAsync(url),
+        fetch(new URL('./anims/ash.json', import.meta.url)).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+      const base = prepCalem(g.scene, SU);
+      if (anims) base.anims = { meta: anims.meta, clips: Object.fromEntries(anims.clips.map((c) => [c.name, THREE.AnimationClip.parse(c)])) };
+      return (calemBase = base);
     } catch (e) { if (QS.get('base') === 'calem') console.warn('local base model not loaded:', e); return null; }
   })();
   return calemP;
@@ -727,12 +732,81 @@ function calemActor(look) {
         b.quaternion.multiply(tq.setFromAxisAngle(ax, a));
       }
     };
-    rig = { pose, bones, holder, y0: holder.position.y, eyes };
+    // the same, on top of the bone's current rotation
+    const bend = (name, x, y, z, a) => {
+      const b = bones[name]; if (!b) return;
+      b.quaternion.multiply(tq.setFromAxisAngle(ax.set(x, y, z).applyQuaternion(tq.copy(R.get(name).w).invert()), a));
+    };
+    rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k };
+    const A = base.anims;
+    if (A && A.clips.idle && A.clips.walk && A.clips.run) {
+      const mixer = new THREE.AnimationMixer(m), act = {};
+      for (const n of ['idle', 'walk', 'run']) {
+        act[n] = mixer.clipAction(A.clips[n]).play();
+        act[n].setEffectiveWeight(n === 'idle' ? 1 : 0);
+        if (n !== 'idle') act[n].timeScale = 0;   // walk and run are timed by the stride
+      }
+      act.idle.time = Math.random() * A.clips.idle.duration;
+      rig.clips = { mixer, act, meta: A.meta, w: { idle: 1, walk: 0, run: 0 } };
+    }
   };
   if (calemBase) attach(calemBase); else loadCalem().then(attach);
 
+  // jump: the posed rig's air pose, blended over whatever the clips play
+  const jumpPose = () => {
+    // a running leap: left knee driven up, right foot kicked back, arms opposite
+    const { pose } = rig;
+    const th = [-0.9, 0.5], kn = [1.4, 1.5], ft = [-0.1, 0.5], sw = [0.6, -1.4], ab = [0.4, 0.4], el = [-0.6, -1.2];
+    ['L', 'R'].forEach((s, i) => {
+      const sg = i ? -1 : 1;
+      pose(s + 'Thigh', [[1, 0, 0, th[i]], [0, 0, 1, sg * 0.02]]);
+      pose(s + 'Leg', [[1, 0, 0, kn[i]]]);
+      pose(s + 'Foot', [[1, 0, 0, ft[i]]]);
+      pose(s + 'ArmA', [[1, 0, 0, sw[i]], [0, 0, 1, sg * ab[i]], [0, 0, 1, -sg * Math.PI / 2]]);
+      pose(s + 'ForeArm', [[0, 1, 0, sg * el[i]]]);
+    });
+    pose('Spine2', [[1, 0, 0, 0.15]]);
+    pose('Head', [[1, 0, 0, -0.1]]);
+  };
+  const JUMP_BONES = ['LThigh', 'RThigh', 'LLeg', 'RLeg', 'LFoot', 'RFoot', 'LArmA', 'RArmA', 'LForeArm', 'RForeArm', 'Spine2', 'Head'];
+  const saved = JUMP_BONES.map(() => new THREE.Quaternion());
+  const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+  let airW = 0, wasAir = false, land = 1;
+  const TEMPO_MAX = 2;   // fastest a clip plays; past that the stride slides
+  const clipAnimate = (dt, speed, air) => {
+    const { mixer, act, meta, w } = rig.clips, k = rig.k;
+    const dW = act.walk.getClip().duration, dR = act.run.getClip().duration;
+    const vW = meta.walk.stride * k / dW, vR = meta.run.stride * k / dR;   // the clips' own speeds, m/s
+    // weights: idle -> walk -> run by speed, eased so starts and stops don't snap
+    const loco = smooth(0.05, Math.max(0.3, vW * 0.5), speed), rb = smooth(vW * 1.3, vR * 1.15, speed);
+    const tw = { idle: 1 - loco, walk: loco * (1 - rb), run: loco * rb }, e = 1 - Math.exp(-dt * 10);
+    for (const n in tw) { w[n] += (tw[n] - w[n]) * e; act[n].setEffectiveWeight(w[n]); }
+    // one phase for walk and run (0 = left foot forward), advanced so the planted foot keeps pace with the ground
+    const stride = THREE.MathUtils.lerp(meta.walk.stride, meta.run.stride, rb) * k;
+    const tempo = THREE.MathUtils.lerp(1 / dW, 1 / dR, rb);
+    if (!air) phase = (phase + dt * Math.min(Math.max(speed, vW * 0.6) / stride, tempo * TEMPO_MAX)) % 1;
+    act.walk.time = ((phase + meta.walk.lead) % 1) * dW;
+    act.run.time = ((phase + meta.run.lead) % 1) * dR;
+    mixer.update(dt);
+    // a sprint past the run clip's own speed leans into it
+    const lean = smooth(vR * 1.2, vR * 3.5, speed) * (1 - airW);
+    if (lean > 0.001) { rig.bend('Spine2', 1, 0, 0, lean * 0.14); rig.bend('Spine3', 1, 0, 0, lean * 0.07); rig.bend('Head', 1, 0, 0, -lean * 0.12); }
+    // the air pose takes over off the ground; a short dip on landing
+    airW += ((air ? 1 : 0) - airW) * (1 - Math.exp(-dt * (air ? 14 : 9)));
+    if (wasAir && !air) land = 0;
+    wasAir = air;
+    if (airW > 0.002) {
+      JUMP_BONES.forEach((n, i) => rig.bones[n] && saved[i].copy(rig.bones[n].quaternion));
+      jumpPose();
+      JUMP_BONES.forEach((n, i) => { const b = rig.bones[n]; if (b) b.quaternion.copy(saved[i].slerp(b.quaternion, airW)); });
+    }
+    land = Math.min(1, land + dt / 0.22);
+    rig.holder.position.y = rig.y0 - Math.sin(land * Math.PI) * 0.05 * (land < 1 ? 1 : 0) - airW * 0.03;
+  };
+
   actor.animate = (dt, speed, air, t) => {
     if (!rig) return fb.animate(dt, speed, air, t);
+    if (rig.clips) { clipAnimate(dt, speed, air); return blinkStep(dt); }
     const { pose } = rig;
     const run = Math.min(1, speed / 7), sw = speed > 0.1 ? Math.min(1, speed / 3) : 0;
     phase += dt * (speed > 0.1 ? 2.2 + speed * 1.15 : 0);
@@ -766,7 +840,10 @@ function calemActor(look) {
     pose('Spine3', [[1, 0, 0, run * 0.07 * sw + Math.sin(t * 2) * 0.012 * (1 - sw)], [0, 1, 0, twist * 0.4]]);
     pose('Neck', [[1, 0, 0, -run * 0.06 * sw]]);
     pose('Head', [[1, 0, 0, -run * 0.1 * sw + (air ? 0.1 : 0)], [0, 1, 0, -twist * 0.6 + (sw ? 0 : Math.sin(idleT * 0.4) * 0.15)]]);
-    // blink: the eye atlas has closed eyes two cells to the right
+    blinkStep(dt);
+  };
+  // blink: the eye atlas has closed eyes two cells to the right
+  const blinkStep = (dt) => {
     blink -= dt;
     if (rig.eyes) {
       rig.eyes.offset.x = blink < 0 ? 0.5 : 0;
