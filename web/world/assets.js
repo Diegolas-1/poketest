@@ -252,7 +252,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
   // one curved blade, 4 segments
   const segs = 4, pos = [], uv = [], idx = [];
   for (let i = 0; i <= segs; i++) {
-    const t = i / segs, w = 0.07 * (1 - t * 0.9);
+    const t = i / segs, w = 0.05 * (1 - t * 0.9);
     pos.push(-w, t, 0, w, t, 0); uv.push(0, t, 1, t);
     if (i < segs) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   }
@@ -289,7 +289,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         float dens = hm.g;
         float dist = length(p - uCam.xz);
         float keep = step(off.z, dens) * smoothstep(uSize * 0.5, uSize * 0.36, dist);
-        float h = (0.28 + off.w * 0.32) * (0.6 + dens * 0.5) * keep;
+        float h = (0.12 + off.w * 0.22) * (0.5 + dens * 0.7) * keep;
         float t = position.y; vT = t;
         float ang = off.z * 40.0;
         vec2 dir = vec2(cos(ang), sin(ang));

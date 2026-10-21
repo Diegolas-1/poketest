@@ -124,8 +124,10 @@ export function groundColor(x, z, h, slope, out) {
   // rock on steep hillsides
   out.lerp(ROCK.clone().lerp(ROCK_D, n2), smooth(0.55, 0.85, slope));
   // roads
-  const rm = roadMask(x, z);
-  if (rm > 0) out.lerp(DIRT.clone().lerp(DIRT_D, n2 * 0.8), rm);
+  // under the paths: the path meshes draw the dirt; a darker damp green at
+  // the edge so the grass under the fringe reads as shade
+  const rd = roadDist(x, z);
+  if (rd < 2.6) out.lerp(GRASS_C, (1 - smooth(1.6, 2.6, rd)) * 0.5);
   const st = stairDist(x, z);
   if (st < 1.8) out.lerp(DIRT_D, (1 - smooth(1.2, 1.8, st)) * 0.8);
   // muddy banks and beach sand
@@ -267,9 +269,10 @@ export function grassMap(x0, z0, w, d, res) {
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const x = x0 + (i + 0.5) * res, z = z0 + (j + 0.5) * res;
     const h = height(x, z);
-    let g = 1 - smooth(1.4, 2.6, -roadDist(x, z) + 3.2);
-    if (isWater(x, z) || h < 0.15 || buildingPad(x, z) > 0.97) g = 0;
-    g *= 0.55 + fbm(x * 0.07, z * 0.07, 2) * 0.6;
+    let g = smooth(1.55, 2.0, roadDist(x, z));
+    if (isWater(x, z) || (h < 0.15 && z > 40) || buildingPad(x, z) > 0.97) g = 0;
+    // patchy: tufts and drifts, open lawn between
+    g *= 0.12 + smooth(0.42, 0.68, fbm(x * 0.11 + 3, z * 0.11, 3)) * 0.88;
     const k = (j * nx + i) * 4;
     data[k] = h; data[k + 1] = Math.max(0, Math.min(1, g)); data[k + 3] = 1;
   }
