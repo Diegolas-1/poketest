@@ -465,6 +465,70 @@ function linesFrom(out) {
   return L;
 }
 
+
+// ---------- one shape from overlapping parts ----------
+// Many props are built from overlapping parts (a roof slab running into the
+// ridge, a wall standing in its foundation). Before the parts are merged
+// (town.js mergeStatic), each part's edges are cut against the other parts:
+// any stretch of an edge that lies inside or on another part is dropped, so
+// only the outside of the whole shape gets ink. Parts are tested as convex
+// solids (boxes, cylinders, cones, prisms); a concave part still gets its own
+// lines cut but hides nothing.
+const SOLID_EPS = 0.004;
+export function inkSolid(geo, m4) {
+  const P = geo.attributes.position; if (!P) return null;
+  const idx = geo.index ? geo.index.array : null, n = idx ? idx.length : P.count;
+  if (n / 3 > 1500) return null;
+  const v = [], a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let i = 0; i < P.count; i++) v.push(new THREE.Vector3().fromBufferAttribute(P, i).applyMatrix4(m4));
+  const planes = [], seen = new Set();
+  const box = new THREE.Box3().setFromPoints(v);
+  for (let t = 0; t + 2 < n; t += 3) {
+    a.copy(v[idx ? idx[t] : t]); b.copy(v[idx ? idx[t + 1] : t + 1]); c.copy(v[idx ? idx[t + 2] : t + 2]);
+    const nr = b.clone().sub(a).cross(c.clone().sub(a)); const l = nr.length(); if (l < 1e-9) continue; nr.divideScalar(l);
+    const d = nr.dot(a), k = `${nr.x.toFixed(3)},${nr.y.toFixed(3)},${nr.z.toFixed(3)},${d.toFixed(3)}`;
+    if (seen.has(k)) continue; seen.add(k); planes.push(nr.x, nr.y, nr.z, d);
+  }
+  // convex: every vertex behind (or on) every face plane
+  for (let i = 0; i < planes.length; i += 4) for (const p of v) if (planes[i] * p.x + planes[i + 1] * p.y + planes[i + 2] * p.z - planes[i + 3] > 0.002) return { box, planes: null };
+  return { box, planes: new Float32Array(planes) };
+}
+function inside(s, x, y, z) {
+  const b = s.box, e = SOLID_EPS;
+  if (x < b.min.x - e || x > b.max.x + e || y < b.min.y - e || y > b.max.y + e || z < b.min.z - e || z > b.max.z + e) return false;
+  const p = s.planes;
+  for (let i = 0; i < p.length; i += 4) if (p[i] * x + p[i + 1] * y + p[i + 2] * z - p[i + 3] > e) return false;
+  return true;
+}
+// edges of one part (geo through m4), cut against the other solids
+export function partEdges(geo, m4, solids, self) {
+  const raw = { pos: [], n1: [], n2: [], k: [] }, out = { pos: [], n1: [], n2: [], k: [] };
+  collectEdges(geo, m4, raw);
+  const others = solids.filter((s, i) => i !== self && s && s.planes);
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), eb = new THREE.Box3();
+  for (let e = 0; e < raw.k.length; e++) {
+    A.fromArray(raw.pos, e * 6); B.fromArray(raw.pos, e * 6 + 3);
+    eb.makeEmpty().expandByPoint(A).expandByPoint(B).expandByScalar(SOLID_EPS);
+    const near = others.filter((s) => s.box.intersectsBox(eb));
+    const push = (t0, t1) => {
+      out.pos.push(A.x + (B.x - A.x) * t0, A.y + (B.y - A.y) * t0, A.z + (B.z - A.z) * t0, A.x + (B.x - A.x) * t1, A.y + (B.y - A.y) * t1, A.z + (B.z - A.z) * t1);
+      out.n1.push(raw.n1[e * 3], raw.n1[e * 3 + 1], raw.n1[e * 3 + 2]); out.n2.push(raw.n2[e * 3], raw.n2[e * 3 + 1], raw.n2[e * 3 + 2]); out.k.push(raw.k[e]);
+    };
+    if (!near.length) { push(0, 1); continue; }
+    const len = A.distanceTo(B), N = Math.max(2, Math.min(96, Math.ceil(len / 0.03)));
+    let start = -1;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N, x = A.x + (B.x - A.x) * t, y = A.y + (B.y - A.y) * t, z = A.z + (B.z - A.z) * t;
+      const hid = near.some((s) => inside(s, x, y, z));
+      if (!hid && start < 0) start = Math.max(0, (i - 0.5) / N);
+      if (hid && start >= 0) { push(start, Math.min(1, (i - 0.5) / N)); start = -1; }
+    }
+    if (start >= 0) push(start, 1);
+  }
+  return out;
+}
+export const inkSkip = (m) => skipMat(m);
+
 // Give every static hard-surface mesh under root vector ink. Meshes directly
 // under one parent share a line object (in that parent's space); a mesh that
 // moves on its own (userData.keep) gets its own. Returns the edge count.
@@ -486,8 +550,11 @@ export function addEdgeLines(root) {
     for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (!m.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = 0.6; m.polygonOffsetUnits = 1; }
   };
   for (const [parent, list] of byParent) {
-    const out = { pos: [], n1: [], n2: [], k: [] };
-    for (const o of list) { o.updateMatrix(); collectEdges(o.geometry, o.matrix, out); done(o); }
+    // edges cut against the parts before they were merged (partEdges), if any
+    const pre = parent.userData.inkEdges;
+    const out = pre || { pos: [], n1: [], n2: [], k: [] };
+    for (const o of list) { o.updateMatrix(); if (!pre) collectEdges(o.geometry, o.matrix, out); done(o); }
+    delete parent.userData.inkEdges;
     if (out.k.length) { parent.add(linesFrom(out)); count += out.k.length; }
   }
   for (const o of own) {

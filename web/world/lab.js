@@ -445,25 +445,9 @@ export function buildLab(world, { x = 0, z = 0, y = 0, facing = 0 } = {}) {
   // shrubs along the wing's front
   for (let k = 0; k < 4; k++) plant(makeBush(420 + k * 13, { size: 0.7 + (k % 2) * 0.15, flowers: k % 2 ? null : TILE.flowersR }), G, WX0 + 3.0 + k * 3.4, PL * 0.2, WZ1 + 0.9, 1);
 
-  // --- merge the static parts by material ---
-  S.updateMatrixWorld(true);
-  const byMat = new Map(), m4 = new THREE.Matrix4();
-  S.traverse((o) => {
-    if (!o.isMesh) return;
-    let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
-    if (!g.attributes.normal) g.computeVertexNormals();
-    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-    g.clearGroups();
-    m4.copy(o.matrixWorld); g.applyMatrix4(m4);
-    if (!byMat.has(o.material)) byMat.set(o.material, { list: [], cast: false });
-    const e = byMat.get(o.material); e.list.push(g); e.cast ||= o.castShadow;
-  });
-  for (const [m, { list, cast }] of byMat) {
-    const mesh = new THREE.Mesh(mergeGeometries(list, false), m);
-    mesh.castShadow = cast && m.type !== 'MeshBasicMaterial'; mesh.receiveShadow = true;
-    G.add(mesh);
-  }
+  // the static parts are merged by town.js (mergeStatic), which first cuts
+  // their ink against each other so the lab outlines as one shape
+  G.add(S);
 
   // --- colliders, use, solid (world coordinates) ---
   const c = Math.cos(facing), s = Math.sin(facing);

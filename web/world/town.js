@@ -9,7 +9,7 @@ import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
-import { addEdgeLines } from './outline.js';
+import { addEdgeLines, inkSolid, partEdges, inkSkip } from './outline.js';
 import { makeTree, makeBush, makeClump, makeRock, TILE } from './foliage.js';
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 
@@ -1013,6 +1013,16 @@ function mergeStatic(G) {
     for (const c of o.children.slice()) walk(c);
   };
   walk(G);
+  // ink: each part's edges cut against the other parts, so overlapping parts
+  // read as one shape (outline.js partEdges); addEdgeLines uses these
+  const inked = done.filter((o) => o.userData.outline !== false && !inkSkip(Array.isArray(o.material) ? o.material[0] : o.material));
+  if (inked.length) {
+    const mats = inked.map((o) => new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    const solids = inked.map((o, i) => inkSolid(o.geometry, mats[i]));
+    const all = { pos: [], n1: [], n2: [], k: [] };
+    inked.forEach((o, i) => { const e = partEdges(o.geometry, mats[i], solids, i); for (const k of ['pos', 'n1', 'n2', 'k']) for (const x of e[k]) all[k].push(x); });
+    G.userData.inkEdges = all;
+  }
   for (const o of done) o.parent && o.parent.remove(o);
   for (const { mat, cast, list } of groups.values()) {
     const m = new THREE.Mesh(mergeGeometries(list, false), mat);
