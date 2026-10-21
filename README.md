@@ -21,7 +21,7 @@ The player (without any ROM) is published to GitHub Pages, from the `gh-pages` b
 
 ## 3D Pallet Town (work in progress)
 
-`web/world/` (the "3D Pallet Town" link, or https://diegolas-1.github.io/poketest/world/) is a spin-off: Pallet Town rebuilt as a free-roaming 3D world in the style of the anime's background paintings. It needs no ROM. Walk with WASD or the arrows (Shift runs, Space jumps), E talks and reads, drag or Q/R turns the camera, the wheel zooms; touch screens get a stick and buttons. Add `?q=low|medium|high` to pick the detail level (Chromebooks and phones start on low).
+`web/world/` (the "3D Pallet Town" link, or https://diegolas-1.github.io/poketest/world/) is a spin-off: Pallet Town rebuilt as a free-roaming 3D world in the style of the anime's background paintings. It needs no ROM. Walk with WASD (Shift runs, Space jumps), turn the camera with the arrow keys, Q/R or by dragging, E talks and reads, the wheel zooms; touch screens get a stick and buttons. Add `?q=low|medium|high` to pick the detail level (Chromebooks and phones start on low).
 
 - `toon.js` cel shading (flat light bands, cool blue-green shade) for every Lambert material.
 - `foliage.js` painted leaf-stroke atlas and procedural trees, bushes, flowers and rocks; `veg.js` places them.

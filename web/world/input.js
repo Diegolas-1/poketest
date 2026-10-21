@@ -72,13 +72,16 @@ export class Input {
   }
 
   // Call once a frame. Returns the controls for this frame.
-  read() {
+  read(dt = 1 / 60) {
     const k = (c) => this.keys.has(c);
-    let x = (k('KeyD') || k('ArrowRight') ? 1 : 0) - (k('KeyA') || k('ArrowLeft') ? 1 : 0);
-    let y = (k('KeyS') || k('ArrowDown') ? 1 : 0) - (k('KeyW') || k('ArrowUp') ? 1 : 0);
+    let x = (k('KeyD') ? 1 : 0) - (k('KeyA') ? 1 : 0);
+    let y = (k('KeyS') ? 1 : 0) - (k('KeyW') ? 1 : 0);
     let run = k('ShiftLeft') || k('ShiftRight');
     let lx = this.look.dx, ly = this.look.dy;
-    if (k('KeyQ')) lx -= 12; if (k('KeyR')) lx += 12;
+    // the arrow keys (and Q / R) turn the camera, so each hand has a job
+    const f = dt * 60;
+    if (k('KeyQ') || k('ArrowLeft')) lx -= 12 * f; if (k('KeyR') || k('ArrowRight')) lx += 12 * f;
+    if (k('ArrowUp')) ly -= 8 * f; if (k('ArrowDown')) ly += 8 * f;
     x += this.touch.mx; y += this.touch.my;
     if (Math.hypot(this.touch.mx, this.touch.my) > 0.92) run = true;
     // gamepad

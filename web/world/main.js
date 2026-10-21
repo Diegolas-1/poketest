@@ -248,7 +248,7 @@ const TEST = q.has('test');   // automated checks draw frames on demand
 function frame(fixed) {
   const dt = TEST && typeof fixed === 'number' ? fixed : Math.min(clock.getDelta(), 0.05);
   t += dt; uTime.value = t; foliageTime.value = t;
-  const c = input.read();
+  const c = input.read(dt);
   if (dialog.open) {
     if (c.pressed.has('use') || c.pressed.has('jump') || c.pressed.has('back')) dialog.next();
   }
