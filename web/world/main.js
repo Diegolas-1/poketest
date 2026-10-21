@@ -379,18 +379,14 @@ function frame(fixed) {
   // move
   let moving = 0;
   if (!dialog.open && !script) {
-    const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
-    const mx = rx * c.x - fx * c.y, mz = rz * c.x - fz * c.y;
-    const m = Math.hypot(mx, mz);
-    const want = m > 0.05 ? (c.run ? 8.5 : 4.5) * Math.min(1, m) : 0;
+    // movement is the body's own: forward / back along where Ash faces, left /
+    // right turns him; the camera turns on its own (arrow keys, mouse)
+    const turn = -c.x, fwd = -c.y;
+    me.yaw += turn * (c.run ? 2.4 : 2.9) * dt;
+    const want = Math.abs(fwd) > 0.05 ? (fwd > 0 ? (c.run ? 8.5 : 4.5) : -2.6) * Math.min(1, Math.abs(fwd)) : 0;
     me.speed += (want - me.speed) * (1 - Math.exp(-dt * 10));
-    if (m > 0.05) {
-      const ty = Math.atan2(mx, mz);
-      let d = ty - me.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
-      me.yaw += d * (1 - Math.exp(-dt * 14));
-      moving = 1;
-    }
-    if (me.speed > 0.05) step(me, Math.sin(me.yaw) * me.speed * dt, Math.cos(me.yaw) * me.speed * dt);
+    if (Math.abs(fwd) > 0.05 || Math.abs(turn) > 0.05) moving = 1;
+    if (Math.abs(me.speed) > 0.05) step(me, Math.sin(me.yaw) * me.speed * dt, Math.cos(me.yaw) * me.speed * dt);
     if (c.pressed.has('jump') && me.ground) { me.vy = 5.2; me.ground = false; }
     if (c.pressed.has('use')) {
       const n = nearby();
@@ -408,7 +404,12 @@ function frame(fixed) {
   if (me.ground && me.pos.y - g < 0.3) me.pos.y = g;
   player.root.position.copy(me.pos);
   player.root.rotation.y = me.yaw;
-  player.animate(dt, me.speed, !me.ground, t);
+  // the head turns toward where the camera looks, within a comfortable range
+  {
+    let rel = cam.yaw + Math.PI - me.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+    player.lookYaw = Math.abs(rel) < 2.2 ? Math.max(-1.0, Math.min(1.0, rel)) : 0;
+  }
+  player.animate(dt, Math.abs(me.speed), !me.ground, t);
   void moving;
   // villagers wander
   for (const n of npcs) {
