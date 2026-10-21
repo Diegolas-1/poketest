@@ -528,6 +528,9 @@ export function castBase(base, name, hooks) {
   scene.traverse((o) => { if (o.isSkinnedMesh) meshes.set(o.material.name, o); });
   for (const d of spec.drop || []) { const m = meshes.get(d); if (m) { m.parent.remove(m); meshes.delete(d); } }
   for (const m of meshes.values()) {
+    // own bind matrices: Skeleton.clone() shares them with the base (and so with Ash), and
+    // reproportion recomputes them in place
+    m.skeleton.boneInverses = m.skeleton.boneInverses.map((x) => x.clone());
     m.geometry = m.geometry.clone();
     const SI = m.geometry.attributes.skinIndex, SW = m.geometry.attributes.skinWeight, parts = [];
     for (let i = 0; i < SI.count; i++) {
