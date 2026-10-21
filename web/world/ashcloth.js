@@ -7,14 +7,17 @@
 // sewn on (weights copied from the body surface underneath) and to extra
 // "cloth bones" further out. The cloth bones are driven by a small verlet sim:
 // a few particles per garment (the jacket in fifteen panels, each a chest-to-mid
-// and a mid-to-hem link; four round each sleeve hem and each trouser hem) hang
-// from pins on the body under gravity, feel the air (wind gusts, and the head wind
-// of running), keep their lengths, spring back towards their rest shape and are
+// and a mid-to-hem link; eight round each sleeve hem, four round each trouser hem)
+// hang from pins on the body under gravity, feel the air (wind gusts, and the head
+// wind of running), keep their lengths, spring back towards their rest shape and are
 // pushed out of the body (chest, waist, hips, thighs, arms, shins) at its current
 // pose. The jacket is cut to hang straight down from the chest, clear of the body
 // beneath, and its panels move as one piece (linked, and smoothed towards each
 // other) so the hem stays a clean line; the shirt under it is drawn in a little
-// so the body never shows through. So the jacket trails and lifts when running,
+// so the body never shows through. The arms are solid to it as well: the jacket is
+// pushed off the upper arms, forearms and hands at whatever pose they take, its
+// sides are taken in under the armpits, and the sleeves are snug underneath and
+// kept outside the jacket. So the jacket trails and lifts when running,
 // swings on turns and stops, and barely stirs at idle. A few dozen particles,
 // solved on the CPU; the meshes are skinned on the GPU like the rest of the body.
 //
@@ -188,7 +191,12 @@ const J_PIN = 3, J_MID = 8, J_HEM = 14, J_NC = 42, J_NS = 15, J_STEP = 3;
 const SX = [0.074, 0.086, 0.10, 0.12, 0.145, 0.17, 0.195, 0.215, 0.236];
 const S_OFF = [-0.007, 0.0, 0.004, 0.008, 0.011, 0.014, 0.017, 0.020, 0.024];
 const S_MIN = [0, 0, 0, 0.042, 0.045, 0.048, 0.051, 0.054, 0.057];
-const S_PIN = 5, S_NC = 16, ARM_Y = 1.02, ARM_Z = -0.008;
+const S_PIN = 5, S_NC = 16, S_NB = 8, ARM_Y = 1.02, ARM_Z = -0.008;   // S_NB: cloth bones round each sleeve hem
+// where the arms hang against the sides (a little behind the side seam, from the armpit
+// to the elbow), 0..1 at a torso point x = sin, z = cos round the axis, at height y;
+// the jacket's sides are taken in there by ARM_TUCK
+const ARM_TUCK = 0.010;
+const underArm = (sx, cz, y) => Math.exp(-(((Math.atan2(Math.abs(sx), cz) - 1.75) / 0.5) ** 2)) * sm(0.962, 0.935, y) * sm(0.79, 0.84, y);
 // trousers: rings top to hem; leg section [y, cx, cz, out, in, front, back] and hip section [y, rx, front, back]
 const PY = [0.745, 0.725, 0.705, 0.685, 0.665, 0.645, 0.625, 0.605, 0.58, 0.55, 0.52, 0.49, 0.46, 0.43, 0.405, 0.38, 0.355, 0.33, 0.31, 0.29, 0.272, 0.256, 0.242, 0.229, 0.217, 0.205, 0.19];
 const LEG = [[0.60, 0.06, 0.006, 0.072, 0.057, 0.074, 0.068], [0.52, 0.06, 0.006, 0.068, 0.053, 0.069, 0.064], [0.44, 0.06, 0.008, 0.064, 0.051, 0.065, 0.060],
@@ -285,9 +293,12 @@ function buildKit(base) {
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i) - ZC;
       if (Math.abs(x) > 0.14) continue;
+      const r = Math.hypot(x, z); if (r < 1e-4) continue;
       const w = sm(0.94, 0.91, y) * sm(0.665, 0.70, y) * sm(gap(y) - 0.02, gap(y) + 0.35, Math.abs(Math.atan2(x, z)));
-      const r = Math.hypot(x, z); if (w <= 0 || r < 1e-4) continue;
-      const k = Math.max(0.8, 1 - 0.013 * w / r);
+      // under the arms, higher up and as far in as the jacket's sides are taken in there
+      const u = Math.exp(-(((Math.atan2(Math.abs(x), z) - 1.75) / 0.55) ** 2)) * sm(0.972, 0.948, y) * sm(0.74, 0.80, y);
+      const dIn = Math.max(0.013 * w, (ARM_TUCK + 0.004) * u); if (dIn <= 0) continue;
+      const k = Math.max(0.8, 1 - dIn / r);
       p.setX(i, x * k); p.setZ(i, ZC + z * k);
     }
     p.needsUpdate = true; topGeo.computeBoundingSphere();
@@ -400,7 +411,12 @@ function buildKit(base) {
   const RD = RB.map((r, i) => r.map((v, j) => Math.max(v, lerp(v, CU[i][j], sm(JY[J_PIN] + 0.012, JY[J_MID] + 0.01, JY[i])))));
   // standing off the shirt: tucked into the painted yoke at the top, a finger's width clear further down
   const offJ = (y) => (y > 0.945 ? lerp(-0.007, 0, (0.958 - y) / 0.013) : y > 0.93 ? lerp(0, 0.004, (0.945 - y) / 0.015) : 0.004 + 0.009 * sm(0.93, JY[J_MID], y));
-  const JP = JY.map((y, i) => Array.from({ length: J_NC + 1 }, (_, j) => { const th = thOf(i, j), r = RD[i][j] + offJ(y); return V3(r * Math.sin(th), y, ZC + r * Math.cos(th)); }));
+  // and under the arms, from the armpit to the elbows, the sides are taken in a little
+  // (over the shirt drawn in there), so the hanging sleeves and arms clear them
+  const JP = JY.map((y, i) => Array.from({ length: J_NC + 1 }, (_, j) => {
+    const th = thOf(i, j), r = RD[i][j] + offJ(y) - ARM_TUCK * underArm(Math.sin(th), Math.cos(th), y);
+    return V3(r * Math.sin(th), y, ZC + r * Math.cos(th));
+  }));
   const torsoKeep = (x) => Math.abs(x) < 0.13;
   const JW = JY.map((y, i) => Array.from({ length: J_NC + 1 }, (_, j) => {
     const rig = sm(JY[J_PIN] - 0.026, JY[J_PIN], y), toB = sm(JY[J_MID] + 0.03, JY[J_MID] - 0.04, y);
@@ -420,6 +436,17 @@ function buildKit(base) {
   const ringProf = (y) => fixRing(Array.from({ length: 48 }, (_, k) => ray(bodyT, y, k / 48 * TAU)?.t ?? null), true, 1);
   const profMid = ringProf(JY[J_MID]), profWaist = ringProf(0.75), profHem = ringProf(JY[J_HEM] - 0.01);
   const thighCaps = ['L', 'R'].map((L, i) => { const s = i ? -1 : 1; return { bone: L + 'Thigh', seg: [V3(s * 0.058, 0.69, 0.004), V3(s * 0.06, 0.42, 0.008)], r: 0.079 }; });
+  // the arms, tapered capsules along their bones (upper arm in its sleeve, forearm, gloved
+  // hand), followed at whatever pose they are in: the jacket is pushed off them (with a
+  // pad for its lining), the sleeves off the forearm when the elbow bends
+  const at = (n) => V3().setFromMatrixPosition(restM[n]);
+  const armCaps = (L, pad) => {
+    const sh = at(L + 'ArmA'), el = at(L + 'ForeArm'), wr = at(L + 'Hand'), tip = wr.clone().lerp(el, -0.45);
+    return [{ bone: L + 'ArmA', seg: [sh, el], r0: 0.054 + pad, r1: 0.042 + pad },
+      { bone: L + 'ForeArm', seg: [el, wr], r0: 0.04 + pad, r1: 0.03 + pad },
+      { bone: L + 'Hand', seg: [wr, tip], r0: 0.044 + pad, r1: 0.044 + pad }];
+  };
+  const armsJ = [...armCaps('L', 0.006), ...armCaps('R', 0.006)];
   const jacketChains = [];
   for (let s = 0; s < J_NS; s++) {
     const j = s * J_STEP, edge = s === 0 || s === J_NS - 1;
@@ -431,10 +458,22 @@ function buildKit(base) {
       parent: 'Spine2', bones: [`clJ${s}a`, `clJ${s}b`], rest: [JP[J_PIN][j], JP[J_MID][j], JP[J_HEM][j]],
       ks: [42, 30], drag: [0.5, edge ? 0.95 : 0.8], damp: 5, vmax: 1.5, flut: edge ? 0.7 : 0.5, cone: edge ? [0.5, 0.65] : [0.42, 0.55],
       hangBone: 'Hips', hang: [0, 0.2, 0.45], quad: true,
-      coll: [{ bone: 'Spine1', ring: profMid, pad: 0.008 },
-        { bone: 'Hips', ring: profHem, pad: 0.011, caps: thighCaps, mid: { bone: 'Spine1', ring: profWaist, pad: 0.009 } }],
+      coll: [{ bone: 'Spine1', ring: profMid, pad: 0.008, pre: armsJ, segPre: armsJ },
+        { bone: 'Hips', ring: profHem, pad: 0.011, caps: thighCaps, pre: armsJ, segPre: armsJ, mid: { bone: 'Spine1', ring: profWaist, pad: 0.009 } }],
     });
   }
+
+  // the jacket's outside from the armpit to the mid row (the shirt across the open
+  // front), round the chest's frame, for the sleeves to stay outside of
+  const shell = { bone: 'Spine2', pad: 0.007, ys: JY.slice(0, J_MID + 1), rings: JY.slice(0, J_MID + 1).map((y, i) => {
+    const body = ringProf(y), g = gap(y), R = JP[i].map((p) => Math.hypot(p.x, p.z - ZC));
+    return body.map((rb, k) => {
+      const th = k / 48 * TAU;
+      if (th < g || th > TAU - g) return rb;
+      const f = (th - g) / (TAU - 2 * g) * J_NC, j0 = Math.min(J_NC - 1, Math.floor(f));
+      return lerp(R[j0], R[j0 + 1], f - j0);
+    });
+  }) };
 
   // ----- sleeves -----
   const SB = new Build(), sleeveChains = [];
@@ -443,14 +482,19 @@ function buildKit(base) {
     const psOf = (j) => j / S_NC * TAU;   // 0 = up, then towards the front
     const R = SX.map((x, i) => {
       const r = fixRing(Array.from({ length: S_NC }, (_, j) => armRay(T, s, x, psOf(j))?.t ?? null), true, 2);
-      return r.map((v) => Math.max(v + S_OFF[i], S_MIN[i]));
+      // loose all round, but snug underneath: with the arm down that is the side against
+      // the ribs, where the cloth is pressed to the arm instead of hanging into the jacket
+      return r.map((v, j) => {
+        const full = Math.max(v + S_OFF[i], S_MIN[i]), u = sm(0.3, 0.95, -Math.cos(psOf(j)));
+        return lerp(full, Math.min(full, v + 0.007), 0.8 * u);
+      });
     });
     const point = (i, j) => { const r = R[i][j % S_NC], ps = psOf(j); return V3(s * SX[i], ARM_Y + r * Math.cos(ps), ARM_Z + r * Math.sin(ps)); };
     const P = SX.map((x, i) => Array.from({ length: S_NC + 1 }, (_, j) => point(i, j)));
     const side = (x, y) => x * s > 0.04 && y > 0.9;
     const W = SX.map((x, i) => Array.from({ length: S_NC + 1 }, (_, j) => {
       const dyn = sm(SX[S_PIN] - 0.012, SX[S_PIN] + 0.014, x);
-      const f = j / S_NC * 4, s0 = Math.floor(f) % 4, s1 = (s0 + 1) % 4, u = f - Math.floor(f);
+      const f = j / S_NC * S_NB, s0 = Math.floor(f) % S_NB, s1 = (s0 + 1) % S_NB, u = f - Math.floor(f);
       return pack(mix([1 - dyn, bodyW(P[i][j], side, 4, dyn > 0 ? 2 : 4)], [dyn * (1 - u), { [`clS${L}${s0}`]: 1 }], [dyn * u, { [`clS${L}${s1}`]: 1 }]));
     }));
     slab(SB, P, W, 0.004, {
@@ -458,12 +502,12 @@ function buildKit(base) {
       uvO: (i, j) => [j / S_NC * 0.5, i / (SX.length - 1)], uvI: (i, j) => [0.5 + j / S_NC * 0.5, i / (SX.length - 1)],
       rimUV: [0.75, 0.5], rims: { bottom: true },
     });
-    for (let k = 0; k < 4; k++) {
-      const j = k * S_NC / 4;
+    for (let k = 0; k < S_NB; k++) {
+      const j = k * S_NC / S_NB;
       sleeveChains.push({
         parent: L + 'ArmA', bones: [`clS${L}${k}`], rest: [P[S_PIN][j], P[SX.length - 1][j]],
         ks: [80], drag: [1.1], flut: 0.6, cone: [0.4],
-        coll: [{ bone: L + 'ArmA', axis: [V3(s * 0.098, ARM_Y, ARM_Z), V3(s * 0.4, ARM_Y, ARM_Z)], r: 0.043 }],
+        coll: [{ bone: L + 'ArmA', axis: [V3(s * 0.098, ARM_Y, ARM_Z), V3(s * 0.4, ARM_Y, ARM_Z)], r: 0.043, shell, segShell: true, pre: armCaps(L, 0.006).slice(1) }],
       });
     }
   }
@@ -528,10 +572,14 @@ export function dressAsh(m, base) {
   const used = new Set();
   for (const c of kit.chains) {
     used.add(c.parent); if (c.hangBone) used.add(c.hangBone);
-    for (const k of c.coll) { used.add(k.bone); if (k.mid) used.add(k.mid.bone); for (const cp of k.caps || []) used.add(cp.bone); }
+    for (const k of c.coll) {
+      used.add(k.bone); if (k.shell) used.add(k.shell.bone);
+      for (const cp of [...(k.caps || []), ...(k.pre || []), ...(k.segPre || [])]) used.add(cp.bone);
+      if (k.mid) used.add(k.mid.bone);
+    }
   }
   for (const n of used) { S[n] = new THREE.Matrix4(); Si[n] = new THREE.Matrix4(); Pq[n] = new THREE.Quaternion(); sc[n] = 1; }
-  const tv = V3(), ts = V3(), a = V3(), b = V3(), q = V3(), wind = V3(), vAir = V3(), rootP = V3(), rootPrev = V3(), vRoot = V3(), fwd = V3(), rv = V3();
+  const tv = V3(), ts = V3(), a = V3(), b = V3(), q = V3(), mp = V3(), wind = V3(), vAir = V3(), rootP = V3(), rootPrev = V3(), vRoot = V3(), fwd = V3(), rv = V3();
   const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qr = new THREE.Quaternion(), qd = new THREE.Quaternion();
   let ready = false, clock = Math.random() * 100;
   const G = -9.8, H = 1 / 60, NP = kit.panels;
@@ -565,8 +613,24 @@ export function dressAsh(m, base) {
     v.x += dx / d * (rmin - d) * push; v.z += dz / d * (rmin - d) * push;
     return true;
   };
-  // push a point out of the body near it, at the body's current pose
+  // push a point out of the body near it, at the body's current pose: first off the
+  // arms and outside the jacket where asked, then out of the torso (which has the last word)
   const collide = (x, k, prev) => {
+    if (k.shell) {
+      shellOut(x, k.shell);
+      if (k.segShell && prev) {   // and the middle of the link: push its end out twice as far
+        mp.copy(x).add(prev).multiplyScalar(0.5); ts.copy(mp);
+        if (shellOut(mp, k.shell)) x.addScaledVector(ts.subVectors(mp, ts), 2);
+      }
+    }
+    for (const cp of k.pre || []) capsule(x, cp);
+    if (k.segPre && prev) {
+      // the middle of the link clears the arms too: push its end out twice as far
+      for (const cp of k.segPre) {
+        mp.copy(x).add(prev).multiplyScalar(0.5); ts.copy(mp);
+        if (capsule(mp, cp)) x.addScaledVector(ts.subVectors(mp, ts), 2);
+      }
+    }
     if (k.ring) {
       q.copy(x).applyMatrix4(Si[k.bone]);
       if (ringOut(q, k.ring, k.pad)) x.copy(q).applyMatrix4(S[k.bone]);
@@ -585,12 +649,30 @@ export function dressAsh(m, base) {
       if (d < k.r && d > 1e-6) { q.copy(a).addScaledVector(b, k.r / d); x.copy(q).applyMatrix4(S[k.bone]); }
     }
   };
+  // out of a (tapered) capsule on a bone; true if it moved
   const capsule = (x, cp) => {
     q.copy(x).applyMatrix4(Si[cp.bone]);
     const [p0, p1] = cp.seg;
     a.subVectors(p1, p0); const u = clamp01(b.subVectors(q, p0).dot(a) / a.lengthSq());
-    a.multiplyScalar(u).add(p0); b.subVectors(q, a); const d = b.length();
-    if (d < cp.r && d > 1e-6) { q.copy(a).addScaledVector(b, cp.r / d); x.copy(q).applyMatrix4(S[cp.bone]); }
+    a.multiplyScalar(u).add(p0); b.subVectors(q, a); const d = b.length(), r = cp.r ?? lerp(cp.r0, cp.r1, u);
+    if (d >= r || d < 1e-6) return false;
+    q.copy(a).addScaledVector(b, r / d); x.copy(q).applyMatrix4(S[cp.bone]);
+    return true;
+  };
+  // outside the jacket's shell (rings of its radius round the chest, top row down)
+  const shellOut = (x, sh) => {
+    q.copy(x).applyMatrix4(Si[sh.bone]);
+    const Y = sh.ys, n = Y.length;
+    if (q.y > Y[0] || q.y < Y[n - 1]) return false;
+    let i = 0; while (i < n - 2 && q.y < Y[i + 1]) i++;
+    const v = (Y[i] - q.y) / (Y[i] - Y[i + 1]), R0 = sh.rings[i], R1 = sh.rings[i + 1];
+    const dx = q.x, dz = q.z - ZC, d = Math.hypot(dx, dz) || 1e-6;
+    let ang = Math.atan2(dx, dz); if (ang < 0) ang += TAU;
+    const f = ang / TAU * R0.length, i0 = Math.floor(f) % R0.length, i1 = (i0 + 1) % R0.length, w = f - Math.floor(f);
+    const rmin = lerp(lerp(R0[i0], R0[i1], w), lerp(R1[i0], R1[i1], w), v) + sh.pad;
+    if (d >= rmin) return false;
+    q.x += dx / d * (rmin - d); q.z += dz / d * (rmin - d); x.copy(q).applyMatrix4(S[sh.bone]);
+    return true;
   };
   // the jacket's panels bend together: each panel's offset from its hang is eased
   // towards its neighbours', so the hem stays one smooth line instead of zig-zagging
