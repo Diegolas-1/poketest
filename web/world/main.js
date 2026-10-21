@@ -11,7 +11,7 @@ import { grassField, wind, surface } from './assets.js';
 import { makeActor, LOOKS } from './actor.js';
 import { Input } from './input.js';
 import { Dialog } from './dialog.js';
-import { createOutline } from './outline.js';
+import { createOutline, setInkFocus } from './outline.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
@@ -40,6 +40,16 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const outline = createOutline(renderer, { scale: QUALITY.outline || 1 });
 outline.enabled = QUALITY.outline > 0;
 if (!outline.enabled) outline.lines.visible = false;   // ?outline=0: no ink at all
+// O key or the Outlines button: ink on / off (remembered on this device)
+let inkOn = outline.enabled && localStorage.getItem('pallet-ink') !== 'off';
+function setInk(on) {
+  inkOn = on; outline.enabled = on && QUALITY.outline > 0; outline.lines.visible = outline.enabled;
+  localStorage.setItem('pallet-ink', on ? 'on' : 'off');
+  const b = document.getElementById('inkBtn'); if (b) b.textContent = 'Outlines: ' + (on ? 'on' : 'off');
+}
+setInk(inkOn);
+addEventListener('keydown', (e) => { if (e.code === 'KeyO' && !e.repeat) setInk(!inkOn); });
+document.getElementById('inkBtn')?.addEventListener('click', () => setInk(!inkOn));
 const scene = new THREE.Scene();
 const FOG = new THREE.Color('#c4e2f0');
 scene.fog = new THREE.Fog(FOG, 90, 430);
@@ -319,6 +329,7 @@ function draw() {
   if (grass && grass.mesh.layers.mask !== 1 << GRASS_LAYER) grass.mesh.layers.set(GRASS_LAYER);
   camera.layers.set(0);
   renderer.render(scene, camera);
+  setInkFocus(me.pos);
   outline.render(scene, camera);
   if (grass) {
     camera.layers.set(GRASS_LAYER);
@@ -334,7 +345,7 @@ function draw() {
     perf.n++; perf.t += Math.min(dt, 200);
     if (perf.t > 4000) {
       if (perf.t / perf.n > 50) {
-        if (outline.scale > 0.5) { outline.scale = outline.scale > 1 ? 1 : 0.5; resize(); } else outline.enabled = false;
+        if (outline.scale > 0.5) { outline.scale = outline.scale > 1 ? 1 : 0.5; resize(); } else { outline.enabled = false; outline.lines.visible = false; }
       }
       perf.n = 0; perf.t = 0;
     }

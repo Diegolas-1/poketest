@@ -33,7 +33,7 @@ const K = { sky: 0, ground: 1, leaf: 2, solid: 3 };
 const SMALL = 0.4;
 
 export function createOutline(renderer, o = {}) {
-  const opt = { color: '#2a2132', strength: 1, width: 2.6, scale: 1, fadeNear: 70, fadeFar: 170, idFar: 30, creaseFar: 48, ...o };
+  const opt = { color: '#2a2132', strength: 1, width: 1.1, scale: 1, fadeNear: 70, fadeFar: 170, idFar: 30, creaseFar: 48, ...o };
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const depth = new THREE.DepthTexture(1, 1);
   const rt = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, depthTexture: depth, generateMipmaps: false });
@@ -294,7 +294,7 @@ export function createOutline(renderer, o = {}) {
       maskMat.uniforms.uPx.value.set(1 / w, 1 / h); compMat.uniforms.uPx.value.set(1 / w, 1 / h);
       edgeLinesSize(w, h);
       // about opt.width pixels at 1080p (so it follows DPR), at least 1
-      maskMat.uniforms.uR.value = Math.max(1.7, opt.width * (h / 1080));   // same width as the vector ink
+      maskMat.uniforms.uR.value = Math.max(1.0, opt.width * (h / 1080));   // same width as the vector ink
       // sub-pixel samples: 4 when the G-buffer is supersampled, else 2
       const sub = s > 1.01 ? 4 : 2;
       if (maskMat.defines.SUB !== sub) { maskMat.defines.SUB = sub; maskMat.needsUpdate = true; }
@@ -348,13 +348,18 @@ export function createOutline(renderer, o = {}) {
 // 'ground' for the screen-space pass, so they draw no second line there.
 
 const CREASE = Math.cos(THREE.MathUtils.degToRad(32));
-const EDGE = { width: 2.6, color: '#2a2132', opacity: 1, pull: 0.001, fade: [70, 170] };
+// width: pixels at 1080p near the player; lines thin to nothing with distance
+// from the player (focus), so far-off detail never clots into black
+const EDGE = { width: 1.1, color: '#2a2132', opacity: 1, pull: 0.0003, fade: [70, 170], focus: [10, 55] };
 const lineMat = new LineMaterial({ color: new THREE.Color(EDGE.color), linewidth: 3, transparent: true, depthWrite: false, opacity: EDGE.opacity, fog: true });
-lineMat.userData.u = { uCore: { value: 2 }, uPull: { value: EDGE.pull }, uFadeL: { value: new THREE.Vector2(...EDGE.fade) } };
+lineMat.userData.u = { uCore: { value: 2 }, uPull: { value: EDGE.pull }, uFadeL: { value: new THREE.Vector2(...EDGE.fade) },
+  uFocus: { value: new THREE.Vector3() }, uFocusR: { value: new THREE.Vector2(...EDGE.focus) } };
+// the player's position: lines are full width around it and thin away from it
+export function setInkFocus(p) { lineMat.userData.u.uFocus.value.copy(p); }
 lineMat.onBeforeCompile = (sh) => {
   Object.assign(sh.uniforms, lineMat.userData.u);
   sh.vertexShader = sh.vertexShader
-    .replace('attribute vec3 instanceStart;', 'attribute vec3 instanceStart;\nattribute vec3 instanceN1, instanceN2;\nattribute float instanceK;\nuniform float uPull;\nuniform vec2 uFadeL;\nvarying float vFadeL, vInkW;')
+    .replace('attribute vec3 instanceStart;', 'attribute vec3 instanceStart;\nattribute vec3 instanceN1, instanceN2;\nattribute float instanceK;\nuniform float uPull;\nuniform vec2 uFadeL, uFocusR;\nuniform vec3 uFocus;\nvarying float vFadeL, vInkW;')
     .replace('vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );', `vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );
       vec3 inkN1 = normalMatrix * instanceN1, inkN2 = normalMatrix * instanceN2, eMid = 0.5 * (start.xyz + end.xyz);
       float f1 = dot(inkN1, -eMid), f2 = dot(inkN2, -eMid);
@@ -366,6 +371,9 @@ lineMat.onBeforeCompile = (sh) => {
       // creases inside a shape are detail: a little thinner than the outline,
       // and gone sooner, so small parts far off (balusters, window bars) stay light
       vInkW = inkSil ? 1.0 : 0.72;
+      float dFocus = distance(eMid, (viewMatrix * vec4(uFocus, 1.0)).xyz);
+      vInkW *= 1.0 - smoothstep(uFocusR.x, uFocusR.y, dFocus);
+      vFadeL *= smoothstep(0.0, 0.2, vInkW);
       if (!inkSil) vFadeL *= 1.0 - smoothstep(uFadeL.x * 0.35, uFadeL.x * 0.85, -eMid.z);
       if (!show || vFadeL <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
       start.xyz *= 1.0 - uPull; end.xyz *= 1.0 - uPull;`)
@@ -387,7 +395,7 @@ lineMat.customProgramCacheKey = () => 'inkedges';
 
 // line width in drawing-buffer pixels (about EDGE.width at 1080p)
 export function edgeLinesSize(w, h) {
-  const core = Math.max(1.7, EDGE.width * h / 1080);
+  const core = Math.max(1.0, EDGE.width * h / 1080);
   lineMat.resolution.set(w, h);
   lineMat.linewidth = core + 1.5;
   lineMat.userData.u.uCore.value = core;
@@ -473,7 +481,7 @@ export function addEdgeLines(root) {
   // at a silhouette), so the line along their edge is never eaten by them
   const done = (o) => {
     o.userData.outline = 'ground';
-    for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (!m.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = 1.5; m.polygonOffsetUnits = 2; }
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (!m.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = 0.6; m.polygonOffsetUnits = 1; }
   };
   for (const [parent, list] of byParent) {
     const out = { pos: [], n1: [], n2: [], k: [] };
