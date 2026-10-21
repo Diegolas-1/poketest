@@ -8,6 +8,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toon } from './toon.js';
 import { dressAsh } from './ashcloth.js';
+import { makeIdleActions } from './idles.js';
 
 const V2 = (x, y) => new THREE.Vector2(x, y), V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const DS = THREE.DoubleSide;
@@ -744,7 +745,7 @@ function calemActor(look) {
       const b = bones[name]; if (!b) return;
       b.quaternion.multiply(tq.setFromAxisAngle(ax.set(x, y, z).applyQuaternion(tq.copy(R.get(name).w).invert()), a));
     };
-    rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k, cloth };
+    rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k, cloth, rest: R, root: fb.root };
     const A = base.anims;
     if (A && A.clips.idle && A.clips.walk && A.clips.run) {
       const mixer = new THREE.AnimationMixer(m), act = {};
@@ -795,14 +796,16 @@ function calemActor(look) {
   // the player's walk and run speeds (m/s, as main.js moves it): walk plays up to just past
   // the walk, run from there, crossfaded on the way between so speeding up and slowing down blend
   const WALK_V = 4.5, RUN_V = 8.5, TEMPO_MAX = 3;   // TEMPO_MAX: fastest a clip plays; past that the stride slides
-  // life on top of the idle clip: posture, breathing, weight sway, looking around and fidgets
-  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 2 + Math.random() * 3, fid: null, nextFid: 6 + Math.random() * 6,
+  // life on top of the idle clip: posture, breathing, weight sway, looking around and idle actions
+  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 2 + Math.random() * 3,
     side: Math.random() < 0.5 ? -1 : 1, cp: 0, swap: 15 + Math.random() * 15 };
   life.cp = life.side;
-  const FIDGETS = ['twist', 'shoulders'];   // (shifting weight is the stance, below)
   const idleLife = (dt, wI, wP) => {
     const L = life, b = rig.bend;
     L.t += dt;
+    // idle actions now and then (idles.js): they steer the look target here and pose the body after the clips
+    const I = rig.idles || (rig.idles = makeIdleActions(rig, { life, ball: !look.cast, npc: !!look.cast }));
+    I.update(dt, wI);
     // posture: chest up, neck long (the clips stoop); at idle also relaxed elbows (the idle clip
     // already curls the fingers; curling them more clenches them through the gloves)
     // and shoulders drawn back so they don't round forward
@@ -821,7 +824,7 @@ function calemActor(look) {
     });
     // stance: weight settled on one leg, the other knee soft, hips and shoulders tilted against
     // each other, head tipped; every so often it slowly moves to the other leg
-    if ((L.swap -= dt) < 0) { L.side = -L.side; L.swap = 15 + Math.random() * 15; }
+    if (!I.busy && (L.swap -= dt) < 0) { L.side = -L.side; L.swap = 15 + Math.random() * 15; }
     L.cp += (L.side - L.cp) * (1 - Math.exp(-dt * 1.2));
     const cp = L.cp * wI, rl = L.cp > 0 ? 'R' : 'L', ca = Math.abs(cp);
     b('Spine1', 0, 0, 1, 0.05 * cp); b('Spine3', 0, 0, 1, -0.04 * cp); b('Head', 0, 0, 1, -0.035 * cp);
@@ -831,29 +834,6 @@ function calemActor(look) {
     b('Spine2', 1, 0, 0, -0.025 * br); b('Spine3', 1, 0, 0, -0.015 * br); b('Head', 1, 0, 0, 0.03 * br);
     b('LShoulder', 0, 0, 1, 0.025 * br); b('RShoulder', 0, 0, 1, -0.025 * br);
     b('Spine1', 0, 0, 1, 0.025 * sway); b('Spine3', 0, 0, 1, -0.018 * sway);
-    // fidgets now and then: twist a foot in the dirt, roll the shoulders
-    L.nextFid -= dt;
-    if (!L.fid && L.nextFid < 0 && wI > 0.9) {
-      const k = FIDGETS[Math.floor(Math.random() * FIDGETS.length)], s = Math.random() < 0.5 ? 'L' : 'R';
-      L.fid = { k, s, t: 0, dur: { twist: 2.8, shoulders: 1.8 }[k] };
-      if (k === 'twist') { L.ty = s === 'L' ? 0.15 : -0.15; L.tp = 0.4; L.look = 2.8; }   // and watch the foot
-    }
-    if (L.fid) {
-      const F = L.fid, u = (F.t += dt) / F.dur;
-      if (u >= 1 || wI < 0.5) { L.fid = null; L.nextFid = 8 + Math.random() * 8; }
-      else {
-        const env = smooth(0, 0.15, u) * (1 - smooth(0.85, 1, u)) * wI, sg = F.s === 'L' ? 1 : -1;
-        if (F.k === 'twist') {   // knee bent, toe down in the dirt, heel swivelling in and out
-          b(F.s + 'Thigh', 1, 0, 0, -0.1 * env); b(F.s + 'Leg', 1, 0, 0, 0.35 * env); b(F.s + 'Foot', 1, 0, 0, 0.45 * env);
-          b(F.s + 'Thigh', 0, 1, 0, Math.sin(F.t * 3.6) * 0.26 * env);
-          b('Spine1', 0, 0, 1, -sg * 0.03 * env);
-        } else {   // shoulders up and back, a little neck stretch
-          const up = Math.sin(Math.min(1, u * 1.4) * Math.PI) * wI;
-          b('LShoulder', 0, 0, 1, 0.14 * up); b('RShoulder', 0, 0, 1, -0.14 * up); b('Spine3', 1, 0, 0, -0.06 * up);
-          b('Head', 0, 0, 1, Math.sin(u * Math.PI * 2) * 0.12 * env);
-        }
-      }
-    }
     // look around: pick a spot, turn to it (head leads, neck and chest follow), hold; a blink on big turns
     L.look -= dt;
     if (L.look < 0) {
@@ -926,6 +906,7 @@ function calemActor(look) {
       for (const [s, sg] of [['L', 1], ['R', -1]]) { rig.bend(s + 'ArmA', 1, 0, 0, -0.35 * cr); rig.bend(s + 'ArmA', 0, 0, 1, sg * 0.15 * cr); }
     }
     rig.holder.position.y = rig.y0 - cr * 0.1 * rig.k / 1.3;
+    rig.idles?.post(dt);
   };
 
   actor.animate = (dt, speed, air, t) => {
@@ -971,7 +952,7 @@ function calemActor(look) {
   const blinkStep = (dt) => {
     blink -= dt;
     if (rig.eyes) {
-      rig.eyes.offset.x = blink < 0 ? 0.5 : 0;
+      rig.eyes.offset.x = blink < 0 || rig.idles?.eyes ? 0.5 : 0;
       if (blink < -0.12) blink = 2 + Math.random() * 4;
     }
   };
