@@ -19,6 +19,17 @@ If `web/pokered.gbc` is missing, the page asks for a ROM file instead and rememb
 
 The player (without any ROM) is published to GitHub Pages, from the `gh-pages` branch that `.github/workflows/pages.yml` rewrites on every push to `main` touching `web/`: https://diegolas-1.github.io/poketest/. Open it, pick the `pokered.gbc` you built, and it loads by itself from then on.
 
+## 3D Pallet Town (work in progress)
+
+`web/world/` (the "3D Pallet Town" link, or https://diegolas-1.github.io/poketest/world/) is a spin-off: Pallet Town rebuilt as a free-roaming 3D world in the style of the anime's background paintings. It needs no ROM. Walk with WASD or the arrows (Shift runs, Space jumps), E talks and reads, drag or Q/R turns the camera, the wheel zooms; touch screens get a stick and buttons. Add `?q=low|medium|high` to pick the detail level (Chromebooks and phones start on low).
+
+- `toon.js` cel shading (flat light bands, cool blue-green shade) for every Lambert material.
+- `foliage.js` painted leaf-stroke atlas and procedural trees, bushes, flowers and rocks; `veg.js` places them.
+- `town.js` Red's and Blue's cottages, Oak's hilltop lab, fences, signs, lamps and the dock, with painted textures and ink outlines.
+- `terrain.js` ground, roads, the pond, the sea, Oak's hill and its stairs; `nature.js` sky, clouds and the painted mountains.
+- `main.js` the player, camera, collisions, villagers, dialog and Oak stopping you at the tall grass.
+- `foliage.html` and `oldtree.html` (`?ink=1` for outlines, `ink.js`) preview the plants on their own.
+
 ## HD-2D (work in progress)
 
 `web/hd/` (the "HD-2D" link, or https://diegolas-1.github.io/poketest/hd/) plays the same game in 3D. The real game keeps running in the emulator; every frame the page reads the game's memory (map, positions, facing, text on screen) and draws it as an HD-2D scene with three.js: pixel-art ground, trees, signs, houses and furniture that stand up out of the map, characters as sprites facing the camera, shadows, a tilt-shift blur and bloom. Text boxes and menus are redrawn in a new style from the text the game writes to its screen. Battles, menus that fill the screen and the intro show the Game Boy screen.
@@ -60,5 +71,5 @@ The built ROM is a copy of Nintendo's game, so it is never committed (see `.giti
 
 - [pret/pokered](https://github.com/pret/pokered) disassembly.
 - [binjgb](https://github.com/binji/binjgb) by Ben Smith, MIT (`web/LICENSE.binjgb`); the player page and controller come from GB Studio (`web/LICENSE.gbstudio`).
-- [three.js](https://threejs.org) r169, MIT (`web/hd/lib/three/LICENSE`).
+- [three.js](https://threejs.org) r169, MIT (`web/lib/three/LICENSE`).
 - [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans), SIL Open Font License (`web/hd/fonts/OFL.txt`).

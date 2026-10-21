@@ -3,3 +3,8 @@
 *.gbc
 web/pokered.gbc
 tools/rgbds-*/
+node_modules/
+# downloaded CC0 scans (tools/world/fetch-assets.mjs); not used by the anime style
+web/world/assets/
+web/world/preview.html
+web/world/lineup.html

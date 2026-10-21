@@ -23,6 +23,8 @@ https://github.com/chrismaltby/gb-studio/blob/v2beta/appData/js-emulator/index.h
     #romPicker code { background: #333; padding: 2px 6px; border-radius: 4px; }
     #hdLink { position: fixed; top: 10px; left: 10px; z-index: 6; color: #fff; font: 13px system-ui, sans-serif;
       background: rgba(0,0,0,.45); padding: 6px 10px; border-radius: 6px; text-decoration: none; }
+    #worldLink { position: fixed; top: 44px; right: 10px; z-index: 5; color: #fff; font: 13px system-ui, sans-serif;
+      background: rgba(0,0,0,.45); padding: 6px 10px; border-radius: 6px; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -32,6 +34,7 @@ https://github.com/chrismaltby/gb-studio/blob/v2beta/appData/js-emulator/index.h
     <input type="file" accept=".gb,.gbc">
   </div>
   <a id="hdLink" href="hd/">HD-2D (Pallet Town)</a>
+  <a id="worldLink" href="world/">3D Pallet Town</a>
   <div id="game">
     <canvas id="mainCanvas" width="160" height="144">No Canvas Support</canvas>
   </div>

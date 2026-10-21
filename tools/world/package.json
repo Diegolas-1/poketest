@@ -1,0 +1,13 @@
+{
+  "name": "pallet-world-assets",
+  "private": true,
+  "type": "module",
+  "description": "Downloads CC0 models and textures from Poly Haven and shrinks them for the browser.",
+  "dependencies": {
+    "@gltf-transform/core": "4.1.1",
+    "@gltf-transform/extensions": "4.1.1",
+    "@gltf-transform/functions": "4.1.1",
+    "meshoptimizer": "0.22.0",
+    "sharp": "0.33.5"
+  }
+}

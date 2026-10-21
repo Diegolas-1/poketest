@@ -15,7 +15,7 @@ for (let i = 0; i < 10; i++) CHARS[0xf6 + i] = String(i);
 const CURSOR = 0xed, CURSOR_OFF = 0xec, PROMPT = 0xee;
 const BORDER = new Set([0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e]);
 
-const INK = '#23284f';
+export const INK = '#23284f';
 const PAL = { K: '#1b1d33', R: '#e8463c', r: '#a32a2c', h: '#ffb1a4', W: '#ffffff', w: '#c9cbdc' };
 const BALL = [
   '....KKKK....',
@@ -33,12 +33,12 @@ const BALL = [
 ];
 
 let fontReady = false;
-const FONT = 'Pixelify Sans';
+export const FONT = 'Pixelify Sans';
 if (document.fonts) {
   document.fonts.load(`600 20px "${FONT}"`).then(() => { fontReady = true; });
 }
 
-function pixelArt(ctx, rows, x, y, u) {
+export function pixelArt(ctx, rows, x, y, u) {
   for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) {
     const c = PAL[rows[j][i]];
     if (!c) continue;
@@ -47,13 +47,13 @@ function pixelArt(ctx, rows, x, y, u) {
   }
 }
 
-function roundRect(ctx, x, y, w, h, r) {
+export function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
-function triangle(ctx, x, y, s, dir, fill) {
+export function triangle(ctx, x, y, s, dir, fill) {
   ctx.beginPath();
   if (dir === 'right') { ctx.moveTo(x, y); ctx.lineTo(x + s, y + s); ctx.lineTo(x, y + 2 * s); }
   else { ctx.moveTo(x, y); ctx.lineTo(x + 2 * s, y); ctx.lineTo(x + s, y + s); }
@@ -63,7 +63,7 @@ function triangle(ctx, x, y, s, dir, fill) {
 }
 
 // One panel: rect in device pixels, u = size of one Game Boy pixel.
-function panel(ctx, x, y, w, h, u) {
+export function panel(ctx, x, y, w, h, u) {
   const r = 4 * u;
   ctx.save();
   ctx.shadowColor = 'rgba(10, 14, 40, 0.38)';
