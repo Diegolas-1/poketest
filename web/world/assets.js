@@ -220,6 +220,8 @@ export class Scatter {
           m4.compose(t.set(p.x, p.y, p.z), q, s.set(p.s, p.s * (p.sy || 1), p.s));
           im.setMatrixAt(j, m4);
         });
+        // all parts of a plant stand in the same places: one matrix buffer
+        if (c.meshes.length) im.instanceMatrix = c.meshes[0].instanceMatrix;
         im.computeBoundingSphere();
         im.castShadow = shadows; im.receiveShadow = true;
         im.visible = false;
@@ -331,6 +333,15 @@ export class Impostor {
       renderer.render(scene, cam);
     }
     this.rt.scissorTest = false; this.rt.viewport.set(0, 0, w * views, h * rows);
+    // keep only the picture: read it back into a plain texture (mipmapped on
+    // upload) and free the render target, whose depth buffer is as big again
+    const W = w * views, H = h * rows, px = new Uint8Array(W * H * 4);
+    renderer.readRenderTargetPixels(this.rt, 0, 0, W, H, px);
+    const tex = new THREE.DataTexture(px, W, H, THREE.RGBAFormat, THREE.UnsignedByteType);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = true; tex.needsUpdate = true;
+    tex.onUpdate = () => { tex.image = { data: null, width: W, height: H }; };
+    this.rt.dispose(); this.rt = { texture: tex };
     renderer.setRenderTarget(old);
     renderer.setClearColor(oldColor, oldClear);
     renderer.shadowMap.autoUpdate = oldShadow;

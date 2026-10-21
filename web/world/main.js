@@ -222,6 +222,38 @@ function blocked(x, z, r = 0) {
   return false;
 }
 
+// ---------- memory ----------
+// Once every texture that uses a picture has been sent to the GPU, the
+// picture itself (a canvas, a decoded image) is no longer needed: free it, so
+// Safari keeps one copy of each texture instead of two.
+const freed = new WeakSet();
+function freePictures() {
+  const users = new Map();
+  const note = (t) => {
+    if (!t || !t.isTexture || !t.source) return;
+    const d = t.source.data;
+    if (!d || freed.has(t.source) || !(d instanceof HTMLCanvasElement || d instanceof HTMLImageElement || (typeof ImageBitmap !== 'undefined' && d instanceof ImageBitmap))) return;
+    if (!users.has(t.source)) users.set(t.source, new Set());
+    users.get(t.source).add(t);
+  };
+  scene.traverse((o) => {
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) {
+      for (const k in m) if (m[k] && m[k].isTexture) note(m[k]);
+      if (m.uniforms) for (const k in m.uniforms) note(m.uniforms[k].value);
+    }
+  });
+  for (const [src, texs] of users) {
+    let ready = true;
+    for (const t of texs) { const pr = renderer.properties.get(t); if (pr.__version !== t.version || !pr.__webglTexture) { ready = false; break; } }
+    if (!ready) continue;
+    const d = src.data, stub = { width: d.width, height: d.height };
+    if (d instanceof HTMLCanvasElement) { d.width = 0; d.height = 0; }
+    else if (typeof ImageBitmap !== 'undefined' && d instanceof ImageBitmap) d.close();
+    src.data = stub; freed.add(src);
+  }
+}
+
 // ---------- people ----------
 // Skinned meshes upload their skeleton's bone matrices as a texture whenever
 // the skeleton updates. Each clothing piece came with its own copy of the same
@@ -601,6 +633,7 @@ function frame(fixed) {
     player.lookYaw = Math.abs(rel) < 2.2 && !dialog.open ? Math.max(-1.0, Math.min(1.0, rel)) : 0;
   }
   if (gameFrame % 30 === 1) { shareSkeletons(player.root); for (const n of npcs) shareSkeletons(n.actor.root); }
+  if (gameFrame % 180 === 90 && window.worldReady) freePictures();
   player.animate(dt, Math.abs(me.speed), !me.ground, t);
   void moving;
   // the view (last frame's camera) for the villagers' culling
