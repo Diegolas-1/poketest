@@ -252,7 +252,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
   // one curved blade, 4 segments
   const segs = 4, pos = [], uv = [], idx = [];
   for (let i = 0; i <= segs; i++) {
-    const t = i / segs, w = 0.045 * (1 - t * 0.85);
+    const t = i / segs, w = 0.07 * (1 - t * 0.9);
     pos.push(-w, t, 0, w, t, 0); uv.push(0, t, 1, t);
     if (i < segs) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   }
@@ -289,7 +289,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         float dens = hm.g;
         float dist = length(p - uCam.xz);
         float keep = step(off.z, dens) * smoothstep(uSize * 0.5, uSize * 0.36, dist);
-        float h = (0.35 + off.w * 0.45) * (0.6 + dens * 0.5) * keep;
+        float h = (0.28 + off.w * 0.32) * (0.6 + dens * 0.5) * keep;
         float t = position.y; vT = t;
         float ang = off.z * 40.0;
         vec2 dir = vec2(cos(ang), sin(ang));
@@ -301,10 +301,11 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         wp.x += bend * h * 0.9; wp.z += bend * h * 0.4;
         // colour: dark roots, sunlit tips, a little variety in each patch
         float n = hash(floor(p * 0.25));
-        vec3 base = mix(vec3(0.14, 0.27, 0.08), vec3(0.20, 0.30, 0.07), n);
-        vec3 tip = mix(vec3(0.55, 0.72, 0.28), vec3(0.78, 0.76, 0.36), hash(floor(p * 0.6)) * 0.6);
-        vCol = mix(base, tip, smoothstep(0.0, 1.0, t));
-        vLight = 0.55 + 0.45 * max(dot(normalize(vec3(dir.y, 0.6, -dir.x)), normalize(uSun)), 0.0);
+        // anime grass: bright lime, yellow-green tips, cool teal at the roots
+        vec3 base = mix(vec3(0.10, 0.36, 0.20), vec3(0.14, 0.42, 0.14), n);
+        vec3 tip = mix(vec3(0.42, 0.78, 0.16), vec3(0.62, 0.86, 0.22), hash(floor(p * 0.6)) * 0.7);
+        vCol = mix(base, tip, smoothstep(0.05, 0.8, t));
+        vLight = 0.8 + 0.25 * step(0.35, dot(normalize(vec3(dir.y, 0.6, -dir.x)), normalize(uSun)));
         vec4 mv = viewMatrix * vec4(wp, 1.0);
         vFog = -mv.z;
         gl_Position = projectionMatrix * mv;
@@ -313,7 +314,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
       uniform vec3 fogColor; uniform float fogNear, fogFar;
       varying float vT; varying vec3 vCol; varying float vFog; varying float vLight;
       void main(){
-        vec3 c = vCol * vLight * 1.15;
+        vec3 c = vCol * vLight;
         c = mix(c, fogColor, smoothstep(fogNear, fogFar, vFog));
         gl_FragColor = vec4(c, 1.0);
         #include <colorspace_fragment>

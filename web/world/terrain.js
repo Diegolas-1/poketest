@@ -268,7 +268,7 @@ export function grassMap(x0, z0, w, d, res) {
     const x = x0 + (i + 0.5) * res, z = z0 + (j + 0.5) * res;
     const h = height(x, z);
     let g = 1 - smooth(1.4, 2.6, -roadDist(x, z) + 3.2);
-    if (isWater(x, z) || h < 0.15 || buildingPad(x, z) > 0.35) g = 0;
+    if (isWater(x, z) || h < 0.15 || buildingPad(x, z) > 0.97) g = 0;
     g *= 0.55 + fbm(x * 0.07, z * 0.07, 2) * 0.6;
     const k = (j * nx + i) * 4;
     data[k] = h; data[k + 1] = Math.max(0, Math.min(1, g)); data[k + 3] = 1;

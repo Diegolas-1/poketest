@@ -69,9 +69,9 @@ export function buildSky(sunDir) {
       uniform vec3 uSun; varying vec3 vD;
       void main(){
         float y = vD.y;
-        vec3 top = vec3(0.30, 0.56, 0.86), mid = vec3(0.62, 0.80, 0.94), hor = vec3(0.92, 0.94, 0.90);
+        vec3 top = vec3(0.07, 0.30, 0.82), mid = vec3(0.28, 0.60, 0.95), hor = vec3(0.80, 0.92, 0.96);
         vec3 c = mix(hor, mid, smoothstep(0.0, 0.18, y));
-        c = mix(c, top, smoothstep(0.18, 0.75, y));
+        c = mix(c, top, smoothstep(0.12, 0.6, y));
         float s = max(dot(vD, uSun), 0.0);
         c += vec3(1.0, 0.92, 0.7) * pow(s, 64.0) * 0.8 + vec3(1.0, 0.85, 0.6) * pow(s, 6.0) * 0.18;
         c = mix(c, vec3(0.86, 0.9, 0.86), smoothstep(0.0, -0.2, y));

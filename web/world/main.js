@@ -4,6 +4,7 @@ import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y } from './te
 import { buildSky, buildClouds, buildMountains, TALL_GRASS } from './nature.js';
 import { buildTown, BEDS } from './town.js';
 import { celify } from './toon.js';
+import { foliageTime } from './foliage.js';
 import { buildVegetation } from './veg.js';
 import { grassField, wind, surface } from './assets.js';
 import { makeActor, LOOKS } from './actor.js';
@@ -18,9 +19,9 @@ const q = new URLSearchParams(location.search);
 const auto = (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|Android|iPhone|iPad/.test(navigator.userAgent) ? 'low' : 'high';
 const level = q.get('q') || auto;
 const QUALITY = {
-  low: { dpr: 1, shadow: 1024, grass: 45000, trees: 0.6, plants: 0.5, lod: 0.7 },
-  medium: { dpr: 1.25, shadow: 2048, grass: 90000, trees: 0.85, plants: 0.8, lod: 0.85 },
-  high: { dpr: 1.5, shadow: 2048, grass: 160000, trees: 1, plants: 1, lod: 1 },
+  low: { dpr: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7 },
+  medium: { dpr: 1.25, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85 },
+  high: { dpr: 1.5, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1 },
 }[level] || null;
 
 // ---------- renderer and scene ----------
@@ -32,7 +33,7 @@ renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
-const FOG = new THREE.Color('#cfe2e8');
+const FOG = new THREE.Color('#c4e2f0');
 scene.fog = new THREE.Fog(FOG, 90, 430);
 const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 2000);
 
@@ -117,7 +118,7 @@ async function grow() {
   status('Growing grass');
   const area = { x0: -150, z0: -200, w: 300, d: 290 };
   const tex = grassMap(area.x0, area.z0, area.w, area.d, 1);
-  grass = grassField(scene, { count: QUALITY.grass, size: 64, heightTex: tex, area, sunDir });
+  grass = grassField(scene, { count: QUALITY.grass, size: QUALITY.grassSize, heightTex: tex, area, sunDir });
   for (const imp of veg.impostors) Object.assign(imp.material.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
   Object.assign(grass.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
   $('loading').classList.add('done');
@@ -245,8 +246,8 @@ const clock = new THREE.Clock();
 let t = 0;
 const TEST = q.has('test');   // automated checks draw frames on demand
 function frame(fixed) {
-  const dt = typeof fixed === 'number' ? fixed : Math.min(clock.getDelta(), 0.05);
-  t += dt; uTime.value = t;
+  const dt = TEST && typeof fixed === 'number' ? fixed : Math.min(clock.getDelta(), 0.05);
+  t += dt; uTime.value = t; foliageTime.value = t;
   const c = input.read();
   if (dialog.open) {
     if (c.pressed.has('use') || c.pressed.has('jump') || c.pressed.has('back')) dialog.next();
@@ -316,8 +317,9 @@ function frame(fixed) {
   if (inGrass && !script && !dialog.open && window.worldReady) oakScene();
   updateCamera(dt);
   clouds.userData.tick(dt);
+  for (const f of town.anim) f(dt, t);
   if (veg) veg.update(camera.position);
-  if (grass) grass.uniforms.uCam.value.copy(camera.position);
+  if (grass) grass.uniforms.uCam.value.copy(me.pos);
   // the prompt over whatever is in reach
   const n = !dialog.open && !script ? nearby() : null;
   if (n) {
