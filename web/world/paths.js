@@ -11,42 +11,6 @@ import { ROADS, FIELDS, height, rng, pathMap, pathSD } from './terrain.js';
 import { celify } from './toon.js';
 import { makeClump, TILE } from './foliage.js';
 
-// Tufts of grass blades for the edge, as a tiling map (1.2 m): r = how close
-// to the tuft's root a blade pixel is (1 at the root, 0 at the tips and
-// between blades), g = the blade's tone. A dirt pixel is covered by grass when
-// a tuft's blades reach that far in from the edge.
-let TUFT = null;
-function tuftTexture() {
-  if (TUFT) return TUFT;
-  const S = 512, R = rng(9157), cv = document.createElement('canvas'); cv.width = cv.height = S;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#000'; c.fillRect(0, 0, S, S);
-  c.globalCompositeOperation = 'lighten';
-  for (let k = 0; k < 80; k++) {
-    const cx = R() * S, cy = R() * S, rad = 70 + R() * 90, n = 8 + Math.floor(R() * 8);
-    for (let b = 0; b < n; b++) {
-      const ang = R() * Math.PI * 2, len = rad * (0.55 + R() * 0.45), w = 3.5 + R() * 4, bend = (R() - 0.5) * 0.9;
-      const tone = Math.floor(40 + R() * 215);
-      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
-        const x0 = cx + ox, y0 = cy + oy;
-        const g = c.createRadialGradient(x0, y0, 0, x0, y0, rad);
-        g.addColorStop(0, `rgb(255,${tone},0)`); g.addColorStop(1, `rgb(0,${tone},0)`);
-        c.fillStyle = g;
-        const tx = x0 + Math.cos(ang) * len, ty = y0 + Math.sin(ang) * len;
-        const mx = (x0 + tx) / 2 + Math.cos(ang + Math.PI / 2) * len * bend * 0.3, my = (y0 + ty) / 2 + Math.sin(ang + Math.PI / 2) * len * bend * 0.3;
-        const px = Math.cos(ang + Math.PI / 2) * w, py = Math.sin(ang + Math.PI / 2) * w;
-        c.beginPath(); c.moveTo(x0 - px, y0 - py);
-        c.quadraticCurveTo(mx - px * 0.6, my - py * 0.6, tx, ty);
-        c.quadraticCurveTo(mx + px * 0.6, my + py * 0.6, x0 + px, y0 + py);
-        c.closePath(); c.fill();
-      }
-    }
-  }
-  TUFT = new THREE.CanvasTexture(cv);
-  TUFT.colorSpace = THREE.NoColorSpace; TUFT.wrapS = TUFT.wrapT = THREE.RepeatWrapping; TUFT.anisotropy = 4;
-  return TUFT;
-}
-
 let DIRT = null;
 function dirtTexture() {
   if (DIRT) return DIRT;
@@ -65,13 +29,21 @@ function pathMapTexture() {
 
 // The terrain material paints the dirt: call before celify (celify chains
 // onto this onBeforeCompile and replaces only the final colour block).
+//
+// The grass along the edge is painted as single blades, not a tiling map:
+// roots are scattered on a 0.25 m grid, each slid along the path map's
+// gradient onto the edge, and each blade leans across the edge onto the dirt
+// (direction = into the dirt, a little turned, a little bent), tapering to a
+// point, darker at the root and lighter at the tip, with a small shadow on
+// the dirt away from the sun. Far off (a pixel wider than a blade) the blades
+// fade to their average, a soft green fringe, so nothing speckles.
 export function pathGround(m) {
   const M = pathMap();
   const col = (h) => new THREE.Color(h);
   const U = {
     uPM: { value: pathMapTexture() }, uPMo: { value: new THREE.Vector2(M.x0, M.z0) }, uPMs: { value: new THREE.Vector2(M.w, M.d) },
-    uDirt: { value: dirtTexture() }, uTuft: { value: tuftTexture() },
-    uDMid: { value: col('#d8aa70') }, uDLight: { value: col('#e8c890') }, uDEdge: { value: col('#b07648') },
+    uDirt: { value: dirtTexture() },
+    uDMid: { value: col('#d8aa70') }, uDLight: { value: col('#e8c890') }, uDEdge: { value: col('#c49a6c') },
     uDDark: { value: col('#86593a') }, uDPale: { value: col('#e6cf9c') },
   };
   const prev = m.onBeforeCompile;
@@ -81,11 +53,12 @@ export function pathGround(m) {
     sh.vertexShader = 'varying vec3 vPW;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vPW = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
     sh.fragmentShader = `varying vec3 vPW;
-      uniform sampler2D uPM, uDirt, uTuft; uniform vec2 uPMo, uPMs;
+      uniform sampler2D uPM, uDirt; uniform vec2 uPMo, uPMs;
       uniform vec3 uDMid, uDLight, uDEdge, uDDark, uDPale;
       float pHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
       float pvn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(pHash(i), pHash(i + vec2(1, 0)), f.x), mix(pHash(i + vec2(0, 1)), pHash(i + vec2(1, 1)), f.x), f.y); }
+      float pSD(vec2 w) { return texture2D(uPM, (w - uPMo) / uPMs).r * 8.0 - 4.0; }
       ` + sh.fragmentShader
       .replace('#include <color_fragment>', `#include <color_fragment>
       float pDirt; vec2 pNrm;
@@ -93,30 +66,78 @@ export function pathGround(m) {
         vec2 wp = vPW.xz;
         vec4 pm = texture2D(uPM, (wp - uPMo) / uPMs);
         vec3 dt = texture2D(uDirt, wp / 3.0).rgb;
-        vec2 tf = texture2D(uTuft, wp / 1.6).rg;
         float sd = pm.r * 8.0 - 4.0, det = dt.r;
-        // the ragged edge: two scales of wobble, and it follows the stones
-        float e = sd + (pvn(wp * 0.9) - 0.5) * 0.34 + (pvn(wp * 3.3 + 7.0) - 0.5) * 0.14 + (det - 0.45) * 0.08;
-        float aa = max(fwidth(e), 1e-3), pxw = length(fwidth(wp));
+        float pxw = max(length(dFdx(wp)), length(dFdy(wp)));
+        // 0 up close, 1 once a pixel is wider than a blade
+        float farK = smoothstep(0.02, 0.05, pxw);
+        // the ragged edge: two scales of wobble (eS, smooth) and, up close,
+        // the stones of the photo
+        float eS = sd + (pvn(wp * 0.9) - 0.5) * 0.34 + (pvn(wp * 3.3 + 7.0) - 0.5) * 0.14;
+        float e = eS + (det - 0.45) * 0.08 * (1.0 - farK);
+        float aa = max(fwidth(e), 1e-3);
         float onDirt = smoothstep(aa, -aa, e);
-        // tufts whose blades reach in over the edge
-        float reach = tf.r * 0.5 + e, ra = max(fwidth(reach), 1e-3);
-        float blade = smoothstep(-ra, ra, reach) * step(0.03, tf.r) * step(-0.5, e);
+        vec3 ldw = vec3(0.5, 0.8, 0.3);
+        #if NUM_DIR_LIGHTS > 0
+          ldw = normalize((vec4(directionalLights[0].direction, 0.0) * viewMatrix).xyz);
+        #endif
+        vec2 sOff = -normalize(ldw.xz + 1e-4) * 0.035;
+        // blades along the edge
+        float blade = 0.0, bShade = 0.0, bTip = 0.5, bTone = 0.5;
+        if (farK < 0.999 && eS > -0.42 && eS < 0.36) {
+          vec2 gr = vec2(pSD(wp + vec2(0.3, 0.0)) - pSD(wp - vec2(0.3, 0.0)), pSD(wp + vec2(0.0, 0.3)) - pSD(wp - vec2(0.0, 0.3)));
+          vec2 n = normalize(gr + vec2(1e-5, 0.0));       // out of the dirt
+          const float CS = 0.25;
+          vec2 ci = floor(wp / CS);
+          for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) {
+            vec2 cc = ci + vec2(float(i), float(j));
+            vec2 cw = (cc + 0.5) * CS;
+            if (abs(eS + dot(cw - wp, n)) > 0.48) continue;
+            float clump = pvn(cw * 1.3 + 21.0);
+            for (int k = 0; k < 4; k++) {
+              vec2 hs = cc * 1.7 + float(k) * 13.1;
+              float h0 = pHash(hs + 0.3), h1 = pHash(hs + 5.7), h2 = pHash(hs + 9.1), h3 = pHash(hs + 2.9), h4 = pHash(hs + 7.3);
+              if (h0 > 0.55 + clump * 0.45) continue;
+              vec2 r0 = (cc + vec2(h1, h2)) * CS;
+              float er = eS + dot(r0 - wp, n);
+              float keep = smoothstep(0.3, 0.2, abs(er));
+              if (keep <= 0.0) continue;
+              float L = (0.12 + h3 * h3 * 0.26) * (0.7 + clump * 0.5);
+              vec2 R = r0 - n * (er - h4 * 0.07);           // the root, on the edge or just behind it
+              vec2 q = wp - R;
+              if (dot(q, q) > (L + 0.05) * (L + 0.05)) continue;
+              float an = (h1 - 0.5) * 1.0 + (clump - 0.5) * 0.5, ca = cos(an), sa = sin(an);
+              vec2 d = -vec2(ca * n.x - sa * n.y, sa * n.x + ca * n.y), s = vec2(-d.y, d.x);
+              float W = (0.019 + h2 * 0.016) * keep, bend = (h4 - 0.5) * 1.2 / L;
+              // the blade
+              float al = dot(q, d), ac = dot(q, s) - bend * al * al, tt = al / L;
+              float ds = max(max(abs(ac) - W * pow(max(1.0 - tt, 0.0), 0.7), -al), al - L);
+              float cv = smoothstep(pxw * 0.6, -pxw * 0.6, ds);
+              if (cv > blade) { blade = cv; bTip = clamp(tt, 0.0, 1.0); bTone = h0 / (0.55 + clump * 0.45); }
+              // its shadow, a little away from the sun
+              vec2 q2 = q - sOff;
+              al = dot(q2, d); ac = dot(q2, s) - bend * al * al; tt = al / L;
+              ds = max(max(abs(ac) - W * 1.2 * pow(max(1.0 - tt, 0.0), 0.7), -al), al - L);
+              bShade = max(bShade, smoothstep(pxw * 0.8, -pxw * 0.8, ds));
+            }
+          }
+        }
+        // far off: the average of the blades, a soft fringe over the dirt
+        float avgB = smoothstep(-0.16, 0.03, eS) * 0.8;
+        blade = mix(blade, avgB, farK);
+        bShade = mix(bShade * (1.0 - blade), smoothstep(-0.26, -0.04, eS) * (1.0 - avgB) * 0.5, farK);
         pDirt = onDirt * (1.0 - blade);
-        // each blade casts a little shadow on the dirt round it
-        float bshade = smoothstep(-0.07, 0.0, reach) * step(0.03, tf.r) * (1.0 - blade);
-        // the grass: blades lighter at the tips, a darker shade where they
-        // lean over the dirt, a lit lip on the bank above the sunken track
+        // the grass: painted blades, darker at the root, lighter at the tip
         vec3 grass = diffuseColor.rgb;
-        float near = 1.0 - smoothstep(0.0, 0.5, abs(e));
-        grass *= mix(1.0, mix(0.72, 1.18, 1.0 - tf.r) * (0.9 + tf.g * 0.2), near * step(0.03, tf.r));
-        grass *= 1.0 + 0.08 * (1.0 - smoothstep(0.0, 0.14, e)) * step(0.0, e);
-        grass *= 1.0 - 0.14 * blade * onDirt;
+        float bl = blade * (1.0 - farK);
+        grass *= mix(1.0, mix(0.8, 1.26, bTip * bTip) * (0.9 + bTone * 0.2), bl);
+        grass *= mix(1.0, 0.92, farK * blade);
+        // a lit lip on the bank above the sunken track
+        grass *= 1.0 + 0.06 * (1.0 - smoothstep(0.0, 0.16, eS)) * step(0.0, eS) * (1.0 - bl);
         // the dirt (only where there is some: grass pixels skip all this)
         vec3 c = grass;
         if (pDirt > 0.001) {
         float depth = -sd;
-        c = mix(uDEdge, uDMid, smoothstep(0.0, 0.75, -e));
+        c = mix(uDEdge, uDMid, smoothstep(0.0, 0.75, -eS));
         c = mix(c, uDLight, smoothstep(0.5, 1.7, depth) * 0.5);
         c = mix(c, uDPale, pm.a * smoothstep(0.1, 1.2, depth));
         // two worn ruts, a lit ridge outside each
@@ -128,22 +149,20 @@ export function pathGround(m) {
         float pn = pvn(wp * 0.32 + 11.0) * 0.65 + pvn(wp * 0.9 + 3.0) * 0.35;
         c *= 0.86 + smoothstep(0.25, 0.75, pn) * 0.22;
         // stones and hollows from the photo, posterized for the painted look
-        float dq = mix(det, floor(det * 4.0 + 0.5) / 4.0, 0.65);
+        float dq = mix(det, floor(det * 4.0 + 0.5) / 4.0, 0.65 * (1.0 - farK));
         c *= 0.66 + dq * 0.72;
         // the photo's relief lit by the sun: stones get a lit and a shaded side
-        float rel = 0.0;
-        #if NUM_DIR_LIGHTS > 0
-          vec3 ldw = normalize((vec4(directionalLights[0].direction, 0.0) * viewMatrix).xyz);
-          vec2 nn = dt.gb * 2.0 - 1.0;
-          rel = dot(vec3(nn.x, 0.0, -nn.y), ldw);
-        #endif
+        vec2 nn = dt.gb * 2.0 - 1.0;
+        float rel = dot(vec3(nn.x, 0.0, -nn.y), ldw);
         c *= 1.0 + clamp(rel * 1.6, -0.35, 0.3);
         c = mix(c, uDDark, smoothstep(0.2, 0.06, det) * 0.6);
         c = mix(c, uDLight * 1.12, smoothstep(0.74, 0.88, det) * 0.55);
-        // the damp darker lip just under the grass (the track sits a little low)
-        c = mix(c, uDDark, (1.0 - smoothstep(0.0, 0.18, -e)) * 0.4);
-        c *= mix(0.86, 1.0, smoothstep(0.0, 0.35, -e));
-        c *= 1.0 - 0.28 * bshade;
+        // the damp lip under the grass: one soft, darker band (wider when
+        // seen from far, so it never breaks into flecks between blades)
+        float lipW = 0.24 + pxw * 6.0;
+        float lip = 1.0 - smoothstep(0.0, lipW, -eS);
+        c *= mix(vec3(1.0), vec3(0.9, 0.86, 0.85), lip);
+        c *= 1.0 - 0.3 * bShade;
         // painted pebbles: one now and then in a 0.32 m cell, a shadow on the
         // side away from the sun, a pale body and a lit top
         {
@@ -154,10 +173,7 @@ export function pathGround(m) {
             float rad = 0.07 + pHash(ci + 1.3) * 0.09 + step(0.19, hr) * 0.06;
             float an = pHash(ci + 9.0) * 6.283, ca = cos(an), sa = sin(an);
             vec2 q = fp - off; q = vec2(ca * q.x - sa * q.y, sa * q.x + ca * q.y); q.y *= 1.35;
-            vec2 sdir = vec2(-0.6, 0.45);
-            #if NUM_DIR_LIGHTS > 0
-              sdir = -normalize(ldw.xz + 1e-4) * 0.55;
-            #endif
+            vec2 sdir = -normalize(ldw.xz + 1e-4) * 0.55;
             vec2 qs = fp - off - sdir * rad * 1.5; qs = vec2(ca * qs.x - sa * qs.y, sa * qs.x + ca * qs.y); qs.y *= 1.35;
             float w = pxw / 0.32 + 1e-3;
             float sh = smoothstep(w, -w, length(qs) - rad * 1.1);
@@ -171,10 +187,25 @@ export function pathGround(m) {
         }
         }
         diffuseColor.rgb = mix(grass, c, pDirt);
-        pNrm = (dt.gb * 2.0 - 1.0) * pDirt;
+        pNrm = (dt.gb * 2.0 - 1.0) * pDirt * (1.0 - farK * 0.5);
       }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-      normal = normalize(normal + mat3(viewMatrix) * vec3(pNrm.x, 0.0, -pNrm.y) * 0.5);`);
+      normal = normalize(normal + mat3(viewMatrix) * vec3(pNrm.x, 0.0, -pNrm.y) * 0.5);`)
+      // after the cel bands: dirt in shade keeps its warm hue (a mauve
+      // brown, as the anime paints it). The cool cel tints alone turn the
+      // pale sand grey. Same brightness, only the hue changes.
+      .replace('#include <opaque_fragment>', `#include <opaque_fragment>
+      {
+        const vec3 LW = vec3(0.2126, 0.7152, 0.0722);
+        float lb = max(dot(diffuseColor.rgb, LW), 1e-4), lo = dot(gl_FragColor.rgb, LW);
+        float rr = lo / lb;
+        float shd = 1.0 - smoothstep(0.86, 1.0, rr);
+        if (pDirt > 0.001 && shd > 0.0) {
+          vec3 wm = diffuseColor.rgb * mix(vec3(0.62, 0.5, 0.6), vec3(0.8, 0.7, 0.74), smoothstep(0.5, 0.85, rr));
+          wm *= lo / max(dot(wm, LW), 1e-4);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, wm, shd * pDirt * 0.6);
+        }
+      }`);
   };
   const prevKey = m.customProgramCacheKey.bind(m);
   m.customProgramCacheKey = () => prevKey() + 'pathground';
@@ -293,6 +324,20 @@ function fieldTexture(kind) {
 export function buildFields(scene) {
   const group = new THREE.Group(), texs = {};
   const cel = { bands: [0.08, 0.22, 0.5], soft: 0.04, deep: [0.5, 0.6, 0.8], shade: [0.68, 0.76, 0.9], lit: [1.05, 1.04, 0.98] };
+  // The terrain mesh is a 1.5 m grid, so between its vertices it can sit up to
+  // 12 cm off height(): sit each field vertex 8 cm over whichever is higher,
+  // the true height or the rendered ground, or the ground pokes through (and
+  // fights the field) where it bends.
+  const tm = scene.getObjectByName('terrain'), tp = tm && tm.geometry.parameters, tpos = tm && tm.geometry.attributes.position;
+  const onMesh = (x, z) => {
+    if (!tp) return -1e9;
+    const S = tp.width / tp.widthSegments, n = tp.widthSegments + 1;
+    const fx = (x + tp.width / 2) / S, fz = (z + tp.height / 2) / S, ix = Math.floor(fx), iz = Math.floor(fz);
+    if (ix < 0 || iz < 0 || ix >= tp.widthSegments || iz >= tp.heightSegments) return -1e9;
+    const u = fx - ix, v = fz - iz, Y = (i, j) => tpos.getY(j * n + i);
+    return u + v <= 1 ? Y(ix, iz) + u * (Y(ix + 1, iz) - Y(ix, iz)) + v * (Y(ix, iz + 1) - Y(ix, iz))
+      : Y(ix + 1, iz + 1) + (1 - u) * (Y(ix, iz + 1) - Y(ix + 1, iz + 1)) + (1 - v) * (Y(ix + 1, iz) - Y(ix + 1, iz + 1));
+  };
   for (const f of FIELDS) {
     const tex = texs[f.kind] || (texs[f.kind] = fieldTexture(f.kind));
     const nu = Math.ceil(f.w / 1.0), nv = Math.ceil(f.d / 1.0);
@@ -302,7 +347,7 @@ export function buildFields(scene) {
     for (let i = 0; i < p.count; i++) {
       const u = p.getX(i), v = -p.getY(i);
       const x = f.x + u * c + v * s, z = f.z - u * s + v * c;
-      p.setXYZ(i, x, height(x, z) + 0.08, z);
+      p.setXYZ(i, x, Math.max(height(x, z), onMesh(x, z)) + 0.08, z);
       uv.setXY(i, u / 6, v / 1.4 / 8);
     }
     g.computeVertexNormals();

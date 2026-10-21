@@ -1,0 +1,537 @@
+{
+  "models": {
+    "shrub_02": {
+      "name": "Shrub 02",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/shrub_02",
+      "tris": 9989
+    },
+    "fern_02": {
+      "name": "Fern 02",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/fern_02",
+      "tris": 6232
+    },
+    "planter_box_01": {
+      "name": "Planter Box 01",
+      "authors": [
+        "James Ray Cock"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/planter_box_01",
+      "tris": 8094
+    },
+    "island_tree_02": {
+      "name": "Island Tree 02",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/island_tree_02",
+      "tris": 78682
+    },
+    "fir_sapling": {
+      "name": "Fir Sapling",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/fir_sapling",
+      "tris": 25117
+    },
+    "pine_sapling_small": {
+      "name": "Pine Sapling Small",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/pine_sapling_small",
+      "tris": 24407
+    },
+    "shrub_01": {
+      "name": "Shrub 01",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/shrub_01",
+      "tris": 12000
+    },
+    "shrub_03": {
+      "name": "Shrub 03",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/shrub_03",
+      "tris": 7997
+    },
+    "shrub_04": {
+      "name": "Shrub 04",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/shrub_04",
+      "tris": 7962
+    },
+    "shrub_sorrel_01": {
+      "name": "Shrub Sorrel 01",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/shrub_sorrel_01",
+      "tris": 3319
+    },
+    "nettle_plant": {
+      "name": "Nettle Plant",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/nettle_plant",
+      "tris": 5991
+    },
+    "weed_plant_02": {
+      "name": "Weed Plant 02",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/weed_plant_02",
+      "tris": 5995
+    },
+    "wild_rooibos_bush": {
+      "name": "Wild Rooibos Bush",
+      "authors": [
+        "James Ray Cock",
+        "Jenelle van Heerden"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/wild_rooibos_bush",
+      "tris": 10798
+    },
+    "calathea_orbifolia_01": {
+      "name": "Calathea Orbifolia 01",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/calathea_orbifolia_01",
+      "tris": 5993
+    },
+    "dandelion_01": {
+      "name": "Dandelion 01",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/dandelion_01",
+      "tris": 6461
+    },
+    "periwinkle_plant": {
+      "name": "Periwinkle Plant",
+      "authors": [
+        "Amal Kumar"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/periwinkle_plant",
+      "tris": 7136
+    },
+    "flower_ursinia": {
+      "name": "Flower Ursinia",
+      "authors": [
+        "Jenelle van Heerden",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/flower_ursinia",
+      "tris": 3732
+    },
+    "flower_gazania": {
+      "name": "Flower Gazania",
+      "authors": [
+        "James Ray Cock",
+        "Jenelle van Heerden"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/flower_gazania",
+      "tris": 5402
+    },
+    "flower_empodium": {
+      "name": "Flower Empodium",
+      "authors": [
+        "Jenelle van Heerden",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/flower_empodium",
+      "tris": 3053
+    },
+    "grass_bermuda_01": {
+      "name": "Grass Bermuda 01",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/grass_bermuda_01",
+      "tris": 941
+    },
+    "moss_01": {
+      "name": "Moss 01",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/moss_01",
+      "tris": 204
+    },
+    "rock_moss_set_01": {
+      "name": "Rock Moss Set 01",
+      "authors": [
+        "Kless Gyzen"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/rock_moss_set_01",
+      "tris": 8040
+    },
+    "rock_moss_set_02": {
+      "name": "Rock Moss Set 02",
+      "authors": [
+        "Kless Gyzen"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/rock_moss_set_02",
+      "tris": 8068
+    },
+    "boulder_01": {
+      "name": "Boulder 01",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/boulder_01",
+      "tris": 56579
+    },
+    "tree_stump_01": {
+      "name": "Tree Stump 01",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/tree_stump_01",
+      "tris": 5995
+    },
+    "planter_box_02": {
+      "name": "Planter Box 02",
+      "authors": [
+        "James Ray Cock"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/planter_box_02",
+      "tris": 10944
+    },
+    "planter_box_03": {
+      "name": "Planter Box 03",
+      "authors": [
+        "James Ray Cock"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/planter_box_03",
+      "tris": 13112
+    },
+    "planter_pot_clay": {
+      "name": "Planter Pot Clay",
+      "authors": [
+        "Amal Kumar"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/planter_pot_clay",
+      "tris": 3080
+    },
+    "potted_plant_01": {
+      "name": "Potted Plant 01",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/potted_plant_01",
+      "tris": 16039
+    },
+    "potted_plant_02": {
+      "name": "Potted Plant 02",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/potted_plant_02",
+      "tris": 11998
+    },
+    "exterior_aircon_unit": {
+      "name": "Exterior Aircon Unit",
+      "authors": [
+        "Monsta3D"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/exterior_aircon_unit",
+      "tris": 11996
+    },
+    "utility_box_02": {
+      "name": "Utility Box 02",
+      "authors": [
+        "James Ray Cock"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/utility_box_02",
+      "tris": 6268
+    },
+    "industrial_wall_lamp": {
+      "name": "Industrial Wall Lamp",
+      "authors": [
+        "Kuutti Siitonen"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/industrial_wall_lamp",
+      "tris": 4446
+    },
+    "security_light": {
+      "name": "Security Light",
+      "authors": [
+        "Maximilian Schuster"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/security_light",
+      "tris": 4668
+    },
+    "modular_street_seating": {
+      "name": "Modular Street Seating",
+      "authors": [
+        "Stuart Attenborrow"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/modular_street_seating",
+      "tris": 15678
+    },
+    "wooden_picnic_table": {
+      "name": "Wooden Picnic Table",
+      "authors": [
+        "Ulan Cabanilla"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/wooden_picnic_table",
+      "tris": 10210
+    },
+    "outdoor_table_chair_set_01": {
+      "name": "Outdoor Table Chair Set 01",
+      "authors": [
+        "James Ray Cock"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/outdoor_table_chair_set_01",
+      "tris": 9828
+    },
+    "watering_can_metal_01": {
+      "name": "Watering Can Metal 01",
+      "authors": [
+        "Charles Nderitu"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/watering_can_metal_01",
+      "tris": 5999
+    },
+    "wooden_crate_02": {
+      "name": "Wooden Crate 02",
+      "authors": [
+        "James Ray Cock",
+        "Jurita Burger"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/wooden_crate_02",
+      "tris": 5176
+    },
+    "wooden_barrels_01": {
+      "name": "Wooden Barrels 01",
+      "authors": [
+        "James Ray Cock"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/wooden_barrels_01",
+      "tris": 12261
+    },
+    "wicker_basket_01": {
+      "name": "Wicker Basket 01",
+      "authors": [
+        "Kuutti Siitonen"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/wicker_basket_01",
+      "tris": 8000
+    },
+    "seeding_tray_01": {
+      "name": "Seedling Tray 01",
+      "authors": [
+        "Satyaki Mandal"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/seeding_tray_01",
+      "tris": 5999
+    },
+    "lifebuoy": {
+      "name": "Lifebuoy",
+      "authors": [
+        "Hank Kaamura"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/lifebuoy",
+      "tris": 6000
+    },
+    "ocean_buoy": {
+      "name": "Ocean Buoy",
+      "authors": [
+        "Mateusz Sadek"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/ocean_buoy",
+      "tris": 8000
+    },
+    "lateral_sea_marker": {
+      "name": "Lateral Sea Marker",
+      "authors": [
+        "James Ray Cock",
+        "Kuutti Siitonen"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/lateral_sea_marker",
+      "tris": 8000
+    },
+    "stone_fire_pit": {
+      "name": "Stone Fire Pit",
+      "authors": [
+        "Sebastian Platen"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/stone_fire_pit",
+      "tris": 3887
+    },
+    "island_tree_01": {
+      "name": "Island Tree 01",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/island_tree_01",
+      "tris": 119011
+    },
+    "island_tree_03": {
+      "name": "Island Tree 03",
+      "authors": [
+        "Rob Tuytel",
+        "Rico Cilliers"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/island_tree_03",
+      "tris": 136269
+    }
+  },
+  "textures": {
+    "white_plaster_02": {
+      "name": "White Plaster 02",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/white_plaster_02"
+    },
+    "painted_plaster_wall": {
+      "name": "Painted Plaster Wall",
+      "authors": [
+        "Amal Kumar"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/painted_plaster_wall"
+    },
+    "wood_planks": {
+      "name": "Wood Planks",
+      "authors": [
+        "Amal Kumar"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/wood_planks"
+    },
+    "weathered_planks": {
+      "name": "Weathered Planks",
+      "authors": [
+        "Dario Barresi",
+        "Dimitrios Savva"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/weathered_planks"
+    },
+    "corrugated_iron": {
+      "name": "Corrugated Iron",
+      "authors": [
+        "Jenelle van Heerden",
+        "Dimitrios Savva"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/corrugated_iron"
+    },
+    "metal_plate": {
+      "name": "Metal Plate",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/metal_plate"
+    },
+    "concrete_floor_02": {
+      "name": "Concrete Floor 02",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/concrete_floor_02"
+    },
+    "cobblestone_floor_08": {
+      "name": "Cobblestone Floor 08",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/cobblestone_floor_08"
+    },
+    "brown_mud_leaves_01": {
+      "name": "Brown Mud Leaves 01",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/brown_mud_leaves_01"
+    },
+    "aerial_grass_rock": {
+      "name": "Aerial Grass Rock",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "license": "CC0",
+      "source": "https://polyhaven.com/a/aerial_grass_rock"
+    }
+  },
+  "note": "All models and textures are CC0 from Poly Haven (https://polyhaven.com), reduced in size for the web."
+}

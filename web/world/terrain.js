@@ -530,7 +530,15 @@ export function buildTerrain() {
     const x = pos.getX(i), z = pos.getZ(i);
     let y = height(x, z);
     // under the stairs the ground sinks out of sight (the stone flights cover it)
-    if (onStairs(x, z, 0.6)) y -= 1.4;
+    // At the two ends the grid's last vertex is not sunk (that left a deep
+    // wedge in front of the first riser and behind the top tread): the plaza
+    // runs flat to the first riser, and under the top tread the ground sits
+    // 4 cm below its face (not on it, where the two fought).
+    if (onStairs(x, z, 0.6)) {
+      if (x <= STAIRS.x0 + 0.05) y = Math.min(y, PLAZA.y);
+      else if (x >= STAIRS.x1 - 0.01) y = Math.min(y, PLAT_Y - 0.04);
+      else y -= 1.4;
+    }
     pos.setY(i, y);
   }
   g.computeVertexNormals();

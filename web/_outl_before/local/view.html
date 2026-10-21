@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<script type="importmap">{ "imports": { "three": "../../lib/three/three.module.min.js", "three/addons/": "../../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#8aa}canvas{display:block}</style></head>
+<body><script type="module">
+// raw look at a converted GLB: unlit textures, front / 3-4 / back / side, plus a head close-up
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#9ab');
+const g = await new GLTFLoader().loadAsync(q.get('file') || 'calem_raw.glb');
+const W = innerWidth, H = innerHeight, n = 5, w = Math.floor(W / n);
+const views = [];
+for (let i = 0; i < n; i++) {
+  const m = skClone(g.scene);
+  m.traverse((o) => { if (o.isMesh) { const t = o.material.map; o.material = new THREE.MeshBasicMaterial({ map: t, side: THREE.DoubleSide, alphaTest: o.material.alphaTest }); o.frustumCulled = false; } });
+  m.position.x = i * 5; m.rotation.y = [0, 0.8, Math.PI, Math.PI / 2, 0.3][i]; scene.add(m);
+  const c = new THREE.PerspectiveCamera(i === 4 ? 12 : 30, w / H, 0.01, 100);
+  if (i === 4) { c.position.set(i * 5, 1.18, 1.4); c.lookAt(i * 5, 1.18, 0); } else { c.position.set(i * 5, 0.7, 3.4); c.lookAt(i * 5, 0.67, 0); }
+  views.push([c, i * w, 0, w, H]);
+}
+r.setScissorTest(true);
+for (const [c, x, y, ww, hh] of views) { r.setViewport(x, y, ww, hh); r.setScissor(x, y, ww, hh); r.render(scene, c); }
+window.ready = true;
+</script></body></html>

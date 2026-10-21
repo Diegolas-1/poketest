@@ -113,7 +113,6 @@ const BUILD = { deep: [0.56, 0.62, 0.82], shade: [0.74, 0.79, 0.94], lit: [1.06,
 const flat = (col) => M('c' + col, () => toon(col, { cel: BUILD }));
 const tex = (t, col = '#ffffff') => M(t.uuid + col, () => toon(col, { map: t, cel: BUILD }));
 const glass = () => M('glass', () => new THREE.MeshBasicMaterial({ map: glassTex() }));
-const INK = new THREE.MeshBasicMaterial({ color: '#2f2b36', side: THREE.BackSide });
 
 // UVs in metres, projected along the face's main axis
 function wuv(g, s = 0.5) {
@@ -129,19 +128,10 @@ function wuv(g, s = 0.5) {
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   return g;
 }
-// an ink outline: the same convex shape a little bigger, drawn inside out
-function ink(mesh, w = 0.035) {
-  const g = mesh.geometry; g.computeBoundingBox();
-  const b = g.boundingBox, s = b.getSize(V(0, 0, 0)), c = b.getCenter(V(0, 0, 0));
-  const o = new THREE.Mesh(g, INK);
-  o.position.copy(c).multiplyScalar(-1);
-  const pivot = new THREE.Group();
-  pivot.position.copy(c);
-  pivot.scale.set((s.x + 2 * w) / Math.max(s.x, 1e-3), (s.y + 2 * w) / Math.max(s.y, 1e-3), (s.z + 2 * w) / Math.max(s.z, 1e-3));
-  pivot.add(o);
-  mesh.add(pivot);
-  return mesh;
-}
+// Ink lines come from the screen-space outline pass (outline.js), which draws
+// constant-width lines on every silhouette, crease and part edge. ink() is kept
+// so callers still work; it only tags the mesh as a solid for that pass.
+function ink(mesh, w) { void w; mesh.userData.outline = 'solid'; return mesh; }
 function add(mesh, parent, x = 0, y = 0, z = 0, { shadow = true, line = true } = {}) {
   mesh.position.set(x, y, z);
   mesh.castShadow = shadow; mesh.receiveShadow = true;
@@ -387,7 +377,7 @@ function cottage(hs, world) {
   if (st.wing) {
     const wg = new THREE.Group(); wg.position.set(-side * (W / 2 + 1.7), 0, -0.6); wg.rotation.y = Math.PI / 2; G.add(wg);
     const ww = 4.6, wd = 3.6, wh = 2.9;
-    box(ww + 0.3, base + 1.3, wd + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.65, 0, wg);
+    box(ww + 0.3, base + 1.31, wd + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.645, 0, wg);   // 1 cm over the house's foundation where they overlap
     box(ww, wh, wd, sid, 0, base + wh / 2, 0, wg);
     gableRoof(wg, ww, wd, base + wh, 2.2, roofMat, trim, 0.35, 0.3);
     gableWall(wg, ww, 2.2, base + wh, -side * wd / 2, sid, -side);
@@ -401,7 +391,7 @@ function cottage(hs, world) {
   // front deck with a white railing and steps to the path
   const deckY = base + 0.05, dz0 = D / 2 + 0.05, dz1 = D / 2 + 2.3;
   box(W + 0.6, 0.2, dz1 - dz0, tex(planks('#c99a62')), 0, deckY, (dz0 + dz1) / 2, G);
-  box(W + 0.6, deckY + 1, 0.2, trim, 0, deckY / 2 - 0.55, dz1 - 0.1, G, { line: false });
+  box(W + 0.62, deckY + 1, 0.2, trim, 0, deckY / 2 - 0.55, dz1 - 0.085, G, { line: false });   // skirt 1.5 cm proud of the deck's edge (flush, they fought)
   const rail = (ax, bx, zz) => {
     const n = Math.max(2, Math.round(Math.abs(bx - ax) / 0.22));
     for (let i = 0; i <= n; i++) box(0.07, 0.8, 0.07, trim, ax + (bx - ax) * i / n, deckY + 0.5, zz, G, { line: false, shadow: false });
@@ -499,7 +489,11 @@ function labStairs(world) {
     const y = stairY(x + 0.01);
     let x2 = x + S.run;
     if (Math.abs(y - (PLAZA.y + S.n1 * STEP)) < 0.01 && x >= S.x0 + S.n1 * S.run - 0.01) x2 = S.x0 + S.n1 * S.run + S.landing;
-    treads.push([x, Math.min(x2, S.x1 + 1.0), y]);
+    // the flight's last tread and the landing are one level: one slab, so no
+    // two coplanar tops (and no stray nose) fight in the middle of the landing
+    const last = treads[treads.length - 1];
+    if (last && Math.abs(last[2] - y) < 0.001) last[1] = Math.min(x2, S.x1 + 1.0);
+    else treads.push([x, Math.min(x2, S.x1 + 1.0), y]);
     x = x2;
   }
   const g = new THREE.BoxGeometry(1, 1, 1);
@@ -508,12 +502,13 @@ function labStairs(world) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   treads.forEach(([a, b, y], i) => {
     m4.compose(V((a + b) / 2, y - 1.4, S.z), q, V(b - a + 0.02, 2.8, S.hw * 2 + 0.1)); im.setMatrixAt(i, m4);
-    for (const s of [-1, 1]) { m4.compose(V((a + b) / 2, y - 1.1, S.z + s * (S.hw + 0.3)), q, V(b - a + 0.02, 3.0, 0.55)); ch.setMatrixAt(i * 2 + (s > 0 ? 1 : 0), m4); }
+    for (const s of [-1, 1]) { m4.compose(V((a + b) / 2 - 0.01, y - 1.1, S.z + s * (S.hw + 0.3)), q, V(b - a + 0.02, 3.0, 0.55)); ch.setMatrixAt(i * 2 + (s > 0 ? 1 : 0), m4); }
   });
   // each tread's worn front edge in a darker stone, so the steps read
   const nose = new THREE.InstancedMesh(g, flat('#a99f8e'), treads.length);
   treads.forEach(([a, b, y], i) => {
-    m4.compose(V(a + 0.05, y - 0.06, S.z), q, V(0.12, 0.14, S.hw * 2 + 0.12)); nose.setMatrixAt(i, m4);
+    // its front stands 1.5 cm proud of the riser (flush, the two faces fought)
+    m4.compose(V(a + 0.035, y - 0.06, S.z), q, V(0.12, 0.14, S.hw * 2 + 0.06)); nose.setMatrixAt(i, m4);
     im.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.92 + ((i * 7919) % 9) / 9 * 0.1));
   });
   for (const o of [im, ch, nose]) { o.castShadow = true; o.receiveShadow = true; world.group.add(o); }
@@ -536,7 +531,6 @@ function globeLamp(world, x, y, z, s = 1) {
   cyl(0.05, 0.05, 0.25, '#2c2d33', 0, 0.35, 0, g, 6, { line: false });
   const globe = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 12), new THREE.MeshBasicMaterial({ color: '#fffbea' }));
   globe.position.y = 0.72; g.add(globe);
-  const rim = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12), INK); rim.position.y = 0.72; g.add(rim);
   return g;
 }
 // many copies of a few bush shapes, instanced; [x, z, rot, scale]
@@ -874,15 +868,15 @@ function dock(world) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   for (let i = 0; i < n; i++) { m4.compose(V(x, y, z0 + 0.21 + i * 0.42), q, V(1, 1, 1)); pk.setMatrixAt(i, m4); pk.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.86 + ((i * 7919) % 11) / 11 * 0.2)); }
   pk.castShadow = pk.receiveShadow = true; g.add(pk);
-  for (const s of [-1, 1]) box(0.24, 0.34, len, wood, x + s * (hw - 0.12), y - 0.22, (z0 + z1) / 2, g);
+  for (const s of [-1, 1]) box(0.24, 0.34, len, wood, x + s * (hw - 0.13), y - 0.22, (z0 + z1) / 2, g);   // 1 cm in from the plank ends
   // a wider head at the end
-  box(7.0, 0.16, 4.6, wood, x, y, z1 + 2.2, g);
+  box(7.0, 0.16, 4.6, wood, x, y + 0.01, z1 + 2.2, g);   // 2 cm over the plank tops it covers, not 1
   for (let zz = z0 + 1.5; zz <= z1; zz += 2.6) for (const s of [-1, 1]) cyl(0.17, 0.19, 4.2, post, x + s * (hw + 0.05), y - 1.6, zz, g, 8);
   for (const [sx, sz] of [[-3.3, 0.2], [3.3, 0.2], [-3.3, 4.2], [3.3, 4.2], [0, 4.3]]) cyl(0.2, 0.22, 4.4, post, x + sx, y - 1.5, z1 + sz, g, 8);
   // railings with a gap for the boat steps
   const railPosts = (xx, za, zb) => {
     const m = Math.max(2, Math.round((zb - za) / 1.3));
-    for (let i = 0; i <= m; i++) box(0.12, 1.05, 0.12, post, xx, y + 0.55, za + (zb - za) * i / m, g, { line: false });
+    for (let i = 0; i <= m; i++) box(0.1, 1.05, 0.1, post, xx, y + 0.55, za + (zb - za) * i / m, g, { line: false });   // slimmer than the rail: no shared faces
     box(0.12, 0.1, zb - za, wood, xx, y + 1.05, (za + zb) / 2, g);
     box(0.08, 0.08, zb - za, wood, xx, y + 0.6, (za + zb) / 2, g, { line: false });
     world.colliders.push({ box: true, x: xx, z: (za + zb) / 2, hw: 0.08, hd: (zb - za) / 2 });
@@ -892,10 +886,10 @@ function dock(world) {
   railPosts(x + hw - 0.06, z1 - 5, z1 + 0.1);
   for (const s of [-1, 1]) {
     box(0.12, 0.1, 7.0, wood, x + s * 3.45, y + 1.05, z1 + 2.2, g).rotation.y = 0;
-    for (let i = 0; i <= 4; i++) box(0.12, 1.05, 0.12, post, x + s * 3.45, y + 0.55, z1 + 0.2 + i, g, { line: false });
+    for (let i = 0; i <= 4; i++) box(0.1, 1.05, 0.1, post, x + s * 3.45, y + 0.55, z1 + 0.2 + i, g, { line: false });
     world.colliders.push({ box: true, x: x + s * 3.45, z: z1 + 2.2, hw: 0.08, hd: 2.2 });
   }
-  box(7.0, 0.1, 0.12, wood, x, y + 1.05, z1 + 4.45, g);
+  box(7.0, 0.1, 0.12, wood, x, y + 1.045, z1 + 4.45, g);
   world.colliders.push({ box: true, x, z: z1 + 4.45, hw: 3.5, hd: 0.08 });
   // lamps on the head, bollards, crates, barrels and rope
   for (const s of [-1, 1]) {

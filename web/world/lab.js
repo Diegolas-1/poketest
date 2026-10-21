@@ -123,7 +123,6 @@ const BUILD = { deep: [0.56, 0.62, 0.82], shade: [0.74, 0.79, 0.94], lit: [1.06,
 const flat = (col) => M('c' + col, () => toon(col, { cel: BUILD }));
 const tex = (t, col = '#ffffff') => M(t.uuid + col, () => toon(col, { map: t, cel: BUILD }));
 const glass = () => M('glass', () => new THREE.MeshBasicMaterial({ map: glassTex() }));
-const INK = new THREE.MeshBasicMaterial({ color: '#2f2b36', side: THREE.BackSide });
 
 // UVs in metres, projected along the face's main axis
 function wuv(g, s = 0.5) {
@@ -139,19 +138,10 @@ function wuv(g, s = 0.5) {
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   return g;
 }
-// an ink outline: the same convex shape a little bigger, drawn inside out
-function ink(mesh, w = 0.035) {
-  const g = mesh.geometry; g.computeBoundingBox();
-  const b = g.boundingBox, s = b.getSize(V(0, 0, 0)), c = b.getCenter(V(0, 0, 0));
-  const o = new THREE.Mesh(g, INK);
-  o.position.copy(c).multiplyScalar(-1);
-  const pivot = new THREE.Group();
-  pivot.position.copy(c);
-  pivot.scale.set((s.x + 2 * w) / Math.max(s.x, 1e-3), (s.y + 2 * w) / Math.max(s.y, 1e-3), (s.z + 2 * w) / Math.max(s.z, 1e-3));
-  pivot.add(o);
-  mesh.add(pivot);
-  return mesh;
-}
+// Ink lines come from the screen-space outline pass (outline.js), which draws
+// constant-width lines on every silhouette, crease and part edge. ink() is kept
+// so callers still work; it only tags the mesh as a solid for that pass.
+function ink(mesh, w) { void w; mesh.userData.outline = 'solid'; return mesh; }
 function add(mesh, parent, x = 0, y = 0, z = 0, { shadow = true, line = true, inkW } = {}) {
   mesh.position.set(x, y, z);
   mesh.castShadow = shadow; mesh.receiveShadow = true;
@@ -296,7 +286,7 @@ export function buildLab(world, { x = 0, z = 0, y = 0, facing = 0 } = {}) {
   const hall = new THREE.Group(); hall.position.x = HX; S.add(hall);
   const D = ZF - ZB, zc = (ZF + ZB) / 2;
   box(2 * HW + 0.36, PL, D + 0.36, brick, 0, PL / 2, zc, hall, { uvs: 0.7 });
-  box(2 * HW, EAVE - PL, D - 0.5, wall, 0, PL + (EAVE - PL) / 2, zc, hall);
+  box(2 * HW, EAVE - PL, D - 0.6, wall, 0, PL + (EAVE - PL) / 2, zc, hall);   // meets the 0.3 gable walls, no coplanar overlap
   for (const [zz, flip] of [[ZF, 1], [ZB, -1]]) {
     const gw = new THREE.Mesh(wuv(new THREE.ExtrudeGeometry(archWallShape(HW, EAVE, B - RTH - 0.05), { depth: 0.3, bevelEnabled: false, curveSegments: 4 }), 0.5), wall);
     gw.position.set(0, 0, flip > 0 ? zz - 0.3 : zz + 0.3); if (flip < 0) gw.rotation.y = Math.PI;
@@ -306,7 +296,6 @@ export function buildLab(world, { x = 0, z = 0, y = 0, facing = 0 } = {}) {
   const z0 = ZB - OH, z1 = ZF + OH;
   const roof = new THREE.Mesh(barrelGeo(A, B, z0, z1), roofMat); add(roof, hall, 0, EAVE, 0, { line: false });
   const roofIn = new THREE.Mesh(barrelGeo(A - RTH, B - RTH, z0, z1, true), under); add(roofIn, hall, 0, EAVE, 0, { line: false, shadow: false });
-  const roofInk = new THREE.Mesh(barrelGeo(A + 0.06, B + 0.06, z0 - 0.06, z1 + 0.06), INK); roofInk.position.y = EAVE; hall.add(roofInk);
   for (const zz of [z0, z1]) {
     const rim = new THREE.Mesh(new THREE.ExtrudeGeometry(bandShape(A + 0.09, B + 0.09, A - RTH - 0.06, B - RTH - 0.06), { depth: 0.22, bevelEnabled: false }), flat(TRIM));
     add(rim, hall, 0, EAVE, zz - 0.11, { inkW: 0.03 });
@@ -326,13 +315,13 @@ export function buildLab(world, { x = 0, z = 0, y = 0, facing = 0 } = {}) {
   for (const sx of [-1, 1]) windowAt(hall, sx * 3.35, 2.35, fz, 0.78, 1.85, 1, 2);
   // the portico: landing, steps, columns, canopy, door, nameplate
   const PZ = 1.75;  // how far it comes out
-  box(4.2, PL, PZ + 0.1, stoneM, 0, PL / 2, ZF + PZ / 2, hall, { uvs: 0.6 });
+  box(4.2, PL + 0.02, PZ + 0.1, stoneM, 0, PL / 2 + 0.01, ZF + PZ / 2, hall, { uvs: 0.6 });   // 2 cm over the plinth's top, not flush
   for (let s = 0; s < 2; s++) { const h = PL * (2 - s) / 3; box(3.4, h, 0.42, stoneM, 0, h / 2, ZF + PZ + 0.26 + s * 0.42, hall, { uvs: 0.6, inkW: 0.02 }); }
   box(2.0, 2.9, 0.18, TRIM, 0, PL + 1.38, ZF + 0.02, hall, { inkW: 0.025 });           // door frame
   box(1.55, 2.6, 0.1, tex(planks('#8a5634')), 0, PL + 1.3, ZF + 0.12, hall, { inkW: 0.02 });
   for (const dx of [-0.39, 0.39]) for (const dy of [0.75, 1.85]) box(0.56, 0.8, 0.05, '#7a4a2c', dx, PL + dy, ZF + 0.18, hall, { line: false, shadow: false });
   sphere(0.07, '#e8c15a', 0.6, PL + 1.25, ZF + 0.22, hall, { line: false });
-  box(1.4, 0.03, 0.9, '#a64a3a', 0, PL + 0.02, ZF + 0.75, hall, { line: false });     // mat
+  box(1.4, 0.03, 0.9, '#a64a3a', 0, PL + 0.035, ZF + 0.75, hall, { line: false });     // mat
   for (const sx of [-1, 1]) {
     const cxp = sx * 1.55, czp = ZF + PZ - 0.3;
     box(0.5, 0.2, 0.5, TRIM, cxp, PL + 0.1, czp, hall, { inkW: 0.02 });
@@ -344,7 +333,7 @@ export function buildLab(world, { x = 0, z = 0, y = 0, facing = 0 } = {}) {
   box(3.6, 0.16, PZ + 0.1, '#f7f8f3', 0, PL + 3.25, ZF + PZ / 2 - 0.05, hall, { inkW: 0.02 });
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 0.46), new THREE.MeshBasicMaterial({ map: signTexture('OAK POKéMON RESEARCH LAB') }));
   box(3.46, 0.56, 0.08, '#2a4a3e', 0, PL + 3.62, ZF + PZ - 0.25, hall, { inkW: 0.02 });
-  plate.position.set(0, PL + 3.62, ZF + PZ - 0.2); hall.add(plate);
+  plate.position.set(0, PL + 3.62, ZF + PZ - 0.19); hall.add(plate);
   // drainpipes at the front corners
   for (const sx of [-1, 1]) {
     cyl(0.07, 0.07, EAVE - 0.4, '#e7e9e3', sx * (HW - 0.18), (EAVE - 0.4) / 2 + 0.3, ZF + 0.12, hall, 8, { inkW: 0.015 });
@@ -361,7 +350,7 @@ export function buildLab(world, { x = 0, z = 0, y = 0, facing = 0 } = {}) {
   const WX0 = HX + HW - 1.2, WX1 = 12.4, WZ0 = -5.0, WZ1 = 2.4, WE = 4.2, WR = 3.3;
   const wl = WX1 - WX0, wd = WZ1 - WZ0, wxc = (WX0 + WX1) / 2, wzc = (WZ0 + WZ1) / 2;
   const wing = new THREE.Group(); wing.position.set(wxc, 0, wzc); S.add(wing);
-  box(wl + 0.36, PL, wd + 0.36, brick, 0.18, PL / 2, 0, wing, { uvs: 0.7 });
+  box(wl + 0.36, PL + 0.015, wd + 0.36, brick, 0.18, (PL + 0.015) / 2, 0, wing, { uvs: 0.7 });   // 1.5 cm over the hall plinth where they overlap
   box(wl, WE - PL, wd, wall, 0, PL + (WE - PL) / 2, 0, wing);
   // the roof: a sub-group turned so its ridge runs along x
   const wr = new THREE.Group(); wr.rotation.y = Math.PI / 2; wing.add(wr);
@@ -483,7 +472,7 @@ export function buildLab(world, { x = 0, z = 0, y = 0, facing = 0 } = {}) {
   });
   for (const [m, { list, cast }] of byMat) {
     const mesh = new THREE.Mesh(mergeGeometries(list, false), m);
-    mesh.castShadow = cast && m !== INK && m.type !== 'MeshBasicMaterial'; mesh.receiveShadow = m !== INK;
+    mesh.castShadow = cast && m.type !== 'MeshBasicMaterial'; mesh.receiveShadow = true;
     G.add(mesh);
   }
 

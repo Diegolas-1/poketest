@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Plant lineup</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden}canvas{display:block}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { loadModel } from './assets.js';
+const q = new URLSearchParams(location.search);
+const ids = (q.get('ids') || 'island_tree_02,searsia_lucida,fir_sapling,pine_sapling_small').split(',');
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd9ee');
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.6;
+scene.add(new THREE.HemisphereLight('#e8f4ff', '#6a7a4a', 1.0));
+const sun = new THREE.DirectionalLight('#fff1d6', 2.5); sun.position.set(-10, 20, 12); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30 }); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#7f9e55' }));
+ground.receiveShadow = true; scene.add(ground);
+const models = (await Promise.all(ids.map(loadModel))).filter(Boolean).flatMap((m) => m.variants);
+let x = 0; const span = [];
+for (const m of models) span.push(Math.max(1.5, m.radius * 2 + 0.6));
+const total = span.reduce((a, b) => a + b, 0); x = -total / 2;
+let maxH = 0;
+models.forEach((m, i) => {
+  const g = new THREE.Group(); g.position.x = x + span[i] / 2; x += span[i];
+  for (const p of m.parts) { const mesh = new THREE.Mesh(p.geometry, p.material); mesh.castShadow = mesh.receiveShadow = true; g.add(mesh); }
+  scene.add(g); maxH = Math.max(maxH, m.height);
+});
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 500);
+const dist = Math.max(total * 0.9, maxH * 2.2);
+cam.position.set(0, maxH * 0.6, dist); cam.lookAt(0, maxH * 0.4, 0);
+r.render(scene, cam); window.ready = true;
+</script></body></html>

@@ -4,6 +4,7 @@
 // flower clumps and mossy rocks. Seeded, so the town always looks the same.
 import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, coastZ, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS } from './terrain.js';
 import { Scatter, Impostor } from './assets.js';
+import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
 import { BEDS } from './town.js';
 
@@ -24,6 +25,15 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     models.forEach((m, i) => { if (by[i].length) scatters.push(new Scatter(scene, m, by[i], opts(m))); });
   };
   const yieldUI = () => new Promise((r) => setTimeout(r, 0));
+  // billboards are baked under the scene's own lights (sky, sun, environment)
+  const lights = () => {
+    let sun = null, hemi = null;
+    scene.traverse((o) => { if (o.isDirectionalLight && o.castShadow) sun = o; if (o.isHemisphereLight) hemi = o; });
+    let sunDir = sun ? sun.position.clone().sub(sun.target.position) : null;
+    if (!sunDir || sunDir.lengthSq() < 1e-6 || (sunDir.x === 0 && sunDir.z === 0)) sunDir = new THREE.Vector3(-0.55, 0.75, 0.45);   // before the first frame places the sun
+    return { sun, hemi, sunDir: sunDir.normalize(), environment: scene.environment, environmentIntensity: scene.environmentIntensity };
+  };
+  const lowQ = quality.lod < 0.8;
 
   // ---------- trees ----------
   // Big painted broadleaves round the village (tiered park trees, shade
@@ -84,12 +94,16 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     place(k, x, z, s);
   }
   for (const t of all) colliders.push({ x: t.x, z: t.z, r: Math.max(0.45, t.trunk + 0.1) });
+  // each shape gets its own billboard, so the far tree has the near one's
+  // outline; the model cross-fades into it when it passes its range
+  const treeD = 75 * quality.lod, L = lights();
   for (const [k, list] of Object.entries(pts)) {
     if (!list.length) continue;
-    // one billboard set per kind (its first shape), shared by its variants
-    const imp = new Impostor(renderer, models[k][0]);
-    impostors.push(imp);
-    sow(models[k], list, () => ({ chunk: 30, maxDist: 75 * quality.lod, wind: 0, impostor: imp }));
+    sow(models[k], list, (m) => {
+      const imp = new Impostor(renderer, m, { size: lowQ ? 96 : 144, lights: L });
+      impostors.push(imp);
+      return { chunk: 30, fade: [treeD - 4, treeD + 2], wind: 0, impostor: imp };
+    });
     await yieldUI();
   }
   window.__trees = Object.fromEntries(Object.entries(pts).map(([k, l]) => [k, l.length]));
@@ -121,7 +135,13 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
       }
     }
   }
-  sow(bushes, bp.concat(hedge), () => ({ chunk: 24, maxDist: 80 * quality.lod, wind: 0 }));
+  // bushes and hedges: billboards past the model's range, out into the fog
+  const bushD = 70 * quality.lod;
+  sow(bushes, bp.concat(hedge), (m) => {
+    const imp = new Impostor(renderer, m, { size: lowQ ? 40 : 56, lights: L });
+    impostors.push(imp);
+    return { chunk: 24, fade: [bushD - 4, bushD + 1], wind: 0, impostor: imp, far: [150 * quality.lod, 180 * quality.lod] };
+  });
   window.__hedge = hedge.length;
 
   // ---------- ferns and flowers ----------
@@ -157,8 +177,9 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     if (fbm(x * 0.1, z * 0.1, 2) < 0.45) continue;
     fp.push({ x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s: 0.7 + R() * 0.5 });
   }
-  sow(ferns, fp, () => ({ chunk: 20, maxDist: 60 * quality.lod, wind: 0, shadows: false }));
-  sow(flowers, fl, () => ({ chunk: 16, maxDist: 55 * quality.lod, wind: 0, shadows: false }));
+  // small plants fade out and sink into the ground past their range
+  sow(ferns, fp, () => ({ chunk: 20, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
+  sow(flowers, fl, () => ({ chunk: 16, fade: [55 * quality.lod - 3, 55 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
 
   // ---------- rocks ----------
   const rocks = [makeRock(1, 1.0), makeRock(2, 1.4), makeRock(3, 0.8), makeRock(4, 2.0)];
@@ -179,11 +200,22 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   }
   const beachRocks = [makeRock(11, 1.0), makeRock(12, 0.8), makeRock(13, 1.2)];
   for (const m of beachRocks) { const cc = m.parts[0].geometry.attributes.color; for (let i = 0; i < cc.count; i++) { const l = (cc.getX(i) + cc.getY(i) + cc.getZ(i)) / 3; cc.setXYZ(i, l * 0.92 + 0.05, l * 0.9 + 0.03, l * 0.95 + 0.05); } }
-  sow(beachRocks, brp, () => ({ chunk: 40, maxDist: 120, wind: 0 }));
+  sow(beachRocks, brp, () => ({ chunk: 40, fade: [140, 146], shrink: 0.6, wind: 0 }));
   for (const p of brp) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
   for (const [x, z] of [[-56, 33], [-43, 40], [-52, 47]]) rp.push({ x, z, y: height(x, z) - 0.1, rot: R() * 6, s: 1.0 });
-  sow(rocks, rp, () => ({ chunk: 40, maxDist: 160, wind: 0 }));
+  sow(rocks, rp, () => ({ chunk: 40, fade: [180, 186], shrink: 0.6, wind: 0 }));
   for (const p of rp) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
 
-  return { update(cam) { for (const s of scatters) s.update(cam); }, impostors };
+  window.__billboards = { n: impostors.length, mb: +(impostors.reduce((a, i) => a + i.bytes, 0) / 1048576).toFixed(1) };
+  // plants that cross their range fade over a fraction of a second (wall
+  // clock, so it looks the same at any frame rate)
+  let last = 0;
+  return {
+    update(cam) {
+      const now = performance.now(), dt = last ? Math.min(0.25, (now - last) / 1000) : 0;
+      last = now;
+      for (const s of scatters) s.update(cam, dt);
+    },
+    impostors,
+  };
 }

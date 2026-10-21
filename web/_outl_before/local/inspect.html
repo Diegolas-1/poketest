@@ -1,0 +1,30 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<script type="importmap">{ "imports": { "three": "../../lib/three/three.module.min.js", "three/addons/": "../../lib/three/addons/" } }</script></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+const q = new URLSearchParams(location.search);
+const out = {};
+async function info(root) {
+  const r = { meshes: [], bones: 0 };
+  root.updateMatrixWorld(true);
+  root.traverse((o) => {
+    if (o.isBone) r.bones++;
+    if (o.isMesh) {
+      const g = o.geometry, bb = new THREE.Box3().setFromObject(o);
+      const ms = [].concat(o.material);
+      r.meshes.push({ name: o.name, skinned: !!o.isSkinnedMesh, verts: g.attributes.position.count, attrs: Object.keys(g.attributes), groups: g.groups.length,
+        mats: ms.map((m) => [m.name, m.type, m.map ? (m.map.name || m.map.image?.src?.split('/').pop()) : null, m.color?.getHexString(), m.transparent, m.alphaTest]),
+        bb: [bb.min.toArray().map((v) => +v.toFixed(2)), bb.max.toArray().map((v) => +v.toFixed(2))], parent: o.parent?.name,
+        skelBones: o.skeleton?.bones.length });
+    }
+  });
+  const bb = new THREE.Box3().setFromObject(root); r.bb = [bb.min.toArray(), bb.max.toArray()];
+  r.rootScale = root.scale.toArray(); r.rootRot = root.rotation.toArray();
+  return r;
+}
+try { const f = await new FBXLoader().loadAsync('src/Calem.FBX'); out.fbx = await info(f); out.fbxAnims = f.animations.length; } catch (e) { out.fbxErr = String(e); }
+try { const d = await new ColladaLoader().loadAsync('src/Calem_OpenCollada.DAE'); out.dae = await info(d.scene); } catch (e) { out.daeErr = String(e); }
+window.out = out; window.ready = true;
+</script></body></html>

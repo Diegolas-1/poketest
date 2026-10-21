@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { buildSky } from './nature.js';
 import { buildLab, LAB_FOOTPRINT } from './lab.js';
+import { createOutline } from './outline.js';
 const q = new URLSearchParams(location.search);
 const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
 r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -17,7 +18,8 @@ scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.2));
 const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(60); sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 150 }); sun.shadow.bias = -0.0005; scene.add(sun);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
-ground.receiveShadow = true; scene.add(ground);
+ground.receiveShadow = true; scene.add(ground); ground.userData.outline = 'ground';
+const ink = createOutline(r); if (q.get('ink') === '0') ink.enabled = false;
 const world = { colliders: [], use: [], solid: [], walk: [], anim: [], group: new THREE.Group() };
 scene.add(world.group);
 const facing = Number(q.get('facing') || 0);
@@ -38,7 +40,7 @@ for (const a of world.anim) a(t, t);
 let meshes = 0; world.group.traverse((o) => { if (o.isMesh) meshes++; });
 document.getElementById('i').textContent = `meshes ${meshes} · colliders ${world.colliders.length} · footprint ${LAB_FOOTPRINT.w}x${LAB_FOOTPRINT.d}`;
 window.stats = { meshes, colliders: world.colliders.length };
-r.render(scene, cam);
-if (q.has('live')) { let last = performance.now(), tt = t; const loop = (now) => { const dt = (now - last) / 1000; last = now; tt += dt; for (const a of world.anim) a(dt, tt); r.render(scene, cam); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+r.render(scene, cam); ink.render(scene, cam);
+if (q.has('live')) { let last = performance.now(), tt = t; const loop = (now) => { const dt = (now - last) / 1000; last = now; tt += dt; for (const a of world.anim) a(dt, tt); r.render(scene, cam); ink.render(scene, cam); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
 setTimeout(() => { window.ready = true; }, 300);
 </script></body></html>

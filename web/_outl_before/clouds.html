@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Clouds</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden}canvas{display:block}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { buildSky, buildClouds, buildMountains } from './nature.js';
+import { paintCloud, paintStreak, TOWER, LOW, STREAK } from './clouds.js';
+const q = new URLSearchParams(location.search);
+if (q.has('tex')) { // the painted cloud textures, on the sky blue
+  document.body.style.cssText = 'background:linear-gradient(#3c8ee6,#8cc6f2);overflow:auto;padding:8px';
+  const st = document.createElement('style'); st.textContent = 'canvas{display:inline-block;margin:4px}'; document.head.appendChild(st);
+  for (let i = 0; i < 6; i++) document.body.appendChild(paintCloud(100 + i * 17, TOWER[0], TOWER[1], 'tower'));
+  for (let i = 0; i < 4; i++) document.body.appendChild(paintCloud(500 + i * 13, LOW[0], LOW[1], 'low'));
+  for (let i = 0; i < 3; i++) document.body.appendChild(paintStreak(900 + i, STREAK[0], STREAK[1]));
+  window.ready = true; throw 0;
+}
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+const sunDir = new THREE.Vector3(-0.55, 0.75, 0.45).normalize();
+scene.add(buildSky(sunDir)); scene.fog = new THREE.Fog('#c4e2f0', 90, 430);
+scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.6));
+const clouds = buildClouds(); scene.add(clouds);
+if (!q.has('nomtn')) scene.add(buildMountains(sunDir));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
+scene.add(ground);
+const cam = new THREE.PerspectiveCamera(+(q.get('fov') || 55), innerWidth / innerHeight, 0.1, 2000);
+const yaw = +(q.get('yaw') || 0), pitch = +(q.get('pitch') || 15) * Math.PI / 180;
+cam.position.set(0, 2, 0);
+cam.lookAt(Math.sin(yaw), 2 + Math.tan(pitch), -Math.cos(yaw));
+r.render(scene, cam); window.ready = true;
+</script></body></html>

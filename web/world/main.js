@@ -11,6 +11,7 @@ import { grassField, wind, surface } from './assets.js';
 import { makeActor, LOOKS } from './actor.js';
 import { Input } from './input.js';
 import { Dialog } from './dialog.js';
+import { createOutline } from './outline.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
@@ -20,10 +21,13 @@ const q = new URLSearchParams(location.search);
 const auto = (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|Android|iPhone|iPad/.test(navigator.userAgent) ? 'low' : 'high';
 const level = q.get('q') || auto;
 const QUALITY = {
-  low: { dpr: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7 },
-  medium: { dpr: 1.25, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85 },
-  high: { dpr: 1.5, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1 },
+  low: { dpr: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1 },
+  medium: { dpr: 1.25, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1 },
+  high: { dpr: 1.5, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1 },
 }[level] || null;
+// ink lines (outline.js): G-buffer resolution scale, 0 = off. ?outline=0|0.5|1
+// overrides; on a very weak device the frame loop drops to half, then off.
+if (q.has('outline')) QUALITY.outline = Math.max(0, Math.min(1, +q.get('outline') || 0));
 
 // ---------- renderer and scene ----------
 const view = $('view');
@@ -33,10 +37,12 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const outline = createOutline(renderer, { scale: QUALITY.outline || 1 });
+outline.enabled = QUALITY.outline > 0;
 const scene = new THREE.Scene();
 const FOG = new THREE.Color('#c4e2f0');
 scene.fog = new THREE.Fog(FOG, 90, 430);
-const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(52, 1, 0.25, 2000);   // near 0.25 (was 0.1): 2.5x the depth precision far off
 
 const sunDir = new THREE.Vector3(-0.55, 0.75, 0.45).normalize();
 const sky = buildSky(sunDir);
@@ -60,6 +66,7 @@ function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
+  const db = renderer.getDrawingBufferSize(new THREE.Vector2()); outline.setSize(db.x, db.y);
   const px = Math.min(devicePixelRatio, 2);
   $('ui').width = Math.round(w * px); $('ui').height = Math.round(h * px);
 }
@@ -77,7 +84,7 @@ const terrain = buildTerrain();
 }
 scene.add(terrain);
 const uTime = wind.uTime;
-scene.add(buildWater(uTime, { color: '#cfe6f2', near: 140, far: 700 }));
+scene.add(outline.mark(buildWater(uTime, { color: '#cfe6f2', near: 140, far: 700 }), 'ground'));
 buildPaths(scene);
 buildFields(scene);
 const clouds = buildClouds(); scene.add(clouds);
@@ -300,6 +307,39 @@ function oakScene() {
   };
 }
 
+// ---------- drawing ----------
+// The picture, then the ink lines over it (outline.js), then the grass on top:
+// the grass is on layer 1 so blades in front of a wall cover its line, and the
+// line pass never has to draw 100k blades again.
+outline.mark(terrain, 'ground');
+const GRASS_LAYER = 1;
+const perf = { n: 0, t: 0, last: 0 };
+function draw() {
+  if (grass && grass.mesh.layers.mask !== 1 << GRASS_LAYER) grass.mesh.layers.set(GRASS_LAYER);
+  camera.layers.set(0);
+  renderer.render(scene, camera);
+  outline.render(scene, camera);
+  if (grass) {
+    camera.layers.set(GRASS_LAYER);
+    const ac = renderer.autoClear, su = renderer.shadowMap.autoUpdate;
+    renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
+    renderer.render(scene, camera);
+    renderer.autoClear = ac; renderer.shadowMap.autoUpdate = su;
+    camera.layers.set(0);
+  }
+  // weak device: if frames stay slow (median-ish over 4 s above 50 ms), halve the line buffer, then drop it
+  if (!TEST && outline.enabled && !q.has('outline') && window.worldReady) {
+    const now = performance.now(), dt = now - (perf.last || now); perf.last = now;
+    perf.n++; perf.t += Math.min(dt, 200);
+    if (perf.t > 4000) {
+      if (perf.t / perf.n > 50) {
+        if (outline.scale > 0.5) { outline.scale = 0.5; resize(); } else outline.enabled = false;
+      }
+      perf.n = 0; perf.t = 0;
+    }
+  }
+}
+
 // ---------- the loop ----------
 const clock = new THREE.Clock();
 let t = 0;
@@ -385,7 +425,7 @@ function frame(fixed) {
     const p = new THREE.Vector3(n.x, n.y, n.z).project(camera);
     dialog.prompt = p.z < 1 ? { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight, label: n.label } : null;
   } else dialog.prompt = null;
-  renderer.render(scene, camera);
+  draw();
   dialog.draw(dt, t, innerWidth, innerHeight, Math.min(devicePixelRatio, 2));
   if (!TEST) requestAnimationFrame(frame);
 }
@@ -394,4 +434,4 @@ me.pos.y = groundAt(me.pos.x, me.pos.z);
 cam.yaw = 0.35; cam.target.set(me.pos.x, me.pos.y + 1.45, me.pos.z);
 if (TEST) frame(1 / 60); else requestAnimationFrame(frame);
 grow().catch((e) => { console.error(e); status('Something went wrong loading the plants: ' + e.message); });
-window.world = { me, cam, setCam(v) { TEST_CAM = v; }, groundAt, town, dialog, oak, move(dx, dz) { return step(me, dx, dz); }, noWalk, scene, renderer, camera, npcs, step(n = 1, dt = 1 / 30) { for (let i = 0; i < n; i++) frame(dt); } };
+window.world = { outline, me, cam, setCam(v) { TEST_CAM = v; }, groundAt, town, dialog, oak, move(dx, dz) { return step(me, dx, dz); }, noWalk, scene, renderer, camera, npcs, step(n = 1, dt = 1 / 30) { for (let i = 0; i < n; i++) frame(dt); } };

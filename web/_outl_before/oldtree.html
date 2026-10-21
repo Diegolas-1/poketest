@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Old growth tree</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden}canvas{display:block}</style></head>
+<body><script type="module">
+// Preview of the 'oldgrowth' tree: two seeds plus a round tree for scale.
+// ?ink=1 adds the anime silhouette ink line (ink.js); ?cam=x,y,z,tx,ty,tz; ?seeds=a,b
+import * as THREE from 'three';
+import { makeTree } from './foliage.js';
+import { buildSky } from './nature.js';
+import { createInk } from './ink.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+const sunDir = new THREE.Vector3(-0.6, 0.7, 0.5).normalize();
+scene.add(buildSky(sunDir)); scene.fog = new THREE.Fog('#cfe2e8', 60, 260);
+scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.2));
+const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(50); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -35, right: 35, top: 35, bottom: -35, far: 120 }); sun.shadow.bias = -0.0005; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
+ground.receiveShadow = true; scene.add(ground);
+const seeds = (q.get('seeds') || '11,23').split(',').map(Number);
+const items = [['oldgrowth', seeds[0], -11], ['round', 3, 1.5], ['oldgrowth', seeds[1], 13]];
+const info = [];
+for (const [k, s, x] of items) {
+  const m = makeTree(k, s * 101);
+  const g = new THREE.Group(); g.position.set(x, 0, 0);
+  m.parts.forEach((p, i) => { const mesh = new THREE.Mesh(p.geometry, p.material); mesh.castShadow = mesh.receiveShadow = true; mesh.userData.ink = i ? 'leaf' : 'bark'; g.add(mesh); });
+  scene.add(g);
+  info.push({ k, h: +m.height.toFixed(1), rad: +m.radius.toFixed(1), cards: m.parts[1].geometry.index.count / 6, woodTris: m.parts[0].geometry.attributes.position.count / 3 });
+}
+window.info = info; console.log(JSON.stringify(info));
+const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
+const c = (q.get('cam') || '0,7,46,0,8.5,0').split(',').map(Number);
+cam.position.set(c[0], c[1], c[2]); cam.lookAt(c[3], c[4], c[5]);
+r.render(scene, cam);
+if (q.get('ink') === '1') createInk(r).render(scene, cam);
+window.ready = true;
+</script></body></html>
