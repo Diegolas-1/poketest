@@ -796,43 +796,57 @@ function calemActor(look) {
   // the walk, run from there, crossfaded on the way between so speeding up and slowing down blend
   const WALK_V = 4.5, RUN_V = 8.5, TEMPO_MAX = 3;   // TEMPO_MAX: fastest a clip plays; past that the stride slides
   // life on top of the idle clip: posture, breathing, weight sway, looking around and fidgets
-  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 2 + Math.random() * 3, fid: null, nextFid: 6 + Math.random() * 6 };
-  const FIDGETS = ['twist', 'shift', 'shoulders'];
+  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 2 + Math.random() * 3, fid: null, nextFid: 6 + Math.random() * 6,
+    side: Math.random() < 0.5 ? -1 : 1, cp: 0, swap: 15 + Math.random() * 15 };
+  life.cp = life.side;
+  const FIDGETS = ['twist', 'shoulders'];   // (shifting weight is the stance, below)
   const idleLife = (dt, wI, wP) => {
     const L = life, b = rig.bend;
     L.t += dt;
     // posture: chest up, neck long (the clips stoop); at idle also relaxed elbows (the idle clip
     // already curls the fingers; curling them more clenches them through the gloves)
-    if (wP > 0.001) { b('Spine2', 1, 0, 0, -0.06 * wP); b('Spine3', 1, 0, 0, -0.04 * wP); b('Neck', 1, 0, 0, -0.06 * wP); b('Head', 1, 0, 0, -0.04 * wP); }
+    // and shoulders drawn back so they don't round forward
+    if (wP > 0.001) {
+      b('Spine2', 1, 0, 0, -0.06 * wP); b('Spine3', 1, 0, 0, -0.07 * wP); b('Neck', 1, 0, 0, -0.04 * wP); b('Head', 1, 0, 0, -0.02 * wP);
+      b('LShoulder', 0, 1, 0, 0.14 * wP); b('RShoulder', 0, 1, 0, -0.14 * wP);
+    }
     if (wI < 0.001) return;
+    // arms: a little out from the sides, swung back so the hands hang by the hips, elbows bent,
+    // shoulders let down; not quite the same on both sides
     ['L', 'R'].forEach((s, i) => {
       const sg = i ? -1 : 1;
-      b(s + 'ForeArm', 0, 1, 0, -sg * 0.22 * wI);
+      b(s + 'Shoulder', 0, 0, 1, -sg * 0.04 * wI);
+      b(s + 'ArmA', 0, 0, 1, sg * (i ? 0.12 : 0.16) * wI); b(s + 'ArmA', 0, 1, 0, sg * (i ? 0.22 : 0.27) * wI);
+      b(s + 'ForeArm', 0, 1, 0, -sg * (i ? 0.42 : 0.52) * wI);
     });
+    // stance: weight settled on one leg, the other knee soft, hips and shoulders tilted against
+    // each other, head tipped; every so often it slowly moves to the other leg
+    if ((L.swap -= dt) < 0) { L.side = -L.side; L.swap = 15 + Math.random() * 15; }
+    L.cp += (L.side - L.cp) * (1 - Math.exp(-dt * 1.2));
+    const cp = L.cp * wI, rl = L.cp > 0 ? 'R' : 'L', ca = Math.abs(cp);
+    b('Spine1', 0, 0, 1, 0.05 * cp); b('Spine3', 0, 0, 1, -0.04 * cp); b('Head', 0, 0, 1, -0.035 * cp);
+    b(rl + 'Thigh', 1, 0, 0, -0.07 * ca); b(rl + 'Thigh', 0, 0, 1, (rl === 'L' ? 1 : -1) * 0.03 * ca); b(rl + 'Leg', 1, 0, 0, 0.26 * ca); b(rl + 'Foot', 1, 0, 0, -0.12 * ca);
     // breathing, about 15 a minute: chest rises, shoulders lift a touch; and a slow sway of the weight
     const br = Math.sin(L.t * 1.6) * wI, sway = Math.sin(L.t * 0.45) * wI;
     b('Spine2', 1, 0, 0, -0.025 * br); b('Spine3', 1, 0, 0, -0.015 * br); b('Head', 1, 0, 0, 0.03 * br);
     b('LShoulder', 0, 0, 1, 0.025 * br); b('RShoulder', 0, 0, 1, -0.025 * br);
     b('Spine1', 0, 0, 1, 0.025 * sway); b('Spine3', 0, 0, 1, -0.018 * sway);
-    // fidgets now and then: twist a foot in the dirt, shift onto one leg, roll the shoulders
+    // fidgets now and then: twist a foot in the dirt, roll the shoulders
     L.nextFid -= dt;
     if (!L.fid && L.nextFid < 0 && wI > 0.9) {
       const k = FIDGETS[Math.floor(Math.random() * FIDGETS.length)], s = Math.random() < 0.5 ? 'L' : 'R';
-      L.fid = { k, s, t: 0, dur: { twist: 2.8, shift: 4.5, shoulders: 1.8 }[k] };
+      L.fid = { k, s, t: 0, dur: { twist: 2.8, shoulders: 1.8 }[k] };
       if (k === 'twist') { L.ty = s === 'L' ? 0.15 : -0.15; L.tp = 0.4; L.look = 2.8; }   // and watch the foot
     }
     if (L.fid) {
       const F = L.fid, u = (F.t += dt) / F.dur;
       if (u >= 1 || wI < 0.5) { L.fid = null; L.nextFid = 8 + Math.random() * 8; }
       else {
-        const env = smooth(0, 0.15, u) * (1 - smooth(0.85, 1, u)) * wI, sg = F.s === 'L' ? 1 : -1, o = F.s === 'L' ? 'R' : 'L';
+        const env = smooth(0, 0.15, u) * (1 - smooth(0.85, 1, u)) * wI, sg = F.s === 'L' ? 1 : -1;
         if (F.k === 'twist') {   // knee bent, toe down in the dirt, heel swivelling in and out
           b(F.s + 'Thigh', 1, 0, 0, -0.1 * env); b(F.s + 'Leg', 1, 0, 0, 0.35 * env); b(F.s + 'Foot', 1, 0, 0, 0.45 * env);
           b(F.s + 'Thigh', 0, 1, 0, Math.sin(F.t * 3.6) * 0.26 * env);
           b('Spine1', 0, 0, 1, -sg * 0.03 * env);
-        } else if (F.k === 'shift') {   // weight onto one leg, the other knee relaxed
-          b('Spine1', 0, 0, 1, sg * 0.08 * env); b('Spine3', 0, 0, 1, -sg * 0.06 * env); b('Head', 0, 0, 1, -sg * 0.05 * env);
-          b(o + 'Thigh', 1, 0, 0, -0.12 * env); b(o + 'Thigh', 0, 0, 1, -sg * 0.05 * env); b(o + 'Leg', 1, 0, 0, 0.45 * env); b(o + 'Foot', 1, 0, 0, -0.2 * env);
         } else {   // shoulders up and back, a little neck stretch
           const up = Math.sin(Math.min(1, u * 1.4) * Math.PI) * wI;
           b('LShoulder', 0, 0, 1, 0.14 * up); b('RShoulder', 0, 0, 1, -0.14 * up); b('Spine3', 1, 0, 0, -0.06 * up);
