@@ -250,7 +250,9 @@ function frame(emu) {
     grade.uniforms.fade.value = 0;
   }
   if (window.hd.skipDraw) return;  // used by automated tests
-  composer.render();
+  // behind the Game Boy screen the 3D view stands still: draw it once, dimmed
+  if (overworld || status.drawn !== 'screen') composer.render();
+  status.drawn = status.mode;
   drawUI(gb, status.mode, overworld ? s.boxes : []);
 }
 
