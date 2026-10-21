@@ -801,13 +801,13 @@ function calemActor(look) {
   const idleLife = (dt, wI, wP) => {
     const L = life, b = rig.bend;
     L.t += dt;
-    // posture: chest up, neck long (the clips stoop); at idle also relaxed elbows and fingers
+    // posture: chest up, neck long (the clips stoop); at idle also relaxed elbows (the idle clip
+    // already curls the fingers; curling them more clenches them through the gloves)
     if (wP > 0.001) { b('Spine2', 1, 0, 0, -0.06 * wP); b('Spine3', 1, 0, 0, -0.04 * wP); b('Neck', 1, 0, 0, -0.06 * wP); b('Head', 1, 0, 0, -0.04 * wP); }
     if (wI < 0.001) return;
     ['L', 'R'].forEach((s, i) => {
       const sg = i ? -1 : 1;
       b(s + 'ForeArm', 0, 1, 0, -sg * 0.22 * wI);
-      for (const f of ['B', 'C', 'D']) for (let j = 1; j <= 3; j++) b(`${s}Finger${f}${j}`, 0, 0, 1, -sg * (0.12 + j * 0.06) * wI);
     });
     // breathing, about 15 a minute: chest rises, shoulders lift a touch; and a slow sway of the weight
     const br = Math.sin(L.t * 1.6) * wI, sway = Math.sin(L.t * 0.45) * wI;
