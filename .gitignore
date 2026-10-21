@@ -1,0 +1,5 @@
+# Built ROMs are copies of Nintendo's game: never commit them.
+*.gb
+*.gbc
+web/pokered.gbc
+tools/
