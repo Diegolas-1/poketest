@@ -11,7 +11,7 @@ import { grassField, wind, surface } from './assets.js';
 import { makeActor, LOOKS } from './actor.js';
 import { Input } from './input.js';
 import { Dialog } from './dialog.js';
-import { createOutline, setInkFocus } from './outline.js';
+import { createOutline, setInkFocus, INK_LAYER } from './outline.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
@@ -333,6 +333,16 @@ function draw() {
   outline.render(scene, camera);
   if (grass) {
     camera.layers.set(GRASS_LAYER);
+    const ac = renderer.autoClear, su = renderer.shadowMap.autoUpdate;
+    renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
+    renderer.render(scene, camera);
+    renderer.autoClear = ac; renderer.shadowMap.autoUpdate = su;
+    camera.layers.set(0);
+  }
+  // the vector ink last: depth-tested against everything already drawn (grass
+  // included), so blades and water behind a line never paint over it
+  if (outline.lines.visible) {
+    camera.layers.set(INK_LAYER);
     const ac = renderer.autoClear, su = renderer.shadowMap.autoUpdate;
     renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
     renderer.render(scene, camera);

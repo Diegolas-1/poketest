@@ -347,6 +347,7 @@ export function createOutline(renderer, o = {}) {
 // object per group of static meshes. Meshes that get lines are marked
 // 'ground' for the screen-space pass, so they draw no second line there.
 
+export const INK_LAYER = 2;
 const CREASE = Math.cos(THREE.MathUtils.degToRad(32));
 // width: pixels at 1080p near the player; lines thin to nothing with distance
 // from the player (focus), so far-off detail never clots into black
@@ -460,6 +461,7 @@ function linesFrom(out) {
   const L = new LineSegments2(g, lineMat);
   L.userData.outline = false; L.userData.inkLines = true; L.castShadow = false; L.receiveShadow = false;
   L.raycast = () => {};
+  L.layers.set(INK_LAYER);   // drawn last, after the grass, so nothing paints over a line
   return L;
 }
 
