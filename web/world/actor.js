@@ -7,6 +7,9 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toon } from './toon.js';
+import { dressAsh } from './ashcloth.js';
+import { addNeck } from './cast.js';
+import { makeIdleActions } from './idles.js';
 
 const V2 = (x, y) => new THREE.Vector2(x, y), V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const DS = THREE.DoubleSide;
@@ -574,6 +577,7 @@ const ASH = {
   pants: '#6f9fdc', cuff: '#dfe9f6', belt: '#c8343a', buckle: '#e9e4d0',
   shoes: { up: '#2f5fc4', sole: '#ffffff', toe: '#f7f6f1', collar: '#f7f6f1', lace: '#f7f6f1', tab: '#e0383a' },
   base: 'calem',   // use the local Calem-based model when this machine has it (see calemActor)
+  cloth: 'ash',    // on that model: the open jacket and baggy jeans of ashcloth.js
 };
 export const LOOKS = {
   red: ASH, ash: ASH,
@@ -605,6 +609,9 @@ export const LOOKS = {
   },
 };
 
+// the others are made from the same base model too, reworked in cast.js
+for (const k of ['girl', 'fisher', 'kid', 'oak']) Object.assign(LOOKS[k], { base: 'calem', cast: k });
+
 // ---------- optional local base model ----------
 // web/world/local/ash.glb holds a skinned 3D-game body dressed as Ash. When it
 // loads, the player look uses it:
@@ -623,7 +630,7 @@ function loadCalem() {
       const url = new URL('./local/ash.glb', import.meta.url).href;
       const [{ GLTFLoader }, SU] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]);
       const [g, anims] = await Promise.all([new GLTFLoader().loadAsync(url),
-        fetch(new URL('./anims/ash.json', import.meta.url)).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+        fetch(new URL(QS.get('anims') || './anims/ash.json', import.meta.url)).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
       const base = prepCalem(g.scene, SU);
       if (anims) base.anims = { meta: anims.meta, clips: Object.fromEntries(anims.clips.map((c) => [c.name, THREE.AnimationClip.parse(c)])) };
       return (calemBase = base);
@@ -668,6 +675,8 @@ function calemActor(look) {
   const attach = (base) => {
     if (!base) return;
     const m = base.SU.clone(base.scene);
+    const cloth = look.cloth === 'ash' ? dressAsh(m, base) : null;   // before the ink hulls, so the garments get theirs
+    if (look.cloth === 'ash') smoothNormals(addNeck(m, look.skin || '#f8d6b8', SKIN).geometry);   // likewise; the cast make their own
     const holder = new THREE.Group(); holder.scale.setScalar(base.k); holder.position.y = -base.minY * base.k; holder.add(m);
     const bones = {};
     let eyes = null;
@@ -675,7 +684,8 @@ function calemActor(look) {
       if (o.isBone) bones[o.name] = o;
       if (o.isSkinnedMesh) {
         if (o.material.name === 'face_on_0') {   // own eye texture so blinking is per person
-          o.material = o.material.clone(); o.material.map = o.material.map.clone(); eyes = o.material.map;
+          const m0 = o.material; o.material = m0.clone(); o.material.map = m0.map.clone(); eyes = o.material.map;
+          o.material.onBeforeCompile = m0.onBeforeCompile; o.material.customProgramCacheKey = m0.customProgramCacheKey;   // clone() drops the cel shading
         }
       }
     });
@@ -698,7 +708,7 @@ function calemActor(look) {
       const b = bones[name]; if (!b) return;
       b.quaternion.multiply(tq.setFromAxisAngle(ax.set(x, y, z).applyQuaternion(tq.copy(R.get(name).w).invert()), a));
     };
-    rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k };
+    rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k, cloth, rest: R, root: fb.root };
     const A = base.anims;
     if (A && A.clips.idle && A.clips.walk && A.clips.run) {
       const mixer = new THREE.AnimationMixer(m), act = {};
@@ -711,31 +721,99 @@ function calemActor(look) {
       rig.clips = { mixer, act, meta: A.meta, w: { idle: 1, walk: 0, run: 0 } };
     }
   };
-  if (calemBase) attach(calemBase); else loadCalem().then(attach);
+  // the town's people are variants of the same model (cast.js), built once per look
+  const ready = (base) => (base && look.cast ? import('./cast.js').then((c) => c.castReady(base, look.cast, { SKIN, CLOTH, smoothNormals })).then(attach).catch((e) => console.warn('cast:', e)) : attach(base));
+  if (calemBase) ready(calemBase); else loadCalem().then(ready);
 
-  // jump: the posed rig's air pose, blended over whatever the clips play
-  const jumpPose = () => {
-    // a running leap: left knee driven up, right foot kicked back, arms opposite
-    const { pose } = rig;
-    const th = [-0.9, 0.5], kn = [1.4, 1.5], ft = [-0.1, 0.5], sw = [0.6, -1.4], ab = [0.4, 0.4], el = [-0.6, -1.2];
-    ['L', 'R'].forEach((s, i) => {
-      const sg = i ? -1 : 1;
-      pose(s + 'Thigh', [[1, 0, 0, th[i]], [0, 0, 1, sg * 0.02]]);
-      pose(s + 'Leg', [[1, 0, 0, kn[i]]]);
-      pose(s + 'Foot', [[1, 0, 0, ft[i]]]);
-      pose(s + 'ArmA', [[1, 0, 0, sw[i]], [0, 0, 1, sg * ab[i]], [0, 0, 1, -sg * Math.PI / 2]]);
-      pose(s + 'ForeArm', [[0, 1, 0, sg * el[i]]]);
+  // jump: air poses blended over whatever the clips play. Takeoff extends, the rise tucks
+  // the knees and swings the arms up, the fall reaches the legs down with the arms out for
+  // balance; a running jump strides instead, mirrored to the leg that leads. Angles per side
+  // [lead, trail]: th thigh (- forward), kn knee bend, ft ankle (+ toe down), sw arm swing
+  // (- forward), ab arm out from the side, el elbow bend; sp chest lean, hd head (- up).
+  const J = {
+    take: { th: [-0.1, 0.05], kn: [0.15, 0.1], ft: [0.55, 0.5], sw: [-0.45, -0.4], ab: [0.25, 0.25], el: [0.6, 0.6], sp: -0.04, hd: -0.06 },
+    rise: { th: [-0.85, -0.6], kn: [1.35, 1.15], ft: [0.35, 0.3], sw: [-0.5, -0.4], ab: [0.4, 0.4], el: [1.2, 1.1], sp: 0.06, hd: -0.06 },
+    fall: { th: [-0.35, -0.15], kn: [0.5, 0.35], ft: [0.15, 0.1], sw: [-0.2, -0.1], ab: [0.7, 0.65], el: [0.5, 0.45], sp: 0.08, hd: 0.06 },
+    riseR: { th: [-0.95, 0.3], kn: [1.2, 0.75], ft: [0.2, 0.45], sw: [0.55, -0.9], ab: [0.25, 0.25], el: [0.9, 1.0], sp: 0.12, hd: -0.06 },
+    fallR: { th: [-0.6, 0.1], kn: [0.55, 0.45], ft: [0.05, 0.3], sw: [0.2, -0.4], ab: [0.45, 0.4], el: [0.6, 0.6], sp: 0.1, hd: 0.02 },
+  };
+  const jmix = (a, b, u) => { const o = {}; for (const k in a) o[k] = Array.isArray(a[k]) ? a[k].map((x, i) => x + (b[k][i] - x) * u) : a[k] + (b[k] - a[k]) * u; return o; };
+  const jump = { t: 0, vy: 0, y: null, run: 0, lead: 'L', impact: 0, land: 1 };
+  const jumpPose = (P) => {
+    const { pose } = rig, sides = jump.lead === 'L' ? ['L', 'R'] : ['R', 'L'];
+    sides.forEach((s, i) => {
+      const sg = s === 'L' ? 1 : -1;
+      pose(s + 'Thigh', [[1, 0, 0, P.th[i]], [0, 0, 1, sg * 0.04]]);
+      pose(s + 'Leg', [[1, 0, 0, P.kn[i]]]);
+      pose(s + 'Foot', [[1, 0, 0, P.ft[i]]]);
+      pose(s + 'ArmA', [[1, 0, 0, P.sw[i]], [0, 0, 1, sg * P.ab[i]], [0, 0, 1, -sg * Math.PI / 2]]);
+      pose(s + 'ForeArm', [[0, 1, 0, -sg * P.el[i]]]);
     });
-    pose('Spine2', [[1, 0, 0, 0.15]]);
-    pose('Head', [[1, 0, 0, -0.1]]);
+    pose('Spine2', [[1, 0, 0, P.sp]]);
+    pose('Head', [[1, 0, 0, P.hd]]);
   };
   const JUMP_BONES = ['LThigh', 'RThigh', 'LLeg', 'RLeg', 'LFoot', 'RFoot', 'LArmA', 'RArmA', 'LForeArm', 'RForeArm', 'Spine2', 'Head'];
   const saved = JUMP_BONES.map(() => new THREE.Quaternion());
   const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-  let airW = 0, wasAir = false, land = 1;
+  let airW = 0, wasAir = false;
   // the player's walk and run speeds (m/s, as main.js moves it): walk plays up to just past
   // the walk, run from there, crossfaded on the way between so speeding up and slowing down blend
   const WALK_V = 4.5, RUN_V = 8.5, TEMPO_MAX = 3;   // TEMPO_MAX: fastest a clip plays; past that the stride slides
+  // life on top of the idle clip: posture, breathing, weight sway, looking around and idle actions
+  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 2 + Math.random() * 3,
+    side: Math.random() < 0.5 ? -1 : 1, cp: 0, swap: 15 + Math.random() * 15 };
+  life.cp = life.side;
+  const idleLife = (dt, wI, wP) => {
+    const L = life, b = rig.bend;
+    L.t += dt;
+    // idle actions now and then (idles.js): they steer the look target here and pose the body after the clips
+    const I = rig.idles || (rig.idles = makeIdleActions(rig, { life, ball: !look.cast, npc: !!look.cast }));
+    I.update(dt, wI);
+    // posture: chest up, neck long (the clips stoop); at idle also relaxed elbows (the idle clip
+    // already curls the fingers; curling them more clenches them through the gloves)
+    // and shoulders drawn back so they don't round forward
+    if (wP > 0.001) {
+      b('Spine2', 1, 0, 0, -0.06 * wP); b('Spine3', 1, 0, 0, -0.07 * wP); b('Neck', 1, 0, 0, -0.04 * wP); b('Head', 1, 0, 0, -0.02 * wP);
+      b('LShoulder', 0, 1, 0, 0.14 * wP); b('RShoulder', 0, 1, 0, -0.14 * wP);
+    }
+    if (wI < 0.001) return;
+    // arms: a little out from the sides, swung back so the hands hang by the hips, elbows bent,
+    // shoulders let down; not quite the same on both sides
+    ['L', 'R'].forEach((s, i) => {
+      const sg = i ? -1 : 1;
+      b(s + 'Shoulder', 0, 0, 1, -sg * 0.04 * wI);
+      b(s + 'ArmA', 0, 0, 1, sg * (i ? 0.17 : 0.21) * wI); b(s + 'ArmA', 0, 1, 0, sg * (i ? 0.22 : 0.27) * wI);
+      b(s + 'ForeArm', 0, 1, 0, -sg * (i ? 0.42 : 0.52) * wI);
+    });
+    // stance: weight settled on one leg, the other knee soft, hips and shoulders tilted against
+    // each other, head tipped; every so often it slowly moves to the other leg
+    if (!I.busy && (L.swap -= dt) < 0) { L.side = -L.side; L.swap = 15 + Math.random() * 15; }
+    L.cp += (L.side - L.cp) * (1 - Math.exp(-dt * 1.2));
+    const cp = L.cp * wI, rl = L.cp > 0 ? 'R' : 'L', ca = Math.abs(cp);
+    b('Spine1', 0, 0, 1, 0.05 * cp); b('Spine3', 0, 0, 1, -0.04 * cp); b('Head', 0, 0, 1, -0.035 * cp);
+    b(rl + 'Thigh', 1, 0, 0, -0.07 * ca); b(rl + 'Thigh', 0, 0, 1, (rl === 'L' ? 1 : -1) * 0.03 * ca); b(rl + 'Leg', 1, 0, 0, 0.26 * ca); b(rl + 'Foot', 1, 0, 0, -0.12 * ca);
+    // breathing, about 15 a minute: chest rises, shoulders lift a touch; and a slow sway of the weight
+    const br = Math.sin(L.t * 1.6) * wI, sway = Math.sin(L.t * 0.45) * wI;
+    b('Spine2', 1, 0, 0, -0.025 * br); b('Spine3', 1, 0, 0, -0.015 * br); b('Head', 1, 0, 0, 0.03 * br);
+    b('LShoulder', 0, 0, 1, 0.025 * br); b('RShoulder', 0, 0, 1, -0.025 * br);
+    b('Spine1', 0, 0, 1, 0.025 * sway); b('Spine3', 0, 0, 1, -0.018 * sway);
+    // look around: pick a spot, turn to it (head leads, neck and chest follow), hold; a blink on big turns
+    L.look -= dt;
+    if (L.look < 0) {
+      L.look = 3 + Math.random() * 5;
+      const ty = Math.random() < 0.35 ? (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.35) : (Math.random() - 0.5) * 0.5;
+      if (Math.abs(ty - L.yaw) > 0.4) blink = Math.min(blink, 0.04);
+      L.ty = ty; L.tp = (Math.random() - 0.65) * 0.25;
+    }
+    const n = Math.min(60, Math.ceil(dt / 0.02)), h = dt / n, om = 3.5;
+    for (let i = 0; i < n; i++) {
+      L.vy += ((L.ty - L.yaw) * om * om - 2 * om * L.vy) * h; L.yaw += L.vy * h;
+      L.vp += ((L.tp - L.pitch) * om * om - 2 * om * L.vp) * h; L.pitch += L.vp * h;
+    }
+    const yw = L.yaw * wI, pt = L.pitch * wI;
+    b('Spine3', 0, 1, 0, yw * 0.15); b('Neck', 0, 1, 0, yw * 0.35); b('Head', 0, 1, 0, yw * 0.5);
+    b('Neck', 1, 0, 0, pt * 0.4); b('Head', 1, 0, 0, pt * 0.6);
+  };
   const clipAnimate = (dt, speed, air) => {
     const { mixer, act, meta, w } = rig.clips, k = rig.k;
     const dW = act.walk.getClip().duration, dR = act.run.getClip().duration;
@@ -750,26 +828,56 @@ function calemActor(look) {
     if (!air) phase = (phase + dt * Math.min(Math.max(speed, 0.8) / stride, tempo * TEMPO_MAX)) % 1;
     act.walk.time = ((phase + meta.walk.lead) % 1) * dW;
     act.run.time = ((phase + meta.run.lead) % 1) * dR;
+    // the mixer only writes a bone when its value changed since it last wrote it, so the turns
+    // added below would pile up frame after frame on a bone holding still: start from the
+    // clips' own pose every frame
+    const clean = rig.clips.clean || (rig.clips.clean = Object.values(rig.bones).map((o) => [o, o.quaternion.clone(), o.position.clone()]));
+    for (const [o, q, p] of clean) { o.quaternion.copy(q); o.position.copy(p); }
     mixer.update(dt);
+    for (const [o, q, p] of clean) { q.copy(o.quaternion); p.copy(o.position); }
     // a sprint past the run clip's own speed leans into it
     const lean = smooth(RUN_V * 1.1, RUN_V * 1.8, speed) * (1 - airW);
     if (lean > 0.001) { rig.bend('Spine2', 1, 0, 0, lean * 0.14); rig.bend('Spine3', 1, 0, 0, lean * 0.07); rig.bend('Head', 1, 0, 0, -lean * 0.12); }
+    idleLife(dt, w.idle * (1 - airW), (w.idle + w.walk * 0.6) * (1 - airW));
+    // a walk with the feet a little apart, soles kept flat, so the steps don't cross like a catwalk
+    const ww = w.walk * (1 - airW);
+    if (ww > 0.001) for (const [s, sg] of [['L', 1], ['R', -1]]) { rig.bend(s + 'Thigh', 0, 0, 1, sg * 0.05 * ww); rig.bend(s + 'Foot', 0, 0, 1, -sg * 0.05 * ww); }
+    // and the arms swinging a touch out from the sides, so the sleeves clear the jacket
+    const wa = (w.walk * 0.06 + w.run * 0.08) * (1 - airW);
+    if (wa > 0.001) for (const [s, sg] of [['L', 1], ['R', -1]]) rig.bend(s + 'ArmA', 0, 0, 1, sg * wa);
     // the air pose takes over off the ground; a short dip on landing
-    airW += ((air ? 1 : 0) - airW) * (1 - Math.exp(-dt * (air ? 14 : 9)));
-    if (wasAir && !air) land = 0;
+    // vertical speed from where the game put the actor (it only says whether it is in the air)
+    const y = actor.root.position.y;
+    if (jump.y !== null && dt > 0) jump.vy += ((y - jump.y) / dt - jump.vy) * Math.min(1, dt * 30);
+    jump.y = y;
+    if (air && !wasAir) { jump.t = 0; jump.run = smooth(1.5, WALK_V, speed); jump.lead = phase < 0.5 ? 'L' : 'R'; }
+    if (!air && wasAir) { jump.land = 0; jump.impact = Math.min(1, Math.max(0.25, -jump.vy / 6)); }
     wasAir = air;
+    airW += ((air ? 1 : 0) - airW) * (1 - Math.exp(-dt * (air ? 18 : 12)));
     if (airW > 0.002) {
+      jump.t += air ? dt : 0;
+      const ext = smooth(0.04, 0.2, jump.t), fall = smooth(1.5, -2.5, jump.vy);
+      const rise = jmix(jmix(J.take, J.rise, ext), jmix(J.take, J.riseR, ext), jump.run);
+      const P = jmix(rise, jmix(J.fall, J.fallR, jump.run), fall);
       JUMP_BONES.forEach((n, i) => rig.bones[n] && saved[i].copy(rig.bones[n].quaternion));
-      jumpPose();
+      jumpPose(P);
       JUMP_BONES.forEach((n, i) => { const b = rig.bones[n]; if (b) b.quaternion.copy(saved[i].slerp(b.quaternion, airW)); });
     }
-    land = Math.min(1, land + dt / 0.22);
-    rig.holder.position.y = rig.y0 - Math.sin(land * Math.PI) * 0.05 * (land < 1 ? 1 : 0) - airW * 0.03;
+    // landing: knees and hips absorb it, feet kept flat, chest over the knees, then back up
+    jump.land = Math.min(1, jump.land + dt / (0.32 + jump.impact * 0.12));
+    const u = jump.land, cr = (u < 1 ? Math.min(1, u / 0.12) * Math.pow(1 - smooth(0.12, 1, u), 1.3) : 0) * jump.impact * (1 - airW) * (1 - 0.5 * smooth(2, WALK_V, speed));
+    if (cr > 0.001) {
+      for (const s of ['L', 'R']) { rig.bend(s + 'Thigh', 1, 0, 0, -0.5 * cr); rig.bend(s + 'Leg', 1, 0, 0, 1.0 * cr); rig.bend(s + 'Foot', 1, 0, 0, -0.5 * cr); }
+      rig.bend('Spine2', 1, 0, 0, 0.22 * cr); rig.bend('Head', 1, 0, 0, -0.14 * cr);
+      for (const [s, sg] of [['L', 1], ['R', -1]]) { rig.bend(s + 'ArmA', 1, 0, 0, -0.35 * cr); rig.bend(s + 'ArmA', 0, 0, 1, sg * 0.15 * cr); }
+    }
+    rig.holder.position.y = rig.y0 - cr * 0.1 * rig.k / 1.3;
+    rig.idles?.post(dt);
   };
 
   actor.animate = (dt, speed, air, t) => {
     if (!rig) return fb.animate(dt, speed, air, t);
-    if (rig.clips) { clipAnimate(dt, speed, air); return blinkStep(dt); }
+    if (rig.clips) { clipAnimate(dt, speed, air); rig.cloth?.update(dt, speed, air, t); return blinkStep(dt); }
     const { pose } = rig;
     const run = Math.min(1, speed / 7), sw = speed > 0.1 ? Math.min(1, speed / 3) : 0;
     phase += dt * (speed > 0.1 ? 2.2 + speed * 1.15 : 0);
@@ -803,13 +911,14 @@ function calemActor(look) {
     pose('Spine3', [[1, 0, 0, run * 0.07 * sw + Math.sin(t * 2) * 0.012 * (1 - sw)], [0, 1, 0, twist * 0.4]]);
     pose('Neck', [[1, 0, 0, -run * 0.06 * sw]]);
     pose('Head', [[1, 0, 0, -run * 0.1 * sw + (air ? 0.1 : 0)], [0, 1, 0, -twist * 0.6 + (sw ? 0 : Math.sin(idleT * 0.4) * 0.15)]]);
+    rig.cloth?.update(dt, speed, air, t);
     blinkStep(dt);
   };
   // blink: the eye atlas has closed eyes two cells to the right
   const blinkStep = (dt) => {
     blink -= dt;
     if (rig.eyes) {
-      rig.eyes.offset.x = blink < 0 ? 0.5 : 0;
+      rig.eyes.offset.x = blink < 0 || rig.idles?.eyes ? 0.5 : 0;
       if (blink < -0.12) blink = 2 + Math.random() * 4;
     }
   };

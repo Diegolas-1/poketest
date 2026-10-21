@@ -10,12 +10,14 @@
 // --clip renames a clip (walk=walk, "Running=run"); without it every clip is kept
 // under its own name, lowercased. Clips named in STYLE (below) are restyled for a
 // longer, livelier cartoon stride; --raw keeps them as the source has them.
+// --calm walk=0.5 first scales the hips' and spine's swing about their average over
+// the cycle (the spine half as much).
 //
-// The clips in ash.json come from three.js' Xbot (a Mixamo character and Mixamo
-// animations, shipped in three.js' examples; Mixamo animations are free to use in
-// projects). Remake them with:
-//   curl -sSLo cache/anim/Xbot.glb https://raw.githubusercontent.com/mrdoob/three.js/r169/examples/models/gltf/Xbot.glb
-//   npm install && node retarget.mjs cache/anim/Xbot.glb --clip idle=idle --clip walk=walk --clip run=run
+// The clips in ash.json come from three.js' Xbot (idle, run) and Soldier (walk), Mixamo
+// characters and Mixamo animations shipped in three.js' examples (Mixamo animations are
+// free to use in projects). Remake them with:
+//   for m in Xbot Soldier; do curl -sSLo cache/anim/$m.glb https://raw.githubusercontent.com/mrdoob/three.js/r169/examples/models/gltf/$m.glb; done
+//   npm install && node retarget.mjs cache/anim/Xbot.glb cache/anim/Soldier.glb --clip idle=idle --clip run=run --clip Walk=walk --calm walk=0.5
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -90,7 +92,7 @@ const X = [1, 0, 0], Y = [0, 1, 0];
 const LEGS = (th, kn, ft) => [['LThigh', th, X], ['RThigh', th, X], ['LLeg', kn, null, 'min'], ['RLeg', kn, null, 'min'], ['LFoot', ft, X], ['RFoot', ft, X]];
 const ARMS = (sw, el) => [['LArmA', sw, X], ['RArmA', sw, X], ['LForeArm', el, null, 'min'], ['RForeArm', el, null, 'min']];
 const STYLE = {
-  walk: { gain: [...LEGS(1.8, 1.3, 1), ...ARMS(1.9, 1.25), ['Waist', 1.35, Y], ['Spine1', 1.3, Y]],
+  walk: { gain: [...LEGS(1.8, 1.3, 1), ...ARMS(1.6, 1.2), ['Waist', 0.6, Y], ['Spine1', 0.8, Y]],
     add: [['Spine2', X, 0.05], ['Head', X, -0.04]], feet: 0.75 },
   run: { gain: [...LEGS(1.75, 1.4, 1), ...ARMS(1.9, 1.2), ['Waist', 1.3, Y], ['Spine1', 1.25, Y]],
     add: [['Spine1', X, 0.12], ['Spine2', X, 0.12], ['Neck', X, -0.06], ['Head', X, -0.1]], feet: 0.6, warp: 1, bounce: 0.035 },
@@ -179,10 +181,11 @@ function style(st, times, rot, pos, dur) {
 }
 
 // ---------- arguments ----------
-const args = process.argv.slice(2), sources = [], rename = new Map();
+const args = process.argv.slice(2), sources = [], rename = new Map(), calm = new Map();
 let out = resolve(ROOT, 'web/world/anims/ash.json'), noStyle = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--clip') { const [a, b] = args[++i].split('='); rename.set(a, b); }
+  else if (args[i] === '--calm') { const [a, b] = args[++i].split('='); calm.set(a, +b); }
   else if (args[i] === '--out') out = resolve(args[++i]);
   else if (args[i] === '--raw') noStyle = true;
   else sources.push(args[i]);
@@ -200,6 +203,11 @@ const waist = dBy.Waist, waistW = waist.getWorldPosition(new THREE.Vector3());
 const clips = [], meta = {};
 for (const file of sources) {
   const src = await load(file);
+  // face +Z like the player: turn the source round if its toes point the other way
+  src.scene.updateMatrixWorld(true);
+  const fz = {};
+  src.scene.traverse((o) => { if (o.isBone) fz[short(o.name)] = o.getWorldPosition(new THREE.Vector3()).z; });
+  if (fz.LeftToeBase < fz.LeftFoot) { src.scene.rotation.y += Math.PI; console.log(file, 'faces -Z: turned round'); }
   const S0 = restOf(src.scene);
   const sBy = {};
   src.scene.traverse((o) => { if (o.isBone) sBy[short(o.name)] = o; });
@@ -245,6 +253,20 @@ for (const file of sources) {
     for (const ax of [0, 2]) {
       const d = (pos[(n - 1) * 3 + ax] - pos[ax]) / (n - 1);
       for (let f = 0; f < n; f++) pos[f * 3 + ax] -= d * f;
+    }
+    // calmer: hips and spine swing less about their average over the cycle
+    if (calm.has(name)) {
+      const f = calm.get(name), mean = new THREE.Quaternion(), k0 = new THREE.Quaternion();
+      for (const [nm, g] of [['Waist', f], ['Spine1', (1 + f) / 2], ['Spine2', (1 + f) / 2], ['Spine3', (1 + f) / 2]]) {
+        const a = rot.get(dBy[nm]); if (!a) continue;
+        let x = 0, y = 0, z = 0, w = 0;
+        for (let i = 0; i < a.length; i += 4) { x += a[i]; y += a[i + 1]; z += a[i + 2]; w += a[i + 3]; }
+        mean.set(x, y, z, w).normalize();
+        for (let i = 0; i < a.length; i += 4) { k0.fromArray(a, i); k0.copy(mean.clone().slerp(k0, g)).toArray(a, i); }
+      }
+      let mx = 0;
+      for (let f2 = 0; f2 < n; f2++) mx += pos[f2 * 3] / n;
+      for (let f2 = 0; f2 < n; f2++) pos[f2 * 3] = mx + (pos[f2 * 3] - mx) * f;
     }
     let T = times, R = rot, P = pos;
     const st = noStyle ? null : STYLE[name];
