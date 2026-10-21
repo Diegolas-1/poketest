@@ -1,0 +1,86 @@
+# Builds the native game (native/, Godot) into an unsigned iPhone app (.ipa)
+# on a Mac runner and publishes it as the release "ios-latest". SideStore on
+# the phone signs it with a free Apple ID and installs it.
+name: iOS app
+
+on:
+  push:
+    branches: [main]
+    paths: ['native/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios
+  cancel-in-progress: true
+
+env:
+  GODOT: 4.7.2
+
+defaults:
+  run:
+    shell: bash   # -eo pipefail: a failing step stops the build
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot and the iOS export template (cached)
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/Library/Application Support/Godot/export_templates
+          key: godot-${{ env.GODOT }}-ios
+
+      - name: Download Godot
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          curl -sSL -o g.zip "https://github.com/godotengine/godot/releases/download/${GODOT}-stable/Godot_v${GODOT}-stable_macos.universal.zip"
+          unzip -q g.zip && rm g.zip
+          curl -sSL -o t.tpz "https://github.com/godotengine/godot/releases/download/${GODOT}-stable/Godot_v${GODOT}-stable_export_templates.tpz"
+          unzip -q t.tpz 'templates/ios.zip' 'templates/version.txt' && rm t.tpz
+          D="$HOME/Library/Application Support/Godot/export_templates/${GODOT}.stable"
+          mkdir -p "$D" && mv templates/* "$D/"
+
+      - name: Export the Xcode project
+        working-directory: native
+        run: |
+          G=~/godot/Godot.app/Contents/MacOS/Godot
+          $G --headless --path . --import || true
+          mkdir -p build/ios
+          # project only: signing happens on the phone (SideStore)
+          $G --headless --path . --export-release "iOS" build/ios/PalletTown.ipa 2>&1 | tee export.log
+          test -d build/ios/PalletTown.xcodeproj
+
+      - name: Build the app (unsigned)
+        working-directory: native/build/ios
+        run: |
+          xcodebuild -project PalletTown.xcodeproj -scheme PalletTown -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
+            build | tail -40
+          APP=$(find dd/Build/Products -name '*.app' -maxdepth 2 | head -1)
+          echo "app: $APP"
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qr PalletTown.ipa Payload
+          ls -la PalletTown.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PalletTown-ipa
+          path: native/build/ios/PalletTown.ipa
+
+      - name: Publish to the release "ios-latest" (a fixed link for the phone)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view ios-latest >/dev/null 2>&1 || gh release create ios-latest --title "iOS app (latest)" --notes "Unsigned build of native/. Install with SideStore." --prerelease
+          gh release upload ios-latest native/build/ios/PalletTown.ipa --clobber
+          gh release edit ios-latest --notes "Unsigned build of native/ from ${GITHUB_SHA::7}. Install with SideStore."
