@@ -8,7 +8,7 @@
 // the old-growth tree). ?ink=1 adds the silhouette ink; ?only=kind,kind
 // shows just those; ?set=forest|species|lush; ?seed=n; ?cam=x,y,z,tx,ty,tz overrides the framing.
 import * as THREE from 'three';
-import { makeTree, foliageTime } from './foliage.js';
+import { makeTree, foliageTime, setTreeDetail } from './foliage.js';
 import { buildSky } from './nature.js';
 import { createInk } from './ink.js';
 const q = new URLSearchParams(location.search);
@@ -26,7 +26,9 @@ ground.receiveShadow = true; scene.add(ground);
 const SETS = { forest: 'sapling,tiered,giant,spreading,multistem,dead,oldgrowth', species: 'birch,willow,maple,oak,scotspine', lush: 'bushy,shade,lombardy,linden,beech' };
 const kinds = (q.get('only') || SETS[q.get('set') || 'forest']).split(',');
 const seed = +(q.get('seed') || 5);
-const models = kinds.map((k, i) => makeTree(k, seed * 97 + i * 13));
+// ?raw=n uses that exact seed (the game's seeds are in veg.js); ?detail=k as setTreeDetail in the game
+if (q.get('detail')) setTreeDetail(+q.get('detail'));
+const models = kinds.map((k, i) => makeTree(k, q.get('raw') ? +q.get('raw') + i : seed * 97 + i * 13));
 let x = 0; const xs = [];
 models.forEach((m, i) => { if (i) x += models[i - 1].radius * 0.85 + m.radius * 0.85 + 1; xs.push(x); });
 const info = [];
@@ -43,6 +45,21 @@ const H = Math.max(...models.map((m) => m.height)), Wd = x + models[0].radius + 
 const d = Math.max(H / 2 / Math.tan(THREE.MathUtils.degToRad(20)), Wd / 2 / Math.tan(THREE.MathUtils.degToRad(20)) / cam.aspect) * 1.25;
 const c = (q.get('cam') || `0,${H * 0.3},${d},0,${H * 0.5},0`).split(',').map(Number);
 cam.position.set(c[0], c[1], c[2]); cam.lookAt(c[3], c[4], c[5]);
+// ?noleaf=1 hides the leaf cards; ?wood=a,b frames the wood between fractions a and b of its height
+// (?az= turns the view round the tree, in degrees)
+if (q.get('noleaf')) scene.traverse((o) => { if (o.isMesh && o.material.alphaTest) o.visible = false; });
+if (q.get('wood')) {
+  const [a, b] = q.get('wood').split(',').map(Number), box = new THREE.Box3();
+  scene.traverse((o) => { if (o.isMesh && o.userData.ink === 'bark') box.expandByObject(o); });
+  // ?fit=y0,y1,cx,cz,hw reuses another page's framing (window.__fit), so two versions line up
+  let [y0, y1, cx, cz, hw] = [box.min.y + (box.max.y - box.min.y) * a, box.min.y + (box.max.y - box.min.y) * b, (box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2, (box.max.x - box.min.x) / 2];
+  if (q.get('fit')) [y0, y1, cx, cz, hw] = q.get('fit').split(',').map(Number);
+  window.__fit = [y0, y1, cx, cz, hw].map((v) => +v.toFixed(3)).join(',');
+  const hh = (y1 - y0) / 2;
+  const dist = Math.max(hh, hw / cam.aspect) / Math.tan(THREE.MathUtils.degToRad(20)) * 1.15;
+  const az = THREE.MathUtils.degToRad(+(q.get('az') || 0));
+  cam.position.set(cx + Math.sin(az) * dist, (y0 + y1) / 2 + hh * 0.15, cz + Math.cos(az) * dist); cam.lookAt(cx, (y0 + y1) / 2, cz);
+}
 foliageTime.value = +(q.get('t') || 0);
 r.render(scene, cam);
 if (q.get('ink') === '1') createInk(r).render(scene, cam);

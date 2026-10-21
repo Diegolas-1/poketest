@@ -420,24 +420,88 @@ function puff(out, c, r, n, tiles, R, treeCenter) {
 }
 
 // A tapered tube along a path of points (trunks and branches).
-function tube(points, r0, r1, sides = 7) {
+// A tapering tube along a smooth curve through points, built by hand so
+// every piece of wood reads as one continuous surface:
+//  - rings follow rotation-minimizing frames (no twists or pinches on bends);
+//  - normals are exact (round the curve, tilted by the taper) and the seam
+//    column shares them, so the cel shading shows no crack down the side and
+//    gnarlGeo pushes both copies of a seam vertex the same way;
+//  - both ends are closed with a rounded dome (o.cap = false leaves them
+//    open), so a limb forking off the end of its parent grows out of a
+//    rounded knuckle instead of an open ring or a flat ledge.
+// u wraps round the tube (repeats every ~1.6 m of girth), v runs along it
+// (one repeat per 3.2 m), so the bark keeps its proportions on every limb.
+function tube(points, r0, r1, sides = 7, o = {}) {
+  const cap = o.cap ?? true;
   const curve = new THREE.CatmullRomCurve3(points);
   const segs = Math.max(4, points.length * 4);
-  const g = new THREE.TubeGeometry(curve, segs, 1, sides, false);
-  const p = g.attributes.position, uv = g.attributes.uv;
-  // u wraps round the tube (repeats every ~1.6 m of girth), v runs along it
-  // (one repeat per 3.2 m), so the bark keeps its proportions on every limb
   const L = curve.getLength(), ur = Math.max(1, Math.round((Math.PI * (r0 + r1)) / 1.6));
-  for (let i = 0; i <= segs; i++) {
-    const t = i / segs, r = r0 + (r1 - r0) * t, c = curve.getPointAt(t);
-    for (let j = 0; j <= sides; j++) {
-      const k = i * (sides + 1) + j;
-      const v = new THREE.Vector3(p.getX(k), p.getY(k), p.getZ(k)).sub(c).normalize();
-      p.setXYZ(k, c.x + v.x * r, c.y + v.y * r, c.z + v.z * r);
-      uv.setXY(k, (j / sides) * ur, t * L / 3.2);
+  // rotation-minimizing frames by double reflection (Wang et al. 2008)
+  const P = [], T = [], N = [];
+  for (let i = 0; i <= segs; i++) { P.push(curve.getPointAt(i / segs)); T.push(curve.getTangentAt(i / segs).normalize()); }
+  const t0 = T[0], helper = Math.abs(t0.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  N.push(new THREE.Vector3().crossVectors(helper, t0).normalize());
+  for (let i = 0; i < segs; i++) {
+    const v1 = P[i + 1].clone().sub(P[i]), c1 = v1.dot(v1);
+    if (c1 < 1e-12) { N.push(N[i].clone()); continue; }
+    const rL = N[i].clone().addScaledVector(v1, (-2 / c1) * v1.dot(N[i]));
+    const tL = T[i].clone().addScaledVector(v1, (-2 / c1) * v1.dot(T[i]));
+    const v2 = T[i + 1].clone().sub(tL), c2 = v2.dot(v2);
+    const n = c2 < 1e-12 ? rL : rL.addScaledVector(v2, (-2 / c2) * v2.dot(rL));
+    N.push(n.addScaledVector(T[i + 1], -n.dot(T[i + 1])).normalize());
+  }
+  // rows: [centre, tangent, normal, radius along the ring, push along tangent, v]
+  const slope = (r0 - r1) / Math.max(L, 1e-3), rows = [], CAP = [0.5, 0.82, 1];   // dome rings (fraction of 90 degrees)
+  const domeRows = (i, sgn, r) => CAP.map((f) => [P[i], T[i], N[i], r * Math.cos(f * Math.PI / 2), sgn * r * Math.sin(f * Math.PI / 2), f]);
+  if (cap) rows.push(...domeRows(0, -1, r0).reverse());
+  for (let i = 0; i <= segs; i++) rows.push([P[i], T[i], N[i], r0 + (r1 - r0) * (i / segs), 0, -1, i / segs]);
+  if (cap) rows.push(...domeRows(segs, 1, r1));
+  const nr = rows.length, cols = sides + 1, pos = new Float32Array(nr * cols * 3), nor = new Float32Array(nr * cols * 3), uv = new Float32Array(nr * cols * 2);
+  const B = new THREE.Vector3(), rad = new THREE.Vector3(), nn = new THREE.Vector3();
+  for (let k = 0; k < nr; k++) {
+    const [c, t, n, r, push, f, tt] = rows[k];
+    B.crossVectors(t, n);
+    // v: along the body by length; the domes carry on a little past each end
+    const v = f < 0 ? (tt * L) / 3.2 : push < 0 ? (push / 3.2) : (L + push) / 3.2;
+    for (let j = 0; j < cols; j++) {
+      const a = ((j % sides) / sides) * Math.PI * 2;   // the seam column repeats column 0 exactly
+      rad.copy(n).multiplyScalar(Math.cos(a)).addScaledVector(B, Math.sin(a));
+      const q = (k * cols + j) * 3;
+      pos[q] = c.x + rad.x * r + t.x * push; pos[q + 1] = c.y + rad.y * r + t.y * push; pos[q + 2] = c.z + rad.z * r + t.z * push;
+      if (f < 0) nn.copy(rad).addScaledVector(t, slope);   // the body: tilted by the taper
+      else { const ang = f * Math.PI / 2; nn.copy(rad).multiplyScalar(Math.cos(ang)).addScaledVector(t, Math.sign(push) * Math.sin(ang)); }
+      nn.normalize(); nor[q] = nn.x; nor[q + 1] = nn.y; nor[q + 2] = nn.z;
+      uv[(k * cols + j) * 2] = (j / sides) * ur; uv[(k * cols + j) * 2 + 1] = v;
     }
   }
+  const idx = [];
+  for (let k = 0; k < nr - 1; k++) for (let j = 0; j < sides; j++) {
+    const a = k * cols + j, b2 = (k + 1) * cols + j, c2 = (k + 1) * cols + j + 1, d = k * cols + j + 1;
+    idx.push(a, d, b2, b2, d, c2);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.userData.tube = { rows: nr, cols, body: [cap ? CAP.length : 0, segs + 1] };
+  return g;
+}
+// Recomputes normals, then gives every set of vertices at the same spot one
+// shared normal (the tube's seam column, the dome tips): no shading cracks.
+function weldNormals(g) {
   g.computeVertexNormals();
+  const p = g.attributes.position, n = g.attributes.normal, m = new Map();
+  const key = (i) => `${Math.round(p.getX(i) * 1e4)},${Math.round(p.getY(i) * 1e4)},${Math.round(p.getZ(i) * 1e4)}`;
+  for (let i = 0; i < p.count; i++) {
+    const k = key(i); let s = m.get(k);
+    if (!s) m.set(k, (s = [0, 0, 0]));
+    s[0] += n.getX(i); s[1] += n.getY(i); s[2] += n.getZ(i);
+  }
+  for (let i = 0; i < p.count; i++) {
+    const s = m.get(key(i)), l = Math.hypot(s[0], s[1], s[2]) || 1;
+    n.setXYZ(i, s[0] / l, s[1] / l, s[2] / l);
+  }
   return g;
 }
 function mergeGeos(list) {
@@ -497,26 +561,31 @@ function gnarlGeo(g, amt, R, f = 1.3) {
     const d = amt * (Math.sin(Math.atan2(z, x) * 5 + y * 0.35 + k) * 0.75 + Math.sin(y * f * 0.35 + x * 1.3 + k) * 0.25);
     p.setXYZ(i, x + n.getX(i) * d, y + n.getY(i) * d, z + n.getZ(i) * d);
   }
-  g.computeVertexNormals(); return g;
+  return weldNormals(g);
 }
 // A curving limb from p along dir that forks until level o.lv; pushes its
 // tubes into wood and [end, dir, mid] of every tip into tips.
 //  o: up (bend toward the sky per step), wob, kids [min, max], keep (how much
 //  of the parent's heading a child keeps), spread, rise, shrink, droop
-function limb(wood, R, p, dir, len, r, lv, o, tips) {
+// A branch's curve with a lead-in: it starts back inside its parent, along
+// the parent's heading (pd), so it grows out of the parent's wood like a
+// real crotch instead of starting as a ring stuck on its surface.
+const UP = new THREE.Vector3(0, 1, 0);
+const leadIn = (pts, pd, d) => [pts[0].clone().addScaledVector(pd, -d), ...pts];
+function limb(wood, R, p, dir, len, r, lv, o, tips, pd = UP) {
   const d = dir.clone().normalize(), pts = [p.clone()];
   for (let i = 1; i <= 3; i++) {
     d.y += o.up * (1 - d.y) - (o.droop || 0) * i; d.add(new THREE.Vector3((R() - 0.5) * o.wob, (R() - 0.5) * o.wob * 0.4, (R() - 0.5) * o.wob)).normalize();
     pts.push(pts[i - 1].clone().addScaledVector(d, len / 3));
   }
   const r1 = r * 0.6;
-  wood.push(tube(pts, r, r1, lv + 1 >= o.lv ? 5 : 7));
+  wood.push(tube(leadIn(pts, pd, r * 2), r, r1, lv + 1 >= o.lv ? 5 : 7));
   if (lv >= o.lv) { tips.push([pts[3], d.clone(), pts[2], len]); return; }
   const n = o.kids[0] + Math.floor(R() * (o.kids[1] - o.kids[0] + 1)), a0 = R() * 6.28;
   for (let i = 0; i < n; i++) {
     const a = a0 + (i / n) * 6.28 + (R() - 0.5) * 0.8;
     const cd = d.clone().multiplyScalar(o.keep).add(new THREE.Vector3(Math.cos(a), o.rise, Math.sin(a)).multiplyScalar(o.spread));
-    limb(wood, R, i === 0 ? pts[3] : pts[R() < 0.5 ? 2 : 3], cd, len * (o.shrink + R() * 0.15), r1 * 0.9, lv + 1, o, tips);
+    limb(wood, R, i === 0 ? pts[3] : pts[R() < 0.5 ? 2 : 3], cd, len * (o.shrink + R() * 0.15), r1 * 0.9, lv + 1, o, tips, d);
   }
 }
 // Masses on the shell of an ellipsoid (centre c, half sizes ax ay az): n of
@@ -677,15 +746,7 @@ export function makeTree(kind, seed) {
     // layered canopy of many separate lobes with gaps between them
     const J = (s) => V3((R() - 0.5) * s, (R() - 0.5) * s * 0.4, (R() - 0.5) * s);
     // fluted, knotty bark: push the tube's surface in and out along its normals
-    const gnarl = (g, amt, f) => {
-      const p = g.attributes.position, n = g.attributes.normal, k = R() * 10;
-      for (let i = 0; i < p.count; i++) {
-        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-        const d = amt * (Math.sin(Math.atan2(z, x) * 5 + y * 0.35 + k) * 0.75 + Math.sin(y * f * 0.35 + x * 1.3 + k) * 0.25);
-        p.setXYZ(i, x + n.getX(i) * d, y + n.getY(i) * d, z + n.getZ(i) * d);
-      }
-      g.computeVertexNormals(); return g;
-    };
+    const gnarl = (g, amt, f) => gnarlGeo(g, amt, R, f);
     const th = 10 + R() * 1.5, la = R() * 6.28, ln = 1.3 + R() * 0.9;
     const trunk = [V3(0, -0.6, 0)];
     for (let i = 1; i <= 6; i++) {
@@ -702,14 +763,14 @@ export function makeTree(kind, seed) {
     }
     const top = trunk[trunk.length - 1], lobes = [];
     // a curving branch from p along dir; recurses, leaving lobes at the tips
-    const branch = (p, dir, len, r, lv) => {
+    const branch = (p, dir, len, r, lv, pd = UP) => {
       const d = dir.clone().normalize(), pts = [p.clone()];
       for (let i = 1; i <= 3; i++) {
         d.y += 0.1 * (lv + 0.6) * (1 - d.y); d.add(J(0.35)).normalize();   // bends upward as it goes
         pts.push(pts[i - 1].clone().addScaledVector(d, len / 3));
       }
       const end = pts[3], r1 = r * 0.6;
-      wood.push(tube(pts, r, r1, lv < 1 ? 9 : lv < 2 ? 7 : 6));
+      wood.push(tube(leadIn(pts, pd, r * 2), r, r1, lv < 1 ? 9 : lv < 2 ? 7 : 6));
       if (lv >= 2) {   // tips: a big lobe at the end, sometimes a smaller one along it
         lobes.push([end.clone().addScaledVector(d, 0.5).add(V3(0, 0.5, 0)), 1.35 + R() * 0.7]);
         if (R() < 0.7) lobes.push([pts[1].clone().lerp(pts[2], R()).add(V3((R() - 0.5) * 1.2, 0.9, (R() - 0.5) * 1.2)), 0.95 + R() * 0.5]);
@@ -719,7 +780,7 @@ export function makeTree(kind, seed) {
       for (let i = 0; i < n; i++) {
         const a = a0 + (i / n) * 6.28 + (R() - 0.5) * 0.8;
         const cd = d.clone().multiplyScalar(0.9).add(V3(Math.cos(a), 0.1, Math.sin(a)).multiplyScalar(0.8));
-        branch(i === 0 ? end : pts[1 + (R() < 0.5 ? 1 : 2)], cd, len * (0.6 + R() * 0.2), r1 * 0.9, lv + 1);
+        branch(i === 0 ? end : pts[1 + (R() < 0.5 ? 1 : 2)], cd, len * (0.6 + R() * 0.2), r1 * 0.9, lv + 1, d);
       }
       if (lv === 1 && R() < 0.5) lobes.push([pts[2].clone().add(V3(0, 0.8, 0)), 1.0 + R() * 0.4]);
     };
@@ -762,10 +823,13 @@ export function makeTree(kind, seed) {
     // one, a domed top), side masses poking out on one side
     const s = R() < 0.5 ? 1 : -1;   // which side the side masses are on
     const fork = V3(0.1 * s, 2.8 + R() * 0.5, 0);
-    wood.push(gnarlGeo(tube([V3(0, -0.4, 0), V3(-0.08 * s, 1.4, 0.05), fork], 0.5, 0.36, 9), 0.05, R));
+    // the trunk stops a little under the fork and the two stems start back
+    // down inside it, wider than it there: the fork is one piece of wood
+    const tdir = fork.clone().sub(V3(-0.08 * s, 1.4, 0.05)).normalize();
+    wood.push(gnarlGeo(tube([V3(0, -0.4, 0), V3(-0.08 * s, 1.4, 0.05), fork.clone().addScaledVector(tdir, -0.45)], 0.5, 0.37, 9), 0.05, R));
     const stA = [fork, V3(-0.5 * s, 5.8, 0.2), V3(-0.3 * s, 9.2, 0.1), V3(0, 11.6, 0)];
     const stB = [fork, V3(0.9 * s, 4.9, -0.2), V3(1.7 * s, 7.0, -0.3), V3(2.2 * s, 8.8, 0)];
-    wood.push(tube(stA, 0.34, 0.14, 8), tube(stB, 0.28, 0.12, 8));
+    wood.push(tube(leadIn(stA, tdir, 0.9), 0.43, 0.14, 8), tube(leadIn(stB, tdir, 0.9), 0.4, 0.12, 8));
     // tiers: [y, x offset, width, mass count, mass size, mass height]
     const tiers = [[5.9, 0.6 * s, 5.6, 7, 2.4, 0.95], [8.7, -0.3 * s, 4.6, 6, 2.3, 1.05], [11.4, 0.1 * s, 2.6, 4, 2.4, 1.25]];
     const lobes = [], stem = (y) => (y < 6.5 ? stB[1] : y < 9.5 ? stA[2] : stA[3]);
@@ -958,7 +1022,7 @@ export function makeTree(kind, seed) {
     for (let i = 0; i < ns; i++) {
       const a = a0 + (i / ns) * 6.28, h = 2.4 + R() * 1.6;
       const st = [V3(0.1, 0.8, 0), V3(Math.cos(a) * 0.5, h * 0.5, Math.sin(a) * 0.5), V3(Math.cos(a) * 1.2, h, Math.sin(a) * 1.2)];
-      wood.push(tube(st, 0.17, 0.1, 7));
+      wood.push(tube(leadIn(st, UP, 0.5), 0.17, 0.1, 7));
       limb(wood, R, st[2], V3(Math.cos(a), 0.35, Math.sin(a)), 2.2 + R() * 0.8, 0.1, 1, o, tips);
     }
     for (const [e] of tips) lobes.push({ c: e.clone().add(V3(0, 0.25, 0)), rx: 1.5 + R() * 0.5, ry: 0.6 + R() * 0.15 });
@@ -999,15 +1063,15 @@ export function makeTree(kind, seed) {
     // the grey base overlaps the orange top a little: the fluting breaks the join into a ragged edge
     // (both sampled from one curve so they follow the same line)
     const cv = new THREE.CatmullRomCurve3(trunk), part = (t0, t1) => Array.from({ length: 8 }, (_, i) => cv.getPointAt(t0 + ((t1 - t0) * i) / 7));
-    const low = tube(part(0, 0.6), 0.62, 0.4, 10), up = tube(part(0.45, 1), 0.38, 0.16, 9);
+    const low = tube(part(0, 0.6), 0.62, 0.4, 10, { cap: false }), up = tube(part(0.45, 1), 0.38, 0.16, 9);
     // a ragged top to the grey: per column, the rings above a random height sink inside the orange
     const lp = low.attributes.position, segs = lp.count / 11 - 1, cut = Array.from({ length: 11 }, () => 0.6 + R() * 0.35);
     cut[10] = cut[0];
     for (let i = 0; i <= segs; i++) {
       const c = V3(0, 0, 0); for (let j = 0; j < 10; j++) c.add(V3(lp.getX(i * 11 + j), lp.getY(i * 11 + j), lp.getZ(i * 11 + j))); c.multiplyScalar(0.1);
-      for (let j = 0; j <= 10; j++) if (i / segs > cut[j]) { const k = i * 11 + j; lp.setXYZ(k, c.x + (lp.getX(k) - c.x) * 0.8, lp.getY(k), c.z + (lp.getZ(k) - c.z) * 0.8); }
+      for (let j = 0; j <= 10; j++) if (i / segs > cut[j]) { const k = i * 11 + j; lp.setXYZ(k, c.x + (lp.getX(k) - c.x) * 0.7, lp.getY(k), c.z + (lp.getZ(k) - c.z) * 0.7); }
     }
-    low.computeVertexNormals();
+    weldNormals(low);
     wood.push(gnarlGeo(low, 0.03, R));
     const tips = [], o = { up: 0.12, wob: 0.6, kids: [2, 2], keep: 0.7, spread: 0.75, rise: 0.2, shrink: 0.6, lv: 2 };
     const upper = [gnarlGeo(up, 0.03, R)];

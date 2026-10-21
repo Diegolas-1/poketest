@@ -11,3 +11,7 @@ web/world/lineup.html
 
 # ripped Nintendo models used only on this machine (alt avatar base): never commit
 web/world/local/
+
+# workers' scratch copies
+*_tmp.js
+*_tmp.html
