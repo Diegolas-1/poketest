@@ -634,7 +634,7 @@ export const LOOKS = {
 // rest pose, with the same angles as the procedural rig. ?base=proc turns it off.
 const QS = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
 const CALEM_ON = QS.get('base') !== 'proc';
-const CALEM_H = 1.55;   // metres, cap included
+const CALEM_H = 1.75;   // metres, cap included
 let calemP = null, calemBase = null;
 function loadCalem() {
   if (!calemP) calemP = (async () => {
