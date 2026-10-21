@@ -4,7 +4,7 @@
 // follows the ground; the grass fringe is drawn first for every road and the
 // dirt on top, so crossings join cleanly.
 import * as THREE from 'three';
-import { ROADS, height, rng, fbm } from './terrain.js';
+import { ROADS, FIELDS, height, rng, fbm } from './terrain.js';
 import { celify } from './toon.js';
 import { makeClump, TILE } from './foliage.js';
 
@@ -203,4 +203,64 @@ export function grassTexture() {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   return t;
+}
+
+// Farm fields as the anime paints them: tilled rows in reddish brown, rows of
+// green crops on brown soil, or ripening grain, laid over the ground.
+function fieldTexture(kind) {
+  const W = 256, H = 512, R = rng(kind.length * 31 + 7);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const hsl = (h, s, l, a = 1) => `hsla(${h},${s}%,${l}%,${a})`;
+  const rows = 8, rh = H / rows;
+  c.fillStyle = kind === 'wheat' ? hsl(52, 62, 62) : hsl(16, 42, 42); c.fillRect(0, 0, W, H);
+  for (let r = 0; r < rows; r++) {
+    const y = r * rh;
+    if (kind === 'till') {
+      // a ridge with a lit top and a dark furrow under it
+      c.fillStyle = hsl(14, 46, 50); c.fillRect(0, y + rh * 0.12, W, rh * 0.5);
+      c.fillStyle = hsl(18, 50, 60); c.fillRect(0, y + rh * 0.14, W, rh * 0.16);
+      c.fillStyle = hsl(10, 40, 34); c.fillRect(0, y + rh * 0.68, W, rh * 0.2);
+      for (let k = 0; k < 30; k++) { c.fillStyle = hsl(14, 40, 40 + R() * 20, 0.6); c.fillRect(R() * W, y + R() * rh, 2 + R() * 6, 2); }
+    } else if (kind === 'crop') {
+      c.fillStyle = hsl(12, 38, 34); c.fillRect(0, y + rh * 0.75, W, rh * 0.18);
+      // a row of leafy heads
+      for (let x = -10; x < W + 10; x += 12 + R() * 6) {
+        const cx = x, cy = y + rh * 0.42, r = rh * (0.28 + R() * 0.08);
+        c.fillStyle = hsl(105, 48, 32); c.beginPath(); c.ellipse(cx + 2, cy + 3, r, r * 0.8, 0, 0, 6.28); c.fill();
+        c.fillStyle = hsl(95, 55, 46); c.beginPath(); c.ellipse(cx, cy, r, r * 0.78, 0, 0, 6.28); c.fill();
+        c.fillStyle = hsl(85, 62, 62); c.beginPath(); c.ellipse(cx - r * 0.25, cy - r * 0.3, r * 0.45, r * 0.3, 0, 0, 6.28); c.fill();
+      }
+    } else {
+      c.fillStyle = hsl(46, 60, 54); c.fillRect(0, y + rh * 0.7, W, rh * 0.22);
+      for (let k = 0; k < 120; k++) { const x = R() * W, yy = y + R() * rh * 0.7; c.strokeStyle = hsl(50 + R() * 10, 70, 70 + R() * 15, 0.9); c.lineWidth = 2; c.beginPath(); c.moveTo(x, yy + 10); c.lineTo(x + (R() - 0.5) * 4, yy); c.stroke(); }
+    }
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+  return t;
+}
+export function buildFields(scene) {
+  const group = new THREE.Group(), texs = {};
+  const cel = { bands: [0.08, 0.22, 0.5], soft: 0.04, deep: [0.5, 0.6, 0.8], shade: [0.68, 0.76, 0.9], lit: [1.05, 1.04, 0.98] };
+  for (const f of FIELDS) {
+    const tex = texs[f.kind] || (texs[f.kind] = fieldTexture(f.kind));
+    const nu = Math.ceil(f.w / 1.0), nv = Math.ceil(f.d / 1.0);
+    const g = new THREE.PlaneGeometry(f.w, f.d, nu, nv);
+    const p = g.attributes.position, uv = g.attributes.uv;
+    const c = Math.cos(f.rot), s = Math.sin(f.rot);
+    for (let i = 0; i < p.count; i++) {
+      const u = p.getX(i), v = -p.getY(i);
+      const x = f.x + u * c + v * s, z = f.z - u * s + v * c;
+      p.setXYZ(i, x, height(x, z) + 0.08, z);
+      uv.setXY(i, u / 6, v / 1.4 / 8);
+    }
+    g.computeVertexNormals();
+    const m = celify(new THREE.MeshLambertMaterial({ map: tex }), cel);
+    m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2;
+    const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+  scene.add(group);
+  return group;
 }

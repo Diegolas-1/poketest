@@ -1,11 +1,11 @@
 // Pallet Town in 3D: a modern seaside eco-village to walk around freely.
 import * as THREE from 'three';
-import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y } from './terrain.js';
+import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU } from './terrain.js';
 import { buildSky, buildClouds, buildMountains, TALL_GRASS } from './nature.js';
-import { buildTown, BEDS } from './town.js';
+import { buildTown, BEDS, PIER } from './town.js';
 import { celify } from './toon.js';
 import { foliageTime } from './foliage.js';
-import { buildPaths, grassTexture } from './paths.js';
+import { buildPaths, buildFields, grassTexture } from './paths.js';
 import { buildVegetation } from './veg.js';
 import { grassField, wind, surface } from './assets.js';
 import { makeActor, LOOKS } from './actor.js';
@@ -77,10 +77,25 @@ const terrain = buildTerrain();
 }
 scene.add(terrain);
 const uTime = wind.uTime;
-scene.add(buildWater(uTime));
+scene.add(buildWater(uTime, { color: '#cfe6f2', near: 140, far: 700 }));
 buildPaths(scene);
+buildFields(scene);
 const clouds = buildClouds(); scene.add(clouds);
-scene.add(buildMountains(sunDir));
+{
+  // the distant ranges open up to the south so the sea runs to the horizon
+  const mts = buildMountains(sunDir);
+  mts.traverse((o) => {
+    if (!o.isMesh) return;
+    const p = o.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i), a = Math.atan2(x, z);   // 0 = due south
+      const k = 1 - Math.min(1, Math.max(0, (Math.abs(a) - 0.9) / 0.5));
+      if (k > 0) p.setY(i, p.getY(i) * (1 - k) + (-40) * k);
+    }
+    p.needsUpdate = true; o.geometry.computeVertexNormals();
+  });
+  scene.add(mts);
+}
 const town = buildTown();
 scene.add(town.group);
 const colliders = town.colliders;
@@ -88,7 +103,11 @@ const colliders = town.colliders;
 // where plants may not grow: buildings, beds' walls, the dock
 function blocked(x, z, r = 0) {
   for (const c of colliders) {
-    if (c.box) { if (Math.abs(x - c.x) < c.hw + r && Math.abs(z - c.z) < c.hd + r) return true; }
+    if (c.box) {
+      let dx = x - c.x, dz = z - c.z;
+      if (c.rot) { const cs = Math.cos(c.rot), sn = Math.sin(c.rot); [dx, dz] = [dx * cs - dz * sn, dx * sn + dz * cs]; }
+      if (Math.abs(dx) < c.hw + r && Math.abs(dz) < c.hd + r) return true;
+    }
     else if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + r) ** 2) return true;
   }
   for (const [x0, z0, x1, z1] of BEDS) if (x > x0 - r && x < x1 + r && z > z0 - r && z < z1 + r) return true;
@@ -98,7 +117,10 @@ function blocked(x, z, r = 0) {
 // ---------- people ----------
 const player = makeActor(LOOKS.red);
 scene.add(player.root);
-const me = { pos: new THREE.Vector3(-20, 0, -9.6), yaw: 0, vy: 0, ground: true, speed: 0 };
+// start on the path just outside Red's front door
+const RED = HOUSES.find((h) => h.id === 'red');
+const SPAWN = toWorld(RED, 1.75, 7.2);
+const me = { pos: new THREE.Vector3(SPAWN[0], 0, SPAWN[1]), yaw: RED.rot, vy: 0, ground: true, speed: 0 };
 const npcs = [];
 function npc(look, x, z, lines, opts = {}) {
   const a = makeActor(look);
@@ -108,10 +130,10 @@ function npc(look, x, z, lines, opts = {}) {
   npcs.push(n);
   return n;
 }
-npc(LOOKS.girl, -16, 4, ['I\'m raising POKéMON too!', 'When they get strong, they can protect me!'], { name: 'Girl' });
-npc(LOOKS.fisher, 6, 77, ['Technology is incredible!', 'You can now store and recall items and POKéMON as data via PC!'], { wander: 0, yaw: Math.PI, name: 'Fisher' });
-npc(LOOKS.kid, 10, -2, ['Have you seen the windmill on PROF. OAK\'s lab?', 'It spins all day long. Grandpa says it powers the whole lab!'], { name: 'Kid' });
-const oak = npc(LOOKS.oak, 22, 26, ['…'], { wander: 0, name: 'Prof. Oak' });
+npc(LOOKS.girl, -8, 3, ['I\'m raising POKéMON too!', 'When they get strong, they can protect me!'], { name: 'Girl' });
+npc(LOOKS.fisher, PIER.x + 1.2, PIER.z1 + 3.2, ['Technology is incredible!', 'You can now store and recall items and POKéMON as data via PC!'], { wander: 0, yaw: Math.PI, name: 'Fisher' });
+npc(LOOKS.kid, 20, -12, ['Have you seen the windmill on PROF. OAK\'s lab?', 'It spins all day long. Grandpa says it powers the whole lab!'], { name: 'Kid' });
+const oak = npc(LOOKS.oak, town.labDoor[0], town.labDoor[1], ['…'], { wander: 0, name: 'Prof. Oak' });
 oak.actor.root.visible = false; oak.hidden = true;
 
 // ---------- vegetation (async) ----------
@@ -132,34 +154,54 @@ async function grow() {
 }
 
 // ---------- movement and collision ----------
+// walk surfaces: axis boxes {x0, x1, z0, z1, y} or turned boxes {x, z, hw, hd, rot, y}
+function onDeck(w, x, z) {
+  if (w.x0 !== undefined) return x > w.x0 && x < w.x1 && z > w.z0 && z < w.z1;
+  const dx = x - w.x, dz = z - w.z, c = Math.cos(w.rot || 0), s = Math.sin(w.rot || 0);
+  return Math.abs(dx * c - dz * s) < w.hw && Math.abs(dx * s + dz * c) < w.hd;
+}
 function groundAt(x, z) {
   let y = height(x, z);
-  for (const w of town.walk) if (x > w.x0 && x < w.x1 && z > w.z0 && z < w.z1) y = Math.max(y, w.y);
+  for (const w of town.walk) if (onDeck(w, x, z)) y = Math.max(y, w.y);
   return y;
 }
 function collide(p, r = 0.35) {
   for (const c of colliders) {
     if (Math.abs(p.x - c.x) > 12 || Math.abs(p.z - c.z) > 12) continue;
     if (c.box) {
-      const dx = p.x - c.x, dz = p.z - c.z, ox = c.hw + r - Math.abs(dx), oz = c.hd + r - Math.abs(dz);
-      if (ox > 0 && oz > 0) { if (ox < oz) p.x += Math.sign(dx) * ox; else p.z += Math.sign(dz) * oz; }
+      let dx = p.x - c.x, dz = p.z - c.z;
+      const cs = c.rot ? Math.cos(c.rot) : 1, sn = c.rot ? Math.sin(c.rot) : 0;
+      const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+      const ox = c.hw + r - Math.abs(lx), oz = c.hd + r - Math.abs(lz);
+      if (ox > 0 && oz > 0) {
+        let mx = 0, mz = 0;
+        if (ox < oz) mx = Math.sign(lx) * ox; else mz = Math.sign(lz) * oz;
+        // back to world axes
+        p.x += mx * cs + mz * sn; p.z += -mx * sn + mz * cs;
+      }
     } else {
       const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), m = c.r + r;
       if (d < m && d > 1e-4) { p.x += (dx / d) * (m - d); p.z += (dz / d) * (m - d); }
     }
   }
 }
-function onWalk(x, z) { return town.walk.some((w) => x > w.x0 && x < w.x1 && z > w.z0 && z < w.z1); }
+function onWalk(x, z) { return town.walk.some((w) => onDeck(w, x, z)); }
 function step(obj, dx, dz) {
   const nx = obj.pos.x + dx, nz = obj.pos.z + dz;
   if (isWater(nx, nz) && !onWalk(nx, nz)) return false;
-  if (nx < -150 || nx > 150 || nz < -205 || nz > 90) return false;
+  if (nx < -150 || nx > 150 || nz < -205 || nz > 115) return false;
+  // the lab hill is too steep and overgrown: only the stairs go up
+  if (noWalk(nx, nz) && !noWalk(obj.pos.x, obj.pos.z)) return false;
+  const ox = obj.pos.x, oz = obj.pos.z;
   obj.pos.x = nx; obj.pos.z = nz;
   collide(obj.pos);
+  if (noWalk(obj.pos.x, obj.pos.z) && !noWalk(ox, oz)) { obj.pos.x = ox; obj.pos.z = oz; return false; }
   return true;
 }
 
 // ---------- camera ----------
+// test only: ?cam=x,y,z,tx,ty,tz fixes the camera for overview shots
+let TEST_CAM = q.has('test') && q.get('cam') ? q.get('cam').split(',').map(Number) : null;
 const cam = { yaw: 0, pitch: 0.32, dist: 7.5, target: new THREE.Vector3(), pos: new THREE.Vector3() };
 const ray = new THREE.Raycaster();
 function updateCamera(dt) {
@@ -176,6 +218,7 @@ function updateCamera(dt) {
   cam.pos.lerp(want, 1 - Math.exp(-dt * 14));
   camera.position.copy(cam.pos);
   camera.lookAt(cam.target);
+  if (TEST_CAM) { camera.position.set(TEST_CAM[0], TEST_CAM[1], TEST_CAM[2]); camera.lookAt(TEST_CAM[3], TEST_CAM[4], TEST_CAM[5]); }
   // keep the sun's shadows on the area round the player, snapped to texels
   const texel = 84 / QUALITY.shadow;
   const c = new THREE.Vector3(Math.round(me.pos.x / texel) * texel, 0, Math.round(me.pos.z / texel) * texel);
@@ -211,8 +254,8 @@ function nearby() {
 }
 
 // Oak stops you at the tall grass, like in the original.
+let walkPath = null;
 function oakScene() {
-  const start = me.pos.clone();
   oak.hidden = false; oak.actor.root.visible = true;
   oak.pos.set(me.pos.x + 1.5, 0, me.pos.z + 9); oak.pos.y = height(oak.pos.x, oak.pos.z);
   let phase = 0;
@@ -226,19 +269,31 @@ function oakScene() {
           dialog.say(['OAK: Hey! Wait! Don\'t go out!', 'It\'s unsafe! Wild POKéMON live in tall grass!', 'You need your own POKéMON for your protection.', 'I know! Come see me at my lab, by the sea. Follow me!'], () => { phase = 2; });
         }
       } else if (phase === 2) {
-        // both head back toward town
-        const tz = start.z + 14;
-        oak.pos.z += dt * 3.5; oak.yaw = 0; oak.speed = 3.5;
-        me.pos.z += dt * 3.5; me.yaw = 0; me.speed = 3.5;
-        oak.pos.y = height(oak.pos.x, oak.pos.z);
-        if (me.pos.z > tz) {
+        // both head back south along Route 1 toward town
+        if (!walkPath) {
+          const r = ROADS[0];
+          let bi = 0, bd = 1e9;
+          r.forEach(([x, z], i) => { const d = (x - me.pos.x) ** 2 + (z - me.pos.z) ** 2; if (d < bd) { bd = d; bi = i; } });
+          walkPath = r.slice(bi + 1, bi + 16);
+        }
+        const tgt = walkPath[0];
+        let moved = false;
+        if (tgt) {
+          for (const [o, off] of [[oak, -0.9], [me, 0.9]]) {
+            const dx = tgt[0] + off - o.pos.x, dz = tgt[1] - o.pos.z, d = Math.hypot(dx, dz);
+            if (d > 0.2) { const v = Math.min(d, dt * 3.5); o.pos.x += dx / d * v; o.pos.z += dz / d * v; o.yaw = Math.atan2(dx, dz); o.speed = 3.5; moved = true; }
+          }
+          if (Math.hypot(tgt[0] + 0.9 - me.pos.x, tgt[1] - me.pos.z) < 0.5 || !moved) walkPath.shift();
+          oak.pos.y = height(oak.pos.x, oak.pos.z);
+        }
+        if (!walkPath.length) {
           phase = 3; me.speed = 0; oak.speed = 0;
           oak.hidden = true; oak.actor.root.visible = false;
-          oak.pos.set(22, height(22, 26.5), 26.5); oak.yaw = Math.PI;
+          oak.pos.set(town.labDoor[0], 0, town.labDoor[1]); oak.pos.y = height(oak.pos.x, oak.pos.z); oak.yaw = -Math.PI / 2;
           oak.lines = ['OAK: There you are! Inside the lab is coming soon.', 'For now, explore the town. Pallet has changed a lot!'];
           oak.hidden = false; oak.actor.root.visible = true;
-          script = null;
-          banner('Prof. Oak\'s Lab', 'Find the professor by the sea');
+          script = null; walkPath = null;
+          banner('Prof. Oak\'s Lab', 'Up the stairs on the hill by the sea');
         }
       }
     },
@@ -316,7 +371,7 @@ function frame(fixed) {
   }
   // areas and events
   const inGrass = TALL_GRASS.some(([x0, z0, x1, z1]) => me.pos.x > x0 && me.pos.x < x1 && me.pos.z > z0 && me.pos.z < z1);
-  const now = me.pos.z < -46 ? 'route1' : 'town';
+  const now = me.pos.z < -60 ? 'route1' : 'town';
   if (now !== area) { area = now; banner(now === 'route1' ? 'Route 1' : 'Pallet Town', now === 'route1' ? 'Pallet Town - Viridian City' : 'A quiet seaside village'); }
   if (inGrass && !script && !dialog.open && window.worldReady) oakScene();
   updateCamera(dt);
@@ -339,4 +394,4 @@ me.pos.y = groundAt(me.pos.x, me.pos.z);
 cam.yaw = 0.35; cam.target.set(me.pos.x, me.pos.y + 1.45, me.pos.z);
 if (TEST) frame(1 / 60); else requestAnimationFrame(frame);
 grow().catch((e) => { console.error(e); status('Something went wrong loading the plants: ' + e.message); });
-window.world = { me, cam, scene, renderer, camera, npcs, step(n = 1, dt = 1 / 30) { for (let i = 0; i < n; i++) frame(dt); } };
+window.world = { me, cam, setCam(v) { TEST_CAM = v; }, groundAt, town, dialog, oak, move(dx, dz) { return step(me, dx, dz); }, noWalk, scene, renderer, camera, npcs, step(n = 1, dt = 1 / 30) { for (let i = 0; i < n; i++) frame(dt); } };

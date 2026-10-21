@@ -1,13 +1,15 @@
 // Pallet Town as the anime draws it: clapboard cottages with steep red-tiled
-// roofs, white trim and picket fences, and Professor Oak's lab on its green
-// hill (a barrel-roofed hall, a round tower with a windmill, winding stone
-// stairs through the bushes). Everything is cel shaded with painted textures
+// roofs, white trim and picket fences spread over the valley, and Professor
+// Oak's lab (lab.js) on its tall wooded hill, reached through a brick gate and
+// up a long stone staircase lined with round bushes. Everything is cel shaded with painted textures
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, rng, LAB_HILL, LAB_STAIRS, STEP, stairDist } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY } from './terrain.js';
+import { buildLab, LAB_DOOR } from './lab.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
-import { makeTree, makeBush, makeClump, TILE } from './foliage.js';
+import { makeTree, makeBush, makeClump, makeRock, TILE } from './foliage.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -158,7 +160,7 @@ function cyl(rt, rb, h, m, x, y, z, parent, seg = 14, o) {
 }
 // a plant model from foliage.js placed as plain meshes
 function plant(model, parent, x, y, z, s = 1, rot = 0) {
-  const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); g.rotation.y = rot;
+  const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); g.rotation.y = rot; g.userData.keep = true;
   for (const p of model.parts) { const m = new THREE.Mesh(p.geometry, p.material); m.castShadow = true; m.receiveShadow = true; g.add(m); }
   parent.add(g);
   return g;
@@ -225,9 +227,27 @@ function gableWall(parent, w, rise, y0, z, m, flip = 1) {
   return mesh;
 }
 
-// White picket fence from a to b (local x, z), with two rails.
-function picketFence(parent, ax, az, bx, bz, world, ox, oz, col = '#fbfaf4') {
-  const len = Math.hypot(bx - ax, bz - az), n = Math.max(2, Math.round(len / 0.32));
+// ---------- placing things in a house's own frame ----------
+// Each cottage is built in its own frame (front door toward +z) and turned
+// by hs.rot; colliders and walk decks are written in world space, as
+// oriented boxes.
+function placer(hs, world) {
+  const G = new THREE.Group(); G.position.set(hs.x, hs.y, hs.z); G.rotation.y = hs.rot; world.group.add(G);
+  const W = (lx, lz) => toWorld(hs, lx, lz);
+  return {
+    G, W,
+    hy: (lx, lz) => { const [x, z] = W(lx, lz); return height(x, z) - hs.y; },
+    col: (lx, lz, hw, hd, rot = 0) => { const [x, z] = W(lx, lz); world.colliders.push({ box: true, x, z, hw, hd, rot: hs.rot + rot }); },
+    circ: (lx, lz, r) => { const [x, z] = W(lx, lz); world.colliders.push({ x, z, r }); },
+    use: (lx, lz, r, label, lines) => { const [x, z] = W(lx, lz); world.use.push({ x, z, r, label, lines }); },
+    walk: (lx, lz, hw, hd, y) => { const [x, z] = W(lx, lz); world.walk.push({ x, z, hw, hd, rot: hs.rot, y }); },
+  };
+}
+
+// White picket fence from a to b (local x, z of the placer), with two rails.
+function picketFence(P, ax, az, bx, bz, col = '#fbfaf4') {
+  const len = Math.hypot(bx - ax, bz - az); if (len < 0.3) return;
+  const n = Math.max(2, Math.round(len / 0.32));
   const ang = Math.atan2(bz - az, bx - ax);
   const pick = new THREE.Shape(); pick.moveTo(-0.06, 0); pick.lineTo(0.06, 0); pick.lineTo(0.06, 0.95); pick.lineTo(0, 1.08); pick.lineTo(-0.06, 0.95); pick.lineTo(-0.06, 0);
   const pg = new THREE.ExtrudeGeometry(pick, { depth: 0.04, bevelEnabled: false });
@@ -235,41 +255,99 @@ function picketFence(parent, ax, az, bx, bz, world, ox, oz, col = '#fbfaf4') {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -ang);
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t;
-    m4.compose(V(x, height(ox + x, oz + z) - 0.05, z), q, V(1, 1, 1)); im.setMatrixAt(i, m4);
+    m4.compose(V(x, P.hy(x, z) - 0.05, z), q, V(1, 1, 1)); im.setMatrixAt(i, m4);
   }
-  im.castShadow = true; im.receiveShadow = true; parent.add(im);
-  const mid = height(ox + (ax + bx) / 2, oz + (az + bz) / 2);
+  im.castShadow = true; im.receiveShadow = true; P.G.add(im);
+  const mid = P.hy((ax + bx) / 2, (az + bz) / 2);
   for (const ry of [0.32, 0.72]) {
-    const r = box(len, 0.08, 0.05, col, (ax + bx) / 2, mid + ry, (az + bz) / 2, parent, { line: false });
-    r.position.y -= 0; r.rotation.y = -ang; r.translateZ(-0.05);
+    const r = box(len, 0.08, 0.05, col, (ax + bx) / 2, mid + ry, (az + bz) / 2, P.G, { line: false });
+    r.rotation.y = -ang; r.translateZ(-0.05);
   }
-  world.colliders.push({ box: true, x: ox + (ax + bx) / 2, z: oz + (az + bz) / 2, hw: Math.abs(bx - ax) / 2 + 0.1, hd: Math.abs(bz - az) / 2 + 0.1 });
+  P.col((ax + bx) / 2, (az + bz) / 2, len / 2 + 0.05, 0.1, -ang);
+}
+
+// A hip roof over w x d at eaves height y0: four sloping faces, tiled.
+function hipRoof(parent, w, d, y0, rise, roofMat, trim, o = 0.5) {
+  const hw = w / 2 + o, hd = d / 2 + o;
+  const along = d >= w, rl = Math.max(0, (along ? hd - hw : hw - hd));
+  const top = y0 + rise;
+  const e = [[-hw, y0, -hd], [hw, y0, -hd], [hw, y0, hd], [-hw, y0, hd]];
+  const r0 = along ? [0, top, -rl] : [-rl, top, 0], r1 = along ? [0, top, rl] : [rl, top, 0];
+  const tris = along
+    ? [[e[3], e[2], r1], [e[1], e[0], r0], [e[2], e[1], r0], [e[2], r0, r1], [e[0], e[3], r1], [e[0], r1, r0]]
+    : [[e[0], e[3], r0], [e[2], e[1], r1], [e[3], e[2], r1], [e[3], r1, r0], [e[1], e[0], r0], [e[1], r0, r1]];
+  const p = [], uv = [];
+  for (const t of tris) {
+    // keep each face pointing out and up
+    const a = V(...t[0]), b = V(...t[1]), c = V(...t[2]);
+    const nrm = b.clone().sub(a).cross(c.clone().sub(a));
+    const tri = nrm.y < 0 ? [t[0], t[2], t[1]] : t;
+    // tile rows run level: u along the eave, v up the slope
+    const fn = nrm.y < 0 ? nrm.negate() : nrm; fn.y = 0; fn.normalize();
+    for (const v of tri) { p.push(...v); uv.push((v[0] * fn.z - v[2] * fn.x) / 1.5, (-(v[0] * fn.x + v[2] * fn.z) + v[1] * 0.6) / 1.5); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, roofMat); m.castShadow = true; m.receiveShadow = true; parent.add(m);
+  // a thick white fascia round the eaves
+  for (const s of [-1, 1]) {
+    box(2 * hw + 0.1, 0.24, 0.14, trim, 0, y0 - 0.05, s * hd, parent, { line: false });
+    box(0.14, 0.24, 2 * hd + 0.1, trim, s * hw, y0 - 0.05, 0, parent, { line: false });
+  }
+  box(0.2, 0.2, 2 * rl + 0.3, roofMat, 0, top + 0.06, 0, parent, { line: false }).rotation.y = along ? 0 : Math.PI / 2;
 }
 
 // ---------- the cottages ----------
-// Ash's house from the show: pale clapboards, a steep red gable facing the
-// street, dormers in the side slope, a porch, a railed deck, a picket fence
-// and a vegetable garden. Faces +z. side = which side the garden is on.
-function cottage({ x, z, wall, roof, door, name, seed, side = -1, lines }, world) {
-  const G = new THREE.Group(); G.position.set(x, height(x, z), z); world.group.add(G);
+// The anime's cottages: clapboards, a steep tiled gable facing the lane (or a
+// hip roof), a porch, a railed front deck, a flower box, dormers, a chimney,
+// a picket fence round the yard (or none), a vegetable garden, a mailbox with
+// the family name, sometimes a side wing or a washing line. Faces +z.
+const STYLE = {
+  red: { wall: '#a9cbe8', roof: '#d8473a', door: '#f4f1e6', name: 'RED', seed: 10,
+    lines: ['RED\'s house. Home sweet home!', 'MOM is out shopping. You can come back in later.'] },
+  blue: { wall: '#f2e2b8', roof: '#3f8f78', door: '#8a5a3a', name: 'BLUE', seed: 20, wing: true,
+    lines: ['BLUE\'s house.', 'Nobody answers. BLUE is probably at the lab already.'] },
+  hollis: { wall: '#f6ecd0', roof: '#c4553a', door: '#5a7a4a', name: 'HOLLIS', seed: 31, hip: true, W: 7.8, laundry: true,
+    lines: ['The HOLLIS family\'s house.', 'Something smells good... they must be baking bread.'] },
+  mae: { wall: '#f4cfd2', roof: '#d24a3c', door: '#ffffff', name: 'GRANNY MAE', seed: 42, fence: false, W: 6.6,
+    lines: ['GRANNY MAE\'s cottage.', 'A sign on the door says: "Gone to feed the PIDGEY. Back soon!"'] },
+  marina: { wall: '#f8f6ef', roof: '#3d6fa8', door: '#3d6fa8', name: 'MARINA', seed: 53, fence: false, laundry: true,
+    lines: ['MARINA\'s seaside house.', 'Fishing nets hang drying by the door.'] },
+  farmer: { wall: '#d4e6c2', roof: '#a8553a', door: '#7a5232', name: 'FARMER BEN', seed: 64, wing: true, W: 8.0, garden: true,
+    lines: ['FARMER BEN\'s farmhouse.', 'Muddy boots by the door. Ben must be out in the fields.'] },
+  oldman: { wall: '#efe3c6', roof: '#4f7f4a', door: '#8a5a3a', name: 'OLD TOM', seed: 75, hip: true, fence: false,
+    lines: ['OLD TOM\'s house on the hill.', 'He says on a clear day you can see CINNABAR from his porch.'] },
+  lily: { wall: '#fdfbf6', roof: '#c9563f', door: '#e88a3e', name: 'LILY', seed: 86, W: 6.8,
+    lines: ['LILY\'s house.', 'The garden is full of flowers. LILY loves BUTTERFREE.'] },
+};
+function cottage(hs, world) {
+  const st = STYLE[hs.id];
+  const { wall, roof, door, name, seed, lines } = st;
+  const side = hs.side, P = placer(hs, world), G = P.G;
   const R = rng(seed);
-  const W = 7.2, D = 6.4, base = 0.45, wallH = 3.5, rise = 4.6, y0 = base + wallH;
+  const W = st.W || 7.2, D = 6.4, base = 0.45, wallH = 3.5, rise = st.hip ? 3.0 : 4.6, y0 = base + wallH;
+  const fence = st.fence !== false;
   const sid = tex(siding(wall)), trim = '#fbfaf4';
   const roofMat = tex(tiles(roof));
   // stone foundation and the walls
-  box(W + 0.3, base + 0.3, D + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.15, 0, G);
+  box(W + 0.3, base + 1.3, D + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.65, 0, G);
   box(W, wallH, D, sid, 0, base + wallH / 2, 0, G);
-  gableWall(G, W, rise, y0, D / 2, sid);
-  gableWall(G, W, rise, y0, -D / 2, sid, -1);
-  gableRoof(G, W, D, y0, rise, roofMat, trim);
+  if (st.hip) hipRoof(G, W, D, y0, rise, roofMat, trim);
+  else {
+    gableWall(G, W, rise, y0, D / 2, sid);
+    gableWall(G, W, rise, y0, -D / 2, sid, -1);
+    gableRoof(G, W, D, y0, rise, roofMat, trim);
+  }
   // corner boards and the frieze under the eaves
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.22, wallH, 0.22, trim, sx * W / 2, base + wallH / 2, sz * D / 2, G, { line: false });
   for (const sx of [-1, 1]) box(0.14, 0.24, D + 0.1, trim, sx * (W / 2 + 0.04), y0 - 0.1, 0, G, { line: false });
   box(W + 0.1, 0.24, 0.14, trim, 0, y0 - 0.06, D / 2 + 0.06, G, { line: false });
   // front: a big window, the gable window, the porch over the door
   const front = D / 2 + 0.06;
-  const big = windowAt(G, side * 1.7, base + 1.75, front, 2.3, 1.7, 4, 3);
-  windowAt(G, 0, y0 + 1.5, front, 1.0, 1.2, 2, 2);
+  windowAt(G, side * 1.7, base + 1.75, front, 2.3, 1.7, 4, 3);
+  if (!st.hip) windowAt(G, 0, y0 + 1.5, front, 1.0, 1.2, 2, 2);
   const dx = -side * 1.75;
   box(1.5, 2.3, 0.14, tex(planks(door)), dx, base + 1.15, front, G);
   for (const k of [-0.36, 0.36]) box(0.5, 0.8, 0.04, door, dx + k, base + 1.6, front + 0.08, G, { line: false, shadow: false });
@@ -278,277 +356,435 @@ function cottage({ x, z, wall, roof, door, name, seed, side = -1, lines }, world
   // porch: two posts and a small gable roof
   const pg = new THREE.Group(); pg.position.set(dx, 0, front + 0.85); G.add(pg);
   for (const k of [-1.05, 1.05]) box(0.16, 2.5, 0.16, trim, k, base + 1.25, 0.65, pg);
-  const pr = new THREE.Group(); pr.position.set(0, 0, 0); pg.add(pr);
-  gableRoof(pr, 2.3, 1.7, base + 2.6, 0.9, roofMat, trim, 0.15, 0.1, 0.12);
-  gableWall(pr, 2.3, 0.9, base + 2.6, 0.85, flat(trim));
+  gableRoof(pg, 2.3, 1.7, base + 2.6, 0.9, roofMat, trim, 0.15, 0.1, 0.12);
+  gableWall(pg, 2.3, 0.9, base + 2.6, 0.85, flat(trim));
   // wall lamp beside the door
-  const lamp = box(0.18, 0.28, 0.18, '#3a3d46', dx - side * 1.0, base + 2.0, front + 0.14, G);
-  lamp.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.12), new THREE.MeshBasicMaterial({ color: '#ffe7a6' })));
+  const lampB = box(0.18, 0.28, 0.18, '#3a3d46', dx - side * 1.0, base + 2.0, front + 0.14, G);
+  lampB.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.12), new THREE.MeshBasicMaterial({ color: '#ffe7a6' })));
   // flower box under the big window
   box(2.4, 0.3, 0.36, tex(planks('#c99a62')), side * 1.7, base + 0.62, front + 0.22, G);
   for (let k = 0; k < 5; k++) plant(makeClump(seed + k, k % 2 ? TILE.flowersR : TILE.flowersY, 0.6), G, side * 1.7 - 1.0 + k * 0.5, base + 0.75, front + 0.24, 1);
-  // side windows and the dormers in the slope over the garden side
+  // side windows; dormers in the slope over the garden side
   for (const sx of [-1, 1]) for (const zz of [-1.4, 1.4]) {
+    if (st.wing && sx === -side) continue;
     const w = windowAt(G, sx * (W / 2 + 0.06), base + 1.9, zz, 1.0, 1.3, 2, 2);
     w.rotation.y = sx * Math.PI / 2;
   }
-  const ang = Math.atan2(rise, W / 2);
-  for (const zz of [-1.3, 1.3]) {
-    const dg = new THREE.Group(); G.add(dg);
-    const hx = side * 2.0, hy = y0 + (W / 2 - 2.0) * Math.tan(ang) - 0.6;   // where it meets the slope
-    dg.position.set(hx, hy, zz); dg.rotation.y = side * Math.PI / 2;
-    box(1.4, 1.5, 1.6, sid, 0, 0.75, -0.6, dg);
-    const w = windowAt(dg, 0, 0.8, 0.22, 0.7, 0.8, 2, 2); void w;
-    const rg = new THREE.Group(); rg.position.set(0, 0, -0.6); rg.rotation.y = 0; dg.add(rg);
-    gableRoof(rg, 1.4, 1.6, 1.5, 0.75, roofMat, trim, 0.12, 0.12, 0.1);
-    gableWall(rg, 1.4, 0.75, 1.5, 0.8, sid);
+  if (!st.hip) {
+    const ang = Math.atan2(rise, W / 2);
+    for (const zz of [-1.3, 1.3]) {
+      const dg = new THREE.Group(); G.add(dg);
+      const hx = side * 2.0, hy = y0 + (W / 2 - 2.0) * Math.tan(ang) - 0.6;
+      dg.position.set(hx, hy, zz); dg.rotation.y = side * Math.PI / 2;
+      box(1.4, 1.5, 1.6, sid, 0, 0.75, -0.6, dg);
+      windowAt(dg, 0, 0.8, 0.22, 0.7, 0.8, 2, 2);
+      const rg = new THREE.Group(); rg.position.set(0, 0, -0.6); dg.add(rg);
+      gableRoof(rg, 1.4, 1.6, 1.5, 0.75, roofMat, trim, 0.12, 0.12, 0.1);
+      gableWall(rg, 1.4, 0.75, 1.5, 0.8, sid);
+    }
+  }
+  // a side wing with its own gable, on the side away from the garden
+  if (st.wing) {
+    const wg = new THREE.Group(); wg.position.set(-side * (W / 2 + 1.7), 0, -0.6); wg.rotation.y = Math.PI / 2; G.add(wg);
+    const ww = 4.6, wd = 3.6, wh = 2.9;
+    box(ww + 0.3, base + 1.3, wd + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.65, 0, wg);
+    box(ww, wh, wd, sid, 0, base + wh / 2, 0, wg);
+    gableRoof(wg, ww, wd, base + wh, 2.2, roofMat, trim, 0.35, 0.3);
+    gableWall(wg, ww, 2.2, base + wh, -side * wd / 2, sid, -side);
+    const wn = windowAt(wg, 0, base + 1.6, -side * (wd / 2 + 0.05), 1.3, 1.2, 2, 2); if (side > 0) wn.rotation.y = Math.PI;
+    for (const k of [-1, 1]) { const w2 = windowAt(wg, k * (ww / 2 + 0.05), base + 1.6, 0, 1.0, 1.1, 2, 2); w2.rotation.y = k * Math.PI / 2; }
+    P.col(-side * (W / 2 + 1.7), -0.6, wd / 2 + 0.2, ww / 2 + 0.2);
   }
   // chimney at the back
-  box(0.8, 3.2, 0.8, tex(bricks('#b7604a')), -side * 1.6, y0 + 2.4, -1.8, G);
-  box(1.0, 0.18, 1.0, '#d9cfbd', -side * 1.6, y0 + 4.05, -1.8, G);
+  box(0.8, 3.2, 0.8, tex(bricks('#b7604a')), -side * 1.6, y0 + (st.hip ? 1.8 : 2.4), -1.8, G);
+  box(1.0, 0.18, 1.0, '#d9cfbd', -side * 1.6, y0 + (st.hip ? 3.45 : 4.05), -1.8, G);
   // front deck with a white railing and steps to the path
   const deckY = base + 0.05, dz0 = D / 2 + 0.05, dz1 = D / 2 + 2.3;
   box(W + 0.6, 0.2, dz1 - dz0, tex(planks('#c99a62')), 0, deckY, (dz0 + dz1) / 2, G);
-  box(W + 0.6, deckY, 0.2, trim, 0, deckY / 2 - 0.05, dz1 - 0.1, G, { line: false });
+  box(W + 0.6, deckY + 1, 0.2, trim, 0, deckY / 2 - 0.55, dz1 - 0.1, G, { line: false });
   const rail = (ax, bx, zz) => {
     const n = Math.max(2, Math.round(Math.abs(bx - ax) / 0.22));
     for (let i = 0; i <= n; i++) box(0.07, 0.8, 0.07, trim, ax + (bx - ax) * i / n, deckY + 0.5, zz, G, { line: false, shadow: false });
     box(Math.abs(bx - ax) + 0.12, 0.1, 0.12, trim, (ax + bx) / 2, deckY + 0.92, zz, G);
   };
   rail(-W / 2 - 0.25, dx - 0.95, dz1 - 0.1); rail(dx + 0.95, W / 2 + 0.25, dz1 - 0.1);
-  if (dx - 0.95 < -W / 2) rail(-W / 2 - 0.25, -W / 2 - 0.25, dz1);  // keeps the shape when the door is at the end
   for (let s = 0; s < 2; s++) box(1.8, 0.2, 0.5, tex(stones('#d6cfbd')), dx, deckY - 0.18 - s * 0.2, dz1 + 0.25 + s * 0.45, G);
-  world.walk.push({ x0: x - W / 2 - 0.3, x1: x + W / 2 + 0.3, z0: z + dz0, z1: z + dz1, y: G.position.y + deckY + 0.1 });
-  world.colliders.push({ box: true, x, z: z - 0.05, hw: W / 2 + 0.2, hd: D / 2 + 0.2 });
-  for (const xx of [-W / 2 - 0.25, dx - 0.95, dx + 0.95, W / 2 + 0.25].filter((v, i, a) => i % 2 === 0 || true)) void xx;
-  world.colliders.push({ box: true, x: x + (-W / 2 - 0.25 + dx - 0.95) / 2, z: z + dz1 - 0.1, hw: Math.max(0.05, (dx - 0.95 + W / 2 + 0.25) / 2), hd: 0.12 });
-  world.colliders.push({ box: true, x: x + (W / 2 + 0.25 + dx + 0.95) / 2, z: z + dz1 - 0.1, hw: Math.max(0.05, (W / 2 + 0.25 - dx - 0.95) / 2), hd: 0.12 });
-  world.use.push({ x: x + dx, z: z + D / 2 + 1.1, r: 1.0, label: 'Door', lines });
+  P.walk(0, (dz0 + dz1) / 2, W / 2 + 0.3, (dz1 - dz0) / 2, hs.y + deckY + 0.1);
+  P.col(0, -0.05, W / 2 + 0.2, D / 2 + 0.2);
+  { const a = -W / 2 - 0.25, b = dx - 0.95; P.col((a + b) / 2, dz1 - 0.1, Math.max(0.05, (b - a) / 2), 0.12); }
+  { const a = dx + 0.95, b = W / 2 + 0.25; P.col((a + b) / 2, dz1 - 0.1, Math.max(0.05, (b - a) / 2), 0.12); }
+  P.use(dx, D / 2 + 1.1, 1.0, 'Door', lines);
   // the yard: picket fence round it, a gate on the path, stepping stones
   const fx = 8.4, fz0 = -5.2, fz1 = 8.6;
-  const gate = 0;   // the path to the street runs down x = 0... toward the door
-  void gate;
-  picketFence(G, -fx, fz1, dx - 0.9, fz1, world, x, z);
-  picketFence(G, dx + 0.9, fz1, fx, fz1, world, x, z);
-  picketFence(G, -fx, fz0, -fx, fz1, world, x, z);
-  picketFence(G, fx, fz0, fx, fz1, world, x, z);
-  for (const k of [-1, 1]) box(0.22, 1.25, 0.22, trim, dx + k * 0.95, height(x + dx, z + fz1) - G.position.y + 0.6, fz1, G);
+  if (fence) {
+    picketFence(P, -fx, fz1, dx - 0.9, fz1);
+    picketFence(P, dx + 0.9, fz1, fx, fz1);
+    picketFence(P, -fx, fz0, -fx, fz1);
+    picketFence(P, fx, fz0, fx, fz1);
+    picketFence(P, -fx, fz0, fx, fz0);
+    for (const k of [-1, 1]) box(0.22, 1.25, 0.22, trim, dx + k * 0.95, P.hy(dx + k * 0.95, fz1) + 0.6, fz1, G);
+  }
   for (let s = 0; s < 5; s++) {
     const sz = dz1 + 0.95 + s * 0.85, sx = dx + Math.sin(s * 1.7) * 0.18;
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.12, 10), flat('#d8d0bf'));
-    st.scale.set(1, 1, 0.8); st.rotation.y = R() * 3;
-    add(st, G, sx, height(x + sx, z + sz) - G.position.y + 0.02, sz, { shadow: false });
+    const stn = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.12, 10), flat('#d8d0bf'));
+    stn.scale.set(1, 1, 0.8); stn.rotation.y = R() * 3;
+    add(stn, G, sx, P.hy(sx, sz) + 0.02, sz, { shadow: false });
   }
-  // mailbox by the gate
-  const mb = new THREE.Group(); mb.position.set(dx + side * 1.6, height(x + dx + side * 1.6, z + fz1 + 0.4) - G.position.y, fz1 + 0.4); G.add(mb);
+  // mailbox by the gate, with the family name on a little board
+  const mx = dx + side * 1.6, mz = fz1 + 0.4;
+  const mb = new THREE.Group(); mb.position.set(mx, P.hy(mx, mz), mz); G.add(mb);
   box(0.1, 1.1, 0.1, '#fbfaf4', 0, 0.55, 0, mb);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.6, 14, 1, false, 0, Math.PI), flat('#ec8a2e'));
   body.rotation.z = Math.PI / 2; add(body, mb, 0, 1.15, 0);
   box(0.44, 0.24, 0.6, '#ec8a2e', 0, 1.03, 0, mb);
   box(0.04, 0.2, 0.06, '#d83a2e', 0.24, 1.3, 0.1, mb, { line: false });
-  world.colliders.push({ x: x + dx + side * 1.6, z: z + fz1 + 0.4, r: 0.2 });
-  world.use.push({ x: x + dx + side * 1.6, z: z + fz1 + 1.2, r: 0.8, label: 'Look', lines: [`${name}'s mailbox. It's empty.`] });
-  // vegetable garden on the side: a little fenced bed of tomato plants
+  const nb = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.3), new THREE.MeshBasicMaterial({ map: signTexture([name]) }));
+  nb.position.set(0, 0.62, 0.07); mb.add(nb);
+  box(1.06, 0.34, 0.06, '#c99a62', 0, 0.62, 0.02, mb, { line: false });
+  P.circ(mx, mz, 0.25);
+  P.use(mx, mz + 0.9, 0.8, 'Look', [`${name}'s mailbox. It's empty.`]);
+  // vegetable garden on the side: a little bed of tomato plants
   const gx = side * 6.2, gz = 1.0;
-  box(2.6, 0.25, 4.6, tex(planks('#8d6a46')), gx, height(x + gx, z + gz) - G.position.y + 0.05, gz, G, { line: false });
-  const soil = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 4.4), flat('#7a5a3c')); add(soil, G, gx, height(x + gx, z + gz) - G.position.y + 0.18, gz, { line: false });
+  box(2.6, 0.25, 4.6, tex(planks('#8d6a46')), gx, P.hy(gx, gz) + 0.05, gz, G, { line: false });
+  add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 4.4), flat('#7a5a3c')), G, gx, P.hy(gx, gz) + 0.18, gz, { line: false });
   for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) {
-    const px = gx - 0.6 + r * 1.2, pz = gz - 1.6 + k * 1.05, py = height(x + px, z + pz) - G.position.y + 0.2;
+    const px = gx - 0.6 + r * 1.2, pz = gz - 1.6 + k * 1.05, py = P.hy(px, pz) + 0.2;
     box(0.05, 1.2, 0.05, '#c9a876', px, py + 0.6, pz, G, { line: false });
     plant(makeBush(seed * 10 + r * 4 + k, { size: 0.5 }), G, px, py, pz, 1, R() * 6);
-    for (let t = 0; t < 4; t++) {
-      const tm = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), flat('#e8402e'));
-      add(tm, G, px + (R() - 0.5) * 0.5, py + 0.4 + R() * 0.5, pz + (R() - 0.5) * 0.5, { line: false });
+    for (let t = 0; t < 3; t++) add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), flat('#e8402e')), G, px + (R() - 0.5) * 0.5, py + 0.4 + R() * 0.5, pz + (R() - 0.5) * 0.5, { line: false });
+  }
+  P.col(gx, gz, 1.3, 2.3);
+  // a washing line across the back of the yard, the washing swaying
+  if (st.laundry) {
+    const lx0 = -side * 1.5, lx1 = -side * 7.0, lz = -3.9;
+    for (const lx of [lx0, lx1]) { box(0.1, 2.0, 0.1, '#e8e2d2', lx, P.hy(lx, lz) + 1.0, lz, G); box(0.7, 0.08, 0.08, '#e8e2d2', lx, P.hy(lx, lz) + 1.95, lz, G, { line: false }); P.circ(lx, lz, 0.15); }
+    const ly = (P.hy(lx0, lz) + P.hy(lx1, lz)) / 2 + 1.9;
+    const line = box(Math.abs(lx1 - lx0), 0.02, 0.02, '#f4f1e6', (lx0 + lx1) / 2, ly, lz, G, { line: false, shadow: false });
+    void line;
+    const cols = ['#ffffff', '#e86a5a', '#7ab8e8', '#f6d65a', '#9ad06a'];
+    const cloths = [];
+    for (let k = 0; k < 5; k++) {
+      const cw = 0.55 + R() * 0.35, ch = 0.6 + R() * 0.5;
+      const pivot = new THREE.Group(); pivot.userData.keep = true; pivot.position.set(lx0 + (lx1 - lx0) * (0.12 + k * 0.19), ly, lz); G.add(pivot);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), toon(cols[k % 5], { cel: BUILD }));
+      m.material.side = THREE.DoubleSide; m.position.y = -ch / 2; m.castShadow = true; pivot.add(m);
+      cloths.push(pivot);
     }
+    world.anim.push((dt, t) => { cloths.forEach((c, i) => { c.rotation.x = Math.sin(t * 1.7 + i * 0.9) * 0.18 + 0.12; }); });
   }
-  world.colliders.push({ box: true, x: x + gx, z: z + gz, hw: 1.3, hd: 2.3 });
   // shrubs: round trimmed bushes along the deck, a cone topiary, cypresses
-  for (const [px, pz, s] of [[-W / 2 - 1.0, dz1 - 0.3, 1.0], [W / 2 + 1.0, dz1 - 0.3, 1.0], [-side * (W / 2 + 0.9), -1.5, 1.2]]) {
-    plant(makeBush(seed + 50 + px, { size: s }), G, px, height(x + px, z + pz) - G.position.y, pz);
-    world.colliders.push({ x: x + px, z: z + pz, r: 0.8 * s });
+  for (const [px, pz, s] of [[-W / 2 - 1.0, dz1 - 0.3, 1.0], [W / 2 + 1.0, dz1 - 0.3, 1.0], [side * (W / 2 + 0.9), -3.0, 1.1]]) {
+    plant(makeBush(seed + 50 + px, { size: s }), G, px, P.hy(px, pz), pz);
+    P.circ(px, pz, 0.8 * s);
   }
-  for (const [px, pz, k, s] of [[-side * 6.6, 6.8, 'bushy', 0.85], [-side * 6.8, -3.8, 'lombardy', 0.5], [side * 7.0, -4.3, 'cypress', 0.7]]) {
+  const trees = [[-side * 6.6, 6.8, 'bushy', 0.85], [side * 7.0, -4.3, 'cypress', 0.7]];
+  if (!st.laundry && !st.wing) trees.push([-side * 6.8, -3.8, 'lombardy', 0.5]);
+  for (const [px, pz, k, s] of trees) {
     const m = makeTree(k, seed + Math.round(px * 3 + pz));
-    plant(m, G, px, height(x + px, z + pz) - G.position.y, pz, s);
-    world.colliders.push({ x: x + px, z: z + pz, r: Math.max(0.4, m.trunk * s + 0.15) });
+    plant(m, G, px, P.hy(px, pz), pz, s);
+    P.circ(px, pz, Math.max(0.4, m.trunk * s + 0.15));
   }
   world.solid.push(G);
   return G;
 }
 
-// ---------- Professor Oak's lab ----------
-function lab(world) {
-  const cx = 25, cz = 20.6, top = height(LAB_HILL.x, LAB_HILL.z);
-  const G = new THREE.Group(); G.position.set(cx, top, cz); world.group.add(G);
-  const wall = tex(plaster('#f6f0e2')), roofMat = tex(tiles('#d4473a')), trim = '#fbfaf4';
-  const L = 11, W = 6.6, base = 0.5, wallH = 3.2, r = W / 2 + 0.25;
-  box(L + 0.4, base + 0.4, W + 0.4, tex(stones('#cfc8b6')), 0, base / 2 - 0.2, 0, G);
-  box(L, wallH, W, wall, 0, base + wallH / 2, 0, G);
-  box(L + 0.2, 0.25, W + 0.2, trim, 0, base + wallH, 0, G);
-  // barrel vault: a half cylinder along x, end walls, and ribs
-  const vault = new THREE.CylinderGeometry(r, r, L + 0.7, 32, 1, true, -Math.PI / 2, Math.PI);
-  { const p = vault.attributes.position, uv = vault.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getY(i) / 1.5, Math.atan2(p.getX(i), p.getZ(i)) * r / 1.5); }
-  vault.rotateZ(Math.PI / 2);
-  const vm = roofMat.clone(); vm.side = THREE.DoubleSide;
-  const vmesh = new THREE.Mesh(vault, vm); add(vmesh, G, 0, base + wallH + 0.1, 0, { line: false });
-  const vin = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.06, r + 0.06, L + 0.72, 32, 1, true, -Math.PI / 2, Math.PI).rotateZ(Math.PI / 2), INK);
-  vin.position.set(0, base + wallH + 0.1, 0); G.add(vin);
-  for (const sx of [-1, 1]) {
-    const cap = new THREE.Mesh(new THREE.CircleGeometry(r - 0.2, 32, 0, Math.PI), wall);
-    cap.rotation.y = sx * Math.PI / 2; cap.position.set(sx * L / 2, base + wallH + 0.1, 0); G.add(cap);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(r + 0.02, 0.12, 6, 32, Math.PI), flat(trim));
-    rim.rotation.y = Math.PI / 2; add(rim, G, sx * (L / 2 + 0.35), base + wallH + 0.1, 0, { line: false });
-    // a round window in each end
-    const rw = new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), glass()); rw.rotation.y = sx * Math.PI / 2;
-    rw.position.set(sx * (L / 2 + 0.01), base + wallH + 1.2, 0); G.add(rw);
-    const rf = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.09, 6, 24), flat(trim)); rf.rotation.y = Math.PI / 2;
-    rf.position.set(sx * (L / 2 + 0.03), base + wallH + 1.2, 0); G.add(rf);
+// ---------- the lab hill ----------
+// A long straight flight of stone stairs up the front of the hill, a landing
+// half way, stone cheek walls, and round trimmed bushes lining both sides.
+function labStairs(world) {
+  const S = STAIRS, stone = flat('#dcd5c6'), cheek = flat('#c9c1b0');
+  const treads = [];
+  // every tread: x range and top height
+  for (let x = S.x0; x < S.x1 + 0.01; ) {
+    const y = stairY(x + 0.01);
+    let x2 = x + S.run;
+    if (Math.abs(y - (PLAZA.y + S.n1 * STEP)) < 0.01 && x >= S.x0 + S.n1 * S.run - 0.01) x2 = S.x0 + S.n1 * S.run + S.landing;
+    treads.push([x, Math.min(x2, S.x1 + 1.0), y]);
+    x = x2;
   }
-  for (let k = -2; k <= 2; k++) {
-    const rib = new THREE.Mesh(new THREE.TorusGeometry(r + 0.05, 0.07, 6, 32, Math.PI), flat('#a93a30'));
-    rib.rotation.y = Math.PI / 2; rib.position.set(k * 2.2, base + wallH + 0.1, 0); G.add(rib);
+  const g = new THREE.BoxGeometry(1, 1, 1);
+  const im = new THREE.InstancedMesh(g, stone, treads.length);
+  const ch = new THREE.InstancedMesh(g, cheek, treads.length * 2);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  treads.forEach(([a, b, y], i) => {
+    m4.compose(V((a + b) / 2, y - 1.4, S.z), q, V(b - a + 0.02, 2.8, S.hw * 2 + 0.1)); im.setMatrixAt(i, m4);
+    for (const s of [-1, 1]) { m4.compose(V((a + b) / 2, y - 1.1, S.z + s * (S.hw + 0.3)), q, V(b - a + 0.02, 3.0, 0.55)); ch.setMatrixAt(i * 2 + (s > 0 ? 1 : 0), m4); }
+  });
+  // each tread's worn front edge in a darker stone, so the steps read
+  const nose = new THREE.InstancedMesh(g, flat('#a99f8e'), treads.length);
+  treads.forEach(([a, b, y], i) => {
+    m4.compose(V(a + 0.05, y - 0.06, S.z), q, V(0.12, 0.14, S.hw * 2 + 0.12)); nose.setMatrixAt(i, m4);
+    im.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.92 + ((i * 7919) % 9) / 9 * 0.1));
+  });
+  for (const o of [im, ch, nose]) { o.castShadow = true; o.receiveShadow = true; world.group.add(o); }
+  // white globe lamps on the cheek walls at the landing and the top
+  const xl = S.x0 + S.n1 * S.run;
+  for (const [x, y] of [[xl + 0.3, PLAZA.y + S.n1 * STEP + 0.4], [xl + S.landing - 0.3, PLAZA.y + S.n1 * STEP + 0.4], [S.x1 + 0.4, PLAT_Y + 0.4]]) for (const s of [-1, 1]) globeLamp(world, x, y, S.z + s * (S.hw + 0.3), 0.9);
+  world.solid.push(im);
+  // rows of round trimmed bushes down both sides
+  const R = rng(77), list = [];
+  for (let x = S.x0 + 0.6; x < S.x1 - 0.2; x += 1.25 + R() * 0.25) for (const s of [-1, 1]) {
+    const z = S.z + s * (S.hw + 1.35 + R() * 0.15);
+    list.push([x, z, R() * 6, 0.85 + R() * 0.2]);
+    if (R() < 0.6) { const z2 = S.z + s * (S.hw + 2.8 + R() * 0.6); list.push([x + 0.6, z2, R() * 6, 1.0 + R() * 0.3]); }
   }
-  // arched windows along both long sides, the door in the middle of the front
-  for (const sz of [-1, 1]) for (const k of [-4, -2.2, 2.2, 4]) {
-    const w = archWindow(G, k, base + 1.7, sz * (W / 2 + 0.02), 1.0, 2.0);
-    if (sz < 0) w.rotation.y = Math.PI;
+  instBushes(world, list, [makeBush(921, { size: 1.15 }), makeBush(922, { size: 1.25 }), makeBush(923, { size: 1.1, flowers: TILE.flowersR })], false);
+}
+function globeLamp(world, x, y, z, s = 1) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); world.group.add(g);
+  cyl(0.12, 0.16, 0.25, '#2c2d33', 0, 0.12, 0, g, 10);
+  cyl(0.05, 0.05, 0.25, '#2c2d33', 0, 0.35, 0, g, 6, { line: false });
+  const globe = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 12), new THREE.MeshBasicMaterial({ color: '#fffbea' }));
+  globe.position.y = 0.72; g.add(globe);
+  const rim = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12), INK); rim.position.y = 0.72; g.add(rim);
+  return g;
+}
+// many copies of a few bush shapes, instanced; [x, z, rot, scale]
+function instBushes(world, list, models, collide = true, sink = 0.12) {
+  const by = models.map(() => []);
+  list.forEach((p, i) => by[i % models.length].push(p));
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  models.forEach((mod, k) => {
+    const l = by[k]; if (!l.length) return;
+    for (const p of mod.parts) {
+      const im = new THREE.InstancedMesh(p.geometry, p.material, l.length);
+      l.forEach(([x, z, r, s], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, height(x, z) - sink, z), q, V(s, s * 0.95, s)); im.setMatrixAt(i, m4); });
+      im.castShadow = true; im.receiveShadow = true; world.group.add(im);
+    }
+    if (collide) for (const [x, z, , s] of l) world.colliders.push({ x, z, r: 0.7 * s });
+  });
+}
+
+// Brick pillars with white globe lamps and an open black iron gate at the
+// foot of the stairs; a low stone retaining wall along the hill's foot.
+function labGate(world) {
+  const S = STAIRS, gx = S.x0 - 0.3, y = PLAZA.y;
+  const brick = tex(bricks('#b7604a')), stone = tex(stones('#c9c0ae'));
+  for (const s of [-1, 1]) {
+    const z = S.z + s * (S.hw + 0.75);
+    const G = new THREE.Group(); G.position.set(gx, y, z); world.group.add(G);
+    box(1.0, 2.6, 1.0, brick, 0, 1.3, 0, G);
+    box(1.2, 0.22, 1.2, '#e2dccd', 0, 2.7, 0, G);
+    box(0.9, 0.16, 0.9, '#e2dccd', 0, 2.88, 0, G);
+    globeLamp(world, gx, y + 2.95, z, 1.25);
+    world.colliders.push({ box: true, x: gx, z, hw: 0.55, hd: 0.55 });
+    // the iron gate leaf, swung open up the stairs
+    const leaf = new THREE.Group(); leaf.position.set(gx + 0.45, y, z - s * 0.5); leaf.rotation.y = s * 1.35; G.parent.add(leaf);
+    const LW = S.hw - 0.05;
+    for (let k = 0; k <= 9; k++) {
+      const lx = -s * 0, lz = -s * (0.08 + k * LW / 9.3);
+      const hgt = 1.9 + Math.sin(k / 9 * Math.PI) * 0.3 * (s > 0 ? 1 : 1);
+      box(0.05, hgt, 0.05, '#25262c', lx, hgt / 2 + 0.05, lz, leaf, { line: false });
+      add(new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 6), flat('#25262c')), leaf, lx, hgt + 0.12, lz, { line: false });
+    }
+    for (const yy of [0.3, 1.0, 1.75]) box(0.06, 0.07, LW, '#25262c', 0, yy, -s * LW / 2, leaf, { line: false });
+    box(0.07, 0.07, LW * 0.9, '#25262c', 0, 0.65, -s * LW / 2, leaf, { line: false }).rotation.x = s * 0.5;
   }
-  const front = W / 2 + 0.05;
-  const dm = new THREE.Group(); dm.position.set(0, 0, front); G.add(dm);
-  box(2.6, 3.3, 0.6, wall, 0, base + 1.65, 0.25, dm);
-  box(2.8, 0.25, 0.8, trim, 0, base + 3.35, 0.25, dm);
-  box(1.7, 2.5, 0.1, tex(planks('#8a5a3a')), 0, base + 1.25, 0.56, dm);
-  box(0.05, 2.5, 0.04, '#5a3a26', 0, base + 1.25, 0.62, dm, { line: false });
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.55), new THREE.MeshBasicMaterial({ map: signTexture(['OAK POKéMON LAB'], { bg: '#2f5a4a', fg: '#f4ead2' }) }));
-  plate.position.set(0, base + 2.85, 0.56); dm.add(plate);
-  for (let s = 0; s < 3; s++) box(3.0 - s * 0.2, 0.18, 0.5, tex(stones('#d6cfbd')), 0, base - 0.1 - s * 0.18, front + 0.8 + s * 0.45, G);
-  // the round tower with a windmill
-  const tx = -L / 2 - 1.2, tz = -1.0, tH = 9.5;
-  const tw = new THREE.Mesh(wuv(new THREE.CylinderGeometry(2.0, 2.15, tH, 24), 0.5), wall); add(tw, G, tx, tH / 2, tz);
-  for (const y of [3.4, 6.6, tH - 0.2]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(2.18, 2.18, 0.22, 24), flat(trim)); add(b, G, tx, y, tz, { line: false }); }
-  for (const [a, y] of [[0.9, 2.2], [0.5, 5.0], [1.6, 8.0]]) {
-    const w = archWindow(G, tx + Math.sin(a) * 2.05, y, tz + Math.cos(a) * 2.05, 0.7, 1.2); w.rotation.y = a;
+  // the low retaining wall of rough stone along the foot of the hill
+  const wallSeg = (z0, z1) => {
+    const len = z1 - z0, G = new THREE.Group(); G.position.set(gx - 0.1, y, (z0 + z1) / 2); world.group.add(G);
+    box(0.9, 1.9, len, stone, 0, 0.2, 0, G);
+    box(1.05, 0.16, len + 0.1, '#ddd6c6', 0, 1.2, 0, G);
+    world.colliders.push({ box: true, x: gx - 0.1, z: (z0 + z1) / 2, hw: 0.5, hd: len / 2 });
+  };
+  wallSeg(LAB_HILL.z0 - 4, S.z - S.hw - 1.25);
+  wallSeg(S.z + S.hw + 1.25, LAB_HILL.z1 + 4);
+  sign(PLAZA.x0 + 1.6, S.z - S.hw - 3.2, Math.PI / 2 + 0.35, ['OAK POKéMON', 'RESEARCH LAB'], ['OAK POKéMON RESEARCH LAB'], world);
+  // plaza: two lamps, a bench, flower tubs
+  lamp(PLAZA.x0 + 2.2, PLAZA.z1 - 1.0, world);
+  lamp(PLAZA.x1 - 1.2, PLAZA.z0 + 1.2, world);
+  bench(PLAZA.x1 - 1.4, PLAZA.z1 - 1.6, -Math.PI / 2 + 0.2, world);
+  for (const [x, z] of [[PLAZA.x1 - 1.0, S.z + 4.4], [PLAZA.x1 - 1.0, S.z - 4.4]]) {
+    cyl(0.6, 0.5, 0.6, tex(stones('#c9c0ae')), x, height(x, z) + 0.3, z, world.group, 12);
+    plant(makeBush(400 + Math.round(z), { size: 0.7, flowers: TILE.flowersR }), world.group, x, height(x, z) + 0.55, z);
+    world.colliders.push({ x, z, r: 0.65 });
   }
-  const cone = new THREE.Mesh(new THREE.ConeGeometry(2.6, 2.6, 24), roofMat); add(cone, G, tx, tH + 1.3, tz);
-  { const p = cone.geometry.attributes.position, uv = cone.geometry.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, Math.atan2(p.getX(i), p.getZ(i)) * 2, p.getY(i) / 1.5); }
-  // windmill: mast, nacelle and three slim blades turning in the wind
-  cyl(0.12, 0.18, 2.4, '#e9ece8', tx, tH + 3.4, tz, G, 10);
-  const nac = new THREE.Group(); nac.position.set(tx, tH + 4.7, tz); nac.rotation.y = 0.6; G.add(nac);
-  box(0.45, 0.45, 1.2, '#f4f5f1', 0, 0, 0, nac);
-  const hub = new THREE.Group(); hub.position.z = 0.7; nac.add(hub);
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), flat('#f4f5f1')), hub, 0, 0, 0);
-  for (let b = 0; b < 3; b++) {
-    const bl = new THREE.Group(); bl.rotation.z = b * Math.PI * 2 / 3; hub.add(bl);
-    const s = new THREE.Shape(); s.moveTo(-0.12, 0); s.quadraticCurveTo(-0.22, 1.2, -0.05, 3.2); s.lineTo(0.06, 3.2); s.quadraticCurveTo(0.14, 1.0, 0.12, 0); s.lineTo(-0.12, 0);
-    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }), flat('#fbfbf8'));
-    add(m, bl, 0, 0.15, 0);
+}
+
+// The hill: round bushes all over its slopes (big trees come from veg.js),
+// a hedge round the top, and the courtyard path to the lab door.
+function hillPlants(world, door) {
+  const R = rng(515), L = LAB_HILL, list = [];
+  const occ = new Set(), key = (x, z) => Math.round(x / 1.8) * 1000 + Math.round(z / 1.8);
+  for (let i = 0; i < 9000 && list.length < 900; i++) {
+    const x = L.x0 - L.wW - 2 + R() * (L.x1 - L.x0 + L.wW + L.wE + 4), z = L.z0 - L.wN - 2 + R() * (L.z1 - L.z0 + L.wN + L.wS + 4);
+    const u = labHillU(x, z);
+    if (u <= 0.03 || u > 0.97) continue;
+    if (Math.abs(z - STAIRS.z) < STAIRS.hw + 3.4 && x < STAIRS.x1 + 1) continue;
+    if (isWater(x, z) || height(x, z) < SEA_Y + 0.4) continue;
+    const k = key(x, z); if (occ.has(k)) continue; occ.add(k);
+    list.push([x, z, R() * 6.28, 0.9 + R() * 0.7]);
   }
-  world.anim.push((dt, t) => { hub.rotation.z = -t * 1.6; });
-  // a weather vane-ish antenna and a little greenhouse by the hall
-  const gh = new THREE.Group(); gh.position.set(L / 2 + 2.2, 0, 1.6); G.add(gh);
-  box(2.6, 0.3, 3.2, tex(stones('#cfc8b6')), 0, 0.15, 0, gh);
-  const gm = new THREE.MeshBasicMaterial({ color: '#cfeff2', transparent: true, opacity: 0.45 });
-  const gb = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 3.0), gm); gb.position.y = 1.1; gh.add(gb);
-  const groof = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 3.0, 16, 1, true, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI / 2).rotateY(Math.PI / 2), gm);
-  groof.position.y = 1.9; gh.add(groof);
-  for (const k of [-1.4, -0.47, 0.47, 1.4]) box(2.45, 0.06, 0.06, '#fbfaf4', 0, 1.9, k, gh, { line: false });
-  for (const sx of [-1.2, 1.2]) for (const k of [-1.5, 1.5]) box(0.07, 1.6, 0.07, '#fbfaf4', sx, 1.1, k, gh, { line: false });
-  for (let k = 0; k < 4; k++) plant(makeBush(700 + k, { size: 0.45, flowers: k % 2 ? TILE.flowersR : null }), gh, (k % 2 - 0.5) * 1.1, 0.3, -1 + k * 0.65);
-  world.colliders.push({ box: true, x: cx + L / 2 + 2.2, z: cz + 1.6, hw: 1.4, hd: 1.7 });
-  // the courtyard: paving from the stairs to the door, round bushes
-  const paveTo = [cx, cz + W / 2 + 2.6];
-  const start = LAB_STAIRS[LAB_STAIRS.length - 1];
-  for (let k = 0; k <= 14; k++) {
-    const t = k / 14, px = start[0] + (paveTo[0] - start[0]) * t, pz = start[1] + (paveTo[1] - start[1]) * t + Math.sin(t * Math.PI) * 1.2;
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.8, 0.1, 9), flat('#ddd5c4')); st.scale.z = 0.7; st.rotation.y = k;
-    add(st, world.group, px, height(px, pz) + 0.03, pz, { shadow: false });
+  // a trimmed hedge round the rim of the plateau (open at the stairs and the lab)
+  const rim = [];
+  const ring = [[L.x0 + 0.8, L.z0 + 0.8], [L.x1 - 0.8, L.z0 + 0.8], [L.x1 - 0.8, L.z1 - 0.8], [L.x0 + 0.8, L.z1 - 0.8], [L.x0 + 0.8, L.z0 + 0.8]];
+  for (let i = 0; i < 4; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[i + 1], len = Math.hypot(bx - ax, bz - az);
+    for (let d = 0; d < len; d += 1.3) {
+      const x = ax + (bx - ax) * d / len, z = az + (bz - az) * d / len;
+      if (Math.abs(z - STAIRS.z) < 3.2 && x < L.x0 + 3) continue;
+      rim.push([x, z, R() * 6, 0.75 + R() * 0.15]);
+    }
   }
-  world.colliders.push({ box: true, x: cx, z: cz, hw: L / 2 + 0.3, hd: W / 2 + 0.3 });
-  world.colliders.push({ box: true, x: cx, z: cz + front, hw: 1.4, hd: 0.6 });
-  world.colliders.push({ x: cx + tx, z: cz + tz, r: 2.3 });
-  world.use.push({ x: cx, z: cz + W / 2 + 1.6, r: 1.2, label: 'Door', lines: ['OAK POKéMON RESEARCH LAB', 'The door is locked. PROF. OAK must be out!'] });
+  instBushes(world, list, [makeBush(901, { size: 1.3 }), makeBush(902, { size: 1.6 }), makeBush(903, { size: 1.1, flowers: TILE.flowersR }), makeBush(904, { size: 1.8 }), makeBush(905, { size: 1.2, flowers: TILE.flowersY })], false, 0.25);
+  instBushes(world, rim, [makeBush(911, { size: 1.0 }), makeBush(912, { size: 1.1 })], true);
+  // the courtyard path from the top of the stairs to the lab's front steps
+  const a = [STAIRS.x1 + 0.2, STAIRS.z], b = door, pts = [];
+  for (let k = 0; k <= 16; k++) {
+    const t = k / 16, x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t + Math.sin(t * Math.PI) * 0.8;
+    for (const o of [-1, 1]) pts.push([x + (R() - 0.5) * 0.3, z + o * 0.85 + (R() - 0.5) * 0.3, R() * 6]);
+  }
+  const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.62, 0.66, 0.12, 9), flat('#ddd5c4'), pts.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  pts.forEach(([x, z, r], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, height(x, z) + 0.03, z), q, V(1, 1, 0.8)); im.setMatrixAt(i, m4); });
+  im.receiveShadow = true; world.group.add(im);
+  // two lamps and a bench by the path
+  lamp(STAIRS.x1 + 3, STAIRS.z + 3.2, world);
+  lamp(door[0] - 3, door[1] - 3.4, world);
+  bench(STAIRS.x1 + 5, STAIRS.z + 4.5, Math.PI + 0.1, world);
+}
+
+// ---------- the bridges ----------
+function bridge(world, b) {
+  const G = new THREE.Group(); G.position.set((b.x0 + b.x1) / 2, b.y, b.z); world.group.add(G);
+  const len = b.x1 - b.x0, wood = tex(planks('#c99a62')), dark = '#8a5f3c', hw = b.w / 2;
+  // planks across, on two beams
+  const pk = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.12, b.w), toon('#d2a56c', { cel: BUILD }), Math.ceil(len / 0.46));
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (let i = 0; i < pk.count; i++) {
+    const R = (i * 7919 % 13) / 13;
+    m4.compose(V(-len / 2 + 0.23 + i * 0.46, 0.04, 0), q, V(1, 1, 1)); pk.setMatrixAt(i, m4);
+    pk.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.88 + R * 0.18));
+  }
+  pk.castShadow = pk.receiveShadow = true; G.add(pk);
+  for (const s of [-1, 1]) box(len + 0.3, 0.32, 0.26, wood, 0, -0.18, s * (hw - 0.3), G);
+  // posts into the stream and the railings
+  const n = Math.max(2, Math.round(len / 1.4));
+  for (const s of [-1, 1]) {
+    for (let i = 0; i <= n; i++) {
+      const x = -len / 2 + 0.1 + (len - 0.2) * i / n;
+      box(0.16, 1.15, 0.16, wood, x, 0.6, s * (hw - 0.05), G);
+      if (i === 0 || i === n) box(0.2, 0.12, 0.2, '#e8d6b0', x, 1.2, s * (hw - 0.05), G, { line: false });
+    }
+    if (b.rails) {
+      box(len, 0.12, 0.14, wood, 0, 1.05, s * (hw - 0.05), G);
+      box(len, 0.08, 0.08, wood, 0, 0.55, s * (hw - 0.05), G, { line: false });
+    }
+    for (let i = 1; i < n; i++) { const x = -len / 2 + 0.1 + (len - 0.2) * i / n; cyl(0.14, 0.16, 2.6, dark, x, -1.4, s * (hw - 0.3), G, 8, { line: false }); }
+    world.colliders.push({ box: true, x: G.position.x, z: b.z + s * (hw - 0.05), hw: len / 2, hd: 0.1 });
+  }
+  world.walk.push({ x0: b.x0 - 0.2, x1: b.x1 + 0.2, z0: b.z - hw + 0.1, z1: b.z + hw - 0.1, y: b.y + 0.1 });
   world.solid.push(G);
 }
 
-// Brick-pillar gate posts and an open black iron gate at the foot of the stairs.
-function labGate(world) {
-  const [gx, gz] = LAB_STAIRS[0];
-  const G = new THREE.Group(); G.position.set(gx + 0.6, height(gx + 0.6, gz), gz); G.rotation.y = Math.PI / 2; world.group.add(G);
-  for (const s of [-1, 1]) {
-    box(0.8, 2.2, 0.8, tex(bricks('#b7604a')), s * 1.6, 1.1, 0, G);
-    box(1.0, 0.2, 1.0, '#d9cfbd', s * 1.6, 2.3, 0, G);
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), flat('#d9cfbd')), G, s * 1.6, 2.6, 0);
-    // iron gate leaf, swung open
-    const leaf = new THREE.Group(); leaf.position.set(s * 1.2, 0, 0.2); leaf.rotation.y = s * 1.9; G.add(leaf);
-    for (let k = 0; k < 6; k++) box(0.04, 1.6 + Math.sin(k / 5 * Math.PI) * 0.25, 0.04, '#2c2d33', -s * (0.1 + k * 0.2), 0.95, 0, leaf, { line: false });
-    for (const y of [0.35, 1.5]) box(1.15, 0.06, 0.06, '#2c2d33', -s * 0.6, y, 0, leaf, { line: false });
-    world.colliders.push({ x: gx + 0.6, z: gz + s * 1.6, r: 0.55 });
+// ---------- the stream's rocky banks ----------
+function streamRocks(world) {
+  const R = rng(611), list = [];
+  for (let i = 2; i < STREAM.length - 1; i += 1) {
+    const [x, z] = STREAM[i];
+    if (z > coastZ(x) - 6) break;
+    const a = STREAM[i - 1], b = STREAM[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
+    const nx = -dz / l, nz = dx / l;
+    for (const s of [-1, 1]) {
+      if (R() < 0.35) continue;
+      const o = 1.9 + R() * 0.7, px = x + nx * o * s, pz = z + nz * o * s;
+      if (BRIDGES.some((br) => Math.abs(pz - br.z) < br.w / 2 + 0.6 && px > br.x0 - 0.5 && px < br.x1 + 0.5)) continue;
+      if (roadDist(px, pz) < 2.2) continue;
+      list.push([px, pz, R() * 6, 0.45 + R() * 0.5]);
+    }
   }
-  // low brick walls running off along the foot of the hill
-  for (const s of [-1, 1]) {
-    box(3.0, 0.9, 0.4, tex(bricks('#b7604a')), s * 3.6, 0.45, 0, G);
-    world.colliders.push({ box: true, x: gx + 0.6, z: gz + s * 3.6, hw: 0.3, hd: 1.6 });
-  }
-  const sg = sign(gx - 1.6, gz + 3.4, -Math.PI / 2 + 0.25, ['OAK POKéMON', 'RESEARCH LAB'], ['OAK POKéMON RESEARCH LAB'], world);
-  void sg;
-}
-
-// Stone stairs winding up the hill, step by step on the terrain's steps.
-function labStairs(world) {
-  const geo = [];
-  let along = 0;
-  const pts = [];
-  for (let i = 0; i < LAB_STAIRS.length - 1; i++) {
-    const [ax, az] = LAB_STAIRS[i], [bx, bz] = LAB_STAIRS[i + 1], len = Math.hypot(bx - ax, bz - az);
-    for (let d = 0; d < len; d += 0.25) pts.push([ax + (bx - ax) * d / len, az + (bz - az) * d / len, Math.atan2(bx - ax, bz - az), along + d]);
-    along += len;
-  }
-  // one slab per step level
-  let last = -99;
-  const m = tex(stones('#d8d0bf'));
-  for (const [x, z, a] of pts) {
-    const y = height(x, z);
-    if (Math.abs(y - last) < STEP * 0.5) continue;
-    last = y;
-    const g = wuv(new THREE.BoxGeometry(2.4, 0.9, 0.9), 0.6);
-    g.rotateY(a); g.translate(x, y - 0.42, z); geo.push(g);
-  }
-  for (const g of geo) { const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true; mesh.castShadow = true; world.group.add(mesh); }
-}
-
-// The lab hill wrapped in dense round bushes, cypresses and trees; only the
-// stairs get through. Drawn as instanced meshes.
-function hillPlants(world) {
-  const R = rng(515);
-  const models = [makeBush(901, { size: 1.3 }), makeBush(902, { size: 1.6 }), makeBush(903, { size: 1.1, flowers: TILE.flowersR }), makeBush(904, { size: 1.8 }), makeBush(905, { size: 1.2, flowers: TILE.flowersY })];
-  const pts = models.map(() => []);
-  for (let i = 0; i < 2600; i++) {
-    const a = R() * Math.PI * 2, rr = LAB_HILL.top + 0.6 + R() * (LAB_HILL.r - LAB_HILL.top - 0.3);
-    const x = LAB_HILL.x + Math.cos(a) * rr, z = LAB_HILL.z + Math.sin(a) * rr / 1.1;
-    if (stairDist(x, z) < 1.9) continue;
-    if (Math.hypot(x - LAB_STAIRS[0][0], z - LAB_STAIRS[0][1]) < 4.5) continue;
-    if (Math.abs(x) < 2.6 && z > 20) continue;   // the main road
-    if (z > 37 && x < 14) continue;
-    const near = pts.flat().some((p) => (p[0] - x) ** 2 + (p[1] - z) ** 2 < 1.6);
-    if (near) continue;
-    pts[Math.floor(R() * models.length)].push([x, z, R() * 6.28, 0.8 + R() * 0.5]);
-  }
+  const models = [makeRock(81, 1.0), makeRock(82, 1.2), makeRock(83, 0.8)];
+  // greyer, purple-brown stones for the banks
+  for (const m of models) { const c = m.parts[0].geometry.attributes.color; for (let i = 0; i < c.count; i++) { const r = c.getX(i), g = c.getY(i), b = c.getZ(i), l = (r + g + b) / 3; c.setXYZ(i, l * 0.95 + 0.04, l * 0.88, l * 0.92 + 0.03); } }
+  const by = models.map(() => []); list.forEach((p, i) => by[i % 3].push(p));
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   models.forEach((mod, k) => {
-    const list = pts[k]; if (!list.length) return;
     for (const p of mod.parts) {
-      const im = new THREE.InstancedMesh(p.geometry, p.material, list.length);
-      list.forEach(([x, z, r, s], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, height(x, z) - 0.1, z), q, V(s, s, s)); im.setMatrixAt(i, m4); });
-      im.castShadow = true; im.receiveShadow = true; world.group.add(im);
+      const im = new THREE.InstancedMesh(p.geometry, p.material, by[k].length);
+      by[k].forEach(([x, z, r, s], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, height(x, z) - 0.5 * s, z), q, V(s, s * 1.15, s * 0.85)); im.setMatrixAt(i, m4); });
+      im.castShadow = im.receiveShadow = true; world.group.add(im);
     }
-    for (const [x, z, , s] of list) world.colliders.push({ x, z, r: 0.75 * s });
   });
-  // cypresses and broad trees on the hill around the lab
-  for (const [x, z, k, s] of [[14.5, 14, 'cypress', 1.0], [16.5, 11, 'lombardy', 0.6], [33.5, 13, 'tiered', 0.8], [36.5, 19, 'cypress', 1.1], [35.5, 27, 'lombardy', 0.55], [30.5, 32, 'shade', 0.7], [19, 10, 'linden', 0.7], [27, 9.5, 'cypress', 1.1]]) {
-    const m = makeTree(k, Math.round(x * 13 + z));
-    plant(m, world.group, x, height(x, z) - 0.1, z, s, x);
-    world.colliders.push({ x, z, r: Math.max(0.6, m.trunk * s + 0.15) });
+}
+
+// ---------- along the lanes: stone retaining walls in the cuttings, white
+// rail fences, lamps ----------
+function laneFurniture(world) {
+  const stone = tex(stones('#cbb9b0'));
+  const walls = [];
+  const R = rng(919);
+  ROADS.forEach((road) => {
+    for (let i = 2; i < road.length - 2; i += 2) {
+      const [x, z] = road[i], a = road[i - 2], b = road[i + 2];
+      const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+      const nx = -dz / l, nz = dx / l;
+      for (const s of [-1, 1]) {
+        const ox = x + nx * 2.75 * s, oz = z + nz * 2.75 * s;
+        const hNear = height(ox, oz), hFar = baseHeight(x + nx * 7 * s, z + nz * 7 * s);
+        const cut = hFar - hNear;
+        if (cut < 1.6) continue;
+        if (roadDist(ox, oz) < 2.5 || inYard(ox, oz, 1) || labHillU(ox, oz) < 1) continue;
+        walls.push([ox, oz, Math.atan2(dx, dz), Math.min(1.6, 0.55 + cut * 0.22), l]);
+      }
+    }
+  });
+  const g = new THREE.BoxGeometry(1, 1, 1);
+  const im = new THREE.InstancedMesh(g, stone, walls.length || 1);
+  const cap = new THREE.InstancedMesh(g, flat('#ddd2c6'), walls.length || 1);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  walls.forEach(([x, z, ang, h, l], i) => {
+    q.setFromAxisAngle(V(0, 1, 0), ang);
+    const y = height(x, z);
+    m4.compose(V(x, y + h / 2 - 0.5, z), q, V(0.7, h + 1, l + 0.3)); im.setMatrixAt(i, m4);
+    m4.compose(V(x, y + h - 0.02, z), q, V(0.8, 0.12, l + 0.3)); cap.setMatrixAt(i, m4);
+    world.colliders.push({ x, z, r: 0.5 });
+  });
+  for (const o of [im, cap]) { o.count = walls.length; o.castShadow = o.receiveShadow = true; world.group.add(o); }
+
+  // white rail fences beside some lanes
+  const runs = [[0, 6, 60, [-1, 1]], [8, 2, 36, [1]], [1, 10, 46, [1]], [6, 8, 30, [-1]], [9, 3, 20, [-1]]];
+  const posts = [], rails = [];
+  for (const [ri, i0, i1, sides] of runs) {
+    const road = ROADS[ri];
+    for (const s of sides) {
+      let prev = null;
+      for (let i = i0; i <= Math.min(i1, road.length - 2); i += 2) {
+        const [x, z] = road[i], b = road[i + 1], dx = b[0] - x, dz = b[1] - z, l = Math.hypot(dx, dz) || 1;
+        const px = x - dz / l * 3.3 * s, pz = z + dx / l * 3.3 * s;
+        const ok = roadDist(px, pz) > 2.9 && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5;
+        if (!ok) { prev = null; continue; }
+        const py = height(px, pz);
+        posts.push([px, py, pz]);
+        if (prev) rails.push([prev, [px, py, pz]]);
+        prev = [px, py, pz];
+      }
+    }
   }
+  const pm = new THREE.InstancedMesh(g, flat('#fbfaf4'), posts.length || 1);
+  posts.forEach(([x, y, z], i) => { m4.compose(V(x, y + 0.55, z), q.identity(), V(0.14, 1.25, 0.14)); pm.setMatrixAt(i, m4); world.colliders.push({ x, z, r: 0.18 }); });
+  pm.count = posts.length;
+  const rm = new THREE.InstancedMesh(g, flat('#fbfaf4'), Math.max(1, rails.length * 2));
+  rails.forEach(([a, b], i) => {
+    const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz);
+    q.setFromAxisAngle(V(0, 1, 0), Math.atan2(dx, dz));
+    const tilt = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -Math.atan2(b[1] - a[1], len));
+    const qq = q.clone().multiply(tilt);
+    for (const [k, hh] of [[0, 0.55], [1, 0.98]]) { m4.compose(V((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + hh, (a[2] + b[2]) / 2), qq, V(0.07, 0.11, Math.hypot(len, b[1] - a[1]) + 0.1)); rm.setMatrixAt(i * 2 + k, m4); }
+    world.colliders.push({ box: true, x: (a[0] + b[0]) / 2, z: (a[2] + b[2]) / 2, hw: 0.08, hd: len / 2, rot: Math.atan2(dx, dz) });
+  });
+  rm.count = rails.length * 2;
+  for (const o of [pm, rm]) { o.castShadow = o.receiveShadow = true; world.group.add(o); }
+
+  // lamps along the lanes in town
+  ROADS.forEach((road, ri) => {
+    if (ri === 0) return;
+    for (let i = 8; i < road.length - 4; i += 18) {
+      const [x, z] = road[i], b = road[i + 1], dx = b[0] - x, dz = b[1] - z, l = Math.hypot(dx, dz) || 1;
+      const s = (i / 18) % 2 ? 1 : -1, px = x - dz / l * 2.9 * s, pz = z + dx / l * 2.9 * s;
+      if (roadDist(px, pz) < 2.6 || inYard(px, pz, 0.6) || isWater(px, pz) || streamAt(px, pz).d < 3.6 || labHillU(px, pz) < 1) continue;
+      lamp(px, pz, world);
+    }
+  });
 }
 
 // ---------- town furniture ----------
@@ -561,6 +797,23 @@ function sign(x, z, face, title, lines, world) {
   world.colliders.push({ x, z, r: 0.5 });
   world.use.push({ x: x + Math.sin(face) * 1.0, z: z + Math.cos(face) * 1.0, r: 1.3, label: 'Read', lines });
   return g;
+}
+// a fingerpost: a post with arrow boards pointing down the lanes
+function signpost(x, z, arms, world) {
+  const g = new THREE.Group(); g.position.set(x, height(x, z), z); world.group.add(g);
+  box(0.16, 2.6, 0.16, '#8a5f3c', 0, 1.3, 0, g);
+  add(new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.25, 4), flat('#7a5232')), g, 0, 2.72, 0).rotation.y = Math.PI / 4;
+  arms.forEach(([label, ang], i) => {
+    const a = new THREE.Group(); a.position.y = 2.25 - i * 0.42; a.rotation.y = ang - Math.PI / 2; g.add(a);
+    const s = new THREE.Shape(); s.moveTo(0, -0.16); s.lineTo(1.35, -0.16); s.lineTo(1.55, 0); s.lineTo(1.35, 0.16); s.lineTo(0, 0.16); s.lineTo(0, -0.16);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.06, bevelEnabled: false }), tex(planks('#d8ad72')));
+    m.position.z = -0.03; add(m, a, 0.08, 0, 0);
+    const t = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.28), new THREE.MeshBasicMaterial({ map: signTexture([label], { bg: '#d8ad72' }), transparent: false }));
+    t.position.set(0.75, 0, 0.04); a.add(t);
+    const t2 = t.clone(); t2.rotation.y = Math.PI; t2.position.z = -0.04; a.add(t2);
+  });
+  world.colliders.push({ x, z, r: 0.25 });
+  world.use.push({ x, z, r: 1.4, label: 'Read', lines: arms.map(([l]) => l) });
 }
 function lamp(x, z, world) {
   const g = new THREE.Group(); g.position.set(x, height(x, z), z); world.group.add(g);
@@ -579,6 +832,22 @@ function bench(x, z, rot, world) {
   for (const sx of [-0.8, 0.8]) { box(0.07, 0.48, 0.5, '#2f4a40', sx, 0.24, 0, g); box(0.07, 0.6, 0.07, '#2f4a40', sx, 0.8, -0.3, g); }
   world.colliders.push({ x, z, r: 0.95 });
 }
+// the old stone well in the square
+function well(x, z, world) {
+  const g = new THREE.Group(); g.position.set(x, height(x, z), z); world.group.add(g);
+  const ring = new THREE.Mesh(wuv(new THREE.CylinderGeometry(1.15, 1.25, 1.0, 20, 1, true), 0.6), tex(stones('#c9c0ae')));
+  ring.material = ring.material.clone(); ring.material.side = THREE.DoubleSide; add(ring, g, 0, 0.5, 0, { line: false });
+  add(new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.14, 6, 24).rotateX(Math.PI / 2), flat('#ddd6c6')), g, 0, 1.0, 0, { line: false });
+  add(new THREE.Mesh(new THREE.CircleGeometry(1.05, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#2e5e74' })), g, 0, 0.55, 0, { line: false, shadow: false });
+  for (const s of [-1, 1]) box(0.16, 2.3, 0.16, '#8a5f3c', s * 1.05, 1.15, 0, g);
+  box(2.4, 0.12, 0.12, '#8a5f3c', 0, 2.0, 0, g, { line: false });
+  const rf = new THREE.Group(); g.add(rf);
+  gableRoof(rf, 2.6, 1.6, 2.25, 0.7, tex(tiles('#c4553a')), '#fbfaf4', 0.15, 0.1, 0.12);
+  const bucket = cyl(0.2, 0.16, 0.3, '#9a6a3e', 0, 1.35, 0, g, 10); bucket.userData.keep = true;
+  world.anim.push((dt, t) => { bucket.position.y = 1.35 + Math.sin(t * 0.7) * 0.03; });
+  world.colliders.push({ x, z, r: 1.35 });
+  world.use.push({ x, z: z + 1.6, r: 1.2, label: 'Look', lines: ['An old stone well.', 'The water is cool and clear. Someone left a coin at the bottom.'] });
+}
 // a low wooden border round a flower bed
 function bedBorder([x0, z0, x1, z1], world) {
   const m = tex(planks('#a97a4c'));
@@ -589,48 +858,187 @@ function bedBorder([x0, z0, x1, z1], world) {
   };
   seg(x0, z0, x1, z0); seg(x1, z0, x1, z1); seg(x1, z1, x0, z1); seg(x0, z1, x0, z0);
 }
+
+// ---------- the waterfront ----------
+// A long timber pier on posts with railings, lamps, crates, barrels and coiled
+// rope, a rowing boat moored alongside, a boathouse on the sand, and a little
+// red-and-white lighthouse on a rocky islet out in the bay.
+export const PIER = { x: -16, z0: coastZ(-16) - 4.5, z1: coastZ(-16) + 24, w: 3.4, y: SEA_Y + 0.95 };
 function dock(world) {
   const g = new THREE.Group(); world.group.add(g);
-  const x = 6, z0 = 58, z1 = 78, y = -0.35;
-  const wood = tex(planks('#c99a62'));
-  box(3.2, 0.25, z1 - z0, wood, x, y, (z0 + z1) / 2, g);
-  for (let z = z0 + 1; z <= z1; z += 3) for (const sx of [-1.55, 1.55]) cyl(0.13, 0.13, 2.6, '#8a5f3c', x + sx, y - 0.6, z, g, 8);
-  for (const sx of [-1.55, 1.55]) box(0.1, 0.1, z1 - z0, '#8a5f3c', x + sx, y + 0.65, (z0 + z1) / 2, g, { line: false });
-  // a little rowing boat
-  const boat = new THREE.Group(); boat.position.set(x + 3.2, -0.65, z1 - 4); boat.rotation.y = 0.25; g.add(boat);
-  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.6, 3.6, 12, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI), flat('#f4f1e6'));
-  hull.scale.set(1, 0.6, 1); add(hull, boat, 0, 0.3, 0);
-  box(1.75, 0.12, 3.62, '#d84a3a', 0, 0.32, 0, boat, { line: false });
-  box(1.6, 0.08, 0.3, tex(planks('#c99a62')), 0, 0.2, 0.4, boat, { line: false });
-  world.anim.push((k, time) => { boat.position.y = -0.65 + Math.sin(time * 1.1) * 0.06; boat.rotation.z = Math.sin(time * 0.9) * 0.03; });
-  world.walk.push({ x0: x - 1.6, x1: x + 1.6, z0, z1, y: y + 0.13 });
-  world.use.push({ x, z: z1 - 0.8, r: 1.6, label: 'Look', lines: ['The sea stretches south toward CINNABAR ISLAND.', 'You\'d need a POKéMON that can SURF to go any further.'] });
+  const { x, z0, z1, w, y } = PIER, hw = w / 2, len = z1 - z0;
+  const wood = tex(planks('#c99a62')), post = '#7d5536';
+  // deck: planks across
+  const n = Math.ceil(len / 0.42);
+  const pk = new THREE.InstancedMesh(new THREE.BoxGeometry(w, 0.14, 0.38), toon('#d2a56c', { cel: BUILD }), n);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (let i = 0; i < n; i++) { m4.compose(V(x, y, z0 + 0.21 + i * 0.42), q, V(1, 1, 1)); pk.setMatrixAt(i, m4); pk.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.86 + ((i * 7919) % 11) / 11 * 0.2)); }
+  pk.castShadow = pk.receiveShadow = true; g.add(pk);
+  for (const s of [-1, 1]) box(0.24, 0.34, len, wood, x + s * (hw - 0.12), y - 0.22, (z0 + z1) / 2, g);
+  // a wider head at the end
+  box(7.0, 0.16, 4.6, wood, x, y, z1 + 2.2, g);
+  for (let zz = z0 + 1.5; zz <= z1; zz += 2.6) for (const s of [-1, 1]) cyl(0.17, 0.19, 4.2, post, x + s * (hw + 0.05), y - 1.6, zz, g, 8);
+  for (const [sx, sz] of [[-3.3, 0.2], [3.3, 0.2], [-3.3, 4.2], [3.3, 4.2], [0, 4.3]]) cyl(0.2, 0.22, 4.4, post, x + sx, y - 1.5, z1 + sz, g, 8);
+  // railings with a gap for the boat steps
+  const railPosts = (xx, za, zb) => {
+    const m = Math.max(2, Math.round((zb - za) / 1.3));
+    for (let i = 0; i <= m; i++) box(0.12, 1.05, 0.12, post, xx, y + 0.55, za + (zb - za) * i / m, g, { line: false });
+    box(0.12, 0.1, zb - za, wood, xx, y + 1.05, (za + zb) / 2, g);
+    box(0.08, 0.08, zb - za, wood, xx, y + 0.6, (za + zb) / 2, g, { line: false });
+    world.colliders.push({ box: true, x: xx, z: (za + zb) / 2, hw: 0.08, hd: (zb - za) / 2 });
+  };
+  railPosts(x - hw + 0.06, z0 + 4, z1 + 0.1);
+  railPosts(x + hw - 0.06, z0 + 4, z1 - 8);
+  railPosts(x + hw - 0.06, z1 - 5, z1 + 0.1);
+  for (const s of [-1, 1]) {
+    box(0.12, 0.1, 7.0, wood, x + s * 3.45, y + 1.05, z1 + 2.2, g).rotation.y = 0;
+    for (let i = 0; i <= 4; i++) box(0.12, 1.05, 0.12, post, x + s * 3.45, y + 0.55, z1 + 0.2 + i, g, { line: false });
+    world.colliders.push({ box: true, x: x + s * 3.45, z: z1 + 2.2, hw: 0.08, hd: 2.2 });
+  }
+  box(7.0, 0.1, 0.12, wood, x, y + 1.05, z1 + 4.45, g);
+  world.colliders.push({ box: true, x, z: z1 + 4.45, hw: 3.5, hd: 0.08 });
+  // lamps on the head, bollards, crates, barrels and rope
+  for (const s of [-1, 1]) {
+    const L = new THREE.Group(); L.position.set(x + s * 3.0, y, z1 + 4.0); g.add(L);
+    cyl(0.06, 0.08, 2.6, '#2f4a40', 0, 1.3, 0, L, 8);
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.34, 0.24), new THREE.MeshBasicMaterial({ color: '#fff1c4' })); glow.position.y = 2.75; L.add(glow);
+    add(new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.24, 4), flat('#2f4a40')), L, 0, 3.05, 0).rotation.y = Math.PI / 4;
+    world.colliders.push({ x: x + s * 3.0, z: z1 + 4.0, r: 0.2 });
+  }
+  for (const zz of [z0 + 9, z1 - 6.5]) { cyl(0.16, 0.2, 0.55, '#3a3d46', x + hw - 0.35, y + 0.3, zz, g, 10); world.colliders.push({ x: x + hw - 0.35, z: zz, r: 0.25 }); }
+  const crate = tex(planks('#b9884f'));
+  for (const [cx, cz, s, r] of [[x - 2.4, z1 + 3.3, 0.8, 0.2], [x - 2.4, z1 + 2.3, 0.7, -0.1], [x - 2.35, z1 + 2.8, 0.6, 0.5]]) {
+    const c = box(s, s, s, crate, cx, y + s / 2 + 0.08 + (cz === z1 + 2.8 ? 0.75 : 0), cz, g); c.rotation.y = r;
+  }
+  world.colliders.push({ box: true, x: x - 2.4, z: z1 + 2.8, hw: 0.5, hd: 1.0 });
+  for (const [bx, bz] of [[x + 2.5, z1 + 3.4], [x + 2.9, z1 + 2.6]]) {
+    cyl(0.36, 0.36, 0.9, '#8a5a36', bx, y + 0.53, bz, g, 12);
+    for (const yy of [0.25, 0.8]) add(new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.035, 4, 16).rotateX(Math.PI / 2), flat('#3a3d46')), g, bx, y + yy, bz, { line: false });
+    world.colliders.push({ x: bx, z: bz, r: 0.42 });
+  }
+  for (const [rx, rz] of [[x + 0.9, z0 + 12], [x - 0.6, z1 + 1.2]]) for (let k = 0; k < 3; k++) add(new THREE.Mesh(new THREE.TorusGeometry(0.3 - k * 0.07, 0.05, 5, 16).rotateX(Math.PI / 2), flat('#d8c290')), g, rx, y + 0.12 + k * 0.08, rz, { line: false });
+  // steps down to the water and the boat moored alongside
+  for (let s = 0; s < 4; s++) box(0.5, 0.12, 1.8, wood, x + hw + 0.3 + s * 0.02, y - 0.25 - s * 0.32, z1 - 6.5, g, { line: false });
+  const boat = new THREE.Group(); boat.userData.keep = true; boat.position.set(x + hw + 1.7, SEA_Y + 0.05, z1 - 7.5); boat.rotation.y = 0.08; g.add(boat);
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.6, 3.8, 14, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI), flat('#f4f1e6'));
+  hull.scale.set(1, 0.62, 1); add(hull, boat, 0, 0.3, 0);
+  box(1.85, 0.12, 3.82, '#d84a3a', 0, 0.32, 0, boat, { line: false });
+  for (const zz of [-0.7, 0.5]) box(1.7, 0.08, 0.32, tex(planks('#c99a62')), 0, 0.18, zz, boat, { line: false });
+  for (const s of [-1, 1]) { const oar = box(0.06, 0.06, 2.4, '#c9a876', s * 0.55, 0.38, 0.1, boat, { line: false }); oar.rotation.y = s * 0.15; }
+  world.anim.push((k, time) => { boat.position.y = SEA_Y + 0.02 + Math.sin(time * 1.1) * 0.06; boat.rotation.z = Math.sin(time * 0.9) * 0.035; boat.rotation.x = Math.sin(time * 0.7) * 0.02; });
+  world.colliders.push({ box: true, x: x + hw + 1.7, z: z1 - 7.5, hw: 1.0, hd: 1.9 });
+  world.walk.push({ x0: x - hw, x1: x + hw, z0: z0, z1: z1 + 0.2, y: y + 0.08 });
+  world.walk.push({ x0: x - 3.5, x1: x + 3.5, z0: z1, z1: z1 + 4.5, y: y + 0.09 });
+  world.use.push({ x, z: z1 + 3.4, r: 1.8, label: 'Look', lines: ['The sea stretches south toward CINNABAR ISLAND.', 'You\'d need a POKéMON that can SURF to go any further.'] });
+  world.solid.push(g);
+  boathouse(world, x + 9, coastZ(x + 9) - 7.5);
+  lighthouse(world, -64, 96);
+}
+function boathouse(world, x, z) {
+  const G = new THREE.Group(); G.position.set(x, height(x, z), z); G.rotation.y = 0.1; world.group.add(G);
+  const wall = tex(planks('#6f9fbf')), roofMat = tex(tiles('#d8473a'));
+  box(5.2, 1.0, 4.2, tex(stones('#cfc8b6')), 0, -0.3, 0, G);
+  box(5.0, 2.6, 4.0, wall, 0, 1.4, 0, G);
+  gableWall(G, 5.0, 1.6, 2.7, 2.0, wall); gableWall(G, 5.0, 1.6, 2.7, -2.0, wall, -1);
+  gableRoof(G, 5.0, 4.0, 2.7, 1.6, roofMat, '#fbfaf4', 0.3, 0.3);
+  box(2.6, 2.1, 0.12, tex(planks('#f4f1e6')), 0, 1.15, 2.05, G);
+  windowAt(G, 0, 3.15, 2.06, 0.7, 0.5, 2, 1);
+  for (let k = 0; k < 3; k++) add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 6, 18), flat('#e8402e')), G, -2.6, 1.6, 0.8 - k * 0.0, { line: false }).rotation.y = Math.PI / 2;
+  const sb = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.45), new THREE.MeshBasicMaterial({ map: signTexture(['BOATHOUSE']) })); sb.position.set(0, 2.5, 2.13); G.add(sb);
+  world.colliders.push({ box: true, x, z, hw: 2.8, hd: 2.4, rot: 0.1 });
+  world.use.push({ x: x + 0.2, z: z + 3.2, r: 1.2, label: 'Look', lines: ['The BOATHOUSE.', 'Oars, nets and a fresh coat of paint drying on a dinghy.'] });
+  world.solid.push(G);
+}
+function lighthouse(world, x, z) {
+  const G = new THREE.Group(); G.position.set(x, SEA_Y, z); world.group.add(G);
+  const rock = makeRock(97, 4.5);
+  plant(rock, G, 0, -1.2, 0, 1.8); plant(makeRock(98, 3), G, 3.5, -1.0, 2.0, 1.4); plant(makeRock(99, 3), G, -3.0, -1.2, -1.5, 1.3);
+  const y0 = 2.4;
+  cyl(2.2, 2.6, 1.2, tex(stones('#d6cfbd')), 0, y0 + 0.2, 0, G, 18);
+  for (let k = 0; k < 4; k++) cyl(1.55 - k * 0.12, 1.65 - k * 0.12, 2.2, k % 2 ? '#d8473a' : '#fbfaf4', 0, y0 + 1.9 + k * 2.2, 0, G, 18);
+  cyl(1.6, 1.6, 0.2, '#2c2d33', 0, y0 + 9.75, 0, G, 18);
+  const lampM = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.4, 12), new THREE.MeshBasicMaterial({ color: '#fff3c0' })); lampM.position.y = y0 + 10.6; G.add(lampM);
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; box(0.06, 1.4, 0.06, '#2c2d33', Math.cos(a) * 0.95, y0 + 10.6, Math.sin(a) * 0.95, G, { line: false }); }
+  add(new THREE.Mesh(new THREE.ConeGeometry(1.25, 1.1, 14), flat('#d8473a')), G, 0, y0 + 11.85, 0);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), flat('#2c2d33')), G, 0, y0 + 12.5, 0);
+  // a turning beam
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(1.1, 9, 12, 1, true).rotateZ(Math.PI / 2).translate(4.6, 0, 0), new THREE.MeshBasicMaterial({ color: '#fff6cc', transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
+  const bp = new THREE.Group(); bp.userData.keep = true; bp.position.y = y0 + 10.6; bp.add(beam); G.add(bp);
+  world.anim.push((dt, t) => { bp.rotation.y = t * 0.6; });
+}
+
+// Merge a group's static meshes by material, so a cottage is a handful of
+// draw calls instead of hundreds. Anything marked userData.keep (moving
+// parts) and instanced meshes are left alone.
+function mergeStatic(G) {
+  G.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(G.matrixWorld).invert();
+  const groups = new Map(), done = [];
+  const walk = (o) => {
+    if (o.userData.keep) return;
+    if (o.isMesh && !o.isInstancedMesh && o !== G) {
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      if (!g.attributes.normal) g.computeVertexNormals();
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      const key = o.material.uuid + (o.castShadow ? 's' : '') + (o.renderOrder || 0);
+      if (!groups.has(key)) groups.set(key, { mat: o.material, cast: o.castShadow, list: [] });
+      groups.get(key).list.push(g);
+      done.push(o);
+    }
+    for (const c of o.children.slice()) walk(c);
+  };
+  walk(G);
+  for (const o of done) o.parent && o.parent.remove(o);
+  for (const { mat, cast, list } of groups.values()) {
+    const m = new THREE.Mesh(mergeGeometries(list, false), mat);
+    m.castShadow = cast; m.receiveShadow = true;
+    G.add(m);
+  }
 }
 
 // Flower beds [x0, z0, x1, z1]
 export const BEDS = [
-  [-27.4, 8.6, -10.6, 16.4],
+  [-12.5, -9.5, -9.0, -6.5],
+  [3.6, 4.6, 7.0, 7.4],
 ];
 
 export function buildTown() {
   const world = { colliders: [], use: [], solid: [], walk: [], anim: [], group: new THREE.Group() };
-  cottage({ x: -20, z: -17, wall: '#a9cbe8', roof: '#d8473a', door: '#f4f1e6', name: 'RED', seed: 10, side: -1,
-    lines: ['RED\'s house. Home sweet home!', 'MOM is out shopping. You can come back in later.'] }, world);
-  cottage({ x: 20, z: -17, wall: '#f2e2b8', roof: '#3f8f78', door: '#8a5a3a', name: 'BLUE', seed: 20, side: 1,
-    lines: ['BLUE\'s house.', 'Nobody answers. BLUE is probably at the lab already.'] }, world);
-  lab(world);
+  for (const hs of HOUSES) cottage(hs, world);
+  // the lab on its hill, facing west down the stairs
+  const facing = -Math.PI / 2;
+  const lx = LAB_HILL.x0 + 9 + 9.05, lz = STAIRS.z + 4;
+  const before = world.group.children.length;
+  buildLab(world, { x: lx, z: lz, y: PLAT_Y, facing });
+  for (let i = before; i < world.group.children.length; i++) world.group.children[i].userData.keep = true;
+  const c = Math.cos(facing), s = Math.sin(facing);
+  const door = [lx + LAB_DOOR.x * c + (LAB_DOOR.z + 3.6) * s, lz - LAB_DOOR.x * s + (LAB_DOOR.z + 3.6) * c];
+  world.labDoor = door;
   labGate(world);
   labStairs(world);
-  hillPlants(world);
+  hillPlants(world, door);
+  for (const b of BRIDGES) bridge(world, b);
+  streamRocks(world);
+  laneFurniture(world);
   for (const b of BEDS) bedBorder(b, world);
-  sign(-7, 6.5, 0, ['PALLET TOWN', 'Shades of your journey await!'], ['PALLET TOWN', 'Shades of your journey await!'], world);
-  sign(-27, -7.5, 0, ['RED\'s house'], ['RED\'s house.'], world);
-  sign(13, -7.5, 0, ['BLUE\'s house'], ['BLUE\'s house.'], world);
-  sign(4.2, -34, 0, ['ROUTE 1', 'Pallet Town - Viridian City'], ['ROUTE 1', 'PALLET TOWN - VIRIDIAN CITY'], world);
-  sign(-6, 50, 0, ['Pallet Beach'], ['PALLET BEACH', 'The salty breeze smells like adventure.'], world);
-  for (const [x, z] of [[-3.5, -12], [3.5, -4], [-3.5, 14], [3.5, 24], [-3.5, 36], [3.5, -28], [-12, -5], [12, -5]]) lamp(x, z, world);
-  bench(-14, 24, 0.4, world);
-  bench(27, -4, -Math.PI / 2, world);
+  // the square: the well, benches, the town sign, fingerposts
+  well(4.2, -6.8, world);
+  bench(-9.5, 5.5, 0.5, world);
+  bench(6.6, 1.0, -Math.PI / 2 - 0.2, world);
+  sign(-10.5, -4.2, 0.9, ['PALLET TOWN', 'Shades of your journey await!'], ['PALLET TOWN', 'Shades of your journey await!'], world);
+  signpost(-9.5, -15.5, [['ROUTE 1', 0.15 + Math.PI], ['RED\'s house', -Math.PI / 2 + 0.1], ['TOWN SQUARE', 0.2]], world);
+  signpost(2.6, 8.6, [['OAK LAB', Math.PI / 2 + 0.3], ['BEACH', 0], ['SQUARE', Math.PI + 0.4]], world);
+  signpost(-17.5, 7.0, [['FARM', -Math.PI / 2], ['MAE', 0.2]], world);
+  sign(4.4, -42, -0.3, ['ROUTE 1', 'Pallet Town - Viridian City'], ['ROUTE 1', 'PALLET TOWN - VIRIDIAN CITY'], world);
+  sign(-3.5, 52.5, 0.2, ['Pallet Beach'], ['PALLET BEACH', 'The salty breeze smells like adventure.'], world);
   dock(world);
+  // merge each static piece's meshes by material
+  for (const c of world.group.children.slice()) if (!c.userData.keep && !c.isMesh) mergeStatic(c);
+  // loose single meshes (stones, slabs) straight under the town group
+  const loose = new THREE.Group();
+  for (const c of world.group.children.slice()) if (c.isMesh && !c.isInstancedMesh && !c.userData.keep) { world.group.remove(c); loose.add(c); }
+  world.group.add(loose); mergeStatic(loose);
   return world;
 }
