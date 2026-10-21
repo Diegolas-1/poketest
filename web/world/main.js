@@ -27,12 +27,12 @@ const auto = iOS ? 'phone' : (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|
 // presets; the settings window (cog button, settings.js) can change each
 // value on this device: ?q=<preset> picks a preset and ignores saved changes
 const PRESETS = {
-  low: { dpr: 1, aa: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 0 },
-  medium: { dpr: 1.25, aa: 1, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1 },
-  high: { dpr: 1.5, aa: 1, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1 },
+  low: { dpr: 1, aa: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 0, autoRes: 1, fpsCap: 60 },
+  medium: { dpr: 1.25, aa: 1, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1, autoRes: 1, fpsCap: 60 },
+  high: { dpr: 1.5, aa: 1, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1, autoRes: 1, fpsCap: 60 },
   // sharp (2x pixels), long view distances (grass, plants, full trees) and
   // the ink G-buffer at native size
-  phone: { dpr: 2, aa: 1, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1 },
+  phone: { dpr: 2, aa: 1, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1, autoRes: 1, fpsCap: 60 },
 };
 const SAVED = loadSettings();
 const level = q.get('q') in PRESETS ? q.get('q') : SAVED.preset in PRESETS ? SAVED.preset : auto;
@@ -44,7 +44,11 @@ if (q.has('outline')) QUALITY.outline = Math.max(0, Math.min(2, +q.get('outline'
 // ---------- renderer and scene ----------
 const view = $('view');
 const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: !!QUALITY.aa, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.dpr));
+// the drawing resolution: the Resolution setting times the auto-resolution
+// scale (lowered while the GPU cannot keep up, e.g. a hot phone)
+const autoRes = { scale: 1, acc: 0, n: 0, cpu: 0, last: 0, good: 0, hold: 0, need: 4, upAt: 0 };
+const pixelRatio = () => Math.max(0.75, Math.min(devicePixelRatio, QUALITY.dpr) * (QUALITY.autoRes ? autoRes.scale : 1));
+renderer.setPixelRatio(pixelRatio());
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = QUALITY.exposure;
 renderer.shadowMap.enabled = true;
@@ -144,6 +148,8 @@ const gfx = createSettings({
   ],
   rows: [
     { key: 'dpr', label: 'Resolution', values: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3], fmt: (v) => v + 'x', live: true },
+    { key: 'autoRes', label: 'Auto resolution', values: [0, 1], fmt: (v) => (v ? 'On' : 'Off'), live: true },
+    { key: 'fpsCap', label: 'Frame rate cap', values: [30, 60], fmt: (v) => v + ' fps', live: true },
     { key: 'aa', label: 'Anti-aliasing', values: [0, 1], fmt: (v) => (v ? 'On' : 'Off') },
     { key: 'outline', label: 'Outline quality', values: [0.5, 0.75, 1, 1.25, 1.5, 2], fmt: (v) => v + 'x', live: true },
     { key: 'shadow', label: 'Shadow detail', values: [512, 1024, 2048, 4096], live: true },
@@ -159,7 +165,7 @@ const gfx = createSettings({
   ],
   onLive(k, v) {
     QUALITY[k] = v;
-    if (k === 'dpr') { renderer.setPixelRatio(Math.min(devicePixelRatio, v)); resize(); }
+    if (k === 'dpr' || k === 'autoRes') { if (k === 'autoRes' && !v) autoRes.scale = 1; renderer.setPixelRatio(pixelRatio()); resize(); }
     if (k === 'outline') { outline.scale = v; resize(); }
     if (k === 'shadow') { sun.shadow.mapSize.set(v, v); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } shadowTick = 0; }
     if (k === 'fog') { scene.fog.near = 90 * v; scene.fog.far = 430 * v; }
@@ -310,8 +316,14 @@ const cam = { yaw: 0, pitch: 0.32, dist: 7.5, target: new THREE.Vector3(), pos: 
 plog = createPerfLog({ renderer, scene, me, cam, outline, quality: QUALITY, preset: level });
 const ray = new THREE.Raycaster();
 function updateCamera(dt) {
-  const t = new THREE.Vector3(me.pos.x, me.pos.y + 1.45, me.pos.z);
-  cam.target.lerp(t, 1 - Math.exp(-dt * 10));
+  // the height follows slowly, so stairs (and small bumps) read as a smooth
+  // ramp instead of a hop per step; a big drop or jump catches up faster
+  if (cam.ty == null) cam.ty = me.pos.y;
+  const dy = me.pos.y - cam.ty;
+  cam.ty += dy * (1 - Math.exp(-dt * (Math.abs(dy) > 1.5 ? 8 : 3.5)));
+  const t = new THREE.Vector3(me.pos.x, cam.ty + 1.45, me.pos.z);
+  const kx = 1 - Math.exp(-dt * 10);
+  cam.target.x += (t.x - cam.target.x) * kx; cam.target.z += (t.z - cam.target.z) * kx; cam.target.y = t.y;
   const cp = Math.cos(cam.pitch);
   const dir = new THREE.Vector3(Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), Math.cos(cam.yaw) * cp);
   let d = cam.dist;
@@ -319,7 +331,11 @@ function updateCamera(dt) {
   const hit = ray.intersectObjects(town.solid, true)[0];
   if (hit) d = Math.max(1.2, hit.distance - 0.3);
   const want = cam.target.clone().addScaledVector(dir, d);
-  want.y = Math.max(want.y, groundAt(want.x, want.z) + 0.4, SEA_Y + 0.4);
+  // keep above the ground under the camera, smoothed too (the stairs' steps)
+  const floor = Math.max(groundAt(want.x, want.z) + 0.4, SEA_Y + 0.4);
+  if (cam.floor == null) cam.floor = floor;
+  cam.floor += (floor - cam.floor) * (1 - Math.exp(-dt * (floor > cam.floor ? 9 : 3)));
+  want.y = Math.max(want.y, cam.floor);
   cam.pos.lerp(want, 1 - Math.exp(-dt * 14));
   camera.position.copy(cam.pos);
   camera.lookAt(cam.target);
@@ -457,7 +473,34 @@ function draw() {
 const clock = new THREE.Clock();
 let t = 0;
 const TEST = q.has('test');   // automated checks draw frames on demand
+// Auto resolution: once a second, if frames came slower than 60 fps while the
+// CPU had time to spare (so the GPU is the limit), lower the drawing
+// resolution a step; after a few smooth seconds try a step back up. A step up
+// that is undone soon after makes the next try wait longer.
+function autoResTick(now, cpuMs) {
+  if (TEST || !QUALITY.autoRes || document.hidden) { autoRes.last = 0; return; }
+  if (autoRes.last) { const d = now - autoRes.last; if (d < 250) { autoRes.acc += d; autoRes.cpu += cpuMs; autoRes.n++; } }
+  autoRes.last = now;
+  if (autoRes.acc < 1000 || !window.worldReady) return;
+  const ms = autoRes.acc / autoRes.n, cpu = autoRes.cpu / autoRes.n, target = 1000 / (QUALITY.fpsCap || 60);
+  autoRes.acc = 0; autoRes.cpu = 0; autoRes.n = 0;
+  if (now < autoRes.hold) return;
+  let sc = autoRes.scale;
+  if (ms > target * 1.12 && cpu < ms * 0.7) {
+    sc = Math.max(0.5, sc - (ms > target * 1.8 ? 0.15 : 0.08)); autoRes.good = 0;
+    if (now - autoRes.upAt < 4000) autoRes.need = Math.min(30, autoRes.need * 2);
+  } else if (ms < target * 1.05 && sc < 1 && ++autoRes.good >= autoRes.need) { sc = Math.min(1, sc + 0.05); autoRes.good = 0; autoRes.upAt = now; }
+  if (sc !== autoRes.scale) { autoRes.scale = Math.round(sc * 100) / 100; renderer.setPixelRatio(pixelRatio()); resize(); autoRes.hold = now + 1500; }
+}
+let lastFrameAt = 0;
 function frame(fixed) {
+  // frame rate cap: skip display refreshes until a frame is due
+  if (!TEST && (QUALITY.fpsCap || 60) < 60) {
+    const now = performance.now();
+    if (now - lastFrameAt < 1000 / QUALITY.fpsCap - 3) { requestAnimationFrame(frame); return; }
+    lastFrameAt = now;
+  }
+  const frameStart = performance.now();
   plog?.begin();
   const dt = TEST && typeof fixed === 'number' ? fixed : Math.min(clock.getDelta(), 0.05);
   t += dt; uTime.value = t; foliageTime.value = t;
@@ -572,6 +615,7 @@ function frame(fixed) {
   dialog.safeB = safeB;
   dialog.draw(dt, t, innerWidth, innerHeight, Math.min(devicePixelRatio, 2));
   plog?.end();
+  autoResTick(frameStart, performance.now() - frameStart);
   fpsTick();
   if (!TEST) requestAnimationFrame(frame);
 }
