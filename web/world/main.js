@@ -228,8 +228,8 @@ function oakScene() {
       } else if (phase === 2) {
         // both head back toward town
         const tz = start.z + 14;
-        oak.pos.z += dt * 4.6; oak.yaw = 0; oak.speed = 4.6;
-        me.pos.z += dt * 4.6; me.yaw = 0; me.speed = 4.6;
+        oak.pos.z += dt * 3.5; oak.yaw = 0; oak.speed = 3.5;
+        me.pos.z += dt * 3.5; me.yaw = 0; me.speed = 3.5;
         oak.pos.y = height(oak.pos.x, oak.pos.z);
         if (me.pos.z > tz) {
           phase = 3; me.speed = 0; oak.speed = 0;
@@ -265,7 +265,7 @@ function frame(fixed) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * c.x - fx * c.y, mz = rz * c.x - fz * c.y;
     const m = Math.hypot(mx, mz);
-    const want = m > 0.05 ? (c.run ? 8.4 : 4.4) * Math.min(1, m) : 0;
+    const want = m > 0.05 ? (c.run ? 5 : 3.5) * Math.min(1, m) : 0;
     me.speed += (want - me.speed) * (1 - Math.exp(-dt * 10));
     if (m > 0.05) {
       const ty = Math.atan2(mx, mz);
