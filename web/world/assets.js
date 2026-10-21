@@ -413,56 +413,64 @@ export class Impostor {
 // ---------- grass ----------
 // A fixed pattern of blades that wraps around the camera. A texture holds the
 // ground height and where grass may grow (not on roads, water or buildings).
-export function grassField(scene, { count, size, heightTex, area, sunDir }) {
+export function grassField(scene, { count, size, heightTex, area, sunDir, heightAt }) {
   // anime grass clumps: broad flat blades, pointed, fanning out of one root,
   // a few with a notch on one side, plus short blades curling at the foot
-  const pos = [], tt = [], face = [], lay = [], idx = [];
+  const blades = [];
   let s = 12345;
   const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-  const segs = 5;
   // one blade: a long pointed leaf from a root at (rx, rz), leaning out along
   // ang; notch adds a small spike on one side, layer = shade (inner darker)
-  const bladeAt = (rx, rz, ang, lean, len, wid, notch, layer, curl = 0) => {
-    const base = pos.length / 3;
-    const dx = Math.cos(ang), dz = Math.sin(ang), sx = -dz, sz = dx;
-    const twist = (r() - 0.5) * 0.6;
-    for (let i = 0; i <= segs; i++) {
-      const t = i / segs;
-      let w = wid * Math.min(1, t * 5 + 0.35) * Math.pow(1 - t, 0.85);
-      const out = lean * t * t * len * 0.8 + curl * t * 0.2, y = len * t * (1 - lean * 0.25 * t) * (1 - curl * t * 0.6);
-      const cx = rx + dx * out, cz = rz + dz * out;
-      const tw = twist * t, ux = sx * Math.cos(tw) - dx * Math.sin(tw), uz = sz * Math.cos(tw) - dz * Math.sin(tw);
-      const wl = w * (notch && i === 2 ? 2.4 : 1);
-      pos.push(cx - ux * wl, y, cz - uz * wl, cx + ux * w, y, cz + uz * w);
-      tt.push(t, t); face.push(ang, ang); lay.push(layer, layer);
-      if (i < segs) { const q = base + i * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+  // role: 0 main blade, 1 the dark heart, 2 a wisp, 3 a curl at the foot
+  // (the far clumps leave out 1-3: too small to see from there)
+  const bladeAt = (rx, rz, ang, lean, len, wid, notch, layer, curl = 0, role = 0) => {
+    blades.push({ rx, rz, ang, lean, len, wid, notch, layer, curl, role, twist: (r() - 0.5) * 0.6 });
+  };
+  const build = (list, segs) => {
+    const pos = [], tt = [], face = [], lay = [], idx = [];
+    for (const { rx, rz, ang, lean, len, wid, notch, layer, curl, twist } of list) {
+      const base = pos.length / 3;
+      const dx = Math.cos(ang), dz = Math.sin(ang), sx = -dz, sz = dx;
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs;
+        const w = wid * Math.min(1, t * 5 + 0.35) * Math.pow(1 - t, 0.85);
+        const out = lean * t * t * len * 0.8 + curl * t * 0.2, y = len * t * (1 - lean * 0.25 * t) * (1 - curl * t * 0.6);
+        const cx = rx + dx * out, cz = rz + dz * out;
+        const tw = twist * t, ux = sx * Math.cos(tw) - dx * Math.sin(tw), uz = sz * Math.cos(tw) - dz * Math.sin(tw);
+        const wl = w * (notch && Math.abs(t - 0.4) < 0.11 ? 2.4 : 1);
+        pos.push(cx - ux * wl, y, cz - uz * wl, cx + ux * w, y, cz + uz * w);
+        tt.push(t, t); face.push(ang, ang); lay.push(layer, layer);
+        if (i < segs) { const q = base + i * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+      }
     }
+    const g = new THREE.InstancedBufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('bt', new THREE.Float32BufferAttribute(tt, 1));
+    g.setAttribute('bface', new THREE.Float32BufferAttribute(face, 1));
+    g.setAttribute('blay', new THREE.Float32BufferAttribute(lay, 1));
+    g.setIndex(idx);
+    return g;
   };
   // a tuft in layers: short dark blades in the heart, a middle ring, long
   // blades fanning out low, thin wisps, and a couple curling on the ground
   const tuft = (cx, cz, sc) => {
     const R = (k) => (r() - 0.5) * k;
-    for (let k = 0; k < 6; k++) bladeAt(cx + R(0.08) * sc, cz + R(0.08) * sc, r() * 6.28, 0.12, (0.32 + r() * 0.15) * sc, 0.07 * sc, false, 0.55);
+    for (let k = 0; k < 6; k++) bladeAt(cx + R(0.08) * sc, cz + R(0.08) * sc, r() * 6.28, 0.12, (0.32 + r() * 0.15) * sc, 0.07 * sc, false, 0.55, 0, 1);
     for (let k = 0; k < 7; k++) bladeAt(cx + R(0.12) * sc, cz + R(0.12) * sc, r() * 6.28, 0.22 + r() * 0.2, (0.65 + r() * 0.3) * sc, 0.09 * sc, r() < 0.3, 0.8);
     for (let k = 0; k < 8; k++) bladeAt(cx + R(0.14) * sc, cz + R(0.14) * sc, (k / 8) * 6.28 + R(0.6), 0.45 + r() * 0.35, (0.85 + r() * 0.4) * sc, 0.1 * sc, r() < 0.4, 1.0);
-    for (let k = 0; k < 4; k++) bladeAt(cx + R(0.1) * sc, cz + R(0.1) * sc, r() * 6.28, 0.5 + r() * 0.6, (0.8 + r() * 0.4) * sc, 0.014 * sc, false, 0.9);
-    for (let k = 0; k < 2; k++) bladeAt(cx + R(0.2) * sc, cz + R(0.2) * sc, r() * 6.28, 1.6, 0.28 * sc, 0.045 * sc, false, 0.85, 1);
+    for (let k = 0; k < 4; k++) bladeAt(cx + R(0.1) * sc, cz + R(0.1) * sc, r() * 6.28, 0.5 + r() * 0.6, (0.8 + r() * 0.4) * sc, 0.014 * sc, false, 0.9, 0, 2);
+    for (let k = 0; k < 2; k++) bladeAt(cx + R(0.2) * sc, cz + R(0.2) * sc, r() * 6.28, 1.6, 0.28 * sc, 0.045 * sc, false, 0.85, 1, 3);
   };
   // a cluster: a big tuft with two or three smaller ones leaning against it
   tuft(0, 0, 1);
   for (let k = 0; k < 3; k++) { const a = k * 2.1 + r(), d = 0.3 + r() * 0.15; tuft(Math.cos(a) * d, Math.sin(a) * d, 0.55 + r() * 0.3); }
-  const clump = new THREE.InstancedBufferGeometry();
-  clump.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  clump.setAttribute('bt', new THREE.Float32BufferAttribute(tt, 1));
-  clump.setAttribute('bface', new THREE.Float32BufferAttribute(face, 1));
-  clump.setAttribute('blay', new THREE.Float32BufferAttribute(lay, 1));
-  clump.setIndex(idx);
+  // three levels of detail: the full clump near the player; past MID the hair-
+  // thin wisps and foot curls go and blades bend in 4 segments (about 60% of
+  // the triangles); past FAR only the main blades in 3 (about a third)
+  const nearG = build(blades, 5), midG = build(blades.filter((b) => b.role < 2), 4), farG = build(blades.filter((b) => b.role === 0), 3);
   const n = Math.round(count / 14);
   const off = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) off.set([r() * size, r() * size, r(), r()], i * 4);
-  clump.setAttribute('off', new THREE.InstancedBufferAttribute(off, 4));
-  clump.instanceCount = n;
-  const blade = clump;
   const uniforms = {
     uTime: wind.uTime, uCam: { value: new THREE.Vector3() }, uSize: { value: size },
     uHeight: { value: heightTex }, uArea: { value: new THREE.Vector4(area.x0, area.z0, area.w, area.d) },
@@ -478,9 +486,8 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
       varying float vT; varying vec3 vCol; varying float vFog; varying float vLight;
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main(){
-        // wrap the clumps around the player
-        vec2 p = off.xy;
-        p += floor((uCam.xz - p) / uSize + 0.5) * uSize;
+        // the clump's tile has been moved next to the player (its model matrix)
+        vec2 p = off.xy + vec2(modelMatrix[3].x, modelMatrix[3].z);
         vec4 hm = texture2D(uHeight, (p - uArea.xy) / uArea.zw);
         float dens = hm.g;
         float dist = length(p - uCam.xz);
@@ -489,6 +496,8 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         float fk = smoothstep(uSize * 0.3, uSize * 0.5, dist);
         float keep = step(off.z, dens) * (1.0 - smoothstep(off.w * 0.75, off.w * 0.75 + 0.25, fk)) * (1.0 - fk * 0.35);
         float sc = (0.45 + off.w * 0.35) * (0.6 + dens * 0.6) * keep;
+        // no grass here (a path, a roof, the edge of the field): skip the rest
+        if (sc <= 0.0) { vT = 0.0; vCol = vec3(0.0); vFog = 0.0; vLight = 0.0; gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
         // turn each clump its own way
         float ra = off.z * 40.0, c = cos(ra), s = sin(ra);
         vec3 lp = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c) * sc;
@@ -520,9 +529,55 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         #include <colorspace_fragment>
       }`,
   });
-  const mesh = new THREE.Mesh(blade, mat);
-  mesh.frustumCulled = false;
-  mesh.receiveShadow = false;
+  // The field is cut into tiles. Each frame every tile is moved to the copy
+  // of itself nearest the player (the field repeats every size metres), and
+  // three.js skips the tiles outside the camera's view; tiles past the field's
+  // round edge are hidden, and farther tiles use lighter clumps (MID, FAR).
+  const G = Math.max(4, Math.round(size / 7)), T = size / G;
+  const bins = Array.from({ length: G * G }, () => []);
+  for (let i = 0; i < n; i++) bins[Math.min(G - 1, Math.floor(off[i * 4] / T)) * G + Math.min(G - 1, Math.floor(off[i * 4 + 1] / T))].push(i);
+  const mesh = new THREE.Group(), tiles = [];
+  for (let gi = 0; gi < G; gi++) for (let gj = 0; gj < G; gj++) {
+    const ids = bins[gi * G + gj]; if (!ids.length) continue;
+    const o = new Float32Array(ids.length * 4);
+    ids.forEach((id, k) => o.set(off.subarray(id * 4, id * 4 + 4), k * 4));
+    const attr = new THREE.InstancedBufferAttribute(o, 4);
+    const sphere = new THREE.Sphere(new THREE.Vector3((gi + 0.5) * T, 0, (gj + 0.5) * T), T * 0.75 + 1.5);
+    const mk = (base) => {
+      const g = new THREE.InstancedBufferGeometry();
+      for (const k of ['position', 'bt', 'bface', 'blay']) g.setAttribute(k, base.attributes[k]);
+      g.setIndex(base.index); g.setAttribute('off', attr); g.instanceCount = ids.length; g.boundingSphere = sphere;
+      return g;
+    };
+    const t = { cx: (gi + 0.5) * T, cz: (gj + 0.5) * T, near: mk(nearG), mid: mk(midG), far: mk(farG), sphere, kx: NaN, kz: NaN };
+    t.mesh = new THREE.Mesh(t.near, mat);
+    t.mesh.matrixAutoUpdate = false; t.mesh.receiveShadow = false;
+    mesh.add(t.mesh); tiles.push(t);
+  }
   scene.add(mesh);
-  return { mesh, uniforms };
+  const MID = size * 0.15, FAR = size * 0.3, EDGE = size * 0.5;
+  function update(cam) {
+    uniforms.uCam.value.copy(cam);
+    for (const t of tiles) {
+      const kx = Math.floor((cam.x - t.cx) / size + 0.5), kz = Math.floor((cam.z - t.cz) / size + 0.5);
+      const x = t.cx + kx * size, z = t.cz + kz * size;
+      if (kx !== t.kx || kz !== t.kz) {
+        t.kx = kx; t.kz = kz;
+        t.mesh.matrix.makeTranslation(kx * size, 0, kz * size);
+        // the ground's height range under the tile, for the view test
+        if (heightAt) {
+          let lo = Infinity, hi = -Infinity;
+          for (const [a, b] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) { const h = heightAt(x + a * T * 0.5, z + b * T * 0.5); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+          t.sphere.center.y = (lo + hi) / 2 + 0.6;
+          t.sphere.radius = Math.hypot(T * 0.71 + 1.2, (hi - lo) / 2 + 1.2);
+        }
+      }
+      // nearest point of the tile to the player
+      const dx = Math.max(0, Math.abs(cam.x - x) - T / 2), dz = Math.max(0, Math.abs(cam.z - z) - T / 2), d = Math.hypot(dx, dz);
+      t.mesh.visible = d < EDGE;
+      const g = d > FAR ? t.far : d > MID ? t.mid : t.near;
+      if (t.mesh.geometry !== g) t.mesh.geometry = g;
+    }
+  }
+  return { mesh, uniforms, update, tiles };
 }

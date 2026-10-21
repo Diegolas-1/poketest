@@ -1078,5 +1078,84 @@ export function buildTown() {
   world.group.add(loose); mergeStatic(loose);
   // vector ink on every building and prop (outline.js)
   world.edges = addEdgeLines(world.group);
+  cellMerge(world);
   return world;
+}
+
+// Fewer draw calls (they cost a phone far more than triangles): every static
+// mesh that the screen-space ink pass treats as 'ground' (it has vector ink, or
+// draws no line) is merged with the others of the same material in its CELL
+// of the map, so a stretch of town is a few draws instead of hundreds, in the
+// picture, the shadow map and the ink G-buffer. Meshes that move (found by
+// running the town's animations) and anything with its own screen-space line
+// are left alone. The originals stay, hidden, for the camera's raycasts.
+const CELL = 40;
+function cellMerge(world) {
+  const root = world.group;
+  root.updateMatrixWorld(true);
+  const meshes = [];
+  root.traverse((o) => { if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && !o.userData.inkLines) meshes.push(o); });
+  const before = meshes.map((o) => o.matrixWorld.clone());
+  for (const t of [1.234, 5.678]) for (const f of world.anim) f(0.1, t);
+  root.updateMatrixWorld(true);
+  const moving = new Set(meshes.filter((o, i) => !o.matrixWorld.equals(before[i])));
+  for (const f of world.anim) f(0, 0);
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const mark = (o) => { for (let q = o; q && q !== root.parent; q = q.parent) if (q.userData.outline !== undefined) return q.userData.outline; return undefined; };
+  const shown = (o) => { for (let q = o; q && q !== root.parent; q = q.parent) if (!q.visible) return false; return true; };
+  // Materials that differ only in colour share one draw: the colour moves into
+  // the vertices (vertex colours times a white material gives the same
+  // picture). Not for materials that read their own colour in the shader
+  // (cel 'detail' or 'ao') or already use vertex colours.
+  const progKey = (m) => (m.customProgramCacheKey ? m.customProgramCacheKey() : '');
+  const bakeable = (m) => !m.vertexColors && !/"(detail|ao)":/.test(progKey(m));
+  const matKey = (m, bake) => [m.type, progKey(m), bake ? 'vc' : m.color?.getHexString(), m.emissive?.getHexString(), m.map?.uuid,
+    m.side, m.vertexColors, m.transparent, m.opacity, m.alphaTest, m.depthWrite, m.depthTest, m.polygonOffset, m.polygonOffsetFactor, m.polygonOffsetUnits, m.fog, m.flatShading, m.toneMapped].join('|');
+  const shared = new Map();
+  const matFor = (m, bake) => {
+    const k = matKey(m, bake);
+    if (!shared.has(k)) {
+      let nm = m;
+      if (bake) {
+        nm = m.clone();
+        nm.onBeforeCompile = m.onBeforeCompile; nm.customProgramCacheKey = m.customProgramCacheKey;
+        nm.color.setRGB(1, 1, 1); nm.vertexColors = true;
+      }
+      shared.set(k, nm);
+    }
+    return shared.get(k);
+  };
+  const cells = new Map(), c = new THREE.Vector3();
+  for (const o of meshes) {
+    const mk = mark(o), m = o.material;
+    if (moving.has(o) || !shown(o) || Array.isArray(m) || (mk !== 'ground' && mk !== false) || o.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender) continue;
+    const bake = bakeable(m);
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    c.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);
+    const attrs = Object.keys(o.geometry.attributes).filter((k) => k !== 'color' || !bake).sort().join() + (o.geometry.index ? '#i' : '');
+    const key = `${Math.floor(c.x / CELL)},${Math.floor(c.z / CELL)}|${matKey(m, bake)}|${o.castShadow ? 1 : 0}${o.receiveShadow ? 1 : 0}|${o.renderOrder}|${mk}|${o.layers.mask}|${attrs}`;
+    if (!cells.has(key)) cells.set(key, { m: matFor(m, bake), bake, o, mk, list: [] });
+    cells.get(key).list.push(o);
+  }
+  for (const { m, bake, o: first, mk, list } of cells.values()) {
+    if (list.length < 2) continue;
+    const geos = list.map((o) => {
+      const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      if (bake) {
+        const n = g.attributes.position.count, col = new Float32Array(n * 3), cc = o.material.color;
+        for (let i = 0; i < n; i++) { col[i * 3] = cc.r; col[i * 3 + 1] = cc.g; col[i * 3 + 2] = cc.b; }
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      }
+      return g;
+    });
+    const g = mergeGeometries(geos, false);
+    if (!g) continue;
+    const M = new THREE.Mesh(g, m);
+    M.castShadow = first.castShadow; M.receiveShadow = first.receiveShadow; M.renderOrder = first.renderOrder;
+    M.layers.mask = first.layers.mask; M.userData.outline = mk; M.userData.cell = true;
+    M.raycast = () => {};
+    root.add(M);
+    for (const o of list) o.visible = false;
+  }
 }

@@ -123,7 +123,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
       const t0 = performance.now(), imp = new Impostor(renderer, m, { size: lowQ ? 96 : 128, lights: L });
       bakeMs += performance.now() - t0;
       impostors.push(imp);
-      return { chunk: 30, fade: [treeD - 4, treeD + 2], wind: 0, impostor: imp };
+      return { chunk: 56, fade: [treeD - 4, treeD + 2], wind: 0, impostor: imp };
     });
     await yieldUI();
   }
@@ -166,7 +166,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     const t0 = performance.now(), imp = new Impostor(renderer, m, { size: lowQ ? 40 : 56, lights: L });
     bakeMs += performance.now() - t0;
     impostors.push(imp);
-    return { chunk: 24, fade: [bushD - 4, bushD + 1], wind: 0, impostor: imp };
+    return { chunk: 44, fade: [bushD - 4, bushD + 1], wind: 0, impostor: imp };
   });
   window.__hedge = hedge.length;
 
@@ -205,8 +205,8 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   }
   keepOff(fp, baseR(ferns)); keepOff(fl, baseR(flowers));
   // small plants fade out and sink into the ground past their range
-  sow(ferns, fp, () => ({ chunk: 20, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
-  sow(flowers, fl, () => ({ chunk: 16, fade: [55 * quality.lod - 3, 55 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
+  sow(ferns, fp, () => ({ chunk: 36, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
+  sow(flowers, fl, () => ({ chunk: 32, fade: [55 * quality.lod - 3, 55 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
 
   // ---------- rocks ----------
   const rocks = [makeRock(1, 1.0), makeRock(2, 1.4), makeRock(3, 0.8), makeRock(4, 2.0)];
@@ -228,11 +228,11 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   const beachRocks = [makeRock(11, 1.0), makeRock(12, 0.8), makeRock(13, 1.2)];
   for (const m of beachRocks) { const cc = m.parts[0].geometry.attributes.color; for (let i = 0; i < cc.count; i++) { const l = (cc.getX(i) + cc.getY(i) + cc.getZ(i)) / 3; cc.setXYZ(i, l * 0.92 + 0.05, l * 0.9 + 0.03, l * 0.95 + 0.05); } }
   keepOff(brp, baseR(beachRocks));
-  sow(beachRocks, brp, () => ({ chunk: 40, fade: [140, 146], shrink: 0.6, wind: 0 }));
+  sow(beachRocks, brp, () => ({ chunk: 64, fade: [140, 146], shrink: 0.6, wind: 0 }));
   for (const p of brp) if (!p.off) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
   for (const [x, z] of [[-56, 33], [-43, 40], [-52, 47]]) rp.push({ x, z, y: height(x, z) - 0.1, rot: R() * 6, s: 1.0 });
   keepOff(rp, baseR(rocks));
-  sow(rocks, rp, () => ({ chunk: 40, fade: [180, 186], shrink: 0.6, wind: 0 }));
+  sow(rocks, rp, () => ({ chunk: 64, fade: [180, 186], shrink: 0.6, wind: 0 }));
   for (const p of rp) if (!p.off) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
 
   window.__scatters = scatters;

@@ -319,12 +319,17 @@ export function createOutline(renderer, o = {}) {
       const fog = scene.fog, bg = scene.background, env = scene.environment, ac = renderer.autoClear, su = renderer.shadowMap.autoUpdate;
       const cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha(), tm = renderer.toneMapping;
       scene.fog = null; scene.background = null; scene.environment = null; renderer.shadowMap.autoUpdate = false; renderer.toneMapping = THREE.NoToneMapping;
+      // nothing past fadeFar gets a line, so the G-buffer stops there: the far
+      // trees, hills and sea are left out of this pass (and depth gets finer)
+      const far = camera.far, gFar = Math.min(far, opt.fadeFar + 15);
+      if (gFar !== far) { camera.far = gFar; camera.updateProjectionMatrix(); }
       renderer.setRenderTarget(rt); renderer.setClearColor(0x80ff00, 0); renderer.clear(); renderer.render(scene, camera);
       renderer.setRenderTarget(null); renderer.setClearColor(cc, ca);
       for (let i = swap.length - 1; i >= 0; i--) { const [ob, m, hid] = swap[i]; ob.material = m; if (hid) ob.visible = true; }
       swap.length = 0;
       scene.fog = fog; scene.background = bg; scene.environment = env; renderer.shadowMap.autoUpdate = su; renderer.toneMapping = tm;
       const u = maskMat.uniforms; u.uNear.value = camera.near; u.uFar.value = camera.far;
+      if (gFar !== far) { camera.far = far; camera.updateProjectionMatrix(); }
       quad.material = maskMat; renderer.setRenderTarget(mask); renderer.render(oScene, oCam);
       renderer.setRenderTarget(null);
       quad.material = compMat; renderer.autoClear = false; renderer.render(oScene, oCam); renderer.autoClear = ac;

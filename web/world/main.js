@@ -26,12 +26,12 @@ const auto = iOS ? 'phone' : (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|
 // presets; the settings window (cog button, settings.js) can change each
 // value on this device: ?q=<preset> picks a preset and ignores saved changes
 const PRESETS = {
-  low: { dpr: 1, aa: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1, fog: 1, exposure: 1 },
-  medium: { dpr: 1.25, aa: 1, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5, fog: 1, exposure: 1 },
-  high: { dpr: 1.5, aa: 1, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5, fog: 1, exposure: 1 },
+  low: { dpr: 1, aa: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 0 },
+  medium: { dpr: 1.25, aa: 1, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1 },
+  high: { dpr: 1.5, aa: 1, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1 },
   // sharp (2x pixels), long view distances (grass, plants, full trees) and
   // the ink G-buffer at native size
-  phone: { dpr: 2, aa: 1, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1, fog: 1, exposure: 1 },
+  phone: { dpr: 2, aa: 1, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1, fog: 1, exposure: 1, shadowRate: 1, shadowSoft: 1 },
 };
 const SAVED = loadSettings();
 const level = q.get('q') in PRESETS ? q.get('q') : SAVED.preset in PRESETS ? SAVED.preset : auto;
@@ -47,7 +47,10 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.dpr));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = QUALITY.exposure;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = QUALITY.shadowSoft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+// the shadow map is redrawn by draw(): every frame, or every 2nd / 3rd (settings)
+renderer.shadowMap.autoUpdate = false;
+let shadowTick = 0;
 const outline = createOutline(renderer, { scale: QUALITY.outline || 1 });
 outline.enabled = QUALITY.outline > 0;
 if (!outline.enabled) outline.lines.visible = false;   // ?outline=0: no ink at all
@@ -134,6 +137,8 @@ const gfx = createSettings({
     { key: 'aa', label: 'Anti-aliasing', values: [0, 1], fmt: (v) => (v ? 'On' : 'Off') },
     { key: 'outline', label: 'Outline quality', values: [0.5, 0.75, 1, 1.25, 1.5, 2], fmt: (v) => v + 'x', live: true },
     { key: 'shadow', label: 'Shadow detail', values: [512, 1024, 2048, 4096], live: true },
+    { key: 'shadowRate', label: 'Shadow refresh', values: [1, 2, 3], fmt: (v) => (v === 1 ? 'every frame' : v === 2 ? 'every 2nd' : 'every 3rd'), live: true },
+    { key: 'shadowSoft', label: 'Shadow edges', values: [0, 1], fmt: (v) => (v ? 'Soft' : 'Crisp') },
     { key: 'grass', label: 'Grass density', values: [20000, 40000, 60000, 90000, 120000, 150000, 180000, 220000, 260000], fmt: (v) => Math.round(v / 1000) + 'k' },
     { key: 'grassSize', label: 'Grass distance', values: [30, 40, 50, 64, 76, 90], fmt: (v) => Math.round(v / 2) + ' m' },
     { key: 'lod', label: 'View distance', values: [0.5, 0.7, 0.85, 1, 1.2, 1.35, 1.6, 2], fmt: pct },
@@ -146,7 +151,7 @@ const gfx = createSettings({
     QUALITY[k] = v;
     if (k === 'dpr') { renderer.setPixelRatio(Math.min(devicePixelRatio, v)); resize(); }
     if (k === 'outline') { outline.scale = v; resize(); }
-    if (k === 'shadow') { sun.shadow.mapSize.set(v, v); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    if (k === 'shadow') { sun.shadow.mapSize.set(v, v); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } shadowTick = 0; }
     if (k === 'fog') { scene.fog.near = 90 * v; scene.fog.far = 430 * v; }
     if (k === 'exposure') renderer.toneMappingExposure = v;
   },
@@ -225,13 +230,15 @@ oak.actor.root.visible = false; oak.hidden = true;
 
 // ---------- vegetation (async) ----------
 let veg = null, grass = null;
+// the grass lives in its own little scene, drawn in its own pass (see draw)
+const grassScene = new THREE.Scene();
 async function grow() {
   status('Loading plants');
   veg = await buildVegetation(scene, renderer, blocked, colliders, QUALITY, status);
   status('Growing grass');
   const area = { x0: -150, z0: -200, w: 300, d: 290 };
   const tex = grassMap(area.x0, area.z0, area.w, area.d, 1);
-  grass = grassField(scene, { count: QUALITY.grass, size: QUALITY.grassSize, heightTex: tex, area, sunDir });
+  grass = grassField(grassScene, { count: QUALITY.grass, size: QUALITY.grassSize, heightTex: tex, area, sunDir, heightAt: groundAt });
   for (const imp of veg.impostors) Object.assign(imp.material.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
   Object.assign(grass.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
   $('loading').classList.add('done');
@@ -390,24 +397,22 @@ function oakScene() {
 
 // ---------- drawing ----------
 // The picture, then the ink lines over it (outline.js), then the grass on top:
-// the grass is on layer 1 so blades in front of a wall cover its line, and the
-// line pass never has to draw 100k blades again.
+// the grass is its own scene so blades in front of a wall cover its line, and
+// the line pass never has to draw the blades.
 outline.mark(terrain, 'ground');
-const GRASS_LAYER = 1;
 const perf = { n: 0, t: 0, last: 0 };
 function draw() {
-  if (grass && grass.mesh.layers.mask !== 1 << GRASS_LAYER) grass.mesh.layers.set(GRASS_LAYER);
   camera.layers.set(0);
+  renderer.shadowMap.needsUpdate = shadowTick++ % (QUALITY.shadowRate || 1) === 0;
   renderer.render(scene, camera);
+  renderer.shadowMap.needsUpdate = false;
   setInkFocus(me.pos);
   outline.render(scene, camera);
   if (grass) {
-    camera.layers.set(GRASS_LAYER);
-    const ac = renderer.autoClear, su = renderer.shadowMap.autoUpdate;
-    renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
-    renderer.render(scene, camera);
-    renderer.autoClear = ac; renderer.shadowMap.autoUpdate = su;
-    camera.layers.set(0);
+    const ac = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.render(grassScene, camera);
+    renderer.autoClear = ac;
   }
   // the vector ink last: depth-tested against everything already drawn (grass
   // included), so blades and water behind a line never paint over it
@@ -538,7 +543,7 @@ function frame(fixed) {
   clouds.userData.tick(dt);
   for (const f of town.anim) f(dt, t);
   if (veg) veg.update(camera.position);
-  if (grass) grass.uniforms.uCam.value.copy(me.pos);
+  if (grass) grass.update(me.pos);
   // the prompt over whatever is in reach
   const n = !dialog.open && !script ? nearby() : null;
   if (n) {
