@@ -288,15 +288,11 @@ export function makeActor(look = {}) {
   if (L.hat) hat(L.hat, head, R);
   const wear = clothes(L, P, { hips, chest, neck, legs, arms });
 
-  // shadow blob
-  const blob = new THREE.Mesh(new THREE.CircleGeometry(0.36, 20).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.22, depthWrite: false }));
-  blob.position.y = 0.02; blob.userData.outline = false; root.add(blob);
   bake(root);
 
   let phase = 0, blink = 2 + Math.random() * 3, idleT = Math.random() * 10;
   const actor = {
-    root, head, blob,
+    root, head,
     // speed in m/s, air = true while jumping
     animate(dt, speed, air, t) {
       const run = Math.min(1, speed / 7), sw = speed > 0.1 ? Math.min(1, speed / 3) : 0;
@@ -680,7 +676,7 @@ function prepCalem(scene, SU) {
 
 function calemActor(look) {
   const fb = makeActor({ ...look, base: 'proc' });   // the procedural Ash until the model is ready
-  const actor = { root: fb.root, head: fb.head, blob: fb.blob, model: null };
+  const actor = { root: fb.root, head: fb.head, model: null };
   let rig = null, phase = 0, blink = 2 + Math.random() * 3, idleT = Math.random() * 10;
   const attach = (base) => {
     if (!base) return;
@@ -699,7 +695,7 @@ function calemActor(look) {
         }
       }
     });
-    for (const c of fb.root.children) if (c !== fb.blob) c.visible = false;
+    for (const c of fb.root.children) c.visible = false;
     fb.root.add(holder);
     actor.model = holder;
     // rotate a bone about an axis given in the model's rest frame, on top of its rest pose
