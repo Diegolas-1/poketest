@@ -572,6 +572,9 @@ function gnarlGeo(g, amt, R, f = 1.3) {
 // real crotch instead of starting as a ring stuck on its surface.
 const UP = new THREE.Vector3(0, 1, 0);
 const leadIn = (pts, pd, d) => [pts[0].clone().addScaledVector(pd, -d), ...pts];
+// a root flare starts on the trunk's axis a little above its old start, so
+// its top end is buried in the trunk instead of poking out of the bark
+const root = (pts) => [new THREE.Vector3(0, pts[0].y + 0.6, 0), ...pts];
 function limb(wood, R, p, dir, len, r, lv, o, tips, pd = UP) {
   const d = dir.clone().normalize(), pts = [p.clone()];
   for (let i = 1; i <= 3; i++) {
@@ -579,7 +582,7 @@ function limb(wood, R, p, dir, len, r, lv, o, tips, pd = UP) {
     pts.push(pts[i - 1].clone().addScaledVector(d, len / 3));
   }
   const r1 = r * 0.6;
-  wood.push(tube(leadIn(pts, pd, r * 2), r, r1, lv + 1 >= o.lv ? 5 : 7));
+  wood.push(tube(leadIn(pts, pd, r * 1.5), r, r1, lv + 1 >= o.lv ? 5 : 7));
   if (lv >= o.lv) { tips.push([pts[3], d.clone(), pts[2], len]); return; }
   const n = o.kids[0] + Math.floor(R() * (o.kids[1] - o.kids[0] + 1)), a0 = R() * 6.28;
   for (let i = 0; i < n; i++) {
@@ -758,8 +761,8 @@ export function makeTree(kind, seed) {
     const nr = 4 + Math.floor(R() * 2);
     for (let i = 0; i < nr; i++) {
       const a = (i / nr) * 6.28 + R() * 0.6, d = 2.2 + R() * 1.2, dir = V3(Math.cos(a), 0, Math.sin(a));
-      wood.push(gnarl(tube([V3(0, 2.0 + R() * 0.9, 0).addScaledVector(dir, 0.35), V3(0, 0.6, 0).addScaledVector(dir, 1.15),
-        V3(0, 0.05, 0).addScaledVector(dir, d * 0.75), V3(0, -0.35, 0).addScaledVector(dir, d)], 0.6, 0.08, 7), 0.05, 2));
+      wood.push(gnarl(tube(root([V3(0, 2.0 + R() * 0.9, 0).addScaledVector(dir, 0.35), V3(0, 0.6, 0).addScaledVector(dir, 1.15),
+        V3(0, 0.05, 0).addScaledVector(dir, d * 0.75), V3(0, -0.35, 0).addScaledVector(dir, d)]), 0.6, 0.08, 7), 0.05, 2));
     }
     const top = trunk[trunk.length - 1], lobes = [];
     // a curving branch from p along dir; recurses, leaving lobes at the tips
@@ -770,7 +773,7 @@ export function makeTree(kind, seed) {
         pts.push(pts[i - 1].clone().addScaledVector(d, len / 3));
       }
       const end = pts[3], r1 = r * 0.6;
-      wood.push(tube(leadIn(pts, pd, r * 2), r, r1, lv < 1 ? 9 : lv < 2 ? 7 : 6));
+      wood.push(tube(leadIn(pts, pd, r * 1.5), r, r1, lv < 1 ? 9 : lv < 2 ? 7 : 6));
       if (lv >= 2) {   // tips: a big lobe at the end, sometimes a smaller one along it
         lobes.push([end.clone().addScaledVector(d, 0.5).add(V3(0, 0.5, 0)), 1.35 + R() * 0.7]);
         if (R() < 0.7) lobes.push([pts[1].clone().lerp(pts[2], R()).add(V3((R() - 0.5) * 1.2, 0.9, (R() - 0.5) * 1.2)), 0.95 + R() * 0.5]);
@@ -786,14 +789,16 @@ export function makeTree(kind, seed) {
     };
     // 2-3 leaders out of the crown, plus a couple of low limbs off the trunk
     const nl = 2 + Math.floor(R() * 2), b0 = R() * 6.28;
-    branch(top.clone().add(V3(0, -0.4, 0)), V3(Math.cos(la) * 0.15, 1, Math.sin(la) * 0.15), 4.0 + R() * 0.8, 0.68, 0);   // the tall central leader
+    const tUp = top.clone().sub(trunk[trunk.length - 2]).normalize();   // the trunk's heading at the top: leaders lead in along it
+    branch(top.clone().add(V3(0, -0.4, 0)), V3(Math.cos(la) * 0.15, 1, Math.sin(la) * 0.15), 4.0 + R() * 0.8, 0.68, 0, tUp);   // the tall central leader
     for (let i = 0; i < nl; i++) {
       const a = b0 + (i / nl) * 6.28 + (R() - 0.5) * 0.6;
-      branch(top.clone().add(V3(0, -0.8, 0)), V3(Math.cos(a) * 0.6, 1, Math.sin(a) * 0.6), 3.0 + R() * 0.8, 0.52, 0);
+      branch(top.clone().add(V3(0, -0.8, 0)), V3(Math.cos(a) * 0.6, 1, Math.sin(a) * 0.6), 3.0 + R() * 0.8, 0.52, 0, tUp);
     }
     for (let i = 0; i < 3; i++) {   // lower limbs in tiers
       const p = trunk[i ? 5 : 4].clone().add(V3(0, i === 2 ? -0.9 : 0, 0)), a = b0 + 1.2 + i * 2.2 + R() * 0.6;
-      branch(p, V3(Math.cos(a), 0.3, Math.sin(a)), (i ? 3.0 : 4.0) + R() * 0.8, 0.4, 1);
+      const k = i ? 5 : 4;
+      branch(p, V3(Math.cos(a), 0.3, Math.sin(a)), (i ? 3.0 : 4.0) + R() * 0.8, 0.4, 1, trunk[k + 1].clone().sub(trunk[k - 1]).normalize());
     }
     // dead stubs low on the trunk
     for (let i = 0; i < 3; i++) {
@@ -860,7 +865,7 @@ export function makeTree(kind, seed) {
     wood.push(gnarlGeo(tube(trunk, 0.95, 0.42, 11), 0.07, R));
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * 6.28 + R() * 0.8, dir = V3(Math.cos(a), 0, Math.sin(a));
-      wood.push(tube([V3(0, 1.6, 0).addScaledVector(dir, 0.3), V3(0, 0.4, 0).addScaledVector(dir, 1.0), V3(0, -0.3, 0).addScaledVector(dir, 1.8)], 0.45, 0.08, 6));
+      wood.push(tube(root([V3(0, 1.6, 0).addScaledVector(dir, 0.3), V3(0, 0.4, 0).addScaledVector(dir, 1.0), V3(0, -0.3, 0).addScaledVector(dir, 1.8)]), 0.45, 0.08, 6));
     }
     const tips = [], o = { up: 0.16, wob: 0.35, kids: [2, 3], keep: 0.8, spread: 0.75, rise: 0.25, shrink: 0.6, lv: 2 };
     const nl = 6 + Math.floor(R() * 2);
@@ -879,7 +884,7 @@ export function makeTree(kind, seed) {
     wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(0.1, th * 0.5, 0.05), V3(0, th, 0)], 1.0, 0.8, 12), 0.1, R));
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * 6.28 + R() * 0.6, dir = V3(Math.cos(a), 0, Math.sin(a));
-      wood.push(gnarlGeo(tube([V3(0, 1.3, 0).addScaledVector(dir, 0.4), V3(0, 0.3, 0).addScaledVector(dir, 1.2), V3(0, -0.3, 0).addScaledVector(dir, 2.0)], 0.5, 0.08, 6), 0.04, R));
+      wood.push(gnarlGeo(tube(root([V3(0, 1.3, 0).addScaledVector(dir, 0.4), V3(0, 0.3, 0).addScaledVector(dir, 1.2), V3(0, -0.3, 0).addScaledVector(dir, 2.0)]), 0.5, 0.08, 6), 0.04, R));
     }
     const tips = [], o = { up: 0.06, wob: 0.5, kids: [2, 3], keep: 0.75, spread: 0.7, rise: 0.15, shrink: 0.62, lv: 2 };
     const nl = 5 + Math.floor(R() * 2), a0 = R() * 6.28;
@@ -902,8 +907,9 @@ export function makeTree(kind, seed) {
       const top = V3(Math.cos(a) * lean * h, h, Math.sin(a) * lean * h);
       const st = [V3(Math.cos(a) * 0.25, 0.1, Math.sin(a) * 0.25), V3(Math.cos(a) * 0.5, h * 0.35, Math.sin(a) * 0.5), top.clone().lerp(V3(0, top.y, 0), 0.25), top];
       wood.push(gnarlGeo(tube(st, 0.36, 0.2, 9), 0.04, R));
-      limb(wood, R, top, V3(Math.cos(a) * 0.4, 1, Math.sin(a) * 0.4), 2.4 + R() * 0.8, 0.2, 1, o, tips);
-      limb(wood, R, st[2], V3(Math.cos(a + 1.2), 0.5, Math.sin(a + 1.2)), 2.0 + R() * 0.6, 0.15, 1, o, tips);
+      // both limbs lead in along the stem (not straight up), so no knob shows where they leave it
+      limb(wood, R, top, V3(Math.cos(a) * 0.4, 1, Math.sin(a) * 0.4), 2.4 + R() * 0.8, 0.2, 1, o, tips, top.clone().sub(st[2]).normalize());
+      limb(wood, R, st[2], V3(Math.cos(a + 1.2), 0.5, Math.sin(a + 1.2)), 2.0 + R() * 0.6, 0.15, 1, o, tips, st[3].clone().sub(st[1]).normalize());
     }
     for (const [e, d] of tips) lobes.push({ c: e.clone().addScaledVector(d, 0.3).add(V3(0, 0.3, 0)), rx: 1.6 + R() * 0.5, ry: 1.35 + R() * 0.35 });
     ({ height, radius } = crown(leaves, wood, lobes, 9 + R() * 1.2, [TILE.leafB, TILE.leafA, TILE.leafC], R, 15, 6));
@@ -936,7 +942,7 @@ export function makeTree(kind, seed) {
     }
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * 6.28 + R() * 0.7, dir = V3(Math.cos(a), 0, Math.sin(a));
-      wood.push(tube([V3(0, 1.3, 0).addScaledVector(dir, 0.3), V3(0, 0.3, 0).addScaledVector(dir, 1.0), V3(0, -0.3, 0).addScaledVector(dir, 1.7)], 0.4, 0.06, 6));
+      wood.push(tube(root([V3(0, 1.3, 0).addScaledVector(dir, 0.3), V3(0, 0.3, 0).addScaledVector(dir, 1.0), V3(0, -0.3, 0).addScaledVector(dir, 1.7)]), 0.4, 0.06, 6));
     }
     const tips = [], o = { up: 0.04, wob: 0.9, kids: [1, 3], keep: 0.7, spread: 0.7, rise: 0.2, shrink: 0.6, lv: 3, droop: 0.02 };
     for (let i = 0; i < 6; i++) {
@@ -945,7 +951,7 @@ export function makeTree(kind, seed) {
         wood.push(tube([p, p.clone().add(V3(Math.cos(a) * 1.1, 0.4, Math.sin(a) * 1.1))], 0.2, 0.12, 6));
         continue;
       }
-      limb(wood, R, p, V3(Math.cos(a), 0.6, Math.sin(a)), 3.6 + R() * 1.4 - i * 0.2, 0.26, 0, o, tips);
+      limb(wood, R, p, V3(Math.cos(a), 0.6, Math.sin(a)), 3.6 + R() * 1.4 - i * 0.2, 0.26, 0, o, tips, trunk[3 + (i % 3)].clone().sub(trunk[2 + (i % 3)]).normalize());
     }
     for (const [e, d, m, len] of tips) {   // dead twigs hanging from some tips
       if (R() < 0.5) continue;
@@ -1023,7 +1029,7 @@ export function makeTree(kind, seed) {
       const a = a0 + (i / ns) * 6.28, h = 2.4 + R() * 1.6;
       const st = [V3(0.1, 0.8, 0), V3(Math.cos(a) * 0.5, h * 0.5, Math.sin(a) * 0.5), V3(Math.cos(a) * 1.2, h, Math.sin(a) * 1.2)];
       wood.push(tube(leadIn(st, UP, 0.5), 0.17, 0.1, 7));
-      limb(wood, R, st[2], V3(Math.cos(a), 0.35, Math.sin(a)), 2.2 + R() * 0.8, 0.1, 1, o, tips);
+      limb(wood, R, st[2], V3(Math.cos(a), 0.35, Math.sin(a)), 2.2 + R() * 0.8, 0.1, 1, o, tips, st[2].clone().sub(st[1]).normalize());
     }
     for (const [e] of tips) lobes.push({ c: e.clone().add(V3(0, 0.25, 0)), rx: 1.5 + R() * 0.5, ry: 0.6 + R() * 0.15 });
     // tiers above, smaller toward the top, so the crown stacks in thin layers
@@ -1043,7 +1049,7 @@ export function makeTree(kind, seed) {
     wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(0.2, th * 0.5, -0.1), V3(-0.1, th, 0.1)], 1.0, 0.7, 12), 0.12, R));
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * 6.28 + R() * 0.7, dir = V3(Math.cos(a), 0, Math.sin(a));
-      wood.push(gnarlGeo(tube([V3(0, 1.5, 0).addScaledVector(dir, 0.15), V3(0, 0.35, 0).addScaledVector(dir, 1.0), V3(0, -0.3, 0).addScaledVector(dir, 1.8)], 0.38, 0.08, 6), 0.04, R));
+      wood.push(gnarlGeo(tube(root([V3(0, 1.5, 0).addScaledVector(dir, 0.15), V3(0, 0.35, 0).addScaledVector(dir, 1.0), V3(0, -0.3, 0).addScaledVector(dir, 1.8)]), 0.38, 0.08, 6), 0.04, R));
     }
     const tips = [], o = { up: 0.1, wob: 0.85, kids: [2, 3], keep: 0.65, spread: 0.7, rise: 0.45, shrink: 0.62, lv: 2 };
     const nl = 5 + Math.floor(R() * 2), a0 = R() * 6.28;
@@ -1063,7 +1069,7 @@ export function makeTree(kind, seed) {
     // the grey base overlaps the orange top a little: the fluting breaks the join into a ragged edge
     // (both sampled from one curve so they follow the same line)
     const cv = new THREE.CatmullRomCurve3(trunk), part = (t0, t1) => Array.from({ length: 8 }, (_, i) => cv.getPointAt(t0 + ((t1 - t0) * i) / 7));
-    const low = tube(part(0, 0.6), 0.62, 0.4, 10, { cap: false }), up = tube(part(0.45, 1), 0.38, 0.16, 9);
+    const low = tube(part(0, 0.6), 0.62, 0.4, 10, { cap: false }), up = tube(part(0.3, 1), 0.42, 0.16, 9);
     // a ragged top to the grey: per column, the rings above a random height sink inside the orange
     const lp = low.attributes.position, segs = lp.count / 11 - 1, cut = Array.from({ length: 11 }, () => 0.6 + R() * 0.35);
     cut[10] = cut[0];
@@ -1077,7 +1083,8 @@ export function makeTree(kind, seed) {
     const upper = [gnarlGeo(up, 0.03, R)];
     for (let i = 0; i < 6; i++) {
       const t = 0.66 + i * 0.06, p = trunk[Math.min(5, Math.round(t * 5))], a = i * 2.5 + R() * 0.6;
-      limb(upper, R, p, V3(Math.cos(a), 0.55, Math.sin(a)), 3.2 - i * 0.25 + R() * 0.6, 0.18, 1, o, tips);
+      const m = Math.min(5, Math.round(t * 5));
+      limb(upper, R, p, V3(Math.cos(a), 0.55, Math.sin(a)), 3.2 - i * 0.25 + R() * 0.6, 0.18, 1, o, tips, trunk[Math.min(5, m + 1)].clone().sub(trunk[m - 1]).normalize());
     }
     for (let i = 0; i < 3; i++) {   // dead stubs on the bare trunk
       const p = trunk[2 + i % 2].clone().lerp(trunk[3], R()), a = R() * 6.28;
@@ -1123,7 +1130,7 @@ export function makeTree(kind, seed) {
     wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(-0.1, th * 0.5, 0.1), V3(0.05, th, 0)], 0.75, 0.52, 11), 0.07, R));
     const tips = [], o = { up: 0.14, wob: 0.45, kids: [2, 3], keep: 0.75, spread: 0.7, rise: 0.4, shrink: 0.62, lv: 1 };
     for (let i = 0; i < 5; i++) { const a = i * 1.257 + R() * 0.5; limb(wood, R, V3(0, th - 0.3 + i * 0.4, 0), V3(Math.cos(a), 1.2, Math.sin(a)), 3.6 + R(), 0.3, 0, o, tips); }
-    wood.push(tube([V3(0, th, 0), V3(0.2, th + 4, 0), V3(0, th + 8, 0.2)], 0.4, 0.12, 7));
+    wood.push(tube(leadIn([V3(0, th, 0), V3(0.2, th + 4, 0), V3(0, th + 8, 0.2)], UP, 1.2), 0.46, 0.12, 7));   // the leader, out of the trunk's top
     const lobes = [];
     domeLobes(lobes, V3(0, th + 4.6, 0), 4.6, 5.6, 4.6, 26, 1.9, 0.9, R, 0.25);
     for (let i = 0; i < 5; i++) lobes.push({ c: V3((R() - 0.5) * 3.5, th + 2 + R() * 5, (R() - 0.5) * 3.5), rx: 2.2, ry: 2.0 });
@@ -1147,7 +1154,7 @@ export function makeTree(kind, seed) {
     wood.push(gnarlGeo(tube([V3(0, -0.5, 0), V3(0.1, th * 0.5, 0), V3(0, th, 0.1)], 0.8, 0.58, 12), 0.06, R));
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * 6.28 + R() * 0.6, dir = V3(Math.cos(a), 0, Math.sin(a));
-      wood.push(tube([V3(0, 1.3, 0).addScaledVector(dir, 0.15), V3(0, 0.3, 0).addScaledVector(dir, 0.9), V3(0, -0.3, 0).addScaledVector(dir, 1.5)], 0.35, 0.08, 6));
+      wood.push(tube(root([V3(0, 1.3, 0).addScaledVector(dir, 0.15), V3(0, 0.3, 0).addScaledVector(dir, 0.9), V3(0, -0.3, 0).addScaledVector(dir, 1.5)]), 0.35, 0.08, 6));
     }
     const tips = [], o = { up: 0.05, wob: 0.4, kids: [2, 3], keep: 0.75, spread: 0.7, rise: 0.15, shrink: 0.62, lv: 2 };
     const nl = 6, a0 = R() * 6.28;
@@ -1155,7 +1162,7 @@ export function makeTree(kind, seed) {
       const a = a0 + i * 2.4, y = th - 0.4 + (i / nl) * 4.5;
       limb(wood, R, V3(0, Math.min(y, th + 3), 0), V3(Math.cos(a), 0.9 + 0.9 * (i / nl), Math.sin(a)), 4.4 - i * 0.3 + R() * 0.8, 0.36 - i * 0.03, 0, o, tips);
     }
-    wood.push(tube([V3(0, th, 0), V3(0.2, th + 3, 0), V3(-0.1, th + 6.5, 0.2)], 0.5, 0.15, 8));
+    wood.push(tube(leadIn([V3(0, th, 0), V3(0.2, th + 3, 0), V3(-0.1, th + 6.5, 0.2)], UP, 1.2), 0.56, 0.15, 8));   // the leader, out of the trunk's top
     const lobes = tips.map(([e]) => ({ c: e.clone().add(V3(0, 0.35, 0)), rx: 1.9 + R() * 0.5, ry: 1.2 + R() * 0.25 }));   // flattish sprays
     lobes.push({ c: V3(0, th + 7.5, 0), rx: 2.6, ry: 1.8 }, { c: V3(1.2, th + 6, -0.8), rx: 2.2, ry: 1.6 }, { c: V3(-1.2, th + 6, 1), rx: 2.2, ry: 1.6 });
     ({ height, radius } = crown(leaves, wood, lobes, 16 + R() * 1.5, [TILE.leafB, TILE.leafA, TILE.leafB, TILE.leafC], R, 12, 10));

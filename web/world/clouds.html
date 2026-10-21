@@ -5,7 +5,16 @@
 <body><script type="module">
 import * as THREE from 'three';
 import { buildSky, buildClouds, buildMountains } from './nature.js';
+import { paintCloud, paintStreak } from './clouds.js';
 const q = new URLSearchParams(location.search);
+if (q.has('tex')) { // the painted cloud textures, on the sky blue
+  document.body.style.cssText = 'background:linear-gradient(#3c8ee6,#8cc6f2);overflow:auto;padding:8px';
+  const st = document.createElement('style'); st.textContent = 'canvas{display:inline-block;margin:4px}'; document.head.appendChild(st);
+  for (let i = 0; i < 6; i++) document.body.appendChild(paintCloud(100 + i * 17, 448, 400, 'tower'));
+  for (let i = 0; i < 5; i++) document.body.appendChild(paintCloud(500 + i * 13, 256, 112, 'low'));
+  for (let i = 0; i < 3; i++) document.body.appendChild(paintStreak(900 + i, 512, 48));
+  window.ready = true; throw 0;
+}
 const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
 r.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(r.domElement);
