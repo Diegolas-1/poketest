@@ -818,7 +818,7 @@ function calemActor(look) {
     ['L', 'R'].forEach((s, i) => {
       const sg = i ? -1 : 1;
       b(s + 'Shoulder', 0, 0, 1, -sg * 0.04 * wI);
-      b(s + 'ArmA', 0, 0, 1, sg * (i ? 0.12 : 0.16) * wI); b(s + 'ArmA', 0, 1, 0, sg * (i ? 0.22 : 0.27) * wI);
+      b(s + 'ArmA', 0, 0, 1, sg * (i ? 0.17 : 0.21) * wI); b(s + 'ArmA', 0, 1, 0, sg * (i ? 0.22 : 0.27) * wI);
       b(s + 'ForeArm', 0, 1, 0, -sg * (i ? 0.42 : 0.52) * wI);
     });
     // stance: weight settled on one leg, the other knee soft, hips and shoulders tilted against
@@ -901,6 +901,9 @@ function calemActor(look) {
     // a walk with the feet a little apart, soles kept flat, so the steps don't cross like a catwalk
     const ww = w.walk * (1 - airW);
     if (ww > 0.001) for (const [s, sg] of [['L', 1], ['R', -1]]) { rig.bend(s + 'Thigh', 0, 0, 1, sg * 0.05 * ww); rig.bend(s + 'Foot', 0, 0, 1, -sg * 0.05 * ww); }
+    // and the arms swinging a touch out from the sides, so the sleeves clear the jacket
+    const wa = (w.walk * 0.06 + w.run * 0.08) * (1 - airW);
+    if (wa > 0.001) for (const [s, sg] of [['L', 1], ['R', -1]]) rig.bend(s + 'ArmA', 0, 0, 1, sg * wa);
     // the air pose takes over off the ground; a short dip on landing
     // vertical speed from where the game put the actor (it only says whether it is in the air)
     const y = actor.root.position.y;
