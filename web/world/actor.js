@@ -796,7 +796,7 @@ function calemActor(look) {
   // the walk, run from there, crossfaded on the way between so speeding up and slowing down blend
   const WALK_V = 4.5, RUN_V = 8.5, TEMPO_MAX = 3;   // TEMPO_MAX: fastest a clip plays; past that the stride slides
   // life on top of the idle clip: posture, breathing, weight sway, looking around and fidgets
-  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 1 + Math.random() * 2, fid: null, nextFid: 3 + Math.random() * 5 };
+  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 2 + Math.random() * 3, fid: null, nextFid: 6 + Math.random() * 6 };
   const FIDGETS = ['twist', 'shift', 'shoulders'];
   const idleLife = (dt, wI, wP) => {
     const L = life, b = rig.bend;
@@ -823,12 +823,12 @@ function calemActor(look) {
     }
     if (L.fid) {
       const F = L.fid, u = (F.t += dt) / F.dur;
-      if (u >= 1 || wI < 0.5) { L.fid = null; L.nextFid = 4 + Math.random() * 7; }
+      if (u >= 1 || wI < 0.5) { L.fid = null; L.nextFid = 8 + Math.random() * 8; }
       else {
         const env = smooth(0, 0.15, u) * (1 - smooth(0.85, 1, u)) * wI, sg = F.s === 'L' ? 1 : -1, o = F.s === 'L' ? 'R' : 'L';
         if (F.k === 'twist') {   // knee bent, toe down in the dirt, heel swivelling in and out
           b(F.s + 'Thigh', 1, 0, 0, -0.1 * env); b(F.s + 'Leg', 1, 0, 0, 0.35 * env); b(F.s + 'Foot', 1, 0, 0, 0.45 * env);
-          b(F.s + 'Thigh', 0, 1, 0, Math.sin(F.t * 6.5) * 0.32 * env);
+          b(F.s + 'Thigh', 0, 1, 0, Math.sin(F.t * 3.6) * 0.26 * env);
           b('Spine1', 0, 0, 1, -sg * 0.03 * env);
         } else if (F.k === 'shift') {   // weight onto one leg, the other knee relaxed
           b('Spine1', 0, 0, 1, sg * 0.08 * env); b('Spine3', 0, 0, 1, -sg * 0.06 * env); b('Head', 0, 0, 1, -sg * 0.05 * env);
@@ -843,12 +843,12 @@ function calemActor(look) {
     // look around: pick a spot, turn to it (head leads, neck and chest follow), hold; a blink on big turns
     L.look -= dt;
     if (L.look < 0) {
-      L.look = 1.5 + Math.random() * 3.5;
+      L.look = 3 + Math.random() * 5;
       const ty = Math.random() < 0.35 ? (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.35) : (Math.random() - 0.5) * 0.5;
       if (Math.abs(ty - L.yaw) > 0.4) blink = Math.min(blink, 0.04);
       L.ty = ty; L.tp = (Math.random() - 0.65) * 0.25;
     }
-    const n = Math.min(60, Math.ceil(dt / 0.02)), h = dt / n, om = 6;
+    const n = Math.min(60, Math.ceil(dt / 0.02)), h = dt / n, om = 3.5;
     for (let i = 0; i < n; i++) {
       L.vy += ((L.ty - L.yaw) * om * om - 2 * om * L.vy) * h; L.yaw += L.vy * h;
       L.vp += ((L.tp - L.pitch) * om * om - 2 * om * L.vp) * h; L.pitch += L.vp * h;
@@ -871,7 +871,13 @@ function calemActor(look) {
     if (!air) phase = (phase + dt * Math.min(Math.max(speed, 0.8) / stride, tempo * TEMPO_MAX)) % 1;
     act.walk.time = ((phase + meta.walk.lead) % 1) * dW;
     act.run.time = ((phase + meta.run.lead) % 1) * dR;
+    // the mixer only writes a bone when its value changed since it last wrote it, so the turns
+    // added below would pile up frame after frame on a bone holding still: start from the
+    // clips' own pose every frame
+    const clean = rig.clips.clean || (rig.clips.clean = Object.values(rig.bones).map((o) => [o, o.quaternion.clone(), o.position.clone()]));
+    for (const [o, q, p] of clean) { o.quaternion.copy(q); o.position.copy(p); }
     mixer.update(dt);
+    for (const [o, q, p] of clean) { q.copy(o.quaternion); p.copy(o.position); }
     // a sprint past the run clip's own speed leans into it
     const lean = smooth(RUN_V * 1.1, RUN_V * 1.8, speed) * (1 - airW);
     if (lean > 0.001) { rig.bend('Spine2', 1, 0, 0, lean * 0.14); rig.bend('Spine3', 1, 0, 0, lean * 0.07); rig.bend('Head', 1, 0, 0, -lean * 0.12); }
