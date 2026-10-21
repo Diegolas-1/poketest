@@ -16,9 +16,9 @@ export function createSettings({ rows, presets, preset, values, ink, onLive, onI
 
   const css = document.createElement('style');
   css.textContent = `
-    #cogBtn { position: fixed; top: 10px; left: 150px; z-index: 6; width: 30px; height: 28px; border: 0; border-radius: 8px; cursor: pointer;
+    #cogBtn { position: fixed; top: var(--st, 10px); left: calc(var(--sl, 10px) + 140px); z-index: 6; width: 30px; height: 28px; border: 0; border-radius: 8px; cursor: pointer;
       background: rgba(20, 30, 40, .4); color: #fff; font: 17px/28px system-ui, sans-serif; padding: 0; }
-    #gfx { position: fixed; z-index: 30; top: 48px; left: 10px; width: min(360px, calc(100vw - 20px)); max-height: calc(100vh - 64px); overflow-y: auto;
+    #gfx { position: fixed; z-index: 30; top: calc(var(--st, 10px) + 38px); left: var(--sl, 10px); width: min(360px, calc(100vw - 20px)); max-height: calc(100dvh - var(--st, 10px) - var(--sb, 10px) - 48px); overflow-y: auto;
       background: rgba(22, 30, 44, .92); color: #f3f4f0; border-radius: 14px; padding: 12px 14px 14px; font: 14px/1.3 system-ui, sans-serif;
       box-shadow: 0 10px 30px rgba(0, 0, 0, .35); display: none; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.3) transparent; }
     #gfx.open { display: block; }

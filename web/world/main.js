@@ -91,12 +91,21 @@ function resize() {
   $('ui').width = Math.round(w * px); $('ui').height = Math.round(h * px);
 }
 addEventListener('resize', resize); resize();
+// iOS reports the new size a moment after turning the phone
+addEventListener('orientationchange', () => { setTimeout(resize, 120); setTimeout(resize, 500); });
+// the home bar's height, so the dialog box sits above it
+const safeProbe = document.createElement('div');
+safeProbe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-bottom:var(--sb)';
+document.body.appendChild(safeProbe);
+let safeB = 10;
+const readSafe = () => { safeB = parseFloat(getComputedStyle(safeProbe).paddingBottom) || 10; };
+readSafe(); addEventListener('resize', readSafe);
 
 // the FPS counter beside the cog: frames per second over the last half second,
 // the slowest frame in that window, and the resolution being drawn
 const fpsEl = document.createElement('div');
 fpsEl.id = 'fps';
-fpsEl.style.cssText = 'position:fixed;top:10px;left:188px;z-index:6;height:28px;padding:0 9px;border-radius:8px;background:rgba(20,30,40,.4);color:#fff;font:600 13px/28px ui-monospace,Menlo,monospace;pointer-events:none;white-space:nowrap';
+fpsEl.style.cssText = 'position:fixed;top:var(--st,10px);left:calc(var(--sl,10px) + 178px);z-index:6;height:28px;padding:0 9px;border-radius:8px;background:rgba(20,30,40,.4);color:#fff;font:600 13px/28px ui-monospace,Menlo,monospace;pointer-events:none;white-space:nowrap';
 document.body.appendChild(fpsEl);
 const fps = { on: localStorage.getItem('pallet-fps') !== '0', n: 0, acc: 0, worst: 0, last: performance.now() };
 const setFps = (on) => { fps.on = on; localStorage.setItem('pallet-fps', on ? '1' : '0'); fpsEl.style.display = on ? '' : 'none'; };
@@ -537,6 +546,7 @@ function frame(fixed) {
     dialog.prompt = p.z < 1 ? { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight, label: n.label } : null;
   } else dialog.prompt = null;
   draw();
+  dialog.safeB = safeB;
   dialog.draw(dt, t, innerWidth, innerHeight, Math.min(devicePixelRatio, 2));
   fpsTick();
   if (!TEST) requestAnimationFrame(frame);
