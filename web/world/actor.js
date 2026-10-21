@@ -772,24 +772,26 @@ function calemActor(look) {
   const saved = JUMP_BONES.map(() => new THREE.Quaternion());
   const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
   let airW = 0, wasAir = false, land = 1;
-  const TEMPO_MAX = 2;   // fastest a clip plays; past that the stride slides
+  // the player's walk and run speeds (m/s, as main.js moves it): walk plays up to just past
+  // the walk, run from there, crossfaded on the way between so speeding up and slowing down blend
+  const WALK_V = 4.5, RUN_V = 8.5, TEMPO_MAX = 3;   // TEMPO_MAX: fastest a clip plays; past that the stride slides
   const clipAnimate = (dt, speed, air) => {
     const { mixer, act, meta, w } = rig.clips, k = rig.k;
     const dW = act.walk.getClip().duration, dR = act.run.getClip().duration;
-    const vW = meta.walk.stride * k / dW, vR = meta.run.stride * k / dR;   // the clips' own speeds, m/s
     // weights: idle -> walk -> run by speed, eased so starts and stops don't snap
-    const loco = smooth(0.05, Math.max(0.3, vW * 0.5), speed), rb = smooth(vW * 1.3, vR * 1.15, speed);
+    const loco = smooth(0.05, 0.7, speed), rb = smooth(WALK_V * 1.05, WALK_V + (RUN_V - WALK_V) * 0.7, speed);
     const tw = { idle: 1 - loco, walk: loco * (1 - rb), run: loco * rb }, e = 1 - Math.exp(-dt * 10);
     for (const n in tw) { w[n] += (tw[n] - w[n]) * e; act[n].setEffectiveWeight(w[n]); }
-    // one phase for walk and run (0 = left foot forward), advanced so the planted foot keeps pace with the ground
-    const stride = THREE.MathUtils.lerp(meta.walk.stride, meta.run.stride, rb) * k;
+    // one phase for walk and run (0 = left foot forward), advanced by ground speed / stride
+    // (metres a cycle covers when the planted foot keeps pace with the ground)
+    const stride = THREE.MathUtils.lerp(meta.walk.stride, meta.run.stride, w.run / Math.max(1e-3, w.walk + w.run)) * k;
     const tempo = THREE.MathUtils.lerp(1 / dW, 1 / dR, rb);
-    if (!air) phase = (phase + dt * Math.min(Math.max(speed, vW * 0.6) / stride, tempo * TEMPO_MAX)) % 1;
+    if (!air) phase = (phase + dt * Math.min(Math.max(speed, 0.8) / stride, tempo * TEMPO_MAX)) % 1;
     act.walk.time = ((phase + meta.walk.lead) % 1) * dW;
     act.run.time = ((phase + meta.run.lead) % 1) * dR;
     mixer.update(dt);
     // a sprint past the run clip's own speed leans into it
-    const lean = smooth(vR * 1.2, vR * 3.5, speed) * (1 - airW);
+    const lean = smooth(RUN_V * 1.1, RUN_V * 1.8, speed) * (1 - airW);
     if (lean > 0.001) { rig.bend('Spine2', 1, 0, 0, lean * 0.14); rig.bend('Spine3', 1, 0, 0, lean * 0.07); rig.bend('Head', 1, 0, 0, -lean * 0.12); }
     // the air pose takes over off the ground; a short dip on landing
     airW += ((air ? 1 : 0) - airW) * (1 - Math.exp(-dt * (air ? 14 : 9)));

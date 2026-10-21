@@ -281,7 +281,7 @@ function oakScene() {
         if (tgt) {
           for (const [o, off] of [[oak, -0.9], [me, 0.9]]) {
             const dx = tgt[0] + off - o.pos.x, dz = tgt[1] - o.pos.z, d = Math.hypot(dx, dz);
-            if (d > 0.2) { const v = Math.min(d, dt * 3.5); o.pos.x += dx / d * v; o.pos.z += dz / d * v; o.yaw = Math.atan2(dx, dz); o.speed = 3.5; moved = true; }
+            if (d > 0.2) { const v = Math.min(d, dt * 4.5); o.pos.x += dx / d * v; o.pos.z += dz / d * v; o.yaw = Math.atan2(dx, dz); o.speed = 4.5; moved = true; }
           }
           if (Math.hypot(tgt[0] + 0.9 - me.pos.x, tgt[1] - me.pos.z) < 0.5 || !moved) walkPath.shift();
           oak.pos.y = height(oak.pos.x, oak.pos.z);
@@ -320,7 +320,7 @@ function frame(fixed) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * c.x - fx * c.y, mz = rz * c.x - fz * c.y;
     const m = Math.hypot(mx, mz);
-    const want = m > 0.05 ? (c.run ? 5 : 3.5) * Math.min(1, m) : 0;
+    const want = m > 0.05 ? (c.run ? 8.5 : 4.5) * Math.min(1, m) : 0;
     me.speed += (want - me.speed) * (1 - Math.exp(-dt * 10));
     if (m > 0.05) {
       const ty = Math.atan2(mx, mz);
