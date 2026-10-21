@@ -13,6 +13,7 @@ import { Input } from './input.js';
 import { Dialog } from './dialog.js';
 import { createOutline, setInkFocus, INK_LAYER } from './outline.js';
 import { createSettings, loadSettings } from './settings.js';
+import { createPerfLog } from './perflog.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
@@ -126,12 +127,21 @@ function fpsTick() {
 }
 addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat && !e.target.closest?.('input,textarea')) { setFps(!fps.on); gfx?.redraw(); } });
 
+let plog = null;   // performance log (perflog.js), made once the player and camera exist
+
 // the graphics settings window (settings.js)
 const pct = (v) => Math.round(v * 100) + '%';
 const gfx = createSettings({
   presets: PRESETS, preset: level, values: QUALITY,
   ink: () => inkOn, onInk: setInk,
-  toggles: [{ label: 'FPS counter', hint: 'F key', get: () => fps.on, set: setFps }],
+  toggles: [
+    { label: 'FPS counter', hint: 'F key', get: () => fps.on, set: setFps },
+    { label: 'Performance log', hint: 'records while you play (starts a new log)', get: () => plog?.on, set: (v) => plog.set(v) },
+  ],
+  actions: [
+    { label: 'Share log', enabled: () => plog?.has(), run: () => plog.share() },
+    { label: 'Copy log', enabled: () => plog?.has(), run: () => plog.copy() },
+  ],
   rows: [
     { key: 'dpr', label: 'Resolution', values: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3], fmt: (v) => v + 'x', live: true },
     { key: 'aa', label: 'Anti-aliasing', values: [0, 1], fmt: (v) => (v ? 'On' : 'Off') },
@@ -297,6 +307,7 @@ function step(obj, dx, dz) {
 // test only: ?cam=x,y,z,tx,ty,tz fixes the camera for overview shots
 let TEST_CAM = q.has('test') && q.get('cam') ? q.get('cam').split(',').map(Number) : null;
 const cam = { yaw: 0, pitch: 0.32, dist: 7.5, target: new THREE.Vector3(), pos: new THREE.Vector3() };
+plog = createPerfLog({ renderer, scene, me, cam, outline, quality: QUALITY, preset: level });
 const ray = new THREE.Raycaster();
 function updateCamera(dt) {
   const t = new THREE.Vector3(me.pos.x, me.pos.y + 1.45, me.pos.z);
@@ -404,15 +415,19 @@ const perf = { n: 0, t: 0, last: 0 };
 function draw() {
   camera.layers.set(0);
   renderer.shadowMap.needsUpdate = shadowTick++ % (QUALITY.shadowRate || 1) === 0;
+  const withShadow = renderer.shadowMap.needsUpdate;
   renderer.render(scene, camera);
+  plog?.pass(withShadow ? 'main+shadow' : 'main');
   renderer.shadowMap.needsUpdate = false;
   setInkFocus(me.pos);
   outline.render(scene, camera);
+  plog?.pass('ink-gbuf');
   if (grass) {
     const ac = renderer.autoClear;
     renderer.autoClear = false;
     renderer.render(grassScene, camera);
     renderer.autoClear = ac;
+    plog?.pass('grass');
   }
   // the vector ink last: depth-tested against everything already drawn (grass
   // included), so blades and water behind a line never paint over it
@@ -423,6 +438,7 @@ function draw() {
     renderer.render(scene, camera);
     renderer.autoClear = ac; renderer.shadowMap.autoUpdate = su;
     camera.layers.set(0);
+    plog?.pass('lines');
   }
   // weak device: if frames stay slow (average over 4 s above 50 ms), step the line buffer down (1.5 -> 1 -> 0.5), then drop it
   if (!TEST && outline.enabled && !q.has('outline') && window.worldReady) {
@@ -442,6 +458,7 @@ const clock = new THREE.Clock();
 let t = 0;
 const TEST = q.has('test');   // automated checks draw frames on demand
 function frame(fixed) {
+  plog?.begin();
   const dt = TEST && typeof fixed === 'number' ? fixed : Math.min(clock.getDelta(), 0.05);
   t += dt; uTime.value = t; foliageTime.value = t;
   const c = input.read(dt);
@@ -550,9 +567,11 @@ function frame(fixed) {
     const p = new THREE.Vector3(n.x, n.y, n.z).project(camera);
     dialog.prompt = p.z < 1 ? { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight, label: n.label } : null;
   } else dialog.prompt = null;
+  plog?.updated();
   draw();
   dialog.safeB = safeB;
   dialog.draw(dt, t, innerWidth, innerHeight, Math.min(devicePixelRatio, 2));
+  plog?.end();
   fpsTick();
   if (!TEST) requestAnimationFrame(frame);
 }

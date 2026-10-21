@@ -9,7 +9,7 @@ export function loadSettings() {
 function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
 
 // rows: [{ key, label, values, fmt?, live? }], presets: { name: {key: value} }
-export function createSettings({ rows, presets, preset, values, ink, onLive, onInk, toggles = [] }) {
+export function createSettings({ rows, presets, preset, values, ink, onLive, onInk, toggles = [], actions = [] }) {
   const saved = loadSettings();
   const state = { preset, o: { ...(saved.o || {}) } };
   let dirty = false;
@@ -33,6 +33,7 @@ export function createSettings({ rows, presets, preset, values, ink, onLive, onI
     #gfx .acts { display: flex; gap: 8px; margin-top: 12px; }
     #gfx .acts button { flex: 1; padding: 9px; border-radius: 9px; border: 0; cursor: pointer; font: 600 13px system-ui, sans-serif; }
     #gfx .reset { background: rgba(255,255,255,.14); color: #fff; }
+    #gfx .reset[disabled] { opacity: .35; cursor: default; }
     #gfx .apply { background: #e8735a; color: #fff; }
     #gfx .apply[disabled] { opacity: .35; cursor: default; }
     #gfx .changed b { color: #ffd27a; }`;
@@ -42,7 +43,7 @@ export function createSettings({ rows, presets, preset, values, ink, onLive, onI
   cog.id = 'cogBtn'; cog.title = 'Graphics settings'; cog.textContent = '⚙';
   const box = document.createElement('div'); box.id = 'gfx';
   document.body.append(cog, box);
-  cog.addEventListener('click', () => box.classList.toggle('open'));
+  cog.addEventListener('click', () => { if (!box.classList.contains('open')) draw(); box.classList.toggle('open'); });
   for (const ev of ['keydown', 'pointerdown', 'touchstart', 'wheel']) box.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
 
   const cur = (k) => (k in state.o ? state.o[k] : presets[state.preset][k]);
@@ -61,10 +62,15 @@ export function createSettings({ rows, presets, preset, values, ink, onLive, onI
         return `<div class="row${changed ? ' changed' : ''}"><span class="l">${r.label}<small>${r.live ? 'instant' : 'needs reload'}</small></span>
           <div class="step"><button class="s" data-r="${i}" data-d="-1">‹</button><b>${fmtOf(r, v)}</b><button class="s" data-r="${i}" data-d="1">›</button></div></div>`;
       }).join('')}
+      ${actions.length ? `<div class="acts">${actions.map((a, i) => `<button class="reset" data-a="${i}" ${a.enabled && !a.enabled() ? 'disabled' : ''}>${a.label}</button>`).join('')}</div>` : ''}
       <div class="acts"><button class="reset" data-reset>Reset to ${state.preset}</button><button class="apply" data-apply ${dirty ? '' : 'disabled'}>Reload to apply</button></div>`;
     box.querySelector('[data-close]').onclick = () => box.classList.remove('open');
     box.querySelector('[data-ink]').onclick = () => { onInk(!ink()); draw(); };
     box.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { const t = toggles[+b.dataset.t]; t.set(!t.get()); draw(); }));
+    box.querySelectorAll('[data-a]').forEach((b) => (b.onclick = async () => {
+      const a = actions[+b.dataset.a], msg = await a.run();
+      if (msg) { b.textContent = msg; setTimeout(draw, 1600); } else draw();
+    }));
     box.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => {
       const i = (pnames.indexOf(state.preset) + +b.dataset.p + pnames.length) % pnames.length;
       state.preset = pnames[i]; state.o = {}; persist(); dirty = true;
