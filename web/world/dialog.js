@@ -50,7 +50,7 @@ export class Dialog {
     const line = this.lines[this.i];
     this.shown = Math.min(line.length, this.shown + dt * 55);
     const u = Math.min(W * 0.78 / 160, H * 0.3 / 48) * px;
-    const w = 160 * u, h = 48 * u, x = (W * px - w) / 2, y = H * px - h - 16 * px;
+    const w = 160 * u, h = 48 * u, x = (W * px - w) / 2, y = H * px - h - (6 + (this.safeB || 10)) * px;
     panel(ctx, x, y, w, h, u);
     ctx.font = `600 ${Math.round(9 * u)}px "${FONT}", monospace`;
     ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';

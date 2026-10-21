@@ -805,6 +805,7 @@ function calemActor(look) {
     b('Spine1', 0, 0, 1, 0.025 * sway); b('Spine3', 0, 0, 1, -0.018 * sway);
     // look around: pick a spot, turn to it (head leads, neck and chest follow), hold; a blink on big turns
     L.look -= dt;
+    if (actor.lookYaw != null) { L.ty = 0; L.tp = 0; L.look = 1; }
     if (L.look < 0) {
       L.look = 3 + Math.random() * 5;
       const ty = Math.random() < 0.35 ? (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.35) : (Math.random() - 0.5) * 0.5;
@@ -881,9 +882,17 @@ function calemActor(look) {
     rig.idles?.post(dt);
   };
 
+  // actor.lookYaw (radians, + = toward his left): the head and neck turn that
+  // way, eased, the chest a little; null = off
+  let lookY = 0;
+  const headLook = (dt) => {
+    if (actor.lookYaw == null) return;
+    lookY += (actor.lookYaw - lookY) * (1 - Math.exp(-dt * 6));
+    rig.bend('Spine3', 0, 1, 0, lookY * 0.12); rig.bend('Neck', 0, 1, 0, lookY * 0.35); rig.bend('Head', 0, 1, 0, lookY * 0.5);
+  };
   actor.animate = (dt, speed, air, t) => {
     if (!rig) return fb.animate(dt, speed, air, t);
-    if (rig.clips) { clipAnimate(dt, speed, air); rig.cloth?.update(dt, speed, air, t); return blinkStep(dt); }
+    if (rig.clips) { clipAnimate(dt, speed, air); headLook(dt); rig.cloth?.update(dt, speed, air, t); return blinkStep(dt); }
     const { pose } = rig;
     const run = Math.min(1, speed / 7), sw = speed > 0.1 ? Math.min(1, speed / 3) : 0;
     phase += dt * (speed > 0.1 ? 2.2 + speed * 1.15 : 0);

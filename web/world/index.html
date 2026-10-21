@@ -2,14 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <!-- home screen web clip: full screen, no status bar -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pallet Town" />
+  <meta name="theme-color" content="#000000" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <title>Pallet Town</title>
   <script type="importmap">
     { "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }
   </script>
   <style>
     @font-face { font-family: 'Pixelify Sans'; src: url(../hd/fonts/PixelifySans.woff2) format('woff2'); font-weight: 400 700; }
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe2e8; touch-action: none; user-select: none; -webkit-user-select: none; }
+    /* safe area: keep buttons clear of the notch / Dynamic Island and the home bar */
+    :root { --sl: max(10px, env(safe-area-inset-left)); --sr: max(10px, env(safe-area-inset-right));
+      --st: max(10px, env(safe-area-inset-top)); --sb: max(10px, env(safe-area-inset-bottom)); }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #cfe2e8; touch-action: none;
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
     #view, #ui { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
     #ui { pointer-events: none; }
     /* loading */
@@ -32,12 +44,10 @@
       background: linear-gradient(90deg, transparent, rgba(255, 253, 246, .9) 15%, rgba(255, 253, 246, .9) 85%, transparent); }
     #bannerSub { font-size: 20px; opacity: .95; }
     /* hints */
-    #hint { position: fixed; left: 14px; bottom: 14px; z-index: 5; font: 13px/1.5 system-ui, sans-serif; color: #fff;
+    #hint { position: fixed; left: calc(var(--sl) + 4px); bottom: calc(var(--sb) + 4px); z-index: 5; font: 13px/1.5 system-ui, sans-serif; color: #fff;
       background: rgba(20, 30, 40, .45); padding: 8px 12px; border-radius: 10px; transition: opacity 1.5s ease; }
     #hint.fade { opacity: 0; }
-    #inkBtn { position: fixed; top: 10px; left: 150px; z-index: 6; color: #fff; font: 13px system-ui, sans-serif; border: 0; cursor: pointer;
-      background: rgba(20, 30, 40, .4); padding: 6px 10px; border-radius: 8px; }
-    #back { position: fixed; top: 10px; left: 10px; z-index: 6; color: #fff; font: 13px system-ui, sans-serif;
+    #back { position: fixed; top: var(--st); left: var(--sl); z-index: 6; color: #fff; font: 13px system-ui, sans-serif;
       background: rgba(20, 30, 40, .4); padding: 6px 10px; border-radius: 8px; text-decoration: none; }
     /* touch */
     #stick { display: none; position: fixed; z-index: 7; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%;
@@ -45,8 +55,8 @@
     #knob { position: absolute; left: 30px; top: 30px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, .7); }
     .tbtn { display: none; position: fixed; z-index: 7; width: 64px; height: 64px; border-radius: 50%; font: 700 22px 'Pixelify Sans', sans-serif;
       color: #fff; border: 2px solid rgba(255, 255, 255, .7); align-items: center; justify-content: center; }
-    #btnA { right: 22px; bottom: 96px; background: rgba(232, 70, 60, .8); }
-    #btnJump { right: 96px; bottom: 40px; background: rgba(35, 40, 79, .6); font-size: 13px; }
+    #btnA { right: calc(var(--sr) + 12px); bottom: calc(var(--sb) + 86px); background: rgba(232, 70, 60, .8); }
+    #btnJump { right: calc(var(--sr) + 86px); bottom: calc(var(--sb) + 30px); background: rgba(35, 40, 79, .6); font-size: 13px; }
     @media (pointer: coarse) { .tbtn { display: flex; } #hint { display: none; } }
   </style>
 </head>
@@ -55,9 +65,8 @@
   <canvas id="ui"></canvas>
   <div id="loading"><div class="leaf"></div><h1>Pallet Town</h1><p id="loadText">Starting</p></div>
   <div id="banner"><div id="bannerTitle"></div><div class="stroke"></div><div id="bannerSub"></div></div>
-  <div id="hint">WASD move · arrow keys or drag look · Shift run · Space jump · E talk or read · wheel zoom · O outlines on/off</div>
+  <div id="hint">WASD move · arrow keys or drag: camera · C camera behind · Shift run · Space jump · E talk or read · wheel zoom · O outlines on/off · F fps</div>
   <a id="back" href="../">Game Boy version</a>
-  <button id="inkBtn">Outlines: on</button>
   <div id="stick"><div id="knob"></div></div>
   <div id="btnA" class="tbtn">A</div>
   <div id="btnJump" class="tbtn">Jump</div>

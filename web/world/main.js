@@ -12,47 +12,56 @@ import { makeActor, LOOKS } from './actor.js';
 import { Input } from './input.js';
 import { Dialog } from './dialog.js';
 import { createOutline, setInkFocus, INK_LAYER } from './outline.js';
+import { createSettings, loadSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
 
 // ---------- quality ----------
 const q = new URLSearchParams(location.search);
-const auto = (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|Android|iPhone|iPad/.test(navigator.userAgent) ? 'low' : 'high';
-const level = q.get('q') || auto;
-const QUALITY = {
-  low: { dpr: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1 },
-  medium: { dpr: 1.25, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5 },
-  high: { dpr: 1.5, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5 },
-}[level] || null;
+// iPhones and iPads get their own profile: their GPUs handle far more than a
+// Chromebook, and their screens are 3x, so 'low' (1x pixels) looked blurry
+const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const auto = iOS ? 'phone' : (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|Android/.test(navigator.userAgent) ? 'low' : 'high';
+// presets; the settings window (cog button, settings.js) can change each
+// value on this device: ?q=<preset> picks a preset and ignores saved changes
+const PRESETS = {
+  low: { dpr: 1, aa: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1, fog: 1, exposure: 1 },
+  medium: { dpr: 1.25, aa: 1, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5, fog: 1, exposure: 1 },
+  high: { dpr: 1.5, aa: 1, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5, fog: 1, exposure: 1 },
+  // sharp (2x pixels), long view distances (grass, plants, full trees) and
+  // the ink G-buffer at native size
+  phone: { dpr: 2, aa: 1, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1, fog: 1, exposure: 1 },
+};
+const SAVED = loadSettings();
+const level = q.get('q') in PRESETS ? q.get('q') : SAVED.preset in PRESETS ? SAVED.preset : auto;
+const QUALITY = { ...PRESETS[level], ...(q.has('q') ? {} : SAVED.o || {}) };
 // ink lines (outline.js): G-buffer resolution scale (1.5 = supersampled), 0 = off. ?outline=0..2
 // overrides; on a very weak device the frame loop drops to half, then off.
 if (q.has('outline')) QUALITY.outline = Math.max(0, Math.min(2, +q.get('outline') || 0));
 
 // ---------- renderer and scene ----------
 const view = $('view');
-const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: !!QUALITY.aa, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.dpr));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = QUALITY.exposure;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const outline = createOutline(renderer, { scale: QUALITY.outline || 1 });
 outline.enabled = QUALITY.outline > 0;
 if (!outline.enabled) outline.lines.visible = false;   // ?outline=0: no ink at all
-// O key or the Outlines button: ink on / off (remembered on this device)
+// O key or the settings window: ink on / off (remembered on this device)
 let inkOn = outline.enabled && localStorage.getItem('pallet-ink') !== 'off';
 function setInk(on) {
   inkOn = on; outline.enabled = on && QUALITY.outline > 0; outline.lines.visible = outline.enabled;
   localStorage.setItem('pallet-ink', on ? 'on' : 'off');
-  const b = document.getElementById('inkBtn'); if (b) b.textContent = 'Outlines: ' + (on ? 'on' : 'off');
 }
 setInk(inkOn);
-addEventListener('keydown', (e) => { if (e.code === 'KeyO' && !e.repeat) setInk(!inkOn); });
-document.getElementById('inkBtn')?.addEventListener('click', () => setInk(!inkOn));
+addEventListener('keydown', (e) => { if (e.code === 'KeyO' && !e.repeat) { setInk(!inkOn); gfx?.redraw(); } });
 const scene = new THREE.Scene();
 const FOG = new THREE.Color('#c4e2f0');
-scene.fog = new THREE.Fog(FOG, 90, 430);
+scene.fog = new THREE.Fog(FOG, 90 * QUALITY.fog, 430 * QUALITY.fog);
 const camera = new THREE.PerspectiveCamera(52, 1, 0.25, 2000);   // near 0.25 (was 0.1): 2.5x the depth precision far off
 
 const sunDir = new THREE.Vector3(-0.55, 0.75, 0.45).normalize();
@@ -82,6 +91,66 @@ function resize() {
   $('ui').width = Math.round(w * px); $('ui').height = Math.round(h * px);
 }
 addEventListener('resize', resize); resize();
+// iOS reports the new size a moment after turning the phone
+addEventListener('orientationchange', () => { setTimeout(resize, 120); setTimeout(resize, 500); });
+// the home bar's height, so the dialog box sits above it
+const safeProbe = document.createElement('div');
+safeProbe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-bottom:var(--sb)';
+document.body.appendChild(safeProbe);
+let safeB = 10;
+const readSafe = () => { safeB = parseFloat(getComputedStyle(safeProbe).paddingBottom) || 10; };
+readSafe(); addEventListener('resize', readSafe);
+
+// the FPS counter beside the cog: frames per second over the last half second,
+// the slowest frame in that window, and the resolution being drawn
+const fpsEl = document.createElement('div');
+fpsEl.id = 'fps';
+fpsEl.style.cssText = 'position:fixed;top:var(--st,10px);left:calc(var(--sl,10px) + 178px);z-index:6;height:28px;padding:0 9px;border-radius:8px;background:rgba(20,30,40,.4);color:#fff;font:600 13px/28px ui-monospace,Menlo,monospace;pointer-events:none;white-space:nowrap';
+document.body.appendChild(fpsEl);
+const fps = { on: localStorage.getItem('pallet-fps') !== '0', n: 0, acc: 0, worst: 0, last: performance.now() };
+const setFps = (on) => { fps.on = on; localStorage.setItem('pallet-fps', on ? '1' : '0'); fpsEl.style.display = on ? '' : 'none'; };
+setFps(fps.on);
+function fpsTick() {
+  const now = performance.now(), d = now - fps.last; fps.last = now;
+  if (!fps.on || d > 1000) return;
+  fps.n++; fps.acc += d; fps.worst = Math.max(fps.worst, d);
+  if (fps.acc >= 500) {
+    const f = Math.round(fps.n * 1000 / fps.acc);
+    fpsEl.style.color = f >= 55 ? '#9ef0a0' : f >= 30 ? '#ffd27a' : '#ff8a7a';
+    fpsEl.textContent = `${f} fps · ${Math.round(fps.worst)} ms · ${renderer.getPixelRatio().toFixed(2).replace(/\.?0+$/, '')}x`;
+    fps.n = 0; fps.acc = 0; fps.worst = 0;
+  }
+}
+addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat && !e.target.closest?.('input,textarea')) { setFps(!fps.on); gfx?.redraw(); } });
+
+// the graphics settings window (settings.js)
+const pct = (v) => Math.round(v * 100) + '%';
+const gfx = createSettings({
+  presets: PRESETS, preset: level, values: QUALITY,
+  ink: () => inkOn, onInk: setInk,
+  toggles: [{ label: 'FPS counter', hint: 'F key', get: () => fps.on, set: setFps }],
+  rows: [
+    { key: 'dpr', label: 'Resolution', values: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3], fmt: (v) => v + 'x', live: true },
+    { key: 'aa', label: 'Anti-aliasing', values: [0, 1], fmt: (v) => (v ? 'On' : 'Off') },
+    { key: 'outline', label: 'Outline quality', values: [0.5, 0.75, 1, 1.25, 1.5, 2], fmt: (v) => v + 'x', live: true },
+    { key: 'shadow', label: 'Shadow detail', values: [512, 1024, 2048, 4096], live: true },
+    { key: 'grass', label: 'Grass density', values: [20000, 40000, 60000, 90000, 120000, 150000, 180000, 220000, 260000], fmt: (v) => Math.round(v / 1000) + 'k' },
+    { key: 'grassSize', label: 'Grass distance', values: [30, 40, 50, 64, 76, 90], fmt: (v) => Math.round(v / 2) + ' m' },
+    { key: 'lod', label: 'View distance', values: [0.5, 0.7, 0.85, 1, 1.2, 1.35, 1.6, 2], fmt: pct },
+    { key: 'trees', label: 'Trees', values: [0.3, 0.45, 0.6, 0.8, 1, 1.25, 1.5], fmt: pct },
+    { key: 'plants', label: 'Bushes and flowers', values: [0.25, 0.5, 0.75, 1, 1.25, 1.5], fmt: pct },
+    { key: 'fog', label: 'Haze distance', values: [0.6, 0.8, 1, 1.25, 1.5, 2], fmt: pct, live: true },
+    { key: 'exposure', label: 'Brightness', values: [0.8, 0.9, 1, 1.1, 1.2, 1.3], fmt: pct, live: true },
+  ],
+  onLive(k, v) {
+    QUALITY[k] = v;
+    if (k === 'dpr') { renderer.setPixelRatio(Math.min(devicePixelRatio, v)); resize(); }
+    if (k === 'outline') { outline.scale = v; resize(); }
+    if (k === 'shadow') { sun.shadow.mapSize.set(v, v); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    if (k === 'fog') { scene.fog.near = 90 * v; scene.fog.far = 430 * v; }
+    if (k === 'exposure') renderer.toneMappingExposure = v;
+  },
+});
 
 // ---------- the world ----------
 status('Shaping the land');
@@ -254,6 +323,7 @@ function banner(title, sub) {
 }
 let area = 'town';
 let script = null;    // a running cutscene: { t, update(dt) }
+let camIdle = 0, recenter = 0;   // camera: seconds since you last turned it; recentring time left
 
 // the closest thing to talk to or read
 function nearby() {
@@ -373,10 +443,20 @@ function frame(fixed) {
   if (dialog.open) {
     if (c.pressed.has('use') || c.pressed.has('jump') || c.pressed.has('back')) dialog.next();
   }
-  // look around
+  // camera (as in Legends: Arceus): the right stick / arrows / mouse orbit it
+  // freely; while you walk and leave it alone it slowly swings round behind
+  // you; C (or ZL) brings it straight back behind the player
+  const manual = Math.abs(c.lx) + Math.abs(c.ly) > 0.01;
+  camIdle = manual ? 0 : camIdle + dt;
   cam.yaw -= c.lx * 0.0045; cam.pitch = Math.min(1.2, Math.max(-0.15, cam.pitch + c.ly * 0.0035));
   cam.dist = Math.min(14, Math.max(3, cam.dist + c.zoom * 0.8));
-  // move
+  if (c.pressed.has('recenter')) recenter = 0.35;
+  {
+    let behind = me.yaw + Math.PI - cam.yaw; behind = Math.atan2(Math.sin(behind), Math.cos(behind));
+    if (recenter > 0) { recenter -= dt; cam.yaw += behind * (1 - Math.exp(-dt * 12)); if (manual) recenter = 0; }
+    else if (camIdle > 1.0 && Math.abs(me.speed) > 0.5) cam.yaw += behind * (1 - Math.exp(-dt * 0.9 * Math.min(1, Math.abs(me.speed) / 6)));
+  }
+  // move: relative to the camera; Ash turns smoothly toward where you push
   let moving = 0;
   if (!dialog.open && !script) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
@@ -387,19 +467,27 @@ function frame(fixed) {
     if (m > 0.05) {
       const ty = Math.atan2(mx, mz);
       let d = ty - me.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
-      me.yaw += d * (1 - Math.exp(-dt * 14));
+      me.yaw += d * (1 - Math.exp(-dt * 12));
       moving = 1;
     }
-    if (me.speed > 0.05) step(me, Math.sin(me.yaw) * me.speed * dt, Math.cos(me.yaw) * me.speed * dt);
+    if (Math.abs(me.speed) > 0.05) step(me, Math.sin(me.yaw) * me.speed * dt, Math.cos(me.yaw) * me.speed * dt);
     if (c.pressed.has('jump') && me.ground) { me.vy = 5.2; me.ground = false; }
     if (c.pressed.has('use')) {
       const n = nearby();
       if (n) {
-        if (n.npc) { n.npc.yaw = Math.atan2(me.pos.x - n.npc.pos.x, me.pos.z - n.npc.pos.z); n.npc.target = null; n.npc.wait = 3; }
+        if (n.npc) {
+          n.npc.target = null; n.npc.wait = 3; n.npc.speed = 0;
+          n.npc.face = Math.atan2(me.pos.x - n.npc.pos.x, me.pos.z - n.npc.pos.z);
+          me.face = Math.atan2(n.npc.pos.x - me.pos.x, n.npc.pos.z - me.pos.z);
+        } else me.face = Math.atan2(n.x - me.pos.x, n.z - me.pos.z);
+        me.speed = 0;
         dialog.say(n.lines);
       }
     }
-  } else if (!script) me.speed *= Math.exp(-dt * 12);
+  } else if (!script || dialog.open) me.speed = 0;
+  // turn smoothly to face whoever (or whatever) you're talking to
+  if (dialog.open && me.face != null) { let d = me.face - me.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); me.yaw += d * (1 - Math.exp(-dt * 10)); }
+  if (!dialog.open) me.face = null;
   if (script) script.update(dt);
   // gravity
   const g = groundAt(me.pos.x, me.pos.z);
@@ -408,11 +496,21 @@ function frame(fixed) {
   if (me.ground && me.pos.y - g < 0.3) me.pos.y = g;
   player.root.position.copy(me.pos);
   player.root.rotation.y = me.yaw;
-  player.animate(dt, me.speed, !me.ground, t);
+  // the head turns toward where the camera looks, within a comfortable range
+  {
+    let rel = cam.yaw + Math.PI - me.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+    player.lookYaw = Math.abs(rel) < 2.2 && !dialog.open ? Math.max(-1.0, Math.min(1.0, rel)) : 0;
+  }
+  player.animate(dt, Math.abs(me.speed), !me.ground, t);
   void moving;
   // villagers wander
   for (const n of npcs) {
     if (n.hidden) continue;
+    if (dialog.open || n === oak && !script) {
+      // in a conversation (or waiting): stand still, turn to face the player
+      if (dialog.open) n.speed = 0;
+      if (n.face != null) { let d = n.face - n.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); n.yaw += d * (1 - Math.exp(-dt * 8)); }
+    } else n.face = null;
     if (n !== oak && n.wander > 0 && !(dialog.open)) {
       if (!n.target) {
         n.wait -= dt; n.speed *= Math.exp(-dt * 8);
@@ -448,7 +546,9 @@ function frame(fixed) {
     dialog.prompt = p.z < 1 ? { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight, label: n.label } : null;
   } else dialog.prompt = null;
   draw();
+  dialog.safeB = safeB;
   dialog.draw(dt, t, innerWidth, innerHeight, Math.min(devicePixelRatio, 2));
+  fpsTick();
   if (!TEST) requestAnimationFrame(frame);
 }
 
