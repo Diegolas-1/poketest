@@ -12,3 +12,7 @@ web/world/lineup.html
 # workers' scratch copies
 *_tmp.js
 *_tmp.html
+
+# model sources stay on this machine; only the finished player model is published
+web/world/local/*
+!web/world/local/ash.glb

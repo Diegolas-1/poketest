@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Oak lab preview</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden}canvas{display:block}#i{position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000}</style></head>
+<body><div id="i"></div><script type="module">
+import * as THREE from 'three';
+import { buildSky } from './nature.js';
+import { buildLab, LAB_FOOTPRINT } from './lab.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+const sunDir = new THREE.Vector3(-0.55, 0.75, 0.45).normalize();
+scene.add(buildSky(sunDir)); scene.fog = new THREE.Fog('#cfe2e8', 80, 400);
+scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.2));
+const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(60); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 150 }); sun.shadow.bias = -0.0005; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
+ground.receiveShadow = true; scene.add(ground);
+const world = { colliders: [], use: [], solid: [], walk: [], anim: [], group: new THREE.Group() };
+scene.add(world.group);
+const facing = Number(q.get('facing') || 0);
+buildLab(world, { x: 0, z: 0, y: 0, facing });
+// a 1.55 m capsule for scale, by the steps
+const cap = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 1.05, 4, 10), new THREE.MeshLambertMaterial({ color: '#e05050' }));
+cap.position.set(-4.2, 0.775, 10.2); cap.castShadow = true; scene.add(cap);
+if (q.has('dbg')) for (const c of world.colliders) {
+  const m = new THREE.Mesh(c.box ? new THREE.BoxGeometry(c.hw * 2, 0.2, c.hd * 2) : new THREE.CylinderGeometry(c.r, c.r, 0.2, 12), new THREE.MeshBasicMaterial({ color: '#ff00ff', wireframe: true }));
+  m.position.set(c.x, 0.1, c.z); scene.add(m);
+}
+const VIEWS = { front: '-24,10,30,-1,7,0', side: '38,8,6,0,7,0', back: '18,14,-32,0,7,0', low: '-9,1.4,22,-5,9.5,0', top: '0,60,10,0,0,0' };
+const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 2000);
+const c = (q.get('cam') || VIEWS[q.get('view') || 'front']).split(',').map(Number);
+cam.position.set(c[0], c[1], c[2]); cam.lookAt(c[3], c[4], c[5]);
+const t = Number(q.get('t') || 1);
+for (const a of world.anim) a(t, t);
+let meshes = 0; world.group.traverse((o) => { if (o.isMesh) meshes++; });
+document.getElementById('i').textContent = `meshes ${meshes} · colliders ${world.colliders.length} · footprint ${LAB_FOOTPRINT.w}x${LAB_FOOTPRINT.d}`;
+window.stats = { meshes, colliders: world.colliders.length };
+r.render(scene, cam);
+if (q.has('live')) { let last = performance.now(), tt = t; const loop = (now) => { const dt = (now - last) / 1000; last = now; tt += dt; for (const a of world.anim) a(dt, tt); r.render(scene, cam); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+setTimeout(() => { window.ready = true; }, 300);
+</script></body></html>
