@@ -12,6 +12,7 @@ import { makeActor, LOOKS } from './actor.js';
 import { Input } from './input.js';
 import { Dialog } from './dialog.js';
 import { createOutline, setInkFocus, INK_LAYER } from './outline.js';
+import { createSettings, loadSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
@@ -22,43 +23,45 @@ const q = new URLSearchParams(location.search);
 // Chromebook, and their screens are 3x, so 'low' (1x pixels) looked blurry
 const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const auto = iOS ? 'phone' : (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|Android/.test(navigator.userAgent) ? 'low' : 'high';
-const level = q.get('q') || auto;
-const QUALITY = {
-  low: { dpr: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1 },
-  medium: { dpr: 1.25, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5 },
+// presets; the settings window (cog button, settings.js) can change each
+// value on this device: ?q=<preset> picks a preset and ignores saved changes
+const PRESETS = {
+  low: { dpr: 1, aa: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1, fog: 1, exposure: 1 },
+  medium: { dpr: 1.25, aa: 1, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5, fog: 1, exposure: 1 },
+  high: { dpr: 1.5, aa: 1, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5, fog: 1, exposure: 1 },
   // sharp (2x pixels), long view distances (grass, plants, full trees) and
-  // the ink G-buffer at native size; ?q=phone to try it anywhere
-  phone: { dpr: 2, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1 },
-  high: { dpr: 1.5, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5 },
-}[level] || null;
+  // the ink G-buffer at native size
+  phone: { dpr: 2, aa: 1, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1, fog: 1, exposure: 1 },
+};
+const SAVED = loadSettings();
+const level = q.get('q') in PRESETS ? q.get('q') : SAVED.preset in PRESETS ? SAVED.preset : auto;
+const QUALITY = { ...PRESETS[level], ...(q.has('q') ? {} : SAVED.o || {}) };
 // ink lines (outline.js): G-buffer resolution scale (1.5 = supersampled), 0 = off. ?outline=0..2
 // overrides; on a very weak device the frame loop drops to half, then off.
 if (q.has('outline')) QUALITY.outline = Math.max(0, Math.min(2, +q.get('outline') || 0));
 
 // ---------- renderer and scene ----------
 const view = $('view');
-const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: !!QUALITY.aa, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.dpr));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = QUALITY.exposure;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const outline = createOutline(renderer, { scale: QUALITY.outline || 1 });
 outline.enabled = QUALITY.outline > 0;
 if (!outline.enabled) outline.lines.visible = false;   // ?outline=0: no ink at all
-// O key or the Outlines button: ink on / off (remembered on this device)
+// O key or the settings window: ink on / off (remembered on this device)
 let inkOn = outline.enabled && localStorage.getItem('pallet-ink') !== 'off';
 function setInk(on) {
   inkOn = on; outline.enabled = on && QUALITY.outline > 0; outline.lines.visible = outline.enabled;
   localStorage.setItem('pallet-ink', on ? 'on' : 'off');
-  const b = document.getElementById('inkBtn'); if (b) b.textContent = 'Outlines: ' + (on ? 'on' : 'off');
 }
 setInk(inkOn);
-addEventListener('keydown', (e) => { if (e.code === 'KeyO' && !e.repeat) setInk(!inkOn); });
-document.getElementById('inkBtn')?.addEventListener('click', () => setInk(!inkOn));
+addEventListener('keydown', (e) => { if (e.code === 'KeyO' && !e.repeat) { setInk(!inkOn); gfx?.redraw(); } });
 const scene = new THREE.Scene();
 const FOG = new THREE.Color('#c4e2f0');
-scene.fog = new THREE.Fog(FOG, 90, 430);
+scene.fog = new THREE.Fog(FOG, 90 * QUALITY.fog, 430 * QUALITY.fog);
 const camera = new THREE.PerspectiveCamera(52, 1, 0.25, 2000);   // near 0.25 (was 0.1): 2.5x the depth precision far off
 
 const sunDir = new THREE.Vector3(-0.55, 0.75, 0.45).normalize();
@@ -88,6 +91,34 @@ function resize() {
   $('ui').width = Math.round(w * px); $('ui').height = Math.round(h * px);
 }
 addEventListener('resize', resize); resize();
+
+// the graphics settings window (settings.js)
+const pct = (v) => Math.round(v * 100) + '%';
+const gfx = createSettings({
+  presets: PRESETS, preset: level, values: QUALITY,
+  ink: () => inkOn, onInk: setInk,
+  rows: [
+    { key: 'dpr', label: 'Resolution', values: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3], fmt: (v) => v + 'x', live: true },
+    { key: 'aa', label: 'Anti-aliasing', values: [0, 1], fmt: (v) => (v ? 'On' : 'Off') },
+    { key: 'outline', label: 'Outline quality', values: [0.5, 0.75, 1, 1.25, 1.5, 2], fmt: (v) => v + 'x', live: true },
+    { key: 'shadow', label: 'Shadow detail', values: [512, 1024, 2048, 4096], live: true },
+    { key: 'grass', label: 'Grass density', values: [20000, 40000, 60000, 90000, 120000, 150000, 180000, 220000, 260000], fmt: (v) => Math.round(v / 1000) + 'k' },
+    { key: 'grassSize', label: 'Grass distance', values: [30, 40, 50, 64, 76, 90], fmt: (v) => Math.round(v / 2) + ' m' },
+    { key: 'lod', label: 'View distance', values: [0.5, 0.7, 0.85, 1, 1.2, 1.35, 1.6, 2], fmt: pct },
+    { key: 'trees', label: 'Trees', values: [0.3, 0.45, 0.6, 0.8, 1, 1.25, 1.5], fmt: pct },
+    { key: 'plants', label: 'Bushes and flowers', values: [0.25, 0.5, 0.75, 1, 1.25, 1.5], fmt: pct },
+    { key: 'fog', label: 'Haze distance', values: [0.6, 0.8, 1, 1.25, 1.5, 2], fmt: pct, live: true },
+    { key: 'exposure', label: 'Brightness', values: [0.8, 0.9, 1, 1.1, 1.2, 1.3], fmt: pct, live: true },
+  ],
+  onLive(k, v) {
+    QUALITY[k] = v;
+    if (k === 'dpr') { renderer.setPixelRatio(Math.min(devicePixelRatio, v)); resize(); }
+    if (k === 'outline') { outline.scale = v; resize(); }
+    if (k === 'shadow') { sun.shadow.mapSize.set(v, v); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    if (k === 'fog') { scene.fog.near = 90 * v; scene.fog.far = 430 * v; }
+    if (k === 'exposure') renderer.toneMappingExposure = v;
+  },
+});
 
 // ---------- the world ----------
 status('Shaping the land');
