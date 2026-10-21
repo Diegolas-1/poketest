@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Avatars</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}canvas{display:block}</style></head>
+<body><script type="module">
+// Preview of the town's people: the whole cast in a row, Ash close up from the
+// front and at 3/4, and Ash walking and running. ?pose=walk|run|jump&t=.. shows
+// one big Ash in that pose; ?look=oak picks another look, &zoom frames the head.
+import * as THREE from 'three';
+import { makeActor, LOOKS } from './actor.js';
+import { buildSky } from './nature.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+const sunDir = new THREE.Vector3(-0.6, 0.7, 0.5).normalize();
+scene.add(buildSky(sunDir)); scene.fog = new THREE.Fog('#cfe2e8', 40, 200);
+scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.2));
+const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(40); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 100 }); sun.shadow.bias = -0.0005; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
+ground.receiveShadow = true; scene.add(ground);
+const put = (look, x, z, yaw = 0, speed = 0, t = 1.3, air = false) => {
+  const a = makeActor(look); a.root.position.set(x, 0, z); a.root.rotation.y = yaw; scene.add(a.root);
+  a.animate(t, speed, air, t); return a;
+};
+const W = innerWidth, H = innerHeight;
+const cam = (fov, p, l, asp) => { const c = new THREE.PerspectiveCamera(fov, asp, 0.05, 2000); c.position.set(...p); c.lookAt(...l); return c; };
+const views = [];   // [camera, x, y, w, h] in pixels from the bottom left
+if (q.has('pose')) {
+  const pose = q.get('pose'), t = +(q.get('t') || 0.4), sp = { walk: 2.6, run: 7, jump: 0, idle: 0 }[pose] ?? 0;
+  const look = { ...LOOKS[q.get('look') || 'red'] }; if (q.has('hair')) look.hair = '#' + q.get('hair');
+  const a = put(look, 0, 0, +(q.get('yaw') || 0.6), sp, t, pose === 'jump');
+  const hy = a.head.getWorldPosition(new THREE.Vector3()).y;
+  views.push(q.has('zoom') ? [cam(14, [0, hy + 0.3, 3], [0, hy, 0], W / H), 0, 0, W, H] : [cam(26, [0, 1.1, 5.2], [0, 0.85, 0], W / H), 0, 0, W, H]);
+} else {
+  const names = Object.keys(LOOKS).filter((k) => k !== 'ash');
+  names.forEach((k, i) => put(LOOKS[k], (i - (names.length - 1) / 2) * 1.05, 0, 0.25));
+  put(LOOKS.red, 12, 0, 0); put(LOOKS.red, 18, 0, 0.75);
+  put(LOOKS.red, -12, 0, 1.2, 2.6, 0.45); put(LOOKS.red, -18, 0, 1.2, 7, 0.6);
+  const hh = Math.floor(H * 0.5), qw = Math.floor(W / 4);
+  views.push([cam(30, [0, 1.25, 7.6], [0, 0.95, 0], W / hh), 0, hh, W, H - hh]);
+  views.push([cam(16, [12, 1.45, 3.0], [12, 1.22, 0], qw / hh), 0, 0, qw, hh]);
+  views.push([cam(16, [18, 1.45, 3.0], [18, 1.22, 0], qw / hh), qw, 0, qw, hh]);
+  views.push([cam(26, [-12, 1.0, 4.4], [-12, 0.85, 0], qw / hh), qw * 2, 0, qw, hh]);
+  views.push([cam(26, [-18, 1.0, 4.4], [-18, 0.85, 0], qw / hh), qw * 3, 0, W - qw * 3, hh]);
+}
+r.setScissorTest(true);
+for (const [c, x, y, w, h] of views) { r.setViewport(x, y, w, h); r.setScissor(x, y, w, h); r.render(scene, c); }
+window.ready = true;
+</script></body></html>

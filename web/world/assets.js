@@ -251,40 +251,48 @@ export class Impostor {
 export function grassField(scene, { count, size, heightTex, area, sunDir }) {
   // anime grass clumps: broad flat blades, pointed, fanning out of one root,
   // a few with a notch on one side, plus short blades curling at the foot
-  const pos = [], tt = [], face = [], idx = [];
+  const pos = [], tt = [], face = [], lay = [], idx = [];
   let s = 12345;
   const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
   const segs = 5;
-  const bladeAt = (ang, lean, len, wid, notch, curl) => {
+  // one blade: a long pointed leaf from a root at (rx, rz), leaning out along
+  // ang; notch adds a small spike on one side, layer = shade (inner darker)
+  const bladeAt = (rx, rz, ang, lean, len, wid, notch, layer, curl = 0) => {
     const base = pos.length / 3;
     const dx = Math.cos(ang), dz = Math.sin(ang), sx = -dz, sz = dx;
+    const twist = (r() - 0.5) * 0.6;
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
-      // leaf outline: widest a third of the way up, then to a point
-      let w = wid * Math.pow(Math.sin(Math.PI * Math.min(1, t * 0.85 + 0.08)), 0.8) * (1 - t * 0.35);
-      if (i === segs) w = 0;
-      const out = lean * t * t * len + curl * t * 0.15, y = len * t * (1 - curl * t * 0.5);
-      const cx = dx * out, cz = dz * out;
-      const wl = w * (notch && i === 3 ? 1.9 : 1), wr = w;
-      pos.push(cx - sx * wl, y, cz - sz * wl, cx + sx * wr, y, cz + sz * wr);
-      tt.push(t, t); face.push(ang, ang);
+      let w = wid * Math.min(1, t * 5 + 0.35) * Math.pow(1 - t, 0.85);
+      const out = lean * t * t * len * 0.8 + curl * t * 0.2, y = len * t * (1 - lean * 0.25 * t) * (1 - curl * t * 0.6);
+      const cx = rx + dx * out, cz = rz + dz * out;
+      const tw = twist * t, ux = sx * Math.cos(tw) - dx * Math.sin(tw), uz = sz * Math.cos(tw) - dz * Math.sin(tw);
+      const wl = w * (notch && i === 2 ? 2.4 : 1);
+      pos.push(cx - ux * wl, y, cz - uz * wl, cx + ux * w, y, cz + uz * w);
+      tt.push(t, t); face.push(ang, ang); lay.push(layer, layer);
       if (i < segs) { const q = base + i * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
     }
   };
-  for (let k = 0; k < 15; k++) {
-    const ang = r() * 6.28, d = r() * 0.18;
-    const b0 = pos.length;
-    bladeAt(ang, 0.12 + r() * 0.5, 0.5 + r() * 0.6, 0.06 + r() * 0.05, r() < 0.3, 0);
-    // spread the roots a little so a clump is a tuft, not a single point
-    for (let q = b0; q < pos.length; q += 3) { pos[q] += Math.cos(ang + 2) * d; pos[q + 2] += Math.sin(ang + 2) * d; }
-  }
-  for (let k = 0; k < 3; k++) bladeAt(r() * 6.28, 1.6, 0.25, 0.05, false, 1);
+  // a tuft in layers: short dark blades in the heart, a middle ring, long
+  // blades fanning out low, thin wisps, and a couple curling on the ground
+  const tuft = (cx, cz, sc) => {
+    const R = (k) => (r() - 0.5) * k;
+    for (let k = 0; k < 6; k++) bladeAt(cx + R(0.08) * sc, cz + R(0.08) * sc, r() * 6.28, 0.12, (0.32 + r() * 0.15) * sc, 0.07 * sc, false, 0.55);
+    for (let k = 0; k < 7; k++) bladeAt(cx + R(0.12) * sc, cz + R(0.12) * sc, r() * 6.28, 0.22 + r() * 0.2, (0.65 + r() * 0.3) * sc, 0.09 * sc, r() < 0.3, 0.8);
+    for (let k = 0; k < 8; k++) bladeAt(cx + R(0.14) * sc, cz + R(0.14) * sc, (k / 8) * 6.28 + R(0.6), 0.45 + r() * 0.35, (0.85 + r() * 0.4) * sc, 0.1 * sc, r() < 0.4, 1.0);
+    for (let k = 0; k < 4; k++) bladeAt(cx + R(0.1) * sc, cz + R(0.1) * sc, r() * 6.28, 0.5 + r() * 0.6, (0.8 + r() * 0.4) * sc, 0.014 * sc, false, 0.9);
+    for (let k = 0; k < 2; k++) bladeAt(cx + R(0.2) * sc, cz + R(0.2) * sc, r() * 6.28, 1.6, 0.28 * sc, 0.045 * sc, false, 0.85, 1);
+  };
+  // a cluster: a big tuft with two or three smaller ones leaning against it
+  tuft(0, 0, 1);
+  for (let k = 0; k < 3; k++) { const a = k * 2.1 + r(), d = 0.3 + r() * 0.15; tuft(Math.cos(a) * d, Math.sin(a) * d, 0.55 + r() * 0.3); }
   const clump = new THREE.InstancedBufferGeometry();
   clump.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   clump.setAttribute('bt', new THREE.Float32BufferAttribute(tt, 1));
   clump.setAttribute('bface', new THREE.Float32BufferAttribute(face, 1));
+  clump.setAttribute('blay', new THREE.Float32BufferAttribute(lay, 1));
   clump.setIndex(idx);
-  const n = Math.round(count / 6);
+  const n = Math.round(count / 14);
   const off = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) off.set([r() * size, r() * size, r(), r()], i * 4);
   clump.setAttribute('off', new THREE.InstancedBufferAttribute(off, 4));
@@ -300,7 +308,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
     uniforms,
     side: THREE.DoubleSide,
     vertexShader: `
-      attribute vec4 off; attribute float bt; attribute float bface;
+      attribute vec4 off; attribute float bt; attribute float bface; attribute float blay;
       uniform float uTime, uSize; uniform vec3 uCam; uniform sampler2D uHeight; uniform vec4 uArea; uniform vec3 uSun;
       varying float vT; varying vec3 vCol; varying float vFog; varying float vLight;
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -312,7 +320,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         float dens = hm.g;
         float dist = length(p - uCam.xz);
         float keep = step(off.z, dens) * smoothstep(uSize * 0.5, uSize * 0.36, dist);
-        float sc = (0.4 + off.w * 0.4) * (0.6 + dens * 0.6) * keep;
+        float sc = (0.45 + off.w * 0.35) * (0.6 + dens * 0.6) * keep;
         // turn each clump its own way
         float ra = off.z * 40.0, c = cos(ra), s = sin(ra);
         vec3 lp = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c) * sc;
@@ -322,9 +330,9 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         vec3 wp = vec3(p.x, hm.r, p.y) + lp;
         // green root, lime body, pale yellow tips, a little patch variety
         float n = hash(floor(p * 0.3));
-        vec3 root = vec3(0.06, 0.28, 0.12), body = mix(vec3(0.26, 0.58, 0.10), vec3(0.32, 0.64, 0.10), n);
-        vec3 tip = mix(vec3(0.58, 0.82, 0.18), vec3(0.70, 0.86, 0.26), n);
-        vCol = mix(mix(root, body, smoothstep(0.0, 0.45, t)), tip, smoothstep(0.55, 1.0, t));
+        vec3 root = vec3(0.03, 0.2, 0.1), body = mix(vec3(0.2, 0.52, 0.08), vec3(0.26, 0.58, 0.08), n);
+        vec3 tip = mix(vec3(0.66, 0.86, 0.16), vec3(0.78, 0.9, 0.24), n);
+        vCol = mix(mix(root, body, smoothstep(0.0, 0.35, t)), tip, smoothstep(0.4, 0.85, t)) * mix(vec3(0.55, 0.75, 0.9), vec3(1.0), blay);
         // blades turned to the sun are lit, the rest in cool shade (two bands)
         float fa = bface + ra;
         vec3 nrm = normalize(vec3(cos(fa), 0.7, sin(fa)));
