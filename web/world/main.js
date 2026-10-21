@@ -223,6 +223,39 @@ function blocked(x, z, r = 0) {
 }
 
 // ---------- people ----------
+// Skinned meshes upload their skeleton's bone matrices as a texture whenever
+// the skeleton updates. Each clothing piece came with its own copy of the same
+// skeleton, and three updates a skeleton once per render pass, so a crowd sent
+// dozens of textures a frame (Safari on iPhone slows down badly under that).
+// Pieces with the same bones and bind pose now share one skeleton, and a
+// skeleton updates at most once per game frame.
+let gameFrame = 0;
+const frustum = new THREE.Frustum(), cullMat = new THREE.Matrix4(), cullSphere = new THREE.Sphere(new THREE.Vector3(), 4);
+{
+  const up = THREE.Skeleton.prototype.update;
+  THREE.Skeleton.prototype.update = function () { if (this._gf === gameFrame) return; this._gf = gameFrame; up.call(this); };
+}
+function shareSkeletons(root) {
+  const list = [];
+  root.traverse((o) => { if (o.isSkinnedMesh) list.push(o); });
+  if (list.length === root.userData.skinN) return;
+  root.userData.skinN = list.length;
+  const kept = [];
+  const same = (a, b) => {
+    if (a === b) return true;
+    if (a.bones.length !== b.bones.length) return false;
+    for (let i = 0; i < a.bones.length; i++) {
+      if (a.bones[i] !== b.bones[i]) return false;
+      const x = a.boneInverses[i].elements, y = b.boneInverses[i].elements;
+      for (let j = 0; j < 16; j++) if (Math.abs(x[j] - y[j]) > 1e-5) return false;
+    }
+    return true;
+  };
+  for (const m of list) {
+    const k = kept.find((s) => same(s, m.skeleton));
+    if (k) { if (m.skeleton !== k) m.skeleton = k; } else kept.push(m.skeleton);
+  }
+}
 const player = makeActor(LOOKS.red);
 scene.add(player.root);
 // start on the path just outside Red's front door
@@ -501,6 +534,7 @@ function frame(fixed) {
     lastFrameAt = now;
   }
   const frameStart = performance.now();
+  gameFrame++;
   plog?.begin();
   const dt = TEST && typeof fixed === 'number' ? fixed : Math.min(clock.getDelta(), 0.05);
   t += dt; uTime.value = t; foliageTime.value = t;
@@ -566,8 +600,13 @@ function frame(fixed) {
     let rel = cam.yaw + Math.PI - me.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
     player.lookYaw = Math.abs(rel) < 2.2 && !dialog.open ? Math.max(-1.0, Math.min(1.0, rel)) : 0;
   }
+  if (gameFrame % 30 === 1) { shareSkeletons(player.root); for (const n of npcs) shareSkeletons(n.actor.root); }
   player.animate(dt, Math.abs(me.speed), !me.ground, t);
   void moving;
+  // the view (last frame's camera) for the villagers' culling
+  camera.updateMatrixWorld();
+  cullMat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  frustum.setFromProjectionMatrix(cullMat);
   // villagers wander
   for (const n of npcs) {
     if (n.hidden) continue;
@@ -592,7 +631,11 @@ function frame(fixed) {
     }
     n.pos.y = groundAt(n.pos.x, n.pos.z);
     n.actor.root.position.copy(n.pos); n.actor.root.rotation.y = n.yaw;
-    n.actor.animate(dt, n.speed, false, t + n.home.x);
+    // well outside the view (with room for their shadow): not drawn, not animated
+    cullSphere.center.set(n.pos.x, n.pos.y + 1, n.pos.z);
+    const seen = n.hidden ? false : frustum.intersectsSphere(cullSphere);
+    if (n.actor.root.visible !== seen && !n.hidden) n.actor.root.visible = seen;
+    if (seen) n.actor.animate(dt, n.speed, false, t + n.home.x);
   }
   // areas and events
   const inGrass = TALL_GRASS.some(([x0, z0, x1, z1]) => me.pos.x > x0 && me.pos.x < x1 && me.pos.z > z0 && me.pos.z < z1);
