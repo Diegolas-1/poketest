@@ -230,24 +230,91 @@ export function leafMaterial(tint = '#ffffff', wind = 0.08) {
   return m;
 }
 
-// Barks: painted streaks on a soft brown, generated once per colour.
+// Barks: painted in flat anime strokes on a canvas that tiles both ways (so
+// no seams band the trunk), one per colour and style:
+//  ridged  furrowed plates split by dark fissures, lit ridge edges, knots
+//  smooth  pale thin bark (beech, young trees): soft streaks, eyes, lichen
+//  dead    weathered grey wood: long split cracks, no moss
+// Ridged and smooth get a little moss low on one side (in the shader).
 const barkMats = new Map();
-export function barkMaterial(color = '#7a5638') {
-  if (barkMats.has(color)) return barkMats.get(color);
-  const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+export function barkMaterial(color = '#7a5638', style = 'ridged') {
+  const key = color + style;
+  if (barkMats.has(key)) return barkMats.get(key);
+  const W = 256, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d');
-  const base = new THREE.Color(color);
-  ctx.fillStyle = '#' + base.getHexString(); ctx.fillRect(0, 0, 128, 256);
-  const R = rng(77);
-  for (let i = 0; i < 70; i++) {
-    const x = R() * 128, w = 2 + R() * 6, l = R() < 0.5 ? 0.78 : 1.18;
-    ctx.fillStyle = '#' + base.clone().multiplyScalar(l).getHexString();
-    ctx.globalAlpha = 0.5; ctx.fillRect(x, R() * 200 - 40, w, 60 + R() * 140);
+  const base = new THREE.Color(color), R = rng(77 + style.length);
+  const dark = new THREE.Color('#2a2a22'), light = new THREE.Color(style === 'dead' ? '#f2f0e6' : '#ece4c2');
+  const col = (k) => '#' + (k < 0 ? base.clone().lerp(dark, -k) : base.clone().lerp(light, k)).getHexString();
+  // draw f at every wrapped offset, so shapes crossing an edge come back on the other side
+  const wrap = (f) => { for (const ox of [-W, 0, W]) for (const oy of [-H, 0, H]) { ctx.save(); ctx.translate(ox, oy); f(); ctx.restore(); } };
+  const crack = (x, y, len, w, k) => wrap(() => {   // a thin wavy vertical line
+    ctx.strokeStyle = col(k); ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y);
+    for (let s = 1; s <= 6; s++) ctx.lineTo(x + (R() - 0.5) * 6, y + (len * s) / 6);
+    ctx.stroke();
+  });
+  const knot = (x, y, s) => wrap(() => {
+    ctx.fillStyle = col(-0.55); ctx.beginPath(); ctx.ellipse(x, y, s, s * 1.6, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = col(-0.15); ctx.beginPath(); ctx.ellipse(x - s * 0.15, y, s * 0.6, s * 1.1, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = col(-0.7); ctx.beginPath(); ctx.ellipse(x, y + s * 0.2, s * 0.25, s * 0.5, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = col(0.35); ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, s * 1.15, s * 1.8, 0, 3.6, 5.2); ctx.stroke();
+  });
+  if (style === 'smooth') {
+    ctx.fillStyle = col(0); ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 26; i++) {   // soft vertical streaks, full height so they tile
+      const x = R() * W, w = 4 + R() * 14;
+      ctx.fillStyle = col(R() < 0.5 ? -0.12 : 0.12); ctx.globalAlpha = 0.6;
+      wrap(() => { ctx.beginPath(); ctx.moveTo(x, 0); ctx.bezierCurveTo(x + w, H * 0.3, x - w, H * 0.6, x + w * 0.3, H); ctx.lineTo(x + w * 1.3, H); ctx.bezierCurveTo(x + w * 0.2, H * 0.6, x + w * 2, H * 0.3, x + w, 0); ctx.fill(); });
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < 40; i++) {   // lichen and darker patches
+      const x = R() * W, y = R() * H, s = 3 + R() * 9;
+      ctx.fillStyle = R() < 0.6 ? col(0.3) : col(-0.25);
+      wrap(() => { ctx.beginPath(); ctx.ellipse(x, y, s, s * 0.7, R(), 0, 6.28); ctx.fill(); });
+    }
+    for (let i = 0; i < 3; i++) knot(R() * W, R() * H, 6 + R() * 5);
+    for (let i = 0; i < 10; i++) crack(R() * W, R() * H, 30 + R() * 50, 1.5, -0.4);
+  } else {
+    // fissured plates: dark ground, ridges in columns broken into plates
+    const dead = style === 'dead';
+    ctx.fillStyle = col(dead ? -0.45 : -0.6); ctx.fillRect(0, 0, W, H);
+    const N = dead ? 7 : 9;
+    for (let i = 0; i < N; i++) {
+      const xc = ((i + R() * 0.4) / N) * W, w = (W / N) * (0.62 + R() * 0.25);
+      let y = R() * H;
+      const y1 = y + H;
+      while (y < y1 - 20) {
+        const L = dead ? 120 + R() * 200 : 40 + R() * 90, x = xc + (R() - 0.5) * 8, ww = w * (0.75 + R() * 0.3), k = (R() - 0.5) * 0.14;
+        const yy = y, sk = (R() - 0.5) * 10;
+        wrap(() => {
+          // a lens shaped plate: body, a lit left edge, a shaded right edge
+          const plate = (dx, wk) => { ctx.beginPath(); ctx.moveTo(x + dx, yy); ctx.bezierCurveTo(x + dx - ww * wk, yy + L * 0.2, x + dx - ww * wk + sk, yy + L * 0.8, x + dx + sk, yy + L); ctx.bezierCurveTo(x + dx + ww * wk + sk, yy + L * 0.8, x + dx + ww * wk, yy + L * 0.2, x + dx, yy); ctx.fill(); };
+          ctx.fillStyle = col(k - 0.22); plate(ww * 0.12, 0.56);
+          ctx.fillStyle = col(k); plate(0, 0.5);
+          ctx.fillStyle = col(k + 0.3); plate(-ww * 0.2, 0.22);
+        });
+        if (R() < 0.5) crack(x + (R() - 0.5) * ww * 0.5, yy + L * 0.2, L * 0.6, dead ? 2 : 1.5, -0.55);
+        y += L * (0.82 + R() * 0.12);
+      }
+    }
+    for (let i = 0; i < (dead ? 6 : 14); i++) crack(R() * W, R() * H, 60 + R() * 140, dead ? 3 : 2, dead ? -0.75 : -0.7);
+    for (let i = 0; i < 2; i++) knot(R() * W, R() * H, 7 + R() * 6);
   }
-  ctx.globalAlpha = 1;
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  const m = celify(new THREE.MeshLambertMaterial({ map: t }), { bands: [0.1, 0.3, 0.6], deep: [0.4, 0.48, 0.62], shade: [0.6, 0.68, 0.82], lit: [1.12, 1.1, 1.0] });
-  barkMats.set(color, m);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+  const m = new THREE.MeshLambertMaterial({ map: t });
+  if (style !== 'dead') {
+    // moss: low on the trunk, on the side facing -x -z, breaking up along the bark's grooves
+    const moss = new THREE.Color('#6f9a3e');
+    m.onBeforeCompile = (sh) => {
+      sh.vertexShader = 'varying vec3 vMP, vMN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vMP = position; vMN = objectNormal;');
+      sh.fragmentShader = 'varying vec3 vMP, vMN;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+        float mz = smoothstep(2.2, 0.3, vMP.y) * smoothstep(-0.1, 0.6, dot(normalize(vMN), normalize(vec3(-0.7, 0.15, -0.7))));
+        float lum = dot(diffuseColor.rgb, vec3(0.3, 0.6, 0.1)) / max(dot(diffuse, vec3(0.3, 0.6, 0.1)), 1e-3);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(${moss.r.toFixed(3)}, ${moss.g.toFixed(3)}, ${moss.b.toFixed(3)}), smoothstep(0.0, 0.08, mz - (1.1 - lum) * 0.55) * 0.9);`);
+    };
+    m.customProgramCacheKey = () => 'barkmoss';
+  }
+  celify(m, { bands: [0.1, 0.3, 0.6], deep: [0.4, 0.48, 0.62], shade: [0.6, 0.68, 0.82], lit: [1.12, 1.1, 1.0], detail: 0.25, mid: 0.35 });
+  barkMats.set(key, m);
   return m;
 }
 
@@ -312,17 +379,18 @@ function tube(points, r0, r1, sides = 7) {
   const segs = Math.max(4, points.length * 4);
   const g = new THREE.TubeGeometry(curve, segs, 1, sides, false);
   const p = g.attributes.position, uv = g.attributes.uv;
-  const frames = curve.computeFrenetFrames(segs, false);
+  // u wraps round the tube (repeats every ~1.6 m of girth), v runs along it
+  // (one repeat per 3.2 m), so the bark keeps its proportions on every limb
+  const L = curve.getLength(), ur = Math.max(1, Math.round((Math.PI * (r0 + r1)) / 1.6));
   for (let i = 0; i <= segs; i++) {
     const t = i / segs, r = r0 + (r1 - r0) * t, c = curve.getPointAt(t);
     for (let j = 0; j <= sides; j++) {
       const k = i * (sides + 1) + j;
       const v = new THREE.Vector3(p.getX(k), p.getY(k), p.getZ(k)).sub(c).normalize();
       p.setXYZ(k, c.x + v.x * r, c.y + v.y * r, c.z + v.z * r);
-      uv.setXY(k, uv.getX(k) * 2, t * curve.getLength() / 2);
+      uv.setXY(k, (j / sides) * ur, t * L / 3.2);
     }
   }
-  void frames;
   g.computeVertexNormals();
   return g;
 }
