@@ -710,7 +710,7 @@ function calemActor(look) {
   const attach = (base) => {
     if (!base) return;
     const m = base.SU.clone(base.scene);
-    const cloth = look.cloth === 'ash' ? dressAsh(m, base) : null;   // before the ink hulls, so the garments get theirs
+    const cloth = look.cloth === 'ash' ? dressAsh(m, base) : base.dress ? base.dress(m) : null;   // before the ink hulls, so the garments get theirs (the cast's sim: cast.js)
     if (look.cloth === 'ash') smoothNormals(addNeck(m, look.skin || '#f8d6b8', SKIN).geometry);   // likewise; the cast make their own
     const holder = new THREE.Group(); holder.scale.setScalar(base.k); holder.position.y = -base.minY * base.k; holder.add(m);
     const bones = {}, hulls = [];
