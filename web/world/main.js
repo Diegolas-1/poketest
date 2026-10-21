@@ -5,7 +5,7 @@ import { buildSky, buildClouds, buildMountains, TALL_GRASS } from './nature.js';
 import { buildTown, BEDS, PIER } from './town.js';
 import { celify } from './toon.js';
 import { foliageTime } from './foliage.js';
-import { buildPaths, buildFields, grassTexture } from './paths.js';
+import { buildPaths, buildFields, grassTexture, pathGround } from './paths.js';
 import { buildVegetation } from './veg.js';
 import { grassField, wind, surface } from './assets.js';
 import { makeActor, LOOKS } from './actor.js';
@@ -72,7 +72,7 @@ const terrain = buildTerrain();
   // flat anime ground: bright in the sun, cool where shadows fall
   const pos = terrain.geometry.attributes.position, uv = terrain.geometry.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / 4, pos.getZ(i) / 4);
-  terrain.material = celify(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() }), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
+  terrain.material = celify(pathGround(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() })), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
     deep: [0.5, 0.62, 0.8], shade: [0.66, 0.78, 0.9], lit: [1.06, 1.06, 0.98] });
 }
 scene.add(terrain);
