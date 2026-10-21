@@ -14,6 +14,7 @@ export class Input {
       this.keys.add(e.code);
       if (['KeyE', 'Enter', 'KeyX'].includes(e.code)) press('use');
       if (e.code === 'Space') press('jump');
+      if (e.code === 'KeyC') press('recenter');
       if (['Escape', 'KeyZ', 'Backspace'].includes(e.code)) press('back');
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
     });
@@ -94,8 +95,9 @@ export class Input {
       if (b(0) && !this.padPrev[0]) this.pressed.add('use');
       if (b(1) && !this.padPrev[1]) this.pressed.add('back');
       if (b(2) && !this.padPrev[2]) this.pressed.add('jump');
+      if (b(6) && !this.padPrev[6]) this.pressed.add('recenter');   // ZL / L2: camera behind the player
       if (b(10) || b(5)) run = true;
-      for (const i of [0, 1, 2]) this.padPrev[i] = b(i);
+      for (const i of [0, 1, 2, 6]) this.padPrev[i] = b(i);
     }
     const len = Math.hypot(x, y);
     if (len > 1) { x /= len; y /= len; }

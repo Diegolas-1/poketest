@@ -254,6 +254,7 @@ function banner(title, sub) {
 }
 let area = 'town';
 let script = null;    // a running cutscene: { t, update(dt) }
+let camIdle = 0, recenter = 0;   // camera: seconds since you last turned it; recentring time left
 
 // the closest thing to talk to or read
 function nearby() {
@@ -373,29 +374,51 @@ function frame(fixed) {
   if (dialog.open) {
     if (c.pressed.has('use') || c.pressed.has('jump') || c.pressed.has('back')) dialog.next();
   }
-  // look around
+  // camera (as in Legends: Arceus): the right stick / arrows / mouse orbit it
+  // freely; while you walk and leave it alone it slowly swings round behind
+  // you; C (or ZL) brings it straight back behind the player
+  const manual = Math.abs(c.lx) + Math.abs(c.ly) > 0.01;
+  camIdle = manual ? 0 : camIdle + dt;
   cam.yaw -= c.lx * 0.0045; cam.pitch = Math.min(1.2, Math.max(-0.15, cam.pitch + c.ly * 0.0035));
   cam.dist = Math.min(14, Math.max(3, cam.dist + c.zoom * 0.8));
-  // move
+  if (c.pressed.has('recenter')) recenter = 0.35;
+  {
+    let behind = me.yaw + Math.PI - cam.yaw; behind = Math.atan2(Math.sin(behind), Math.cos(behind));
+    if (recenter > 0) { recenter -= dt; cam.yaw += behind * (1 - Math.exp(-dt * 12)); if (manual) recenter = 0; }
+    else if (camIdle > 1.0 && Math.abs(me.speed) > 0.5) cam.yaw += behind * (1 - Math.exp(-dt * 0.9 * Math.min(1, Math.abs(me.speed) / 6)));
+  }
+  // move: relative to the camera; Ash turns smoothly toward where you push
   let moving = 0;
   if (!dialog.open && !script) {
-    // movement is the body's own: forward / back along where Ash faces, left /
-    // right turns him; the camera turns on its own (arrow keys, mouse)
-    const turn = -c.x, fwd = -c.y;
-    me.yaw += turn * (c.run ? 2.4 : 2.9) * dt;
-    const want = Math.abs(fwd) > 0.05 ? (fwd > 0 ? (c.run ? 8.5 : 4.5) : -2.6) * Math.min(1, Math.abs(fwd)) : 0;
+    const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+    const mx = rx * c.x - fx * c.y, mz = rz * c.x - fz * c.y;
+    const m = Math.hypot(mx, mz);
+    const want = m > 0.05 ? (c.run ? 8.5 : 4.5) * Math.min(1, m) : 0;
     me.speed += (want - me.speed) * (1 - Math.exp(-dt * 10));
-    if (Math.abs(fwd) > 0.05 || Math.abs(turn) > 0.05) moving = 1;
+    if (m > 0.05) {
+      const ty = Math.atan2(mx, mz);
+      let d = ty - me.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+      me.yaw += d * (1 - Math.exp(-dt * 12));
+      moving = 1;
+    }
     if (Math.abs(me.speed) > 0.05) step(me, Math.sin(me.yaw) * me.speed * dt, Math.cos(me.yaw) * me.speed * dt);
     if (c.pressed.has('jump') && me.ground) { me.vy = 5.2; me.ground = false; }
     if (c.pressed.has('use')) {
       const n = nearby();
       if (n) {
-        if (n.npc) { n.npc.yaw = Math.atan2(me.pos.x - n.npc.pos.x, me.pos.z - n.npc.pos.z); n.npc.target = null; n.npc.wait = 3; }
+        if (n.npc) {
+          n.npc.target = null; n.npc.wait = 3; n.npc.speed = 0;
+          n.npc.face = Math.atan2(me.pos.x - n.npc.pos.x, me.pos.z - n.npc.pos.z);
+          me.face = Math.atan2(n.npc.pos.x - me.pos.x, n.npc.pos.z - me.pos.z);
+        } else me.face = Math.atan2(n.x - me.pos.x, n.z - me.pos.z);
+        me.speed = 0;
         dialog.say(n.lines);
       }
     }
-  } else if (!script) me.speed *= Math.exp(-dt * 12);
+  } else if (!script || dialog.open) me.speed = 0;
+  // turn smoothly to face whoever (or whatever) you're talking to
+  if (dialog.open && me.face != null) { let d = me.face - me.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); me.yaw += d * (1 - Math.exp(-dt * 10)); }
+  if (!dialog.open) me.face = null;
   if (script) script.update(dt);
   // gravity
   const g = groundAt(me.pos.x, me.pos.z);
@@ -407,13 +430,18 @@ function frame(fixed) {
   // the head turns toward where the camera looks, within a comfortable range
   {
     let rel = cam.yaw + Math.PI - me.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-    player.lookYaw = Math.abs(rel) < 2.2 ? Math.max(-1.0, Math.min(1.0, rel)) : 0;
+    player.lookYaw = Math.abs(rel) < 2.2 && !dialog.open ? Math.max(-1.0, Math.min(1.0, rel)) : 0;
   }
   player.animate(dt, Math.abs(me.speed), !me.ground, t);
   void moving;
   // villagers wander
   for (const n of npcs) {
     if (n.hidden) continue;
+    if (dialog.open || n === oak && !script) {
+      // in a conversation (or waiting): stand still, turn to face the player
+      if (dialog.open) n.speed = 0;
+      if (n.face != null) { let d = n.face - n.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); n.yaw += d * (1 - Math.exp(-dt * 8)); }
+    } else n.face = null;
     if (n !== oak && n.wander > 0 && !(dialog.open)) {
       if (!n.target) {
         n.wait -= dt; n.speed *= Math.exp(-dt * 8);
