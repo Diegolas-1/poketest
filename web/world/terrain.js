@@ -326,8 +326,12 @@ export function pathMap() {
     const a = Math.atan2(z - SQUARE.z, x - SQUARE.x);
     const sq = Math.hypot(x - SQUARE.x, z - SQUARE.z) - (4.4 + Math.sin(a * 3 + 1) * 0.4 + Math.sin(a * 7) * 0.2);
     // the plaza before the lab gate: a rounded rectangle
-    const P = PLAZA, qx = Math.abs(x - (P.x0 + P.x1) / 2) - (P.x1 - P.x0) / 2 + 1.2, qz = Math.abs(z - (P.z0 + P.z1) / 2) - (P.z1 - P.z0) / 2 + 1.2;
-    const pl = Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - 1.2 + 0.4;
+    // (its east side stops short of the retaining wall at the hill's foot and
+    // the gate leaves swung open before it; a band between the leaves runs on
+    // to the foot of the stairs)
+    const P = PLAZA, PX1 = P.x1 - 2.0, qx = Math.abs(x - (P.x0 + PX1) / 2) - (PX1 - P.x0) / 2 + 1.2, qz = Math.abs(z - (P.z0 + P.z1) / 2) - (P.z1 - P.z0) / 2 + 1.2;
+    const pl = Math.min(Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - 1.2 + 0.4,
+      Math.sqrt(segDist2(x, z, PX1 - 2.5, STAIRS.z, STAIRS.x0 + 0.3, STAIRS.z)[0]) - 1.35);
     // the lab bridge lands on the plaza: a short worn stretch joins them
     const LB = BRIDGES[0], lb = Math.sqrt(segDist2(x, z, LB.x1 - 1, LB.z, PLAZA.x0 + 2.5, LB.z)[0]) - 1.45 * (0.9 + wob[id] * 0.24);
     const open = Math.min(sq, pl, lb);
@@ -352,6 +356,21 @@ export function pathSD(x, z) {
   const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j, k = j * M.nx + i;
   const a = M.sd[k], b = M.sd[k + 1], c = M.sd[k + M.nx], d = M.sd[k + M.nx + 1];
   return Math.min(PM_CLAMP, (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz);
+}
+// true when something of footprint radius r at (x, z) would stand on the dirt
+// or within m of its edge (the painted edge wobbles about 0.25 m either way).
+// The baked distance is only exact within ~1.5 m of the dirt (farther off it
+// reads PM_CLAMP), so a wide footprint is tested on rings out to its rim.
+export function onPath(x, z, r = 0, m = 0.4) {
+  if (r + m <= 1.2) return pathSD(x, z) < r + m;
+  for (const f of [0, 1 / 3, 2 / 3, 1]) {
+    const ri = r * f, n = f === 0 ? 1 : Math.max(12, Math.ceil(ri * 12.6));
+    for (let a = 0; a < n; a++) {
+      const t = a / n * Math.PI * 2;
+      if (pathSD(x + Math.cos(t) * ri, z + Math.sin(t) * ri) < m + r - ri) return true;
+    }
+  }
+  return false;
 }
 // how far a point is from anything built: roads, yards, the square
 export function townDist(x, z) {
@@ -530,7 +549,15 @@ export function buildTerrain() {
     const x = pos.getX(i), z = pos.getZ(i);
     let y = height(x, z);
     // under the stairs the ground sinks out of sight (the stone flights cover it)
-    if (onStairs(x, z, 0.6)) y -= 1.4;
+    // At the two ends the grid's last vertex is not sunk (that left a deep
+    // wedge in front of the first riser and behind the top tread): the plaza
+    // runs flat to the first riser, and under the top tread the ground sits
+    // 4 cm below its face (not on it, where the two fought).
+    if (onStairs(x, z, 0.6)) {
+      if (x <= STAIRS.x0 + 0.05) y = Math.min(y, PLAZA.y);
+      else if (x >= STAIRS.x1 - 0.01) y = Math.min(y, PLAT_Y - 0.04);
+      else y -= 1.4;
+    }
     pos.setY(i, y);
   }
   g.computeVertexNormals();

@@ -118,28 +118,103 @@ function windy(material, height, amount) {
   return m;
 }
 
+// ---------- distance fades (LOD without pop-in) ----------
+// Every scattered plant fades on its own instead of whole chunks appearing at
+// once. When a plant crosses its range (with hysteresis, so standing on the
+// line does not flicker) it fades over FADE_S seconds: an 8x8 ordered dither
+// (screen door) eats its pixels and small plants also shrink toward their
+// root. A far tree's billboard draws exactly the pixels its model gives up
+// (the same dither, the other side of the threshold), so the swap is a
+// cross-fade, and nothing ever stands half-dithered. Per instance the
+// geometry attribute fadeR = (k 0 shown..1 gone, smallest scale, 2 = on);
+// meshes without it never fade. The shadow pass uses the same k.
+export const FADE_S = 0.6;
+const BAYER = `
+  float fdB2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
+  float fdB4(vec2 a){ return fdB2(0.5 * a) * 0.25 + fdB2(a); }
+  float fdB8(vec2 a){ return fdB4(0.5 * a) * 0.25 + fdB2(a); }`;
+const faded = new WeakSet();
+// adds the fade to a material in place (idempotent; works on Lambert, depth
+// and anything else built from three's chunks)
+export function fadeMaterial(m) {
+  if (!m || faded.has(m)) return m;
+  faded.add(m);
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => {
+    if (prev) prev.call(m, sh, r);
+    // (an unset attribute reads 0 or 1, never 2: those meshes stay as they are)
+    sh.vertexShader = 'attribute vec3 fadeR;\nvarying float vFadeK;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vFadeK = 0.0;
+      if (fadeR.z > 1.5) {
+        vFadeK = fadeR.x;
+        // gone: collapse to a point so it costs no pixels; else shrink toward the root
+        transformed *= vFadeK >= 0.999 ? 0.0 : mix(1.0, fadeR.y, vFadeK);
+      }`);
+    sh.fragmentShader = 'varying float vFadeK;\n' + BAYER + '\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `
+      if (vFadeK > 0.0 && fdB8(gl_FragCoord.xy) < vFadeK) discard;
+      #include <clipping_planes_fragment>`);
+  };
+  const prevKey = m.customProgramCacheKey.bind(m);
+  m.customProgramCacheKey = () => prevKey() + '|fade';
+  m.needsUpdate = true;
+  return m;
+}
+// a shadow caster's depth material with the fade (foliage's swaying depth
+// materials are faded in place; plain meshes get a shared one)
+let plainDepth = null;
+function fadeDepth(im) {
+  const d = im.customDepthMaterial;
+  if (d) { fadeMaterial(d); return; }
+  if (!plainDepth) plainDepth = fadeMaterial(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }));
+  im.customDepthMaterial = plainDepth;
+}
+// a geometry that shares the model's buffers (uploaded once) plus the chunk's
+// per-instance fade attribute (shared by the model's parts)
+function chunkGeometry(g, fadeAttr) {
+  const c = new THREE.BufferGeometry();
+  for (const [k, a] of Object.entries(g.attributes)) c.setAttribute(k, a);
+  if (g.index) c.setIndex(g.index);
+  if (!g.boundingSphere) g.computeBoundingSphere();
+  c.boundingSphere = g.boundingSphere; c.boundingBox = g.boundingBox;
+  c.setAttribute('fadeR', fadeAttr);
+  return c;
+}
+
 // ---------- scattering in chunks ----------
 // points: [{x, y, z, rot, s}]. Each chunk is its own InstancedMesh so the
-// camera culls what is off screen; chunks beyond maxDist are hidden.
+// camera culls what is off screen. A plant leaves when it gets farther than
+// fade[1] metres from the camera and comes back nearer than fade[0] (the gap
+// is the hysteresis), fading over FADE_S (shrinking to `shrink` of its size);
+// with an impostor its billboard fades in as it goes, and lasts out to `far`.
+// A chunk's meshes are hidden only once every plant in it has gone.
+// (maxDist alone = fade [maxDist - 4, maxDist].)
 export class Scatter {
-  constructor(scene, model, points, { chunk = 24, maxDist = 90, wind: w = 0.06, shadows = true, impostor = null } = {}) {
+  constructor(scene, model, points, { chunk = 24, maxDist = 90, fade = null, shrink = 1, wind: w = 0.06, shadows = true, impostor = null, far = [500, 600] } = {}) {
     this.chunks = [];
-    this.maxDist = maxDist;
+    this.fade = fade || [maxDist - 4, maxDist];
     this.impostor = impostor;
+    this.points = points;
+    this.t = 0;
     const groups = new Map();
-    for (const p of points) {
+    points.forEach((p, i) => {
       const k = `${Math.floor(p.x / chunk)},${Math.floor(p.z / chunk)}`;
       if (!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(p);
-    }
-    const mats = model.parts.map((part) => (w > 0 ? windy(part.material, model.height, w) : part.material));
+      groups.get(k).push(i);
+    });
+    const mats = model.parts.map((part) => fadeMaterial(w > 0 ? windy(part.material, model.height, w) : part.material));
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), t = new THREE.Vector3();
-    for (const list of groups.values()) {
-      const c = { center: new THREE.Vector3(), meshes: [], list };
+    for (const idx of groups.values()) {
+      const list = idx.map((i) => points[i]);
+      const c = { center: new THREE.Vector3(), radius: 0, meshes: [], idx, k: new Float32Array(list.length).fill(1), out: new Uint8Array(list.length).fill(1), live: false, allOut: true, anyOut: true };
       for (const p of list) c.center.add(t.set(p.x, p.y, p.z));
       c.center.divideScalar(list.length);
+      for (const p of list) c.radius = Math.max(c.radius, Math.hypot(p.x - c.center.x, p.z - c.center.z) + model.radius * p.s);
+      const f = new Float32Array(list.length * 3);
+      for (let j = 0; j < list.length; j++) f.set([1, shrink, 2], j * 3);
+      c.attr = new THREE.InstancedBufferAttribute(f, 3);
+      c.attr.setUsage(THREE.DynamicDrawUsage);
       model.parts.forEach((part, i) => {
-        const im = new THREE.InstancedMesh(part.geometry, mats[i], list.length);
+        const im = new THREE.InstancedMesh(chunkGeometry(part.geometry, c.attr), mats[i], list.length);
         list.forEach((p, j) => {
           q.setFromAxisAngle(up, p.rot);
           m4.compose(t.set(p.x, p.y, p.z), q, s.set(p.s, p.s * (p.sy || 1), p.s));
@@ -147,101 +222,191 @@ export class Scatter {
         });
         im.computeBoundingSphere();
         im.castShadow = shadows; im.receiveShadow = true;
+        im.visible = false;
+        if (shadows) fadeDepth(im);
         scene.add(im);
         c.meshes.push(im);
       });
-      if (impostor) c.billboards = impostor.make(scene, list);
       this.chunks.push(c);
     }
+    // one billboard mesh for all the far plants of this scatter
+    if (impostor) this.bill = impostor.make(scene, points, far);
   }
-  // near chunks show the model, far ones the billboard (or nothing)
-  update(cam) {
+  // cam: camera position; dt: seconds since the last call (first call snaps)
+  update(cam, dt) {
+    const first = this.t === 0;
+    this.t += dt || 0.016;
+    const step = first ? 1 : Math.min(1, (dt || 0.016) / FADE_S);
+    const [a, b] = this.fade, P = this.points, bk = this.bill ? this.bill.k : null;
+    let billDirty = false;
     for (const c of this.chunks) {
-      const d = c.center.distanceTo(cam);
-      const near = d < this.maxDist;
-      for (const m of c.meshes) m.visible = near;
-      if (c.billboards) c.billboards.visible = !near && d < 600;
+      const dc = c.center.distanceTo(cam);
+      // whole chunk well inside or well outside its band and settled: nothing to do
+      if (!c.live && ((dc + c.radius < a && !c.anyOut) || (dc - c.radius > b && c.allOut))) {
+        if (c.meshes[0].visible === c.allOut) for (const m of c.meshes) m.visible = !c.allOut;
+        continue;
+      }
+      let live = false, dirty = false, allOut = true, anyOut = false;
+      const f = c.attr.array;
+      for (let j = 0; j < c.idx.length; j++) {
+        const p = P[c.idx[j]];
+        const dx = p.x - cam.x, dy = p.y - cam.y, dz = p.z - cam.z, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (c.out[j] ? d < a : d > b) c.out[j] ^= 1;
+        const want = c.out[j], k = c.k[j];
+        if (k !== want) {
+          const nk = want > k ? Math.min(want, k + step) : Math.max(want, k - step);
+          c.k[j] = nk; f[j * 3] = nk; dirty = true;
+          if (bk) { bk[c.idx[j]] = nk; billDirty = true; }
+          if (nk !== want) live = true;
+        }
+        if (c.k[j] < 1) allOut = false; else anyOut = true;
+        if (c.out[j]) anyOut = true;
+      }
+      if (dirty) c.attr.needsUpdate = true;
+      c.live = live; c.allOut = allOut; c.anyOut = anyOut;
+      for (const m of c.meshes) m.visible = !allOut;
     }
+    if (billDirty) this.bill.attr.needsUpdate = true;
   }
 }
 
-// ---------- tree billboards ----------
-// Renders the real model from 8 directions into one texture; far trees are
-// quads that pick the view nearest to the camera's.
+// ---------- billboards (impostors) ----------
+// Renders the real model from 8 directions into one texture, each with the
+// sun from 4 directions round it (in front, right, behind, left of the view),
+// lit like the scene (same sun, sky light and environment, cel bands and all),
+// so a billboard has the model's colours from any side the sun is on. Far
+// plants are quads that pick the view nearest the camera's and blend the two
+// sun rows nearest the real sun. Stored linear, tone-mapped and fogged in the
+// shader the way three does it for the models.
 export class Impostor {
-  constructor(renderer, model, lights) {
-    const views = 8, size = 256;
-    const aspect = (model.height * 1.05) / (model.radius * 2.1);
-    const w = size, h = Math.round(size * aspect);
-    this.rt = new THREE.WebGLRenderTarget(w * views, h, { colorSpace: THREE.SRGBColorSpace });
+  constructor(renderer, model, { size = 192, lights = null } = {}) {
+    const views = 8, rows = 4;
+    // the frame from the real geometry (a bush's puffs rise past its nominal height)
+    const box = new THREE.Box3();
+    for (const p of model.parts) { if (!p.geometry.boundingBox) p.geometry.computeBoundingBox(); box.union(p.geometry.boundingBox); }
+    const r = Math.max(-box.min.x, box.max.x, -box.min.z, box.max.z) * 1.04, top = box.max.y * 1.03, bot = Math.min(0, box.min.y);
+    const w = size, h = Math.max(16, Math.round(size * (top - bot) / (r * 2)));
+    this.rt = new THREE.WebGLRenderTarget(w * views, h * rows, { colorSpace: THREE.SRGBColorSpace,
+      minFilter: THREE.LinearMipmapLinearFilter, generateMipmaps: true });
     this.views = views;
+    this.bytes = w * views * h * rows * 4 * 1.33;
     const scene = new THREE.Scene();
-    scene.add(new THREE.HemisphereLight('#e8f4ff', '#6a7a4a', 1.4));
-    const sun = new THREE.DirectionalLight('#fff1d6', 2.4); sun.position.set(-1, 2, 1.2); scene.add(sun);
-    const g = new THREE.Group();
-    for (const p of model.parts) g.add(new THREE.Mesh(p.geometry, p.material));
+    const L = lights || {};
+    const hemi = L.hemi ? L.hemi.clone() : new THREE.HemisphereLight('#e2f1ff', '#6d7f4c', 0.55);
+    const sun = L.sun ? new THREE.DirectionalLight(L.sun.color, L.sun.intensity) : new THREE.DirectionalLight('#fff0d4', 2.9);
+    scene.add(hemi, sun, sun.target);
+    if (L.environment) { scene.environment = L.environment; scene.environmentIntensity = L.environmentIntensity ?? 1; }
+    const sd = (L.sunDir || new THREE.Vector3(-0.55, 0.75, 0.45)).clone().normalize();
+    const el = Math.asin(sd.y);
+    this.sunAz = Math.atan2(sd.x, sd.z);
+    // one draw per sun direction: the 8 views side by side as 8 turned
+    // copies in front of one far-away orthographic camera (same picture as
+    // circling the camera, a quarter of the draw calls of one per view)
+    const g = new THREE.Group(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+    for (const p of model.parts) {
+      const im = new THREE.InstancedMesh(p.geometry, p.material, views);
+      for (let i = 0; i < views; i++) {
+        q.setFromAxisAngle(up, -(i / views) * Math.PI * 2);
+        im.setMatrixAt(i, m4.compose(new THREE.Vector3(r * 2 * i, 0, 0), q, new THREE.Vector3(1, 1, 1)));
+      }
+      im.frustumCulled = false;
+      g.add(im);
+    }
     scene.add(g);
-    const r = model.radius * 1.05, top = model.height * 1.05;
-    const cam = new THREE.OrthographicCamera(-r, r, top, 0, -100, 100);
+    const cam = new THREE.OrthographicCamera(-r, -r + r * 2 * views, top, bot, 1, 2000);
+    cam.position.set(0, 0, 1000); cam.lookAt(0, 0, 0);
     const old = renderer.getRenderTarget(), oldClear = renderer.getClearAlpha();
-    const oldColor = renderer.getClearColor(new THREE.Color()), oldVp = renderer.getViewport(new THREE.Vector4());
-    renderer.setRenderTarget(this.rt);
+    const oldColor = renderer.getClearColor(new THREE.Color());
+    const oldShadow = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
     renderer.setClearColor(0x000000, 0);
-    renderer.clear();
-    for (let i = 0; i < views; i++) {
-      const a = (i / views) * Math.PI * 2;
-      cam.position.set(Math.sin(a) * 10, 0, Math.cos(a) * 10);
-      cam.lookAt(0, 0, 0);
-      renderer.setViewport(i * w, 0, w, h);
-      renderer.setScissor(i * w, 0, w, h); renderer.setScissorTest(true);
+    // the target's own viewport (the renderer's is scaled by the pixel ratio);
+    // each row is cleared and drawn, the mip chain is rebuilt after each
+    this.rt.scissorTest = true;
+    for (let j = 0; j < rows; j++) {
+      const az = (j / rows) * Math.PI * 2;
+      sun.position.set(Math.sin(az) * Math.cos(el) * 1000, Math.sin(el) * 1000, Math.cos(az) * Math.cos(el) * 1000);
+      this.rt.viewport.set(0, j * h, w * views, h);
+      this.rt.scissor.copy(this.rt.viewport);
+      renderer.setRenderTarget(this.rt);
       renderer.render(scene, cam);
     }
-    renderer.setScissorTest(false);
+    this.rt.scissorTest = false; this.rt.viewport.set(0, 0, w * views, h * rows);
     renderer.setRenderTarget(old);
     renderer.setClearColor(oldColor, oldClear);
-    renderer.setViewport(oldVp);
-    this.width = r * 2; this.height = top;
+    renderer.shadowMap.autoUpdate = oldShadow;
+    for (const im of g.children) im.dispose();
+    this.width = r * 2; this.height = top - bot; this.bottom = bot;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { map: { value: this.rt.texture }, views: { value: views },
+      uniforms: { map: { value: this.rt.texture }, views: { value: views }, rows: { value: rows }, sunAz: { value: this.sunAz },
         fogColor: { value: new THREE.Color() }, fogNear: { value: 1 }, fogFar: { value: 1000 } },
       vertexShader: `
-        attribute vec4 inst; attribute float scl; uniform float views; varying vec2 vUv; varying float vFog;
+        attribute vec4 inst; attribute float scl; attribute float kf; attribute vec2 far;
+        uniform float views, rows, sunAz; varying vec2 vUv; varying vec2 vRow; varying float vFog; varying float vK;
         void main(){
           vec3 c = inst.xyz; float rot = inst.w;
-          vec3 toCam = cameraPosition - c; toCam.y = 0.0; toCam = normalize(toCam);
+          vec3 toCam = cameraPosition - c;
+          // kf = how far the model has faded out (we take the pixels it gives
+          // up); far = where the billboards themselves thin out into the fog
+          vK = kf * (1.0 - clamp((length(toCam) - far.x) / (far.y - far.x), 0.0, 1.0));
+          if (vK <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+          toCam.y = 0.0; toCam = normalize(toCam);
           vec3 right = vec3(toCam.z, 0.0, -toCam.x);
           vec3 p = c + (right * position.x + vec3(0.0, position.y, 0.0)) * scl;
-          float ang = atan(toCam.x, toCam.z) - rot;
+          float camAz = atan(toCam.x, toCam.z);
+          float ang = camAz - rot;
           float f = mod(floor(ang / 6.2831853 * views + 0.5), views);
+          float rs = mod((sunAz - camAz) / 6.2831853 * rows, rows);
+          vRow = vec2(floor(rs), fract(rs));
           vUv = vec2((f + uv.x) / views, uv.y);
           vec4 mv = viewMatrix * vec4(p, 1.0);
           vFog = -mv.z;
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
-        uniform sampler2D map; uniform vec3 fogColor; uniform float fogNear, fogFar; varying vec2 vUv; varying float vFog;
+        uniform sampler2D map; uniform float rows; uniform vec3 fogColor; uniform float fogNear, fogFar;
+        varying vec2 vUv; varying vec2 vRow; varying float vFog; varying float vK;
+        ${BAYER}
         void main(){
-          vec4 c = texture2D(map, vUv);
-          if (c.a < 0.5) discard;
-          c.rgb = mix(c.rgb, fogColor, smoothstep(fogNear, fogFar, vFog));
-          gl_FragColor = vec4(c.rgb, 1.0);
+          if (fdB8(gl_FragCoord.xy) >= vK) discard;
+          // (the row index comes through a varying: round it, or 3 + 1 lands a
+          // hair short of 4 and the second sample reads off the atlas)
+          float r0 = floor(vRow.x + 0.5), r1 = r0 + 1.0 >= rows - 0.5 ? 0.0 : r0 + 1.0;
+          vec4 a = texture2D(map, vec2(vUv.x, (r0 + vUv.y) / rows));
+          vec4 b = texture2D(map, vec2(vUv.x, (r1 + vUv.y) / rows));
+          float al = mix(a.a, b.a, vRow.y);
+          // smaller mip levels average the gaps between leaves into the alpha,
+          // so a far crown would thin out: scale it up with the level
+          vec2 px = vUv * vec2(textureSize(map, 0)) * vec2(1.0, 1.0 / rows);
+          float lod = max(0.0, 0.5 * log2(max(dot(dFdx(px), dFdx(px)), dot(dFdy(px), dFdy(px)))));
+          if (al * (1.0 + lod * 0.3) < 0.5) discard;
+          // colour without the transparent border's black (as if premultiplied)
+          vec3 c = mix(a.rgb / max(a.a, 0.004), b.rgb / max(b.a, 0.004), vRow.y);
+          gl_FragColor = vec4(c, 1.0);
+          #include <tonemapping_fragment>
           #include <colorspace_fragment>
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, smoothstep(fogNear, fogFar, vFog));
         }`,
     });
   }
-  make(scene, list) {
+  make(scene, list, far) {
     const g = new THREE.PlaneGeometry(this.width, this.height);
-    g.translate(0, this.height / 2, 0);
+    g.translate(0, this.height / 2 + this.bottom, 0);
     const ig = new THREE.InstancedBufferGeometry().copy(g);
     ig.instanceCount = list.length;
-    const inst = new Float32Array(list.length * 4), scl = new Float32Array(list.length);
+    const inst = new Float32Array(list.length * 4), scl = new Float32Array(list.length), k = new Float32Array(list.length).fill(1);
     list.forEach((p, i) => { inst.set([p.x, p.y, p.z, p.rot], i * 4); scl[i] = p.s; });
     ig.setAttribute('inst', new THREE.InstancedBufferAttribute(inst, 4));
     ig.setAttribute('scl', new THREE.InstancedBufferAttribute(scl, 1));
+    const attr = new THREE.InstancedBufferAttribute(k, 1);
+    attr.setUsage(THREE.DynamicDrawUsage);
+    ig.setAttribute('kf', attr);
+    const fr = new Float32Array(list.length * 2);
+    for (let i = 0; i < list.length; i++) fr.set(far, i * 2);
+    ig.setAttribute('far', new THREE.InstancedBufferAttribute(fr, 2));
     const mesh = new THREE.Mesh(ig, this.material);
     mesh.frustumCulled = false;
     scene.add(mesh);
-    return mesh;
+    return { mesh, k, attr };
   }
 }
 
@@ -319,7 +484,10 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
         vec4 hm = texture2D(uHeight, (p - uArea.xy) / uArea.zw);
         float dens = hm.g;
         float dist = length(p - uCam.xz);
-        float keep = step(off.z, dens) * smoothstep(uSize * 0.5, uSize * 0.36, dist);
+        // the field's edge: clumps thin out (small ones first) and shrink over
+        // the outer half of the radius, all gone before the wrap at uSize / 2
+        float fk = smoothstep(uSize * 0.3, uSize * 0.5, dist);
+        float keep = step(off.z, dens) * (1.0 - smoothstep(off.w * 0.75, off.w * 0.75 + 0.25, fk)) * (1.0 - fk * 0.35);
         float sc = (0.45 + off.w * 0.35) * (0.6 + dens * 0.6) * keep;
         // turn each clump its own way
         float ra = off.z * 40.0, c = cos(ra), s = sin(ra);
