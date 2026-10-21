@@ -716,7 +716,8 @@ function calemActor(look) {
       if (o.isBone) bones[o.name] = o;
       if (o.isSkinnedMesh) {
         if (o.material.name === 'face_on_0') {   // own eye texture so blinking is per person
-          o.material = o.material.clone(); o.material.map = o.material.map.clone(); eyes = o.material.map;
+          const m0 = o.material; o.material = m0.clone(); o.material.map = m0.map.clone(); eyes = o.material.map;
+          o.material.onBeforeCompile = m0.onBeforeCompile; o.material.customProgramCacheKey = m0.customProgramCacheKey;   // clone() drops the cel shading
         }
         if (o.geometry.attributes.inkN) {
           const h = new THREE.SkinnedMesh(o.geometry, INK_SK); h.bind(o.skeleton, o.bindMatrix); h.frustumCulled = false; hulls.push([o.parent, h]);
