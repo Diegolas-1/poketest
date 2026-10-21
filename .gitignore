@@ -8,3 +8,6 @@ node_modules/
 web/world/assets/
 web/world/preview.html
 web/world/lineup.html
+
+# ripped Nintendo models used only on this machine (alt avatar base): never commit
+web/world/local/
