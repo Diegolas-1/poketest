@@ -641,6 +641,16 @@ function loadCalem() {
 // resolves to true once the local model is ready, false when it is not available
 export function calemReady() { return CALEM_ON ? loadCalem().then((b) => !!b) : Promise.resolve(false); }
 
+// normals averaged over vertices at the same place (attribute inkN), kept for
+// cast.js and the neck, which still call it
+function smoothNormals(g) {
+  const p = g.attributes.position, n = g.attributes.normal, acc = new Map(), key = (i) => `${p.getX(i).toFixed(4)},${p.getY(i).toFixed(4)},${p.getZ(i).toFixed(4)}`;
+  for (let i = 0; i < p.count; i++) { const k = key(i), a = acc.get(k) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); acc.set(k, a); }
+  const out = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) { const a = acc.get(key(i)), l = Math.hypot(...a) || 1; out.set([a[0] / l, a[1] / l, a[2] / l], i * 3); }
+  g.setAttribute('inkN', new THREE.BufferAttribute(out, 3));
+}
+
 const SKIN_PARTS = new Set(['face_on_1', 'face_on_0']);
 function prepCalem(scene, SU) {
   scene.updateMatrixWorld(true);
