@@ -5,11 +5,13 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
+import { addEdgeLines } from './outline.js';
 import { makeTree, makeBush, makeClump, makeRock, TILE } from './foliage.js';
+import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -91,20 +93,6 @@ const glassTex = () => paint('glass', 128, 128, (x, w, h) => {
   x.beginPath(); x.moveTo(w * 0.15, h); x.lineTo(w * 0.42, 0); x.lineTo(w * 0.56, 0); x.lineTo(w * 0.29, h); x.fill();
   x.beginPath(); x.moveTo(w * 0.62, h); x.lineTo(w * 0.8, 0); x.lineTo(w * 0.85, 0); x.lineTo(w * 0.67, h); x.fill();
 });
-function signTexture(lines, { bg = '#f4ead2', fg = '#4a3524' } = {}) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
-  const x = c.getContext('2d');
-  x.fillStyle = bg; x.fillRect(0, 0, 512, 256);
-  x.strokeStyle = shade(bg, 0.75); x.lineWidth = 10; x.strokeRect(8, 8, 496, 240);
-  x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
-  const big = lines.length > 1 ? 50 : 60;
-  lines.forEach((l, i) => {
-    x.font = `${i ? 700 : 700} ${i ? 34 : big}px "Pixelify Sans", system-ui, sans-serif`;
-    x.fillText(l, 256, 128 + (i - (lines.length - 1) / 2) * 64);
-  });
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-  return t;
-}
 
 // ---------- materials ----------
 const mats = new Map();
@@ -113,7 +101,6 @@ const BUILD = { deep: [0.56, 0.62, 0.82], shade: [0.74, 0.79, 0.94], lit: [1.06,
 const flat = (col) => M('c' + col, () => toon(col, { cel: BUILD }));
 const tex = (t, col = '#ffffff') => M(t.uuid + col, () => toon(col, { map: t, cel: BUILD }));
 const glass = () => M('glass', () => new THREE.MeshBasicMaterial({ map: glassTex() }));
-const INK = new THREE.MeshBasicMaterial({ color: '#2f2b36', side: THREE.BackSide });
 
 // UVs in metres, projected along the face's main axis
 function wuv(g, s = 0.5) {
@@ -129,19 +116,10 @@ function wuv(g, s = 0.5) {
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   return g;
 }
-// an ink outline: the same convex shape a little bigger, drawn inside out
-function ink(mesh, w = 0.035) {
-  const g = mesh.geometry; g.computeBoundingBox();
-  const b = g.boundingBox, s = b.getSize(V(0, 0, 0)), c = b.getCenter(V(0, 0, 0));
-  const o = new THREE.Mesh(g, INK);
-  o.position.copy(c).multiplyScalar(-1);
-  const pivot = new THREE.Group();
-  pivot.position.copy(c);
-  pivot.scale.set((s.x + 2 * w) / Math.max(s.x, 1e-3), (s.y + 2 * w) / Math.max(s.y, 1e-3), (s.z + 2 * w) / Math.max(s.z, 1e-3));
-  pivot.add(o);
-  mesh.add(pivot);
-  return mesh;
-}
+// Ink lines come from the screen-space outline pass (outline.js), which draws
+// constant-width lines on every silhouette, crease and part edge. ink() is kept
+// so callers still work; it only tags the mesh as a solid for that pass.
+function ink(mesh, w) { void w; mesh.userData.outline = 'solid'; return mesh; }
 function add(mesh, parent, x = 0, y = 0, z = 0, { shadow = true, line = true } = {}) {
   mesh.position.set(x, y, z);
   mesh.castShadow = shadow; mesh.receiveShadow = true;
@@ -247,6 +225,22 @@ function placer(hs, world) {
 // White picket fence from a to b (local x, z of the placer), with two rails.
 function picketFence(P, ax, az, bx, bz, col = '#fbfaf4') {
   const len = Math.hypot(bx - ax, bz - az); if (len < 0.3) return;
+  // a gap where a path crosses: only the runs that keep off the dirt are built
+  if (!P.split) {
+    const n0 = Math.max(1, Math.ceil(len / 0.1)), runs = [];
+    let a = -1;
+    for (let i = 0; i <= n0; i++) {
+      const t = i / n0, [wx, wz] = P.W(ax + (bx - ax) * t, az + (bz - az) * t), ok = !onPath(wx, wz, 0.12);
+      if (ok && a < 0) a = t;
+      if ((!ok || i === n0) && a >= 0) { runs.push([a, ok ? t : (i - 1) / n0]); a = -1; }
+    }
+    if (!(runs.length === 1 && runs[0][0] === 0 && runs[0][1] === 1)) {
+      P.split = true;
+      for (const [t0, t1] of runs) picketFence(P, ax + (bx - ax) * t0, az + (bz - az) * t0, ax + (bx - ax) * t1, az + (bz - az) * t1, col);
+      P.split = false;
+      return;
+    }
+  }
   const n = Math.max(2, Math.round(len / 0.32));
   const ang = Math.atan2(bz - az, bx - ax);
   const pick = new THREE.Shape(); pick.moveTo(-0.06, 0); pick.lineTo(0.06, 0); pick.lineTo(0.06, 0.95); pick.lineTo(0, 1.08); pick.lineTo(-0.06, 0.95); pick.lineTo(-0.06, 0);
@@ -387,7 +381,7 @@ function cottage(hs, world) {
   if (st.wing) {
     const wg = new THREE.Group(); wg.position.set(-side * (W / 2 + 1.7), 0, -0.6); wg.rotation.y = Math.PI / 2; G.add(wg);
     const ww = 4.6, wd = 3.6, wh = 2.9;
-    box(ww + 0.3, base + 1.3, wd + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.65, 0, wg);
+    box(ww + 0.3, base + 1.31, wd + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.645, 0, wg);   // 1 cm over the house's foundation where they overlap
     box(ww, wh, wd, sid, 0, base + wh / 2, 0, wg);
     gableRoof(wg, ww, wd, base + wh, 2.2, roofMat, trim, 0.35, 0.3);
     gableWall(wg, ww, 2.2, base + wh, -side * wd / 2, sid, -side);
@@ -401,7 +395,7 @@ function cottage(hs, world) {
   // front deck with a white railing and steps to the path
   const deckY = base + 0.05, dz0 = D / 2 + 0.05, dz1 = D / 2 + 2.3;
   box(W + 0.6, 0.2, dz1 - dz0, tex(planks('#c99a62')), 0, deckY, (dz0 + dz1) / 2, G);
-  box(W + 0.6, deckY + 1, 0.2, trim, 0, deckY / 2 - 0.55, dz1 - 0.1, G, { line: false });
+  box(W + 0.62, deckY + 1, 0.2, trim, 0, deckY / 2 - 0.55, dz1 - 0.085, G, { line: false });   // skirt 1.5 cm proud of the deck's edge (flush, they fought)
   const rail = (ax, bx, zz) => {
     const n = Math.max(2, Math.round(Math.abs(bx - ax) / 0.22));
     for (let i = 0; i <= n; i++) box(0.07, 0.8, 0.07, trim, ax + (bx - ax) * i / n, deckY + 0.5, zz, G, { line: false, shadow: false });
@@ -416,13 +410,18 @@ function cottage(hs, world) {
   P.use(dx, D / 2 + 1.1, 1.0, 'Door', lines);
   // the yard: picket fence round it, a gate on the path, stepping stones
   const fx = 8.4, fz0 = -5.2, fz1 = 8.6;
+  // the gate opens as wide as the path that comes in through it
+  const gClear = (u) => { const [wx, wz] = P.W(u, fz1); return !onPath(wx, wz, 0.16); };
+  let gl = dx - 0.95, gr = dx + 0.95;
+  while (gl > -fx + 0.5 && !gClear(gl)) gl -= 0.05;
+  while (gr < fx - 0.5 && !gClear(gr)) gr += 0.05;
   if (fence) {
-    picketFence(P, -fx, fz1, dx - 0.9, fz1);
-    picketFence(P, dx + 0.9, fz1, fx, fz1);
+    picketFence(P, -fx, fz1, gl + 0.05, fz1);
+    picketFence(P, gr - 0.05, fz1, fx, fz1);
     picketFence(P, -fx, fz0, -fx, fz1);
     picketFence(P, fx, fz0, fx, fz1);
     picketFence(P, -fx, fz0, fx, fz0);
-    for (const k of [-1, 1]) box(0.22, 1.25, 0.22, trim, dx + k * 0.95, P.hy(dx + k * 0.95, fz1) + 0.6, fz1, G);
+    for (const gx of [gl, gr]) box(0.22, 1.25, 0.22, trim, gx, P.hy(gx, fz1) + 0.6, fz1, G);
   }
   for (let s = 0; s < 5; s++) {
     const sz = dz1 + 0.95 + s * 0.85, sx = dx + Math.sin(s * 1.7) * 0.18;
@@ -431,16 +430,17 @@ function cottage(hs, world) {
     add(stn, G, sx, P.hy(sx, sz) + 0.02, sz, { shadow: false });
   }
   // mailbox by the gate, with the family name on a little board
-  const mx = dx + side * 1.6, mz = fz1 + 0.4;
+  // (along the fence, clear of the path)
+  let mx = side > 0 ? Math.max(dx + 1.6, gr + 0.6) : Math.min(dx - 1.6, gl - 0.6);
+  const mz = fz1 + 0.4;
+  for (let k = 0; k < 40 && onPath(...P.W(mx, mz), 0.4); k++) mx += side * 0.2;
   const mb = new THREE.Group(); mb.position.set(mx, P.hy(mx, mz), mz); G.add(mb);
   box(0.1, 1.1, 0.1, '#fbfaf4', 0, 0.55, 0, mb);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.6, 14, 1, false, 0, Math.PI), flat('#ec8a2e'));
   body.rotation.z = Math.PI / 2; add(body, mb, 0, 1.15, 0);
   box(0.44, 0.24, 0.6, '#ec8a2e', 0, 1.03, 0, mb);
   box(0.04, 0.2, 0.06, '#d83a2e', 0.24, 1.3, 0.1, mb, { line: false });
-  const nb = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.3), new THREE.MeshBasicMaterial({ map: signTexture([name]) }));
-  nb.position.set(0, 0.62, 0.07); mb.add(nb);
-  box(1.06, 0.34, 0.06, '#c99a62', 0, 0.62, 0.02, mb, { line: false });
+  const nb = nameplate(name); nb.position.set(0, 0.62, 0.056); mb.add(nb);   // signs.js; its back 6 mm off the post
   P.circ(mx, mz, 0.25);
   P.use(mx, mz + 0.9, 0.8, 'Look', [`${name}'s mailbox. It's empty.`]);
   // vegetable garden on the side: a little bed of tomato plants
@@ -499,7 +499,11 @@ function labStairs(world) {
     const y = stairY(x + 0.01);
     let x2 = x + S.run;
     if (Math.abs(y - (PLAZA.y + S.n1 * STEP)) < 0.01 && x >= S.x0 + S.n1 * S.run - 0.01) x2 = S.x0 + S.n1 * S.run + S.landing;
-    treads.push([x, Math.min(x2, S.x1 + 1.0), y]);
+    // the flight's last tread and the landing are one level: one slab, so no
+    // two coplanar tops (and no stray nose) fight in the middle of the landing
+    const last = treads[treads.length - 1];
+    if (last && Math.abs(last[2] - y) < 0.001) last[1] = Math.min(x2, S.x1 + 1.0);
+    else treads.push([x, Math.min(x2, S.x1 + 1.0), y]);
     x = x2;
   }
   const g = new THREE.BoxGeometry(1, 1, 1);
@@ -508,12 +512,13 @@ function labStairs(world) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   treads.forEach(([a, b, y], i) => {
     m4.compose(V((a + b) / 2, y - 1.4, S.z), q, V(b - a + 0.02, 2.8, S.hw * 2 + 0.1)); im.setMatrixAt(i, m4);
-    for (const s of [-1, 1]) { m4.compose(V((a + b) / 2, y - 1.1, S.z + s * (S.hw + 0.3)), q, V(b - a + 0.02, 3.0, 0.55)); ch.setMatrixAt(i * 2 + (s > 0 ? 1 : 0), m4); }
+    for (const s of [-1, 1]) { m4.compose(V((a + b) / 2 - 0.01, y - 1.1, S.z + s * (S.hw + 0.3)), q, V(b - a + 0.02, 3.0, 0.55)); ch.setMatrixAt(i * 2 + (s > 0 ? 1 : 0), m4); }
   });
   // each tread's worn front edge in a darker stone, so the steps read
   const nose = new THREE.InstancedMesh(g, flat('#a99f8e'), treads.length);
   treads.forEach(([a, b, y], i) => {
-    m4.compose(V(a + 0.05, y - 0.06, S.z), q, V(0.12, 0.14, S.hw * 2 + 0.12)); nose.setMatrixAt(i, m4);
+    // its front stands 1.5 cm proud of the riser (flush, the two faces fought)
+    m4.compose(V(a + 0.035, y - 0.06, S.z), q, V(0.12, 0.14, S.hw * 2 + 0.06)); nose.setMatrixAt(i, m4);
     im.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.92 + ((i * 7919) % 9) / 9 * 0.1));
   });
   for (const o of [im, ch, nose]) { o.castShadow = true; o.receiveShadow = true; world.group.add(o); }
@@ -536,7 +541,6 @@ function globeLamp(world, x, y, z, s = 1) {
   cyl(0.05, 0.05, 0.25, '#2c2d33', 0, 0.35, 0, g, 6, { line: false });
   const globe = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 12), new THREE.MeshBasicMaterial({ color: '#fffbea' }));
   globe.position.y = 0.72; g.add(globe);
-  const rim = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12), INK); rim.position.y = 0.72; g.add(rim);
   return g;
 }
 // many copies of a few bush shapes, instanced; [x, z, rot, scale]
@@ -589,12 +593,13 @@ function labGate(world) {
   };
   wallSeg(LAB_HILL.z0 - 4, S.z - S.hw - 1.25);
   wallSeg(S.z + S.hw + 1.25, LAB_HILL.z1 + 4);
-  sign(PLAZA.x0 + 1.6, S.z - S.hw - 3.2, Math.PI / 2 + 0.35, ['OAK POKéMON', 'RESEARCH LAB'], ['OAK POKéMON RESEARCH LAB'], world);
+  sign(PLAZA.x0 + 1.6, S.z - S.hw - 3.2, Math.PI / 2 + 0.35, () => labPlate('OAK POKéMON RESEARCH LAB', { mount: 'posts', w: 1.7, h: 0.56, line2: 'Up the stairs', height: 0.9 }), ['OAK POKéMON RESEARCH LAB'], world);
   // plaza: two lamps, a bench, flower tubs
   lamp(PLAZA.x0 + 2.2, PLAZA.z1 - 1.0, world);
   lamp(PLAZA.x1 - 1.2, PLAZA.z0 + 1.2, world);
   bench(PLAZA.x1 - 1.4, PLAZA.z1 - 1.6, -Math.PI / 2 + 0.2, world);
-  for (const [x, z] of [[PLAZA.x1 - 1.0, S.z + 4.4], [PLAZA.x1 - 1.0, S.z - 4.4]]) {
+  for (let [x, z] of [[PLAZA.x1 - 1.0, S.z + 4.4], [PLAZA.x1 - 1.0, S.z - 4.4]]) {
+    [x, z] = offPath(x, z, 0.65, world);
     cyl(0.6, 0.5, 0.6, tex(stones('#c9c0ae')), x, height(x, z) + 0.3, z, world.group, 12);
     plant(makeBush(400 + Math.round(z), { size: 0.7, flowers: TILE.flowersR }), world.group, x, height(x, z) + 0.55, z);
     world.colliders.push({ x, z, r: 0.65 });
@@ -693,6 +698,7 @@ function streamRocks(world) {
       list.push([px, pz, R() * 6, 0.45 + R() * 0.5]);
     }
   }
+  for (let i = list.length - 1; i >= 0; i--) if (onPath(list[i][0], list[i][1], 1.0 * list[i][3])) list.splice(i, 1);
   const models = [makeRock(81, 1.0), makeRock(82, 1.2), makeRock(83, 0.8)];
   // greyer, purple-brown stones for the banks
   for (const m of models) { const c = m.parts[0].geometry.attributes.color; for (let i = 0; i < c.count; i++) { const r = c.getX(i), g = c.getY(i), b = c.getZ(i), l = (r + g + b) / 3; c.setXYZ(i, l * 0.95 + 0.04, l * 0.88, l * 0.92 + 0.03); } }
@@ -723,7 +729,7 @@ function laneFurniture(world) {
         const hNear = height(ox, oz), hFar = baseHeight(x + nx * 7 * s, z + nz * 7 * s);
         const cut = hFar - hNear;
         if (cut < 1.6) continue;
-        if (roadDist(ox, oz) < 2.5 || inYard(ox, oz, 1) || labHillU(ox, oz) < 1) continue;
+        if (roadDist(ox, oz) < 2.5 || [-0.5, -0.25, 0, 0.25, 0.5].some((f) => onPath(ox + dx * f * (l + 0.3) / l, oz + dz * f * (l + 0.3) / l, 0.4)) || inYard(ox, oz, 1) || labHillU(ox, oz) < 1) continue;
         walls.push([ox, oz, Math.atan2(dx, dz), Math.min(1.6, 0.55 + cut * 0.22), l]);
       }
     }
@@ -751,11 +757,11 @@ function laneFurniture(world) {
       for (let i = i0; i <= Math.min(i1, road.length - 2); i += 2) {
         const [x, z] = road[i], b = road[i + 1], dx = b[0] - x, dz = b[1] - z, l = Math.hypot(dx, dz) || 1;
         const px = x - dz / l * 3.3 * s, pz = z + dx / l * 3.3 * s;
-        const ok = roadDist(px, pz) > 2.9 && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5;
+        const ok = roadDist(px, pz) > 2.9 && !onPath(px, pz, 0.12) && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5;
         if (!ok) { prev = null; continue; }
         const py = height(px, pz);
         posts.push([px, py, pz]);
-        if (prev) rails.push([prev, [px, py, pz]]);
+        if (prev && !onPath((prev[0] + px) / 2, (prev[2] + pz) / 2, 0.1)) rails.push([prev, [px, py, pz]]);
         prev = [px, py, pz];
       }
     }
@@ -788,34 +794,48 @@ function laneFurniture(world) {
 }
 
 // ---------- town furniture ----------
-function sign(x, z, face, title, lines, world) {
-  const g = new THREE.Group(); g.position.set(x, height(x, z), z); g.rotation.y = face; world.group.add(g);
-  for (const s of [-0.8, 0.8]) box(0.14, 1.6, 0.14, '#8a5f3c', s, 0.8, 0, g);
-  box(2.0, 1.1, 0.12, tex(planks('#c99a62')), 0, 1.45, 0, g);
-  const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.9), new THREE.MeshBasicMaterial({ map: signTexture(title) }));
-  scr.position.set(0, 1.45, 0.07); g.add(scr);
-  world.colliders.push({ x, z, r: 0.5 });
-  world.use.push({ x: x + Math.sin(face) * 1.0, z: z + Math.cos(face) * 1.0, r: 1.3, label: 'Read', lines });
+// Nothing stands on the dirt: a piece placed by hand on or at a path moves to
+// the nearest clear spot beside it (r = its footprint radius; clear of the
+// water, the stairs, the yards and anything already built).
+function offPath(x, z, r, world) {
+  if (!onPath(x, z, r)) return [x, z];
+  const hit = (qx, qz) => world.colliders.some((c) => {
+    if (!c.box) return (qx - c.x) ** 2 + (qz - c.z) ** 2 < (c.r + r) ** 2;
+    let dx = qx - c.x, dz = qz - c.z;
+    if (c.rot) { const cs = Math.cos(c.rot), sn = Math.sin(c.rot); [dx, dz] = [dx * cs - dz * sn, dx * sn + dz * cs]; }
+    return Math.abs(dx) < c.hw + r && Math.abs(dz) < c.hd + r;
+  });
+  for (let d = 0.25; d <= 10; d += 0.25) {
+    const n = Math.max(16, Math.ceil(d * 10));
+    let best = null, bs = -1;
+    for (let a = 0; a < n; a++) {
+      const qx = x + Math.cos(a / n * Math.PI * 2) * d, qz = z + Math.sin(a / n * Math.PI * 2) * d, sd = pathSD(qx, qz);
+      if (sd <= bs || onPath(qx, qz, r) || isWater(qx, qz) || streamAt(qx, qz).d < r + 1.6 || onStairs(qx, qz, r + 0.6) || inYard(qx, qz, r) || hit(qx, qz)) continue;
+      best = [qx, qz]; bs = sd;
+    }
+    if (best) { (window.__offPath ||= []).push([+x.toFixed(1), +z.toFixed(1), +best[0].toFixed(1), +best[1].toFixed(1), r]); return best; }   // test hook: what moved
+  }
+  return [x, z];
+}
+// a free-standing sign built by signs.js (`build` returns it, facing +z);
+// its posts become colliders and its Read spot is in front of it
+function sign(x, z, face, build, lines, world, r = 1.05) {
+  [x, z] = offPath(x, z, r, world);
+  const g = build(); g.position.set(x, height(x, z) - 0.03, z); g.rotation.y = face; world.group.add(g);
+  const c = Math.cos(face), s = Math.sin(face);
+  for (const [lx, lz, pr] of g.userData.posts || [[0, 0, 0.5]]) world.colliders.push({ x: x + lx * c + lz * s, z: z - lx * s + lz * c, r: pr });
+  world.use.push({ x: x + s * 1.1, z: z + c * 1.1, r: 1.3, label: 'Read', lines });
   return g;
 }
-// a fingerpost: a post with arrow boards pointing down the lanes
+// a fingerpost: a post with arrow boards pointing down the lanes (signs.js)
 function signpost(x, z, arms, world) {
-  const g = new THREE.Group(); g.position.set(x, height(x, z), z); world.group.add(g);
-  box(0.16, 2.6, 0.16, '#8a5f3c', 0, 1.3, 0, g);
-  add(new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.25, 4), flat('#7a5232')), g, 0, 2.72, 0).rotation.y = Math.PI / 4;
-  arms.forEach(([label, ang], i) => {
-    const a = new THREE.Group(); a.position.y = 2.25 - i * 0.42; a.rotation.y = ang - Math.PI / 2; g.add(a);
-    const s = new THREE.Shape(); s.moveTo(0, -0.16); s.lineTo(1.35, -0.16); s.lineTo(1.55, 0); s.lineTo(1.35, 0.16); s.lineTo(0, 0.16); s.lineTo(0, -0.16);
-    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.06, bevelEnabled: false }), tex(planks('#d8ad72')));
-    m.position.z = -0.03; add(m, a, 0.08, 0, 0);
-    const t = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.28), new THREE.MeshBasicMaterial({ map: signTexture([label], { bg: '#d8ad72' }), transparent: false }));
-    t.position.set(0.75, 0, 0.04); a.add(t);
-    const t2 = t.clone(); t2.rotation.y = Math.PI; t2.position.z = -0.04; a.add(t2);
-  });
+  [x, z] = offPath(x, z, 0.25, world);
+  const g = fingerpost(arms); g.position.set(x, height(x, z) - 0.03, z); world.group.add(g);
   world.colliders.push({ x, z, r: 0.25 });
   world.use.push({ x, z, r: 1.4, label: 'Read', lines: arms.map(([l]) => l) });
 }
 function lamp(x, z, world) {
+  [x, z] = offPath(x, z, 0.25, world);
   const g = new THREE.Group(); g.position.set(x, height(x, z), z); world.group.add(g);
   cyl(0.16, 0.2, 0.4, '#2f4a40', 0, 0.2, 0, g, 10);
   cyl(0.06, 0.08, 3.0, '#2f4a40', 0, 1.8, 0, g, 8);
@@ -825,6 +845,7 @@ function lamp(x, z, world) {
   world.colliders.push({ x, z, r: 0.2 });
 }
 function bench(x, z, rot, world) {
+  [x, z] = offPath(x, z, 0.95, world);
   const g = new THREE.Group(); g.position.set(x, height(x, z), z); g.rotation.y = rot; world.group.add(g);
   const wood = tex(planks('#c99a62'));
   for (let i = 0; i < 3; i++) box(1.8, 0.06, 0.13, wood, 0, 0.48, -0.16 + i * 0.16, g, { line: false });
@@ -834,6 +855,7 @@ function bench(x, z, rot, world) {
 }
 // the old stone well in the square
 function well(x, z, world) {
+  [x, z] = offPath(x, z, 1.4, world);
   const g = new THREE.Group(); g.position.set(x, height(x, z), z); world.group.add(g);
   const ring = new THREE.Mesh(wuv(new THREE.CylinderGeometry(1.15, 1.25, 1.0, 20, 1, true), 0.6), tex(stones('#c9c0ae')));
   ring.material = ring.material.clone(); ring.material.side = THREE.DoubleSide; add(ring, g, 0, 0.5, 0, { line: false });
@@ -874,15 +896,15 @@ function dock(world) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   for (let i = 0; i < n; i++) { m4.compose(V(x, y, z0 + 0.21 + i * 0.42), q, V(1, 1, 1)); pk.setMatrixAt(i, m4); pk.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.86 + ((i * 7919) % 11) / 11 * 0.2)); }
   pk.castShadow = pk.receiveShadow = true; g.add(pk);
-  for (const s of [-1, 1]) box(0.24, 0.34, len, wood, x + s * (hw - 0.12), y - 0.22, (z0 + z1) / 2, g);
+  for (const s of [-1, 1]) box(0.24, 0.34, len, wood, x + s * (hw - 0.13), y - 0.22, (z0 + z1) / 2, g);   // 1 cm in from the plank ends
   // a wider head at the end
-  box(7.0, 0.16, 4.6, wood, x, y, z1 + 2.2, g);
+  box(7.0, 0.16, 4.6, wood, x, y + 0.01, z1 + 2.2, g);   // 2 cm over the plank tops it covers, not 1
   for (let zz = z0 + 1.5; zz <= z1; zz += 2.6) for (const s of [-1, 1]) cyl(0.17, 0.19, 4.2, post, x + s * (hw + 0.05), y - 1.6, zz, g, 8);
   for (const [sx, sz] of [[-3.3, 0.2], [3.3, 0.2], [-3.3, 4.2], [3.3, 4.2], [0, 4.3]]) cyl(0.2, 0.22, 4.4, post, x + sx, y - 1.5, z1 + sz, g, 8);
   // railings with a gap for the boat steps
   const railPosts = (xx, za, zb) => {
     const m = Math.max(2, Math.round((zb - za) / 1.3));
-    for (let i = 0; i <= m; i++) box(0.12, 1.05, 0.12, post, xx, y + 0.55, za + (zb - za) * i / m, g, { line: false });
+    for (let i = 0; i <= m; i++) box(0.1, 1.05, 0.1, post, xx, y + 0.55, za + (zb - za) * i / m, g, { line: false });   // slimmer than the rail: no shared faces
     box(0.12, 0.1, zb - za, wood, xx, y + 1.05, (za + zb) / 2, g);
     box(0.08, 0.08, zb - za, wood, xx, y + 0.6, (za + zb) / 2, g, { line: false });
     world.colliders.push({ box: true, x: xx, z: (za + zb) / 2, hw: 0.08, hd: (zb - za) / 2 });
@@ -892,10 +914,10 @@ function dock(world) {
   railPosts(x + hw - 0.06, z1 - 5, z1 + 0.1);
   for (const s of [-1, 1]) {
     box(0.12, 0.1, 7.0, wood, x + s * 3.45, y + 1.05, z1 + 2.2, g).rotation.y = 0;
-    for (let i = 0; i <= 4; i++) box(0.12, 1.05, 0.12, post, x + s * 3.45, y + 0.55, z1 + 0.2 + i, g, { line: false });
+    for (let i = 0; i <= 4; i++) box(0.1, 1.05, 0.1, post, x + s * 3.45, y + 0.55, z1 + 0.2 + i, g, { line: false });
     world.colliders.push({ box: true, x: x + s * 3.45, z: z1 + 2.2, hw: 0.08, hd: 2.2 });
   }
-  box(7.0, 0.1, 0.12, wood, x, y + 1.05, z1 + 4.45, g);
+  box(7.0, 0.1, 0.12, wood, x, y + 1.045, z1 + 4.45, g);
   world.colliders.push({ box: true, x, z: z1 + 4.45, hw: 3.5, hd: 0.08 });
   // lamps on the head, bollards, crates, barrels and rope
   for (const s of [-1, 1]) {
@@ -935,6 +957,7 @@ function dock(world) {
   lighthouse(world, -64, 96);
 }
 function boathouse(world, x, z) {
+  [x, z] = offPath(x, z, 3.6, world);
   const G = new THREE.Group(); G.position.set(x, height(x, z), z); G.rotation.y = 0.1; world.group.add(G);
   const wall = tex(planks('#6f9fbf')), roofMat = tex(tiles('#d8473a'));
   box(5.2, 1.0, 4.2, tex(stones('#cfc8b6')), 0, -0.3, 0, G);
@@ -944,7 +967,7 @@ function boathouse(world, x, z) {
   box(2.6, 2.1, 0.12, tex(planks('#f4f1e6')), 0, 1.15, 2.05, G);
   windowAt(G, 0, 3.15, 2.06, 0.7, 0.5, 2, 1);
   for (let k = 0; k < 3; k++) add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 6, 18), flat('#e8402e')), G, -2.6, 1.6, 0.8 - k * 0.0, { line: false }).rotation.y = Math.PI / 2;
-  const sb = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.45), new THREE.MeshBasicMaterial({ map: signTexture(['BOATHOUSE']) })); sb.position.set(0, 2.5, 2.13); G.add(sb);
+  const sb = nameplate('BOATHOUSE', { w: 1.1, h: 0.3 }); sb.position.set(0, 2.5, 2.015); G.add(sb);   // signs.js, 1.5 cm off the wall
   world.colliders.push({ box: true, x, z, hw: 2.8, hd: 2.4, rot: 0.1 });
   world.use.push({ x: x + 0.2, z: z + 3.2, r: 1.2, label: 'Look', lines: ['The BOATHOUSE.', 'Oars, nets and a fresh coat of paint drying on a dinghy.'] });
   world.solid.push(G);
@@ -1027,12 +1050,15 @@ export function buildTown() {
   well(1.8, 1.3, world);
   bench(-9.5, 5.5, 0.5, world);
   bench(6.6, 1.0, -Math.PI / 2 - 0.2, world);
-  sign(-10.5, -4.2, 0.9, ['PALLET TOWN', 'Shades of your journey await!'], ['PALLET TOWN', 'Shades of your journey await!'], world);
+  sign(-10.5, -4.2, 0.9, () => welcomeSign(), ['PALLET TOWN', 'Shades of your journey await!'], world, 1.3);
   signpost(-9.5, -15.5, [['ROUTE 1', 0.15 + Math.PI], ['RED\'s house', -Math.PI / 2 + 0.1], ['TOWN SQUARE', 0.2]], world);
   signpost(2.6, 8.6, [['OAK LAB', Math.PI / 2 + 0.3], ['BEACH', 0], ['SQUARE', Math.PI + 0.4]], world);
   signpost(-17.5, 7.0, [['FARM', -Math.PI / 2], ['MAE', 0.2]], world);
-  sign(4.4, -42, -0.3, ['ROUTE 1', 'Pallet Town - Viridian City'], ['ROUTE 1', 'PALLET TOWN - VIRIDIAN CITY'], world);
-  sign(-3.5, 52.5, 0.2, ['Pallet Beach'], ['PALLET BEACH', 'The salty breeze smells like adventure.'], world);
+  sign(4.4, -42, -0.3, () => routeSign({ num: '1', north: 'VIRIDIAN CITY', south: 'PALLET TOWN' }), ['ROUTE 1', 'PALLET TOWN - VIRIDIAN CITY'], world, 1.1);
+  sign(6.9, -41.2, -0.3, () => noticeBoard('TRAINER TIPS', ['Wild POKéMON hide in tall grass.', 'Heal up before a long route.', 'Talk to everyone you meet!'], { style: 'chalk' }),
+    ['TRAINER TIPS', 'Wild POKéMON hide in tall grass.', 'Heal up before a long route, and talk to everyone you meet!'], world, 0.9);
+  sign(-3.5, 52.5, 0.2, () => noticeBoard('PALLET BEACH', ['Mind the tide pools.', 'Take your litter home.', 'No swimming past the buoys.'], { style: 'pinned', frame: '#5f8fb0', roof: '#3d6fa8' }),
+    ['PALLET BEACH', 'The salty breeze smells like adventure.'], world, 0.9);
   dock(world);
   // merge each static piece's meshes by material
   for (const c of world.group.children.slice()) if (!c.userData.keep && !c.isMesh) mergeStatic(c);
@@ -1040,5 +1066,7 @@ export function buildTown() {
   const loose = new THREE.Group();
   for (const c of world.group.children.slice()) if (c.isMesh && !c.isInstancedMesh && !c.userData.keep) { world.group.remove(c); loose.add(c); }
   world.group.add(loose); mergeStatic(loose);
+  // vector ink on every building and prop (outline.js)
+  world.edges = addEdgeLines(world.group);
   return world;
 }

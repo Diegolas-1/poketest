@@ -2,8 +2,9 @@
 // birches, poplars and cypresses, willows by the pond, Scots pines and giants
 // on the hills, palms on the beach, bushes and hedges, fern beds in the shade,
 // flower clumps and mossy rocks. Seeded, so the town always looks the same.
-import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, coastZ, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS } from './terrain.js';
+import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, coastZ, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath } from './terrain.js';
 import { Scatter, Impostor } from './assets.js';
+import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
 import { BEDS } from './town.js';
 
@@ -16,14 +17,27 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   const free = (x, z, r = 1) => !blocked(x, z, r) && roadDist(x, z) > 2.5 + r * 0.3 && !isWater(x, z) && height(x, z) > SEA_Y + 0.8
     && !fieldAt(x, z, 0.8) && !onStairs(x, z, 3) && !inYard(x, z, 0.4) && !inPlaza(x, z, 1) && streamAt(x, z).d > 3.4 && labHillU(x, z) > 0.04;
   const scatters = [], impostors = [];
+  // how far a model's base (everything within 0.7 m of the ground) reaches out
+  const baseR = (list) => { let r = 0; for (const m of list) for (const p of m.parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) < 0.7) r = Math.max(r, Math.hypot(a.getX(i), a.getZ(i))); } return r; };
+  // nothing stands on the dirt: mark what would, and leave it out
+  const keepOff = (list, br) => { for (const p of list) if (onPath(p.x, p.z, br * p.s)) p.off = true; };
   const pick = (w) => { let t = R() * w.reduce((a, b) => a + b[1], 0); for (const [k, p] of w) { t -= p; if (t <= 0) return k; } return w[0][0]; };
   // a few shapes of each kind, points shared out between them
   const sow = (models, pts, opts) => {
     const by = models.map(() => []);
-    for (const p of pts) by[Math.floor(R() * models.length)].push(p);
+    for (const p of pts) { const j = Math.floor(R() * models.length); if (!p.off) by[j].push(p); }   // p.off: on a path (the draw keeps the seeded layout)
     models.forEach((m, i) => { if (by[i].length) scatters.push(new Scatter(scene, m, by[i], opts(m))); });
   };
   const yieldUI = () => new Promise((r) => setTimeout(r, 0));
+  // billboards are baked under the scene's own lights (sky, sun, environment)
+  const lights = () => {
+    let sun = null, hemi = null;
+    scene.traverse((o) => { if (o.isDirectionalLight && o.castShadow) sun = o; if (o.isHemisphereLight) hemi = o; });
+    let sunDir = sun ? sun.position.clone().sub(sun.target.position) : null;
+    if (!sunDir || sunDir.lengthSq() < 1e-6 || (sunDir.x === 0 && sunDir.z === 0)) sunDir = new THREE.Vector3(-0.55, 0.75, 0.45);   // before the first frame places the sun
+    return { sun, hemi, sunDir: sunDir.normalize(), environment: scene.environment, environmentIntensity: scene.environmentIntensity };
+  };
+  const lowQ = quality.lod < 0.8;
 
   // ---------- trees ----------
   // Big painted broadleaves round the village (tiered park trees, shade
@@ -53,7 +67,20 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   // shade and accent trees in the village and by the pond, placed by hand
   for (const [x, z, k, s] of [[-36, -26, 'tiered', 1.0], [12, -20, 'linden', 0.9], [-30, 30, 'shade', 0.9], [-12, 46, 'tiered', 0.85], [20, 2, 'shade', 0.85],
     [-60, -2, 'cypress', 1.0], [-14, 12, 'tiered', 0.8], [-34, -6, 'cypress', 1.0], [14, -30, 'lombardy', 0.55], [-2, 58, 'palm', 1.0], [-24, 60, 'palm', 1.0],
-    [-58, 34, 'willow', 0.85], [-42, 44, 'willow', 0.75], [44, -24, 'maple', 0.9], [12, 34, 'willow', 0.8], [-48, -40, 'linden', 0.9], [-14, -36, 'oak', 0.85]]) if (free(x, z, 1.5)) place(k, x, z, s);
+    [-58, 34, 'willow', 0.85], [-42, 44, 'willow', 0.75], [44, -24, 'maple', 0.9], [12, 34, 'willow', 0.8], [-48, -40, 'linden', 0.9], [-14, -36, 'oak', 0.85]]) {
+    // a hand-placed tree near a path steps back off it (to the nearest clear spot)
+    let p = [x, z];
+    const rb = Math.max(1.5, baseR(models[k]) * s);
+    if (onPath(x, z, rb)) {
+      p = null;
+      for (let d = 0.5; d <= 6 && !p; d += 0.5) for (let a = 0; a < 16 && !p; a++) {
+        const qx = x + Math.cos(a / 16 * 6.283) * d, qz = z + Math.sin(a / 16 * 6.283) * d;
+        if (!onPath(qx, qz, rb) && free(qx, qz, 1.5)) p = [qx, qz];
+      }
+    }
+    if (p && (p[0] !== x || p[1] !== z)) (window.__offPath ||= []).push([x, z, +p[0].toFixed(1), +p[1].toFixed(1), k]);   // test hook: what moved
+    if (p && free(p[0], p[1], 1.5)) place(k, p[0], p[1], s);
+  }
   const north = [['scotspine', 2.5], ['giant', 2], ['linden', 3], ['beech', 2], ['tiered', 3], ['shade', 2], ['cypress', 1.5], ['oldgrowth', 1], ['multistem', 1], ['birch', 1], ['bushy', 1], ['dead', 0.25]];
   const edge = [['tiered', 5], ['shade', 3], ['linden', 3], ['oak', 3], ['beech', 2], ['multistem', 2], ['bushy', 3], ['sapling', 2], ['birch', 2], ['lombardy', 1.5], ['cypress', 1.5], ['spreading', 1], ['oldgrowth', 0.7], ['giant', 0.7]];
   const hillK = [['tiered', 3], ['shade', 2], ['linden', 3], ['bushy', 3], ['cypress', 2.5], ['oak', 1]];
@@ -83,16 +110,25 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     if (tooClose(x, z, r)) continue;
     place(k, x, z, s);
   }
-  for (const t of all) colliders.push({ x: t.x, z: t.z, r: Math.max(0.45, t.trunk + 0.1) });
+  // nothing stands on the dirt: drop any tree whose trunk base is on a path
+  for (const k of Object.keys(pts)) keepOff(pts[k], Math.max(0.6, baseR(models[k])));
+  for (const t of all) if (!t.off) colliders.push({ x: t.x, z: t.z, r: Math.max(0.45, t.trunk + 0.1) });
+  // each shape gets its own billboard, so the far tree has the near one's
+  // outline; the model cross-fades into it when it passes its range
+  const treeD = 75 * quality.lod, L = lights();
+  let bakeMs = 0;
   for (const [k, list] of Object.entries(pts)) {
     if (!list.length) continue;
-    // one billboard set per kind (its first shape), shared by its variants
-    const imp = new Impostor(renderer, models[k][0]);
-    impostors.push(imp);
-    sow(models[k], list, () => ({ chunk: 30, maxDist: 75 * quality.lod, wind: 0, impostor: imp }));
+    sow(models[k], list, (m) => {
+      const t0 = performance.now(), imp = new Impostor(renderer, m, { size: lowQ ? 96 : 128, lights: L });
+      bakeMs += performance.now() - t0;
+      impostors.push(imp);
+      return { chunk: 30, fade: [treeD - 4, treeD + 2], wind: 0, impostor: imp };
+    });
     await yieldUI();
   }
-  window.__trees = Object.fromEntries(Object.entries(pts).map(([k, l]) => [k, l.length]));
+  window.__trees = Object.fromEntries(Object.entries(pts).map(([k, l]) => [k, l.filter((t) => !t.off).length]));
+  window.__treesOff = Object.fromEntries(Object.entries(pts).map(([k, l]) => [k, l.filter((t) => t.off).map((t) => [+t.x.toFixed(1), +t.z.toFixed(1)])]).filter(([, l]) => l.length));
 
   // ---------- bushes and hedges ----------
   onProgress('Planting bushes');
@@ -121,7 +157,17 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
       }
     }
   }
-  sow(bushes, bp.concat(hedge), () => ({ chunk: 24, maxDist: 80 * quality.lod, wind: 0 }));
+  // nothing on the dirt (marked off, not removed, so the seeded layout stays)
+  keepOff(bp, baseR(bushes)); keepOff(hedge, baseR(bushes));
+  // bushes and hedges: billboards past the model's range, out into the fog
+  // (a far band in clear air would leave them standing half-dithered)
+  const bushD = 70 * quality.lod;
+  sow(bushes, bp.concat(hedge), (m) => {
+    const t0 = performance.now(), imp = new Impostor(renderer, m, { size: lowQ ? 40 : 56, lights: L });
+    bakeMs += performance.now() - t0;
+    impostors.push(imp);
+    return { chunk: 24, fade: [bushD - 4, bushD + 1], wind: 0, impostor: imp };
+  });
   window.__hedge = hedge.length;
 
   // ---------- ferns and flowers ----------
@@ -157,8 +203,10 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     if (fbm(x * 0.1, z * 0.1, 2) < 0.45) continue;
     fp.push({ x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s: 0.7 + R() * 0.5 });
   }
-  sow(ferns, fp, () => ({ chunk: 20, maxDist: 60 * quality.lod, wind: 0, shadows: false }));
-  sow(flowers, fl, () => ({ chunk: 16, maxDist: 55 * quality.lod, wind: 0, shadows: false }));
+  keepOff(fp, baseR(ferns)); keepOff(fl, baseR(flowers));
+  // small plants fade out and sink into the ground past their range
+  sow(ferns, fp, () => ({ chunk: 20, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
+  sow(flowers, fl, () => ({ chunk: 16, fade: [55 * quality.lod - 3, 55 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
 
   // ---------- rocks ----------
   const rocks = [makeRock(1, 1.0), makeRock(2, 1.4), makeRock(3, 0.8), makeRock(4, 2.0)];
@@ -179,11 +227,26 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   }
   const beachRocks = [makeRock(11, 1.0), makeRock(12, 0.8), makeRock(13, 1.2)];
   for (const m of beachRocks) { const cc = m.parts[0].geometry.attributes.color; for (let i = 0; i < cc.count; i++) { const l = (cc.getX(i) + cc.getY(i) + cc.getZ(i)) / 3; cc.setXYZ(i, l * 0.92 + 0.05, l * 0.9 + 0.03, l * 0.95 + 0.05); } }
-  sow(beachRocks, brp, () => ({ chunk: 40, maxDist: 120, wind: 0 }));
-  for (const p of brp) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
+  keepOff(brp, baseR(beachRocks));
+  sow(beachRocks, brp, () => ({ chunk: 40, fade: [140, 146], shrink: 0.6, wind: 0 }));
+  for (const p of brp) if (!p.off) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
   for (const [x, z] of [[-56, 33], [-43, 40], [-52, 47]]) rp.push({ x, z, y: height(x, z) - 0.1, rot: R() * 6, s: 1.0 });
-  sow(rocks, rp, () => ({ chunk: 40, maxDist: 160, wind: 0 }));
-  for (const p of rp) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
+  keepOff(rp, baseR(rocks));
+  sow(rocks, rp, () => ({ chunk: 40, fade: [180, 186], shrink: 0.6, wind: 0 }));
+  for (const p of rp) if (!p.off) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
 
-  return { update(cam) { for (const s of scatters) s.update(cam); }, impostors };
+  window.__scatters = scatters;
+  window.__billboards = { ms: Math.round(bakeMs), n: impostors.length, mb: +(impostors.reduce((a, i) => a + i.bytes, 0) / 1048576).toFixed(1) };
+  // plants that cross their range fade over a fraction of a second (wall
+  // clock, so it looks the same at any frame rate)
+  let last = 0;
+  return {
+    update(cam) {
+      const now = performance.now(), dt = window.__fadeSnap ? +window.__fadeSnap : last ? Math.min(0.25, (now - last) / 1000) : 0;   // __fadeSnap = seconds per frame (tests)
+      last = now;
+      for (const s of scatters) s.update(cam, dt);
+    },
+    impostors,
+    scatters,
+  };
 }

@@ -1,7 +1,7 @@
 // Anime people built in code: a smooth chibi body (big head with a painted
 // face, slim limbs, mitten hands) on a bone hierarchy, dressed in real garment
 // meshes worn over it (jacket, cap, gloves, jeans with rolled cuffs, sneakers).
-// Cel shaded with toon() and a thin inverted-hull ink line; animated by speed:
+// Cel shaded with toon() and ink lines from the screen-space outline pass (outline.js); animated by speed:
 // idle breathing and blinking, walk, run and jump.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -20,24 +20,10 @@ function mat(c, o = {}) {
   if (!MATS.has(k)) MATS.set(k, toon(c, { side: o.side, cel: o.skin ? SKIN : CLOTH }));
   return MATS.get(k);
 }
-// ink: back faces pushed out along the normal in view space, a little wider far away
-const INK = new THREE.MeshBasicMaterial({ color: '#2f2b36', side: THREE.BackSide });
-INK.onBeforeCompile = (sh) => {
-  sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', `
-    vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
-    mvPosition.xyz += normalize(normalMatrix * normal) * 0.0075 * clamp(-mvPosition.z / 4.0, 1.0, 4.0);
-    gl_Position = projectionMatrix * mvPosition;`);
-};
-const HULL = new WeakMap();
-function hullOf(g) {
-  if (!HULL.has(g)) {
-    const p = new THREE.BufferGeometry(); p.setAttribute('position', g.attributes.position); if (g.index) p.setIndex(g.index);
-    const h = mergeVertices(p, 1e-4); h.computeVertexNormals(); HULL.set(g, h);
-  }
-  return HULL.get(g);
-}
-
-// a mesh (with its ink hull as a sibling) under a bone; m = colour or material
+// ink: the screen-space outline pass (outline.js) draws every character's lines
+// at a constant pixel width; the root is marked 'solid', overlay parts
+// (face decal, trims; ink: false) are left out of it so they draw no line.
+// a mesh under a bone; m = colour or material
 function part(geo, m, parent, x = 0, y = 0, z = 0, o = {}) {
   const mesh = new THREE.Mesh(geo, typeof m === 'string' ? mat(m, o) : m);
   mesh.position.set(x, y, z);
@@ -45,11 +31,7 @@ function part(geo, m, parent, x = 0, y = 0, z = 0, o = {}) {
   if (o.s) Array.isArray(o.s) ? mesh.scale.set(...o.s) : mesh.scale.setScalar(o.s);
   mesh.castShadow = o.shadow ?? true;
   parent.add(mesh);
-  if (o.ink ?? true) {
-    const h = new THREE.Mesh(hullOf(geo), INK);
-    h.position.copy(mesh.position); h.rotation.copy(mesh.rotation); h.scale.copy(mesh.scale);
-    parent.add(h);
-  }
+  if (!(o.ink ?? true)) mesh.userData.outline = false;
   return mesh;
 }
 const bone = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
@@ -219,10 +201,9 @@ const dirOf = (a, e) => V3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) *
 function spike(head, R, col, a, e, len, r, drop = 0.6, flat = 0.55, out = 0) {
   const d = dirOf(a, e), tip = d.clone().multiplyScalar(1 - drop + out).add(V3(0, -drop, 0)).normalize();
   const g = new THREE.ConeGeometry(r, len, 5, 1).translate(0, len / 2, 0).scale(1, 1, flat);
-  const m = part(g, col, head), h = head.children[head.children.length - 1];   // mesh, then its ink
+  const m = part(g, col, head);
   m.position.copy(d).multiplyScalar(R * 0.92); m.position.y *= 1.02;
   m.quaternion.setFromUnitVectors(V3(0, 1, 0), tip).premultiply(new THREE.Quaternion().setFromAxisAngle(tip, a));
-  h.position.copy(m.position); h.quaternion.copy(m.quaternion);
   return m;
 }
 // a hair cap over the skull, with the face (and anything keep() refuses) cut away
@@ -246,7 +227,7 @@ export function makeActor(look = {}) {
   const L = { skin: '#f8d8bc', hair: '#2a2028', hairStyle: 'short', shirt: '#e2443c', sleeve: 'short', pants: '#3b5aa0', shoes: { up: '#e9ecef', sole: '#ffffff' }, face: {}, ...look };
   const P = { ...(L.adult ? ADULT : KID), wide: L.wide || 1 };
   const SK = { skin: true };
-  const root = new THREE.Group();
+  const root = new THREE.Group(); root.userData.outline = 'solid';   // every part gets a line (see outline.js)
   const body = bone(root);
   const hipY = P.thigh + P.shin + P.ank;
   const hips = bone(body, 0, hipY, 0);
@@ -307,7 +288,7 @@ export function makeActor(look = {}) {
   // shadow blob
   const blob = new THREE.Mesh(new THREE.CircleGeometry(0.36, 20).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.22, depthWrite: false }));
-  blob.position.y = 0.02; root.add(blob);
+  blob.position.y = 0.02; blob.userData.outline = false; root.add(blob);
   bake(root);
 
   let phase = 0, blink = 2 + Math.random() * 3, idleT = Math.random() * 10;
@@ -561,7 +542,7 @@ function bake(root) {
     if (g.isMesh) return;
     const buckets = new Map();
     for (const m of g.children) if (m.isMesh && !m.userData.keep) {
-      const k = m.material.uuid + m.castShadow;
+      const k = m.material.uuid + m.castShadow + (m.userData.outline === false);   // overlays (no line) stay apart
       if (!buckets.has(k)) buckets.set(k, []);
       buckets.get(k).push(m);
     }
@@ -575,7 +556,7 @@ function bake(root) {
         return q.applyMatrix4(m.matrix);
       });
       const one = new THREE.Mesh(mergeGeometries(gs), m0.material);
-      one.castShadow = m0.castShadow;
+      one.castShadow = m0.castShadow; if (m0.userData.outline === false) one.userData.outline = false;
       for (const m of list) g.remove(m);
       g.add(one);
     }
@@ -653,25 +634,6 @@ function loadCalem() {
 // resolves to true once the local model is ready, false when it is not available
 export function calemReady() { return CALEM_ON ? loadCalem().then((b) => !!b) : Promise.resolve(false); }
 
-// ink for skinned meshes: back faces pushed out along the skinned, smoothed normal
-const INK_SK = new THREE.MeshBasicMaterial({ color: '#2f2b36', side: THREE.BackSide });
-INK_SK.onBeforeCompile = (sh) => {
-  sh.vertexShader = 'attribute vec3 inkN;\n' + sh.vertexShader
-    .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = inkN;')
-    .replace('#include <project_vertex>', `
-    vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
-    mvPosition.xyz += normalize(normalMatrix * objectNormal) * 0.0042 * clamp(-mvPosition.z / 4.0, 1.0, 3.5);
-    gl_Position = projectionMatrix * mvPosition;`);
-};
-INK_SK.customProgramCacheKey = () => 'inksk';
-// normals averaged over vertices at the same place, so the ink has no cracks at UV seams
-function smoothNormals(g) {
-  const p = g.attributes.position, n = g.attributes.normal, acc = new Map(), key = (i) => `${p.getX(i).toFixed(4)},${p.getY(i).toFixed(4)},${p.getZ(i).toFixed(4)}`;
-  for (let i = 0; i < p.count; i++) { const k = key(i), a = acc.get(k) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); acc.set(k, a); }
-  const out = new Float32Array(p.count * 3);
-  for (let i = 0; i < p.count; i++) { const a = acc.get(key(i)), l = Math.hypot(...a) || 1; out.set([a[0] / l, a[1] / l, a[2] / l], i * 3); }
-  g.setAttribute('inkN', new THREE.BufferAttribute(out, 3));
-}
 const SKIN_PARTS = new Set(['face_on_1', 'face_on_0']);
 function prepCalem(scene, SU) {
   scene.updateMatrixWorld(true);
@@ -688,7 +650,10 @@ function prepCalem(scene, SU) {
     o.material = mats.get(name);
     o.castShadow = name !== 'face_on_0' && name !== 'ash_logo'; o.frustumCulled = false;
     if (name === 'face_on_0' || name === 'ash_logo') { o.material.polygonOffset = true; o.material.polygonOffsetFactor = -1; o.material.polygonOffsetUnits = -2; }
-    else if (name !== 'ash_sleeve') smoothNormals(o.geometry);
+    // the eye decal is drawn in the line pass as part of the face (one id),
+    // so the face shows no lines from what is hidden under it; the logo is left out
+    if (name === 'face_on_0' || name === 'face_on_1') o.userData.outlineGroup = 'face';
+    if (name === 'ash_logo') o.userData.outline = false;
   });
   // rest pose: each bone's rest rotation and its rotation relative to the model
   const rest = new Map();
@@ -704,7 +669,7 @@ function calemActor(look) {
     if (!base) return;
     const m = base.SU.clone(base.scene);
     const holder = new THREE.Group(); holder.scale.setScalar(base.k); holder.position.y = -base.minY * base.k; holder.add(m);
-    const bones = {}, hulls = [];
+    const bones = {};
     let eyes = null;
     m.traverse((o) => {
       if (o.isBone) bones[o.name] = o;
@@ -712,12 +677,8 @@ function calemActor(look) {
         if (o.material.name === 'face_on_0') {   // own eye texture so blinking is per person
           o.material = o.material.clone(); o.material.map = o.material.map.clone(); eyes = o.material.map;
         }
-        if (o.geometry.attributes.inkN) {
-          const h = new THREE.SkinnedMesh(o.geometry, INK_SK); h.bind(o.skeleton, o.bindMatrix); h.frustumCulled = false; hulls.push([o.parent, h]);
-        }
       }
     });
-    for (const [p, h] of hulls) p.add(h);
     for (const c of fb.root.children) if (c !== fb.blob) c.visible = false;
     fb.root.add(holder);
     actor.model = holder;
