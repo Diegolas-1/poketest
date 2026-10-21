@@ -6,10 +6,14 @@
 // Preview of the town's people: the whole cast in a row, Ash close up from the
 // front and at 3/4, and Ash walking and running. ?pose=walk|run|jump&t=.. shows
 // one big Ash in that pose; ?look=oak picks another look, &zoom frames the head.
+// ?base=calem shows the Ash made on the local Calem base (web/world/local/ash.glb,
+// only on a dev machine): front, 3/4, back, side, walking, running, jumping and a
+// head close-up. ?base=proc keeps every look procedural.
 import * as THREE from 'three';
-import { makeActor, LOOKS } from './actor.js';
+import { makeActor, LOOKS, calemReady } from './actor.js';
 import { buildSky } from './nature.js';
 const q = new URLSearchParams(location.search);
+const calem = q.get('base') !== 'proc' && await Promise.race([calemReady(), new Promise((r) => setTimeout(() => r(false), 20000))]);
 const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
 r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(r.domElement);
@@ -28,7 +32,18 @@ const put = (look, x, z, yaw = 0, speed = 0, t = 1.3, air = false) => {
 const W = innerWidth, H = innerHeight;
 const cam = (fov, p, l, asp) => { const c = new THREE.PerspectiveCamera(fov, asp, 0.05, 2000); c.position.set(...p); c.lookAt(...l); return c; };
 const views = [];   // [camera, x, y, w, h] in pixels from the bottom left
-if (q.has('pose')) {
+if (q.get('base') === 'calem') {
+  // the Calem-based Ash: 4 turns standing, then walk, run, jump and the face
+  const yaws = [0, 0.75, Math.PI, Math.PI / 2], n = 8, w = Math.floor(W / 4), h2 = Math.floor(H / 2);
+  yaws.forEach((y, i) => put(LOOKS.red, i * 6, 0, y, 0, 1.3));
+  put(LOOKS.red, 24, 0, 1.2, 2.6, 0.45); put(LOOKS.red, 30, 0, 1.2, 7, 0.6); put(LOOKS.red, 36, 0, 0.5, 0, 0.3, true);
+  const head = put(LOOKS.red, 42, 0, 0.35, 0, 1.3);
+  for (let i = 0; i < n; i++) {
+    const x = i * 6, top = i < 4, vx = (i % 4) * w, vy = top ? h2 : 0;
+    const c = i === 7 ? cam(13, [x, 1.38, 3.0], [x, 1.3, 0], w / h2) : cam(24, [x, 0.9, 4.2], [x, 0.78, 0], w / h2);
+    views.push([c, vx, vy, w, h2]);
+  }
+} else if (q.has('pose')) {
   const pose = q.get('pose'), t = +(q.get('t') || 0.4), sp = { walk: 2.6, run: 7, jump: 0, idle: 0 }[pose] ?? 0;
   const look = { ...LOOKS[q.get('look') || 'red'] }; if (q.has('hair')) look.hair = '#' + q.get('hair');
   const a = put(look, 0, 0, +(q.get('yaw') || 0.6), sp, t, pose === 'jump');
@@ -48,5 +63,5 @@ if (q.has('pose')) {
 }
 r.setScissorTest(true);
 for (const [c, x, y, w, h] of views) { r.setViewport(x, y, w, h); r.setScissor(x, y, w, h); r.render(scene, c); }
-window.ready = true;
+window.ready = true; window.calem = calem;
 </script></body></html>

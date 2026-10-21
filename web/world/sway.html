@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Tree sway</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden}canvas{display:block}</style></head>
+<body><script type="module">
+// (sway.html: trees.html plus ?t= = the wind clock, to compare two frames.)
+// Lineup of the forest tree kinds (sapling to giant, plus the dead snag and
+// the old-growth tree). ?ink=1 adds the silhouette ink; ?only=kind,kind
+// shows just those; ?set=forest|species|lush; ?seed=n; ?cam=x,y,z,tx,ty,tz overrides the framing.
+import * as THREE from 'three';
+import { makeTree, foliageTime } from './foliage.js';
+import { buildSky } from './nature.js';
+import { createInk } from './ink.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+const sunDir = new THREE.Vector3(-0.6, 0.7, 0.5).normalize();
+scene.add(buildSky(sunDir)); scene.fog = new THREE.Fog('#cfe2e8', 90, 400);
+scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.2));
+const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(80); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, far: 200 }); sun.shadow.bias = -0.0005; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
+ground.receiveShadow = true; scene.add(ground);
+const SETS = { forest: 'sapling,tiered,giant,spreading,multistem,dead,oldgrowth', species: 'birch,willow,maple,oak,scotspine', lush: 'bushy,shade,lombardy,linden,beech' };
+const kinds = (q.get('only') || SETS[q.get('set') || 'forest']).split(',');
+const seed = +(q.get('seed') || 5);
+const models = kinds.map((k, i) => makeTree(k, seed * 97 + i * 13));
+let x = 0; const xs = [];
+models.forEach((m, i) => { if (i) x += models[i - 1].radius * 0.85 + m.radius * 0.85 + 1; xs.push(x); });
+const info = [];
+models.forEach((m, i) => {
+  const g = new THREE.Group(); g.position.set(xs[i] - x / 2, 0, 0);
+  m.parts.forEach((p) => { const mesh = new THREE.Mesh(p.geometry, p.material); mesh.castShadow = mesh.receiveShadow = true; mesh.userData.ink = p.material.map && p.material.alphaTest ? 'leaf' : 'bark'; g.add(mesh); });
+  scene.add(g);
+  const leaf = m.parts.find((p) => p.material.alphaTest);
+  info.push({ k: kinds[i], h: +m.height.toFixed(1), rad: +m.radius.toFixed(1), cards: leaf ? leaf.geometry.index.count / 6 : 0 });
+});
+window.info = info; console.log(JSON.stringify(info));
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 1000);
+const H = Math.max(...models.map((m) => m.height)), Wd = x + models[0].radius + models[models.length - 1].radius;
+const d = Math.max(H / 2 / Math.tan(THREE.MathUtils.degToRad(20)), Wd / 2 / Math.tan(THREE.MathUtils.degToRad(20)) / cam.aspect) * 1.25;
+const c = (q.get('cam') || `0,${H * 0.3},${d},0,${H * 0.5},0`).split(',').map(Number);
+cam.position.set(c[0], c[1], c[2]); cam.lookAt(c[3], c[4], c[5]);
+foliageTime.value = +(q.get('t') || 0);
+r.render(scene, cam);
+if (q.get('ink') === '1') createInk(r).render(scene, cam);
+window.ready = true;
+</script></body></html>

@@ -242,6 +242,7 @@ function hairShell(R, keep, scale = 1.06) {
 // look: { adult, wide, skin, hair, hairStyle, face, shirt, sleeve, jacket, coat,
 //   vest, dress, pants, shorts, cuff, belt, shoes, boots, gloves, cap, hat, bag }
 export function makeActor(look = {}) {
+  if (look.base === 'calem' && CALEM_ON) return calemActor(look);
   const L = { skin: '#f8d8bc', hair: '#2a2028', hairStyle: 'short', shirt: '#e2443c', sleeve: 'short', pants: '#3b5aa0', shoes: { up: '#e9ecef', sole: '#ffffff' }, face: {}, ...look };
   const P = { ...(L.adult ? ADULT : KID), wide: L.wide || 1 };
   const SK = { skin: true };
@@ -591,6 +592,7 @@ const ASH = {
   gloves: '#36a24e', gloves2: '#2b8a42',
   pants: '#6f9fdc', cuff: '#dfe9f6', belt: '#c8343a', buckle: '#e9e4d0',
   shoes: { up: '#2f5fc4', sole: '#ffffff', toe: '#f7f6f1', collar: '#f7f6f1', lace: '#f7f6f1', tab: '#e0383a' },
+  base: 'calem',   // use the local Calem-based model when this machine has it (see calemActor)
 };
 export const LOOKS = {
   red: ASH, ash: ASH,
@@ -621,3 +623,156 @@ export const LOOKS = {
     shoes: { up: '#ffd23f', sole: '#ffffff', toe: '#ffffff', lace: '#ffffff' }, bag: '#5fa8d3', bag2: '#3d7fb0',
   },
 };
+
+// ---------- optional local base model ----------
+// On a dev machine, web/world/local/ash.glb (gitignored, never published) holds a
+// skinned 3D-game body dressed as Ash. When it is there, the player look uses it:
+// makeActor returns at once with the procedural Ash and swaps in the model when
+// it has loaded. Bones are driven procedurally about axes taken from the rest
+// pose, with the same angles as the procedural rig. ?base=proc turns it off.
+const QS = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+const CALEM_ON = QS.get('base') !== 'proc' && (QS.get('base') === 'calem' ||
+  (typeof location !== 'undefined' && /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname)));
+const CALEM_H = 1.55;   // metres, cap included
+let calemP = null, calemBase = null;
+function loadCalem() {
+  if (!calemP) calemP = (async () => {
+    try {
+      const url = new URL('./local/ash.glb', import.meta.url).href;
+      const [{ GLTFLoader }, SU] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]);
+      const g = await new GLTFLoader().loadAsync(url);
+      return (calemBase = prepCalem(g.scene, SU));
+    } catch (e) { if (QS.get('base') === 'calem') console.warn('local base model not loaded:', e); return null; }
+  })();
+  return calemP;
+}
+// resolves to true once the local model is ready, false when it is not available
+export function calemReady() { return CALEM_ON ? loadCalem().then((b) => !!b) : Promise.resolve(false); }
+
+// ink for skinned meshes: back faces pushed out along the skinned, smoothed normal
+const INK_SK = new THREE.MeshBasicMaterial({ color: '#2f2b36', side: THREE.BackSide });
+INK_SK.onBeforeCompile = (sh) => {
+  sh.vertexShader = 'attribute vec3 inkN;\n' + sh.vertexShader
+    .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = inkN;')
+    .replace('#include <project_vertex>', `
+    vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+    mvPosition.xyz += normalize(normalMatrix * objectNormal) * 0.0042 * clamp(-mvPosition.z / 4.0, 1.0, 3.5);
+    gl_Position = projectionMatrix * mvPosition;`);
+};
+INK_SK.customProgramCacheKey = () => 'inksk';
+// normals averaged over vertices at the same place, so the ink has no cracks at UV seams
+function smoothNormals(g) {
+  const p = g.attributes.position, n = g.attributes.normal, acc = new Map(), key = (i) => `${p.getX(i).toFixed(4)},${p.getY(i).toFixed(4)},${p.getZ(i).toFixed(4)}`;
+  for (let i = 0; i < p.count; i++) { const k = key(i), a = acc.get(k) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); acc.set(k, a); }
+  const out = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) { const a = acc.get(key(i)), l = Math.hypot(...a) || 1; out.set([a[0] / l, a[1] / l, a[2] / l], i * 3); }
+  g.setAttribute('inkN', new THREE.BufferAttribute(out, 3));
+}
+const SKIN_PARTS = new Set(['face_on_1', 'face_on_0']);
+function prepCalem(scene, SU) {
+  scene.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(scene);
+  const mats = new Map();
+  scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const m0 = o.material, name = m0.name || o.name;
+    if (!mats.has(name)) {
+      const m = toon('#ffffff', { map: m0.map, side: m0.side, cel: SKIN_PARTS.has(name) ? SKIN : CLOTH });
+      if (m0.alphaTest) { m.alphaTest = m0.alphaTest; m.side = THREE.DoubleSide; }
+      m.name = name; mats.set(name, m);
+    }
+    o.material = mats.get(name);
+    o.castShadow = name !== 'face_on_0' && name !== 'ash_logo'; o.frustumCulled = false;
+    if (name === 'face_on_0' || name === 'ash_logo') { o.material.polygonOffset = true; o.material.polygonOffsetFactor = -1; o.material.polygonOffsetUnits = -2; }
+    else if (name !== 'ash_sleeve') smoothNormals(o.geometry);
+  });
+  // rest pose: each bone's rest rotation and its rotation relative to the model
+  const rest = new Map();
+  scene.traverse((b) => { if (b.isBone) rest.set(b.name, { q: b.quaternion.clone(), p: b.position.clone(), w: b.getWorldQuaternion(new THREE.Quaternion()) }); });
+  return { scene, SU, rest, k: CALEM_H / (box.max.y - box.min.y), minY: box.min.y };
+}
+
+function calemActor(look) {
+  const fb = makeActor({ ...look, base: 'proc' });   // the procedural Ash until the model is ready
+  const actor = { root: fb.root, head: fb.head, blob: fb.blob, model: null };
+  let rig = null, phase = 0, blink = 2 + Math.random() * 3, idleT = Math.random() * 10;
+  const attach = (base) => {
+    if (!base) return;
+    const m = base.SU.clone(base.scene);
+    const holder = new THREE.Group(); holder.scale.setScalar(base.k); holder.position.y = -base.minY * base.k; holder.add(m);
+    const bones = {}, hulls = [];
+    let eyes = null;
+    m.traverse((o) => {
+      if (o.isBone) bones[o.name] = o;
+      if (o.isSkinnedMesh) {
+        if (o.material.name === 'face_on_0') {   // own eye texture so blinking is per person
+          o.material = o.material.clone(); o.material.map = o.material.map.clone(); eyes = o.material.map;
+        }
+        if (o.geometry.attributes.inkN) {
+          const h = new THREE.SkinnedMesh(o.geometry, INK_SK); h.bind(o.skeleton, o.bindMatrix); h.frustumCulled = false; hulls.push([o.parent, h]);
+        }
+      }
+    });
+    for (const [p, h] of hulls) p.add(h);
+    for (const c of fb.root.children) if (c !== fb.blob) c.visible = false;
+    fb.root.add(holder);
+    actor.model = holder;
+    // rotate a bone about an axis given in the model's rest frame, on top of its rest pose
+    const R = base.rest, tq = new THREE.Quaternion(), ax = new THREE.Vector3();
+    const pose = (name, turns) => {
+      const b = bones[name]; if (!b) return;
+      const r = R.get(name); b.quaternion.copy(r.q);
+      for (const [x, y, z, a] of turns) {
+        if (!a) continue;
+        ax.set(x, y, z).applyQuaternion(tq.copy(r.w).invert());
+        b.quaternion.multiply(tq.setFromAxisAngle(ax, a));
+      }
+    };
+    rig = { pose, bones, holder, y0: holder.position.y, eyes };
+  };
+  if (calemBase) attach(calemBase); else loadCalem().then(attach);
+
+  actor.animate = (dt, speed, air, t) => {
+    if (!rig) return fb.animate(dt, speed, air, t);
+    const { pose } = rig;
+    const run = Math.min(1, speed / 7), sw = speed > 0.1 ? Math.min(1, speed / 3) : 0;
+    phase += dt * (speed > 0.1 ? 2.2 + speed * 1.15 : 0);
+    idleT += dt;
+    const a = Math.sin(phase) * (0.55 + run * 0.35) * sw, kb = (0.7 + run * 0.6) * sw;
+    // legs: hip swing, knee bend, ankle follow (angles as in the procedural rig)
+    const hipA = [air ? -0.75 : a, air ? 0.35 : -a];
+    const kneeA = [air ? 1.1 : Math.max(0, -Math.sin(phase + 0.6)) * kb + 0.04, air ? 0.5 : Math.max(0, Math.sin(phase + 0.6)) * kb + 0.04];
+    ['L', 'R'].forEach((s, i) => {
+      pose(s + 'Thigh', [[1, 0, 0, hipA[i]], [0, 0, 1, (i ? -1 : 1) * 0.02]]);
+      pose(s + 'Leg', [[1, 0, 0, kneeA[i]]]);
+      pose(s + 'Foot', [[1, 0, 0, air ? -0.3 : -(hipA[i] + kneeA[i]) * 0.35 + (kneeA[i] > 0.3 ? 0.25 : 0)]]);
+    });
+    // arms: drop from the T pose to the sides, then swing; elbows and relaxed fingers
+    ['L', 'R'].forEach((s, i) => {
+      const sg = i ? -1 : 1;          // +x is the left side
+      const swing = air ? -2.4 + (i ? 0 : 0.5) : -sg * a * 0.9 + Math.sin(idleT * 1.3 + i) * 0.02;
+      const abd = sg * (air ? 0.55 : 0.16 + run * 0.08 + Math.sin(idleT * 2) * 0.01);
+      pose(s + 'ArmA', [[1, 0, 0, swing], [0, 0, 1, abd], [0, 0, 1, -sg * Math.PI / 2], [1, 0, 0, sg * 0.0]]);
+      const el = air ? -0.4 : -0.22 - (0.4 + run * 1.0) * sw;
+      pose(s + 'ForeArm', [[0, 1, 0, sg * el]]);
+      pose(s + 'Hand', [[0, 1, 0, sg * -0.1]]);
+      for (const f of ['B', 'C', 'D']) for (let j = 1; j <= 3; j++) pose(`${s}Finger${f}${j}`, [[0, 0, 1, -sg * (0.25 + j * 0.12 + run * 0.3)]]);
+      pose(s + 'FingerA1', [[0, 1, 0, sg * -0.2]]);
+    });
+    const bob = speed > 0.1 ? Math.abs(Math.sin(phase)) * (0.035 + run * 0.03) * sw : Math.sin(t * 2) * 0.004;
+    rig.holder.position.y = rig.y0 + bob - (air ? 0.04 : 0);
+    const twist = Math.sin(phase) * 0.14 * sw;
+    pose('Hips', [[0, 1, 0, -twist * 0.5]]);
+    pose('Spine2', [[1, 0, 0, run * 0.18 * sw + (air ? -0.08 : 0)], [0, 1, 0, twist * 0.6]]);
+    pose('Spine3', [[1, 0, 0, run * 0.07 * sw + Math.sin(t * 2) * 0.012 * (1 - sw)], [0, 1, 0, twist * 0.4]]);
+    pose('Neck', [[1, 0, 0, -run * 0.06 * sw]]);
+    pose('Head', [[1, 0, 0, -run * 0.1 * sw + (air ? 0.1 : 0)], [0, 1, 0, -twist * 0.6 + (sw ? 0 : Math.sin(idleT * 0.4) * 0.15)]]);
+    // blink: the eye atlas has closed eyes two cells to the right
+    blink -= dt;
+    if (rig.eyes) {
+      rig.eyes.offset.x = blink < 0 ? 0.5 : 0;
+      if (blink < -0.12) blink = 2 + Math.random() * 4;
+    }
+  };
+  return actor;
+}

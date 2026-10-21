@@ -205,25 +205,57 @@ export function leafAtlas(variant = 'green') {
 // The material for every leaf card: cut-out, double sided, with a little
 // light through the leaves (backlit leaves glow warm) and soft wind.
 export const foliageTime = { value: 0 };
+// One wind for leaves and wood, so a leaf card and the branch under it move
+// together: the phase comes from the tree's position (the instance's for an
+// InstancedMesh, else the mesh's own, so trees placed one by one still differ),
+// and the bend grows smoothly with height (a smoothstep over 8 m: quadratic at
+// the root, so the base stays planted, rigid above, so nothing shears).
+const swayGLSL = (wind) => `
+      #ifdef USE_INSTANCING
+        vec3 ip = (modelMatrix * vec4(instanceMatrix[3].xyz, 1.0)).xyz;
+      #else
+        vec3 ip = modelMatrix[3].xyz;
+      #endif
+      float sway = sin(uTime * 1.2 + ip.x * 0.2 + ip.z * 0.17) * 0.6 + sin(uTime * 2.3 + ip.x * 0.5) * 0.25;
+      float k = clamp(position.y / 8.0, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
+      transformed.x += sway * ${wind.toFixed(3)} * k * 3.0;
+      transformed.z += sway * ${(wind * 0.6).toFixed(3)} * k * 3.0;`;
+const FLUTTER = `
+      transformed += normal * sin(uTime * 4.0 + flutter * 30.0) * 0.03 * flutter;`;
+// vertex wind for a material (leaves add the per-card flutter)
+function windVertex(sh, wind, leaf) {
+  sh.uniforms.uTime = foliageTime;
+  sh.vertexShader = 'uniform float uTime;\n' + (leaf ? 'attribute float flutter;\n' : '') + sh.vertexShader.replace('#include <begin_vertex>',
+    '#include <begin_vertex>' + swayGLSL(wind) + (leaf ? FLUTTER : ''));
+}
+// Shadows: the shadow pass draws with the mesh's customDepthMaterial, which
+// three looks up on the object, not the material. Meshes are made in other
+// files, so Mesh.prototype gets a getter that hands out a swaying depth
+// material for our wind materials (set one by hand and it wins as before).
+// Only the sun casts shadows, so no customDistanceMaterial is needed.
+const windDepth = new WeakMap();
+if (!Object.getOwnPropertyDescriptor(THREE.Mesh.prototype, 'customDepthMaterial')) {
+  Object.defineProperty(THREE.Mesh.prototype, 'customDepthMaterial', {
+    configurable: true,
+    get() { return this._customDepth !== undefined ? this._customDepth : Array.isArray(this.material) ? undefined : windDepth.get(this.material); },
+    set(v) { this._customDepth = v; },
+  });
+}
+function addWindDepth(m, wind, leaf) {
+  // the renderer copies map, alphaTest and side from m each draw, so leaf
+  // cut-outs stay cut out in the shadow
+  const d = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  d.onBeforeCompile = (sh) => windVertex(sh, wind, leaf);
+  d.customProgramCacheKey = () => 'winddepth' + wind + (leaf ? 'leaf' : 'wood');
+  windDepth.set(m, d);
+}
 const leafMats = new Map();
 export function leafMaterial(tint = '#ffffff', wind = 0.08, variant = 'green') {
   const key = tint + wind + variant;
   if (leafMats.has(key)) return leafMats.get(key);
   const m = new THREE.MeshLambertMaterial({ map: leafAtlas(variant), color: new THREE.Color(tint), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true });
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = foliageTime;
-    sh.vertexShader = 'uniform float uTime;\nattribute float flutter;\n' + sh.vertexShader.replace('#include <begin_vertex>', `
-      #include <begin_vertex>
-      #ifdef USE_INSTANCING
-        vec3 ip = instanceMatrix[3].xyz;
-      #else
-        vec3 ip = vec3(0.0);
-      #endif
-      float sway = sin(uTime * 1.2 + ip.x * 0.2 + ip.z * 0.17) * 0.6 + sin(uTime * 2.3 + ip.x * 0.5) * 0.25;
-      float k = clamp(position.y / 8.0, 0.0, 1.0);
-      transformed.x += sway * ${wind.toFixed(3)} * k * 3.0;
-      transformed.z += sway * ${(wind * 0.6).toFixed(3)} * k * 3.0;
-      transformed += normal * sin(uTime * 4.0 + flutter * 30.0) * 0.03 * flutter;`);
+    windVertex(sh, wind, true);
     // cards seen edge-on thin out, so no flat streaks or straight seams show
     sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `
       vec3 fN = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
@@ -238,6 +270,7 @@ export function leafMaterial(tint = '#ffffff', wind = 0.08, variant = 'green') {
   celify(m, { ao: true, noflip: true, detail: 0.55, mid: fall ? 0.3 : 0.26, bands: [0.24, 0.44, 0.57], soft: 0.02,
     deep: fall ? [0.32, 0.12, 0.26] : [0.13, 0.33, 0.6], shade: fall ? [0.62, 0.36, 0.48] : [0.36, 0.66, 0.9],
     lit: fall ? [1.2, 1.18, 0.75] : [1.45, 1.3, 0.62], litAdd: fall ? [0.06, 0.04, 0.0] : [0.07, 0.08, 0.0] });
+  addWindDepth(m, wind, true);
   leafMats.set(key, m);
   return m;
 }
@@ -251,8 +284,9 @@ export function leafMaterial(tint = '#ffffff', wind = 0.08, variant = 'green') {
 //  flaky   orange papery plates (pine)
 // Ridged and smooth get a little moss low on one side (in the shader).
 const barkMats = new Map();
-export function barkMaterial(color = '#7a5638', style = 'ridged') {
-  const key = color + style;
+// wind: the same sway as the leaves (pass the tree's leaf wind; 0 = rigid).
+export function barkMaterial(color = '#7a5638', style = 'ridged', wind = 0.07) {
+  const key = color + style + wind;
   if (barkMats.has(key)) return barkMats.get(key);
   const W = 256, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d');
@@ -303,12 +337,15 @@ export function barkMaterial(color = '#7a5638', style = 'ridged') {
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
   const m = new THREE.MeshLambertMaterial({ map: t });
-  if (style === 'ridged' || style === 'smooth') {
-    // moss: low on the trunk, on the side facing -x -z, breaking up along the bark's grooves
-    const moss = new THREE.Color('#6f9a3e');
+  const mossy = style === 'ridged' || style === 'smooth';
+  // moss: low on the trunk, on the side facing -x -z, breaking up along the bark's grooves
+  const moss = new THREE.Color('#6f9a3e');
+  if (mossy || wind > 0) {
     m.onBeforeCompile = (sh) => {
-      sh.vertexShader = 'varying vec3 vMP, vMN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vMP = position; vMN = objectNormal;');
-      sh.fragmentShader = 'varying vec3 vMP, vMN;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      if (mossy) {
+        // vMP is the rest position (before the wind), so the moss stays on the bark
+        sh.vertexShader = 'varying vec3 vMP, vMN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vMP = position; vMN = objectNormal;');
+        sh.fragmentShader = 'varying vec3 vMP, vMN;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
         // a ragged line that rises and falls round the trunk, patches along the ridges
         float ang = atan(vMP.z, vMP.x), top = 1.1 + 0.6 * sin(ang * 3.0 + 1.3) + 0.3 * sin(ang * 7.0);
         float mz = smoothstep(top, top - 0.9, vMP.y) * smoothstep(-0.1, 0.5, dot(normalize(vMN), normalize(vec3(-0.7, 0.15, -0.7))));
@@ -316,8 +353,11 @@ export function barkMaterial(color = '#7a5638', style = 'ridged') {
         float mm = smoothstep(0.0, 0.04, mz - (1.0 - lum * 1.6) * 0.7);
         vec3 mc = mix(vec3(${moss.r.toFixed(3)}, ${moss.g.toFixed(3)}, ${moss.b.toFixed(3)}) * 0.6, vec3(${moss.r.toFixed(3)}, ${moss.g.toFixed(3)}, ${moss.b.toFixed(3)}) * 1.25, step(0.5, lum * 2.2));
         diffuseColor.rgb = mix(diffuseColor.rgb, mc, mm * 0.85);`);
+      }
+      if (wind > 0) windVertex(sh, wind, false);
     };
-    m.customProgramCacheKey = () => 'barkmoss';
+    m.customProgramCacheKey = () => 'bark' + (mossy ? 'moss' : '') + wind;
+    if (wind > 0) addWindDepth(m, wind, false);
   }
   celify(m, { bands: [0.1, 0.3, 0.6], deep: [0.4, 0.48, 0.62], shade: [0.6, 0.68, 0.82], lit: [1.12, 1.1, 1.0], detail: 0.25, mid: 0.35 });
   barkMats.set(key, m);
@@ -1057,9 +1097,11 @@ export function makeTree(kind, seed) {
     ({ height, radius } = crown(leaves, wood, lobes, 16 + R() * 1.5, [TILE.leafB, TILE.leafA, TILE.leafB, TILE.leafC], R, 12, 10));
     bark = '#9c9f98'; barkStyle = 'smooth';
   }
+  // the wood sways with the leaves (same wind); a dead snag is a bit stiffer
+  const woodWind = kind === 'dead' ? +(wind * 0.7).toFixed(3) : wind;
   const parts = [
-    { geometry: mergeGeos(wood), material: barkMaterial(bark, barkStyle) },
-    ...(extraWood ? [{ geometry: mergeGeos(extraWood.geo), material: barkMaterial(extraWood.bark, extraWood.style) }] : []),   // a second bark (pine's orange top)
+    { geometry: mergeGeos(wood), material: barkMaterial(bark, barkStyle, woodWind) },
+    ...(extraWood ? [{ geometry: mergeGeos(extraWood.geo), material: barkMaterial(extraWood.bark, extraWood.style, woodWind) }] : []),   // a second bark (pine's orange top)
     { geometry: toGeometry(leaves), material: leafMaterial(tint, wind, leafVar) },
   ].filter((p) => p.geometry.attributes.position.count);   // a dead tree has no leaves
   // exact bounds for the impostor (the leaves' cards reach past the lobes),

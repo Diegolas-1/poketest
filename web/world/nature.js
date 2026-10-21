@@ -84,34 +84,8 @@ export function buildSky(sunDir) {
   return sky;
 }
 
-// Soft painted clouds, drifting slowly.
-export function buildClouds() {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
-  const ctx = c.getContext('2d');
-  const r = rng(7);
-  for (let i = 0; i < 26; i++) {
-    const x = 40 + r() * 176, y = 60 + (r() - 0.5) * 30 - Math.abs(x - 128) * 0.15, rad = 18 + r() * 26;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.6, 'rgba(250,252,255,0.7)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
-  }
-  // a little shade on the underside
-  const sh = ctx.createLinearGradient(0, 50, 0, 110);
-  sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(120,140,170,0.35)');
-  ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = sh; ctx.fillRect(0, 0, 256, 128);
-  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-  const group = new THREE.Group();
-  const rr = rng(21);
-  for (let i = 0; i < 22; i++) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, opacity: 0.95 }));
-    const a = rr() * Math.PI * 2, d = 160 + rr() * 380;
-    s.position.set(Math.cos(a) * d, 70 + rr() * 60, Math.sin(a) * d);
-    const k = 60 + rr() * 90; s.scale.set(k, k * 0.5, 1);
-    group.add(s);
-  }
-  group.userData.tick = (dt) => { group.rotation.y += dt * 0.004; };
-  return group;
-}
+// Anime cumulus clouds live in clouds.js.
+export { buildClouds } from './clouds.js';
 
 // Distant mountains in the haze, all round except the open sea.
 export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
