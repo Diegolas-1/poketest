@@ -6,13 +6,17 @@
 // hull outlines its rims too, skinned to the body's bones near where it is
 // sewn on (weights copied from the body surface underneath) and to extra
 // "cloth bones" further out. The cloth bones are driven by a small verlet sim:
-// a few particles per garment (the jacket hem in ten panels, four round each
-// sleeve hem and each trouser hem) hang from pins on the body under gravity,
-// feel the air (wind gusts, and the head wind of running), keep their lengths,
-// spring back towards their rest shape and are pushed out of the body (hips,
-// thighs, arms, shins). So the jacket trails and lifts when running, swings on
-// turns and stops, and settles at idle. A dozen particles per garment, solved
-// on the CPU; the meshes are skinned on the GPU like the rest of the body.
+// a few particles per garment (the jacket in fifteen panels, each a chest-to-mid
+// and a mid-to-hem link; four round each sleeve hem and each trouser hem) hang
+// from pins on the body under gravity, feel the air (wind gusts, and the head wind
+// of running), keep their lengths, spring back towards their rest shape and are
+// pushed out of the body (chest, waist, hips, thighs, arms, shins) at its current
+// pose. The jacket is cut to hang straight down from the chest, clear of the body
+// beneath, and its panels move as one piece (linked, and smoothed towards each
+// other) so the hem stays a clean line; the shirt under it is drawn in a little
+// so the body never shows through. So the jacket trails and lifts when running,
+// swings on turns and stops, and barely stirs at idle. A few dozen particles,
+// solved on the CPU; the meshes are skinned on the GPU like the rest of the body.
 //
 //   dressAsh(model, base) -> { update(dt, speed, air, t) }
 // model: a fresh clone of base.scene, still in its rest pose and not yet
@@ -177,8 +181,9 @@ function slab(B, P, W, th, o) {
 // ---------- the kit: geometry, materials and sim layout, made once per base ----------
 const ZC = 0.004;   // the torso's axis, front to back (model units)
 // jacket rows, top (sewn into the painted yoke) to hem; pins, mid and hem rows of the sim
-const JY = [0.958, 0.945, 0.93, 0.91, 0.885, 0.86, 0.83, 0.80, 0.77, 0.74, 0.71, 0.685, 0.66, 0.635];
-const J_PIN = 3, J_MID = 8, J_HEM = 13, J_NC = 27, J_NS = 10, J_STEP = 3;
+// (the hem just over the belt, at the top of the hip, as on the anime jacket)
+const JY = [0.958, 0.945, 0.93, 0.91, 0.89, 0.87, 0.85, 0.83, 0.81, 0.79, 0.77, 0.75, 0.73, 0.712, 0.695];
+const J_PIN = 3, J_MID = 8, J_HEM = 14, J_NC = 42, J_NS = 15, J_STEP = 3;
 // sleeve rings along the arm (T pose, model x), and their looseness
 const SX = [0.074, 0.086, 0.10, 0.12, 0.145, 0.17, 0.195, 0.215, 0.236];
 const S_OFF = [-0.007, 0.0, 0.004, 0.008, 0.011, 0.014, 0.017, 0.020, 0.024];
@@ -271,6 +276,22 @@ function buildKit(base) {
   }
   const m0 = top.material;
   const topMat = toon('#ffffff', { map: texOf(topPx.c, m0.map), side: m0.side, cel: CLOTH }); topMat.name = 'topsjer';
+  // and the shirt under the jacket's back and sides drawn in a little, so the body
+  // cannot reach through the cloth when the spine bends (the opening keeps its shape)
+  const gap = (y) => gTop + 0.28 * sm(JY[0], JY[J_HEM], y);
+  const topGeo = top.geometry.clone();
+  {
+    const p = topGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i) - ZC;
+      if (Math.abs(x) > 0.14) continue;
+      const w = sm(0.94, 0.91, y) * sm(0.665, 0.70, y) * sm(gap(y) - 0.02, gap(y) + 0.35, Math.abs(Math.atan2(x, z)));
+      const r = Math.hypot(x, z); if (w <= 0 || r < 1e-4) continue;
+      const k = Math.max(0.8, 1 - 0.013 * w / r);
+      p.setX(i, x * k); p.setZ(i, ZC + z * k);
+    }
+    p.needsUpdate = true; topGeo.computeBoundingSphere();
+  }
 
   // ----- textures for the new garments -----
   const canvas = (w, h, f) => { const c = document.createElement('canvas'); c.width = w; c.height = h; f(c.getContext('2d'), w, h); return c; };
@@ -281,7 +302,7 @@ function buildKit(base) {
     // the yellow flap pockets on the chest, one on each front panel
     const vOf = (y) => (JY[0] - y) / (JY[0] - JY[J_HEM]);
     g.fillStyle = '#f5c433';
-    for (const u of [0.07, 0.93]) g.fillRect(u * w / 2 - 6, vOf(0.835) * h - 2, 12, 4);
+    for (const u of [0.07, 0.93]) g.fillRect(u * w / 2 - 6, vOf(0.80) * h - 2, 12, 4);
     // a darker seam down each side and the hem's stitch line
     g.fillStyle = css(blueC, 0.8);
     for (const u of [0.25, 0.75]) g.fillRect(u * w / 2 - 0.5, vOf(0.93) * h, 1, h);
@@ -363,18 +384,26 @@ function buildKit(base) {
   // ----- jacket -----
   const pantT = triangles((t) => V3(PB.pos[PB.idx[t] * 3], PB.pos[PB.idx[t] * 3 + 1], PB.pos[PB.idx[t] * 3 + 2]), PB.idx.length);
   const bodyT = torsoT.concat(pantT);
-  const gap = (y) => gTop + 0.28 * sm(JY[0], JY[J_HEM], y);
   const thOf = (i, j) => { const g = gap(JY[i]); return g + (j / J_NC) * (TAU - 2 * g); };
-  const RB = JY.map((y, i) => fixRing(Array.from({ length: J_NC + 1 }, (_, j) => ray(bodyT, y, thOf(i, j))?.t ?? null), false));
-  // cloth hangs from the chest and hips rather than following every dip
-  const RD = RB.map((r) => r.slice());
-  for (let i = 1; i < JY.length; i++) for (let j = 0; j <= J_NC; j++) RD[i][j] = Math.max(RB[i][j], RD[i - 1][j] - 0.3 * (JY[i - 1] - JY[i]));
-  for (let i = 2; i < JY.length; i++) { fixRing(RD[i], false, 2); for (let j = 0; j <= J_NC; j++) RD[i][j] = Math.max(RD[i][j], RB[i][j]); }
-  const offJ = (y) => (y > 0.945 ? lerp(-0.007, 0, (0.958 - y) / 0.013) : y > 0.93 ? lerp(0, 0.004, (0.945 - y) / 0.015) : 0.004 + (0.93 - y) / (0.93 - JY[J_HEM]) * 0.014 + 0.006 * Math.exp(-(((y - 0.7) / 0.04) ** 2)));
+  const ringAt = (y, i) => fixRing(Array.from({ length: J_NC + 1 }, (_, j) => ray(bodyT, y, thOf(i, j))?.t ?? null), false);
+  const RB = JY.map((y, i) => ringAt(y, i));
+  // the cloth hangs from the chest: below it, each column falls straight down
+  // outside everything beneath it (to a little under the hem, the hips it has to
+  // clear), like a curtain, instead of following the body's dips in and out.
+  // Sewn on at the yoke, it eases from the body's shape into that fall by the mid row.
+  const CU = RB.map((r) => r.slice()), under = [JY[J_HEM] - 0.012, JY[J_HEM] - 0.024].map((y) => ringAt(y, J_HEM));
+  for (let j = 0; j <= J_NC; j++) {
+    let m = Math.max(...under.map((r) => r[j]));
+    for (let i = J_HEM; i >= 0; i--) { m = Math.max(m, RB[i][j]); CU[i][j] = m; }
+  }
+  for (const r of CU) fixRing(r, false, 3);
+  const RD = RB.map((r, i) => r.map((v, j) => Math.max(v, lerp(v, CU[i][j], sm(JY[J_PIN] + 0.012, JY[J_MID] + 0.01, JY[i])))));
+  // standing off the shirt: tucked into the painted yoke at the top, a finger's width clear further down
+  const offJ = (y) => (y > 0.945 ? lerp(-0.007, 0, (0.958 - y) / 0.013) : y > 0.93 ? lerp(0, 0.004, (0.945 - y) / 0.015) : 0.004 + 0.009 * sm(0.93, JY[J_MID], y));
   const JP = JY.map((y, i) => Array.from({ length: J_NC + 1 }, (_, j) => { const th = thOf(i, j), r = RD[i][j] + offJ(y); return V3(r * Math.sin(th), y, ZC + r * Math.cos(th)); }));
   const torsoKeep = (x) => Math.abs(x) < 0.13;
   const JW = JY.map((y, i) => Array.from({ length: J_NC + 1 }, (_, j) => {
-    const rig = sm(JY[J_PIN] - 0.026, JY[J_PIN], y), toB = sm(JY[J_MID] + 0.028, JY[J_MID] - 0.03, y);
+    const rig = sm(JY[J_PIN] - 0.026, JY[J_PIN], y), toB = sm(JY[J_MID] + 0.03, JY[J_MID] - 0.04, y);
     const f = j / J_STEP, s0 = Math.min(Math.floor(f), J_NS - 2), u = f - s0;
     return pack(mix([rig, rig > 0 ? bodyW(JP[i][j], torsoKeep, 4, 2) : {}],
       [(1 - rig) * (1 - toB) * (1 - u), { [`clJ${s0}a`]: 1 }], [(1 - rig) * (1 - toB) * u, { [`clJ${s0 + 1}a`]: 1 }],
@@ -386,17 +415,24 @@ function buildKit(base) {
     uvO: (i, j) => [j / J_NC * 0.5, (JY[0] - JY[i]) / (JY[0] - JY[J_HEM])], uvI: (i, j) => [0.5 + j / J_NC * 0.5, (JY[0] - JY[i]) / (JY[0] - JY[J_HEM])],
     rimUV: [0.75, 0.5], rims: { bottom: true, left: true, right: true },
   });
-  // the body's girth all round at the mid and hem rows, for the sim's collisions
+  // the body's girth all round, for the sim's collisions: the chest at the mid row,
+  // the waist between mid and hem, and the hips under the hem
   const ringProf = (y) => fixRing(Array.from({ length: 48 }, (_, k) => ray(bodyT, y, k / 48 * TAU)?.t ?? null), true, 1);
-  const profMid = ringProf(JY[J_MID]), profSeat = ringProf(0.70), profHem = ringProf(JY[J_HEM]);
+  const profMid = ringProf(JY[J_MID]), profWaist = ringProf(0.75), profHem = ringProf(JY[J_HEM] - 0.01);
   const thighCaps = ['L', 'R'].map((L, i) => { const s = i ? -1 : 1; return { bone: L + 'Thigh', seg: [V3(s * 0.058, 0.69, 0.004), V3(s * 0.06, 0.42, 0.008)], r: 0.079 }; });
   const jacketChains = [];
   for (let s = 0; s < J_NS; s++) {
     const j = s * J_STEP, edge = s === 0 || s === J_NS - 1;
+    // a medium-weight cloth: held near its hang by a firm spring (ks) with damping
+    // relative to the body (damp), its swing speed off the body capped (vmax), the
+    // air's pull modest (drag), within a cone round the hang. The targets ride
+    // partly with the hips (hang), as cloth resting on them would.
     jacketChains.push({
       parent: 'Spine2', bones: [`clJ${s}a`, `clJ${s}b`], rest: [JP[J_PIN][j], JP[J_MID][j], JP[J_HEM][j]],
-      ks: [edge ? 10 : 14, edge ? 5 : 8], drag: [1.6, edge ? 2.8 : 2.4], flut: edge ? 1.3 : 1, cone: [0.85, 1.2],
-      coll: [{ bone: 'Spine1', ring: profMid, y: JY[J_MID], pad: 0.004 }, { bone: 'Hips', ring: profHem, y: JY[J_HEM], pad: 0.004, caps: thighCaps, mid: { ring: profSeat, pad: 0.008 } }],
+      ks: [42, 30], drag: [0.5, edge ? 0.95 : 0.8], damp: 5, vmax: 1.5, flut: edge ? 0.7 : 0.5, cone: edge ? [0.5, 0.65] : [0.42, 0.55],
+      hangBone: 'Hips', hang: [0, 0.2, 0.45], quad: true,
+      coll: [{ bone: 'Spine1', ring: profMid, pad: 0.008 },
+        { bone: 'Hips', ring: profHem, pad: 0.011, caps: thighCaps, mid: { bone: 'Spine1', ring: profWaist, pad: 0.009 } }],
     });
   }
 
@@ -436,6 +472,7 @@ function buildKit(base) {
   // neighbouring jacket panels stay together (not across the open front)
   const links = [];
   for (let s = 0; s < J_NS - 1; s++) for (const k of [1, 2]) links.push([s, k, s + 1, k, jacketChains[s].rest[k].distanceTo(jacketChains[s + 1].rest[k])]);
+  const panels = J_NS;   // the first chains: the jacket's panels round from the right front edge
   // the cloth bones: each hangs from its pin, at rest in the model's frame (no rotation)
   const newBones = [];
   for (const c of chains) c.bones.forEach((n, k) => {
@@ -451,7 +488,7 @@ function buildKit(base) {
   ];
   const restInv = {};
   for (const n in restM) restInv[n] = restM[n].clone().invert();
-  return { names, newBones, parts, chains, links, topMat, restInv, restQ };
+  return { names, newBones, parts, chains, links, panels, topMat, topGeo, restInv, restQ };
 }
 
 // ---------- per person: the garments on one clone, and their sim ----------
@@ -464,7 +501,7 @@ export function dressAsh(m, base) {
     if (!o.isSkinnedMesh) return;
     const n = o.material.name;
     if (n === 'btmsskin' || n === 'ash_sleeve') drop.push(o);   // the painted jeans and sleeve hems give way to the garments
-    if (n === 'topsjer') { o.material = kit.topMat; host = o.parent; }
+    if (n === 'topsjer') { o.material = kit.topMat; o.geometry = kit.topGeo; host = o.parent; }
   });
   for (const o of drop) o.parent.remove(o);
   for (const nb of kit.newBones) {
@@ -484,16 +521,21 @@ export function dressAsh(m, base) {
   const C = kit.chains.map((c) => ({
     c, pin: V3(), pw: c.rest.map(() => V3()),
     x: c.rest.slice(1).map(() => V3()), xp: c.rest.slice(1).map(() => V3()), tg: c.rest.slice(1).map(() => V3()),
+    tp: c.rest.slice(1).map(() => V3()), vt: c.rest.slice(1).map(() => V3()),   // the targets a frame ago, and their speed
     ph: Math.random() * TAU,
   }));
   const S = {}, Si = {}, Pq = {}, sc = {};
   const used = new Set();
-  for (const c of kit.chains) { used.add(c.parent); for (const k of c.coll) { used.add(k.bone); for (const cp of k.caps || []) used.add(cp.bone); } }
+  for (const c of kit.chains) {
+    used.add(c.parent); if (c.hangBone) used.add(c.hangBone);
+    for (const k of c.coll) { used.add(k.bone); if (k.mid) used.add(k.mid.bone); for (const cp of k.caps || []) used.add(cp.bone); }
+  }
   for (const n of used) { S[n] = new THREE.Matrix4(); Si[n] = new THREE.Matrix4(); Pq[n] = new THREE.Quaternion(); sc[n] = 1; }
-  const tv = V3(), ts = V3(), a = V3(), b = V3(), q = V3(), wind = V3(), vAir = V3(), rootP = V3(), rootPrev = V3(), vRoot = V3(), fwd = V3();
+  const tv = V3(), ts = V3(), a = V3(), b = V3(), q = V3(), wind = V3(), vAir = V3(), rootP = V3(), rootPrev = V3(), vRoot = V3(), fwd = V3(), rv = V3();
   const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qr = new THREE.Quaternion(), qd = new THREE.Quaternion();
   let ready = false, clock = Math.random() * 100;
-  const G = -9.8, H = 1 / 60;
+  const G = -9.8, H = 1 / 60, NP = kit.panels;
+  const off = [0, 1].map(() => Array.from({ length: NP }, () => V3()));
 
   const frames = () => {
     for (const n of used) {
@@ -501,38 +543,42 @@ export function dressAsh(m, base) {
       bn.matrixWorld.decompose(tv, Pq[n], ts); sc[n] = ts.x;
     }
   };
-  // rigid follow of the pins and rest targets
+  // rigid follow of the pins and rest targets (partly riding with the hips where asked)
   const follow = () => {
     for (const P of C) {
-      const M = S[P.c.parent];
-      P.c.rest.forEach((r, k) => P.pw[k].copy(r).applyMatrix4(M));
+      const M = S[P.c.parent], hg = P.c.hang;
+      P.c.rest.forEach((r, k) => {
+        P.pw[k].copy(r).applyMatrix4(M);
+        if (hg && hg[k]) P.pw[k].lerp(b.copy(r).applyMatrix4(S[P.c.hangBone]), hg[k]);
+      });
       P.pin.copy(P.pw[0]);
       for (let k = 0; k < P.x.length; k++) P.tg[k].copy(P.pw[k + 1]);
     }
   };
-  // push a point out of the body near it
+  // a point in a bone's rest frame pushed out to a ring of the body's girth (+pad); true if it moved
+  const ringOut = (v, ring, pad, push = 1) => {
+    const dx = v.x, dz = v.z - ZC, d = Math.hypot(dx, dz) || 1e-6;
+    let ang = Math.atan2(dx, dz); if (ang < 0) ang += TAU;
+    const f = ang / TAU * ring.length, i0 = Math.floor(f) % ring.length, i1 = (i0 + 1) % ring.length;
+    const rmin = lerp(ring[i0], ring[i1], f - Math.floor(f)) + pad;
+    if (d >= rmin) return false;
+    v.x += dx / d * (rmin - d) * push; v.z += dz / d * (rmin - d) * push;
+    return true;
+  };
+  // push a point out of the body near it, at the body's current pose
   const collide = (x, k, prev) => {
-    q.copy(x).applyMatrix4(Si[k.bone]);
     if (k.ring) {
-      const dx = q.x, dz = q.z - ZC, d = Math.hypot(dx, dz) || 1e-6;
-      let ang = Math.atan2(dx, dz); if (ang < 0) ang += TAU;
-      const f = ang / TAU * k.ring.length, i0 = Math.floor(f) % k.ring.length, i1 = (i0 + 1) % k.ring.length;
-      const rmin = lerp(k.ring[i0], k.ring[i1], f - Math.floor(f)) + k.pad;
-      if (d < rmin) { q.x = dx / d * rmin; q.z = ZC + dz / d * rmin; x.copy(q).applyMatrix4(S[k.bone]); }
+      q.copy(x).applyMatrix4(Si[k.bone]);
+      if (ringOut(q, k.ring, k.pad)) x.copy(q).applyMatrix4(S[k.bone]);
       for (const cp of k.caps || []) capsule(x, cp);
       if (k.mid && prev) {
-        // the middle of the segment clears the seat too: push the end out twice as far
-        q.copy(x).add(prev).multiplyScalar(0.5).applyMatrix4(Si[k.bone]);
-        const mx = q.x, mz = q.z - ZC, md = Math.hypot(mx, mz) || 1e-6;
-        let ma = Math.atan2(mx, mz); if (ma < 0) ma += TAU;
-        const R = k.mid.ring, g = ma / TAU * R.length, j0 = Math.floor(g) % R.length, j1 = (j0 + 1) % R.length;
-        const need = lerp(R[j0], R[j1], g - Math.floor(g)) + k.mid.pad;
-        if (md < need) {
-          b.set(mx / md, 0, mz / md).multiplyScalar(2 * (need - md));
-          q.copy(x).applyMatrix4(Si[k.bone]).add(b); x.copy(q).applyMatrix4(S[k.bone]);
-        }
+        // the middle of the segment clears the waist too: push the end out twice as far
+        b.copy(x).add(prev).multiplyScalar(0.5).applyMatrix4(Si[k.mid.bone]);
+        ts.copy(b);
+        if (ringOut(b, k.mid.ring, k.mid.pad, 2)) { q.copy(x).applyMatrix4(Si[k.mid.bone]).add(b.sub(ts)); x.copy(q).applyMatrix4(S[k.mid.bone]); }
       }
     } else if (k.axis) {
+      q.copy(x).applyMatrix4(Si[k.bone]);
       const [p0, p1] = k.axis;
       a.subVectors(p1, p0); const u = clamp01(b.subVectors(q, p0).dot(a) / a.lengthSq());
       a.multiplyScalar(u).add(p0); b.subVectors(q, a); const d = b.length();
@@ -546,25 +592,41 @@ export function dressAsh(m, base) {
     a.multiplyScalar(u).add(p0); b.subVectors(q, a); const d = b.length();
     if (d < cp.r && d > 1e-6) { q.copy(a).addScaledVector(b, cp.r / d); x.copy(q).applyMatrix4(S[cp.bone]); }
   };
+  // the jacket's panels bend together: each panel's offset from its hang is eased
+  // towards its neighbours', so the hem stays one smooth line instead of zig-zagging
+  const smoothPanels = (wgt) => {
+    for (let k = 0; k < 2; k++) {
+      const o = off[k];
+      for (let s = 0; s < NP; s++) o[s].subVectors(C[s].x[k], C[s].tg[k]);
+      for (let s = 0; s < NP; s++) {
+        const l = o[Math.max(0, s - 1)], r = o[Math.min(NP - 1, s + 1)];
+        C[s].x[k].copy(C[s].tg[k]).addScaledVector(o[s], 1 - wgt).addScaledVector(l, wgt / 2).addScaledVector(r, wgt / 2);
+      }
+    }
+  };
   const lenOf = (P, k) => P.c.rest[k].distanceTo(P.c.rest[k + 1]) * sc[P.c.parent];
   const step = (h, speed, t) => {
-    // the air: a soft breeze with gusts, plus the head wind of moving
+    // the air: a soft breeze with gusts, plus the head wind of running that the
+    // root's own motion does not already give (a preview running on the spot)
     const gust = 0.55 + 0.3 * Math.sin(t * 0.63) + 0.2 * Math.sin(t * 1.71 + 1.3) + 0.12 * Math.sin(t * 3.9);
     wind.set(0.8, 0.05, 0.45).normalize().multiplyScalar(gust);
+    const head = Math.max(0, speed - Math.max(0, vRoot.dot(fwd)));
     for (const P of C) {
-      const c = P.c;
+      const c = P.c, damp = c.damp ?? 2, vmax = c.vmax ?? 3;
       for (let k = 0; k < P.x.length; k++) {
-        const x = P.x[k], xp = P.xp[k];
+        const x = P.x[k], xp = P.xp[k], vt = P.vt[k];
         tv.subVectors(x, xp).divideScalar(h);   // velocity
-        vAir.copy(wind).add(vRoot).addScaledVector(fwd, -speed).sub(tv);
+        // its speed relative to where it hangs, capped: a stiff cloth swings, it doesn't whip
+        rv.subVectors(tv, vt); if (rv.lengthSq() > vmax * vmax) rv.setLength(vmax);
+        tv.addVectors(vt, rv);
+        vAir.copy(wind).addScaledVector(fwd, -head).sub(tv);
         const fl = c.flut * (0.25 + speed * 0.22), w = t * (7 + k * 2.3) + P.ph;
         vAir.x += fl * Math.sin(w); vAir.y += fl * 0.6 * Math.sin(w * 1.37 + 1); vAir.z += fl * Math.sin(w * 0.83 + 2);
-        a.copy(vAir).multiplyScalar(c.drag[k]);
+        a.copy(vAir).multiplyScalar(c.drag[k] * (c.quad ? 0.4 + vAir.length() / 8 : 1));   // quad: growing with the air speed, gentle at a walk
         a.y += G;
-        a.addScaledVector(b.subVectors(P.tg[k], x), c.ks[k]);
-        ts.copy(x);
-        x.addScaledVector(tv, h * 0.985).addScaledVector(a, h * h);
-        xp.copy(ts);
+        a.addScaledVector(b.subVectors(P.tg[k], x), c.ks[k]).addScaledVector(rv, -damp);
+        xp.copy(x);
+        x.addScaledVector(vt, h).addScaledVector(rv, h * 0.995).addScaledVector(a, h * h);
       }
     }
     for (let it = 0; it < 3; it++) {
@@ -587,9 +649,10 @@ export function dressAsh(m, base) {
       for (const [s0, k0, s1, k1, L0] of kit.links) {
         const xa = C[s0].x[k0 - 1], xb = C[s1].x[k1 - 1], L = L0 * sc[C[s0].c.parent];
         tv.subVectors(xb, xa); const d = tv.length() || 1e-6;
-        const mx = k0 === 2 ? 1.4 : 1.2, lim = d > L * mx ? L * mx : d < L * 0.75 ? L * 0.75 : d;
+        const lim = d > L * 1.08 ? L * 1.08 : d < L * 0.92 ? L * 0.92 : d;
         if (lim !== d) { const e = (d - lim) / d * 0.5; xa.addScaledVector(tv, e); xb.addScaledVector(tv, -e); }
       }
+      smoothPanels(0.6);
       for (const P of C) P.x.forEach((x, k) => collide(x, P.c.coll[k], k ? P.x[k - 1] : P.pin));
     }
   };
@@ -630,7 +693,10 @@ export function dressAsh(m, base) {
         vRoot.subVectors(rootP, rootPrev).divideScalar(dt);
       }
       rootPrev.copy(rootP);
+      for (const P of C) P.tg.forEach((g, k) => P.tp[k].copy(g));
       follow();
+      // how fast each hang point moves with the body (still for a held preview pose)
+      for (const P of C) P.tg.forEach((g, k) => (dt > 0 && dt <= 0.25 && ready ? P.vt[k].subVectors(g, P.tp[k]).divideScalar(dt) : P.vt[k].set(0, 0, 0)));
       // big steps (a still preview) settle the cloth with the pose held; game frames take 1-3 substeps
       const n = dt > 0.25 ? 120 : Math.min(3, Math.max(1, Math.round(dt / H)));
       const h = dt > 0.25 ? H : dt / n;
