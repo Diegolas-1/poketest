@@ -11,15 +11,18 @@
 // hang from pins on the body under gravity, feel the air (wind gusts, and the head
 // wind of running), keep their lengths, spring back towards their rest shape and are
 // pushed out of the body (chest, waist, hips, thighs, arms, shins) at its current
-// pose. The jacket is cut to hang straight down from the chest, clear of the body
-// beneath, and its panels move as one piece (linked, and smoothed towards each
-// other) so the hem stays a clean line; the shirt under it is drawn in a little
-// so the body never shows through. The arms are solid to it as well: the jacket is
-// pushed off the upper arms, forearms and hands at whatever pose they take, its
-// sides are taken in under the armpits, and the sleeves are snug underneath and
-// kept outside the jacket. So the jacket trails and lifts when running,
-// swings on turns and stops, and barely stirs at idle. A few dozen particles,
-// solved on the CPU; the meshes are skinned on the GPU like the rest of the body.
+// pose. The jacket is a shell hung from the shoulders: from under the collar over
+// the shoulders, upper back and chest (riding rigidly with the trunk) and from the
+// armpits straight down to a level hem, each row a convex outline standing a little
+// off the body, so it bridges the hollows of the back and sides like a loose, boxy
+// jacket instead of following them. Its panels move as one piece (linked, and
+// smoothed towards each other) so the hem stays a clean line; the body under it is
+// painted as the shirt, and drawn in a little so it never shows through. The arms are
+// solid to it as well: the jacket is pushed off the upper arms, forearms and hands at
+// whatever pose they take, and the sleeves are snug underneath and kept outside the
+// jacket. So the jacket trails and lifts when running, swings on turns and stops, and
+// barely stirs at idle. A few dozen particles, solved on the CPU; the meshes are
+// skinned on the GPU like the rest of the body.
 //
 //   dressAsh(model, base) -> { update(dt, speed, air, t) }
 // model: a fresh clone of base.scene, still in its rest pose and not yet
@@ -94,6 +97,14 @@ function fixRing(r, loop, passes = 0, w = 0.25) {
     }
   }
   return r;
+}
+// convex hull of 2D points [x, z] (counter-clockwise)
+function hull2(P) {
+  const p = P.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
 }
 function pixels(img) {
   const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
@@ -183,20 +194,22 @@ function slab(B, P, W, th, o) {
 
 // ---------- the kit: geometry, materials and sim layout, made once per base ----------
 const ZC = 0.004;   // the torso's axis, front to back (model units)
-// jacket rows, top (sewn into the painted yoke) to hem; pins, mid and hem rows of the sim
-// (the hem just over the belt, at the top of the hip, as on the anime jacket)
-const JY = [0.958, 0.945, 0.93, 0.91, 0.89, 0.87, 0.85, 0.83, 0.81, 0.79, 0.77, 0.75, 0.73, 0.712, 0.695];
-const J_PIN = 3, J_MID = 8, J_HEM = 14, J_NC = 42, J_NS = 15, J_STEP = 3;
+// jacket rows, top (tucked under the collar) to hem: over the shoulders to the armpits
+// (Y_ARM), then straight down; pins, mid and hem rows of the sim (the hem just over the
+// belt, at the top of the hip, as on the anime jacket). Everything from the pins up rides
+// rigidly with the trunk.
+const JY = [1.064, 1.052, 1.032, 1.008, 0.984, 0.96, 0.935, 0.91, 0.89, 0.87, 0.85, 0.83, 0.81, 0.79, 0.77, 0.75, 0.73, 0.712, 0.695];
+const Y_ARM = 0.96, J_PIN = 7, J_MID = 12, J_HEM = 18, J_NC = 42, J_NS = 15, J_STEP = 3;
+// over the shoulders: [y, half width out to the sleeves' seams, clearance off the body]
+const YOKE = [[1.052, 0.080, 0.002], [1.032, 0.089, 0.004], [1.008, 0.096, 0.008], [0.984, 0.101, 0.012], [0.96, 0.104, 0.016]];
+const J_OFF_TOP = 0.016, J_OFF_HEM = 0.011;   // clearance at the armpits and at the hem
 // sleeve rings along the arm (T pose, model x), and their looseness
 const SX = [0.074, 0.086, 0.10, 0.12, 0.145, 0.17, 0.195, 0.215, 0.236];
-const S_OFF = [-0.007, 0.0, 0.004, 0.008, 0.011, 0.014, 0.017, 0.020, 0.024];
+const S_OFF = [-0.003, 0.005, 0.008, 0.010, 0.012, 0.014, 0.017, 0.020, 0.024];
 const S_MIN = [0, 0, 0, 0.042, 0.045, 0.048, 0.051, 0.054, 0.057];
 const S_PIN = 5, S_NC = 16, S_NB = 8, ARM_Y = 1.02, ARM_Z = -0.008;   // S_NB: cloth bones round each sleeve hem
-// where the arms hang against the sides (a little behind the side seam, from the armpit
-// to the elbow), 0..1 at a torso point x = sin, z = cos round the axis, at height y;
-// the jacket's sides are taken in there by ARM_TUCK
+// the shirt under the jacket is drawn in under the arms by this much (more under the sleeves)
 const ARM_TUCK = 0.010;
-const underArm = (sx, cz, y) => Math.exp(-(((Math.atan2(Math.abs(sx), cz) - 1.75) / 0.5) ** 2)) * sm(0.962, 0.935, y) * sm(0.79, 0.84, y);
 // trousers: rings top to hem; leg section [y, cx, cz, out, in, front, back] and hip section [y, rx, front, back]
 const PY = [0.745, 0.725, 0.705, 0.685, 0.665, 0.645, 0.625, 0.605, 0.58, 0.55, 0.52, 0.49, 0.46, 0.43, 0.405, 0.38, 0.355, 0.33, 0.31, 0.29, 0.272, 0.256, 0.242, 0.229, 0.217, 0.205, 0.19];
 const LEG = [[0.60, 0.06, 0.006, 0.072, 0.057, 0.074, 0.068], [0.52, 0.06, 0.006, 0.068, 0.053, 0.069, 0.064], [0.44, 0.06, 0.008, 0.064, 0.051, 0.065, 0.060],
@@ -254,6 +267,16 @@ function buildKit(base) {
     const [r, g, b] = sample(topPx, h.uv);
     if (b > r + 50 && b > 120) { gTop = th; break; }
   }
+  // and where the collar opens at the front
+  let gCol = 0.45;
+  for (let th = 0.05; th < 1.4; th += 0.01) {
+    const h = ray(torsoT, JY[0] - 0.004, th, 0.065); if (!h) continue;
+    const [r, g, b] = sample(topPx, h.uv);
+    if (r > 185 && g > 185 && b > 185) { gCol = th; break; }
+  }
+
+  // the front edges: from the collar's opening to the armpits, then straight to the hem
+  const gap = (y) => (y > Y_ARM ? lerp(gTop, gCol, (y - Y_ARM) / (JY[0] - Y_ARM)) : gTop + 0.28 * (Y_ARM - y) / (Y_ARM - JY[J_HEM]));
 
   // ----- the body under the jacket: paint the old vest and sleeves as the black shirt -----
   {
@@ -275,7 +298,11 @@ function buildKit(base) {
         if (a < tol || b < tol || cc < tol) continue;
         q.copy(P[0]).multiplyScalar(a).addScaledVector(P[1], b).addScaledVector(P[2], cc);
         const ax = Math.abs(q.x);
-        const col = ax < 0.125 && q.y < 0.94 ? shirtC : ax > 0.1 && ax < 0.21 && q.y > 0.95 ? skinC : null;
+        // (all of the trunk under the jacket up to the collar, which stays as it is; over the
+        // shoulders, where the jacket meets the sleeves and the collar, in the jacket's blue)
+        const collar = q.y > JY[0] - 0.003 && ax < 0.06 && Math.hypot(q.x, q.z - ZC) < 0.06;
+        const yoke = q.y > 0.975 && ax < 0.1 && Math.abs(Math.atan2(q.x, q.z - ZC)) > gap(Math.min(q.y, JY[0])) + 0.1;
+        const col = collar ? null : yoke ? blueC : (ax < 0.1 && q.y < JY[0] + 0.01) || (ax < 0.125 && q.y < 0.94) ? shirtC : ax >= 0.1 && ax < 0.21 && q.y > 0.95 ? skinC : null;
         if (!col) continue;
         const o = (yy * w + xx) * 4; px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2];
       }
@@ -286,7 +313,6 @@ function buildKit(base) {
   const topMat = toon('#ffffff', { map: texOf(topPx.c, m0.map), side: m0.side, cel: CLOTH }); topMat.name = 'topsjer';
   // and the shirt under the jacket's back and sides drawn in a little, so the body
   // cannot reach through the cloth when the spine bends (the opening keeps its shape)
-  const gap = (y) => gTop + 0.28 * sm(JY[0], JY[J_HEM], y);
   const topGeo = top.geometry.clone();
   {
     const p = topGeo.attributes.position;
@@ -316,7 +342,7 @@ function buildKit(base) {
     for (const u of [0.07, 0.93]) g.fillRect(u * w / 2 - 6, vOf(0.80) * h - 2, 12, 4);
     // a darker seam down each side and the hem's stitch line
     g.fillStyle = css(blueC, 0.8);
-    for (const u of [0.25, 0.75]) g.fillRect(u * w / 2 - 0.5, vOf(0.93) * h, 1, h);
+    for (const u of [0.25, 0.75]) g.fillRect(u * w / 2 - 0.5, vOf(Y_ARM) * h, 1, h);
     g.fillRect(0, h - 5, w / 2, 1);
   }), null);
   const sleeveTex = texOf(canvas(64, 64, (g, w, h) => {
@@ -393,35 +419,71 @@ function buildKit(base) {
   }
 
   // ----- jacket -----
+  // a shell hung from the shoulders: tucked under the collar at the top, over the
+  // shoulders to the sleeves' seams, and from the armpits down straight to the hem, every
+  // row a convex outline standing off the body (bridging the hollows of the back and
+  // sides instead of following them in and out), like a loose, boxy open jacket
   const pantT = triangles((t) => V3(PB.pos[PB.idx[t] * 3], PB.pos[PB.idx[t] * 3 + 1], PB.pos[PB.idx[t] * 3 + 2]), PB.idx.length);
   const bodyT = torsoT.concat(pantT);
+  // the trunk without the arms' roots (the arms are out to the sides in the rest pose)
+  const trunkT = meshTris(top, (v) => v.every((p) => Math.abs(p.x) < 0.075));
   const thOf = (i, j) => { const g = gap(JY[i]); return g + (j / J_NC) * (TAU - 2 * g); };
-  const ringAt = (y, i) => fixRing(Array.from({ length: J_NC + 1 }, (_, j) => ray(bodyT, y, thOf(i, j))?.t ?? null), false);
-  const RB = JY.map((y, i) => ringAt(y, i));
-  // the cloth hangs from the chest: below it, each column falls straight down
-  // outside everything beneath it (to a little under the hem, the hips it has to
-  // clear), like a curtain, instead of following the body's dips in and out.
-  // Sewn on at the yoke, it eases from the body's shape into that fall by the mid row.
-  const CU = RB.map((r) => r.slice()), under = [JY[J_HEM] - 0.012, JY[J_HEM] - 0.024].map((y) => ringAt(y, J_HEM));
-  for (let j = 0; j <= J_NC; j++) {
-    let m = Math.max(...under.map((r) => r[j]));
-    for (let i = J_HEM; i >= 0; i--) { m = Math.max(m, RB[i][j]); CU[i][j] = m; }
-  }
-  for (const r of CU) fixRing(r, false, 3);
-  const RD = RB.map((r, i) => r.map((v, j) => Math.max(v, lerp(v, CU[i][j], sm(JY[J_PIN] + 0.012, JY[J_MID] + 0.01, JY[i])))));
-  // standing off the shirt: tucked into the painted yoke at the top, a finger's width clear further down
-  const offJ = (y) => (y > 0.945 ? lerp(-0.007, 0, (0.958 - y) / 0.013) : y > 0.93 ? lerp(0, 0.004, (0.945 - y) / 0.015) : 0.004 + 0.009 * sm(0.93, JY[J_MID], y));
-  // and under the arms, from the armpit to the elbows, the sides are taken in a little
-  // (over the shirt drawn in there), so the hanging sleeves and arms clear them
-  const JP = JY.map((y, i) => Array.from({ length: J_NC + 1 }, (_, j) => {
-    const th = thOf(i, j), r = RD[i][j] + offJ(y) - ARM_TUCK * underArm(Math.sin(th), Math.cos(th), y);
-    return V3(r * Math.sin(th), y, ZC + r * Math.cos(th));
-  }));
-  const torsoKeep = (x) => Math.abs(x) < 0.13;
+  // the convex outline of a body part round a height: radius at an angle
+  const outline = (T, y, tMax = 0.2) => {
+    const n = 96, r = fixRing(Array.from({ length: n }, (_, k) => ray(T, y, k / n * TAU, tMax)?.t ?? null), true, 1);
+    const pts = r.map((v, k) => [v * Math.sin(k / n * TAU), v * Math.cos(k / n * TAU)]);
+    const H = hull2(pts);
+    return (th) => { const dx = Math.sin(th), dz = Math.cos(th); let best = 0;
+      for (let k = 0; k < H.length; k++) {
+        const [ax, az] = H[k], [bx, bz] = H[(k + 1) % H.length], ex = bx - ax, ez = bz - az, den = dx * ez - dz * ex;
+        if (Math.abs(den) < 1e-12) continue;
+        const t = (ax * ez - az * ex) / den, u = (ax * dz - az * dx) / den;
+        if (t > 0 && u >= -1e-6 && u <= 1 + 1e-6) best = Math.max(best, t);
+      }
+      return best; };
+  };
+  const maxOf = (fs) => (th) => Math.max(...fs.map((f) => f(th)));
+  // a rounded box round the axis: half width a, depth f in front, b behind
+  const box = (a, f, b, n = 4) => (th) => { const s = Math.abs(Math.sin(th)), c = Math.cos(th), d = c > 0 ? f : b;
+    return 1 / ((s / a) ** n + (Math.abs(c) / d) ** n) ** (1 / n); };
+  // the armpit row and the hem: the sides fall straight between them
+  const topShape = maxOf([0.94, 0.96, 0.98].map((y) => outline(bodyT, y)));
+  const hemShape = maxOf([0, 0.012, 0.024].map((d) => outline(bodyT, JY[J_HEM] - d)));
+  const shapeAt = (i) => {
+    const y = JY[i];
+    if (i === 0) { const c = outline(trunkT, y, 0.065); return (th) => c(th) - 0.004; }   // under the collar
+    if (y > Y_ARM + 1e-4) {
+      // over the shoulders: the trunk's outline, a little clear of it, out to the sleeves' seams
+      const o = outline(trunkT, y), [a, off] = table(YOKE, y), b = o(Math.PI) + off, f = o(gap(y)) + off;
+      return maxOf([(th) => o(th) + off, box(a, f, b)]);
+    }
+    return null;
+  };
+  const ringTop = (th) => Math.max(topShape(th) + J_OFF_TOP, box(table(YOKE, Y_ARM)[0], topShape(0) + J_OFF_TOP, topShape(Math.PI) + J_OFF_TOP)(th));
+  const iA = JY.indexOf(Y_ARM);
+  const PT = Array.from({ length: J_NC + 1 }, (_, j) => { const th = thOf(iA, j), r = ringTop(th); return V3(r * Math.sin(th), Y_ARM, ZC + r * Math.cos(th)); });
+  const PH = Array.from({ length: J_NC + 1 }, (_, j) => { const th = thOf(J_HEM, j), r = hemShape(th) + J_OFF_HEM; return V3(r * Math.sin(th), JY[J_HEM], ZC + r * Math.cos(th)); });
+  const JP = JY.map((y, i) => {
+    const sh = shapeAt(i);
+    if (sh) {
+      const r = fixRing(Array.from({ length: J_NC + 1 }, (_, j) => sh(thOf(i, j))), false, 2);
+      return r.map((v, j) => { const th = thOf(i, j); return V3(v * Math.sin(th), y, ZC + v * Math.cos(th)); });
+    }
+    // below the armpits: on the straight line from the armpit row to the hem, never
+    // closer to the body than a finger's width
+    const u = (Y_ARM - y) / (Y_ARM - JY[J_HEM]), body = outline(bodyT, y);
+    return PT.map((p, j) => {
+      const q = p.clone().lerp(PH[j], u), th = Math.atan2(q.x, q.z - ZC), r = Math.max(Math.hypot(q.x, q.z - ZC), body(th) + 0.009);
+      return V3(r * Math.sin(th), y, ZC + r * Math.cos(th));
+    });
+  });
+  // the shell's top rows ride with the trunk under them (not the arms' roots, out to the
+  // sides in the rest pose): round the armholes partly with the arms, as the skin there does
+  const trunkW = (p) => bodyW(p, (x, y) => Math.abs(x) < 0.075 || y < 0.93, 6, 3);
   const JW = JY.map((y, i) => Array.from({ length: J_NC + 1 }, (_, j) => {
     const rig = sm(JY[J_PIN] - 0.026, JY[J_PIN], y), toB = sm(JY[J_MID] + 0.03, JY[J_MID] - 0.04, y);
     const f = j / J_STEP, s0 = Math.min(Math.floor(f), J_NS - 2), u = f - s0;
-    return pack(mix([rig, rig > 0 ? bodyW(JP[i][j], torsoKeep, 4, 2) : {}],
+    return pack(mix([rig, rig > 0 ? trunkW(JP[i][j]) : {}],
       [(1 - rig) * (1 - toB) * (1 - u), { [`clJ${s0}a`]: 1 }], [(1 - rig) * (1 - toB) * u, { [`clJ${s0 + 1}a`]: 1 }],
       [(1 - rig) * toB * (1 - u), { [`clJ${s0}b`]: 1 }], [(1 - rig) * toB * u, { [`clJ${s0 + 1}b`]: 1 }]));
   }));
@@ -463,10 +525,10 @@ function buildKit(base) {
     });
   }
 
-  // the jacket's outside from the armpit to the mid row (the shirt across the open
+  // the jacket's outside from the shoulders to the mid row (the shirt across the open
   // front), round the chest's frame, for the sleeves to stay outside of
-  const shell = { bone: 'Spine2', pad: 0.007, ys: JY.slice(0, J_MID + 1), rings: JY.slice(0, J_MID + 1).map((y, i) => {
-    const body = ringProf(y), g = gap(y), R = JP[i].map((p) => Math.hypot(p.x, p.z - ZC));
+  const shell = { bone: 'Spine2', pad: 0.007, ys: JY.slice(1, J_MID + 1), rings: JY.slice(1, J_MID + 1).map((y, i) => {
+    const body = ringProf(y), g = gap(y), R = JP[i + 1].map((p) => Math.hypot(p.x, p.z - ZC));
     return body.map((rb, k) => {
       const th = k / 48 * TAU;
       if (th < g || th > TAU - g) return rb;
