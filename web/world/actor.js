@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toon } from './toon.js';
+import { dressAsh } from './ashcloth.js';
 
 const V2 = (x, y) => new THREE.Vector2(x, y), V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const DS = THREE.DoubleSide;
@@ -593,6 +594,7 @@ const ASH = {
   pants: '#6f9fdc', cuff: '#dfe9f6', belt: '#c8343a', buckle: '#e9e4d0',
   shoes: { up: '#2f5fc4', sole: '#ffffff', toe: '#f7f6f1', collar: '#f7f6f1', lace: '#f7f6f1', tab: '#e0383a' },
   base: 'calem',   // use the local Calem-based model when this machine has it (see calemActor)
+  cloth: 'ash',    // on that model: the open jacket and baggy jeans of ashcloth.js
 };
 export const LOOKS = {
   red: ASH, ash: ASH,
@@ -703,6 +705,7 @@ function calemActor(look) {
   const attach = (base) => {
     if (!base) return;
     const m = base.SU.clone(base.scene);
+    const cloth = look.cloth === 'ash' ? dressAsh(m, base) : null;   // before the ink hulls, so the garments get theirs
     const holder = new THREE.Group(); holder.scale.setScalar(base.k); holder.position.y = -base.minY * base.k; holder.add(m);
     const bones = {}, hulls = [];
     let eyes = null;
@@ -737,7 +740,7 @@ function calemActor(look) {
       const b = bones[name]; if (!b) return;
       b.quaternion.multiply(tq.setFromAxisAngle(ax.set(x, y, z).applyQuaternion(tq.copy(R.get(name).w).invert()), a));
     };
-    rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k };
+    rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k, cloth };
     const A = base.anims;
     if (A && A.clips.idle && A.clips.walk && A.clips.run) {
       const mixer = new THREE.AnimationMixer(m), act = {};
@@ -806,7 +809,7 @@ function calemActor(look) {
 
   actor.animate = (dt, speed, air, t) => {
     if (!rig) return fb.animate(dt, speed, air, t);
-    if (rig.clips) { clipAnimate(dt, speed, air); return blinkStep(dt); }
+    if (rig.clips) { clipAnimate(dt, speed, air); rig.cloth?.update(dt, speed, air, t); return blinkStep(dt); }
     const { pose } = rig;
     const run = Math.min(1, speed / 7), sw = speed > 0.1 ? Math.min(1, speed / 3) : 0;
     phase += dt * (speed > 0.1 ? 2.2 + speed * 1.15 : 0);
@@ -840,6 +843,7 @@ function calemActor(look) {
     pose('Spine3', [[1, 0, 0, run * 0.07 * sw + Math.sin(t * 2) * 0.012 * (1 - sw)], [0, 1, 0, twist * 0.4]]);
     pose('Neck', [[1, 0, 0, -run * 0.06 * sw]]);
     pose('Head', [[1, 0, 0, -run * 0.1 * sw + (air ? 0.1 : 0)], [0, 1, 0, -twist * 0.6 + (sw ? 0 : Math.sin(idleT * 0.4) * 0.15)]]);
+    rig.cloth?.update(dt, speed, air, t);
     blinkStep(dt);
   };
   // blink: the eye atlas has closed eyes two cells to the right
