@@ -761,26 +761,37 @@ function calemActor(look) {
   const ready = (base) => (base && look.cast ? import('./cast.js').then((c) => c.castReady(base, look.cast, { SKIN, CLOTH, smoothNormals })).then(attach).catch((e) => console.warn('cast:', e)) : attach(base));
   if (calemBase) ready(calemBase); else loadCalem().then(ready);
 
-  // jump: the posed rig's air pose, blended over whatever the clips play
-  const jumpPose = () => {
-    // a running leap: left knee driven up, right foot kicked back, arms opposite
-    const { pose } = rig;
-    const th = [-0.9, 0.5], kn = [1.4, 1.5], ft = [-0.1, 0.5], sw = [0.6, -1.4], ab = [0.4, 0.4], el = [-0.6, -1.2];
-    ['L', 'R'].forEach((s, i) => {
-      const sg = i ? -1 : 1;
-      pose(s + 'Thigh', [[1, 0, 0, th[i]], [0, 0, 1, sg * 0.02]]);
-      pose(s + 'Leg', [[1, 0, 0, kn[i]]]);
-      pose(s + 'Foot', [[1, 0, 0, ft[i]]]);
-      pose(s + 'ArmA', [[1, 0, 0, sw[i]], [0, 0, 1, sg * ab[i]], [0, 0, 1, -sg * Math.PI / 2]]);
-      pose(s + 'ForeArm', [[0, 1, 0, sg * el[i]]]);
+  // jump: air poses blended over whatever the clips play. Takeoff extends, the rise tucks
+  // the knees and swings the arms up, the fall reaches the legs down with the arms out for
+  // balance; a running jump strides instead, mirrored to the leg that leads. Angles per side
+  // [lead, trail]: th thigh (- forward), kn knee bend, ft ankle (+ toe down), sw arm swing
+  // (- forward), ab arm out from the side, el elbow bend; sp chest lean, hd head (- up).
+  const J = {
+    take: { th: [-0.1, 0.05], kn: [0.15, 0.1], ft: [0.55, 0.5], sw: [-0.45, -0.4], ab: [0.25, 0.25], el: [0.6, 0.6], sp: -0.04, hd: -0.06 },
+    rise: { th: [-0.85, -0.6], kn: [1.35, 1.15], ft: [0.35, 0.3], sw: [-0.5, -0.4], ab: [0.4, 0.4], el: [1.2, 1.1], sp: 0.06, hd: -0.06 },
+    fall: { th: [-0.35, -0.15], kn: [0.5, 0.35], ft: [0.15, 0.1], sw: [-0.2, -0.1], ab: [0.7, 0.65], el: [0.5, 0.45], sp: 0.08, hd: 0.06 },
+    riseR: { th: [-0.95, 0.3], kn: [1.2, 0.75], ft: [0.2, 0.45], sw: [0.55, -0.9], ab: [0.25, 0.25], el: [0.9, 1.0], sp: 0.12, hd: -0.06 },
+    fallR: { th: [-0.6, 0.1], kn: [0.55, 0.45], ft: [0.05, 0.3], sw: [0.2, -0.4], ab: [0.45, 0.4], el: [0.6, 0.6], sp: 0.1, hd: 0.02 },
+  };
+  const jmix = (a, b, u) => { const o = {}; for (const k in a) o[k] = Array.isArray(a[k]) ? a[k].map((x, i) => x + (b[k][i] - x) * u) : a[k] + (b[k] - a[k]) * u; return o; };
+  const jump = { t: 0, vy: 0, y: null, run: 0, lead: 'L', impact: 0, land: 1 };
+  const jumpPose = (P) => {
+    const { pose } = rig, sides = jump.lead === 'L' ? ['L', 'R'] : ['R', 'L'];
+    sides.forEach((s, i) => {
+      const sg = s === 'L' ? 1 : -1;
+      pose(s + 'Thigh', [[1, 0, 0, P.th[i]], [0, 0, 1, sg * 0.04]]);
+      pose(s + 'Leg', [[1, 0, 0, P.kn[i]]]);
+      pose(s + 'Foot', [[1, 0, 0, P.ft[i]]]);
+      pose(s + 'ArmA', [[1, 0, 0, P.sw[i]], [0, 0, 1, sg * P.ab[i]], [0, 0, 1, -sg * Math.PI / 2]]);
+      pose(s + 'ForeArm', [[0, 1, 0, -sg * P.el[i]]]);
     });
-    pose('Spine2', [[1, 0, 0, 0.15]]);
-    pose('Head', [[1, 0, 0, -0.1]]);
+    pose('Spine2', [[1, 0, 0, P.sp]]);
+    pose('Head', [[1, 0, 0, P.hd]]);
   };
   const JUMP_BONES = ['LThigh', 'RThigh', 'LLeg', 'RLeg', 'LFoot', 'RFoot', 'LArmA', 'RArmA', 'LForeArm', 'RForeArm', 'Spine2', 'Head'];
   const saved = JUMP_BONES.map(() => new THREE.Quaternion());
   const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-  let airW = 0, wasAir = false, land = 1;
+  let airW = 0, wasAir = false;
   // the player's walk and run speeds (m/s, as main.js moves it): walk plays up to just past
   // the walk, run from there, crossfaded on the way between so speeding up and slowing down blend
   const WALK_V = 4.5, RUN_V = 8.5, TEMPO_MAX = 3;   // TEMPO_MAX: fastest a clip plays; past that the stride slides
@@ -869,16 +880,32 @@ function calemActor(look) {
     const ww = w.walk * (1 - airW);
     if (ww > 0.001) for (const [s, sg] of [['L', 1], ['R', -1]]) { rig.bend(s + 'Thigh', 0, 0, 1, sg * 0.05 * ww); rig.bend(s + 'Foot', 0, 0, 1, -sg * 0.05 * ww); }
     // the air pose takes over off the ground; a short dip on landing
-    airW += ((air ? 1 : 0) - airW) * (1 - Math.exp(-dt * (air ? 14 : 9)));
-    if (wasAir && !air) land = 0;
+    // vertical speed from where the game put the actor (it only says whether it is in the air)
+    const y = actor.root.position.y;
+    if (jump.y !== null && dt > 0) jump.vy += ((y - jump.y) / dt - jump.vy) * Math.min(1, dt * 30);
+    jump.y = y;
+    if (air && !wasAir) { jump.t = 0; jump.run = smooth(1.5, WALK_V, speed); jump.lead = phase < 0.5 ? 'L' : 'R'; }
+    if (!air && wasAir) { jump.land = 0; jump.impact = Math.min(1, Math.max(0.25, -jump.vy / 6)); }
     wasAir = air;
+    airW += ((air ? 1 : 0) - airW) * (1 - Math.exp(-dt * (air ? 18 : 12)));
     if (airW > 0.002) {
+      jump.t += air ? dt : 0;
+      const ext = smooth(0.04, 0.2, jump.t), fall = smooth(1.5, -2.5, jump.vy);
+      const rise = jmix(jmix(J.take, J.rise, ext), jmix(J.take, J.riseR, ext), jump.run);
+      const P = jmix(rise, jmix(J.fall, J.fallR, jump.run), fall);
       JUMP_BONES.forEach((n, i) => rig.bones[n] && saved[i].copy(rig.bones[n].quaternion));
-      jumpPose();
+      jumpPose(P);
       JUMP_BONES.forEach((n, i) => { const b = rig.bones[n]; if (b) b.quaternion.copy(saved[i].slerp(b.quaternion, airW)); });
     }
-    land = Math.min(1, land + dt / 0.22);
-    rig.holder.position.y = rig.y0 - Math.sin(land * Math.PI) * 0.05 * (land < 1 ? 1 : 0) - airW * 0.03;
+    // landing: knees and hips absorb it, feet kept flat, chest over the knees, then back up
+    jump.land = Math.min(1, jump.land + dt / (0.32 + jump.impact * 0.12));
+    const u = jump.land, cr = (u < 1 ? Math.min(1, u / 0.12) * Math.pow(1 - smooth(0.12, 1, u), 1.3) : 0) * jump.impact * (1 - airW) * (1 - 0.5 * smooth(2, WALK_V, speed));
+    if (cr > 0.001) {
+      for (const s of ['L', 'R']) { rig.bend(s + 'Thigh', 1, 0, 0, -0.5 * cr); rig.bend(s + 'Leg', 1, 0, 0, 1.0 * cr); rig.bend(s + 'Foot', 1, 0, 0, -0.5 * cr); }
+      rig.bend('Spine2', 1, 0, 0, 0.22 * cr); rig.bend('Head', 1, 0, 0, -0.14 * cr);
+      for (const [s, sg] of [['L', 1], ['R', -1]]) { rig.bend(s + 'ArmA', 1, 0, 0, -0.35 * cr); rig.bend(s + 'ArmA', 0, 0, 1, sg * 0.15 * cr); }
+    }
+    rig.holder.position.y = rig.y0 - cr * 0.1 * rig.k / 1.3;
   };
 
   actor.animate = (dt, speed, air, t) => {
