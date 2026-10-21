@@ -249,23 +249,47 @@ export class Impostor {
 // A fixed pattern of blades that wraps around the camera. A texture holds the
 // ground height and where grass may grow (not on roads, water or buildings).
 export function grassField(scene, { count, size, heightTex, area, sunDir }) {
-  // one curved blade, 4 segments
-  const segs = 4, pos = [], uv = [], idx = [];
-  for (let i = 0; i <= segs; i++) {
-    const t = i / segs, w = 0.05 * (1 - t * 0.9);
-    pos.push(-w, t, 0, w, t, 0); uv.push(0, t, 1, t);
-    if (i < segs) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-  }
-  const blade = new THREE.InstancedBufferGeometry();
-  blade.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  blade.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  blade.setIndex(idx);
-  const off = new Float32Array(count * 4);
+  // anime grass clumps: broad flat blades, pointed, fanning out of one root,
+  // a few with a notch on one side, plus short blades curling at the foot
+  const pos = [], tt = [], face = [], idx = [];
   let s = 12345;
   const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-  for (let i = 0; i < count; i++) off.set([r() * size, r() * size, r(), r()], i * 4);
-  blade.setAttribute('off', new THREE.InstancedBufferAttribute(off, 4));
-  blade.instanceCount = count;
+  const segs = 5;
+  const bladeAt = (ang, lean, len, wid, notch, curl) => {
+    const base = pos.length / 3;
+    const dx = Math.cos(ang), dz = Math.sin(ang), sx = -dz, sz = dx;
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      // leaf outline: widest a third of the way up, then to a point
+      let w = wid * Math.pow(Math.sin(Math.PI * Math.min(1, t * 0.85 + 0.08)), 0.8) * (1 - t * 0.35);
+      if (i === segs) w = 0;
+      const out = lean * t * t * len + curl * t * 0.15, y = len * t * (1 - curl * t * 0.5);
+      const cx = dx * out, cz = dz * out;
+      const wl = w * (notch && i === 3 ? 1.9 : 1), wr = w;
+      pos.push(cx - sx * wl, y, cz - sz * wl, cx + sx * wr, y, cz + sz * wr);
+      tt.push(t, t); face.push(ang, ang);
+      if (i < segs) { const q = base + i * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+    }
+  };
+  for (let k = 0; k < 15; k++) {
+    const ang = r() * 6.28, d = r() * 0.18;
+    const b0 = pos.length;
+    bladeAt(ang, 0.12 + r() * 0.5, 0.5 + r() * 0.6, 0.06 + r() * 0.05, r() < 0.3, 0);
+    // spread the roots a little so a clump is a tuft, not a single point
+    for (let q = b0; q < pos.length; q += 3) { pos[q] += Math.cos(ang + 2) * d; pos[q + 2] += Math.sin(ang + 2) * d; }
+  }
+  for (let k = 0; k < 3; k++) bladeAt(r() * 6.28, 1.6, 0.25, 0.05, false, 1);
+  const clump = new THREE.InstancedBufferGeometry();
+  clump.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  clump.setAttribute('bt', new THREE.Float32BufferAttribute(tt, 1));
+  clump.setAttribute('bface', new THREE.Float32BufferAttribute(face, 1));
+  clump.setIndex(idx);
+  const n = Math.round(count / 6);
+  const off = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) off.set([r() * size, r() * size, r(), r()], i * 4);
+  clump.setAttribute('off', new THREE.InstancedBufferAttribute(off, 4));
+  clump.instanceCount = n;
+  const blade = clump;
   const uniforms = {
     uTime: wind.uTime, uCam: { value: new THREE.Vector3() }, uSize: { value: size },
     uHeight: { value: heightTex }, uArea: { value: new THREE.Vector4(area.x0, area.z0, area.w, area.d) },
@@ -276,36 +300,35 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
     uniforms,
     side: THREE.DoubleSide,
     vertexShader: `
-      attribute vec4 off; uniform float uTime, uSize; uniform vec3 uCam; uniform sampler2D uHeight; uniform vec4 uArea;
+      attribute vec4 off; attribute float bt; attribute float bface;
+      uniform float uTime, uSize; uniform vec3 uCam; uniform sampler2D uHeight; uniform vec4 uArea; uniform vec3 uSun;
       varying float vT; varying vec3 vCol; varying float vFog; varying float vLight;
-      uniform vec3 uSun;
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main(){
-        // wrap the pattern around the camera
+        // wrap the clumps around the player
         vec2 p = off.xy;
         p += floor((uCam.xz - p) / uSize + 0.5) * uSize;
-        vec2 huv = (p - uArea.xy) / uArea.zw;
-        vec4 hm = texture2D(uHeight, huv);
+        vec4 hm = texture2D(uHeight, (p - uArea.xy) / uArea.zw);
         float dens = hm.g;
         float dist = length(p - uCam.xz);
         float keep = step(off.z, dens) * smoothstep(uSize * 0.5, uSize * 0.36, dist);
-        float h = (0.12 + off.w * 0.22) * (0.5 + dens * 0.7) * keep;
-        float t = position.y; vT = t;
-        float ang = off.z * 40.0;
-        vec2 dir = vec2(cos(ang), sin(ang));
-        float w = sin(uTime * 1.6 + p.x * 0.25 + p.y * 0.18) * 0.5 + sin(uTime * 3.3 + p.x * 0.9) * 0.2 + 0.25;
-        float bend = (0.25 + off.w * 0.35 + w * 0.45) * t * t;
-        vec3 wp = vec3(p.x, hm.r, p.y);
-        wp.xz += dir * position.x * (keep > 0.0 ? 1.0 : 0.0);
-        wp.y += t * h;
-        wp.x += bend * h * 0.9; wp.z += bend * h * 0.4;
-        // colour: dark roots, sunlit tips, a little variety in each patch
-        float n = hash(floor(p * 0.25));
-        // anime grass: bright lime, yellow-green tips, cool teal at the roots
-        vec3 base = mix(vec3(0.10, 0.36, 0.20), vec3(0.14, 0.42, 0.14), n);
-        vec3 tip = mix(vec3(0.42, 0.78, 0.16), vec3(0.62, 0.86, 0.22), hash(floor(p * 0.6)) * 0.7);
-        vCol = mix(base, tip, smoothstep(0.05, 0.8, t));
-        vLight = 0.8 + 0.25 * step(0.35, dot(normalize(vec3(dir.y, 0.6, -dir.x)), normalize(uSun)));
+        float sc = (0.4 + off.w * 0.4) * (0.6 + dens * 0.6) * keep;
+        // turn each clump its own way
+        float ra = off.z * 40.0, c = cos(ra), s = sin(ra);
+        vec3 lp = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c) * sc;
+        float t = bt; vT = t;
+        float w = sin(uTime * 1.5 + p.x * 0.25 + p.y * 0.18) * 0.5 + sin(uTime * 3.1 + p.x * 0.9) * 0.2;
+        lp.x += w * t * t * 0.12 * sc * 3.0; lp.z += w * t * t * 0.05 * sc * 3.0;
+        vec3 wp = vec3(p.x, hm.r, p.y) + lp;
+        // green root, lime body, pale yellow tips, a little patch variety
+        float n = hash(floor(p * 0.3));
+        vec3 root = vec3(0.06, 0.28, 0.12), body = mix(vec3(0.26, 0.58, 0.10), vec3(0.32, 0.64, 0.10), n);
+        vec3 tip = mix(vec3(0.58, 0.82, 0.18), vec3(0.70, 0.86, 0.26), n);
+        vCol = mix(mix(root, body, smoothstep(0.0, 0.45, t)), tip, smoothstep(0.55, 1.0, t));
+        // blades turned to the sun are lit, the rest in cool shade (two bands)
+        float fa = bface + ra;
+        vec3 nrm = normalize(vec3(cos(fa), 0.7, sin(fa)));
+        vLight = mix(0.78, 1.08, step(0.15, dot(nrm, normalize(uSun))));
         vec4 mv = viewMatrix * vec4(wp, 1.0);
         vFog = -mv.z;
         gl_Position = projectionMatrix * mv;
@@ -315,6 +338,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir }) {
       varying float vT; varying vec3 vCol; varying float vFog; varying float vLight;
       void main(){
         vec3 c = vCol * vLight;
+        if (vLight < 0.9) c *= vec3(0.86, 0.95, 1.05);
         c = mix(c, fogColor, smoothstep(fogNear, fogFar, vFog));
         gl_FragColor = vec4(c, 1.0);
         #include <colorspace_fragment>
