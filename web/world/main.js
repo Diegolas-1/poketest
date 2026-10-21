@@ -18,11 +18,17 @@ const status = (t) => { $('loadText').textContent = t; };
 
 // ---------- quality ----------
 const q = new URLSearchParams(location.search);
-const auto = (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|Android|iPhone|iPad/.test(navigator.userAgent) ? 'low' : 'high';
+// iPhones and iPads get their own profile: their GPUs handle far more than a
+// Chromebook, and their screens are 3x, so 'low' (1x pixels) looked blurry
+const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const auto = iOS ? 'phone' : (navigator.hardwareConcurrency || 4) <= 4 || /CrOS|Android/.test(navigator.userAgent) ? 'low' : 'high';
 const level = q.get('q') || auto;
 const QUALITY = {
   low: { dpr: 1, shadow: 1024, grass: 60000, grassSize: 40, trees: 0.6, plants: 0.5, lod: 0.7, outline: 1 },
   medium: { dpr: 1.25, shadow: 2048, grass: 110000, grassSize: 50, trees: 0.85, plants: 0.8, lod: 0.85, outline: 1.5 },
+  // sharp (2x pixels), long view distances (grass, plants, full trees) and
+  // the ink G-buffer at native size; ?q=phone to try it anywhere
+  phone: { dpr: 2, shadow: 2048, grass: 150000, grassSize: 64, trees: 1, plants: 1, lod: 1.35, outline: 1 },
   high: { dpr: 1.5, shadow: 2048, grass: 180000, grassSize: 60, trees: 1, plants: 1, lod: 1, outline: 1.5 },
 }[level] || null;
 // ink lines (outline.js): G-buffer resolution scale (1.5 = supersampled), 0 = off. ?outline=0..2
