@@ -168,8 +168,8 @@ export function buildClouds() {
         float e = 0.012; // crisp band edges
         vec3 c = uDeep;
         c = mix(c, uShd, smoothstep(-0.56 - e, -0.56 + e, l));
-        c = mix(c, uMid, smoothstep(-0.2 - e, -0.2 + e, l));
-        c = mix(c, uLit, smoothstep(0.04 - e, 0.04 + e, l));
+        c = mix(c, uMid, smoothstep(-0.24 - e, -0.24 + e, l));
+        c = mix(c, uLit, smoothstep(-0.03 - e, -0.03 + e, l));
         // thin warm rim on the silhouette toward the sun
         float fr = 1.0 - max(dot(N, V), 0.0);
         float sunSide = dot(N, normalize(uSun));
