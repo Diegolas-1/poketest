@@ -647,7 +647,7 @@ function loadCalem() {
       const url = new URL('./local/ash.glb', import.meta.url).href;
       const [{ GLTFLoader }, SU] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]);
       const [g, anims] = await Promise.all([new GLTFLoader().loadAsync(url),
-        fetch(new URL('./anims/ash.json', import.meta.url)).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+        fetch(new URL(QS.get('anims') || './anims/ash.json', import.meta.url)).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
       const base = prepCalem(g.scene, SU);
       if (anims) base.anims = { meta: anims.meta, clips: Object.fromEntries(anims.clips.map((c) => [c.name, THREE.AnimationClip.parse(c)])) };
       return (calemBase = base);
@@ -782,6 +782,68 @@ function calemActor(look) {
   const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
   let airW = 0, wasAir = false, land = 1;
   const TEMPO_MAX = 2;   // fastest a clip plays; past that the stride slides
+  // life on top of the idle clip: posture, breathing, weight sway, looking around and fidgets
+  const life = { t: Math.random() * 20, yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, look: 1 + Math.random() * 2, fid: null, nextFid: 3 + Math.random() * 5 };
+  const FIDGETS = ['twist', 'shift', 'shoulders'];
+  const idleLife = (dt, wI, wP) => {
+    const L = life, b = rig.bend;
+    L.t += dt;
+    // posture: chest up, neck long (the clips stoop); at idle also relaxed elbows and fingers
+    if (wP > 0.001) { b('Spine2', 1, 0, 0, -0.06 * wP); b('Spine3', 1, 0, 0, -0.04 * wP); b('Neck', 1, 0, 0, -0.06 * wP); b('Head', 1, 0, 0, -0.04 * wP); }
+    if (wI < 0.001) return;
+    ['L', 'R'].forEach((s, i) => {
+      const sg = i ? -1 : 1;
+      b(s + 'ForeArm', 0, 1, 0, -sg * 0.22 * wI);
+      for (const f of ['B', 'C', 'D']) for (let j = 1; j <= 3; j++) b(`${s}Finger${f}${j}`, 0, 0, 1, -sg * (0.12 + j * 0.06) * wI);
+    });
+    // breathing, about 15 a minute: chest rises, shoulders lift a touch; and a slow sway of the weight
+    const br = Math.sin(L.t * 1.6) * wI, sway = Math.sin(L.t * 0.45) * wI;
+    b('Spine2', 1, 0, 0, -0.025 * br); b('Spine3', 1, 0, 0, -0.015 * br); b('Head', 1, 0, 0, 0.03 * br);
+    b('LShoulder', 0, 0, 1, 0.025 * br); b('RShoulder', 0, 0, 1, -0.025 * br);
+    b('Spine1', 0, 0, 1, 0.025 * sway); b('Spine3', 0, 0, 1, -0.018 * sway);
+    // fidgets now and then: twist a foot in the dirt, shift onto one leg, roll the shoulders
+    L.nextFid -= dt;
+    if (!L.fid && L.nextFid < 0 && wI > 0.9) {
+      const k = FIDGETS[Math.floor(Math.random() * FIDGETS.length)], s = Math.random() < 0.5 ? 'L' : 'R';
+      L.fid = { k, s, t: 0, dur: { twist: 2.8, shift: 4.5, shoulders: 1.8 }[k] };
+      if (k === 'twist') { L.ty = s === 'L' ? 0.15 : -0.15; L.tp = 0.4; L.look = 2.8; }   // and watch the foot
+    }
+    if (L.fid) {
+      const F = L.fid, u = (F.t += dt) / F.dur;
+      if (u >= 1 || wI < 0.5) { L.fid = null; L.nextFid = 4 + Math.random() * 7; }
+      else {
+        const env = smooth(0, 0.15, u) * (1 - smooth(0.85, 1, u)) * wI, sg = F.s === 'L' ? 1 : -1, o = F.s === 'L' ? 'R' : 'L';
+        if (F.k === 'twist') {   // knee bent, toe down in the dirt, heel swivelling in and out
+          b(F.s + 'Thigh', 1, 0, 0, -0.1 * env); b(F.s + 'Leg', 1, 0, 0, 0.35 * env); b(F.s + 'Foot', 1, 0, 0, 0.45 * env);
+          b(F.s + 'Thigh', 0, 1, 0, Math.sin(F.t * 6.5) * 0.32 * env);
+          b('Spine1', 0, 0, 1, -sg * 0.03 * env);
+        } else if (F.k === 'shift') {   // weight onto one leg, the other knee relaxed
+          b('Spine1', 0, 0, 1, sg * 0.08 * env); b('Spine3', 0, 0, 1, -sg * 0.06 * env); b('Head', 0, 0, 1, -sg * 0.05 * env);
+          b(o + 'Thigh', 1, 0, 0, -0.12 * env); b(o + 'Thigh', 0, 0, 1, -sg * 0.05 * env); b(o + 'Leg', 1, 0, 0, 0.45 * env); b(o + 'Foot', 1, 0, 0, -0.2 * env);
+        } else {   // shoulders up and back, a little neck stretch
+          const up = Math.sin(Math.min(1, u * 1.4) * Math.PI) * wI;
+          b('LShoulder', 0, 0, 1, 0.14 * up); b('RShoulder', 0, 0, 1, -0.14 * up); b('Spine3', 1, 0, 0, -0.06 * up);
+          b('Head', 0, 0, 1, Math.sin(u * Math.PI * 2) * 0.12 * env);
+        }
+      }
+    }
+    // look around: pick a spot, turn to it (head leads, neck and chest follow), hold; a blink on big turns
+    L.look -= dt;
+    if (L.look < 0) {
+      L.look = 1.5 + Math.random() * 3.5;
+      const ty = Math.random() < 0.35 ? (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.35) : (Math.random() - 0.5) * 0.5;
+      if (Math.abs(ty - L.yaw) > 0.4) blink = Math.min(blink, 0.04);
+      L.ty = ty; L.tp = (Math.random() - 0.65) * 0.25;
+    }
+    const n = Math.min(60, Math.ceil(dt / 0.02)), h = dt / n, om = 6;
+    for (let i = 0; i < n; i++) {
+      L.vy += ((L.ty - L.yaw) * om * om - 2 * om * L.vy) * h; L.yaw += L.vy * h;
+      L.vp += ((L.tp - L.pitch) * om * om - 2 * om * L.vp) * h; L.pitch += L.vp * h;
+    }
+    const yw = L.yaw * wI, pt = L.pitch * wI;
+    b('Spine3', 0, 1, 0, yw * 0.15); b('Neck', 0, 1, 0, yw * 0.35); b('Head', 0, 1, 0, yw * 0.5);
+    b('Neck', 1, 0, 0, pt * 0.4); b('Head', 1, 0, 0, pt * 0.6);
+  };
   const clipAnimate = (dt, speed, air) => {
     const { mixer, act, meta, w } = rig.clips, k = rig.k;
     const dW = act.walk.getClip().duration, dR = act.run.getClip().duration;
@@ -800,6 +862,10 @@ function calemActor(look) {
     // a sprint past the run clip's own speed leans into it
     const lean = smooth(vR * 1.2, vR * 3.5, speed) * (1 - airW);
     if (lean > 0.001) { rig.bend('Spine2', 1, 0, 0, lean * 0.14); rig.bend('Spine3', 1, 0, 0, lean * 0.07); rig.bend('Head', 1, 0, 0, -lean * 0.12); }
+    idleLife(dt, w.idle * (1 - airW), (w.idle + w.walk * 0.6) * (1 - airW));
+    // a walk with the feet a little apart, soles kept flat, so the steps don't cross like a catwalk
+    const ww = w.walk * (1 - airW);
+    if (ww > 0.001) for (const [s, sg] of [['L', 1], ['R', -1]]) { rig.bend(s + 'Thigh', 0, 0, 1, sg * 0.05 * ww); rig.bend(s + 'Foot', 0, 0, 1, -sg * 0.05 * ww); }
     // the air pose takes over off the ground; a short dip on landing
     airW += ((air ? 1 : 0) - airW) * (1 - Math.exp(-dt * (air ? 14 : 9)));
     if (wasAir && !air) land = 0;
