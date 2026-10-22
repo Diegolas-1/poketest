@@ -14,7 +14,7 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else ""
-	for k in ["lod", "trees", "plants", "shadow_dist", "grass"]:
+	for k in ["lod", "trees", "plants", "shadow_dist", "grass", "scale"]:
 		if args.has(k): Settings.set_value(k, float(args[k]))
 	main = load("res://main.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(main)
@@ -50,6 +50,7 @@ func _process(_dt: float) -> void:
 		_place()
 		if frame == 2 and args.has("names"):
 			for c in main.get_children(): print("CHILD ", c.name, " ", c.get_class())
+		if args.has("noink"): Ink.set_enabled(false)
 		if args.has("off"):
 			for w in String(args.off).split(","):
 				if w == "grass": main.grass.visible = false
@@ -59,13 +60,17 @@ func _process(_dt: float) -> void:
 				elif w == "veg": main.scenery.veg.visible = false
 				elif w == "bill":
 					for c in main.scenery.veg.get_children(): if c is MultiMeshInstance3D: c.visible = false
+				elif w == "models":
+					for c in main.scenery.veg.get_children(): if not (c is MultiMeshInstance3D): c.visible = false
+				elif w.begins_with("kind_"):
+					for c in main.scenery.veg.get_children(): if String(c.name).begins_with(w.substr(5)): c.visible = false
 				elif w == "mts": main.scenery.mts.visible = false
 				elif w == "clouds": main.scenery.clouds.visible = false
 				else: _off(main, w)
 	if frame < 2: return
-	if frame == 3 and main.scenery and main.scenery.veg: print("VEG ", main.scenery.veg.stats)
+	if frame == 3 and main.get("scenery") and main.scenery.veg: print("VEG ", main.scenery.veg.stats)
 	_place_keep()
-	if args.has("vegshadow") and main.scenery.veg: main.scenery.veg.shadow_far = float(args.vegshadow)
+	if args.has("vegshadow") and main.get("scenery") and main.scenery.veg: main.scenery.veg.shadow_far = float(args.vegshadow)
 	var warm := int(args.get("warm", "20"))
 	if frame > warm:
 		var vp := get_viewport().get_viewport_rid()

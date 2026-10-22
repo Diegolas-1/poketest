@@ -12,9 +12,9 @@ const LEAF := preload("res://shaders/veg_leaf.gdshader")
 const SOLID := preload("res://shaders/veg_solid.gdshader")
 const BILL := preload("res://shaders/veg_bill.gdshader")
 const DIR := "res://world/"
-const CHUNK := 48.0        # model chunks (m)
+const CHUNK := 48.0        # model chunks (m); kinds may set their own ("chunk")
 const BILL_CHUNK := 64.0   # billboard chunks (m)
-const FADE_W := 5.0        # a plant hands over to its billboard over this many metres
+const FADE_W := 2.5        # a plant hands over to its billboard over this many metres (a short band: nobody stands half dissolved)
 
 var meshes: Array = []     # ArrayMesh per baked mesh
 var mats: Array = []       # [ShaderMaterial] per baked material (one per set, see _set_mat)
@@ -28,8 +28,8 @@ var shadow_far := 45.0     # trees cast shadows nearer than this (to the chunk's
 # phone, the billboards' own size. (web veg.js: trees 75, bushes 70,
 # ferns 60, flowers 55 x its view distance; the town's bushes never faded)
 const KINDS := {
-	"tree": {"fade": Vector2(62, 67), "shadow": 45.0},   # (billboarded kinds fade over FADE_W)
-	"bush": {"fade": Vector2(40, 45), "shadow": 25.0},
+	"tree": {"fade": Vector2(48, 50.5), "shadow": 40.0, "ink": 32.0, "chunk": 24.0},   # (billboarded kinds fade over FADE_W)
+	"bush": {"fade": Vector2(25, 27.5), "shadow": 20.0, "ink": 24.0, "chunk": 24.0},
 	"fern": {"fade": Vector2(38, 42), "shadow": 0.0},
 	"flower": {"fade": Vector2(32, 36), "shadow": 0.0},
 	"rock": {"fade": Vector2(-1, -1), "shadow": 25.0},   # (-1: keep the baked range)
@@ -43,6 +43,13 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DIR + "veg.json"))
 	var bin := FileAccess.get_file_as_bytes(DIR + "veg.bin")
 	var f32 := func(r: Array) -> PackedByteArray: return bin.slice(int(r[0]), int(r[0]) + int(r[1]) * 4)
+	# wood gets levels of detail (a tree's limbs are three quarters of its
+	# triangles and mostly hidden in the crown); leaf cards never (the
+	# simplifier would melt them)
+	var lods_for := {}
+	for st in meta.sets:
+		for pp in st.parts:
+			if meta.mats[int(pp.mat)].kind == "bark": lods_for[int(pp.mesh)] = true
 	for e in meta.meshes:
 		var a := []
 		a.resize(Mesh.ARRAY_MAX)
@@ -57,9 +64,7 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 		for t in range(0, idx.size() - 2, 3):
 			var k: int = idx[t + 1]; idx[t + 1] = idx[t + 2]; idx[t + 2] = k
 		a[Mesh.ARRAY_INDEX] = idx
-		var m := ArrayMesh.new()
-		m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
-		meshes.append(m)
+		meshes.append(_mesh(a, lods_for.has(meshes.size())))
 	var texs := {}
 	var tex := func(n) -> Texture2D:
 		if n == null: return null
@@ -85,7 +90,8 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 		for i in n:
 			if dens < 1.0 and _hash(si * 7919 + i) >= dens: continue
 			var p := Vector3(ip[i * 5], ip[i * 5 + 1], ip[i * 5 + 2])
-			var k := Vector2i(floori(p.x / CHUNK), floori(p.z / CHUNK))
+			var csz: float = KINDS[kind].get("chunk", CHUNK)
+			var k := Vector2i(floori(p.x / csz), floori(p.z / csz))
 			if not bins.has(k): bins[k] = []
 			bins[k].append(i)
 			var kb := Vector2i(floori(p.x / BILL_CHUNK), floori(p.z / BILL_CHUNK))
@@ -102,6 +108,7 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 			var r := 0.0
 			for i in ids: r = maxf(r, Vector2(ip[i * 5] - c.x, ip[i * 5 + 2] - c.z).length() + rad * ip[i * 5 + 4])
 			var holder := Node3D.new()
+			holder.name = "%s_%d_%d_%d" % [kind, si, k.x, k.y]
 			holder.position = c
 			add_child(holder)
 			for pi in s.parts.size():
@@ -120,7 +127,25 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				mi.extra_cull_margin = 1.0
 				holder.add_child(mi)
-				chunks.append({"node": mi, "c": c, "r": r, "shadow": shadow_k})
+				var ch := {"node": mi, "c": c, "r": r, "shadow": shadow_k, "ink": null, "ink_d": float(KINDS[kind].get("ink", 0.0)), "sh": null}
+				chunks.append(ch)
+				# leaves cast their shadow from a lighter copy: a third of the
+				# cards, each grown to cover about as much (a shadow shows the
+				# crown's shape, not its cards)
+				if shadow_k > 0.0 and (part_mats[pi].shader == LEAF or shadow_meshes.has(int(s.parts[pi].mesh))):
+					var smm := MultiMesh.new()
+					smm.transform_format = MultiMesh.TRANSFORM_3D
+					smm.mesh = _shadow_mesh(int(s.parts[pi].mesh))
+					smm.instance_count = ids.size()
+					for j in ids.size(): smm.set_instance_transform(j, mm.get_instance_transform(j))
+					var sh := MultiMeshInstance3D.new()
+					sh.multimesh = smm
+					sh.material_override = part_mats[pi]
+					sh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+					sh.visible = false
+					sh.extra_cull_margin = 1.0
+					holder.add_child(sh)
+					ch.sh = sh
 				# leaf ink (ink.gd): one silhouette per tree or bush, swaying
 				# with it and gone with its model
 				if (kind == "tree" or kind == "bush") and part_mats[pi].shader == LEAF and ink:
@@ -128,6 +153,7 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 					if im:
 						im.set_shader_parameter("leaf_wind", part_mats[pi].get_shader_parameter("wind"))
 						im.set_shader_parameter("leaf_fade", fade)
+						ch.ink = im
 				stats.chunks += 1
 			stats.copies += ids.size()
 		if s.impostor != null:
@@ -227,6 +253,47 @@ func _set_mat(d: Dictionary, fade: Vector2, shrink: float, tex: Callable) -> Sha
 	m.set_shader_parameter("gain", float(cel.get("gain", 1.0)))
 	return m
 
+# shadow stand-ins: for leaves every third card (4 vertices, 6 indices each),
+# grown 1.6x about its middle; for wood a coarse level of detail (_mesh)
+var shadow_meshes := {}
+func _shadow_mesh(id: int) -> ArrayMesh:
+	if shadow_meshes.has(id): return shadow_meshes[id]
+	var src: ArrayMesh = meshes[id]
+	var a: Array = src.surface_get_arrays(0)
+	var v: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+	var keep := PackedInt32Array()
+	var n := v.size() / 4
+	for q in n:
+		if q % 3 != 0: continue
+		var c := (v[q * 4] + v[q * 4 + 1] + v[q * 4 + 2] + v[q * 4 + 3]) * 0.25
+		for k in 4: v[q * 4 + k] = c + (v[q * 4 + k] - c) * 1.6
+		keep.append_array([q * 4, q * 4 + 2, q * 4 + 1, q * 4, q * 4 + 3, q * 4 + 2])   # (Godot's winding)
+	a[Mesh.ARRAY_VERTEX] = v
+	a[Mesh.ARRAY_INDEX] = keep
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+	shadow_meshes[id] = m
+	return m
+
+func _mesh(a: Array, lods: bool) -> ArrayMesh:
+	if not lods:
+		var m := ArrayMesh.new()
+		m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+		return m
+	var im := ImporterMesh.new()
+	im.add_surface(Mesh.PRIMITIVE_TRIANGLES, a)
+	im.generate_lods(25.0, 60.0, [])
+	# the wood's shadow: about an eighth of its triangles (a shadow shows the
+	# limbs' shape, not their roundness)
+	var nl := im.get_surface_lod_count(0)
+	if nl > 0:
+		var sa := a.duplicate()
+		sa[Mesh.ARRAY_INDEX] = im.get_surface_lod_indices(0, mini(2, nl - 1))
+		var sm := ArrayMesh.new()
+		sm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sa)
+		shadow_meshes[meshes.size()] = sm
+	return im.get_mesh()
+
 # a quad whose corners carry only their UV (the billboard shader places them)
 func _quad() -> ArrayMesh:
 	var a := []
@@ -253,10 +320,20 @@ static func _hash(i: int) -> float:
 # every frame: where the camera is (fades), which chunks cast shadows
 func update(cam_pos: Vector3) -> void:
 	RenderingServer.global_shader_parameter_set("veg_cam", cam_pos)
+	var ink = get_node_or_null("/root/Ink")
+	var ink_on: bool = ink != null and ink.enabled and ink.quality >= 0.75
 	for ch in chunks:
-		if ch.shadow <= 0.0: continue
 		var c: Vector3 = ch.c
 		var d: float = Vector2(c.x - cam_pos.x, c.z - cam_pos.z).length() - float(ch.r)
+		# leaf ink only on chunks near the camera (the ink pass draws every
+		# card again, and far off it has thinned to nothing anyway)
+		if ch.ink != null:
+			var want_ink: Material = ch.ink if ink_on and d < float(ch.ink_d) else null
+			if ch.node.material_overlay != want_ink: ch.node.material_overlay = want_ink
+		if ch.shadow <= 0.0: continue
 		var on: bool = d < shadow_far * float(ch.shadow)
+		if ch.sh != null:
+			if ch.sh.visible != on: ch.sh.visible = on
+			continue
 		var want := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if on else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if ch.node.cast_shadow != want: ch.node.cast_shadow = want

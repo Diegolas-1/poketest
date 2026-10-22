@@ -38,7 +38,7 @@ func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 		tuft.call(cos(a) * d, sin(a) * d, 0.55 + r.call() * 0.3)
 	var near := _clump(blades, 5, 3)
 	var mid := _clump(blades, 4, 1)
-	var far := _clump(blades, 3, 0)
+	var far := _clump(blades, 2, 0)   # (2 segments: a third fewer triangles where a blade is a few pixels)
 	var n := int(round(count / 14.0))
 	var offs := PackedFloat32Array()
 	offs.resize(n * 4)

@@ -70,7 +70,7 @@ console.log('world ready');
 const res = await p.evaluate(async () => {
   const THREE = await import('three');
   const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
-  const { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
+  const { mergeGeometries, mergeVertices } = await import('three/addons/utils/BufferGeometryUtils.js');
   const T = await import('/world/terrain.js');
   const P = await import('/world/paths.js');
   const w = window.world;
@@ -180,8 +180,17 @@ const res = await p.evaluate(async () => {
       return mats.length - 1;
     };
     const meshes = [], meshId = new Map();
-    const meshOf = (g) => {
-      if (meshId.has(g.uuid)) return meshId.get(g.uuid);
+    // unindexed geometry (merged wood) is welded back to shared vertices, so
+    // the native game can simplify it into levels of detail
+    const weld = (g0) => {
+      if (g0.index) return g0;
+      const g = g0.clone();
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color', 'flutter'].includes(k)) g.deleteAttribute(k);
+      return mergeVertices(g, 1e-5);
+    };
+    const meshOf = (g0) => {
+      if (meshId.has(g0.uuid)) return meshId.get(g0.uuid);
+      const g = weld(g0);
       const a = g.attributes, e = { v: a.position.count };
       const f32 = (attr) => { const o = new Float32Array(attr.count * attr.itemSize); for (let i = 0; i < attr.count; i++) for (let k = 0; k < attr.itemSize; k++) o[i * attr.itemSize + k] = attr.getComponent(i, k); return put(o); };
       e.pos = f32(a.position); e.nrm = f32(a.normal);
@@ -193,7 +202,7 @@ const res = await p.evaluate(async () => {
       if (g.index) e.idx = put(new Uint32Array(g.index.array));
       g.computeBoundingBox();
       e.box = [...g.boundingBox.min.toArray(), ...g.boundingBox.max.toArray()].map((x) => +x.toFixed(3));
-      meshes.push(e); meshId.set(g.uuid, meshes.length - 1);
+      meshes.push(e); meshId.set(g0.uuid, meshes.length - 1);
       return meshes.length - 1;
     };
     // billboards: every one in a single atlas (one draw for all far plants
@@ -413,7 +422,8 @@ save('seabed.bin', res.seabed);
 save('grassmap.bin', res.grassmap);
 save('town_inst.bin', res.townInst);
 save('veg.bin', res.veg);
-for (const f of fs.readdirSync(OUT)) if (/^veg_.*\.png(\.import)?$/.test(f)) fs.rmSync(path.join(OUT, f));
+// pictures no longer made are removed (their .import files kept otherwise, so uids stay)
+for (const f of fs.readdirSync(OUT)) { const m = /^(veg_.*\.png)(\.import)?$/.exec(f); if (m && !(m[1] in res.vegPngs)) fs.rmSync(path.join(OUT, f)); }
 for (const [f, d] of Object.entries(res.vegPngs)) save(f, d);
 fs.writeFileSync(path.join(OUT, 'veg.json'), JSON.stringify(res.vegJson));
 save('mountains.bin', res.mountains);
