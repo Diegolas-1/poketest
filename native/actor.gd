@@ -134,6 +134,7 @@ func _build(look_name: String) -> void:
 		for bi in used: arr.append(rot_tr[an].get(bi, -1))
 		trk[an] = arr
 	_materials(root, d.mats)
+	add_to_group("characters")   # for the ink pass: meshes in .meshes, opt-outs in meta "no_ink"
 	idle_t = _rng.randf() * float(anims.idle.length)
 	blink = 2.0 + _rng.randf() * 3.0
 	L = {"t": _rng.randf() * 20.0, "yaw": 0.0, "pitch": 0.0, "vy": 0.0, "vp": 0.0, "ty": 0.0, "tp": 0.0,
@@ -174,6 +175,9 @@ func _materials(root: Node, mats: Array) -> void:
 						m.set_shader_parameter(key[1], Vector3(v[0], v[1], v[2]))
 			if info.get("eyes", false): eyes = m
 			if not info.get("shadow", true): shadow = false
+			# ink lines: the web leaves the logo out (outline: false); the eye patch draws with the face
+			if not info.get("ink", true): m3.set_meta("no_ink", true)
+			if info.get("eyes", false): m3.set_meta("ink_group", "face")
 			made[nm] = m
 			m3.set_surface_override_material(s, m)
 		if not shadow: m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
