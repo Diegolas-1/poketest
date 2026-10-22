@@ -762,7 +762,7 @@ function streamRocks(world) {
   models.forEach((mod, k) => {
     for (const p of mod.parts) {
       const im = new THREE.InstancedMesh(p.geometry, p.material, by[k].length);
-      by[k].forEach(([x, z, r, s], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, height(x, z) - 0.5 * s, z), q, V(s, s * 1.15, s * 0.85)); im.setMatrixAt(i, m4); });
+      by[k].forEach(([x, z, r, s], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, height(x, z) - 0.18 * s, z), q, V(s, s * 1.1, s * 0.9)); im.setMatrixAt(i, m4); });
       im.castShadow = im.receiveShadow = true; world.group.add(im);
     }
   });
@@ -1055,9 +1055,15 @@ function lighthouse(world, x, z) {
     rock(9100 + i, Math.cos(a) * rr, -1.8, Math.sin(a) * rr, w, h, w * (0.7 + R() * 0.3), -a + R(), 'boulder');
     if (R() < 0.7) rock(9200 + i, Math.cos(a + 0.25) * (rr - 1.6), -0.2 + R() * 0.6, Math.sin(a + 0.25) * (rr - 1.6), w * 0.7, h * 0.8 + 0.6, w * 0.6, R() * 6, 'boulder');
   }
-  // tall stacks at the back and loose rocks in the surf
-  rock(9301, -3.6, -0.6, 4.2, 3.2, 4.6, 2.8, 0.7);
-  rock(9302, 2.8, -0.8, 5.2, 2.6, 3.6, 2.4, 2.1);
+  // layered stacks at the back: slabs piled up, each a little set back
+  for (const [sx, sz, n0, rot] of [[-6.6, 1.8, 5, 0.7], [6.4, 2.6, 4, 2.1], [-2.8, 5.6, 4, 4.0], [-6.8, -3.2, 2, 1.2]]) {
+    let yy = -1.6, w = 4.2;
+    for (let k = 0; k < n0; k++) {
+      const h = 1.3 + R() * 0.7;
+      rock(9310 + k * 7 + Math.round(sx * 3), sx + (R() - 0.5) * 0.6, yy, sz + (R() - 0.5) * 0.6, w, h, w * 0.75, rot + (R() - 0.5) * 0.5, 'slab', { flatTop: true, bevel: 0.14 });
+      yy += h * 0.92; w *= 0.78;
+    }
+  }
   for (let i = 0; i < 9; i++) { const a = R() * 6.28, rr = 7.2 + R() * 2.2; rock(9400 + i, Math.cos(a) * rr, -0.9 - R() * 0.3, Math.sin(a) * rr, 0.8 + R() * 1.4, 0.9 + R() * 0.9, 0.8 + R() * 1.2, R() * 6, R() < 0.5 ? 'pebble' : 'boulder'); }
   // the landing: a block quay at the water, steps up to the top
   const lz = -6.6, landing = wallGeometry([
@@ -1084,7 +1090,7 @@ function lighthouse(world, x, z) {
     Cc.setXYZ(i, c.r, c.g, c.b);
   }
   // the foam ring: from the outline of the rock at the waterline
-  const bins = 72, rad = new Float32Array(bins);
+  const bins = 120, rad = new Float32Array(bins);
   for (let i = 0; i < P.count; i++) {
     const y = P.getY(i); if (y < -0.6 || y > 0.5) continue;
     const px = P.getX(i), pz = P.getZ(i), b = Math.floor(((Math.atan2(pz, px) / (Math.PI * 2)) + 1) % 1 * bins);
@@ -1101,9 +1107,9 @@ function lighthouse(world, x, z) {
       fp.push(...A, ...B, ...Cq, ...A, ...Cq, ...D);
     }
   };
-  const wob = (b, k) => Math.sin(b * 0.9 + k) * 0.25 + Math.sin(b * 2.3 + k * 2) * 0.15;
+  const wob = (b, k) => Math.sin(b * 0.55 + k) * 0.25 + Math.sin(b * 1.4 + k * 2) * 0.15;
   ring((b) => -0.6, (b) => 1.0 + wob(b, 1), () => true);
-  ring((b) => 1.3 + wob(b, 3) * 0.5, (b) => 1.75 + wob(b, 3), (b) => Math.sin(b * 0.7) + Math.sin(b * 1.9) > 0.2);
+  ring((b) => 1.3 + wob(b, 3) * 0.5, (b) => 1.75 + wob(b, 3), (b) => Math.sin(b * 0.42) + Math.sin(b * 1.15) > 0.2);
   const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.computeVertexNormals();
   const foam = new THREE.Mesh(fg, flat('#ffffff')); foam.position.y = 0.16; foam.userData.outline = false; foam.castShadow = false; G.add(foam);
   // a short jetty off the landing, a bollard

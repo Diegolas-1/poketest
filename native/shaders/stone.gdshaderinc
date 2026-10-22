@@ -17,7 +17,7 @@ vec3 stone_paint(vec3 p, vec3 n, vec2 r, float px) {
   k *= mix(1.0, 1.1, smoothstep(0.2, 0.16, st_n(p * 9.0 + 7.3)));
   // a few thin cracks: edges between big cells (straight, jointed), only
   // here and there
-  vec3 q = p * 0.8, qi = floor(q), qf = fract(q);
+  vec3 q = p * 0.6, qi = floor(q), qf = fract(q);
   float f1 = 8.0, f2 = 8.0;
   for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
     vec3 g = vec3(float(x), float(y), float(z));
@@ -25,15 +25,15 @@ vec3 stone_paint(vec3 p, vec3 n, vec2 r, float px) {
     float d = length(g + o - qf);
     if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
   }
-  float e = (f2 - f1) / 0.8, w = max(px * 1.1, 0.004);
-  float mask = smoothstep(0.6, 0.66, st_n(p * 0.6 + 9.1));
+  float e = (f2 - f1) / 0.6, w = max(px * 1.0, 0.004);
+  float mask = smoothstep(0.66, 0.72, st_n(p * 0.45 + 9.1));
   k *= mix(1.0, 0.42, (1.0 - smoothstep(w * 0.6, w * 1.2, e)) * mask);
   k *= mix(1.0, 1.08, smoothstep(w * 1.2, w * 1.8, e) * (1.0 - smoothstep(w * 2.6, w * 3.4, e)) * mask);
   // the stone's own tone
   k *= 0.94 + r.y * 0.12;
   vec3 col = vec3(k);
   // moss on the tops, in patches
-  float moss = smoothstep(0.55, 0.8, n.y) * smoothstep(0.48, 0.56, st_n(p * 0.9 + 1.3));
-  col = mix(col, vec3(0.62, 0.86, 0.42) * k, moss * 0.55);
+  float moss = smoothstep(0.7, 0.9, n.y) * smoothstep(0.55, 0.62, st_n(p * 0.9 + 1.3));
+  col = mix(col, vec3(0.68, 0.86, 0.46) * k, moss * 0.4);
   return col;
 }
