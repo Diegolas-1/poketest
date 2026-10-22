@@ -497,4 +497,9 @@ export function inVolume(v, x, y, z, m = 0) {
   }
   return y <= y1 - m;
 }
-export const camInside = (cam, x, y, z, m = cam.margin || 0) => cam.volumes.some((v) => inVolume(v, x, y, z, m));
+// a ball of radius m round the point inside the union of the volumes (its
+// middle and six points round it: shrinking each volume would open gaps where
+// two volumes meet)
+const inAny = (cam, x, y, z) => cam.volumes.some((v) => inVolume(v, x, y, z, 0));
+export const camInside = (cam, x, y, z, m = cam.margin || 0) => inAny(cam, x, y, z) && (m <= 0 ||
+  [[m, 0, 0], [-m, 0, 0], [0, m, 0], [0, -m, 0], [0, 0, m], [0, 0, -m]].every(([a, b, c]) => inAny(cam, x + a, y + b, z + c)));

@@ -14,7 +14,7 @@
 // town.js does for the town. Mesh names say how the native game draws them
 // (tools/native/bake_interior.mjs): 'ns' = casts no shadow.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { compile, wallSegments, propMount } from './maps/format.js';
 import { CATALOG } from './props/catalog.js';
 import { buildProp } from './props/index.js';
@@ -421,6 +421,7 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
   // ---- runs: pipes (with elbows and flanges) and beams ----
   for (const r of bp.runs || []) {
     const P = part('run_' + r.id), col = pal(r.mat, '#8cc4a2');
+    P.userData.high = r.pts.every((q) => q[1] > 5);   // high up: no shadow stripes across the floor
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1];
       if (r.type === 'beam') {
@@ -452,6 +453,8 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
     if (mount === 'ceiling') y = p.y;
     G.position.set(p.pos[0], y, p.pos[1]);
     G.rotation.y = (p.rot || 0) * D2R;
+    // hanging things carry light and air, not shadows
+    if (mount === 'ceiling') G.userData.high = true;
     root.add(G); parts.push(G); propGroups.push(G);
     void s;
   }
@@ -486,6 +489,7 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
     }
   }
 
+  for (const g of parts) if (g.userData.high) g.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.userData.noShadow = true; } });
   // ---- ink, then merge everything by material ----
   const edges = inkAndMerge(root, parts);
   let tris = 0, meshes = 0;
@@ -542,8 +546,9 @@ function inkAndMerge(root, parts) {
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
       return g;
     });
-    const g = mergeGeometries(geos, false);
-    if (!g) continue;
+    const g0 = mergeGeometries(geos, false);
+    if (!g0) continue;
+    const g = mergeVertices(g0, 1e-4);   // shared corners: a third of the vertices
     const M = new THREE.Mesh(g, m);
     M.name = `${leaf ? 'leaf' : m.name || 'm'}_${i++}${ns ? '_ns' : ''}`;
     M.castShadow = !ns; M.receiveShadow = true;

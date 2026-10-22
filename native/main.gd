@@ -16,7 +16,7 @@ const Scenery := preload("res://scenery.gd")
 const SUN_DIR := Vector3(-0.55, 0.75, 0.45)
 const FOG := Color("c4e2f0")
 
-var world := WorldData.new()
+var world = WorldData.new()   # or an InteriorData while inside (same calls)
 var grass: Node3D
 var cast: Cast
 var cam: Camera3D
@@ -46,7 +46,19 @@ var mats := {}
 var scenery: Node3D
 var town_root: Node
 var water_root: Node
+var terrain_root: Node
 var terrain_mat: ShaderMaterial
+# spaces: the outdoor world, or an interior shown on its own (interior.gd)
+var outdoor_world: WorldData
+var outdoor_ink: Array = []
+var we: WorldEnvironment
+var sun: DirectionalLight3D
+var indoors := false
+var interior: Interior
+var trans := {}          # a door fade in progress: {t, mid (Callable at full black), done}
+var trans_busy := false  # true while a fade has the controls
+var fader: ColorRect
+var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
 
 func _ready() -> void:
 	world.load_all()
@@ -58,8 +70,9 @@ func _ready() -> void:
 	add_child(scenery)
 	scenery.setup(self, town_root, water_root, terrain_mat)
 	# ---- ink (worker 2): vector lines on the town; see ink.gd ----
-	Ink.add_world_lines(self)
+	outdoor_ink = Ink.add_world_lines(self)
 	Ink.outline_town(self)
+	outdoor_world = world
 	grass = Grass.new()
 	add_child(grass)
 	grass.build(world, int(Settings.get_value("grass")), float(Settings.get_value("grass_size")), SUN_DIR.normalized())
@@ -88,10 +101,10 @@ func _environment() -> void:
 	env.fog_depth_end = 430.0
 	env.fog_depth_curve = 1.0
 	env.fog_sky_affect = 0.0
-	var we := WorldEnvironment.new()
+	we = WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_max_distance = 70.0
@@ -114,6 +127,7 @@ func _meshes(n: Node, out: Array) -> Array:
 
 func _terrain() -> void:
 	var root := _scene("terrain.glb")
+	terrain_root = root
 	var m := ShaderMaterial.new()
 	m.shader = TERRAIN
 	m.set_shader_parameter("grass_tex", load("res://world/grass.png"))
@@ -237,25 +251,30 @@ func _process(dt: float) -> void:
 	var pad := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var mv := (pad + stick_vec).limit_length(1.0)
 	var run := Input.is_action_pressed("run") or stick_vec.length() > 0.85 or pad.length() > 0.85
-	if cast.busy(): mv = Vector2.ZERO
+	if cast.busy() or trans_busy: mv = Vector2.ZERO
 	# move relative to the camera (as in Legends: Arceus)
 	var f := Vector2(-sin(cam_yaw), -cos(cam_yaw))
 	var r := Vector2(cos(cam_yaw), -sin(cam_yaw))
 	var dir := r * mv.x - f * mv.y
 	var m := minf(1.0, dir.length())
 	var want := (8.5 if run else 4.5) * m if m > 0.05 else 0.0
-	if not cast.busy(): speed += (want - speed) * (1.0 - exp(-dt * 10.0))
+	if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * 10.0))
 	if m > 0.05:
 		var ty := atan2(dir.x, dir.y)
 		yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
-	if speed > 0.05 and not cast.busy():
+	if speed > 0.05 and not cast.busy() and not trans_busy:
 		pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt)
 	cast.update(dt)
-	if grass_dirty: _rebuild_grass()
-	if not grass.tiles.is_empty(): grass.update(pos)
+	_trans_step(dt)
+	if indoors and trans.is_empty() and speed > 0.3:
+		var po: Dictionary = interior.data.portal_at(pos)
+		if not po.is_empty(): leave_space()
+	if grass_dirty and not indoors: _rebuild_grass()
+	if grass and not grass.tiles.is_empty(): grass.update(pos)
 	Ink.set_focus(pos)   # ink thins with distance from Red (ink.gd)
-	_camera(dt)
-	scenery.update(cam.global_position)
+	if indoors: _camera_in(dt)
+	else: _camera(dt)
+	if not indoors: scenery.update(cam.global_position)
 	fps_acc += dt; fps_n += 1; fps_worst = maxf(fps_worst, dt)
 	if fps_acc >= 0.5:
 		hud.text = "%d fps · %d ms" % [roundi(fps_n / fps_acc), roundi(fps_worst * 1000.0)]
@@ -285,6 +304,170 @@ func _camera(dt: float) -> void:
 	cam.position = cam.position.lerp(want, 1.0 - exp(-dt * 14.0))
 	cam.look_at(cam_target)
 
+# ---------- spaces: going through a door ----------
+# Like the games: the screen fades to black, the outdoor world (terrain, town,
+# water, plants, grass, ink, villagers, the sun) is hidden and stops updating
+# (the grass is freed and rebuilt on the way out), the interior is loaded as
+# its own space with its own light and environment, Ash stands at its door,
+# and the screen fades back in. Leaving frees the interior.
+const FADE := 0.32
+
+func enter_space(id: String, spawn_id := "", instant := false) -> void:
+	_fade(func(): _enter_now(id, spawn_id), instant)
+
+func leave_space(instant := false) -> void:
+	_fade(func(): _leave_now(), instant)
+
+func _fade(mid: Callable, instant: bool) -> void:
+	if not trans.is_empty(): return
+	if instant:
+		mid.call(); return
+	trans = {"t": 0.0, "mid": mid, "fired": false}
+	trans_busy = true
+	speed = 0.0
+
+func _trans_step(dt: float) -> void:
+	if trans.is_empty(): return
+	trans.t += dt
+	var t: float = trans.t
+	if t >= FADE and not trans.fired:
+		trans.fired = true
+		trans.mid.call()
+		trans.t = FADE   # the frame the load took does not eat the fade in
+		t = FADE
+	var a := t / FADE if t < FADE else 1.0 - (t - FADE - 0.08) / FADE
+	fader.color.a = clampf(a, 0.0, 1.0)
+	if t >= FADE * 2.0 + 0.08:
+		trans = {}; trans_busy = false; fader.color.a = 0.0
+
+func _outdoor_shown(on: bool) -> void:
+	for n in [terrain_root, town_root, water_root, scenery, sun]:
+		if n: n.visible = on
+	for n in outdoor_ink:
+		if not is_instance_valid(n): continue
+		n.visible = on and Ink.is_enabled()
+		# out of Ink's list while hidden, so the outlines switch does not show them
+		if on and not Ink.line_nodes.has(n): Ink.line_nodes.append(n)
+		elif not on: Ink.line_nodes.erase(n)
+	scenery.process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
+
+func _enter_now(id: String, spawn_id: String) -> void:
+	var it := Interior.new()
+	it.name = "Interior_" + id
+	add_child(it)
+	if not it.build(id):
+		it.queue_free(); push_warning("no interior " + id); return
+	interior = it
+	indoors = true
+	_outdoor_shown(false)
+	if grass:
+		grass.queue_free(); grass = null
+	we.environment = it.env
+	world = it.data
+	var sp: Dictionary = it.data.spawn(spawn_id)
+	it.data.level = int(sp.level)
+	pos = Vector3(sp.x, float(sp.y), sp.z)
+	yaw = float(sp.rot)
+	speed = 0.0
+	cam_yaw = yaw + PI
+	cam_pitch = 0.3
+	cam_ty = pos.y
+	cam_target = pos + Vector3(0, 1.45, 0)
+	cam_boom = 2.0
+	cam.near = 0.1
+	cam.far = 120.0
+	cam.position = Vector3.ZERO
+	cast.enter_space(it)
+	cast.land(pos.y)
+
+func _leave_now() -> void:
+	var lab: Vector2 = cast.lab_door
+	cast.leave_space()
+	if interior:
+		interior.free_ink()
+		interior.queue_free(); interior = null
+	indoors = false
+	cast.player.visible = true
+	world = outdoor_world
+	we.environment = outdoor_env
+	_outdoor_shown(true)
+	grass_dirty = true
+	_rebuild_grass()
+	# outside the lab door, facing away from it (down the courtyard, west)
+	pos = Vector3(lab.x, world.height_at(lab.x, lab.y), lab.y)
+	yaw = -PI / 2.0
+	speed = 0.0
+	# the camera out in front, a little to the side: Ash walking out, the lab behind him
+	cam_yaw = yaw + 0.55
+	cam_pitch = 0.32
+	cam_ty = pos.y
+	cam_target = pos + Vector3(0, 1.45, 0)
+	cam_floor = pos.y
+	cam.near = 0.25
+	_on_setting("fog", Settings.get_value("fog"))
+	cam.position = Vector3.ZERO
+	cast.land(pos.y)
+
+var outdoor_env: Environment
+var cam_lift := 0.0
+
+func _cam_dir(p: float) -> Vector3:
+	var cp := cos(p)
+	return Vector3(sin(cam_yaw) * cp, sin(p), cos(cam_yaw) * cp)
+
+# indoors: closer and a little lower (as Legends: Arceus does inside), framed
+# by the camera volume the player stands in, and never through a wall, the
+# ceiling or a slab: the boom shortens at once where a volume ends and grows
+# back slowly
+func _camera_in(dt: float) -> void:
+	var D: InteriorData = interior.data
+	var cdef: Dictionary = D.meta.camera.get("default", {})
+	if cam_recenter > 0.0:
+		cam_recenter -= dt
+		cam_yaw += wrapf(yaw + PI - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
+	elif cam_idle > 1.0 and speed > 0.5:
+		cam_yaw += wrapf(yaw + PI - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 1.2 * minf(1.0, speed / 4.0)))
+	var dy := pos.y - cam_ty
+	cam_ty += dy * (1.0 - exp(-dt * (8.0 if absf(dy) > 1.5 else 4.0)))
+	var k := 1.0 - exp(-dt * 12.0)
+	cam_target.x += (pos.x - cam_target.x) * k
+	cam_target.z += (pos.z - cam_target.z) * k
+	cam_target.y = cam_ty + float(cdef.get("height", 1.4))
+	var v: Dictionary = D.volume_at(cam_target)
+	var want_d := float(v.get("dist", cdef.get("dist", 5.0)))
+	var want_p := float(v.get("pitch", cdef.get("pitch", 0.3)))
+	# the volume's pitch, unless the player is looking around
+	if cam_idle > 1.5: cam_pitch += (want_p - cam_pitch) * (1.0 - exp(-dt * 1.5))
+	cam_pitch = clampf(cam_pitch, -0.1, 1.1)
+	var fov := float(v.get("fov", cdef.get("fov", 56.0)))
+	cam.fov += (fov - cam.fov) * (1.0 - exp(-dt * 3.0))
+	# cramped (a wall right behind): look down from higher up rather than
+	# sit on the player's back; the lift eases in and out
+	var lift_want := 0.0
+	var free_d := D.boom(cam_target, _cam_dir(cam_pitch), want_d)
+	if free_d < want_d * 0.7:
+		# the smallest lift (up to a look of about 50 degrees down) that gives the
+		# camera three quarters of its distance, else the one giving the most
+		var best := free_d
+		for i in 6:
+			var lp := 0.08 * (i + 1)
+			if cam_pitch + lp > 0.7: break
+			var fd := D.boom(cam_target, _cam_dir(cam_pitch + lp), want_d)
+			if fd > best + 0.25: best = fd; lift_want = lp
+			if fd >= want_d * 0.75: break
+	cam_lift += (lift_want - cam_lift) * (1.0 - exp(-dt * 3.0))
+	var dir := _cam_dir(minf(1.25, cam_pitch + cam_lift))
+	free_d = D.boom(cam_target, dir, want_d)
+	if free_d < cam_boom: cam_boom = free_d
+	else: cam_boom += (free_d - cam_boom) * (1.0 - exp(-dt * 2.5))
+	cam.position = cam_target + dir * cam_boom
+	# pressed right up against the player (a wall at their back): hide them
+	# rather than show the inside of their head
+	cast.player.visible = cam_boom > 0.75
+	# with the camera pushed in close, it looks a little past the player
+	var lead := clampf((want_d - cam_boom) * 0.2, 0.0, 0.8)
+	cam.look_at(cam_target - Vector3(dir.x, 0.0, dir.z).normalized() * lead)
+
 func _hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -295,6 +478,16 @@ func _hud() -> void:
 	hud.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
 	hud.add_theme_constant_override("outline_size", 6)
 	layer.add_child(hud)
+	# the door fade (over everything but the settings)
+	var fl := CanvasLayer.new()
+	fl.layer = 5
+	add_child(fl)
+	fader = ColorRect.new()
+	fader.color = Color(0, 0, 0, 0)
+	fader.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fader.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fl.add_child(fader)
+	outdoor_env = we.environment
 	stick_ui = Panel.new()
 	stick_ui.size = Vector2(120, 120)
 	var sb := StyleBoxFlat.new()
@@ -324,17 +517,20 @@ func _settings_hook() -> void:
 	for k in ["shadow", "shadow_dist", "fog", "lod", "exposure"]: _on_setting(k, Settings.get_value(k))
 
 func _on_setting(key: String, v) -> void:
-	var sun: DirectionalLight3D = find_children("*", "DirectionalLight3D", false, false).front()
-	var env: Environment = (find_children("*", "WorldEnvironment", false, false).front() as WorldEnvironment).environment
+	var env: Environment = outdoor_env if outdoor_env else we.environment
 	match key:
-		"shadow": if sun: sun.shadow_enabled = int(v) > 0
+		"shadow":
+			if sun: sun.shadow_enabled = int(v) > 0
+			if interior: interior.light.shadow_enabled = int(v) > 0
 		"shadow_dist": if sun: sun.directional_shadow_max_distance = float(v)
 		"fog", "lod":
 			var f := float(Settings.get_value("fog"))
 			env.fog_depth_begin = 90.0 * f
 			env.fog_depth_end = 430.0 * f
-			if cam: cam.far = maxf(env.fog_depth_end + 50.0, 2000.0 * float(Settings.get_value("lod")))
-		"exposure": env.tonemap_exposure = float(v)
+			if cam and not indoors: cam.far = maxf(env.fog_depth_end + 50.0, 2000.0 * float(Settings.get_value("lod")))
+		"exposure":
+			env.tonemap_exposure = float(v)
+			if interior: interior.env.tonemap_exposure = float(v)
 		"grass", "grass_size": grass_dirty = true   # rebuilt once the menu closes
 
 func _rebuild_grass() -> void:

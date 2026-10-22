@@ -85,7 +85,42 @@ func _actions() -> void:
 			InputMap.action_add_event(a, jb)
 
 func busy() -> bool:
-	return dialog.open or script_phase >= 0
+	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy"))
+
+# ---------- inside a building (main.gd enter_space / leave_space) ----------
+# The villagers outside are hidden and left alone; the interior's own people
+# (its blueprint's actors) and things to look at take their place.
+var indoors := false
+var _out := {}           # the outdoor npcs and uses while inside
+func enter_space(it) -> void:
+	indoors = true
+	_out = {"npcs": npcs, "uses": uses}
+	for n in npcs: n.actor.visible = false
+	if not oak.is_empty():
+		oak.hidden = true   # he went in ahead of you
+	var inside: Array = []
+	for a in it.data.meta.actors:
+		var actor := CastActor.make(String(a.look))
+		add_child(actor)
+		var e := {"actor": actor, "name": a.name, "home": Vector2(a.x, a.z), "pos": Vector3(a.x, float(a.y), a.z), "yaw": float(a.rot),
+			"target": null, "wait": 1e9, "wander": 0.0, "lines": a.lines, "speed": 0.0, "face": NAN, "hidden": false,
+			"level": int(a.level), "ylock": float(a.y), "rot0": float(a.rot)}
+		inside.append(e)
+	npcs = inside
+	uses = it.data.meta.uses
+	dialog.banner(String(it.data.meta.name), "Pallet Town")
+
+# put the player on the ground at once (after a door: no fall from the old height)
+func land(y: float) -> void:
+	_air_y = y; vy = 0.0; ground = true
+
+func leave_space() -> void:
+	for n in npcs: n.actor.queue_free()
+	npcs = _out.npcs
+	uses = _out.uses
+	indoors = false
+	dialog.banner("Pallet Town", "A quiet seaside village")
+	area = "town"
 
 func run_held() -> bool:
 	return Input.is_action_pressed("run")
@@ -103,14 +138,18 @@ func nearby() -> Dictionary:
 	var me: Vector3 = game.pos
 	var fx := sin(game.yaw)
 	var fz := cos(game.yaw)
+	var lv: int = game.world.level if indoors else 0
 	for u in uses:
+		if u.has("level") and int(u.level) != lv: continue
 		var dx: float = u.x - me.x
 		var dz: float = u.z - me.z
 		var dd := sqrt(dx * dx + dz * dz)
 		if dd < float(u.r) + 0.6 and dd < bd:
-			best = {"label": u.label, "lines": u.lines, "at": Vector3(u.x, game.world.height_at(u.x, u.z) + 1.9, u.z)}; bd = dd
+			var ay: float = float(u.y) if u.has("y") else game.world.height_at(u.x, u.z) + 1.9
+			best = {"label": u.label, "lines": u.lines, "at": Vector3(u.x, ay, u.z), "u": u}; bd = dd
 	for n in npcs:
 		if n.hidden: continue
+		if n.has("level") and int(n.level) != lv: continue
 		var p: Vector3 = n.pos
 		var dx := p.x - me.x
 		var dz := p.z - me.z
@@ -135,6 +174,10 @@ func update(dt: float) -> void:
 			vy = 5.2; ground = false
 		if use:
 			var n := nearby()
+			# the lab's door opens: inside you go (main.gd enter_space)
+			if not indoors and n.has("u") and String(n.u.label) == "Door" and Vector2(n.u.x, n.u.z).distance_to(lab_door) < 1.5:
+				game.enter_space("oak_lab", "from_town")
+				n = {}
 			if not n.is_empty():
 				var me: Vector3 = game.pos
 				if n.has("npc"):
@@ -166,6 +209,11 @@ func update(dt: float) -> void:
 	player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
 	player.animate(dt, absf(game.speed), not ground)
 	_villagers(dt)
+	if indoors:
+		var n3 := nearby() if not dialog.open else {}
+		var cam3: Camera3D = game.cam
+		dialog.prompt = {"pos": cam3.unproject_position(n3.at), "label": n3.label} if not n3.is_empty() and not cam3.is_position_behind(n3.at) else {}
+		return
 	# areas and events
 	var me2: Vector3 = game.pos
 	var in_grass := false
@@ -220,7 +268,9 @@ func _villagers(dt: float) -> void:
 					var got := Vector2(np.x - n.pos.x, np.z - n.pos.z).length()
 					n.pos = np
 					if got < want.length() * 0.5: n.target = null
-		n.pos.y = game.world.height_at(n.pos.x, n.pos.z)
+		n.pos.y = float(n.ylock) if n.has("ylock") else game.world.height_at(n.pos.x, n.pos.z)
+		# indoors people turn back to what they were doing after a talk
+		if n.has("rot0") and not dialog.open and is_nan(n.face): n.yaw += wrapf(float(n.rot0) - n.yaw, -PI, PI) * (1.0 - exp(-dt * 2.0))
 		a.position = n.pos
 		a.rotation.y = n.yaw
 		# well outside the view (with room for their shadow): not drawn, not animated
@@ -305,7 +355,7 @@ func _oak_scene(dt: float) -> void:
 			oak.pos = Vector3(lab_door.x, game.world.height_at(lab_door.x, lab_door.y), lab_door.y)
 			oak.yaw = -PI / 2.0
 			oak.face = NAN
-			oak.lines = ["OAK: There you are! Inside the lab is coming soon.", "For now, explore the town. Pallet has changed a lot!"]
+			oak.lines = ["OAK: Here we are, my lab! Come on in.", "I'll be waiting at my computer."]
 			dialog.banner("Prof. Oak's Lab", "Up the stairs on the hill by the sea")
 
 # ---------- render checks: -- --cast-test=front|walk|run|jump|talk|oak ----------

@@ -307,7 +307,10 @@ export function door_mat(P) {
   const t = paint('mat' + col, 256, 160, (x, W, H) => {
     x.fillStyle = col; x.fillRect(0, 0, W, H);
     x.strokeStyle = shade(col, 1.35); x.lineWidth = 6; x.strokeRect(12, 12, W - 24, H - 24);
+    // (mirrored: the mat's plane is seen from above with u running backwards)
+    x.save(); x.translate(W, 0); x.scale(-1, 1);
     x.fillStyle = shade(col, 1.4); fitText(x, 'WELCOME', 52, W * 0.7, HEAD); x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('WELCOME', W / 2, H / 2 + 2);
+    x.restore();
   }, { repeat: false });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2), texm(t));
   m.position.y = 0.011; m.receiveShadow = true; m.userData.outline = false; G.add(m);
