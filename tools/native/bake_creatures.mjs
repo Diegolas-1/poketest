@@ -27,6 +27,8 @@ const SPECIES = {
   // its red forked horn has no bone of its own: the orange texels on the head get one ("Horn")
   caterpie: { dir: 'Caterpie', smd: 'Caterpie.SMD', scale: 0.025,
     extra: [{ name: 'Horn', parent: 'Head', png: 'pm0010_00_Body1.png', pick: ([r, g, b]) => r > 200 && g < 160 && b < 110, ramp: 1.2 }] },
+  // the heads at about 1.2 m with the necks up (about Ben's chest)
+  doduo: { dir: 'Doduo', smd: 'DoduoM.SMD', scale: 0.0082, split: { 'pm0084_00_Eye1.png': ['LHead', 'RHead'] } },
 };
 
 const args = process.argv.slice(2);

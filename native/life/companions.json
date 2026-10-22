@@ -28,6 +28,24 @@
    "owner_barks": ["Come on, Nibbles!", "Good boy, Nibbles!", "Nibbles, keep up!", "Who's a good Caterpie?", "Nibbles, no! Not that leaf!", "Wait for Nibbles!"],
    "owner_pat": ["There you are, Nibbles!", "Good Caterpie!", "You're getting so big!"],
    "bed": ["Night night, Nibbles!"]
+  },
+  {"id": "doduo", "name": "Doduo", "species": "doduo", "owner": "ben",
+   "speed": 1.35, "hurry": 3.6, "follow": 1.5, "side": 1.1, "inside": false,
+   "night": {"place": [-71.6, 26.6], "label": "the farmyard"},
+   "yard": [[-70.9, 28.4], [-72.8, 28.6], [-75.0, 27.2], [-70.0, 29.6]],
+   "talk": {
+    "any": [["DODUO: Do-do!", "(Both heads look at you. Then at each other. Then at you again.)"], ["DODUO: Do! ...Duo!", "(The left head says Do. The right head says Duo. They seem to disagree about something.)"], ["DODUO: Dodo-do!", "(One head pecks at your shoelace. The other pretends it didn't see.)"], ["DODUO: Do-do? Do-DO!", "(The heads squabble over who gets to say hello.)"]],
+    "morning": [["DODUO: DO-DOOO!", "(Doduo is very awake. Both of it.)"]],
+    "asleep": [["(Doduo is asleep in the farmyard, one head tucked under the other's chin.)", "DODUO: ...do... duo..."], ["(One head is asleep. The other opens an eye and watches you. Then closes it.)"]]
+   },
+   "owner_talk": {
+    "any": ["FARMER BEN: Easy, Doduo.", "FARMER BEN: Two heads, one stomach. Always hungry, the pair of 'em.", ["FARMER BEN: Doduo don't let just anyone near.", "FARMER BEN: They let you. Mm."], "FARMER BEN: Get off the berries, you."],
+    "morning": ["FARMER BEN: Up before me, this one. Every day."],
+    "asleep": ["FARMER BEN: Let 'em sleep. Long day in the furrows."]
+   },
+   "barks": ["Do-do!", "Do! Do!", "Duo!", "Dodo-do!"],
+   "owner_barks": ["Easy, Doduo.", "Come on, you two.", "Doduo! Heel.", "Good bird.", "Get off the berries, you."],
+   "call": ["Doduo! Come on!", "Doduo! Hup!"]
   }
  ]
 }
