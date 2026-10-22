@@ -185,7 +185,9 @@ func update(dt: float) -> void:
 	else:
 		dialog.prompt = {}
 
+var _frame := 0
 func _villagers(dt: float) -> void:
+	_frame += 1
 	var cam: Camera3D = game.cam
 	var planes := cam.get_frustum()
 	for n in npcs:
@@ -227,7 +229,12 @@ func _villagers(dt: float) -> void:
 		for pl in planes:
 			if pl.distance_to(c) > 2.5: seen = false; break
 		if a.visible != seen: a.visible = seen
-		if seen: a.animate(dt, n.speed, false)
+		if seen:
+			# far off: animated every other frame
+			n.acc = float(n.get("acc", 0.0)) + dt
+			var far: bool = cam.global_position.distance_squared_to(c) > 625.0
+			if not far or _frame % 2 == 0:
+				a.animate(n.acc, n.speed, false); n.acc = 0.0
 
 # ---------- Prof. Oak's scene ----------
 func _oak_start() -> void:
@@ -330,7 +337,7 @@ func _test_step(dt: float) -> void:
 				game.pos = Vector3(0, 0, -59.0); game.pos.y = game.world.height_at(0, -59.0); game.yaw = PI
 				_air_y = game.pos.y
 			game.stick_vec = Vector2(0, -0.5) if script_phase < 0 and t < 1.0 else Vector2.ZERO
-			if dialog.open and fmod(t, 0.7) < dt: _btn_a = true
+			if dialog.open and fmod(t, 0.6) < dt: _btn_a = true
 			game.cam_dist = 6.0
 
 # ---------- touch buttons: A and Jump ----------

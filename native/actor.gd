@@ -33,11 +33,22 @@ var bones := {}          # bone name -> index
 var rest_q: Array[Quaternion] = []
 var rest_w: Array[Quaternion] = []   # rest rotation in the model's frame (inverted)
 var rest_waist := Vector3.ZERO
+var ax_x: Array[Vector3] = []        # the model's x / y / z axes in each bone's rest frame
+var ax_y: Array[Vector3] = []
+var ax_z: Array[Vector3] = []
+var trk := {}                        # name -> PackedInt32Array: rotation track per used bone (-1 = none)
 var used: PackedInt32Array = []      # bones written every frame
 var q: Array[Quaternion] = []
 var waist := -1
 var eyes: ShaderMaterial
 var meshes: Array[MeshInstance3D] = []
+# cloth: the garments' hanging chains (jacket, dress, coat) swing on a spring
+var chains: Array = []      # [bones: PackedInt32Array, back weight, front weight, side]
+var cl_x := 0.0
+var cl_vx := 0.0
+var cl_z := 0.0
+var cl_vz := 0.0
+var _last_yaw := NAN
 
 var phase := 0.0
 var idle_t := 0.0
@@ -86,6 +97,9 @@ func _build(look_name: String) -> void:
 		bones[skel.get_bone_name(i)] = i
 		rest_q.append(skel.get_bone_rest(i).basis.get_rotation_quaternion())
 		rest_w.append(skel.get_bone_global_rest(i).basis.get_rotation_quaternion().inverse())
+		ax_x.append((rest_w[i] * Vector3.RIGHT).normalized())
+		ax_y.append((rest_w[i] * Vector3.UP).normalized())
+		ax_z.append((rest_w[i] * Vector3.BACK).normalized())
 	q.resize(skel.get_bone_count())
 	waist = bones.get("Waist", -1)
 	if waist >= 0: rest_waist = skel.get_bone_rest(waist).origin
@@ -106,7 +120,12 @@ func _build(look_name: String) -> void:
 	for n in ["Spine1", "Spine2", "Spine3", "Neck", "Head", "LShoulder", "RShoulder", "LArmA", "RArmA", "LForeArm", "RForeArm",
 			"LThigh", "RThigh", "LLeg", "RLeg", "LFoot", "RFoot"]:
 		if bones.has(n): u[bones[n]] = true
+	_find_chains(u)
 	for bi in u: used.append(bi)
+	for an in anims:
+		var arr := PackedInt32Array()
+		for bi in used: arr.append(rot_tr[an].get(bi, -1))
+		trk[an] = arr
 	_materials(root, d.mats)
 	idle_t = _rng.randf() * float(anims.idle.length)
 	blink = 2.0 + _rng.randf() * 3.0
@@ -150,6 +169,49 @@ func _materials(root: Node, mats: Array) -> void:
 			m3.set_surface_override_material(s, m)
 		if not shadow: m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
+# chains hung from the chest (cloth bones under Spine2): each one swings as a
+# whole, the lower links more; panels at the back lift when running, panels in
+# front swing out when stopping
+func _find_chains(u: Dictionary) -> void:
+	var sp: int = bones.get("Spine2", -1)
+	if sp < 0: return
+	var c0 := skel.get_bone_global_rest(sp).origin
+	for i in skel.get_bone_count():
+		if skel.get_bone_parent(i) != sp or not skel.get_bone_name(i).begins_with("cl"): continue
+		var list := PackedInt32Array()
+		var b := i
+		while b >= 0:
+			list.append(b); u[b] = true
+			var kids := skel.get_bone_children(b)
+			b = kids[0] if kids.size() > 0 else -1
+		var d := skel.get_bone_global_rest(i).origin - c0
+		var h := Vector2(d.x, d.z).normalized()
+		chains.append([list, clampf(-h.y * 1.2 + 0.2, 0.0, 1.0), clampf(h.y * 1.2 + 0.2, 0.0, 1.0), h.x])
+
+func _cloth(dt: float, speed: float, air: bool) -> void:
+	if chains.is_empty(): return
+	var yr := 0.0
+	var yw := rotation.y
+	if not is_nan(_last_yaw) and dt > 0.0: yr = wrapf(yw - _last_yaw, -PI, PI) / dt
+	_last_yaw = yw
+	# springs toward: trailing back with speed (and in the air), out to the side on turns
+	var tx := clampf(speed / RUN_V, 0.0, 1.3) * 0.42 + air_w * 0.25 + sin(L.t * 1.3) * 0.015
+	var tz := clampf(-yr * 0.07, -0.3, 0.3)
+	var om := 7.0
+	cl_vx += ((tx - cl_x) * om * om - 2.0 * 0.32 * om * cl_vx) * dt; cl_x += cl_vx * dt
+	cl_vz += ((tz - cl_z) * om * om - 2.0 * 0.32 * om * cl_vz) * dt; cl_z += cl_vz * dt
+	for c in chains:
+		var ax: float = cl_x * (c[1] if cl_x > 0.0 else c[2])
+		var az: float = cl_z * (0.6 + 0.4 * absf(c[3]))
+		var list: PackedInt32Array = c[0]
+		for j in list.size():
+			var bi := list[j]
+			var share := 0.55 if j == 0 else 0.45 / maxf(1, list.size() - 1)
+			var r := rest_q[bi]
+			if ax != 0.0: r = r * Quaternion(ax_x[bi], ax * share)
+			if az != 0.0: r = r * Quaternion(ax_z[bi], az * share)
+			q[bi] = r
+
 # ---------- helpers ----------
 static func _sm(a: float, b: float, x: float) -> float:
 	var t := clampf((x - a) / (b - a), 0.0, 1.0)
@@ -157,9 +219,11 @@ static func _sm(a: float, b: float, x: float) -> float:
 
 # rotate a bone about an axis given in the model's rest frame, on top of what it has
 func bend(n: String, x: float, y: float, z: float, a: float) -> void:
+	if a == 0.0: return
 	var bi: int = bones.get(n, -1)
-	if bi < 0 or a == 0.0: return
-	q[bi] = q[bi] * Quaternion((rest_w[bi] * Vector3(x, y, z)).normalized(), a)
+	if bi < 0: return
+	var axis: Vector3 = ax_x[bi] if x != 0.0 else (ax_y[bi] if y != 0.0 else ax_z[bi])
+	q[bi] = q[bi] * Quaternion(axis, a)
 
 # the same, on top of the rest pose
 func pose(n: String, turns: Array) -> void:
@@ -168,13 +232,14 @@ func pose(n: String, turns: Array) -> void:
 	var r := rest_q[bi]
 	for t in turns:
 		if t[3] == 0.0: continue
-		r = r * Quaternion((rest_w[bi] * Vector3(t[0], t[1], t[2])).normalized(), t[3])
+		r = r * Quaternion(ax_x[bi] if t[0] != 0 else (ax_y[bi] if t[1] != 0 else ax_z[bi]), t[3])
 	q[bi] = r
 
 # ---------- the frame ----------
 func animate(dt: float, speed: float, air: bool) -> void:
 	_clips(dt, speed, air)
 	_head_look(dt)
+	_cloth(dt, speed, air)
 	for bi in used: skel.set_bone_pose_rotation(bi, q[bi])
 	_blink(dt)
 
@@ -194,17 +259,33 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	idle_t = fmod(idle_t + dt, float(anims.idle.length))
 	var times := {"idle": idle_t, "walk": fmod(phase + float(meta.walk.lead), 1.0) * dW, "run": fmod(phase + float(meta.run.lead), 1.0) * dR}
 	# blended clip pose (weights add to one; a clip without a track holds the rest pose)
-	for bi in used:
+	var wi: float = w.idle
+	var ww: float = w.walk
+	var wr: float = w.run
+	var Ai: Animation = anims.idle
+	var Aw: Animation = anims.walk
+	var Ar: Animation = anims.run
+	var ti: float = times.idle
+	var tw2: float = times.walk
+	var tr2: float = times.run
+	var ki: PackedInt32Array = trk.idle
+	var kw: PackedInt32Array = trk.walk
+	var kr: PackedInt32Array = trk.run
+	for j in used.size():
+		var bi := used[j]
+		var rq := rest_q[bi]
 		var acc := Quaternion(0, 0, 0, 0)
-		for an in w:
-			var wt: float = w[an]
-			if wt < 0.001: continue
-			var A: Animation = anims[an]
-			var tr = rot_tr[an].get(bi, -1)
-			var r: Quaternion = A.rotation_track_interpolate(tr, times[an]) if tr >= 0 else rest_q[bi]
+		if wi > 0.001:
+			acc = (Ai.rotation_track_interpolate(ki[j], ti) if ki[j] >= 0 else rq) * wi
+		if ww > 0.001:
+			var r: Quaternion = Aw.rotation_track_interpolate(kw[j], tw2) if kw[j] >= 0 else rq
 			if acc.dot(r) < 0.0: r = -r
-			acc += r * wt
-		q[bi] = acc.normalized() if acc.length_squared() > 1e-8 else rest_q[bi]
+			acc += r * ww
+		if wr > 0.001:
+			var r2: Quaternion = Ar.rotation_track_interpolate(kr[j], tr2) if kr[j] >= 0 else rq
+			if acc.dot(r2) < 0.0: r2 = -r2
+			acc += r2 * wr
+		q[bi] = acc.normalized() if acc.length_squared() > 1e-8 else rq
 	if waist >= 0:
 		var p := Vector3.ZERO
 		var sum := 0.0
@@ -221,10 +302,10 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 		bend("Spine2", 1, 0, 0, lean * 0.14); bend("Spine3", 1, 0, 0, lean * 0.07); bend("Head", 1, 0, 0, -lean * 0.12)
 	_idle_life(dt, w.idle * (1.0 - air_w), (w.idle + w.walk * 0.6) * (1.0 - air_w))
 	# feet a little apart at a walk, soles flat; arms a touch out from the sides
-	var ww: float = w.walk * (1.0 - air_w)
-	if ww > 0.001:
+	var wwk: float = w.walk * (1.0 - air_w)
+	if wwk > 0.001:
 		for s in [["L", 1.0], ["R", -1.0]]:
-			bend(s[0] + "Thigh", 0, 0, 1, s[1] * 0.05 * ww); bend(s[0] + "Foot", 0, 0, 1, -s[1] * 0.05 * ww)
+			bend(s[0] + "Thigh", 0, 0, 1, s[1] * 0.05 * wwk); bend(s[0] + "Foot", 0, 0, 1, -s[1] * 0.05 * wwk)
 	var wa: float = (w.walk * 0.06 + w.run * 0.08) * (1.0 - air_w)
 	if wa > 0.001:
 		for s in [["L", 1.0], ["R", -1.0]]: bend(s[0] + "ArmA", 0, 0, 1, s[1] * wa)
@@ -309,7 +390,7 @@ func _jump_pose(P: Dictionary) -> void:
 	pose("Head", [[1, 0, 0, P.hd]])
 
 func _jump(dt: float, speed: float, air: bool) -> void:
-	var y := global_position.y
+	var y := position.y
 	if not is_nan(jump.y) and dt > 0.0: jump.vy += ((y - jump.y) / dt - jump.vy) * minf(1.0, dt * 30.0)
 	jump.y = y
 	if air and not was_air:

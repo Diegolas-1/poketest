@@ -120,11 +120,18 @@ func _panel(x: float, y: float, w: float, h: float, u: float) -> void:
 	for k in 3:
 		var g := (3 - k) * 1.6 * u
 		_rr(Rect2(x - g * 0.5, y + 2.5 * u - g * 0.3, w + g, h + g), r + g, Color(0.04, 0.05, 0.16, 0.08))
-	# cream body with a top-to-bottom tint
-	_rr(Rect2(x, y, w, h), r, Color("f8f3e6"))
-	_rr(Rect2(x, y, w, h * 0.5), r, Color("fffdf6"))
-	_rr(Rect2(x, y + h * 0.35, w, h * 0.65), r, Color("f2e9d6"))
-	draw_rect(Rect2(x + r, y + h * 0.35 - 1, w - 2 * r, h * 0.3), Color("f8f2e4"))
+	# cream body, lighter at the top
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var c0 := Color("fffdf6")
+	var c1 := Color("f2e9d6")
+	for corner in 4:
+		var cc: Vector2 = [Vector2(x + w - r, y + r), Vector2(x + w - r, y + h - r), Vector2(x + r, y + h - r), Vector2(x + r, y + r)][corner]
+		for k in 7:
+			var ang := -PI / 2.0 + (corner + k / 6.0) * PI / 2.0
+			var pp := cc + Vector2(cos(ang), sin(ang)) * r
+			pts.append(pp); cols.append(c0.lerp(c1, (pp.y - y) / h))
+	draw_polygon(pts, cols)
 	# double frame
 	_rr(Rect2(x + 2 * u, y + 2 * u, w - 4 * u, h - 4 * u), r - u, Color(0, 0, 0, 0), 1.5 * u, INK)
 	_rr(Rect2(x + 4.5 * u, y + 4.5 * u, w - 9 * u, h - 9 * u), r - 2 * u, Color(0, 0, 0, 0), maxf(1.0, 0.75 * u), Color(0.137, 0.157, 0.31, 0.55))
