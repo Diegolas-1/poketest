@@ -40,6 +40,9 @@ var trk := {}                        # name -> PackedInt32Array: rotation track 
 var used: PackedInt32Array = []      # bones written every frame
 var q: Array[Quaternion] = []
 var waist := -1
+var waist_pos := Vector3.ZERO
+var rest_pos: Array[Vector3] = []
+var idles: IdleActions
 var eyes: ShaderMaterial
 var meshes: Array[MeshInstance3D] = []
 # cloth: the garments' hanging chains (jacket, dress, coat) swing on a spring
@@ -96,11 +99,13 @@ func _build(look_name: String) -> void:
 	for i in skel.get_bone_count():
 		bones[skel.get_bone_name(i)] = i
 		rest_q.append(skel.get_bone_rest(i).basis.get_rotation_quaternion())
+		rest_pos.append(skel.get_bone_rest(i).origin)
 		rest_w.append(skel.get_bone_global_rest(i).basis.get_rotation_quaternion().inverse())
 		ax_x.append((rest_w[i] * Vector3.RIGHT).normalized())
 		ax_y.append((rest_w[i] * Vector3.UP).normalized())
 		ax_z.append((rest_w[i] * Vector3.BACK).normalized())
 	q.resize(skel.get_bone_count())
+	for i in skel.get_bone_count(): q[i] = rest_q[i]
 	waist = bones.get("Waist", -1)
 	if waist >= 0: rest_waist = skel.get_bone_rest(waist).origin
 	var u := {}
@@ -118,7 +123,9 @@ func _build(look_name: String) -> void:
 				pos_tr[an] = t
 		rot_tr[an] = rt
 	for n in ["Spine1", "Spine2", "Spine3", "Neck", "Head", "LShoulder", "RShoulder", "LArmA", "RArmA", "LForeArm", "RForeArm",
-			"LThigh", "RThigh", "LLeg", "RLeg", "LFoot", "RFoot"]:
+			"LThigh", "RThigh", "LLeg", "RLeg", "LFoot", "RFoot", "Waist", "Hips", "LHand", "RHand", "LToe", "RToe", "FJlipL",
+			"LFingerB1", "LFingerB2", "LFingerB3", "LFingerC1", "LFingerC2", "LFingerC3", "LFingerD1", "LFingerD2", "LFingerD3",
+			"RFingerB1", "RFingerB2", "RFingerB3", "RFingerC1", "RFingerC2", "RFingerC3", "RFingerD1", "RFingerD2", "RFingerD3"]:
 		if bones.has(n): u[bones[n]] = true
 	_find_chains(u)
 	for bi in u: used.append(bi)
@@ -132,6 +139,7 @@ func _build(look_name: String) -> void:
 	L = {"t": _rng.randf() * 20.0, "yaw": 0.0, "pitch": 0.0, "vy": 0.0, "vp": 0.0, "ty": 0.0, "tp": 0.0,
 		"look": 2.0 + _rng.randf() * 3.0, "side": -1.0 if _rng.randf() < 0.5 else 1.0, "cp": 0.0, "swap": 15.0 + _rng.randf() * 15.0}
 	L.cp = L.side
+	idles = IdleActions.new(self, look != "ash", look == "ash")
 
 func _materials(root: Node, mats: Array) -> void:
 	var made := {}
@@ -295,7 +303,8 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 			var tr: int = pos_tr[an]
 			p += (anims[an].position_track_interpolate(tr, times[an]) if tr >= 0 else rest_waist) * wt
 			sum += wt
-		skel.set_bone_pose_position(waist, p / maxf(sum, 1e-4))
+		waist_pos = p / maxf(sum, 1e-4)
+		skel.set_bone_pose_position(waist, waist_pos)
 	# a sprint past the run clip's own speed leans into it
 	var lean := _sm(RUN_V * 1.1, RUN_V * 1.8, speed) * (1.0 - air_w)
 	if lean > 0.001:
@@ -310,10 +319,24 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	if wa > 0.001:
 		for s in [["L", 1.0], ["R", -1.0]]: bend(s[0] + "ArmA", 0, 0, 1, s[1] * wa)
 	_jump(dt, speed, air)
+	idles.post(dt)
+
+# a bone's transform in the skeleton's space, from the pose being built this frame
+func gxf(bi: int) -> Transform3D:
+	var chain := PackedInt32Array()
+	var b := bi
+	while b >= 0:
+		chain.append(b); b = skel.get_bone_parent(b)
+	var t := Transform3D.IDENTITY
+	for j in range(chain.size() - 1, -1, -1):
+		var c := chain[j]
+		t = t * Transform3D(Basis(q[c]), waist_pos if c == waist else rest_pos[c])
+	return t
 
 # ---------- life on top of the idle clip ----------
 func _idle_life(dt: float, wI: float, wP: float) -> void:
 	L.t += dt
+	idles.update(dt, wI)
 	if wP > 0.001:
 		bend("Spine2", 1, 0, 0, -0.06 * wP); bend("Spine3", 1, 0, 0, -0.07 * wP); bend("Neck", 1, 0, 0, -0.04 * wP); bend("Head", 1, 0, 0, -0.02 * wP)
 		bend("LShoulder", 0, 1, 0, 0.14 * wP); bend("RShoulder", 0, 1, 0, -0.14 * wP)
@@ -325,7 +348,7 @@ func _idle_life(dt: float, wI: float, wP: float) -> void:
 		bend(s + "ArmA", 0, 0, 1, sg * (0.17 if i else 0.21) * wI); bend(s + "ArmA", 0, 1, 0, sg * (0.22 if i else 0.27) * wI)
 		bend(s + "ForeArm", 0, 1, 0, -sg * (0.42 if i else 0.52) * wI)
 	L.swap -= dt
-	if L.swap < 0.0:
+	if not idles.busy and L.swap < 0.0:
 		L.side = -L.side; L.swap = 15.0 + _rng.randf() * 15.0
 	L.cp += (L.side - L.cp) * (1.0 - exp(-dt * 1.2))
 	var cp: float = L.cp * wI
@@ -429,8 +452,12 @@ func _head_look(dt: float) -> void:
 	bend("Spine3", 0, 1, 0, _look_y * 0.12); bend("Neck", 0, 1, 0, _look_y * 0.35); bend("Head", 0, 1, 0, _look_y * 0.5)
 
 # the eye atlas has the closed eyes half a texture to the right
+var _shut := false
 func _blink(dt: float) -> void:
 	blink -= dt
 	if eyes:
-		eyes.set_shader_parameter("uv_off", Vector2(0.5 if blink < 0.0 else 0.0, 0.0))
+		var shut: bool = blink < 0.0 or idles.eyes
+		if shut != _shut:
+			_shut = shut
+			eyes.set_shader_parameter("uv_off", Vector2(0.5 if shut else 0.0, 0.0))
 	if blink < -0.12: blink = 2.0 + _rng.randf() * 4.0

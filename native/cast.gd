@@ -332,6 +332,16 @@ func _test_step(dt: float) -> void:
 				game.pos = g.pos + Vector3(0, 0, 1.6); game.yaw = PI; g.target = null; g.wait = 99.0
 			game.cam_yaw = game.yaw + PI / 2.0 + 0.5; game.cam_dist = 4.5; game.cam_pitch = 0.2
 			if absf(t - 0.5) < dt * 0.5: _btn_a = true
+		"sign":
+			if t < dt * 1.5:
+				for u in uses:
+					if u.label == "Read":
+						var a := Vector3(u.x, 0, u.z)
+						game.pos = a + Vector3(0, 0, 1.0); game.pos.y = game.world.height_at(game.pos.x, game.pos.z)
+						_air_y = game.pos.y; game.yaw = PI
+						break
+			game.cam_yaw = game.yaw + PI + 0.6; game.cam_dist = 5.0; game.cam_pitch = 0.25
+			if absf(t - 1.2) < dt * 0.5: _btn_a = true
 		"oak":
 			if t < dt * 1.5:
 				game.pos = Vector3(0, 0, -59.0); game.pos.y = game.world.height_at(0, -59.0); game.yaw = PI
