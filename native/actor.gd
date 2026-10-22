@@ -164,7 +164,8 @@ func _materials(root: Node, mats: Array) -> void:
 					m.set_shader_parameter("use_tex", true)
 			m.set_shader_parameter("use_vc", info.get("vc", false))
 			if float(info.get("alpha", 0.0)) > 0.0: m.set_shader_parameter("alpha_scissor", float(info.alpha))
-			if info.get("decal", false): m.set_shader_parameter("lift", 0.004)
+			# the eye patch fills a hole in the face (no offset); the logo lies on the cap
+			if info.get("decal", false) and not info.get("eyes", false): m.set_shader_parameter("lift", 0.002)
 			var cel = info.get("cel")
 			if cel is Dictionary:
 				for key in [["bands", "bands"], ["deep", "deep"], ["shade", "shade"], ["lit", "lit"], ["litAdd", "lit_add"]]:

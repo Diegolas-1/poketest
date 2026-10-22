@@ -66,9 +66,9 @@ const res = await p.evaluate(async () => {
         let cel = null; try { cel = ci >= 0 ? JSON.parse(key.slice(ci + 3)) : null; } catch { cel = null; }
         const i = mats.length;
         const n = new THREE.MeshStandardMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors, side: m.side, alphaTest: m.alphaTest || 0, roughness: 1, metalness: 0 });
-        if (n.map) { n.map = n.map.clone(); n.map.offset.set(0, 0); n.map.repeat.set(1, 1); }
+        if (n.map) { n.map = n.map.clone(); if (m.name === 'face_on_0') n.map.offset.x = 0; }   // the eye atlas: open eyes (blinking moves it by 0.5)
         n.name = 'c' + i;
-        mats.push({ src: m.name || '', cel, ds: m.side === THREE.DoubleSide, alpha: m.alphaTest || 0, decal: !!m.polygonOffset, vc: !!m.vertexColors, eyes: m.name === 'face_on_0', shadow: o.castShadow, ink: o.userData.outline !== false });
+        mats.push({ src: m.name || '', cel, ds: m.side === THREE.DoubleSide, alpha: m.alphaTest || 0, blend: !!m.transparent, decal: !!m.polygonOffset, vc: !!m.vertexColors, eyes: m.name === 'face_on_0', shadow: o.castShadow, ink: o.userData.outline !== false });
         seen.set(m, n);
       }
       o.material = seen.get(m);
