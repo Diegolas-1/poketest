@@ -327,7 +327,8 @@ const TOAST_HOLD := 2.6
 
 func _process(dt: float) -> void:
 	if root.get_viewport_rect().size != _last_size: _layout()
-	if _toasts.is_empty(): return
+	toaster.visible = not root.visible   # toasts wait while the log is open
+	if _toasts.is_empty() or root.visible: return
 	_toast_t += dt
 	if _toast_t > TOAST_IN * 2.0 + TOAST_HOLD:
 		_toasts.pop_front()

@@ -431,7 +431,7 @@ func _shots(dir: String) -> void:
 	DirAccess.make_dir_recursive_absolute(dir)
 	var main: Node = load("res://main.tscn").instantiate()
 	add_child(main)
-	await _frames(40)
+	await _frames(12)
 	var q := Quests.new()
 	q.save_path = "user://quests_shot.save"
 	add_child(q)
@@ -447,17 +447,24 @@ func _shots(dir: String) -> void:
 	_talk(q, "mae")
 	_talk(q, "lily")
 	_talk(q, "lily"); _talk(q, "ben")
-	await _frames(240)   # let the queued toasts run out
+	_talk(q, "marina"); _talk(q, "tom")   # Rumbles done: Blaine's riddles
+	_talk(q, "rose"); _talk(q, "ada"); _talk(q, "ada")   # Bread Round done
+	for i in 6:
+		_talk(q, "gus"); _talk(q, "kai"); _talk(q, "mae")   # some gossip
+	_talk(q, "ben"); _talk(q, "gus")
+	await _frames(2)
 	q.ui._toasts.clear()
 	# a quest line in the dialog box
 	var cast: Node = main.get("cast")
 	if cast != null:
 		cast.dialog.say(q.talk("rose", {"activity": "garden"}))
-		await _frames(150)
+		cast.dialog.shown = 9999.0
+		await _frames(4)
 		await _snap(dir, "quest_dialog.png")
 		cast.dialog.lines = []
+	q.ui._toasts.clear(); q.ui._toast_t = 0.0
 	q.ui.toast("start", "The Butterfree Question")
-	await _frames(30)
+	await _frames(4)
 	await _snap(dir, "toast.png")
 	q.ui._toasts.clear()
 	q.ui.open()
