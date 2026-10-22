@@ -28,6 +28,7 @@ var cam_idle := 0.0
 var cam_ty := 0.0
 var cam_floor := 0.0
 var cam_target := Vector3.ZERO
+var cam_recenter := 0.0
 var hud: Label
 var stick_id := -1
 var stick_origin := Vector2.ZERO
@@ -49,9 +50,10 @@ func _ready() -> void:
 	_water()
 	grass = Grass.new()
 	add_child(grass)
-	grass.build(world, 150000, 64.0, SUN_DIR.normalized())
+	grass.build(world, int(Settings.get_value("grass")), float(Settings.get_value("grass_size")), SUN_DIR.normalized())
 	_player()
 	_hud()
+	_settings_hook()
 
 # ---------- sky, sun, haze ----------
 func _environment() -> void:
@@ -195,6 +197,7 @@ func _player() -> void:
 func _input(e: InputEvent) -> void:
 	var half := get_viewport().get_visible_rect().size.x * 0.5
 	if e is InputEventScreenTouch:
+		if e.pressed and Settings.blocks_touch(e.position): return   # the settings cog
 		if e.pressed:
 			if e.position.x < half and stick_id == -1:
 				stick_id = e.index; stick_origin = e.position; stick_vec = Vector2.ZERO
@@ -221,16 +224,19 @@ func _input(e: InputEvent) -> void:
 
 func _process(dt: float) -> void:
 	dt = minf(dt, 0.05)
-	var kx := float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
-	var ky := float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W))
-	var lx := float(Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_LEFT))
-	var ly := float(Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_DOWN))
-	if lx != 0.0 or ly != 0.0:
-		cam_yaw -= lx * dt * 2.4; cam_pitch = clampf(cam_pitch + ly * dt * 1.6, -0.15, 1.2); cam_idle = 0.0
+	# keyboard and gamepad through the InputMap actions (project.godot)
+	var cs: float = Settings.get_value("cam_speed")
+	var look := Input.get_vector("cam_left", "cam_right", "cam_down", "cam_up")
+	if Settings.get_value("invert_y") == 1: look.y = -look.y
+	if look != Vector2.ZERO:
+		look *= look.length()   # gentle near the centre, full speed at the edge
+		cam_yaw -= look.x * dt * 3.6 * cs; cam_pitch = clampf(cam_pitch + look.y * dt * 2.0 * cs, -0.15, 1.2); cam_idle = 0.0; cam_recenter = 0.0
 	elif look_id == -1:
 		cam_idle += dt
-	var mv := Vector2(kx, ky) + stick_vec
-	var run := Input.is_physical_key_pressed(KEY_SHIFT) or stick_vec.length() > 0.85
+	if Input.is_action_just_pressed("recenter"): cam_recenter = 0.35
+	var pad := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var mv := (pad + stick_vec).limit_length(1.0)
+	var run := Input.is_action_pressed("run") or stick_vec.length() > 0.85 or pad.length() > 0.85
 	# move relative to the camera (as in Legends: Arceus)
 	var f := Vector2(-sin(cam_yaw), -cos(cam_yaw))
 	var r := Vector2(cos(cam_yaw), -sin(cam_yaw))
@@ -247,7 +253,8 @@ func _process(dt: float) -> void:
 	player.position = pos
 	player.rotation.y = yaw
 	player.get_child(0).position.y = 0.7 + absf(sin(Time.get_ticks_msec() * 0.012)) * 0.05 * minf(1.0, speed / 4.0)
-	grass.update(pos)
+	if grass_dirty: _rebuild_grass()
+	if not grass.tiles.is_empty(): grass.update(pos)
 	_camera(dt)
 	fps_acc += dt; fps_n += 1; fps_worst = maxf(fps_worst, dt)
 	if fps_acc >= 0.5:
@@ -257,7 +264,10 @@ func _process(dt: float) -> void:
 # the camera (web main.js updateCamera): swings in behind while you walk and
 # leave it alone; its height follows slowly so stairs read as a ramp
 func _camera(dt: float) -> void:
-	if cam_idle > 1.0 and speed > 0.5:
+	if cam_recenter > 0.0:   # L / ZL / C: swing in behind the player
+		cam_recenter -= dt
+		cam_yaw += wrapf(yaw + PI - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
+	elif cam_idle > 1.0 and speed > 0.5:
 		var behind := wrapf(yaw + PI - cam_yaw, -PI, PI)
 		cam_yaw += behind * (1.0 - exp(-dt * 0.9 * minf(1.0, speed / 6.0)))
 	var dy := pos.y - cam_ty
@@ -304,3 +314,33 @@ func _hud() -> void:
 	knob_ui.add_theme_stylebox_override("panel", kb)
 	knob_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stick_ui.add_child(knob_ui)
+
+# ---------- settings (settings.gd): the scene's share of the live settings ----------
+var grass_dirty := false
+
+func _settings_hook() -> void:
+	hud.visible = false   # the FPS counter lives in perf_overlay.gd now
+	Settings.changed.connect(_on_setting)
+	for k in ["shadow", "shadow_dist", "fog", "lod", "exposure"]: _on_setting(k, Settings.get_value(k))
+
+func _on_setting(key: String, v) -> void:
+	var sun: DirectionalLight3D = find_children("*", "DirectionalLight3D", false, false).front()
+	var env: Environment = (find_children("*", "WorldEnvironment", false, false).front() as WorldEnvironment).environment
+	match key:
+		"shadow": if sun: sun.shadow_enabled = int(v) > 0
+		"shadow_dist": if sun: sun.directional_shadow_max_distance = float(v)
+		"fog", "lod":
+			var f := float(Settings.get_value("fog"))
+			env.fog_depth_begin = 90.0 * f
+			env.fog_depth_end = 430.0 * f
+			if cam: cam.far = maxf(env.fog_depth_end + 50.0, 2000.0 * float(Settings.get_value("lod")))
+		"exposure": env.tonemap_exposure = float(v)
+		"grass", "grass_size": grass_dirty = true   # rebuilt once the menu closes
+
+func _rebuild_grass() -> void:
+	grass_dirty = false
+	if grass: grass.queue_free()
+	grass = Grass.new()
+	add_child(grass)
+	var n := int(Settings.get_value("grass"))
+	if n > 0: grass.build(world, n, float(Settings.get_value("grass_size")), SUN_DIR.normalized())
