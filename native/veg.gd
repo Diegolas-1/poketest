@@ -51,7 +51,12 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 		if e.has("uv"): a[Mesh.ARRAY_TEX_UV] = f32.call(e.uv).to_vector2_array()
 		if e.has("col"): a[Mesh.ARRAY_COLOR] = f32.call(e.col).to_color_array()
 		if e.has("flt"): a[Mesh.ARRAY_TEX_UV2] = f32.call(e.flt).to_vector2_array()
-		if e.has("idx"): a[Mesh.ARRAY_INDEX] = f32.call(e.idx).to_int32_array()
+		# three.js fronts are counter-clockwise, Godot's clockwise: flip every
+		# triangle (else culling keeps the far side and stones look hollow)
+		var idx: PackedInt32Array = f32.call(e.idx).to_int32_array() if e.has("idx") else PackedInt32Array(range(int(e.v)))
+		for t in range(0, idx.size() - 2, 3):
+			var k: int = idx[t + 1]; idx[t + 1] = idx[t + 2]; idx[t + 2] = k
+		a[Mesh.ARRAY_INDEX] = idx
 		var m := ArrayMesh.new()
 		m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
 		meshes.append(m)
