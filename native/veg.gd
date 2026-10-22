@@ -10,6 +10,7 @@ extends Node3D
 
 const LEAF := preload("res://shaders/veg_leaf.gdshader")
 const SOLID := preload("res://shaders/veg_solid.gdshader")
+const STONE := preload("res://shaders/veg_stone.gdshader")   # stone.js rocks, walls, the islet
 const BILL := preload("res://shaders/veg_bill.gdshader")
 const DIR := "res://world/"
 const CHUNK := 48.0        # model chunks (m); kinds may set their own ("chunk")
@@ -229,6 +230,8 @@ func _set_mat(d: Dictionary, fade: Vector2, shrink: float, tex: Callable) -> Sha
 		m.shader = LEAF
 		m.set_shader_parameter("albedo_tex", tex.call(d.tex))
 		m.set_shader_parameter("tint", _rgb(d.tint))
+	elif d.kind == "stone":
+		m.shader = STONE
 	else:
 		m.shader = SOLID
 		m.set_shader_parameter("use_tex", d.kind == "bark")
@@ -310,7 +313,7 @@ func _quad() -> ArrayMesh:
 # which kind of plant a baked set is
 static func _kind(s: Dictionary, meta: Dictionary) -> String:
 	var m: Dictionary = meta.mats[int(s.parts[0].mat)]
-	if m.kind == "rock" and s.parts.size() == 1: return "rock"
+	if (m.kind == "rock" or m.kind == "stone") and s.parts.size() == 1: return "rock"
 	if s.impostor != null: return "tree" if float(s.radius) > 2.5 else "bush"
 	return "fern" if float(s.fade[1]) > 58.0 else "flower"
 

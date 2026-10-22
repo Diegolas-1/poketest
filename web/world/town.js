@@ -11,6 +11,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
 import { addEdgeLines, inkSolid, partEdges, inkSkip } from './outline.js';
 import { makeTree, makeBush, makeClump, makeRock, TILE } from './foliage.js';
+import { STONE, stoneMaterial, boulderGeometry, blockGeometry, mergeAll, wallGeometry, wallMeshes, stoneMesh, mergeStones } from './stone.js';
+const WALL_FADE = [300, 310];   // native: walls stay drawn this far (m)
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -98,7 +100,22 @@ const glassTex = () => paint('glass', 128, 128, (x, w, h) => {
 const mats = new Map();
 function M(key, make) { if (!mats.has(key)) mats.set(key, make()); return mats.get(key); }
 const BUILD = { deep: [0.56, 0.62, 0.82], shade: [0.74, 0.79, 0.94], lit: [1.06, 1.04, 0.98], bands: [0.1, 0.3, 0.58] };
-const flat = (col) => M('c' + col, () => toon(col, { cel: BUILD }));
+const FLAT = new Set();
+const flat = (col) => M('c' + col, () => { const m = toon(col, { cel: BUILD }); FLAT.add(m); return m; });
+// Plain coloured parts of a group share one material, their colours in the
+// vertices (one draw for all of them once the group is merged)
+function vcFlat(G) {
+  const vm = M('vcflat', () => toon('#ffffff', { cel: BUILD, vertexColors: true }));
+  G.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || !FLAT.has(o.material)) return;
+    for (let q = o; q && q !== G; q = q.parent) if (q.userData.keep) return;
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(), n = g.attributes.position.count, c = o.material.color, col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n * 2), 2));
+    o.geometry = g; o.material = vm;
+  });
+}
 const tex = (t, col = '#ffffff') => M(t.uuid + col, () => toon(col, { map: t, cel: BUILD }));
 const glass = () => M('glass', () => new THREE.MeshBasicMaterial({ map: glassTex() }));
 
@@ -142,6 +159,27 @@ function plant(model, parent, x, y, z, s = 1, rot = 0) {
   for (const p of model.parts) { const m = new THREE.Mesh(p.geometry, p.material); m.castShadow = true; m.receiveShadow = true; g.add(m); }
   parent.add(g);
   return g;
+}
+
+// A stone foundation w (x) by d (z) centred at (cx, cz) in grp, its top at
+// `top` (local y) and `deep` below that: a dark core, then fitted stones on
+// all four sides down to the ground (stone.js wallGeometry), in grp's space.
+function foundation(grp, w, d, top, cx, cz, deep, seed) {
+  const core = box(w - 0.12, top + deep, d - 0.12, flat('#5c584f'), cx, (top - deep) / 2, cz, grp, { line: false });
+  core.userData.outline = false;
+  grp.updateMatrixWorld(true);
+  const v = new THREE.Vector3(), gy = grp.getWorldPosition(new THREE.Vector3()).y;
+  const ground = (x, z) => { v.set(x, 0, z); grp.localToWorld(v); return height(v.x, v.z) - gy; };
+  const hx = w / 2 - 0.15, hz = d / 2 - 0.15, runs = [];
+  // x sides run past the corners so their ends cover the corners
+  for (const [a, b, ox, oz] of [[[cx - hx - 0.15, cz + hz], [cx + hx + 0.15, cz + hz], 0, 1], [[cx + hx + 0.15, cz - hz], [cx - hx - 0.15, cz - hz], 0, -1],
+    [[cx + hx, cz + hz], [cx + hx, cz - hz], 1, 0], [[cx - hx, cz - hz], [cx - hx, cz + hz], -1, 0]]) {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]), dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L;
+    const side = -dz * ox + dx * oz > 0 ? 1 : -1;
+    runs.push({ a, b, t: 0.34, cap: false, top: () => top + 0.02, col: STONE.wall,
+      faces: [{ side, bottom: (u) => ground(a[0] + dx * u + ox * 0.4, a[1] + dz * u + oz * 0.4) - 0.2 }] });
+  }
+  grp.add(...wallMeshes(runs, seed * 31 + 7, { fade: WALL_FADE, shadow: false }));
 }
 
 // ---------- building parts ----------
@@ -326,7 +364,7 @@ function cottage(hs, world) {
   const sid = tex(siding(wall)), trim = '#fbfaf4';
   const roofMat = tex(tiles(roof));
   // stone foundation and the walls
-  box(W + 0.3, base + 1.3, D + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.65, 0, G);
+  foundation(G, W + 0.3, D + 0.3, base, 0, 0, 1.3, seed);
   box(W, wallH, D, sid, 0, base + wallH / 2, 0, G);
   if (st.hip) hipRoof(G, W, D, y0, rise, roofMat, trim);
   else {
@@ -381,7 +419,7 @@ function cottage(hs, world) {
   if (st.wing) {
     const wg = new THREE.Group(); wg.position.set(-side * (W / 2 + 1.7), 0, -0.6); wg.rotation.y = Math.PI / 2; G.add(wg);
     const ww = 4.6, wd = 3.6, wh = 2.9;
-    box(ww + 0.3, base + 1.31, wd + 0.3, tex(stones('#cfc8b6')), 0, base / 2 - 0.645, 0, wg);   // 1 cm over the house's foundation where they overlap
+    foundation(wg, ww + 0.3, wd + 0.3, base + 0.01, 0, 0, 1.3, seed + 5);   // 1 cm over the house's foundation where they overlap
     box(ww, wh, wd, sid, 0, base + wh / 2, 0, wg);
     gableRoof(wg, ww, wd, base + wh, 2.2, roofMat, trim, 0.35, 0.3);
     gableWall(wg, ww, 2.2, base + wh, -side * wd / 2, sid, -side);
@@ -508,12 +546,28 @@ function labStairs(world) {
   }
   const g = new THREE.BoxGeometry(1, 1, 1);
   const im = new THREE.InstancedMesh(g, stone, treads.length);
-  const ch = new THREE.InstancedMesh(g, cheek, treads.length * 2);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   treads.forEach(([a, b, y], i) => {
     m4.compose(V((a + b) / 2, y - 1.4, S.z), q, V(b - a + 0.02, 2.8, S.hw * 2 + 0.1)); im.setMatrixAt(i, m4);
-    for (const s of [-1, 1]) { m4.compose(V((a + b) / 2 - 0.01, y - 1.1, S.z + s * (S.hw + 0.3)), q, V(b - a + 0.02, 3.0, 0.55)); ch.setMatrixAt(i * 2 + (s > 0 ? 1 : 0), m4); }
   });
+  // stone cheek walls, their coping sloped along the line of the noses (flat
+  // on the landing), 0.4 m over it
+  const nosePts = [];
+  for (const [a, b, y] of treads) { nosePts.push([a, y]); if (b - a > S.run * 1.5 && b < S.x1) nosePts.push([b - S.run, y]); }
+  { const [, b, y] = treads[treads.length - 1]; nosePts.push([b, y]); }
+  const noseY = (x) => {
+    if (x <= nosePts[0][0]) return nosePts[0][1];
+    for (let i = 1; i < nosePts.length; i++) if (x <= nosePts[i][0]) { const [x0, y0] = nosePts[i - 1], [x1, y1] = nosePts[i]; return y0 + (y1 - y0) * (x - x0) / Math.max(1e-6, x1 - x0); }
+    return nosePts[nosePts.length - 1][1];
+  };
+  const cx0 = S.x0, cx1 = treads[treads.length - 1][1];
+  const cheeks = [-1, 1].map((s) => {
+    const zc = S.z + s * (S.hw + 0.3);
+    return { a: [cx0, zc], b: [cx1, zc], t: 0.55, col: '#c4bdac', top: (u) => noseY(cx0 + u) + 0.4,
+      faces: [{ side: s, bottom: (u) => height(cx0 + u, zc + s * 0.5) - 0.25 }, { side: -s, bottom: (u) => stairY(Math.min(cx0 + u + 0.01, S.x1)) - 0.06 }] };
+  });
+  for (const c of cheeks) world.group.add(...wallMeshes([c], 4300 + c.a[1] * 10, { fade: WALL_FADE }));
+  void cheek;
   // each tread's worn front edge in a darker stone, so the steps read
   const nose = new THREE.InstancedMesh(g, flat('#a99f8e'), treads.length);
   treads.forEach(([a, b, y], i) => {
@@ -521,7 +575,7 @@ function labStairs(world) {
     m4.compose(V(a + 0.035, y - 0.06, S.z), q, V(0.12, 0.14, S.hw * 2 + 0.06)); nose.setMatrixAt(i, m4);
     im.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.92 + ((i * 7919) % 9) / 9 * 0.1));
   });
-  for (const o of [im, ch, nose]) { o.castShadow = true; o.receiveShadow = true; world.group.add(o); }
+  for (const o of [im, nose]) { o.castShadow = true; o.receiveShadow = true; world.group.add(o); }
   // white globe lamps on the cheek walls at the landing and the top
   const xl = S.x0 + S.n1 * S.run;
   for (const [x, y] of [[xl + 0.3, PLAZA.y + S.n1 * STEP + 0.4], [xl + S.landing - 0.3, PLAZA.y + S.n1 * STEP + 0.4], [S.x1 + 0.4, PLAT_Y + 0.4]]) for (const s of [-1, 1]) globeLamp(world, x, y, S.z + s * (S.hw + 0.3), 0.9);
@@ -585,14 +639,16 @@ function labGate(world) {
     box(0.07, 0.07, LW * 0.9, '#25262c', 0, 0.65, -s * LW / 2, leaf, { line: false }).rotation.x = s * 0.5;
   }
   // the low retaining wall of rough stone along the foot of the hill
+  const wx = gx - 0.1, runs = [];
   const wallSeg = (z0, z1) => {
-    const len = z1 - z0, G = new THREE.Group(); G.position.set(gx - 0.1, y, (z0 + z1) / 2); world.group.add(G);
-    box(0.9, 1.9, len, stone, 0, 0.2, 0, G);
-    box(1.05, 0.16, len + 0.1, '#ddd6c6', 0, 1.2, 0, G);
-    world.colliders.push({ box: true, x: gx - 0.1, z: (z0 + z1) / 2, hw: 0.5, hd: len / 2 });
+    // built stone by stone, its face to the plaza (-x)
+    runs.push({ a: [wx, z0], b: [wx, z1], t: 0.9, top: () => y + 1.28, faces: [{ side: 1, bottom: (u) => height(wx - 0.6, z0 + u) - 0.25 }] });
+    world.colliders.push({ box: true, x: wx, z: (z0 + z1) / 2, hw: 0.5, hd: (z1 - z0) / 2 });
   };
   wallSeg(LAB_HILL.z0 - 4, S.z - S.hw - 1.25);
   wallSeg(S.z + S.hw + 1.25, LAB_HILL.z1 + 4);
+  for (const r of runs) world.group.add(...wallMeshes([r], 4100 + Math.round(r.a[1]), { fade: WALL_FADE }));
+  void stone;
   sign(PLAZA.x0 + 1.6, S.z - S.hw - 3.2, Math.PI / 2 + 0.35, () => labPlate('OAK POKéMON RESEARCH LAB', { mount: 'posts', w: 1.7, h: 0.56, line2: 'Up the stairs', height: 0.9 }), ['OAK POKéMON RESEARCH LAB'], world);
   // plaza: two lamps, a bench, flower tubs
   lamp(PLAZA.x0 + 2.2, PLAZA.z1 - 1.0, world);
@@ -699,9 +755,8 @@ function streamRocks(world) {
     }
   }
   for (let i = list.length - 1; i >= 0; i--) if (onPath(list[i][0], list[i][1], 1.0 * list[i][3])) list.splice(i, 1);
-  const models = [makeRock(81, 1.0), makeRock(82, 1.2), makeRock(83, 0.8)];
-  // greyer, purple-brown stones for the banks
-  for (const m of models) { const c = m.parts[0].geometry.attributes.color; for (let i = 0; i < c.count; i++) { const r = c.getX(i), g = c.getY(i), b = c.getZ(i), l = (r + g + b) / 3; c.setXYZ(i, l * 0.95 + 0.04, l * 0.88, l * 0.92 + 0.03); } }
+  // damp, darker stones for the banks
+  const models = [makeRock(81, 1.0, { col: STONE.bank }), makeRock(82, 1.2, { col: STONE.bank, kind: 'slab' }), makeRock(83, 0.8, { col: STONE.bank })];
   const by = models.map(() => []); list.forEach((p, i) => by[i % 3].push(p));
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   models.forEach((mod, k) => {
@@ -730,22 +785,27 @@ function laneFurniture(world) {
         const cut = hFar - hNear;
         if (cut < 1.6) continue;
         if (roadDist(ox, oz) < 2.5 || [-0.5, -0.25, 0, 0.25, 0.5].some((f) => onPath(ox + dx * f * (l + 0.3) / l, oz + dz * f * (l + 0.3) / l, 0.4)) || inYard(ox, oz, 1) || labHillU(ox, oz) < 1) continue;
-        walls.push([ox, oz, Math.atan2(dx, dz), Math.min(1.6, 0.55 + cut * 0.22), l]);
+        walls.push([ox, oz, Math.atan2(dx, dz), Math.min(1.6, 0.55 + cut * 0.22), l, -s]);
       }
     }
   });
-  const g = new THREE.BoxGeometry(1, 1, 1);
-  const im = new THREE.InstancedMesh(g, stone, walls.length || 1);
-  const cap = new THREE.InstancedMesh(g, flat('#ddd2c6'), walls.length || 1);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-  walls.forEach(([x, z, ang, h, l], i) => {
-    q.setFromAxisAngle(V(0, 1, 0), ang);
-    const y = height(x, z);
-    m4.compose(V(x, y + h / 2 - 0.5, z), q, V(0.7, h + 1, l + 0.3)); im.setMatrixAt(i, m4);
-    m4.compose(V(x, y + h - 0.02, z), q, V(0.8, 0.12, l + 0.3)); cap.setMatrixAt(i, m4);
+  // each stretch of wall built stone by stone (stone.js), its face to the
+  // lane; one mesh per 40 m of town
+  const cells = new Map();
+  walls.forEach(([x, z, ang, h, l, side]) => {
+    const dx = Math.sin(ang), dz = Math.cos(ang), L = l + 0.3, y = height(x, z);
+    const a = [x - dx * L / 2, z - dz * L / 2], b = [x + dx * L / 2, z + dz * L / 2];
+    const nx = -dz * side, nz = dx * side;   // toward the lane
+    const run = { a, b, t: 0.7, top: () => y + h + 0.04, faces: [{ side, bottom: (u) => height(a[0] + dx * u + nx * 0.6, a[1] + dz * u + nz * 0.6) - 0.2 }] };
+    const k = Math.floor(x / 40) + ',' + Math.floor(z / 40);
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(run);
     world.colliders.push({ x, z, r: 0.5 });
   });
-  for (const o of [im, cap]) { o.count = walls.length; o.castShadow = o.receiveShadow = true; world.group.add(o); }
+  let ci = 0;
+  for (const runs of cells.values()) world.group.add(...wallMeshes(runs, 5200 + ci++, { fade: WALL_FADE }));
+  void stone;
+  const g = new THREE.BoxGeometry(1, 1, 1), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
 
   // white rail fences beside some lanes
   const runs = [[0, 6, 60, [-1, 1]], [8, 2, 36, [1]], [1, 10, 46, [1]], [6, 8, 30, [-1]], [9, 3, 20, [-1]]];
@@ -960,7 +1020,7 @@ function boathouse(world, x, z) {
   [x, z] = offPath(x, z, 3.6, world);
   const G = new THREE.Group(); G.position.set(x, height(x, z), z); G.rotation.y = 0.1; world.group.add(G);
   const wall = tex(planks('#6f9fbf')), roofMat = tex(tiles('#d8473a'));
-  box(5.2, 1.0, 4.2, tex(stones('#cfc8b6')), 0, -0.3, 0, G);
+  foundation(G, 5.2, 4.2, 0.2, 0, 0, 0.8, 991);
   box(5.0, 2.6, 4.0, wall, 0, 1.4, 0, G);
   gableWall(G, 5.0, 1.6, 2.7, 2.0, wall); gableWall(G, 5.0, 1.6, 2.7, -2.0, wall, -1);
   gableRoof(G, 5.0, 4.0, 2.7, 1.6, roofMat, '#fbfaf4', 0.3, 0.3);
@@ -972,22 +1032,150 @@ function boathouse(world, x, z) {
   world.use.push({ x: x + 0.2, z: z + 3.2, r: 1.2, label: 'Look', lines: ['The BOATHOUSE.', 'Oars, nets and a fresh coat of paint drying on a dinghy.'] });
   world.solid.push(G);
 }
+// The lighthouse islet: stacked shelves of faceted rock round a level top,
+// a stone landing with steps and a little jetty on the town side (-z), the
+// rock dark and weedy where the tide wets it, a ring of foam, and a red and
+// white tower: stone plinth, door, windows, a gallery on corbels with a
+// railing, the lantern room and its domed cap.
 function lighthouse(world, x, z) {
   const G = new THREE.Group(); G.position.set(x, SEA_Y, z); world.group.add(G);
-  const rock = makeRock(97, 4.5);
-  plant(rock, G, 0, -1.2, 0, 1.8); plant(makeRock(98, 3), G, 3.5, -1.0, 2.0, 1.4); plant(makeRock(99, 3), G, -3.0, -1.2, -1.5, 1.3);
-  const y0 = 2.4;
-  cyl(2.2, 2.6, 1.2, tex(stones('#d6cfbd')), 0, y0 + 0.2, 0, G, 18);
-  for (let k = 0; k < 4; k++) cyl(1.55 - k * 0.12, 1.65 - k * 0.12, 2.2, k % 2 ? '#d8473a' : '#fbfaf4', 0, y0 + 1.9 + k * 2.2, 0, G, 18);
-  cyl(1.6, 1.6, 0.2, '#2c2d33', 0, y0 + 9.75, 0, G, 18);
-  const lampM = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.4, 12), new THREE.MeshBasicMaterial({ color: '#fff3c0' })); lampM.position.y = y0 + 10.6; G.add(lampM);
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; box(0.06, 1.4, 0.06, '#2c2d33', Math.cos(a) * 0.95, y0 + 10.6, Math.sin(a) * 0.95, G, { line: false }); }
-  add(new THREE.Mesh(new THREE.ConeGeometry(1.25, 1.1, 14), flat('#d8473a')), G, 0, y0 + 11.85, 0);
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), flat('#2c2d33')), G, 0, y0 + 12.5, 0);
+  const R = rng(9791), C = new THREE.Color(STONE.sea), parts = [];
+  const rock = (seed, px, py, pz, w, h, d, rot, kind = 'boulder', o = {}) => {
+    const g = boulderGeometry(seed, { w, h, d, kind, col: C.clone().multiplyScalar(0.9 + R() * 0.15), ...o });
+    g.rotateY(rot).translate(px, py, pz); parts.push(g); return g;
+  };
+  const y0 = 2.4;   // the top
+  // the level top: one broad slab
+  rock(9001, 0, y0 - 2.6, 0.3, 9.5, 2.6, 8.5, 0.3, 'slab', { flatTop: true, bevel: 0.22 });
+  // a ring of shelves under it, stepping down to the water
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2 + R() * 0.3, rr = 5.2 + R() * 1.2;
+    if (Math.abs(Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2))) < 0.45) continue;   // the landing side
+    const w = 3.4 + R() * 2.4, h = 2.2 + R() * 1.6;
+    rock(9100 + i, Math.cos(a) * rr, -1.8, Math.sin(a) * rr, w, h, w * (0.7 + R() * 0.3), -a + R(), 'boulder');
+    if (R() < 0.7) rock(9200 + i, Math.cos(a + 0.25) * (rr - 1.6), -0.2 + R() * 0.6, Math.sin(a + 0.25) * (rr - 1.6), w * 0.7, h * 0.8 + 0.6, w * 0.6, R() * 6, 'boulder');
+  }
+  // tall stacks at the back and loose rocks in the surf
+  rock(9301, -3.6, -0.6, 4.2, 3.2, 4.6, 2.8, 0.7);
+  rock(9302, 2.8, -0.8, 5.2, 2.6, 3.6, 2.4, 2.1);
+  for (let i = 0; i < 9; i++) { const a = R() * 6.28, rr = 7.2 + R() * 2.2; rock(9400 + i, Math.cos(a) * rr, -0.9 - R() * 0.3, Math.sin(a) * rr, 0.8 + R() * 1.4, 0.9 + R() * 0.9, 0.8 + R() * 1.2, R() * 6, R() < 0.5 ? 'pebble' : 'boulder'); }
+  // the landing: a block quay at the water, steps up to the top
+  const lz = -6.6, landing = wallGeometry([
+    { a: [-2.2, lz + 1.4], b: [-2.2, lz - 1.3], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }] },
+    { a: [2.2, lz - 1.3], b: [2.2, lz + 1.4], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }] },
+    { a: [-2.2, lz - 1.3], b: [2.2, lz - 1.3], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }] },
+  ], 9501);
+  parts.push(landing);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.6, 2.8), flat('#8d8a80')); deck.position.set(0, 0.45, lz + 0.05); deck.userData.outline = false; G.add(deck);
+  const stepsN = 8, sx0 = 0.35, run = 0.5;
+  for (let i = 0; i < stepsN; i++) {
+    const yt = 0.75 + (i + 1) * (y0 - 0.75) / stepsN, zc = lz + 1.6 + i * run;
+    const g = blockGeometry(9600 + i, { aspect: 3.2, back: true, col: new THREE.Color(STONE.wall).multiplyScalar(0.95 + R() * 0.1) });
+    g.scale(1.9 / 3.2 * 1.0, yt + 0.6, run + 0.08).translate(sx0, (yt - 0.6) / 2, zc); parts.push(g);
+  }
+  // the rock: dark and weedy where the tide wets it
+  const geo = mergeAll(parts), P = geo.attributes.position, Cc = geo.attributes.color, wet = new THREE.Color('#5d6658'), weed = new THREE.Color('#5f7a3c');
+  for (let i = 0; i < P.count; i++) {
+    const y = P.getY(i), k = 1 - THREE.MathUtils.smoothstep(y, 0.35, 0.95);
+    if (k <= 0) continue;
+    const c = new THREE.Color(Cc.getX(i), Cc.getY(i), Cc.getZ(i));
+    c.lerp(wet, k * 0.85);
+    if (y > -0.15 && y < 0.4) c.lerp(weed, 0.35 * k);
+    Cc.setXYZ(i, c.r, c.g, c.b);
+  }
+  // the foam ring: from the outline of the rock at the waterline
+  const bins = 72, rad = new Float32Array(bins);
+  for (let i = 0; i < P.count; i++) {
+    const y = P.getY(i); if (y < -0.6 || y > 0.5) continue;
+    const px = P.getX(i), pz = P.getZ(i), b = Math.floor(((Math.atan2(pz, px) / (Math.PI * 2)) + 1) % 1 * bins);
+    rad[b] = Math.max(rad[b], Math.hypot(px, pz));
+  }
+  for (let k = 0; k < 3; k++) for (let b = 0; b < bins; b++) rad[b] = Math.max(rad[b], (rad[(b + bins - 1) % bins] + rad[(b + 1) % bins]) / 2 * 0.97);
+  G.add(stoneMesh(geo, { fade: [700, 720], key: 'isle' }));
+  const fp = [], ring = (r0, r1, keep) => {
+    for (let b = 0; b < bins; b++) {
+      if (!keep(b)) continue;
+      const a0 = b / bins * Math.PI * 2, a1 = (b + 1) / bins * Math.PI * 2, b1 = (b + 1) % bins;
+      const p = (a, r) => [Math.cos(a) * r, 0, Math.sin(a) * r];
+      const A = p(a0, rad[b] + r0(b)), B = p(a1, rad[b1] + r0(b1)), Cq = p(a1, rad[b1] + r1(b1)), D = p(a0, rad[b] + r1(b));
+      fp.push(...A, ...B, ...Cq, ...A, ...Cq, ...D);
+    }
+  };
+  const wob = (b, k) => Math.sin(b * 0.9 + k) * 0.25 + Math.sin(b * 2.3 + k * 2) * 0.15;
+  ring((b) => -0.6, (b) => 1.0 + wob(b, 1), () => true);
+  ring((b) => 1.3 + wob(b, 3) * 0.5, (b) => 1.75 + wob(b, 3), (b) => Math.sin(b * 0.7) + Math.sin(b * 1.9) > 0.2);
+  const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.computeVertexNormals();
+  const foam = new THREE.Mesh(fg, flat('#ffffff')); foam.position.y = 0.16; foam.userData.outline = false; foam.castShadow = false; G.add(foam);
+  // a short jetty off the landing, a bollard
+  const wood = tex(planks('#b98a5a'));
+  box(1.6, 0.14, 3.2, wood, -0.6, 0.7, lz - 2.9, G);
+  for (const [px, pz] of [[-1.3, lz - 1.6], [0.1, lz - 1.6], [-1.3, lz - 4.3], [0.1, lz - 4.3]]) cyl(0.11, 0.13, 2.2, '#6d4a30', px, -0.3, pz, G, 8);
+  cyl(0.16, 0.2, 0.45, '#3a3d46', 1.6, 0.98, lz - 0.9, G, 10);
+  // the tower: plinth of blocks, then four bands, red and white
+  const plinth = [], np = 8, pr = 2.35;
+  for (let i = 0; i < np; i++) {
+    const a0 = i / np * Math.PI * 2, a1 = (i + 1) / np * Math.PI * 2;
+    plinth.push({ a: [Math.cos(a0) * pr, Math.sin(a0) * pr], b: [Math.cos(a1) * pr, Math.sin(a1) * pr], t: 0.5, top: () => y0 + 0.95, col: STONE.wall, faces: [{ side: -1, bottom: () => y0 - 0.3 }] });
+  }
+  G.add(...wallMeshes(plinth, 9701, { fade: [700, 720], key: 'isle' }));
+  cyl(2.15, 2.15, 1.2, '#5c584f', 0, y0 + 0.35, 0, G, 16, { line: false });
+  const yb = y0 + 0.95, TH = 9.4, rAt = (t) => 1.72 - 0.42 * t + 0.12 * Math.pow(1 - t, 6);
+  for (let k = 0; k < 4; k++) {
+    const pts = [];
+    for (let j = 0; j <= 6; j++) { const t = (k + j / 6) / 4; pts.push(new THREE.Vector2(rAt(t), t * TH)); }
+    const lg = new THREE.LatheGeometry(pts, 28);
+    add(new THREE.Mesh(lg, flat(k % 2 ? '#d8473a' : '#fbfaf4')), G, 0, yb, 0);
+  }
+  // the door (facing the landing) and windows up the tower
+  const onTower = (a, t, w, h, mk) => {
+    const r = rAt(t), g = new THREE.Group(); g.position.set(Math.sin(a) * r, yb + t * TH, Math.cos(a) * r); g.rotation.y = a; G.add(g); mk(g); return g;
+  };
+  onTower(Math.PI, 0.02, 0, 0, (g) => {
+    box(1.15, 2.05, 0.16, '#fbfaf4', 0, 1.0, 0.0, g);
+    box(0.85, 1.85, 0.12, tex(planks('#3d6fa8')), 0, 0.93, 0.07, g);
+    box(1.45, 0.14, 0.45, '#2c2d33', 0, 2.1, 0.2, g);
+    box(0.08, 0.08, 0.06, '#e8c45a', 0.28, 0.95, 0.15, g, { line: false });
+  });
+  for (const [a, t] of [[Math.PI + 0.9, 0.36], [Math.PI - 0.7, 0.58], [Math.PI + 0.2, 0.82], [0.4, 0.5]]) {
+    onTower(a, t, 0, 0, (g) => {
+      box(0.62, 0.9, 0.12, '#fbfaf4', 0, 0, 0.0, g);
+      const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.68), glass()); gl.position.z = 0.07; g.add(gl);
+      box(0.05, 0.68, 0.05, '#fbfaf4', 0, 0, 0.08, g, { line: false, shadow: false });
+      box(0.74, 0.08, 0.2, '#fbfaf4', 0, -0.5, 0.06, g);
+    });
+  }
+  // the gallery on corbels, with a railing
+  const yg = yb + TH;
+  cyl(2.2, 2.05, 0.26, '#2c2d33', 0, yg + 0.13, 0, G, 24);
+  for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2, c = box(0.22, 0.5, 0.75, '#fbfaf4', Math.sin(a) * 1.55, yg - 0.22, Math.cos(a) * 1.55, G); c.rotation.y = a; }
+  for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2; box(0.06, 0.95, 0.06, '#2c2d33', Math.sin(a) * 2.08, yg + 0.73, Math.cos(a) * 2.08, G, { line: false }); }
+  for (const yy of [0.62, 1.2]) add(new THREE.Mesh(new THREE.TorusGeometry(2.08, yy > 1 ? 0.05 : 0.03, 5, 40).rotateX(Math.PI / 2), flat('#2c2d33')), G, 0, yg + yy, 0, { line: yy > 1 });
+  // the lantern room: a low wall, glass, glazing bars, the domed cap
+  cyl(1.2, 1.25, 0.5, '#d8473a', 0, yg + 0.51, 0, G, 16);
+  const lampM = new THREE.Mesh(new THREE.CylinderGeometry(1.02, 1.02, 1.5, 8), new THREE.MeshBasicMaterial({ color: '#fff3c0' })); lampM.position.y = yg + 1.51; G.add(lampM);
+  for (let k = 0; k < 8; k++) { const a = (k + 0.5) / 8 * Math.PI * 2; box(0.08, 1.5, 0.08, '#2c2d33', Math.sin(a) * 1.04, yg + 1.51, Math.cos(a) * 1.04, G, { line: false }); }
+  cyl(1.3, 1.3, 0.12, '#2c2d33', 0, yg + 2.32, 0, G, 16);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1.25, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2), flat('#d8473a'));
+  dome.scale.y = 0.75; add(dome, G, 0, yg + 2.38, 0);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), flat('#2c2d33')), G, 0, yg + 3.4, 0);
+  cyl(0.03, 0.03, 0.9, '#2c2d33', 0, yg + 3.9, 0, G, 6, { line: false });
   // a turning beam
   const beam = new THREE.Mesh(new THREE.ConeGeometry(1.1, 9, 12, 1, true).rotateZ(Math.PI / 2).translate(4.6, 0, 0), new THREE.MeshBasicMaterial({ color: '#fff6cc', transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
-  const bp = new THREE.Group(); bp.userData.keep = true; bp.position.y = y0 + 10.6; bp.add(beam); G.add(bp);
+  const bp = new THREE.Group(); bp.userData.keep = true; bp.position.y = yg + 1.51; bp.add(beam); G.add(bp);
   world.anim.push((dt, t) => { bp.rotation.y = t * 0.6; });
+  // ferns and flowers on the top (two instanced clumps)
+  const tufts = [[], []];
+  for (let i = 0; i < 14; i++) {
+    const a = R() * 6.28, rr = 2.7 + R() * 1.4, px = Math.cos(a) * rr, pz = Math.sin(a) * rr + 0.3;
+    if (pz < -2.5 && Math.abs(px) < 1.4) continue;
+    tufts[R() < 0.35 ? 1 : 0].push([px, pz, R() * 6.28, 0.9 + R() * 0.4]);
+  }
+  [makeClump(9800, TILE.fern, 1.0), makeClump(9801, TILE.flowersY, 0.9)].forEach((mod, k) => {
+    const im = new THREE.InstancedMesh(mod.parts[0].geometry, mod.parts[0].material, tufts[k].length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    tufts[k].forEach(([px, pz, r, sc], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(px, y0 - 0.05, pz), q, V(sc, sc, sc)); im.setMatrixAt(i, m4); });
+    im.castShadow = false; im.receiveShadow = true; G.add(im);
+  });
+  vcFlat(G);
 }
 
 // Merge a group's static meshes by material, so a cottage is a handful of
@@ -1001,7 +1189,7 @@ function mergeStatic(G) {
     if (o.userData.keep) return;
     if (o.isMesh && !o.isInstancedMesh && o !== G) {
       let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k) && !(k === 'color' && o.material.vertexColors)) g.deleteAttribute(k);
       if (!g.attributes.normal) g.computeVertexNormals();
       if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
@@ -1070,6 +1258,8 @@ export function buildTown() {
   sign(-3.5, 52.5, 0.2, () => noticeBoard('PALLET BEACH', ['Mind the tide pools.', 'Take your litter home.', 'No swimming past the buoys.'], { style: 'pinned', frame: '#5f8fb0', roof: '#3d6fa8' }),
     ['PALLET BEACH', 'The salty breeze smells like adventure.'], world, 0.9);
   dock(world);
+  // the walls, foundations and the islet: one mesh per cell and kind
+  world.stoneMeshes = mergeStones(world.group);
   // merge each static piece's meshes by material
   for (const c of world.group.children.slice()) if (!c.userData.keep && !c.isMesh) mergeStatic(c);
   // loose single meshes (stones, slabs) straight under the town group

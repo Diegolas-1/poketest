@@ -29,9 +29,10 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../.
 const OUT = path.join(ROOT, 'native/world');
 fs.mkdirSync(OUT, { recursive: true });
 
-const up = async () => { try { return (await fetch('http://localhost:8790/world/')).ok; } catch { return false; } };
+const PORT = process.env.WEB_PORT || '8790';   // WEB_PORT: bake another checkout's web/
+const up = async () => { try { return (await fetch(`http://localhost:${PORT}/world/`)).ok; } catch { return false; } };
 if (!(await up())) {
-  spawn('python3', ['-m', 'http.server', '8790'], { cwd: path.join(ROOT, 'web'), stdio: 'ignore', detached: true }).unref();
+  spawn('python3', ['-m', 'http.server', PORT], { cwd: path.join(ROOT, 'web'), stdio: 'ignore', detached: true }).unref();
   for (let i = 0; i < 50 && !(await up()); i++) await new Promise((r) => setTimeout(r, 200));
 }
 
@@ -51,7 +52,6 @@ await patch('toon.js', [['const prev = m.onBeforeCompile;', 'm.userData.cel = o;
 await patch('foliage.js', [
   ["const m = new THREE.MeshLambertMaterial({ map: leafAtlas(variant), color: new THREE.Color(tint), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true });",
     "const m = new THREE.MeshLambertMaterial({ map: leafAtlas(variant), color: new THREE.Color(tint), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true }); m.userData.leaf = { tint, wind, variant };"],
-  ['celify(new THREE.MeshLambertMaterial({ vertexColors: true }), { bands: [0.1, 0.32, 0.62]', 'celify(Object.assign(new THREE.MeshLambertMaterial({ vertexColors: true }), { userData: { rock: true } }), { bands: [0.1, 0.32, 0.62]'],
   ['const m = new THREE.MeshLambertMaterial({ map: t });', "const m = new THREE.MeshLambertMaterial({ map: t }); m.userData.bark = { color, style, wind, mossy: style === 'ridged' || style === 'smooth' };"],
 ]);
 await patch('assets.js', [
@@ -63,7 +63,7 @@ await patch('main.js', [
   ['scene.add(mts);', "mts.name = 'mountains'; scene.add(mts);"],
   ['const clouds = buildClouds(); scene.add(clouds);', "const clouds = buildClouds(); clouds.name = 'clouds'; scene.add(clouds);"],
 ]);
-await p.goto('http://localhost:8790/world/?test&q=high&outline=0');
+await p.goto(`http://localhost:${PORT}/world/?test&q=high&outline=0`);
 await p.waitForFunction(() => window.worldReady, null, { timeout: 300000 });
 console.log('world ready');
 
@@ -175,7 +175,7 @@ const res = await p.evaluate(async () => {
       const u = m.userData, d = { cel: u.cel || {} };
       if (u.leaf) Object.assign(d, { kind: 'leaf', tint: '#' + m.color.getHexString(), wind: u.leaf.wind, tex: texOf(m.map, 'leaf_' + u.leaf.variant + '_') });
       else if (u.bark) Object.assign(d, { kind: 'bark', color: u.bark.color, style: u.bark.style, wind: u.bark.wind, mossy: u.bark.mossy, tex: texOf(m.map, 'bark') });
-      else Object.assign(d, { kind: 'rock', color: '#' + m.color.getHexString() });
+      else Object.assign(d, { kind: u.stone ? 'stone' : 'rock', color: '#' + m.color.getHexString() });   // stone: stone.js (veg_stone.gdshader)
       mats.push(d); matId.set(m.uuid, mats.length - 1);
       return mats.length - 1;
     };
@@ -324,7 +324,7 @@ const res = await p.evaluate(async () => {
       const leafy = list.some((m) => m.material.userData.leaf);
       const imp = leafy ? new A.Impostor(w.renderer, model, { size: 56, lights }) : null;
       sets.push({ src: 'town', parts: model.parts.map((pp) => ({ mesh: meshOf(pp.geometry, pp.material), mat: matOf(pp.material) })), radius: r, height: h,
-        fade: leafy ? [90, 95] : [140, 146], shrink: leafy ? 1 : 0.6, wind: 0, shadows: o.castShadow, far: [500, 600], impostor: impOf(imp),
+        fade: o.userData.fade || (leafy ? [90, 95] : [140, 146]), shrink: leafy ? 1 : 0.6, wind: 0, shadows: o.castShadow, far: [500, 600], impostor: impOf(imp),
         xf: put(new Float32Array(xf)), ip: put(new Float32Array(ip)), n: o.count });
     }
     // one binary: every buffer at its byte offset
@@ -482,6 +482,11 @@ for (const f of [...Object.keys(res.vegPngs), 'clouds.png']) {
 }
 fs.writeFileSync(path.join(OUT, 'clouds.json'), JSON.stringify(res.cloudsJson));
 fs.copyFileSync(path.join(ROOT, 'web/world/tex/dirt_pack.webp'), path.join(OUT, 'dirt.webp'));
+// the stone paint, word for word from the web (stone.js STONE_GLSL)
+{
+  const src = fs.readFileSync(path.join(ROOT, 'web/world/stone.js'), 'utf8'), m = src.match(/export const STONE_GLSL = `([\s\S]*?)`;/);
+  fs.writeFileSync(path.join(ROOT, 'native/shaders/stone.gdshaderinc'), '// Made by tools/native/bake.mjs from web/world/stone.js STONE_GLSL: edit it there.\n' + m[1].trimStart());
+}
 const meta = { ...res.meta, ground: res.groundGrid, seabed: res.seabedGrid, grassmap: res.grassGrid, inst: res.inst, mountains: res.mountainsJson };
 fs.writeFileSync(path.join(OUT, 'world.json'), JSON.stringify(meta));
 console.log('town meshes', res.townMeshes, 'instanced', res.inst.length, 'colliders', meta.colliders.length, 'veg sets', res.vegJson.sets.length, 'models', res.vegJson.meshes.length, 'billboards', res.vegJson.impostors.length, 'leaf card area kept', res.cardArea.toFixed(2));

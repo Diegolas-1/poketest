@@ -6,6 +6,7 @@ import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, f
 import { Scatter, Impostor } from './assets.js';
 import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
+import { STONE } from './stone.js';
 import { BEDS } from './town.js';
 
 const inPlaza = (x, z, m = 0) => x > PLAZA.x0 - m && x < PLAZA.x1 + m && z > PLAZA.z0 - m && z < PLAZA.z1 + m;
@@ -209,7 +210,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   sow(flowers, fl, () => ({ chunk: 32, fade: [55 * quality.lod - 3, 55 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
 
   // ---------- rocks ----------
-  const rocks = [makeRock(1, 1.0), makeRock(2, 1.4), makeRock(3, 0.8), makeRock(4, 2.0)];
+  const rocks = [makeRock(1, 1.0), makeRock(2, 1.4), makeRock(3, 0.8, { kind: 'slab' }), makeRock(4, 2.0), makeRock(5, 1.2)];
   const rp = [];
   for (let i = 0; i < 3000 && rp.length < 45; i++) {
     const x = (R() - 0.5) * 240, z = -170 + R() * 220;
@@ -225,8 +226,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     if (R() < 0.6 && labHillU(x, z) > 1.3) continue;
     brp.push({ x, z, y: height(x, z) - 0.2, rot: R() * 6.28, s: 0.35 + R() * 0.45 });
   }
-  const beachRocks = [makeRock(11, 1.0), makeRock(12, 0.8), makeRock(13, 1.2)];
-  for (const m of beachRocks) { const cc = m.parts[0].geometry.attributes.color; for (let i = 0; i < cc.count; i++) { const l = (cc.getX(i) + cc.getY(i) + cc.getZ(i)) / 3; cc.setXYZ(i, l * 0.92 + 0.05, l * 0.9 + 0.03, l * 0.95 + 0.05); } }
+  const beachRocks = [makeRock(11, 1.0, { col: STONE.beach }), makeRock(12, 0.8, { col: STONE.beach, kind: 'slab' }), makeRock(13, 1.2, { col: STONE.beach }), makeRock(14, 0.7, { col: STONE.beach, kind: 'pebble' })];
   keepOff(brp, baseR(beachRocks));
   sow(beachRocks, brp, () => ({ chunk: 64, fade: [140, 146], shrink: 0.6, wind: 0 }));
   for (const p of brp) if (!p.off) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });

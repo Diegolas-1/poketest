@@ -32,16 +32,17 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../.
 const OUT = path.join(ROOT, 'native/world');
 fs.mkdirSync(OUT, { recursive: true });
 
-const up = async () => { try { return (await fetch('http://localhost:8790/world/')).ok; } catch { return false; } };
+const PORT = process.env.WEB_PORT || '8790';   // WEB_PORT: bake another checkout's web/
+const up = async () => { try { return (await fetch(`http://localhost:${PORT}/world/`)).ok; } catch { return false; } };
 if (!(await up())) {
-  spawn('python3', ['-m', 'http.server', '8790'], { cwd: path.join(ROOT, 'web'), stdio: 'ignore', detached: true }).unref();
+  spawn('python3', ['-m', 'http.server', PORT], { cwd: path.join(ROOT, 'web'), stdio: 'ignore', detached: true }).unref();
   for (let i = 0; i < 50 && !(await up()); i++) await new Promise((r) => setTimeout(r, 200));
 }
 
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 200, height: 120 } });
 p.on('pageerror', (e) => console.error('page error:', e.message));
-await p.goto('http://localhost:8790/world/?test&q=high&outline=0');
+await p.goto(`http://localhost:${PORT}/world/?test&q=high&outline=0`);
 await p.waitForFunction(() => window.worldReady, null, { timeout: 300000 });
 console.log('world ready');
 

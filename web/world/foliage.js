@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { rng } from './terrain.js';
 import { celify } from './toon.js';
+import { rockModel } from './stone.js';
 
 // ---------- the painted atlas ----------
 // 4 x 4 tiles of 256 px. Each tile is one kind of leaf card.
@@ -1249,28 +1250,8 @@ export function greenRoofGeometry(w, d, seed) {
   return toGeometry(out);
 }
 
-// A stylized rock: a lumpy smooth stone, grey below, mossy on top.
-export function makeRock(seed, size = 1) {
-  const R = rng(seed);
-  const g = new THREE.IcosahedronGeometry(1, 3);
-  const p = g.attributes.position, col = new Float32Array(p.count * 3);
-  const k1 = R() * 10, k2 = R() * 10;
-  for (let i = 0; i < p.count; i++) {
-    const v = new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i));
-    const n = 1 + Math.sin(v.x * 2.1 + k1) * 0.12 + Math.sin(v.z * 2.7 + k2) * 0.1 + Math.sin(v.y * 3.3) * 0.06;
-    v.multiplyScalar(n); v.y *= 0.62; if (v.y < -0.1) v.y = -0.1 + (v.y + 0.1) * 0.3;
-    p.setXYZ(i, v.x * size, (v.y + 0.25) * size, v.z * size);
-  }
-  g.computeVertexNormals();
-  const nrm = g.attributes.normal, stone = new THREE.Color('#d3c09a'), dark = new THREE.Color('#a08c6c'), moss = new THREE.Color('#6f9a3e'), c = new THREE.Color();
-  for (let i = 0; i < p.count; i++) {
-    c.copy(dark).lerp(stone, Math.min(1, (p.getY(i) / size) * 1.2 + 0.3));
-    c.lerp(moss, Math.max(0, nrm.getY(i) - 0.55) * 2.2);
-    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  return { parts: [{ geometry: g, material: celify(new THREE.MeshLambertMaterial({ vertexColors: true }), { bands: [0.1, 0.32, 0.62], deep: [0.45, 0.5, 0.66], shade: [0.66, 0.72, 0.86], lit: [1.12, 1.1, 1.02] }) }], height: size * 0.9, radius: size };
-}
+// A rock: a faceted stylized boulder (stone.js).
+export function makeRock(seed, size = 1, opts) { return rockModel(seed, size, opts); }
 
 // A low clump of flowers or ferns: crossed cards from the atlas.
 export function makeClump(seed, tile, size = 1) {
