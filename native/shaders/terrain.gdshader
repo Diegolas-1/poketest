@@ -18,6 +18,9 @@ uniform vec3 d_light : source_color = vec3(0.91, 0.784, 0.565);
 uniform vec3 d_edge : source_color = vec3(0.769, 0.604, 0.424);
 uniform vec3 d_dark : source_color = vec3(0.525, 0.349, 0.227);
 uniform vec3 d_pale : source_color = vec3(0.902, 0.812, 0.612);
+// ground deeper than this under the sea is hidden by the opaque deep sea
+// (sea_deep.gdshader): drawn flat, none of the path work below
+uniform float hidden_y = -1000.0;
 
 varying vec3 v_w;
 varying float v_dirt;
@@ -35,12 +38,18 @@ void vertex() {
 
 void fragment() {
 	vec2 wp = v_w.xz;
+	if (v_w.y < hidden_y) {
+		ALBEDO = COLOR.rgb;
+		v_dirt = 0.0;
+	} else {
 	vec3 base = COLOR.rgb * texture(grass_tex, wp / 4.0).rgb;
 	vec4 pm = texture(path_map, (wp - pm_origin) / pm_size);
 	vec3 dt = texture(dirt_tex, wp / 3.0).rgb;
 	float sd = pm.r * 8.0 - 4.0, det = dt.r;
 	float pxw = max(length(dFdx(wp)), length(dFdy(wp)));
-	float far_k = smoothstep(0.02, 0.05, pxw);
+	// the blades along the dirt's edge stop by 20 m whatever the screen's
+	// resolution (on a phone's sharp screen pxw alone ran them much farther)
+	float far_k = max(smoothstep(0.02, 0.05, pxw), smoothstep(12.0, 20.0, -VERTEX.z));
 	float e_s = sd + (pvn(wp * 0.9) - 0.5) * 0.34 + (pvn(wp * 3.3 + 7.0) - 0.5) * 0.14;
 	float e = e_s + (det - 0.45) * 0.08 * (1.0 - far_k);
 	float aa = max(fwidth(e), 1e-3);
@@ -142,6 +151,7 @@ void fragment() {
 	ALBEDO = mix(grass, c, p_dirt);
 	v_dirt = p_dirt;
 	NORMAL = normalize(NORMAL + mat3(VIEW_MATRIX) * vec3(p_nrm.x, 0.0, -p_nrm.y) * 0.5);
+	}
 }
 
 // toon.js bands for the ground (detail 0.5, mid 0.4), then the dirt's

@@ -21,11 +21,26 @@ uniform bool use_tex = true;
 uniform float cut = 0.5;
 // as the leaf material: false = its back faces are culled (so are the ink's)
 uniform bool double_sided = false;
+// plants from veg.gd: their wind, and where their model ends (metres)
+global uniform vec3 veg_cam;
+uniform float leaf_wind = 0.0;
+uniform bool atlas_cut = true;   // the leaf texture is the 4 x 4 leaf atlas
+uniform vec2 leaf_fade = vec2(100000.0, 100001.0);
 
 varying float v_w;
 
 void vertex() {
-	// WIND: copy the leaf shader's sway here (applied to VERTEX) if the leaves move
+	// WIND: the plants' sway and distance fade (veg_leaf.gdshader, veg.gd):
+	// the ink moves with the leaves and goes when the plant hands over to its billboard
+	bool plant_gone = false;
+	if (leaf_wind > 0.0 || leaf_fade.x < 99999.0) {
+		vec3 ip = MODEL_MATRIX[3].xyz;
+		plant_gone = distance(ip, veg_cam) > leaf_fade.x;
+		float sw = sin(TIME * 1.2 + ip.x * 0.2 + ip.z * 0.17) * 0.6 + sin(TIME * 2.3 + ip.x * 0.5) * 0.25;
+		float k = clamp(VERTEX.y / 8.0, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
+		VERTEX += vec3(sw * leaf_wind * k * 3.0, 0.0, sw * leaf_wind * 0.6 * k * 3.0);
+		VERTEX += NORMAL * sin(TIME * 4.0 + UV2.x * 30.0) * 0.03 * UV2.x;
+	}
 	vec3 vp = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 vc = use_center ? (MODELVIEW_MATRIX * vec4(center, 1.0)).xyz : vp;
 	float w = 1.0 - smoothstep(focus_range.x, focus_range.y, distance(vc, (VIEW_MATRIX * vec4(ink_focus, 1.0)).xyz));
@@ -47,11 +62,19 @@ void vertex() {
 	// one plant too far from the player: nothing to draw (the whole plant at once,
 	// so no triangle is left half collapsed)
 	if (use_center && w <= 0.01) POSITION = vec4(0.0, 0.0, -2.0, 1.0);
+	if (plant_gone) { POSITION = vec4(0.0, 0.0, -2.0, 1.0); w = 0.0; }
 	v_w = w;
 }
 
 void fragment() {
 	float a = use_tex ? texture(leaf_tex, UV).a : 1.0;
 	if (a < cut || v_w <= 0.01 || (!double_sided && !FRONT_FACING)) discard;
+	// leaf cards seen edge-on thin out, as in the leaf shader (veg_leaf.gdshader),
+	// or their stretched copies streak across the canopy
+	if (atlas_cut && use_tex) {
+		vec3 fN = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+		vec2 tl = fract(UV * 4.0) - 0.5;
+		if (length(tl) > mix(0.0, 0.75, smoothstep(0.1, 0.5, abs(dot(fN, normalize(VERTEX)))))) discard;
+	}
 	ALBEDO = aces_three(ink_color.rgb);
 }

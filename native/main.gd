@@ -10,6 +10,7 @@ const SEA := preload("res://shaders/sea.gdshader")
 const FRESH := preload("res://shaders/fresh.gdshader")
 const SKY := preload("res://shaders/sky.gdshader")
 const Grass := preload("res://grass.gd")
+const Scenery := preload("res://scenery.gd")
 
 const SUN_DIR := Vector3(-0.55, 0.75, 0.45)
 const FOG := Color("c4e2f0")
@@ -41,6 +42,10 @@ var fps_acc := 0.0
 var fps_n := 0
 var fps_worst := 0.0
 var mats := {}
+var scenery: Node3D
+var town_root: Node
+var water_root: Node
+var terrain_mat: ShaderMaterial
 
 func _ready() -> void:
 	world.load_all()
@@ -48,6 +53,9 @@ func _ready() -> void:
 	_terrain()
 	_town()
 	_water()
+	scenery = Scenery.new()   # plants, mountains, clouds, instanced town parts, sea split (scenery.gd)
+	add_child(scenery)
+	scenery.setup(self, town_root, water_root, terrain_mat)
 	# ---- ink (worker 2): vector lines on the town; see ink.gd ----
 	Ink.add_world_lines(self)
 	Ink.outline_town(self)
@@ -114,6 +122,7 @@ func _terrain() -> void:
 	m.set_shader_parameter("pm_origin", Vector2(pm.x0, pm.z0))
 	m.set_shader_parameter("pm_size", Vector2(pm.w, pm.d))
 	m.set_shader_parameter("sun_dir", SUN_DIR.normalized())
+	terrain_mat = m
 	for mi in _meshes(root, []):
 		mi.material_override = m
 
@@ -138,6 +147,7 @@ func toon_for(src: Material) -> ShaderMaterial:
 
 func _town() -> void:
 	var root := _scene("town.glb")
+	town_root = root
 	for mi in _meshes(root, []):
 		var mesh: Mesh = mi.mesh
 		for s in mesh.get_surface_count():
@@ -145,6 +155,7 @@ func _town() -> void:
 
 func _water() -> void:
 	var root := _scene("water.glb")
+	water_root = root
 	var sea := ShaderMaterial.new()
 	sea.shader = SEA
 	sea.set_shader_parameter("seabed", world.seabed_tex)
@@ -243,6 +254,7 @@ func _process(dt: float) -> void:
 	if not grass.tiles.is_empty(): grass.update(pos)
 	Ink.set_focus(pos)   # ink thins with distance from Red (ink.gd)
 	_camera(dt)
+	scenery.update(cam.global_position)
 	fps_acc += dt; fps_n += 1; fps_worst = maxf(fps_worst, dt)
 	if fps_acc >= 0.5:
 		hud.text = "%d fps · %d ms" % [roundi(fps_n / fps_acc), roundi(fps_worst * 1000.0)]

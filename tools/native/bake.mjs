@@ -10,6 +10,15 @@
 //   seabed.bin    float32 terrain height every metre over the terrain (water depth)
 //   grassmap.bin  float32 pairs [height, density] for the grass field (1 m)
 //   world.json    sizes and boxes of the grids, colliders, spawn, sun, sea level
+//   town_inst.bin repeated town parts (pickets, posts, treads): float32 x 15 per
+//                 copy (3x4 matrix, rows, then rgb); world.json inst lists the
+//                 mesh node I<k> in town.glb and the copies of each
+//   veg.bin/.json every plant: each model part's geometry once, its material
+//                 (leaf / bark / rock and the cel bands), and where its copies
+//                 stand (3x4 matrices); far billboards (veg_imp_N.png) baked by
+//                 the web's own Impostor; leaf atlas and barks as veg_*.png
+//   mountains.bin the distant ranges (main.js opening to the south included)
+//   clouds.png/.json the painted clouds as one atlas, and where each sprite is
 // Run: node tools/native/bake.mjs   (serves web/ on :8790 if nothing is there)
 import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
 import { spawn } from 'node:child_process';
@@ -29,6 +38,31 @@ if (!(await up())) {
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 200, height: 120 } });
 p.on('pageerror', (e) => console.error('page error:', e.message));
+// small patches to the web build, only for the bake: materials remember how
+// they were made (cel bands, leaf / bark settings), scatters remember their
+// model and options, billboards keep their pixels, pictures are not freed
+const patch = async (file, edits) => p.route('**/world/' + file, async (route) => {
+  const r = await route.fetch();
+  let body = await r.text();
+  for (const [a, b] of edits) { if (!body.includes(a)) throw new Error('bake patch not found in ' + file + ': ' + a); body = body.replace(a, b); }
+  await route.fulfill({ response: r, body, headers: { ...r.headers(), 'content-type': 'text/javascript' } });
+});
+await patch('toon.js', [['const prev = m.onBeforeCompile;', 'm.userData.cel = o; const prev = m.onBeforeCompile;']]);
+await patch('foliage.js', [
+  ["const m = new THREE.MeshLambertMaterial({ map: leafAtlas(variant), color: new THREE.Color(tint), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true });",
+    "const m = new THREE.MeshLambertMaterial({ map: leafAtlas(variant), color: new THREE.Color(tint), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true }); m.userData.leaf = { tint, wind, variant };"],
+  ['celify(new THREE.MeshLambertMaterial({ vertexColors: true }), { bands: [0.1, 0.32, 0.62]', 'celify(Object.assign(new THREE.MeshLambertMaterial({ vertexColors: true }), { userData: { rock: true } }), { bands: [0.1, 0.32, 0.62]'],
+  ['const m = new THREE.MeshLambertMaterial({ map: t });', "const m = new THREE.MeshLambertMaterial({ map: t }); m.userData.bark = { color, style, wind, mossy: style === 'ridged' || style === 'smooth' };"],
+]);
+await patch('assets.js', [
+  ['this.chunks = [];', 'this.chunks = []; this.model = model; this.opts = { fade: fade || [maxDist - 4, maxDist], shrink, wind: w, shadows, far };'],
+  ['tex.onUpdate = () => { tex.image = { data: null, width: W, height: H }; };', ''],
+]);
+await patch('main.js', [
+  ['if (gameFrame % 180 === 90 && window.worldReady) freePictures();', ''],
+  ['scene.add(mts);', "mts.name = 'mountains'; scene.add(mts);"],
+  ['const clouds = buildClouds(); scene.add(clouds);', "const clouds = buildClouds(); clouds.name = 'clouds'; scene.add(clouds);"],
+]);
 await p.goto('http://localhost:8790/world/?test&q=high&outline=0');
 await p.waitForFunction(() => window.worldReady, null, { timeout: 300000 });
 console.log('world ready');
@@ -45,21 +79,13 @@ const res = await p.evaluate(async () => {
   const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
   const shown = (o) => { for (let q = o; q; q = q.parent) if (!q.visible) return false; return true; };
   // a flat copy of every visible mesh under root, in world space
+  const insts = [];
   const flat = (root, keep = () => true) => {
     root.updateMatrixWorld(true);
     const G = new THREE.Group();
     root.traverse((o) => {
       if (!o.isMesh || o.isSkinnedMesh || o.userData.inkLines || !shown(o) || !keep(o)) return;
-      if (o.isInstancedMesh) {
-        // repeated parts (pickets, posts): every copy merged into one mesh
-        const geos = [], im = new THREE.Matrix4();
-        const base = o.geometry.clone();
-        for (const k of Object.keys(base.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) base.deleteAttribute(k);
-        for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, im); geos.push(base.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(o.matrixWorld, im))); }
-        const g = geos.length ? mergeGeometries(geos, false) : null;
-        if (g) { const m = new THREE.Mesh(g, o.material); m.name = o.name || 'inst'; G.add(m); }
-        return;
-      }
+      if (o.isInstancedMesh) { insts.push(o); return; }   // repeated parts: one mesh + copies (below)
       const m = new THREE.Mesh(o.geometry, o.material);
       m.name = o.name || '';
       o.matrixWorld.decompose(m.position, m.quaternion, m.scale);
@@ -68,6 +94,7 @@ const res = await p.evaluate(async () => {
     return G;
   };
   const out = {};
+  const canvasPngOf = (cv) => cv.toDataURL('image/png').split(',')[1];
 
   // terrain
   const terr = w.scene.children.find((o) => o.name === 'terrain');
@@ -82,13 +109,228 @@ const res = await p.evaluate(async () => {
     if (tmat.has(m)) return tmat.get(m);
     const n = new THREE.MeshStandardMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors,
       side: m.side, transparent: !!m.transparent, opacity: m.opacity ?? 1, alphaTest: m.alphaTest || 0, roughness: 1, metalness: 0 });
-    n.name = (m.name || 'm') + (m.polygonOffset ? '_decal' : '') + (m.vertexColors ? '_vc' : '');
+    n.name = m.userData.leaf ? 'leaf_' + m.userData.leaf.variant : (m.name || 'm') + (m.polygonOffset ? '_decal' : '') + (m.vertexColors ? '_vc' : '');
     tmat.set(m, n); return n;
   };
   const town = flat(w.town.group);
+  // repeated parts: plants (leaf, bark, rock materials) go with the
+  // vegetation; the rest (pickets, posts, treads) as one mesh I<k> each in
+  // town.glb plus their copies
+  const isPlant = (m) => m && m.userData && (m.userData.leaf || m.userData.bark || m.userData.rock);
+  const townPlants = [], instList = [], instData = [];
+  let instN = 0;
+  for (const o of insts) {
+    if (isPlant(o.material)) { townPlants.push(o); continue; }
+    const g = o.geometry.clone();
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
+    const m = new THREE.Mesh(g, o.material);
+    m.name = 'I' + instList.length;
+    town.add(m);
+    const im = new THREE.Matrix4(), wm = new THREE.Matrix4(), c = new THREE.Color();
+    for (let i = 0; i < o.count; i++) {
+      o.getMatrixAt(i, im); wm.multiplyMatrices(o.matrixWorld, im);
+      const e = wm.elements;   // column major: rows of the 3x4 are e[0],e[4],e[8],e[12] ...
+      if (o.instanceColor) o.getColorAt(i, c); else c.setRGB(1, 1, 1);
+      instData.push(e[0], e[4], e[8], e[12], e[1], e[5], e[9], e[13], e[2], e[6], e[10], e[14], c.r, c.g, c.b);
+    }
+    instList.push({ node: m.name, off: instN, n: o.count, color: !!o.instanceColor, shadow: o.castShadow });
+    instN += o.count;
+  }
   town.traverse((o) => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(plain) : plain(o.material); });
+  out.townInst = b64(new Uint8Array(new Float32Array(instData).buffer));
+  out.inst = instList;
   out.town = b64(await glb(town));
   out.townMeshes = town.children.length;
+
+
+  // ---------- vegetation: models once, copies as matrices ----------
+  {
+    const A = await import('/world/assets.js');
+    const bufs = [];   // [Float32Array | Uint32Array]
+    let byteLen = 0;
+    const put = (arr) => { const off = byteLen; bufs.push(arr); byteLen += arr.byteLength; return [off, arr.length]; };
+    const pngs = {};
+    const canvasPng = (cv) => cv.toDataURL('image/png').split(',')[1];
+    // raw pixels (rows bottom-up, as GL reads them) to a PNG, top row first
+    const pixelsPng = (px, W, H) => {
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+      for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+      ctx.putImageData(img, 0, 0);
+      return canvasPng(cv);
+    };
+    const texName = new Map();
+    const texOf = (t, prefix) => {
+      if (!t) return null;
+      const key = t.source ? t.source.uuid : t.uuid;
+      if (texName.has(key)) return texName.get(key);
+      const name = `veg_${prefix}${texName.size}.png`;
+      texName.set(key, name);
+      pngs[name] = canvasPng(t.image);
+      return name;
+    };
+    const mats = [], matId = new Map();
+    const matOf = (m) => {
+      if (matId.has(m.uuid)) return matId.get(m.uuid);
+      const u = m.userData, d = { cel: u.cel || {} };
+      if (u.leaf) Object.assign(d, { kind: 'leaf', tint: '#' + m.color.getHexString(), wind: u.leaf.wind, tex: texOf(m.map, 'leaf_' + u.leaf.variant + '_') });
+      else if (u.bark) Object.assign(d, { kind: 'bark', color: u.bark.color, style: u.bark.style, wind: u.bark.wind, mossy: u.bark.mossy, tex: texOf(m.map, 'bark') });
+      else Object.assign(d, { kind: 'rock', color: '#' + m.color.getHexString() });
+      mats.push(d); matId.set(m.uuid, mats.length - 1);
+      return mats.length - 1;
+    };
+    const meshes = [], meshId = new Map();
+    const meshOf = (g) => {
+      if (meshId.has(g.uuid)) return meshId.get(g.uuid);
+      const a = g.attributes, e = { v: a.position.count };
+      const f32 = (attr) => { const o = new Float32Array(attr.count * attr.itemSize); for (let i = 0; i < attr.count; i++) for (let k = 0; k < attr.itemSize; k++) o[i * attr.itemSize + k] = attr.getComponent(i, k); return put(o); };
+      e.pos = f32(a.position); e.nrm = f32(a.normal);
+      if (a.uv) e.uv = f32(a.uv);
+      // colour as rgba and flutter as (flutter, 0), so they load straight
+      // into Godot's colour and uv2 arrays
+      if (a.color) { const o = new Float32Array(a.color.count * 4); for (let i = 0; i < a.color.count; i++) o.set([a.color.getX(i), a.color.getY(i), a.color.getZ(i), 1], i * 4); e.col = put(o); }
+      if (a.flutter) { const o = new Float32Array(a.flutter.count * 2); for (let i = 0; i < a.flutter.count; i++) o[i * 2] = a.flutter.getX(i); e.flt = put(o); }
+      if (g.index) e.idx = put(new Uint32Array(g.index.array));
+      g.computeBoundingBox();
+      e.box = [...g.boundingBox.min.toArray(), ...g.boundingBox.max.toArray()].map((x) => +x.toFixed(3));
+      meshes.push(e); meshId.set(g.uuid, meshes.length - 1);
+      return meshes.length - 1;
+    };
+    // billboards: every one in a single atlas (one draw for all far plants
+    // of a chunk), its place in imps[i].rect (pixels: x, y, w, h)
+    const imps = [], impId = new Map(), impPx = [];
+    const impOf = (imp) => {
+      if (!imp) return null;
+      if (impId.has(imp)) return impId.get(imp);
+      const t = imp.rt.texture;
+      impPx.push(t.image);
+      imps.push({ w: +imp.width.toFixed(4), h: +imp.height.toFixed(4), bottom: +imp.bottom.toFixed(4), views: imp.views, rows: 4, sunAz: imp.sunAz });
+      impId.set(imp, imps.length - 1);
+      return imps.length - 1;
+    };
+    const impAtlas = () => {
+      const AW = 4096, G = 8, rects = [];
+      let x = 0, y = 0, rowH = 0;
+      const order = impPx.map((_, i) => i).sort((a, b) => impPx[b].height - impPx[a].height);
+      for (const i of order) {
+        const im = impPx[i];
+        if (x + im.width > AW) { x = 0; y += rowH + G; rowH = 0; }
+        rects[i] = [x, y, im.width, im.height]; x += im.width + G; rowH = Math.max(rowH, im.height);
+      }
+      const AH = y + rowH;
+      const cv = document.createElement('canvas'); cv.width = AW; cv.height = AH;
+      const ctx = cv.getContext('2d'), img = ctx.createImageData(AW, AH);
+      impPx.forEach((im, i) => {
+        const [x0, y0, W, H] = rects[i];
+        // GL rows are bottom-up: the atlas is top row first
+        for (let r = 0; r < H; r++) img.data.set(im.data.subarray((H - 1 - r) * W * 4, (H - r) * W * 4), ((y0 + r) * AW + x0) * 4);
+        imps[i].rect = rects[i];
+      });
+      ctx.putImageData(img, 0, 0);
+      pngs['veg_bill.png'] = canvasPng(cv);
+      return [AW, AH];
+    };
+    const sets = [];
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    const mat34 = (m, out) => { const e = m.elements; out.push(e[0], e[4], e[8], e[12], e[1], e[5], e[9], e[13], e[2], e[6], e[10], e[14]); };
+    // the forest, bushes, ferns, flowers and rocks (veg.js scatters)
+    for (const S of window.__scatters || []) {
+      const xf = [], ip = [];
+      for (const pt of S.points) {
+        q.setFromAxisAngle(up, pt.rot);
+        mat34(m4.compose(v.set(pt.x, pt.y, pt.z), q, sc.set(pt.s, pt.s * (pt.sy || 1), pt.s)), xf);
+        ip.push(pt.x, pt.y, pt.z, pt.rot, pt.s);
+      }
+      sets.push({ src: 'veg', parts: S.model.parts.map((pp) => ({ mesh: meshOf(pp.geometry), mat: matOf(pp.material) })), radius: S.model.radius, height: S.model.height,
+        ...S.opts, impostor: impOf(S.impostor), xf: put(new Float32Array(xf)), ip: put(new Float32Array(ip)), n: S.points.length });
+    }
+    // the town's own repeated plants (hedges along the stairs, the hill's
+    // bushes, stream-bank rocks): grouped by model, billboards baked here
+    let sun = null, hemi = null;
+    w.scene.traverse((o) => { if (o.isDirectionalLight && o.castShadow) sun = o; if (o.isHemisphereLight) hemi = o; });
+    const lights = { sun, hemi, sunDir: new THREE.Vector3(-0.55, 0.75, 0.45).normalize(), environment: w.scene.environment, environmentIntensity: w.scene.environmentIntensity };
+    const byGeoKey = new Map();
+    for (const o of townPlants) {
+      // a model's parts are separate InstancedMeshes sharing one matrix buffer
+      const key = o.instanceMatrix.uuid || o.instanceMatrix.array;
+      if (!byGeoKey.has(key)) byGeoKey.set(key, []);
+      byGeoKey.get(key).push(o);
+    }
+    for (const list of byGeoKey.values()) {
+      const o = list[0], xf = [], ip = [], im = new THREE.Matrix4(), wm = new THREE.Matrix4(), p = new THREE.Vector3(), qq = new THREE.Quaternion(), s3 = new THREE.Vector3();
+      for (let i = 0; i < o.count; i++) {
+        o.getMatrixAt(i, im); wm.multiplyMatrices(o.matrixWorld, im); mat34(wm, xf);
+        wm.decompose(p, qq, s3);
+        const e = new THREE.Euler().setFromQuaternion(qq, 'YXZ');
+        ip.push(p.x, p.y, p.z, e.y, s3.x);
+      }
+      const model = { parts: list.map((m) => ({ geometry: m.geometry, material: m.material })) };
+      let r = 0, h = 0;
+      for (const pp of model.parts) { pp.geometry.computeBoundingBox(); const b = pp.geometry.boundingBox; r = Math.max(r, -b.min.x, b.max.x, -b.min.z, b.max.z); h = Math.max(h, b.max.y); }
+      const leafy = list.some((m) => m.material.userData.leaf);
+      const imp = leafy ? new A.Impostor(w.renderer, model, { size: 56, lights }) : null;
+      sets.push({ src: 'town', parts: model.parts.map((pp) => ({ mesh: meshOf(pp.geometry), mat: matOf(pp.material) })), radius: r, height: h,
+        fade: leafy ? [90, 95] : [140, 146], shrink: leafy ? 1 : 0.6, wind: 0, shadows: o.castShadow, far: [500, 600], impostor: impOf(imp),
+        xf: put(new Float32Array(xf)), ip: put(new Float32Array(ip)), n: o.count });
+    }
+    // one binary: every buffer at its byte offset
+    const all = new Uint8Array(byteLen);
+    let off = 0;
+    for (const b of bufs) { all.set(new Uint8Array(b.buffer, b.byteOffset, b.byteLength), off); off += b.byteLength; }
+    out.veg = b64(all);
+    const billSize = impAtlas();
+    out.vegJson = { meshes, mats, sets, impostors: imps, billSize };
+    out.vegPngs = pngs;
+  }
+
+  // ---------- distant mountains (as main.js shaped them) ----------
+  {
+    const mts = w.scene.getObjectByName('mountains'), f = [];
+    const layers = [];
+    mts.traverse((o) => {
+      if (!o.isMesh) return;
+      const a = o.geometry.attributes, idx = o.geometry.index.array;
+      layers.push({ v: a.position.count, i: idx.length, far: o.material.uniforms.far.value });
+      for (let i = 0; i < a.position.count; i++) f.push(a.position.getX(i), a.position.getY(i), a.position.getZ(i), a.normal.getX(i), a.normal.getY(i), a.normal.getZ(i), a.h.getX(i), a.ang.getX(i));
+      for (const k of idx) f.push(k);
+    });
+    out.mountains = b64(new Uint8Array(new Float32Array(f).buffer));
+    out.mountainsJson = layers;
+  }
+
+  // ---------- clouds: one atlas, a quad per sprite ----------
+  {
+    const cl = w.scene.getObjectByName('clouds');
+    const srcs = [], srcId = new Map(), sprites = [];
+    for (const s of cl.children) {
+      const t = s.material.map, key = t.source.uuid;
+      if (!srcId.has(key)) { srcId.set(key, srcs.length); srcs.push(t.source.data); }
+      sprites.push({ t: srcId.get(key), mirror: t.repeat.x < 0, p: s.position.toArray().map((x) => +x.toFixed(2)), w: +s.scale.x.toFixed(2), h: +s.scale.y.toFixed(2),
+        cy: s.center.y, o: s.material.opacity });
+    }
+    // shelf-pack the pictures into one atlas (2 px gaps)
+    const AW = 2048, rects = [];
+    let x = 0, y = 0, rowH = 0;
+    const order = srcs.map((d, i) => i).sort((a, b) => srcs[b].height - srcs[a].height);
+    for (const i of order) {
+      const d = srcs[i];
+      if (x + d.width > AW) { x = 0; y += rowH + 2; rowH = 0; }
+      rects[i] = [x, y, d.width, d.height]; x += d.width + 2; rowH = Math.max(rowH, d.height);
+    }
+    const AH = y + rowH;
+    const cv = document.createElement('canvas'); cv.width = AW; cv.height = AH;
+    const ctx = cv.getContext('2d'), img = ctx.createImageData(AW, AH);
+    srcs.forEach((d, i) => {
+      const [x0, y0, W, H] = rects[i];
+      // DataTexture rows are bottom-up; the atlas is top-down (rgb kept under alpha 0)
+      for (let r = 0; r < H; r++) img.data.set(d.data.subarray((H - 1 - r) * W * 4, (H - r) * W * 4), ((y0 + r) * AW + x0) * 4);
+    });
+    // putImageData premultiplies nothing, but toDataURL may drop rgb under
+    // alpha 0; the rgb of clear pixels is only used by filtering at the rim
+    ctx.putImageData(img, 0, 0);
+    out.clouds = canvasPngOf(cv);
+    out.cloudsJson = { size: [AW, AH], rects, sprites, spin: 0.003 };
+  }
 
   // water
   const water = w.scene.children.find((o) => o.isGroup && o.children.some((c) => c.material && c.material.uniforms && c.material.uniforms.uTime && c.renderOrder === 1));
@@ -169,8 +411,22 @@ save('grass.png', res.grass);
 save('ground.bin', res.ground);
 save('seabed.bin', res.seabed);
 save('grassmap.bin', res.grassmap);
+save('town_inst.bin', res.townInst);
+save('veg.bin', res.veg);
+for (const f of fs.readdirSync(OUT)) if (/^veg_.*\.png(\.import)?$/.test(f)) fs.rmSync(path.join(OUT, f));
+for (const [f, d] of Object.entries(res.vegPngs)) save(f, d);
+fs.writeFileSync(path.join(OUT, 'veg.json'), JSON.stringify(res.vegJson));
+save('mountains.bin', res.mountains);
+save('clouds.png', res.clouds);
+// the plant and cloud pictures are imported VRAM compressed (ASTC on the
+// phone): as plain images the billboards alone took 130 MB of GPU memory
+for (const f of [...Object.keys(res.vegPngs), 'clouds.png']) {
+  const imp = path.join(OUT, f + '.import');
+  if (!fs.existsSync(imp)) fs.writeFileSync(imp, '[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=2\nmipmaps/generate=true\nprocess/fix_alpha_border=true\ndetect_3d/compress_to=0\n');
+}
+fs.writeFileSync(path.join(OUT, 'clouds.json'), JSON.stringify(res.cloudsJson));
 fs.copyFileSync(path.join(ROOT, 'web/world/tex/dirt_pack.webp'), path.join(OUT, 'dirt.webp'));
-const meta = { ...res.meta, ground: res.groundGrid, seabed: res.seabedGrid, grassmap: res.grassGrid };
+const meta = { ...res.meta, ground: res.groundGrid, seabed: res.seabedGrid, grassmap: res.grassGrid, inst: res.inst, mountains: res.mountainsJson };
 fs.writeFileSync(path.join(OUT, 'world.json'), JSON.stringify(meta));
-console.log('town meshes', res.townMeshes, 'colliders', meta.colliders.length);
+console.log('town meshes', res.townMeshes, 'instanced', res.inst.length, 'colliders', meta.colliders.length, 'veg sets', res.vegJson.sets.length, 'models', res.vegJson.meshes.length, 'billboards', res.vegJson.impostors.length);
 await b.close();

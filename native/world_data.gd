@@ -15,6 +15,8 @@ var grass_area: Vector4
 var path_tex: ImageTexture
 var seabed_tex: ImageTexture
 var sea_y := -0.7
+var seabed: PackedFloat32Array   # terrain height every metre (seabed.bin)
+var bed_x0 := -210.0; var bed_z0 := -210.0; var bed_n := 420
 
 func _bytes(f: String) -> PackedByteArray:
 	return FileAccess.get_file_as_bytes(DIR + f)
@@ -38,7 +40,10 @@ func load_all() -> void:
 	pimg.generate_mipmaps()
 	path_tex = ImageTexture.create_from_image(pimg)
 	var sb: Dictionary = meta.seabed
-	var simg := Image.create_from_data(int(sb.n), int(sb.n), false, Image.FORMAT_RF, _bytes("seabed.bin"))
+	var sbytes := _bytes("seabed.bin")
+	seabed = sbytes.to_float32_array()
+	bed_x0 = sb.x0; bed_z0 = sb.z0; bed_n = int(sb.n)
+	var simg := Image.create_from_data(int(sb.n), int(sb.n), false, Image.FORMAT_RF, sbytes)
 	seabed_tex = ImageTexture.create_from_image(simg)
 
 func _cell(x: float, z: float) -> int:
@@ -106,3 +111,9 @@ func collide(p: Vector3, r := 0.35) -> Vector3:
 			if d < m and d > 1e-4:
 				p.x += dx2 / d * (m - d); p.z += dz2 / d * (m - d)
 	return p
+
+# terrain height from the 1 m sea-floor grid (outside it: deep sea)
+func bed_at(x: float, z: float) -> float:
+	var i := int(floor(x - bed_x0)); var j := int(floor(z - bed_z0))
+	if i < 0 or j < 0 or i >= bed_n or j >= bed_n: return sea_y - 30.0
+	return seabed[j * bed_n + i]

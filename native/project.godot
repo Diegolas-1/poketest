@@ -152,3 +152,7 @@ ink_focus={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+veg_cam={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
