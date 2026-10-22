@@ -14,6 +14,7 @@ import { Dialog } from './dialog.js';
 import { createOutline, setInkFocus, INK_LAYER } from './outline.js';
 import { createSettings, loadSettings } from './settings.js';
 import { createPerfLog } from './perflog.js';
+import { createSpaces } from './spaces.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
@@ -335,7 +336,9 @@ function onDeck(w, x, z) {
   const dx = x - w.x, dz = z - w.z, c = Math.cos(w.rot || 0), s = Math.sin(w.rot || 0);
   return Math.abs(dx * c - dz * s) < w.hw && Math.abs(dx * s + dz * c) < w.hd;
 }
+let space = null;   // the interior behind a door, when you are inside (spaces.js)
 function groundAt(x, z) {
+  if (space && space.active) return space.groundAt(x, z);
   let y = height(x, z);
   for (const w of town.walk) if (onDeck(w, x, z)) y = Math.max(y, w.y);
   return y;
@@ -362,6 +365,7 @@ function collide(p, r = 0.35) {
 }
 function onWalk(x, z) { return town.walk.some((w) => onDeck(w, x, z)); }
 function step(obj, dx, dz) {
+  if (space && space.active) return space.step(obj, dx, dz);
   const nx = obj.pos.x + dx, nz = obj.pos.z + dz;
   if (isWater(nx, nz) && !onWalk(nx, nz)) return false;
   if (nx < -150 || nx > 150 || nz < -205 || nz > 115) return false;
@@ -381,6 +385,7 @@ const cam = { yaw: 0, pitch: 0.32, dist: 7.5, target: new THREE.Vector3(), pos: 
 plog = createPerfLog({ renderer, scene, me, cam, outline, quality: QUALITY, preset: level });
 const ray = new THREE.Raycaster();
 function updateCamera(dt) {
+  if (space && space.active) { space.camera(dt, cam, camera); return; }
   // the height follows slowly, so stairs (and small bumps) read as a smooth
   // ramp instead of a hop per step; a big drop or jump catches up faster
   if (cam.ty == null) cam.ty = me.pos.y;
@@ -423,14 +428,27 @@ function banner(title, sub) {
 let area = 'town';
 let script = null;    // a running cutscene: { t, update(dt) }
 let camIdle = 0, recenter = 0;   // camera: seconds since you last turned it; recentring time left
+// Oak's lab door leads inside (the interior is built from its blueprint, maps/oak_lab.json)
+space = createSpaces({ me, player, dialog, banner, makeOak: (look) => makeActor(LOOKS[look] || LOOKS.oak),
+  onLeave() {
+    scene.add(player.root);
+    // outside the lab door, facing away from it; the camera out in front
+    me.pos.set(town.labDoor[0], 0, town.labDoor[1]); me.pos.y = groundAt(me.pos.x, me.pos.z); me.yaw = -Math.PI / 2; me.speed = 0; me.vy = 0;
+    cam.yaw = me.yaw + 0.55; cam.pitch = 0.32; cam.ty = null; cam.floor = null; cam.target.set(me.pos.x, me.pos.y + 1.45, me.pos.z); cam.pos.copy(cam.target);
+    oak.hidden = true; oak.actor.root.visible = false;
+    banner('Pallet Town', 'A quiet seaside village');
+  } });
 
 // the closest thing to talk to or read
 function nearby() {
+  if (space.active) return space.nearby(me);
   let best = null, bd = 1e9;
   const fx = Math.sin(me.yaw), fz = Math.cos(me.yaw);
   for (const u of town.use) {
     const dx = u.x - me.pos.x, dz = u.z - me.pos.z, d = Math.hypot(dx, dz);
-    if (d < u.r + 0.6 && d < bd) { best = { label: u.label, lines: u.lines, x: u.x, y: groundAt(u.x, u.z) + 1.9, z: u.z }; bd = d; }
+    if (d < u.r + 0.6 && d < bd) {
+      best = { label: u.label, lines: u.lines, x: u.x, y: groundAt(u.x, u.z) + 1.9, z: u.z, door: u.label === 'Door' && Math.hypot(u.x - town.labDoor[0], u.z - town.labDoor[1]) < 1.5 }; bd = d;
+    }
   }
   for (const n of npcs) {
     if (n.hidden) continue;
@@ -494,16 +512,17 @@ function oakScene() {
 outline.mark(terrain, 'ground');
 const perf = { n: 0, t: 0, last: 0 };
 function draw() {
+  const sc = space && space.active ? space.scene : scene;   // inside: the interior's own scene
   camera.layers.set(0);
   renderer.shadowMap.needsUpdate = shadowTick++ % (QUALITY.shadowRate || 1) === 0;
   const withShadow = renderer.shadowMap.needsUpdate;
-  renderer.render(scene, camera);
+  renderer.render(sc, camera);
   plog?.pass(withShadow ? 'main+shadow' : 'main');
   renderer.shadowMap.needsUpdate = false;
   setInkFocus(me.pos);
-  outline.render(scene, camera);
+  outline.render(sc, camera);
   plog?.pass('ink-gbuf');
-  if (grass) {
+  if (grass && sc === scene) {
     const ac = renderer.autoClear;
     renderer.autoClear = false;
     renderer.render(grassScene, camera);
@@ -516,7 +535,9 @@ function draw() {
     camera.layers.set(INK_LAYER);
     const ac = renderer.autoClear, su = renderer.shadowMap.autoUpdate;
     renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
-    renderer.render(scene, camera);
+    const bg = sc.background; sc.background = null;   // (a colour background would clear the picture)
+    renderer.render(sc, camera);
+    sc.background = bg;
     renderer.autoClear = ac; renderer.shadowMap.autoUpdate = su;
     camera.layers.set(0);
     plog?.pass('lines');
@@ -589,7 +610,7 @@ function frame(fixed) {
   }
   // move: relative to the camera; Ash turns smoothly toward where you push
   let moving = 0;
-  if (!dialog.open && !script) {
+  if (!dialog.open && !script && !space.busy) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * c.x - fx * c.y, mz = rz * c.x - fz * c.y;
     const m = Math.hypot(mx, mz);
@@ -605,10 +626,12 @@ function frame(fixed) {
     if (c.pressed.has('jump') && me.ground) { me.vy = 5.2; me.ground = false; }
     if (c.pressed.has('use')) {
       const n = nearby();
-      if (n) {
+      if (n && n.door && !space.active) { me.speed = 0; space.enter('oak_lab', 'from_town'); }
+      else if (n) {
         if (n.npc) {
           n.npc.target = null; n.npc.wait = 3; n.npc.speed = 0;
           n.npc.face = Math.atan2(me.pos.x - n.npc.pos.x, me.pos.z - n.npc.pos.z);
+          space.npcFace(n.npc);
           me.face = Math.atan2(n.npc.pos.x - me.pos.x, n.npc.pos.z - me.pos.z);
         } else me.face = Math.atan2(n.x - me.pos.x, n.z - me.pos.z);
         me.speed = 0;
@@ -620,6 +643,8 @@ function frame(fixed) {
   if (dialog.open && me.face != null) { let d = me.face - me.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); me.yaw += d * (1 - Math.exp(-dt * 10)); }
   if (!dialog.open) me.face = null;
   if (script) script.update(dt);
+  // the door back out
+  if (space.active && !space.busy && me.speed > 0.3 && space.portal()) space.leave();
   // gravity
   const g = groundAt(me.pos.x, me.pos.z);
   me.vy -= 16 * dt; me.pos.y += me.vy * dt;
@@ -641,7 +666,7 @@ function frame(fixed) {
   cullMat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   frustum.setFromProjectionMatrix(cullMat);
   // villagers wander
-  for (const n of npcs) {
+  for (const n of space.active ? [] : npcs) {
     if (n.hidden) continue;
     if (dialog.open || n === oak && !script) {
       // in a conversation (or waiting): stand still, turn to face the player
@@ -673,13 +698,16 @@ function frame(fixed) {
   // areas and events
   const inGrass = TALL_GRASS.some(([x0, z0, x1, z1]) => me.pos.x > x0 && me.pos.x < x1 && me.pos.z > z0 && me.pos.z < z1);
   const now = me.pos.z < -60 ? 'route1' : 'town';
-  if (now !== area) { area = now; banner(now === 'route1' ? 'Route 1' : 'Pallet Town', now === 'route1' ? 'Pallet Town - Viridian City' : 'A quiet seaside village'); }
-  if (inGrass && !script && !dialog.open && window.worldReady) oakScene();
+  if (now !== area && !space.active) { area = now; banner(now === 'route1' ? 'Route 1' : 'Pallet Town', now === 'route1' ? 'Pallet Town - Viridian City' : 'A quiet seaside village'); }
+  if (inGrass && !script && !dialog.open && window.worldReady && !space.active) oakScene();
   updateCamera(dt);
   clouds.userData.tick(dt);
   for (const f of town.anim) f(dt, t);
-  if (veg) veg.update(camera.position);
-  if (grass) grass.update(me.pos);
+  if (space.active) space.update(dt, t);
+  else {
+    if (veg) veg.update(camera.position);
+    if (grass) grass.update(me.pos);
+  }
   // the prompt over whatever is in reach
   const n = !dialog.open && !script ? nearby() : null;
   if (n) {
@@ -700,4 +728,4 @@ me.pos.y = groundAt(me.pos.x, me.pos.z);
 cam.yaw = 0.35; cam.target.set(me.pos.x, me.pos.y + 1.45, me.pos.z);
 if (TEST) frame(1 / 60); else requestAnimationFrame(frame);
 grow().catch((e) => { console.error(e); status('Something went wrong loading the plants: ' + e.message); });
-window.world = { outline, me, cam, setCam(v) { TEST_CAM = v; }, groundAt, town, dialog, oak, move(dx, dz) { return step(me, dx, dz); }, noWalk, scene, renderer, camera, npcs, step(n = 1, dt = 1 / 30) { for (let i = 0; i < n; i++) frame(dt); } };
+window.world = { outline, me, cam, space, setCam(v) { TEST_CAM = v; }, groundAt, town, dialog, oak, move(dx, dz) { return step(me, dx, dz); }, noWalk, scene, renderer, camera, npcs, step(n = 1, dt = 1 / 30) { for (let i = 0; i < n; i++) frame(dt); } };
