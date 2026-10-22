@@ -712,6 +712,10 @@ func _place_now(p: Dictionary) -> void:
 # ======================================================================
 # the frame
 # ======================================================================
+# true while the player is inside a building (cast.gd enter_space): the town's day goes on
+# at the low rate, nobody outside is drawn or can be talked to, bubbles are hidden
+var away := false
+
 func update(dt: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	_frame += 1
@@ -728,7 +732,8 @@ func update(dt: float) -> void:
 		if p.state == "inside": continue
 		# view and distance
 		var full := headless
-		if cam:
+		if away: p.seen = false; p.cam_d = 1e9
+		elif cam:
 			var c: Vector3 = p.pos + Vector3(0, 1, 0)
 			var seen := true
 			for pl in planes:
@@ -750,7 +755,9 @@ func update(dt: float) -> void:
 		_social(_social_acc)
 		_social_acc = 0.0
 	if not _chase.is_empty(): _chase_tick(sim)
-	if bubbles: bubbles.tick(dt)
+	if bubbles:
+		bubbles.visible = not away
+		if not away: bubbles.tick(dt)
 	if debug and _frame % 10 == 0: _debug_text()
 	var us := float(Time.get_ticks_usec() - t0) - _anim_us   # the sim's own cost
 	_us_acc += us; _us_n += 1; _anim_acc += _anim_us; _anim_us = 0.0
@@ -875,7 +882,7 @@ func _move(p: Dictionary, dt: float, full: bool) -> void:
 			push += dv / dd * (1.6 - dd) * 1.2
 			if dir.dot(-dv / dd) > 0.6 and o.state != "walk": push += Vector2(-dir.y, dir.x) * -0.8   # someone standing in the way: round them
 			elif dir.dot(-dv / dd) > 0.6: push += Vector2(dir.y, -dir.x) * 0.5    # oncoming: keep right
-	if not headless:
+	if not headless and not away:
 		var me := Vector2(game.pos.x, game.pos.z)
 		var dm := here.distance_to(me)
 		if dm < 1.8 and dm > 1e-3: push += (here - me) / dm * (1.8 - dm) * 1.5
@@ -1105,7 +1112,7 @@ func _social(dt: float) -> void:
 				and _xz3(l.pos).distance_to(_xz3(t.pos)) < 14.0 and _rng.randf() < 0.08 * dt * 4.0:
 			_start_chase(l, t)
 	# Delia keeps an eye out for Ash; others mutter as he passes
-	if not headless:
+	if not headless and not away:
 		var me := Vector2(game.pos.x, game.pos.z)
 		_delia_cd -= dt
 		var dl = by_id.get("delia")
