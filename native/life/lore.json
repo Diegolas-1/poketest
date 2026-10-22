@@ -1,0 +1,179 @@
+{
+  "_doc": "Rumours and rumbles about Cinnabar Island and the southern sea (start of the original anime). quests.gd mixes a teller's lines into their talk; a rumour is 'heard' the first time any teller tells it and then shows in the quest log's Rumours tab. requires: a flag (set by quests) or 'rumor:<id>' (another rumour heard first). Gossip, not exposition: mysteries stay open.",
+  "rumors": [
+    {
+      "id": "volcano_rumble", "title": "The ground shook", "summary": "Tremors in the night. Old Tom blames Cinnabar's volcano, across the sea to the south.",
+      "tellers": {
+        "tom": [["Felt the ground shake last night, lad. Rattled my ship's bell.", "That's the old mountain on Cinnabar, clearing its throat."]],
+        "ben": [["Ground shivered last night. Felt it in the soil.", "Doduo wouldn't settle. Mm."]],
+        "mae": [["My teacups rattled in the night, dearie.", "Last time that happened I was a girl, and Cinnabar smoked for a week."]],
+        "delia": ["Did you feel that little shake last night? I thought it was you falling out of bed again, sweetie."],
+        "timmy": [["Did you feel the EARTHQUAKE?!", "Grandpa says a giant fire POKéMON rolled over in its sleep!"]]
+      }
+    },
+    {
+      "id": "volcano_smoke", "title": "Smoke over Cinnabar", "summary": "Some mornings a thin plume rises from Cinnabar's mountain. Gus logs it; Tom watches through his spyglass.",
+      "tellers": {
+        "gus": [["Logged at dawn: thin white smoke over Cinnabar. Third time this month.", "It's not alarming. It's just... noted."]],
+        "tom": [["Through the glass this morning: a grey feather of smoke off Cinnabar.", "Mountain's breathing. Has been all my life, on and off."]],
+        "kai": ["Ferry fellows on the radio say Cinnabar's smoking a bit. Volcano's fine, they say. Probably."],
+        "marina": ["Ferry men say ash dusted their decks on the Cinnabar run. Grey as Tom's beard."]
+      }
+    },
+    {
+      "id": "hot_springs", "title": "Cinnabar's hot springs", "summary": "Cinnabar's hot springs are famous. Warm water drifts north on the current when the mountain stirs.",
+      "tellers": {
+        "mae": [["I took the waters at the Cinnabar springs, once. Honeymoon.", "Hot as a kettle. Smelled of eggs. Most romantic week of my life."]],
+        "marina": [["Water's warm off the point. Warm from the south.", "When Cinnabar's springs run hot, the whole sea lane warms a little."]],
+        "rose": ["I've read orchids grow wild near the Cinnabar springs. Oh, to see them."],
+        "bram": ["Hot springs! I'd prove my dough in one. Imagine the crust!"]
+      }
+    },
+    {
+      "id": "blaine_riddles", "title": "Blaine and his riddles", "requires": "rumbles_heard",
+      "summary": "Cinnabar's Gym Leader, Blaine, is a fiery old master who loves riddles and quizzes. They say his gym is hard to find.",
+      "tellers": {
+        "tom": [["Cinnabar's Gym Leader is Blaine. Fire POKéMON. Hot-headed, sharp as a hook.", "He loves a riddle. Won't battle you till you've answered his quiz."]],
+        "gus": [["Blaine. Bald head, dark glasses, white moustache. Logged him on the ferry once.", "Or someone dressed as him. Hard to say. He likes disguises, they say."]],
+        "ada": [["Did you hear about Blaine? The fire man on Cinnabar?", "He asks you riddles and if you're wrong he sets your hat on fire! ...I think."]],
+        "kai": ["They say you can't even FIND Blaine's gym. Trainers go round in circles. Need a riddle to get in!"],
+        "timmy": ["Blaine has a FIRE gym in a VOLCANO! And he asks you sums! I hate sums!"]
+      }
+    },
+    {
+      "id": "blaine_quiz", "title": "The quiz doors", "requires": "rumor:blaine_riddles",
+      "summary": "Inside Blaine's gym, quiz machines guard the doors. Answer right and the door opens; answer wrong and you face a trainer.",
+      "tellers": {
+        "tom": [["A fellow I sailed with took Blaine's challenge. Doors with quiz machines!", "Get one wrong and a trainer jumps you. Get 'em all right and Blaine's waiting. Smiling."]],
+        "gus": ["The question is never what you expect, the challengers say. Blaine likes it that way."]
+      }
+    },
+    {
+      "id": "mansion_fire", "title": "The burned mansion", "summary": "An old mansion on Cinnabar where scientists once worked burned down years ago. It still stands, scorched and empty.",
+      "tellers": {
+        "tom": [["There's an old mansion on Cinnabar. POKéMON Mansion, they call it.", "Scientists lived there. Then it burned. Nobody rebuilt. Nobody wants to."]],
+        "gus": [["I logged the night it burned. Orange on the horizon till dawn.", "I was a young man. The sea looked like it was on fire."]],
+        "ada": [["That mansion on Cinnabar is HAUNTED, dear. Ghost scientists!", "A Gastly in a lab coat, Marina said. Or was it Kai?"]],
+        "marina": ["The burned house on Cinnabar? Ferry men won't moor near it after dark. Superstitious lot."]
+      }
+    },
+    {
+      "id": "mansion_journals", "title": "The scorched journals", "requires": "rumor:mansion_fire",
+      "summary": "People say journals were found in the burned mansion: notes about a POKéMON discovered deep in a faraway jungle.",
+      "tellers": {
+        "tom": [["A salvage man told me he found pages in that mansion. Burned at the edges.", "Scribbles about a jungle far away. A new POKéMON, found deep in it. Then nothing."]],
+        "gus": [["I heard of the journals. Dates, places. A jungle in South America.", "And something about a birth. I don't know what it means. I didn't log it. I wish I had."]],
+        "kai": ["A journal that talks about a POKéMON nobody's ever seen? Incredible. Probably fake. Incredible, though!"]
+      }
+    },
+    {
+      "id": "fossil_lab", "title": "The fossil lab", "summary": "The Cinnabar POKéMON Lab is said to be bringing fossils back to life: Omanyte, Kabuto, even something from old amber.",
+      "tellers": {
+        "kai": [["The Cinnabar Lab can turn a fossil back into a POKéMON! Technology is incredible!", "Helix Fossil, Dome Fossil... they say even old amber."]],
+        "timmy": [["The Cinnabar Lab makes DINOSAURS!", "From ROCKS! I'm gonna find a rock and send it!"]],
+        "rose": ["The lab on Cinnabar revives fossils, Lily tells me. Ancient POKéMON, breathing again. Imagine."],
+        "lily": [["Did you know the Cinnabar Lab brings back POKéMON from fossils?", "I wonder if there were ancient bug POKéMON. Like a giant Butterfree!"]],
+        "ada": ["They brought a dinosaur back to life on Cinnabar! A flying one! Or a shell one. Or both!"]
+      }
+    },
+    {
+      "id": "secret_lab", "title": "An island lab exploded", "summary": "Sailors whisper that a secret laboratory on some island blew up one night. Nobody will say whose, or what they were making.",
+      "tellers": {
+        "gus": [["Months ago, a flash on the far horizon at night. Not lightning. Not the mountain.", "Logged: 'Light, very bright, south-west. Then dark.' No ship reported it."]],
+        "kai": [["The radio went wild one night. Talk of a lab on an island, gone up in flames.", "Then everyone went quiet. Real quiet. Like somebody told 'em to."]],
+        "tom": [["Sailors' gossip. A lab on some island, blown to splinters.", "I don't believe half of what sailors say. I am a sailor. So I'd know."]],
+        "ada": ["A bakery exploded on an island! No, a lab. A lab exploded. Same thing, if Bram's in charge!"],
+        "marina": ["Fishermen from Vermilion found charred wood on the swell. Lab crates, one said. Then he stopped talking."],
+        "timmy": ["A ROBOT POKéMON blew up its own lab! Kai said! Sort of!"]
+      }
+    },
+    {
+      "id": "strongest_pokemon", "title": "The strongest POKéMON?", "requires": "rumor:secret_lab",
+      "summary": "A whisper: the scientists on that island were trying to make the strongest POKéMON there is. Some say something walked out of the fire.",
+      "tellers": {
+        "gus": [["One more thing about that night. Kai won't tell you, so I will.", "A radio voice said 'it's loose'. Then static. I don't know what 'it' was."]],
+        "tom": [["A man in a Vermilion bar told me they were building a POKéMON. From scratch.", "'The strongest ever,' he said. Then he went pale and paid for my drink. Odd."]],
+        "kai": ["Some people say the scientists made a POKéMON. Made one! From a lab! Okay, that's too incredible even for me."]
+      }
+    },
+    {
+      "id": "seafoam", "title": "The Seafoam Islands", "summary": "West of Cinnabar lie the icy Seafoam Islands, full of caves. An old legend says a bird of ice lives there.",
+      "tellers": {
+        "tom": [["West of Cinnabar, the Seafoam Islands. Ice caves, in the warm sea! Can you credit it?", "Legend says a great bird of ice nests there. Blue as glacier water."]],
+        "marina": ["The Seafoam currents are cold as a grudge. Nets come up frosted, some mornings."],
+        "mae": [["My grandmother sang a song about a bird of ice in the Seafoam caves.", "When it flew, it snowed. In summer. Pretty song. Sad ending."]],
+        "lily": ["There are Seel in the Seafoam Islands! And Jynx! I've seen pictures. Not bugs, but okay."]
+      }
+    },
+    {
+      "id": "lapras_song", "title": "The Lapras song", "requires": "gus_supper",
+      "summary": "On still nights, keepers and fishermen say they've heard a Lapras singing out on the sea lane to Cinnabar.",
+      "tellers": {
+        "gus": [["On still nights, far out on Route 21... a Lapras sings.", "I've heard it four times in forty years. Logged every one. I don't have a word for it."]],
+        "tom": [["I saw a Lapras once, lad. Ferried a boy across the bay on its back.", "Gentle as a lullaby. They're rare now. Too rare."]],
+        "kai": ["Lapras? Ha! If I ever hear one, I'm recording it. Technology is incredible!"],
+        "mae": ["My husband swore he heard a Lapras singing the night he proposed. I think it was him humming."]
+      }
+    },
+    {
+      "id": "tentacool_bloom", "title": "Tentacool blooms", "summary": "When the water warms from the south, Tentacool swarm off the point. Fishers keep their boats in and the kids off the beach.",
+      "tellers": {
+        "marina": [["Tentacool bloom coming. Water's warm and the sea smells of copper.", "Keep off the sand at dusk, Ash. They wash up and they sting."]],
+        "kai": ["Saw a Tentacool bloom off the point this morning. Hundreds! Like jelly on toast. Glowing jelly."],
+        "lily": ["Tentacool aren't bugs but they're kind of like jellyfish bugs? No? Okay."],
+        "gus": ["Bloom off the point. Logged. When they come in such numbers, the south is warm."]
+      }
+    },
+    {
+      "id": "gyarados_storm", "title": "Gyarados in the storm", "summary": "An old superstition: never mock a Magikarp, or a Gyarados will come for your boat in the next storm.",
+      "tellers": {
+        "tom": [["Never laugh at a Magikarp, lad. They remember.", "One day it's a Gyarados. And it comes back in a storm, looking for whoever laughed."]],
+        "kai": ["I always say sorry to every Magikarp I throw back. Every one. Just in case."],
+        "ben": ["Don't hold with superstition. Still. Wouldn't laugh at a Magikarp. Mm."],
+        "mae": ["My father saw a Gyarados in the storm of '38. Took the end off the old pier like a biscuit."],
+        "timmy": ["Grandpa fought a Gyarados with a LADLE! In a STORM!"]
+      }
+    },
+    {
+      "id": "ferry_lane", "title": "The sea lane south", "summary": "Route 21 is the sea lane from Pallet Town to Cinnabar. A supply boat runs it weekly; trainers swim it on strong water POKéMON.",
+      "tellers": {
+        "gus": [["Route 21. Supply boat Tuesdays, mail boat when it likes.", "Some trainers swim it, riding a Tentacruel or a Lapras. I watch them all the way."]],
+        "kai": ["You can't sail straight to Cinnabar, kiddo. Reefs. You go round. I've got a chart. A laminated chart!"],
+        "marina": ["Swimmers on Route 21 in summer. Mad, the lot of them. Brave, but mad."],
+        "timmy": ["When I'm big I'm gonna SURF to Cinnabar! On a Gyarados!"]
+      }
+    },
+    {
+      "id": "dark_boat", "title": "A boat without lights", "requires": "rumor:ferry_lane",
+      "summary": "Gus has twice logged a black-hulled boat running the sea lane at night without lights. It never comes into Pallet harbour.",
+      "tellers": {
+        "gus": [["Twice now, a black boat. No lights. Running south at night.", "No name on the hull. A big red letter on the funnel, I thought. Couldn't be sure."]],
+        "kai": ["Gus saw a boat with no lights? Probably smugglers. Or a very shy ferry. Ha!"],
+        "tom": ["Ships without lights are up to no good, lad. That's the oldest rule of the sea."]
+      }
+    },
+    {
+      "id": "blaine_old_trainer", "title": "Blaine's old fire", "requires": "rumor:blaine_riddles",
+      "summary": "Old Tom says Blaine was once a researcher himself, before he was a Gym Leader. Nobody knows what made him leave.",
+      "tellers": {
+        "tom": [["They say Blaine was a scientist once. Worked in that old mansion, even.", "Before the fire. He doesn't talk about it. Burns his secrets, does Blaine."]],
+        "gus": ["Blaine has been on Cinnabar longer than his gym. He watches the mansion ruins, I hear. Like a man waiting."]
+      }
+    }
+  ],
+
+  "chatter": {
+    "_doc": "NPC-to-NPC rumour exchanges. a and b list who may speak each part ('any' = anyone); A and B in the lines are filled with them. Picked now and then when two townspeople chat.",
+    "list": [
+      {"a": ["tom", "gus", "mae", "ben"], "b": ["any"], "lines": [["A", "Did you feel the shake last night?"], ["B", "I did! Was it Cinnabar?"], ["A", "The old mountain, grumbling. I'd put money on it."]]},
+      {"a": ["gus", "tom"], "b": ["any"], "lines": [["A", "Smoke over Cinnabar again this morning."], ["B", "Should we be worried?"], ["A", "Not yet. But I'm watching."]]},
+      {"a": ["ada"], "b": ["any"], "lines": [["A", "I heard Blaine asks riddles and burns your hat if you're wrong!"], ["B", "Who told you that?"], ["A", "Everyone! Well, Timmy."]]},
+      {"a": ["kai", "marina"], "b": ["any"], "lines": [["A", "Water's warm off the point."], ["B", "Tentacool weather?"], ["A", "Tentacool weather. Keep the little ones off the beach."]]},
+      {"a": ["kai", "gus", "tom"], "b": ["any"], "lines": [["A", "That business about the island lab..."], ["B", "Shh. Not in front of the children."], ["A", "Right. Right. Probably just sailors' talk."]]},
+      {"a": ["timmy", "lily"], "b": ["any"], "lines": [["A", "The Cinnabar Lab brings DINOSAURS back to life!"], ["B", "Fossils, sweetheart. They're called fossils."], ["A", "FOSSIL DINOSAURS!"]]},
+      {"a": ["tom", "kai"], "b": ["any"], "lines": [["A", "Never laugh at a Magikarp."], ["B", "I wasn't laughing!"], ["A", "You were smiling. That's how it starts."]]},
+      {"a": ["mae", "tom"], "b": ["any"], "lines": [["A", "Remember when the Cinnabar mansion burned?"], ["B", "Orange sky all night. I'll never forget it."], ["A", "Nor I. Strange folk, those scientists."]]},
+      {"a": ["gus"], "b": ["kai", "tom", "marina"], "lines": [["A", "Black boat again last night. No lights."], ["B", "Smugglers?"], ["A", "Maybe. I logged it."]]}
+    ]
+  }
+}
