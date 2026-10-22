@@ -822,6 +822,7 @@ export function dressAsh(m, base) {
   };
 
   return {
+    kit,
     update(dt, speed = 0) {
       const holder = m.parent, root = (holder && holder.parent) || holder || m;
       root.updateWorldMatrix(true, true);

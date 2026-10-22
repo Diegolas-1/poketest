@@ -232,7 +232,11 @@ func _villagers(dt: float) -> void:
 		if seen:
 			# far off: animated every other frame
 			n.acc = float(n.get("acc", 0.0)) + dt
-			var far: bool = cam.global_position.distance_squared_to(c) > 625.0
+			var d2 := cam.global_position.distance_squared_to(c)
+			var far: bool = d2 > 625.0
+			# their cloth and hair: full near, at half rate further off, hanging still when far
+			a.cloth_far = far
+			a.cloth_rate = 60.0 if d2 < 144.0 else 30.0
 			if not far or _frame % 2 == 0:
 				a.animate(n.acc, n.speed, false); n.acc = 0.0
 

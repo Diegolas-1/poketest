@@ -479,6 +479,7 @@ export function clothSim(m, kit, meshes) {
   };
 
   return {
+    kit,
     update(dt, speed = 0) {
       // drawn before, but not in the last few frames: off screen
       if (ren && ren.info.render.frame - seen > 4) { ready = false; return; }

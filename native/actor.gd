@@ -45,13 +45,11 @@ var rest_pos: Array[Vector3] = []
 var idles: IdleActions
 var eyes: ShaderMaterial
 var meshes: Array[MeshInstance3D] = []
-# cloth: the garments' hanging chains (jacket, dress, coat) swing on a spring
-var chains: Array = []      # [bones: PackedInt32Array, back weight, front weight, side]
-var cl_x := 0.0
-var cl_vx := 0.0
-var cl_z := 0.0
-var cl_vz := 0.0
-var _last_yaw := NAN
+# cloth and hair: the garments' cloth bones and the hair chains, simulated (cloth.gd)
+var cloth: ClothSim
+var cloth_far := false      # set by the owner: far off, the cloth just hangs
+var cloth_rate := 60.0      # sim steps a second (fewer further off: the bones then move only with them)
+var sim_cost_us := 0.0      # the last frame's sim time (dev)
 
 var phase := 0.0
 var idle_t := 0.0
@@ -66,6 +64,9 @@ var L := {}
 var air_w := 0.0
 var was_air := false
 var jump := {"t": 0.0, "vy": 0.0, "y": NAN, "run": 0.0, "lead": 0, "impact": 0.0, "land": 1.0}
+
+func _exit_tree() -> void:
+	if cloth: cloth.finish()
 
 static func data() -> Dictionary:
 	if _data.is_empty():
@@ -127,7 +128,6 @@ func _build(look_name: String) -> void:
 			"LFingerB1", "LFingerB2", "LFingerB3", "LFingerC1", "LFingerC2", "LFingerC3", "LFingerD1", "LFingerD2", "LFingerD3",
 			"RFingerB1", "RFingerB2", "RFingerB3", "RFingerC1", "RFingerC2", "RFingerC3", "RFingerD1", "RFingerD2", "RFingerD3"]:
 		if bones.has(n): u[bones[n]] = true
-	_find_chains(u)
 	for bi in u: used.append(bi)
 	for an in anims:
 		var arr := PackedInt32Array()
@@ -141,6 +141,7 @@ func _build(look_name: String) -> void:
 		"look": 2.0 + _rng.randf() * 3.0, "side": -1.0 if _rng.randf() < 0.5 else 1.0, "cp": 0.0, "swap": 15.0 + _rng.randf() * 15.0}
 	L.cp = L.side
 	idles = IdleActions.new(self, look != "ash", look == "ash")
+	cloth = ClothSim.make(self)
 
 func _materials(root: Node, mats: Array) -> void:
 	var made := {}
@@ -182,49 +183,6 @@ func _materials(root: Node, mats: Array) -> void:
 			m3.set_surface_override_material(s, m)
 		if not shadow: m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-# chains hung from the chest (cloth bones under Spine2): each one swings as a
-# whole, the lower links more; panels at the back lift when running, panels in
-# front swing out when stopping
-func _find_chains(u: Dictionary) -> void:
-	var sp: int = bones.get("Spine2", -1)
-	if sp < 0: return
-	var c0 := skel.get_bone_global_rest(sp).origin
-	for i in skel.get_bone_count():
-		if skel.get_bone_parent(i) != sp or not skel.get_bone_name(i).begins_with("cl"): continue
-		var list := PackedInt32Array()
-		var b := i
-		while b >= 0:
-			list.append(b); u[b] = true
-			var kids := skel.get_bone_children(b)
-			b = kids[0] if kids.size() > 0 else -1
-		var d := skel.get_bone_global_rest(i).origin - c0
-		var h := Vector2(d.x, d.z).normalized()
-		chains.append([list, clampf(-h.y * 1.2 + 0.2, 0.0, 1.0), clampf(h.y * 1.2 + 0.2, 0.0, 1.0), h.x])
-
-func _cloth(dt: float, speed: float, air: bool) -> void:
-	if chains.is_empty(): return
-	var yr := 0.0
-	var yw := rotation.y
-	if not is_nan(_last_yaw) and dt > 0.0: yr = wrapf(yw - _last_yaw, -PI, PI) / dt
-	_last_yaw = yw
-	# springs toward: trailing back with speed (and in the air), out to the side on turns
-	var tx := clampf(speed / RUN_V, 0.0, 1.3) * 0.42 + air_w * 0.25 + sin(L.t * 1.3) * 0.015
-	var tz := clampf(-yr * 0.07, -0.3, 0.3)
-	var om := 7.0
-	cl_vx += ((tx - cl_x) * om * om - 2.0 * 0.32 * om * cl_vx) * dt; cl_x += cl_vx * dt
-	cl_vz += ((tz - cl_z) * om * om - 2.0 * 0.32 * om * cl_vz) * dt; cl_z += cl_vz * dt
-	for c in chains:
-		var ax: float = cl_x * (c[1] if cl_x > 0.0 else c[2])
-		var az: float = cl_z * (0.6 + 0.4 * absf(c[3]))
-		var list: PackedInt32Array = c[0]
-		for j in list.size():
-			var bi := list[j]
-			var share := 0.55 if j == 0 else 0.45 / maxf(1, list.size() - 1)
-			var r := rest_q[bi]
-			if ax != 0.0: r = r * Quaternion(ax_x[bi], ax * share)
-			if az != 0.0: r = r * Quaternion(ax_z[bi], az * share)
-			q[bi] = r
-
 # ---------- helpers ----------
 static func _sm(a: float, b: float, x: float) -> float:
 	var t := clampf((x - a) / (b - a), 0.0, 1.0)
@@ -252,8 +210,12 @@ func pose(n: String, turns: Array) -> void:
 func animate(dt: float, speed: float, air: bool) -> void:
 	_clips(dt, speed, air)
 	_head_look(dt)
-	_cloth(dt, speed, air)
 	for bi in used: skel.set_bone_pose_rotation(bi, q[bi])
+	if cloth:
+		var t0 := Time.get_ticks_usec()
+		if cloth_far: cloth.hold()
+		else: cloth.update(dt, speed, cloth_rate, cloth_rate >= 60.0)
+		sim_cost_us = Time.get_ticks_usec() - t0
 	_blink(dt)
 
 func _clips(dt: float, speed: float, air: bool) -> void:

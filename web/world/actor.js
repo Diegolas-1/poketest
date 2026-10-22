@@ -715,6 +715,7 @@ function calemActor(look) {
       b.quaternion.multiply(tq.setFromAxisAngle(ax.set(x, y, z).applyQuaternion(tq.copy(R.get(name).w).invert()), a));
     };
     rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k, cloth, rest: R, root: fb.root };
+    actor.cloth = cloth;   // (its sim's layout is read by tools/native/bake_cast.mjs)
     const A = base.anims;
     if (A && A.clips.idle && A.clips.walk && A.clips.run) {
       const mixer = new THREE.AnimationMixer(m), act = {};
