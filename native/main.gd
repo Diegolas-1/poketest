@@ -16,7 +16,7 @@ const FOG := Color("c4e2f0")
 
 var world := WorldData.new()
 var grass: Node3D
-var player: Node3D
+var cast: Cast
 var cam: Camera3D
 var pos := Vector3.ZERO
 var yaw := 0.0
@@ -160,35 +160,20 @@ func _water() -> void:
 			mi.material_override = sea
 		mi.extra_cull_margin = 4.0
 
-# ---------- Red (placeholder until the character port) ----------
+# ---------- the people (cast.gd: Ash, the villagers, talking, Oak) ----------
 func _player() -> void:
-	player = Node3D.new()
-	var parts := [
-		[CapsuleMesh, {"radius": 0.3, "height": 1.2}, Vector3(0, 0.7, 0), Color("2f5fb8")],
-		[SphereMesh, {"radius": 0.25, "height": 0.5}, Vector3(0, 1.55, 0), Color("f2d2b6")],
-		[CylinderMesh, {"top_radius": 0.23, "bottom_radius": 0.27, "height": 0.16}, Vector3(0, 1.74, 0.03), Color("e8463c")],
-	]
-	for p in parts:
-		var mi := MeshInstance3D.new()
-		var mesh: PrimitiveMesh = p[0].new()
-		for k in p[1]: mesh.set(k, p[1][k])
-		mi.mesh = mesh
-		var m := ShaderMaterial.new()
-		m.shader = TOON
-		m.set_shader_parameter("albedo", p[3])
-		mi.material_override = m
-		mi.position = p[2]
-		player.add_child(mi)
 	var sp: Array = world.meta.spawn
 	pos = Vector3(sp[0], sp[1], sp[2])
 	yaw = world.meta.yaw
 	pos.y = world.height_at(pos.x, pos.z)
-	add_child(player)
 	cam = Camera3D.new()
 	cam.fov = 52.0
 	cam.near = 0.25
 	cam.far = 2000.0
 	add_child(cam)
+	cast = Cast.new()
+	add_child(cast)
+	cast.setup(self)
 	cam_ty = pos.y
 	cam_target = pos + Vector3(0, 1.45, 0)
 	cam_floor = pos.y
@@ -237,22 +222,20 @@ func _process(dt: float) -> void:
 	var pad := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var mv := (pad + stick_vec).limit_length(1.0)
 	var run := Input.is_action_pressed("run") or stick_vec.length() > 0.85 or pad.length() > 0.85
+	if cast.busy(): mv = Vector2.ZERO
 	# move relative to the camera (as in Legends: Arceus)
 	var f := Vector2(-sin(cam_yaw), -cos(cam_yaw))
 	var r := Vector2(cos(cam_yaw), -sin(cam_yaw))
 	var dir := r * mv.x - f * mv.y
 	var m := minf(1.0, dir.length())
 	var want := (8.5 if run else 4.5) * m if m > 0.05 else 0.0
-	speed += (want - speed) * (1.0 - exp(-dt * 10.0))
+	if not cast.busy(): speed += (want - speed) * (1.0 - exp(-dt * 10.0))
 	if m > 0.05:
 		var ty := atan2(dir.x, dir.y)
 		yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
-	if speed > 0.05:
+	if speed > 0.05 and not cast.busy():
 		pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt)
-	pos.y = world.height_at(pos.x, pos.z)
-	player.position = pos
-	player.rotation.y = yaw
-	player.get_child(0).position.y = 0.7 + absf(sin(Time.get_ticks_msec() * 0.012)) * 0.05 * minf(1.0, speed / 4.0)
+	cast.update(dt)
 	if grass_dirty: _rebuild_grass()
 	if not grass.tiles.is_empty(): grass.update(pos)
 	_camera(dt)
