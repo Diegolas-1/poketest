@@ -5,6 +5,7 @@ extends Node3D
 # until the character port.
 
 const TOON := preload("res://shaders/toon.gdshader")
+const TOON_DS := preload("res://shaders/toon_ds.gdshader")
 const TERRAIN := preload("res://shaders/terrain.gdshader")
 const SEA := preload("res://shaders/sea.gdshader")
 const FRESH := preload("res://shaders/fresh.gdshader")
@@ -139,7 +140,7 @@ func toon_for(src: Material) -> ShaderMaterial:
 			m.set_shader_parameter("use_tex", true)
 		if src.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 			m.set_shader_parameter("alpha_scissor", maxf(0.5, src.alpha_scissor_threshold) if src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR else 0.5)
-		if src.cull_mode == BaseMaterial3D.CULL_DISABLED: m.render_priority = 0
+		if src.cull_mode == BaseMaterial3D.CULL_DISABLED: m.shader = TOON_DS   # double sided on the web too
 	m.set_shader_parameter("use_vc", nm.contains("_vc"))
 	if nm.contains("_decal"): m.set_shader_parameter("lift", 0.004)
 	mats[src] = m

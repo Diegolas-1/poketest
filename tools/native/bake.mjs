@@ -188,9 +188,54 @@ const res = await p.evaluate(async () => {
       for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color', 'flutter'].includes(k)) g.deleteAttribute(k);
       return mergeVertices(g, 1e-5);
     };
-    const meshOf = (g0) => {
+    // Leaf cards cut down to the painted part of their atlas tile: a card is a
+    // whole tile, often half empty (fronds, ferns), and the GPU pays for the
+    // empty pixels it throws away. Each card's corners move to the tile's
+    // opaque box (4 px margin); position, normal and uv follow bilinearly.
+    const tileBoxes = new Map();
+    const boxesOf = (tex) => {
+      const key = tex.source ? tex.source.uuid : tex.uuid;
+      if (tileBoxes.has(key)) return tileBoxes.get(key);
+      const cv = tex.image, S = cv.width / 4, d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, out = [];
+      for (let t = 0; t < 16; t++) {
+        const x0 = (t % 4) * S, y0 = Math.floor(t / 4) * S;
+        let a = S, b = -1, c = S, e = -1;
+        for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (d[((y0 + y) * cv.width + x0 + x) * 4 + 3] >= 100) { a = Math.min(a, x); b = Math.max(b, x); c = Math.min(c, y); e = Math.max(e, y); }
+        // tile pixels -> the card's 0..1 (pushCard: u = tx + uu * 0.245 + 0.0025; canvas y runs down, v up)
+        const W = cv.width, uu = (px) => Math.min(1, Math.max(0, ((px / W) * 4 - 0.01) / 0.98));
+        out.push(b < 0 ? [0, 1, 0, 1] : [uu(a - 4), uu(b + 5), uu(S - (e + 5)), uu(S - (c - 4))]);
+      }
+      tileBoxes.set(key, out);
+      return out;
+    };
+    const trimCards = (g, tex) => {
+      const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, n = P.count / 4, boxes = boxesOf(tex);
+      if (!U || P.count % 4) return g;
+      let before = 0, after = 0;
+      const v3 = (A, i) => [A.getX(i), A.getY(i), A.getZ(i)];
+      for (let q = 0; q < n; q++) {
+        const i = q * 4, u0 = U.getX(i), v0 = U.getY(i);
+        const tile = Math.floor(u0 * 4 + 1e-4) + 4 * (3 - Math.floor(v0 * 4 + 1e-4));
+        const [bu0, bu1, bv0, bv1] = boxes[tile];
+        const p = [0, 1, 2, 3].map((k) => v3(P, i + k)), nn = [0, 1, 2, 3].map((k) => v3(N, i + k));
+        // corners: 0 (0,0) 1 (1,0) 2 (1,1) 3 (0,1)
+        const at = (L, s, t) => [0, 1, 2].map((c) => L[0][c] * (1 - s) * (1 - t) + L[1][c] * s * (1 - t) + L[2][c] * s * t + L[3][c] * (1 - s) * t);
+        const tx = Math.floor(u0 * 4 + 1e-4) / 4, ty = Math.floor(v0 * 4 + 1e-4) / 4;
+        [[bu0, bv0], [bu1, bv0], [bu1, bv1], [bu0, bv1]].forEach(([s, t], k) => {
+          P.setXYZ(i + k, ...at(p, s, t));
+          const m = at(nn, s, t), l = Math.hypot(...m) || 1; N.setXYZ(i + k, m[0] / l, m[1] / l, m[2] / l);
+          U.setXY(i + k, tx + s * 0.245 + 0.0025, ty + t * 0.245 + 0.0025);
+        });
+        before += 1; after += (bu1 - bu0) * (bv1 - bv0);
+      }
+      cardArea.push(after / Math.max(1, before));
+      return g;
+    };
+    const cardArea = [];
+    const meshOf = (g0, mat) => {
       if (meshId.has(g0.uuid)) return meshId.get(g0.uuid);
-      const g = weld(g0);
+      let g = weld(g0);
+      if (mat && mat.userData.leaf && mat.map) g = trimCards(g.clone(), mat.map);
       const a = g.attributes, e = { v: a.position.count };
       const f32 = (attr) => { const o = new Float32Array(attr.count * attr.itemSize); for (let i = 0; i < attr.count; i++) for (let k = 0; k < attr.itemSize; k++) o[i * attr.itemSize + k] = attr.getComponent(i, k); return put(o); };
       e.pos = f32(a.position); e.nrm = f32(a.normal);
@@ -250,7 +295,7 @@ const res = await p.evaluate(async () => {
         mat34(m4.compose(v.set(pt.x, pt.y, pt.z), q, sc.set(pt.s, pt.s * (pt.sy || 1), pt.s)), xf);
         ip.push(pt.x, pt.y, pt.z, pt.rot, pt.s);
       }
-      sets.push({ src: 'veg', parts: S.model.parts.map((pp) => ({ mesh: meshOf(pp.geometry), mat: matOf(pp.material) })), radius: S.model.radius, height: S.model.height,
+      sets.push({ src: 'veg', parts: S.model.parts.map((pp) => ({ mesh: meshOf(pp.geometry, pp.material), mat: matOf(pp.material) })), radius: S.model.radius, height: S.model.height,
         ...S.opts, impostor: impOf(S.impostor), xf: put(new Float32Array(xf)), ip: put(new Float32Array(ip)), n: S.points.length });
     }
     // the town's own repeated plants (hedges along the stairs, the hill's
@@ -278,7 +323,7 @@ const res = await p.evaluate(async () => {
       for (const pp of model.parts) { pp.geometry.computeBoundingBox(); const b = pp.geometry.boundingBox; r = Math.max(r, -b.min.x, b.max.x, -b.min.z, b.max.z); h = Math.max(h, b.max.y); }
       const leafy = list.some((m) => m.material.userData.leaf);
       const imp = leafy ? new A.Impostor(w.renderer, model, { size: 56, lights }) : null;
-      sets.push({ src: 'town', parts: model.parts.map((pp) => ({ mesh: meshOf(pp.geometry), mat: matOf(pp.material) })), radius: r, height: h,
+      sets.push({ src: 'town', parts: model.parts.map((pp) => ({ mesh: meshOf(pp.geometry, pp.material), mat: matOf(pp.material) })), radius: r, height: h,
         fade: leafy ? [90, 95] : [140, 146], shrink: leafy ? 1 : 0.6, wind: 0, shadows: o.castShadow, far: [500, 600], impostor: impOf(imp),
         xf: put(new Float32Array(xf)), ip: put(new Float32Array(ip)), n: o.count });
     }
@@ -289,6 +334,7 @@ const res = await p.evaluate(async () => {
     out.veg = b64(all);
     const billSize = impAtlas();
     out.vegJson = { meshes, mats, sets, impostors: imps, billSize };
+    out.cardArea = cardArea.length ? cardArea.reduce((a, b) => a + b, 0) / cardArea.length : 1;
     out.vegPngs = pngs;
   }
 
@@ -438,5 +484,5 @@ fs.writeFileSync(path.join(OUT, 'clouds.json'), JSON.stringify(res.cloudsJson));
 fs.copyFileSync(path.join(ROOT, 'web/world/tex/dirt_pack.webp'), path.join(OUT, 'dirt.webp'));
 const meta = { ...res.meta, ground: res.groundGrid, seabed: res.seabedGrid, grassmap: res.grassGrid, inst: res.inst, mountains: res.mountainsJson };
 fs.writeFileSync(path.join(OUT, 'world.json'), JSON.stringify(meta));
-console.log('town meshes', res.townMeshes, 'instanced', res.inst.length, 'colliders', meta.colliders.length, 'veg sets', res.vegJson.sets.length, 'models', res.vegJson.meshes.length, 'billboards', res.vegJson.impostors.length);
+console.log('town meshes', res.townMeshes, 'instanced', res.inst.length, 'colliders', meta.colliders.length, 'veg sets', res.vegJson.sets.length, 'models', res.vegJson.meshes.length, 'billboards', res.vegJson.impostors.length, 'leaf card area kept', res.cardArea.toFixed(2));
 await b.close();
