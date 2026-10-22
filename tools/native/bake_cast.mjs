@@ -9,10 +9,14 @@
 //                 wander), the things to read (town.use), Oak's lab door,
 //                 Route 1's road and the tall grass
 // Run: node tools/native/bake_cast.mjs   (serves web/ on :8790 if nothing is there)
-import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+
+// playwright: $PLAYWRIGHT (its index.mjs), else the first of the usual installs that is there
+const PW = [process.env.PLAYWRIGHT, '/opt/node-tools/node_modules/playwright/index.mjs', '/opt/node22/lib/node_modules/playwright/index.mjs'].find((f) => f && fs.existsSync(f));
+if (!PW) throw new Error('playwright not found: set PLAYWRIGHT to its index.mjs');
+const { chromium } = await import(PW);
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const OUT = path.join(ROOT, 'native/cast');
@@ -209,7 +213,8 @@ const res = await p.evaluate(async () => {
     if (!S.chains.some((c) => c.hair)) S.caps.length = head;   // (no hair chains: no head capsules)
   }
   const out = { looks: {}, glb: {} };
-  for (const look of ['ash', 'girl', 'fisher', 'kid', 'oak']) {
+  // every look made on the base model: Ash, Prof. Oak and the townspeople (actor.js TOWNSFOLK)
+  for (const look of ['ash', 'oak', ...A.TOWNSFOLK]) {
     const a = A.makeActor(A.LOOKS[look]);
     for (let i = 0; i < 600 && !a.model; i++) await sleep(50);
     if (!a.model) throw new Error('no model for ' + look);

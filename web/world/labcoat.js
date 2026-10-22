@@ -41,20 +41,23 @@ const radOf = (p) => Math.hypot(p.x, p.z - ZC);
 // ---------- the shape ----------
 // rows of the shell: the neckline, over the shoulders to the armpits (Y_ARM), then
 // straight down to the hem just above the knees
-const JY = [1.06, 1.05, 1.036, 1.018, 1.0, 0.98, 0.96];
-for (let y = 0.94; y > 0.395; y -= 0.02) JY.push(+y.toFixed(3));
-const I_ARM = 6, I_PIN = 7, HEM = JY.length - 1, NC = 42;
+// (o.hem: a shorter coat for others in town, cast2.js)
+const rowsTo = (hem) => { const r = [1.06, 1.05, 1.036, 1.018, 1.0, 0.98, 0.96]; for (let y = 0.94; y > hem; y -= 0.02) r.push(+y.toFixed(3)); return r; };
+const I_ARM = 6, I_PIN = 7, NC = 42;
 // over the shoulders: [y, half width out to the sleeves' seams, clearance off the body]
 const YOKE = [[1.05, 0.079, 0.003], [1.036, 0.087, 0.005], [1.018, 0.094, 0.008], [1.0, 0.099, 0.011], [0.98, 0.103, 0.014], [0.96, 0.106, 0.017]];
 // the front edges, |x| at height y: straight below the break point (a little open
 // towards the hem), along the roll line up to the side of the neck above it
 const Y_BREAK = 0.80;
-const edgeX = (y) => (y <= Y_BREAK ? 0.032 + 0.014 * sstep(0.74, 0.42, y) : lerp(0.032, 0.038, ((y - Y_BREAK) / (JY[0] - Y_BREAK)) ** 1.2));
+const edgeX = (y) => (y <= Y_BREAK ? 0.032 + 0.014 * sstep(0.74, 0.42, y) : lerp(0.032, 0.038, ((y - Y_BREAK) / (1.06 - Y_BREAK)) ** 1.2));
 // the lapels' width (along the chest) and where they stop under the collar
 const LAPEL_W = 0.056, LAPEL_TOP = [1.012, 1.03];
 
-export function labCoat(G, col) {
-  const { coat, coat2, shirt } = col, line = mul(coat2, 0.86);
+// o (others in town wear the same cut, cast2.js): { name: the meshes' prefix, hem: its height,
+// pockets: [[side, x0, x1, y0, y1], ...], buttons: { color, at: [[x, y], ...] } }
+export function labCoat(G, col, o = {}) {
+  const { coat, coat2, shirt } = col, line = mul(col.line || coat2, col.line ? 1 : 0.86), NM = o.name || 'oak';
+  const JY = rowsTo(o.hem ?? 0.395), HEM = JY.length - 1, hemY = JY[HEM];
   const tp = G.top.userData.parts;
   // the trunk without the arms' roots (out to the sides in the rest pose), and all of the body
   const trunkT = trisOf(G.top, (i, v) => v.every((p) => Math.abs(p.x) < 0.075));
@@ -92,7 +95,7 @@ export function labCoat(G, col) {
   const rowAt = (y) => JY.reduce((b, v, i) => (Math.abs(v - y) < Math.abs(JY[b] - y) ? i : b), 0);
   const nc = NC;
   const g = G.hang({
-    name: 'oak_coat', grid: { P, closed: false }, weights: (p) => yokeW(p, 12, 4), lining: coat2, th: 0.0045,
+    name: NM + '_coat', grid: { P, closed: false }, weights: (p) => yokeW(p, 12, 4), lining: coat2, th: 0.0045,
     rims: { top: true, bottom: true, left: true, right: true },
     paint: (p, i, j) => {
       const y = p.y, x = Math.abs(p.x), front = p.z > 0.02, je = Math.min(j, nc - j);
@@ -101,19 +104,24 @@ export function labCoat(G, col) {
       if (!front && p.z < 0 && x < 0.0022 && y < 0.95) return line;                   // a seam down the back,
       if (!front && p.z < 0 && y < 0.56 && Math.abs(x - 0.007) < 0.0018) return line; // the vent below the hips
       if (!front && p.z < 0 && Math.abs(y - 0.95) < 0.0016 && x < 0.085) return line; // the back's yoke
-      if (Math.abs(y - 0.412) < 0.0018) return line;                                  // the hem's stitching
+      if (Math.abs(y - hemY - 0.017) < 0.0018) return line;                                  // the hem's stitching
       return coat;
     },
     sim: {
-      tag: 'C', ns: 15, rows: [I_PIN, rowAt(0.75), rowAt(0.57), HEM], parent: 'Spine2',
+      tag: 'C', ns: 15, rows: hemY < 0.5 ? [I_PIN, rowAt(0.75), rowAt(0.57), HEM] : [I_PIN, rowAt(0.75), HEM], parent: 'Spine2',
       // a medium cotton, heavier towards the hem, riding partly with the hips; the front
       // edges (and the lapels on them) lighter and freer
-      prm: (ch) => ({
+      prm: (ch) => (hemY < 0.5 ? {
         ks: [40, 30, 24], drag: [0.5, 0.7, ch.edge ? 1.0 : 0.85], damp: 5, vmax: 1.6, flut: ch.edge ? 0.75 : 0.5,
         cone: ch.edge ? [0.5, 0.62, 0.72] : [0.4, 0.5, 0.6], hangBone: 'Hips', hang: [0, 0.25, 0.5, 0.65], quad: true,
         coll: [{ ring: 'Spine1', caps: ['arms'], seg: ['arms'] },
           { ring: 'Hips', mid: 'Spine1', caps: ['arms'], seg: ['arms', 'thighs'], after: ['thighs'] },
           { caps: ['arms'], seg: ['legs'], after: ['legs'] }],
+      } : {   // a short coat (to the hips): stiffer, a wool, riding more with the hips
+        ks: [46, 36], drag: [0.5, 0.75], damp: 5.5, vmax: 1.4, flut: ch.edge ? 0.5 : 0.35,
+        cone: ch.edge ? [0.42, 0.55] : [0.35, 0.45], hangBone: 'Hips', hang: [0, 0.3, 0.6], quad: true,
+        coll: [{ ring: 'Spine1', caps: ['arms'], seg: ['arms'] },
+          { ring: 'Hips', mid: 'Spine1', caps: ['arms'], seg: ['arms', 'thighs'], after: ['thighs'] }],
       }),
     },
   });
@@ -173,7 +181,7 @@ export function labCoat(G, col) {
       });
     }
     slab(B, Pc, Wc, CTH, { out: (p, i, j) => Nc[i][j], rims: { top: true, bottom: true, left: true, right: true } });
-    G.add(B, paintGrid(Pc, 256, 64, (p, i) => (i > Pc.length - 1.9 ? mul(coat, 0.97) : coat), coat2), 'oak_collar');
+    G.add(B, paintGrid(Pc, 256, 64, (p, i) => (i > Pc.length - 1.9 ? mul(col.collar || coat, 0.97) : col.collar || coat), coat2), NM + '_collar');
   }
 
   // ----- the lapels -----
@@ -198,13 +206,13 @@ export function labCoat(G, col) {
       }
       slab(B, Pl, Wl, 0.003, { out: (p) => V(p.x, 0, p.z - ZC), rims: { top: true, bottom: true, left: true, right: true } });
     }
-    G.add(B, paintGrid([[V(), V()], [V(), V()]], 64, 64, (p, i, j) => coat, coat2), 'oak_lapels', true);
+    G.add(B, paintGrid([[V(), V()], [V(), V()]], 64, 64, (p, i, j) => col.lapel || coat, coat2), NM + '_lapels', true);
   }
 
   // ----- pockets -----
   // patch pockets sewn on the coat, moving with it: two low on the front panels, one on the left breast
   {
-    const B = G.build(), list = [[1, 0.052, 0.12, 0.555, 0.65], [-1, 0.052, 0.12, 0.555, 0.65], [1, 0.06, 0.1, 0.842, 0.892]];
+    const B = G.build(), list = o.pockets || [[1, 0.052, 0.12, 0.555, 0.65], [-1, 0.052, 0.12, 0.555, 0.65], [1, 0.06, 0.1, 0.842, 0.892]];
     let ref = null;
     for (const [s, x0, x1, y0, y1] of list) {
       const NI = 4, NJ = 5, Pp = [], Wp = [];
@@ -219,7 +227,24 @@ export function labCoat(G, col) {
       slab(B, Pp, Wp, 0.0025, { out: (p) => V(p.x, 0, p.z - ZC), rims: { top: true, bottom: true, left: true, right: true } });
       ref = ref || Pp;
     }
-    G.add(B, paintGrid(ref, 64, 32, (p, i, j) => (Math.abs(i - 0.42) < 0.09 ? line : coat), coat2), 'oak_pockets', true);
+    G.add(B, paintGrid(ref, 64, 32, (p, i, j) => (Math.abs(i - 0.42) < 0.09 ? line : coat), coat2), NM + '_pockets', true);
+    // buttons sewn on the front, moving with it: little domes
+    if (o.buttons) {
+      const BB = G.build(), NB = 10;
+      for (const [x, y] of o.buttons.at) {
+        const s = Math.sign(x) || 1, th0 = thAtX(Math.abs(x), y), th = s > 0 ? th0 : TAU - th0, sh = onShell(th, y), r = o.buttons.r || 0.0085;
+        const c = at(sh.r + 0.002, y, th), nrm = V(Math.sin(th), 0, Math.cos(th)), up = V(0, 1, 0), side = V().crossVectors(up, nrm);
+        const ring = [];
+        for (let k = 0; k <= 2; k++) {
+          const row = [];
+          for (let j = 0; j <= NB; j++) { const a = j / NB * TAU, rr = r * Math.cos(k / 2 * Math.PI / 2) + 1e-4, h = 0.003 * Math.sin(k / 2 * Math.PI / 2); row.push(c.clone().addScaledVector(side, Math.cos(a) * rr).addScaledVector(up, Math.sin(a) * rr).addScaledVector(nrm, h)); }
+          ring.push(row);
+        }
+        slab(BB, ring, ring.map((row) => row.map(() => sh.w)), 0.0015, { loop: true, out: () => nrm, rims: { top: true } });
+      }
+      const bc = o.buttons.color;
+      G.add(BB, paintGrid([[V(), V()], [V(), V()]], 8, 8, () => bc, mul(bc, 0.7)), NM + '_buttons', true);
+    }
   }
 
   // ----- sleeves and cuffs -----
@@ -253,8 +278,8 @@ export function labCoat(G, col) {
       const a = (j / NS) * TAU, inner = Math.abs(Math.sin(a) - 1) < 0.6 && Math.cos(a) > -0.6;
       for (const [x0, amp] of [[0.262, 0.008], [0.288, 0.006]]) if (inner && Math.abs(Math.abs(p.x) - x0 - amp * Math.sin(a * 2)) < 0.0025) return mul(coat, 0.9);
       return coat;
-    }, coat2), 'oak_sleeves');
-    G.add(CB, paintGrid(cl, 64, 32, (p, i) => (i < 0.25 ? mul(coat2, 0.95) : coat), coat2), 'oak_cuffs');
+    }, coat2), NM + '_sleeves');
+    G.add(CB, paintGrid(cl, 64, 32, (p, i) => (i < 0.25 ? mul(coat2, 0.95) : col.cuff || coat), coat2), NM + '_cuffs');
   }
   // the shirt round the armholes, under the coat's yoke and the sleeves' roots: drawn in
   // towards the shoulder joint, so as the arm turns about it (raised overhead, say) the skin
