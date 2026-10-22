@@ -334,7 +334,7 @@ const res = await p.evaluate(async () => {
     for (const b of bufs) { all.set(new Uint8Array(b.buffer, b.byteOffset, b.byteLength), off); off += b.byteLength; }
     out.veg = b64(all);
     const billSize = impAtlas();
-    out.vegJson = { meshes, mats, sets, impostors: imps, billSize };
+    out.vegJson = { meshes, mats, sets, impostors: imps, billSize, uvDown: true };
     out.cardArea = cardArea.length ? cardArea.reduce((a, b) => a + b, 0) / cardArea.length : 1;
     out.vegPngs = pngs;
   }

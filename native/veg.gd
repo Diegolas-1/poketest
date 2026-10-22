@@ -58,7 +58,12 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 		a.resize(Mesh.ARRAY_MAX)
 		a[Mesh.ARRAY_VERTEX] = f32.call(e.pos).to_vector3_array()
 		a[Mesh.ARRAY_NORMAL] = f32.call(e.nrm).to_vector3_array()
-		if e.has("uv"): a[Mesh.ARRAY_TEX_UV] = f32.call(e.uv).to_vector2_array()
+		if e.has("uv"):
+			var uv: PackedVector2Array = f32.call(e.uv).to_vector2_array()
+			# bakes before uvDown kept three's v up (canvas textures are flipped there)
+			if not meta.get("uvDown", false):
+				for i in uv.size(): uv[i].y = 1.0 - uv[i].y
+			a[Mesh.ARRAY_TEX_UV] = uv
 		if e.has("col"): a[Mesh.ARRAY_COLOR] = f32.call(e.col).to_color_array()
 		if e.has("flt"): a[Mesh.ARRAY_TEX_UV2] = f32.call(e.flt).to_vector2_array()
 		# three.js fronts are counter-clockwise, Godot's clockwise: flip every
