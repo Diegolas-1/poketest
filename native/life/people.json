@@ -1,14 +1,10 @@
 {
- "note": "Pallet Town's townspeople and their days (native/life.gd). schedule: per day type ('default', or a key listing weekdays like 'sat' / 'mon,wed'), blocks [start 'HH:MM', activity, place, opts]. Place: 'home' (inside their own home), a house id (inside it: a visit), '<house>.door|porch|gate|yard|mailbox|lane', a place from places.json ('pier', 'plaza', ...) or '<place>.<list>' ('plaza.stalls', 'plaza.benches'), 'a|b' = pick one, 'route:<house>,<house>..' = Ada's round of the doors. opts: p (chance the block happens; else 'else' [activity, place] or the block before carries on), jitter (minutes, default the person's). The lines here are the fallback until quests.gd answers (Quests.talk / chatter / overheard).",
+ "note": "Pallet Town's townspeople and their days (native/life.gd). schedule: per day type ('default', or a key listing weekdays like 'sat' / 'mon,wed'), blocks [start 'HH:MM', activity, place, opts]. Place: 'home' (inside their own home), a house id (inside it: a visit), '<house>.door|porch|gate|yard|mailbox|lane', a place from places.json ('pier', 'plaza', ...) or '<place>.<list>' ('plaza.stalls', 'plaza.benches'), 'a|b' = pick one, 'route:<house>,<house>..' = Ada's round of the doors. opts: p (chance the block happens; else 'else' [activity, place] or the block before carries on), jitter (minutes, default the person's). What they say is quests.gd's (life/dialogue.json).",
  "activities": ["sleep", "home", "breakfast", "supper", "commute", "work:bakery", "work:farm", "work:sell", "work:boat", "work:stall", "work:market", "shop", "chat", "walk", "yardwork", "fish", "garden", "bake", "deliver", "mend", "lighthouse", "porch", "play", "feed", "yarn", "errand", "visit", "inside"],
  "places": ["red", "blue", "hollis", "mae", "marina", "farmer", "oldman", "lily", "lighthouse", "pier", "beach", "boathouse", "plaza", "lab_gate", "route1_gate", "fields", "pond", "hill", "lab_hill"],
  "people": [
   {"id": "delia", "name": "Delia", "full": "Delia Ketchum", "look": "delia", "stand_in": "girl", "home": "red", "age": "adult", "speed": 1.42, "jitter": 15,
    "friends": ["mae", "rose", "ada", "marina"],
-   "lines": {"default": ["Oh! Hello, sweetie. Have you seen Ash anywhere? He was right here a minute ago...", "That boy. Ten years old and already dreaming of being a POKéMON Master."],
-     "yardwork": ["These weeds grow faster than Ash does!", "I keep the garden tidy so it looks nice when he comes home. Whenever that is."],
-     "supper": ["Supper's nearly ready. Tell Ash, would you?"]},
-   "barks": ["Ash! Did you remember to change your... you know!", "Ash, honey! Don't wander off too far!", "Ash! Supper at six, not a minute later!"],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["06:30", "breakfast", "home"], ["08:00", "yardwork", "red.yard"], ["10:30", "shop", "plaza", {"p": 0.55, "else": ["yardwork", "red.yard"]}], ["11:45", "home", "home"], ["13:00", "yardwork", "red.yard"], ["15:30", "chat", "mae.porch|lily.yard", {"p": 0.6, "else": ["yardwork", "red.yard"]}], ["16:45", "yardwork", "red.yard"], ["18:00", "supper", "home"], ["19:30", "porch", "red.porch", {"p": 0.5}], ["20:45", "home", "home"], ["22:30", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["06:45", "breakfast", "home"], ["08:30", "shop", "plaza"], ["10:30", "chat", "plaza"], ["11:30", "home", "home"], ["13:00", "yardwork", "red.yard"], ["16:30", "chat", "hollis.porch|mae.porch"], ["18:00", "supper", "home"], ["20:00", "visit", "mae|lily", {"p": 0.4, "else": ["porch", "red.porch"]}], ["21:30", "home", "home"], ["22:30", "sleep", "home"]],
@@ -16,10 +12,6 @@
    }},
   {"id": "lily", "name": "Lily", "full": "Lily", "look": "girl", "stand_in": "girl", "home": "lily", "age": "kid", "speed": 1.72, "jitter": 20,
    "friends": ["timmy", "rose", "mae"],
-   "lines": {"default": ["I'm raising POKéMON too!", "When they get strong, they can protect me!", "One day I'll have a BUTTERFREE. The prettiest one in Kanto!"],
-     "play": ["Shh! I think there's a CATERPIE in that bush...", "Timmy says Ash is going to be a POKéMON Master. I said I'll believe it when I see it!"],
-     "errand": ["Mom sent me to fetch something. I forgot what. Don't tell her!"]},
-   "barks": ["Butterfree! ...Oh, it's just a leaf.", "Bet you can't catch me!"],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["07:00", "breakfast", "home"], ["08:00", "play", "plaza|pond"], ["10:00", "errand", "hollis.door"], ["10:40", "play", "lily.yard|beach"], ["12:00", "home", "home"], ["13:00", "play", "pond|lab_gate"], ["15:00", "play", "plaza|beach"], ["17:00", "errand", "marina.door|hollis.door"], ["17:45", "supper", "home"], ["19:00", "play", "lily.yard", {"p": 0.6}], ["20:00", "home", "home"], ["21:00", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["07:30", "breakfast", "home"], ["08:30", "play", "plaza"], ["11:00", "play", "beach|pond"], ["12:30", "home", "home"], ["13:30", "play", "lab_gate|pond"], ["16:00", "play", "plaza"], ["17:45", "supper", "home"], ["19:00", "play", "lily.yard"], ["20:00", "home", "home"], ["21:00", "sleep", "home"]],
@@ -27,21 +19,13 @@
    }},
   {"id": "rose", "name": "Rose", "full": "Rose", "look": "rose", "stand_in": "girl", "home": "lily", "age": "adult", "speed": 1.38, "jitter": 15,
    "friends": ["delia", "mae", "ada"],
-   "lines": {"default": ["Good day! Mind the marigolds, dear.", "Lily's out chasing bugs again. I swear she'll grow wings one day."],
-     "garden": ["A little water, a little sun, and a lot of patience. Flowers are like children.", "The Butterfree love these. That's why Lily planted them."],
-     "work:market": ["Fresh-cut flowers! Brighten someone's table!"]},
-   "barks": ["Lovely morning for the roses.", "Lily! Lunch!"],
    "schedule": {
-    "default": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["06:45", "garden", "lily.yard"], ["10:30", "shop", "plaza", {"p": 0.6, "else": ["garden", "lily.yard"]}], ["12:00", "home", "home"], ["13:15", "garden", "lily.yard"], ["15:00", "chat", "red.yard|mae.porch", {"p": 0.5, "else": ["garden", "lily.yard"]}], ["16:15", "garden", "lily.yard"], ["17:45", "supper", "home"], ["19:30", "walk", "beach", {"p": 0.5}], ["20:45", "home", "home"], ["22:00", "sleep", "home"]],
+    "default": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["06:45", "garden", "lily.yard"], ["10:30", "shop", "plaza", {"p": 0.6, "else": ["garden", "lily.yard"]}], ["12:00", "home", "home"], ["13:15", "garden", "lily.yard"], ["15:00", "chat", "red.yard", {"p": 0.65, "else": ["garden", "lily.yard"]}], ["16:15", "garden", "lily.yard"], ["17:45", "supper", "home"], ["19:30", "walk", "beach", {"p": 0.5}], ["20:45", "home", "home"], ["22:00", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["06:45", "garden", "lily.yard"], ["07:45", "work:market", "plaza.stalls"], ["12:30", "home", "home"], ["14:00", "garden", "lily.yard"], ["17:45", "supper", "home"], ["20:00", "home", "home"], ["22:00", "sleep", "home"]],
     "sun": [["00:00", "sleep", "home"], ["07:30", "breakfast", "home"], ["09:00", "garden", "lily.yard"], ["11:00", "chat", "plaza"], ["12:15", "home", "home"], ["15:00", "visit", "red|mae", {"p": 0.6, "else": ["garden", "lily.yard"]}], ["17:45", "supper", "home"], ["21:00", "home", "home"], ["22:00", "sleep", "home"]]
    }},
   {"id": "bram", "name": "Bram", "full": "Bram Hollis", "look": "bram", "stand_in": "fisher", "home": "hollis", "age": "adult", "speed": 1.35, "jitter": 10,
    "friends": ["ada", "kai", "ben", "tom"],
-   "lines": {"default": ["Ho ho! Smell that? Fresh loaves, straight from the oven!", "Up at five every day. The bread won't knead itself!"],
-     "work:bakery": ["Cooling racks, my friend. The secret's in the cooling.", "Take a roll for Ash. A future champion needs his breakfast!"],
-     "work:market": ["Bread! Buns! Oran-berry tarts! Get 'em while they're warm!"]},
-   "barks": ["Ho ho! Morning!", "Timmy! Have you seen my rolling pin?"],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["04:45", "bake", "home", {"jitter": 5}], ["09:30", "work:bakery", "hollis.porch"], ["11:00", "bake", "home"], ["13:00", "home", "home"], ["14:00", "walk", "plaza|pier"], ["15:30", "work:bakery", "hollis.yard"], ["17:30", "chat", "plaza", {"p": 0.6}], ["18:30", "supper", "home"], ["20:00", "visit", "marina|farmer", {"p": 0.35, "else": ["porch", "hollis.porch"]}], ["21:00", "home", "home"], ["21:30", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["04:30", "bake", "home", {"jitter": 5}], ["07:30", "work:market", "plaza.stalls", {"jitter": 5}], ["12:30", "home", "home"], ["14:30", "walk", "beach|pier"], ["16:30", "chat", "plaza"], ["18:30", "supper", "home"], ["21:30", "sleep", "home"]],
@@ -49,21 +33,13 @@
    }},
   {"id": "ada", "name": "Ada", "full": "Ada Hollis", "look": "ada", "stand_in": "girl", "home": "hollis", "age": "adult", "speed": 1.48, "jitter": 15,
    "friends": ["bram", "delia", "rose", "marina", "mae"],
-   "lines": {"default": ["Oh, you'll never guess what I heard at Marina's...", "Bread for the whole town, every morning, rain or shine!"],
-     "deliver": ["Bread's still warm! Two more doors to go.", "Did you hear? Somebody saw a PIDGEOTTO over Route 1. A PIDGEOTTO!"],
-     "work:stall": ["Rolls are two for one this afternoon, love."]},
-   "barks": ["Bread's here!", "Morning, love!", "Ooh, wait till Rose hears this..."],
    "schedule": {
-    "default": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["07:00", "home", "home"], ["09:30", "deliver", "route:red,mae,lily,marina,farmer,oldman", {"jitter": 10}], ["12:00", "home", "home"], ["13:30", "chat", "plaza"], ["15:30", "work:stall", "hollis.porch"], ["17:30", "home", "home"], ["18:30", "supper", "home"], ["20:00", "porch", "hollis.porch", {"p": 0.6}], ["21:00", "home", "home"], ["21:45", "sleep", "home"]],
+    "default": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["07:00", "home", "home"], ["09:30", "deliver", "route:red,mae,lily,marina,farmer,oldman", {"jitter": 10}], ["12:00", "home", "home"], ["13:30", "chat", "plaza"], ["15:30", "work:stall", "hollis.porch"], ["17:30", "home", "home"], ["18:30", "supper", "home"], ["20:00", "visit", "oldman", {"p": 0.35, "else": ["porch", "hollis.porch"]}], ["21:00", "home", "home"], ["21:45", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["07:30", "work:market", "plaza.stalls"], ["12:30", "home", "home"], ["14:00", "chat", "plaza|marina.porch"], ["16:00", "visit", "red|lily"], ["17:30", "home", "home"], ["18:30", "supper", "home"], ["21:45", "sleep", "home"]],
     "sun": [["00:00", "sleep", "home"], ["07:30", "breakfast", "home"], ["10:00", "chat", "plaza"], ["12:00", "home", "home"], ["14:00", "walk", "beach|pier"], ["16:00", "chat", "mae.porch|red.yard"], ["18:00", "supper", "home"], ["21:45", "sleep", "home"]]
    }},
   {"id": "timmy", "name": "Timmy", "full": "Timmy Hollis", "look": "kid", "stand_in": "kid", "home": "hollis", "age": "kid", "speed": 1.8, "jitter": 20,
    "friends": ["lily", "tom", "ada", "bram"],
-   "lines": {"default": ["Have you seen the windmill on PROF. OAK's lab?", "It spins all day long. Grandpa says it powers the whole lab!", "When I'm ten I'm gonna be just like Ash!"],
-     "play": ["Tag, you're it! ...Wait, are you playing?", "Ash can throw a stone all the way to the islet. Almost."],
-     "visit": ["Grandpa's telling the story about the giant MAGIKARP again!"]},
-   "barks": ["Ash! Ash! Watch this!", "Can't catch me!"],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["07:00", "breakfast", "home"], ["08:00", "play", "plaza|pond"], ["10:00", "visit", "oldman.porch"], ["11:00", "play", "route1_gate|beach|pond"], ["12:00", "home", "home"], ["13:00", "play", "lab_gate"], ["15:00", "play", "beach|plaza"], ["17:00", "errand", "farmer.door|marina.door"], ["17:45", "supper", "home"], ["19:00", "play", "hollis.yard", {"p": 0.6}], ["19:45", "home", "home"], ["20:30", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["07:00", "breakfast", "home"], ["08:00", "play", "plaza"], ["11:00", "play", "lab_gate|route1_gate"], ["12:30", "home", "home"], ["13:30", "play", "beach|pond"], ["16:00", "play", "plaza"], ["17:45", "supper", "home"], ["19:45", "home", "home"], ["20:30", "sleep", "home"]],
@@ -71,10 +47,6 @@
    }},
   {"id": "mae", "name": "Granny Mae", "full": "Granny Mae", "look": "mae", "stand_in": "oak", "home": "mae", "age": "elder", "speed": 1.12, "jitter": 15,
    "friends": ["delia", "rose", "tom", "ada"],
-   "lines": {"default": ["Come closer, dear, my eyes aren't what they were.", "That Ketchum boy has a fire in him. Mark my words."],
-     "feed": ["Here, PIDGEY, PIDGEY... They know my voice, you see.", "The little brown one's always first. Greedy thing."],
-     "porch": ["Knit one, purl two... This scarf's for Ash. For when he goes. Don't tell him."]},
-   "barks": ["Mind how you go, dear.", "Pidgey, pidgey, pidgey..."],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["05:45", "home", "home"], ["06:30", "feed", "mae.yard"], ["08:00", "porch", "mae.porch"], ["10:00", "walk", "plaza.benches", {"p": 0.65, "else": ["porch", "mae.porch"]}], ["12:00", "home", "home"], ["13:30", "porch", "mae.porch"], ["15:00", "feed", "mae.yard"], ["16:00", "porch", "mae.porch"], ["18:00", "supper", "home"], ["19:00", "porch", "mae.porch", {"p": 0.6}], ["20:00", "home", "home"], ["21:00", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["05:45", "home", "home"], ["06:30", "feed", "mae.yard"], ["08:30", "shop", "plaza"], ["10:30", "walk", "plaza.benches"], ["12:00", "home", "home"], ["13:30", "porch", "mae.porch"], ["15:00", "feed", "mae.yard"], ["16:00", "porch", "mae.porch"], ["18:00", "supper", "home"], ["21:00", "sleep", "home"]],
@@ -82,11 +54,6 @@
    }},
   {"id": "kai", "name": "Kai", "full": "Kai", "look": "fisher", "stand_in": "fisher", "home": "marina", "age": "adult", "speed": 1.45, "jitter": 10,
    "friends": ["marina", "gus", "bram", "ben"],
-   "lines": {"default": ["Technology is incredible!", "You can now store and recall items and POKéMON as data via PC!"],
-     "fish": ["Shh... they're biting. Out past the islet's where the big ones are.", "Up before the sun every day. That's when the MAGIKARP are dozy."],
-     "work:sell": ["Fresh catch! Mackerel, a crab or two, and one very confused MAGIKARP."],
-     "work:boat": ["A dab of tar here, a new plank there. She's older than me, this boat."]},
-   "barks": ["Technology is incredible!", "Nice morning for it!"],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["04:30", "breakfast", "home", {"jitter": 5}], ["05:00", "fish", "pier", {"jitter": 5}], ["09:00", "work:sell", "boathouse"], ["11:00", "mend", "marina.porch"], ["12:00", "home", "home"], ["13:00", "fish", "beach|pier"], ["16:00", "work:boat", "boathouse"], ["17:30", "chat", "plaza", {"p": 0.5}], ["18:30", "supper", "home"], ["20:00", "visit", "hollis", {"p": 0.3, "else": ["porch", "marina.porch"]}], ["21:00", "home", "home"], ["21:30", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["04:30", "breakfast", "home"], ["05:00", "fish", "pier"], ["08:00", "work:market", "plaza.stalls"], ["12:00", "home", "home"], ["13:30", "work:boat", "boathouse"], ["17:00", "chat", "pier"], ["18:30", "supper", "home"], ["21:30", "sleep", "home"]],
@@ -94,10 +61,6 @@
    }},
   {"id": "marina", "name": "Marina", "full": "Marina", "look": "marina", "stand_in": "girl", "home": "marina", "age": "adult", "speed": 1.4, "jitter": 15,
    "friends": ["kai", "ada", "delia", "gus"],
-   "lines": {"default": ["Kai's been out since before dawn. I hope he caught something this time.", "The sea gives, the sea takes. Mostly it gives us nets to mend."],
-     "mend": ["Every hole's a story. This one's a TENTACOOL, I'd bet.", "Hold this end, would you? ...Thank you, dear."],
-     "work:sell": ["Fish! Fresh from the bay! Cinnabar has nothing on our mackerel."]},
-   "barks": ["Fresh fish!", "Kai! Your boots!"],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["07:00", "mend", "marina.porch"], ["09:00", "work:sell", "boathouse|pier"], ["12:00", "home", "home"], ["13:00", "mend", "marina.yard"], ["15:30", "shop", "plaza", {"p": 0.6, "else": ["mend", "marina.porch"]}], ["17:00", "home", "home"], ["18:00", "supper", "home"], ["19:30", "walk", "beach", {"p": 0.6}], ["20:45", "home", "home"], ["21:30", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["07:30", "work:market", "plaza.stalls"], ["12:00", "home", "home"], ["13:30", "mend", "marina.porch"], ["16:00", "visit", "hollis|red", {"p": 0.5, "else": ["mend", "marina.yard"]}], ["18:00", "supper", "home"], ["21:30", "sleep", "home"]],
@@ -105,9 +68,6 @@
    }},
   {"id": "ben", "name": "Farmer Ben", "full": "Farmer Ben", "look": "ben", "stand_in": "fisher", "home": "farmer", "age": "adult", "speed": 1.36, "jitter": 10,
    "friends": ["bram", "kai", "tom"],
-   "lines": {"default": ["Mornin'. Mind the mud, it's a bit... everywhere.", "Oran berries are coming in nicely. Pecha too, if the ODDISH leave 'em be."],
-     "work:farm": ["Can't stop long, these rows won't hoe themselves.", "Rain tomorrow, I reckon. The knee says so."]},
-   "barks": ["Mornin'!", "Lovely weather for turnips."],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["04:15", "breakfast", "home", {"jitter": 5}], ["05:00", "work:farm", "fields"], ["12:00", "home", "home"], ["13:00", "work:farm", "fields"], ["16:00", "errand", "hollis.door"], ["16:45", "work:farm", "farmer.yard"], ["18:30", "supper", "home"], ["19:30", "walk", "pond|plaza", {"p": 0.5}], ["20:30", "home", "home"], ["21:00", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["04:30", "breakfast", "home"], ["05:00", "work:farm", "fields"], ["07:30", "work:market", "plaza.stalls"], ["12:00", "home", "home"], ["13:30", "work:farm", "fields"], ["18:30", "supper", "home"], ["21:00", "sleep", "home"]],
@@ -115,10 +75,6 @@
    }},
   {"id": "tom", "name": "Old Tom", "full": "Old Tom", "look": "tom", "stand_in": "oak", "home": "oldman", "age": "elder", "speed": 1.15, "jitter": 20,
    "friends": ["timmy", "mae", "gus", "bram", "kai"],
-   "lines": {"default": ["Did I ever tell you about the storm of '58? The waves came up to the hill!", "From my porch you can see Cinnabar on a clear day. Smoke on the mountain, some mornings."],
-     "yarn": ["...and that GYARADOS was THIS big. Well. Bigger, really.", "Young Ash reminds me of me at his age. Restless feet. Big dreams."],
-     "porch": ["Sea's calm today. Good day to sail, if I still did."]},
-   "barks": ["Fair winds!", "Ah, the young ones. Always running."],
    "schedule": {
     "default": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["07:30", "porch", "oldman.porch"], ["09:00", "walk", "hill"], ["10:15", "yarn", "pier"], ["12:00", "visit", "hollis", {"p": 0.5, "else": ["home", "home"]}], ["13:30", "yarn", "plaza.benches"], ["16:00", "walk", "beach|pier"], ["17:30", "porch", "hill"], ["18:30", "supper", "home"], ["19:30", "porch", "oldman.porch", {"p": 0.6}], ["20:30", "home", "home"], ["21:00", "sleep", "home"]],
     "sat": [["00:00", "sleep", "home"], ["06:00", "breakfast", "home"], ["08:30", "yarn", "plaza.benches"], ["12:00", "visit", "hollis"], ["14:00", "walk", "pier"], ["17:00", "porch", "oldman.porch"], ["18:30", "supper", "home"], ["21:00", "sleep", "home"]],
@@ -126,20 +82,10 @@
    }},
   {"id": "gus", "name": "Gus", "full": "Gus", "look": "gus", "stand_in": "fisher", "home": "lighthouse", "age": "adult", "speed": 1.3, "jitter": 20,
    "friends": ["kai", "tom", "marina"],
-   "lines": {"default": ["Name's Gus. I keep the light out on the islet.", "Ships bound for Cinnabar steer by my lamp. Haven't lost one yet."],
-     "shop": ["Lamp oil, biscuits, and a newspaper. That's me sorted for the week."],
-     "chat": ["Saw a LAPRAS out past the point last week. Nobody believes me."]},
-   "barks": ["Ahoy.", "Tide's turning."],
    "schedule": {
     "default": [["00:00", "lighthouse", "home"], ["10:00", "shop", "plaza", {"p": 0.45, "else": ["lighthouse", "home"]}], ["11:30", "chat", "pier|boathouse", {"p": 0.6, "else": ["lighthouse", "home"]}], ["13:00", "lighthouse", "home"]],
     "sat": [["00:00", "lighthouse", "home"], ["09:00", "shop", "plaza.stalls|plaza"], ["11:00", "chat", "pier"], ["12:30", "lighthouse", "home"]],
     "sun": [["00:00", "lighthouse", "home"], ["14:00", "walk", "beach|pier", {"p": 0.5, "else": ["lighthouse", "home"]}], ["16:00", "lighthouse", "home"]]
    }}
- ],
- "chatter": {
-  "greet": {"dawn": ["Up early, {b}?", "Morning, {b}."], "morning": ["Morning, {b}!", "Lovely morning, {b}."], "midday": ["Afternoon, {b}.", "Hello, {b}!"], "afternoon": ["Afternoon, {b}!", "Hello there, {b}."], "evening": ["Evening, {b}.", "Nice evening, {b}."], "night": ["Still up, {b}?"]},
-  "topics": ["Did you see Ash this morning? Running about like a RATTATA again.", "They say Professor Oak has three new POKéMON at the lab.", "Kai caught a MAGIKARP the size of a dinghy, apparently.", "The PIDGEY are thick round Mae's today.", "Bram's bread smelled wonderful this morning.", "Weather's turning, I reckon.", "Gus saw a ship from Cinnabar last night.", "Ash will be off on his journey soon, mark my words.", "My knees are telling me rain.", "Lily found a CATERPIE in the flower bed!"],
-  "replies": ["You don't say!", "Well I never.", "Ha! Typical.", "Oh, I'd heard something like that.", "That's Pallet for you.", "Really? I must tell Ada.", "Hmm. We'll see.", "That boy, honestly."],
-  "bye": ["Well, I'd best be off.", "Mustn't keep you.", "See you later, then.", "Take care now."]
- }
+ ]
 }

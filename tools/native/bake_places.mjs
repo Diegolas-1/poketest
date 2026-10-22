@@ -51,7 +51,7 @@ for (const hs of T.HOUSES) {
   const out2 = T.toWorld(hs, dx, T.YARD.z1 + 2.0);
   const mb = near(boxes, ...gate);
   out.houses[hs.id] = {
-    center: P(hs.x, hs.z), rot: r2(hs.rot),
+    center: P(hs.x, hs.z), rot: r2(hs.rot), floor_y: r2(hs.y + 0.45),   // the door's sill (town.js: base 0.45 over the house's y)
     door: P(d.x, d.z, inYaw),                    // stand here facing the door to go in
     doorway: P(d.x - n[0] * 1.0, d.z - n[1] * 1.0, inYaw),   // the door itself (the "open" beat is drawn here)
     porch: P(porch[0], porch[1], Math.atan2(n[0], n[1])),

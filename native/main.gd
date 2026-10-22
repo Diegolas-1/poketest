@@ -198,6 +198,7 @@ func _input(e: InputEvent) -> void:
 	var half := get_viewport().get_visible_rect().size.x * 0.5
 	if e is InputEventScreenTouch:
 		if e.pressed and Settings.blocks_touch(e.position): return   # the settings cog
+		if e.pressed and cast and cast.life and cast.life.quests.blocks_touch(e.position): return   # the quest log button
 		if e.pressed:
 			if e.position.x < half and stick_id == -1:
 				stick_id = e.index; stick_origin = e.position; stick_vec = Vector2.ZERO

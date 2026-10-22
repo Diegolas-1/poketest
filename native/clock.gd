@@ -53,7 +53,7 @@ func _ready() -> void:
 	hud.add_theme_constant_override("outline_size", 5)
 	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hud.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	hud.position = Vector2(-220, 18)
+	hud.position = Vector2(-284, 32)   # left of the quest log button (quest_ui.gd)
 	hud.size = Vector2(200, 24)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(hud)

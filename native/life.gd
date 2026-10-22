@@ -53,6 +53,8 @@ extends Node3D
 # Debug: F3 or O (or Settings > Time > Town debug overlay) lists everyone's
 # activity, place and target; T / Shift+T skip an hour / six (clock.gd); F4
 # fast-forwards x30. dev/life_test.tscn runs the headless day test.
+#
+# Words: quests.gd (Quests) answers talk / chatter / overheard / wants / relation.
 
 signal person_entered(id: String, house: String)
 signal person_exited(id: String, house: String)
@@ -91,7 +93,7 @@ var claims := {}                 # "place:index" -> person id
 var pair_cd := {}                # "a|b" -> game minute when they may chat again
 var doors := {}                  # house id -> {mesh, t}
 var stuck_log: Array = []      # [id, where, waypoint, place, try] (tests)
-var stats := {"paths": 0, "path_us": 0, "path_max_us": 0, "repath": 0, "teleport": 0, "chats": 0, "greets": 0, "us_avg": 0.0, "us_max": 0.0}
+var stats := {"paths": 0, "path_us": 0, "path_max_us": 0, "repath": 0, "teleport": 0, "chats": 0, "greets": 0, "us_avg": 0.0, "us_max": 0.0, "anim_avg": 0.0}
 var debug := false
 var bubbles: Control
 var debug_label: Label
@@ -101,6 +103,8 @@ var _frame := 0
 var _social_acc := 0.0
 var _us_acc := 0.0
 var _us_n := 0
+var _anim_us := 0.0             # this frame's actor animation (cloth included), kept apart from the sim
+var _anim_acc := 0.0
 var _jumped := false
 var _chase := {}                 # {chaser, runner, t}
 var _delia_cd := 30.0
@@ -122,7 +126,6 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 	_build_nav(pd.roads)
 	_snap_places()
 	var t1 := Time.get_ticks_msec()
-	_quests()
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://life/people.json"))
 	var looks: Dictionary = CastActor.data().looks
 	for e in data.people:
@@ -143,6 +146,7 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 		people.append(p)
 		by_id[p.id] = p
 	_make_doors()
+	_quests()
 	if not headless:
 		var layer := CanvasLayer.new()
 		layer.layer = 1
@@ -166,15 +170,20 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 	print("life: nav %dx%d built in %d ms, setup %d ms" % [nx, nz, t1 - t0, Time.get_ticks_msec() - t0])
 
 func _quests() -> void:
-	var path := "res://quests.gd"
-	if ResourceLoader.exists(path): quests = load(path).new()
-	else: quests = load("res://life/quests_stub.gd").new()
+	quests = Quests.new()
 	quests.name = "Quests"
+	if headless: quests.make_ui = false; quests.autosave = false
 	add_child(quests)
-	if quests.has_method("setup"): quests.setup(game, clock)
+	quests.setup(game, clock)
+	for p in people: _names(p)
+
+# every way a chatter line may name someone ("Old Tom:", "Tom:", "OLD TOM:")
+func _names(p: Dictionary) -> void:
+	p.names = [String(p.id), String(p.name).to_lower(), String(p.data.full).to_lower(),
+		quests.display_name(p.id).to_lower(), quests.short_name(p.id).to_lower(), quests.tag(p.id).to_lower()]
 
 func _on_setting(k: String, v) -> void:
-	if k == "town_debug": _set_debug(int(v) == 1)
+	if k == "town_debug": _set_debug(int(v) == 1 or OS.get_cmdline_user_args().has("--life-debug"))
 
 func _set_debug(on: bool) -> void:
 	debug = on
@@ -419,14 +428,14 @@ func _make_doors() -> void:
 		var hs: Dictionary = houses[h]
 		var mi := MeshInstance3D.new()
 		var q := QuadMesh.new()
-		q.size = Vector2(1.18, 2.12)
+		q.size = Vector2(1.34, 2.2)
 		mi.mesh = q
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var n: Vector2 = hs.normal
 		var dr: Vector3 = hs.door_raw
 		var at := Vector2(dr.x, dr.y) - n * 0.9
-		mi.position = Vector3(at.x, world.height_at(dr.x, dr.y) + 1.08, at.y)
+		mi.position = Vector3(at.x, float(hs.get("floor_y", world.height_at(dr.x, dr.y))) + 1.12, at.y)
 		mi.rotation.y = atan2(n.x, n.y)
 		mi.visible = false
 		add_child(mi)
@@ -625,6 +634,9 @@ func _enter(p: Dictionary, h: String) -> void:
 	p.inside = h
 	p.v = 0.0
 	p.path = PackedVector2Array()
+	# while inside, their position is the door (for anyone asking where they are)
+	var d: Vector3 = houses[h].door_raw if houses.has(h) else door_of(h)
+	p.pos = Vector3(d.x, world.height_at(d.x, d.y), d.y)
 	_unclaim(p)
 	if p.actor: p.actor.visible = false
 	p.bubble = {}
@@ -705,7 +717,7 @@ func update(dt: float) -> void:
 	_frame += 1
 	if _jumped: resync()
 	var sim := dt * clock.ff
-	var n := maxi(1, ceili(sim / 0.1))
+	var n := clampi(ceili(sim / 0.1), 1, 6)   # fast-forward: a few coarser steps, not dozens
 	var sdt := sim / n
 	_paths()
 	var cam: Camera3D = game.cam if not headless else null
@@ -740,11 +752,12 @@ func update(dt: float) -> void:
 	if not _chase.is_empty(): _chase_tick(sim)
 	if bubbles: bubbles.tick(dt)
 	if debug and _frame % 10 == 0: _debug_text()
-	var us := float(Time.get_ticks_usec() - t0)
-	_us_acc += us; _us_n += 1
+	var us := float(Time.get_ticks_usec() - t0) - _anim_us   # the sim's own cost
+	_us_acc += us; _us_n += 1; _anim_acc += _anim_us; _anim_us = 0.0
 	stats.us_max = maxf(stats.us_max * 0.995, us)
 	if _us_n >= 60:
 		stats.us_avg = _us_acc / _us_n; _us_acc = 0.0; _us_n = 0
+		stats.anim_avg = _anim_acc / 60.0; _anim_acc = 0.0
 
 func _show(p: Dictionary, dt: float) -> void:
 	var a: CastActor = p.actor
@@ -758,7 +771,9 @@ func _show(p: Dictionary, dt: float) -> void:
 	a.cloth_far = p.cam_d > 25.0
 	a.cloth_rate = 60.0 if p.cam_d < 12.0 else 30.0
 	if not far or (_frame + p.idx) % 2 == 0:
+		var ta := Time.get_ticks_usec()
 		a.animate(p.acc, p.v, false); p.acc = 0.0
+		_anim_us += Time.get_ticks_usec() - ta
 
 func _turn(p: Dictionary, to: float, dt: float, k := 7.0) -> void:
 	p.yaw = wrapf(p.yaw + wrapf(to - p.yaw, -PI, PI) * (1.0 - exp(-dt * k)), -PI, PI)
@@ -774,11 +789,12 @@ func _tick(p: Dictionary, dt: float, full: bool) -> void:
 				p.hop_t -= dt
 				if p.hop_t <= 0.0: _hop(p)
 		"knock":
-			p.v = 0.0
+			var h: String = p.goal.list[p.goal.i]
+			if full and p.beat_t == 0.0 and _approach_door(p, h, dt): return
+			p.v *= exp(-dt * 8.0)
 			_turn(p, p.face, dt, 6.0)
 			var was: float = p.beat_t
 			p.beat_t += dt
-			var h: String = p.goal.list[p.goal.i]
 			if was < 2.0 and p.beat_t >= 2.0: _open_door(h, 3.0)
 			if was < 2.4 and p.beat_t >= 2.4 and p.id == "ada" and full: say(p, ["Bread's here!", "Morning, love! Your loaf!", "Fresh from the oven!"][_rng.randi() % 3], 2.2)
 			if p.beat_t > 5.5 + float(p.goal.i % 3):
@@ -958,8 +974,12 @@ func _door_in(p: Dictionary, dt: float, full: bool) -> void:
 	if not full or h == "lighthouse":
 		_enter(p, h); _pursue_after_enter(p); return
 	var d := door_of(h)
+	# the walk grid keeps paths clear of the porch rails, so the path may end a
+	# little off the door: the last steps up to it are walked straight
+	if p.beat_t == 0.0 and _approach_door(p, h, dt): return
 	var was: float = p.beat_t
 	p.beat_t += dt
+	p.v *= exp(-dt * 8.0)
 	_turn(p, d.z, dt, 9.0)
 	if was < 0.3 and p.beat_t >= 0.3: _open_door(h, 1.7)
 	if p.beat_t > 0.45:
@@ -968,6 +988,22 @@ func _door_in(p: Dictionary, dt: float, full: bool) -> void:
 		p.pos.x -= n.x * 0.7 * dt; p.pos.z -= n.y * 0.7 * dt
 	if p.beat_t > 1.25:
 		_enter(p, h); _pursue_after_enter(p)
+
+# the last steps up to the door, straight (true while still walking)
+func _approach_door(p: Dictionary, h: String, dt: float) -> bool:
+	if not houses.has(h): return false
+	var dr: Vector3 = houses[h].door_raw
+	var to := Vector2(dr.x, dr.y) - _xz3(p.pos)
+	if to.length() < 0.15 or p.get("door_walk", 0.0) > 2.5:
+		p.door_walk = 0.0
+		return false
+	p.door_walk = p.get("door_walk", 0.0) + dt
+	p.v = 1.0
+	_turn(p, atan2(to.x, to.y), dt, 10.0)
+	var st := to.normalized() * minf(to.length(), 1.0 * dt)
+	p.pos.x += st.x; p.pos.z += st.y
+	p.pos.y = world.height_at(p.pos.x, p.pos.z)
+	return true
 
 func _pursue_after_enter(p: Dictionary) -> void:
 	# the schedule may have moved on during the walk here
@@ -997,8 +1033,15 @@ func ctx_of(p: Dictionary) -> Dictionary:
 	var act: String = p.act
 	if p.state in ["walk", "wait_path"]: act = "commute"
 	elif p.state == "inside" and not (act in DOOR_ACTS): act = "inside"
-	return {"hour": clock.hour(), "period": clock.period(), "activity": act, "place": _resolve(p, p.place),
+	return {"hour": clock.hour(), "period": clock.period(), "activity": act, "place": place_of(p), "spot": _resolve(p, p.place),
 		"day": clock.day(), "weekday": clock.weekday(), "next": p.act, "state": p.state}
+
+# the place a person is at or bound for, as the dialogue names them: a house id
+# ("hollis") or a place ("pier"); Ada's round is "town"
+func place_of(p: Dictionary) -> String:
+	var pl := _resolve(p, p.place)
+	if pl.begins_with("route:"): return "town"
+	return pl.split(".")[0]
 
 func say(p: Dictionary, text: String, secs := 3.0) -> void:
 	if text == "": return
@@ -1018,7 +1061,7 @@ func _social(dt: float) -> void:
 			p.bubble.t -= dt
 			if p.bubble.t <= 0.0: p.bubble = {}
 		p.bark_cd -= dt
-		if (_frame / 7 + p.idx) % 8 == 0: p.wants = String(quests.wants(p.id)) if quests.has_method("wants") else ""
+		if (_frame / 7 + p.idx) % 8 == 0: p.wants = String(quests.wants(p.id))
 	for i in outside.size():
 		var a: Dictionary = outside[i]
 		if not _free_for_chat(a): continue
@@ -1030,8 +1073,9 @@ func _social(dt: float) -> void:
 			var key := _pair(a.id, b.id)
 			if pair_cd.get(key, -1e9) > m: continue
 			pair_cd[key] = m + 45.0 + _rng.randf() * 60.0
-			var friends: bool = b.id in a.friends or a.id in b.friends
-			var chance := 0.7 if friends else 0.35
+			var rel := String(quests.relation(a.id, b.id))
+			var friends: bool = b.id in a.friends or a.id in b.friends or rel in ["family", "friends"]
+			var chance := 0.7 if friends else (0.15 if rel == "rivals" else 0.35)
 			if a.state == "walk" and b.state == "walk": chance *= 0.6
 			if a.act.begins_with("work") or a.act in ["fish", "bake", "deliver"]: chance *= 0.5
 			if _rng.randf() < chance:
@@ -1073,7 +1117,7 @@ func _social(dt: float) -> void:
 			if p.id == "delia" or p.bark_cd > 0.0 or not p.bubble.is_empty() or not (p.state in ["act", "walk"]): continue
 			if _xz3(p.pos).distance_to(me) < 3.5:
 				p.bark_cd = _rng.randf_range(60, 120)
-				if _rng.randf() < 0.45 and quests.has_method("overheard"): say(p, quests.overheard(p.id, ctx_of(p)), 2.6)
+				if _rng.randf() < 0.45: say(p, quests.overheard(p.id, ctx_of(p)), 2.6)
 
 func _greet(a: Dictionary, b: Dictionary) -> void:
 	stats.greets += 1
@@ -1086,7 +1130,7 @@ func _greet(a: Dictionary, b: Dictionary) -> void:
 func _start_chat(a: Dictionary, b: Dictionary) -> void:
 	var ctx := ctx_of(a)
 	ctx["with"] = b.id
-	var lines: Array = quests.chatter(a.id, b.id, ctx) if quests.has_method("chatter") else []
+	var lines: Array = quests.chatter(a.id, b.id, ctx)
 	if lines.is_empty(): return
 	stats.chats += 1
 	pair_cd[_pair(a.id, b.id)] = clock.minutes + 120.0 + _rng.randf() * 120.0
@@ -1118,7 +1162,7 @@ func _chat_tick(p: Dictionary, dt: float) -> void:
 		var nm := line.substr(0, colon).to_lower()
 		text = line.substr(colon + 2)
 		var b2 = by_id[c.b]
-		if nm == String(b2.name).to_lower() or nm == String(b2.id) or nm == String(b2.data.full).to_lower(): who = b2
+		if nm in b2.names and not (nm in p.names): who = b2
 	elif c.i % 2 == 1: who = by_id[c.b]
 	var secs := clampf(1.4 + text.length() * 0.055, 2.2, 5.5)
 	say(who, text, secs)
@@ -1209,7 +1253,7 @@ func begin_talk(p: Dictionary) -> Array:
 	p.v = 0.0
 	p.bubble = {}
 	_talking = p
-	var lines: Array = quests.talk(p.id, ctx) if quests.has_method("talk") else []
+	var lines: Array = quests.talk(p.id, ctx)
 	if lines.is_empty(): lines = ["..."]
 	return lines.map(func(l): return String(l) if not (l is Dictionary) else String(l.get("text", "...")))
 
@@ -1245,8 +1289,8 @@ func describe(p: Dictionary) -> String:
 	return "%-6s %-11s %-10s %s%s" % [p.id, p.act, p.state, where, "  !" if p.wants != "" else ""]
 
 func _debug_text() -> void:
-	var s := "%s %s  life %.2f ms (max %.2f)  paths %d (avg %.1f ms, max %.1f)  re-plans %d  hops %d  chats %d\n" % [
-		clock.day_text(), clock.time_text(), stats.us_avg / 1000.0, stats.us_max / 1000.0, stats.paths,
+	var s := "%s %s  life %.2f ms (max %.2f) + actors %.2f ms  paths %d (avg %.1f ms, max %.1f)  re-plans %d  hops %d  chats %d\n" % [
+		clock.day_text(), clock.time_text(), stats.us_avg / 1000.0, stats.us_max / 1000.0, stats.anim_avg / 1000.0, stats.paths,
 		(stats.path_us / maxf(1, stats.paths)) / 1000.0, stats.path_max_us / 1000.0, stats.repath, stats.teleport, stats.chats]
 	for p in people: s += describe(p) + "\n"
 	debug_label.text = s
