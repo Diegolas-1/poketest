@@ -11,7 +11,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
 import { addEdgeLines, inkSolid, partEdges, inkSkip } from './outline.js';
 import { makeTree, makeBush, makeClump, makeRock, TILE } from './foliage.js';
-import { STONE, stoneMaterial, boulderGeometry, blockGeometry, mergeAll, wallGeometry, wallMeshes, stoneMesh, mergeStones } from './stone.js';
+import { STONE, boulderGeometry, blockGeometry, mergeAll, wallGeometry, wallMeshes, stoneMesh, mergeStones } from './stone.js';
 const WALL_FADE = [300, 310];   // native: walls stay drawn this far (m)
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 
@@ -530,7 +530,7 @@ function cottage(hs, world) {
 // A long straight flight of stone stairs up the front of the hill, a landing
 // half way, stone cheek walls, and round trimmed bushes lining both sides.
 function labStairs(world) {
-  const S = STAIRS, stone = flat('#dcd5c6'), cheek = flat('#c9c1b0');
+  const S = STAIRS, stone = flat('#dcd5c6');
   const treads = [];
   // every tread: x range and top height
   for (let x = S.x0; x < S.x1 + 0.01; ) {
@@ -567,7 +567,6 @@ function labStairs(world) {
       faces: [{ side: s, bottom: (u) => height(cx0 + u, zc + s * 0.5) - 0.25 }, { side: -s, bottom: (u) => stairY(Math.min(cx0 + u + 0.01, S.x1)) - 0.06 }] };
   });
   for (const c of cheeks) world.group.add(...wallMeshes([c], 4300 + c.a[1] * 10, { fade: WALL_FADE }));
-  void cheek;
   // each tread's worn front edge in a darker stone, so the steps read
   const nose = new THREE.InstancedMesh(g, flat('#a99f8e'), treads.length);
   treads.forEach(([a, b, y], i) => {
@@ -617,7 +616,7 @@ function instBushes(world, list, models, collide = true, sink = 0.12) {
 // foot of the stairs; a low stone retaining wall along the hill's foot.
 function labGate(world) {
   const S = STAIRS, gx = S.x0 - 0.3, y = PLAZA.y;
-  const brick = tex(bricks('#b7604a')), stone = tex(stones('#c9c0ae'));
+  const brick = tex(bricks('#b7604a'));
   for (const s of [-1, 1]) {
     const z = S.z + s * (S.hw + 0.75);
     const G = new THREE.Group(); G.position.set(gx, y, z); world.group.add(G);
@@ -648,7 +647,6 @@ function labGate(world) {
   wallSeg(LAB_HILL.z0 - 4, S.z - S.hw - 1.25);
   wallSeg(S.z + S.hw + 1.25, LAB_HILL.z1 + 4);
   for (const r of runs) world.group.add(...wallMeshes([r], 4100 + Math.round(r.a[1]), { fade: WALL_FADE }));
-  void stone;
   sign(PLAZA.x0 + 1.6, S.z - S.hw - 3.2, Math.PI / 2 + 0.35, () => labPlate('OAK POKéMON RESEARCH LAB', { mount: 'posts', w: 1.7, h: 0.56, line2: 'Up the stairs', height: 0.9 }), ['OAK POKéMON RESEARCH LAB'], world);
   // plaza: two lamps, a bench, flower tubs
   lamp(PLAZA.x0 + 2.2, PLAZA.z1 - 1.0, world);
@@ -771,7 +769,6 @@ function streamRocks(world) {
 // ---------- along the lanes: stone retaining walls in the cuttings, white
 // rail fences, lamps ----------
 function laneFurniture(world) {
-  const stone = tex(stones('#cbb9b0'));
   const walls = [];
   const R = rng(919);
   ROADS.forEach((road) => {
@@ -804,7 +801,6 @@ function laneFurniture(world) {
   });
   let ci = 0;
   for (const runs of cells.values()) world.group.add(...wallMeshes(runs, 5200 + ci++, { fade: WALL_FADE }));
-  void stone;
   const g = new THREE.BoxGeometry(1, 1, 1), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
 
   // white rail fences beside some lanes
@@ -1108,8 +1104,8 @@ function lighthouse(world, x, z) {
     }
   };
   const wob = (b, k) => Math.sin(b * 0.55 + k) * 0.25 + Math.sin(b * 1.4 + k * 2) * 0.15;
-  ring((b) => -0.6, (b) => 1.0 + wob(b, 1), () => true);
-  ring((b) => 1.3 + wob(b, 3) * 0.5, (b) => 1.75 + wob(b, 3), (b) => Math.sin(b * 0.42) + Math.sin(b * 1.15) > 0.2);
+  ring((b) => -0.4, (b) => 0.45 + wob(b, 1) * 0.6, () => true);
+  ring((b) => 0.9 + wob(b, 3) * 0.4, (b) => 1.2 + wob(b, 3) * 0.6, (b) => Math.sin(b * 0.42) + Math.sin(b * 1.15) > 0.4);
   const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.computeVertexNormals();
   const foam = new THREE.Mesh(fg, flat('#ffffff')); foam.position.y = 0.16; foam.userData.outline = false; foam.castShadow = false; G.add(foam);
   // a short jetty off the landing, a bollard

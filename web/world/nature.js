@@ -1,4 +1,4 @@
-// Sky, clouds, mountains, trees, grass, tall grass, flowers and rocks.
+// Sky, clouds, mountains, trees, grass, tall grass and flowers.
 import * as THREE from 'three';
 import { height, roadMask, isWater, fbm, rng, SEA_Y, POND } from './terrain.js';
 
@@ -313,26 +313,4 @@ export function buildFlowers(beds, blocked, wild) {
   return inst;
 }
 
-// ---------- rocks ----------
-export function buildRocks(colliders) {
-  const r = rng(31), geos = [];
-  const spots = [[-31, 27, 1.3], [-14, 40, 0.9], [-27, 39, 1.0], [40, -36, 1.6], [-44, -34, 1.4], [12, -46, 1.2], [-10, -52, 1.6], [44, 30, 1.2]];
-  for (let i = 0; i < 40; i++) {
-    const x = (r() - 0.5) * 220, z = -150 + r() * 150;
-    if (Math.abs(x) < 48 && z > -40) continue;
-    if (roadMask(x, z) > 0.05 || isWater(x, z)) continue;
-    spots.push([x, z, 0.8 + r() * 2.2]);
-  }
-  for (const [x, z, s] of spots) {
-    const g = new THREE.IcosahedronGeometry(s, 0);
-    const p = g.attributes.position;
-    for (let k = 0; k < p.count; k++) p.setXYZ(k, p.getX(k) * (0.8 + r() * 0.4), p.getY(k) * (0.55 + r() * 0.2), p.getZ(k) * (0.8 + r() * 0.4));
-    g.rotateY(r() * 6).translate(x, height(x, z) + s * 0.15, z);
-    g.computeVertexNormals();
-    geos.push(tint(g, '#80807a', '#b5b2a6'));
-    colliders.push({ x, z, r: s * 0.85 });
-  }
-  const m = new THREE.Mesh(merge(geos), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
-  m.castShadow = true; m.receiveShadow = true;
-  return m;
-}
+// (rocks: stone.js, scattered by veg.js and town.js)

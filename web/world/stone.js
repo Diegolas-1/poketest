@@ -16,7 +16,7 @@ import { celify } from './toon.js';
 // planes: [[nx, ny, nz, d]] with unit normals. Returns the faces, each
 // { p: plane index, v: [Vector3] counter-clockwise seen from outside }.
 export function polytope(P) {
-  const V = [], E = 1e-6;
+  const V = [];
   const n = P.length;
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) for (let k = j + 1; k < n; k++) {
     const a = P[i], b = P[j], c = P[k];
@@ -45,7 +45,6 @@ export function polytope(P) {
     pts.sort((A, B) => A.a - B.a);
     faces.push({ p: m, v: pts.map((q) => q.v) });
   }
-  void E;
   return faces;
 }
 
@@ -90,7 +89,7 @@ function shapeGeometry(P, nMain, R, o = {}) {
   // which main faces each corner touches (bevel corners take their normal)
   const touch = new Map();
   for (const f of faces) if (f.p < nMain) for (const v of f.v) { const k = keyOf(v); if (!touch.has(k)) touch.set(k, []); touch.get(k).push(f.p); }
-  const c = new THREE.Color(), n = new THREE.Vector3();
+  const c = new THREE.Color();
   let minY = Infinity, maxY = -Infinity;
   for (const f of faces) for (const v of f.v) { minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); }
   for (const f of faces) {
@@ -114,7 +113,6 @@ function shapeGeometry(P, nMain, R, o = {}) {
       uv.push(rim ? 1 : 0, tone);
     }
   }
-  void n;
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
@@ -327,14 +325,13 @@ function blocks() {
   }
   return BLOCKS;
 }
-const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
 // a block scaled to len x h x dep, its face toward +n (unit, horizontal),
 // centred at (cx, cy, cz), turned by `tilt` (slope along the run)
 function putBlock(out, R, b, len, h, dep, cx, cy, cz, n, tilt, tint) {
   const g = b.geometry.clone();
   // block: x along its length, z out of its face
   const ang = Math.atan2(n[0], n[2]);
-  _e.set((R() - 0.5) * 0.03, ang + (R() - 0.5) * 0.04, tilt + (R() - 0.5) * 0.035, 'YXZ');
   _q.setFromEuler(new THREE.Euler(0, ang, 0)).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler((R() - 0.5) * 0.03, (R() - 0.5) * 0.04, tilt + (R() - 0.5) * 0.035)));
   _m.compose(_p.set(cx, cy, cz), _q, _s.set(len / b.a, h, dep));
   g.applyMatrix4(_m);
@@ -409,22 +406,20 @@ export function wallGeometry(runs, seed = 1, split = false) {
         const um = (u0 + u1) / 2, [cx, cz] = P(um, 0);
         const b = pick(R, (u1 - u0) / capH, true);
         const ty = (run.top(u0) + run.top(u1)) / 2;
-        putBlock(caps, R, b, u1 - u0 - 0.03, capH, t + 0.12, cx, ty - capH / 2, cz, [nx, 0, nz], slope(u0, u1) * (dx * nz - dz * nx > 0 ? 1 : 1), 1.04 + R() * 0.08);
+        putBlock(caps, R, b, u1 - u0 - 0.03, capH, t + 0.12, cx, ty - capH / 2, cz, [nx, 0, nz], slope(u0, u1), 1.04 + R() * 0.08);
       }
     }
     // the core: a dark strip seen through the joints
-    const core = [], ins = t / 2 - 0.12, mc = base.clone().multiplyScalar(0.42);
+    const ins = t / 2 - 0.12, mc = base.clone().multiplyScalar(0.42);
     const sides = run.faces.map((f) => f.side);
     const step = 0.5, us = [];
     for (let u = 0; u < L; u += step) us.push(u); us.push(L);
-    const quad = (A, B, C, D, nn) => { for (const v of [A, B, C, A, C, D]) { core.push(v); } return nn; };
     const pos = [], nrm = [];
     const pushQ = (A, B, C, D) => {
       const e1 = new THREE.Vector3(B[0] - A[0], B[1] - A[1], B[2] - A[2]), e2 = new THREE.Vector3(D[0] - A[0], D[1] - A[1], D[2] - A[2]);
       const nn = e1.cross(e2).normalize();
       for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(nn.x, nn.y, nn.z); }
     };
-    void quad; void core;
     for (let i = 0; i + 1 < us.length; i++) {
       const u0 = us[i], u1 = us[i + 1], t0 = run.top(u0) - capH + 0.02, t1 = run.top(u1) - capH + 0.02;
       for (const s of [1, -1]) {
