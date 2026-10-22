@@ -55,6 +55,9 @@ extends Node3D
 # fast-forwards x30. dev/life_test.tscn runs the headless day test.
 #
 # Words: quests.gd (Quests) answers talk / chatter / overheard / wants / relation.
+# Pokémon: companions.gd (Companions, life/companions.json) keeps Lily's Nibbles
+# and Ben's Doduo with their owners; an owner a slow pet keeps to (pace_cap)
+# walks no faster than it and doesn't break into a jog.
 
 signal person_entered(id: String, house: String)
 signal person_exited(id: String, house: String)
@@ -78,6 +81,7 @@ var cast: Node
 var world: WorldData
 var clock: GameClock
 var quests: Node
+var companions: Companions
 var interiors = null
 var headless := false            # logic test: no actors, everyone simulated in full
 var nav := AStarGrid2D.new()
@@ -147,6 +151,10 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 		by_id[p.id] = p
 	_make_doors()
 	_quests()
+	companions = Companions.new()
+	companions.name = "Companions"
+	add_child(companions)
+	companions.setup(self)
 	if not headless:
 		var layer := CanvasLayer.new()
 		layer.layer = 1
@@ -602,7 +610,7 @@ func _walk(p: Dictionary, to: Vector2, after: String) -> void:
 		return
 	p.state = "wait_path"
 	if not _queue.has(p): _queue.append(p)
-	p.jog = p.age == "kid" and _rng.randf() < 0.25
+	p.jog = p.age == "kid" and _rng.randf() < 0.25 and not p.has("pace_cap")
 
 static func _xz3(v: Vector3) -> Vector2: return Vector2(v.x, v.z)
 
@@ -681,6 +689,7 @@ func resync() -> void:
 		_check(p)
 		_jumped = false
 		_place_now(p)
+	if companions: companions.resync()
 
 func _place_now(p: Dictionary) -> void:
 	var g: Dictionary = p.goal
@@ -749,6 +758,7 @@ func update(dt: float) -> void:
 				if p.lod_acc >= 0.25 or n > 1:
 					_tick(p, p.lod_acc, false); p.lod_acc = 0.0
 		if not headless: _show(p, dt)
+	companions.update(sim, dt, cam, planes, cp)
 	_doors(sim)
 	_social_acc += sim
 	if _social_acc >= 0.25:
@@ -853,6 +863,7 @@ func _move(p: Dictionary, dt: float, full: bool) -> void:
 			_arrive(p)
 		return
 	var vmax: float = p.walk_v * (1.75 if p.jog else 1.0)
+	if p.has("pace_cap"): vmax = minf(vmax, p.pace_cap)
 	if last: vmax = minf(vmax, 0.35 + d * 1.4)
 	if not full:
 		# far: along the path, no steering or collision (the path is clear)
@@ -882,6 +893,13 @@ func _move(p: Dictionary, dt: float, full: bool) -> void:
 			push += dv / dd * (1.6 - dd) * 1.2
 			if dir.dot(-dv / dd) > 0.6 and o.state != "walk": push += Vector2(-dir.y, dir.x) * -0.8   # someone standing in the way: round them
 			elif dir.dot(-dv / dd) > 0.6: push += Vector2(dir.y, -dir.x) * 0.5    # oncoming: keep right
+	# and round the Pokémon (not their own: it keeps out of their way)
+	for c in companions.pets:
+		if c.inside != "" or c.owner == p: continue
+		var dc: Vector2 = here - Vector2(c.pos.x, c.pos.z)
+		var dcl := dc.length()
+		var rc: float = 0.6 + float(c.sp.r)
+		if dcl < rc and dcl > 1e-3: push += dc / dcl * (rc - dcl) * 1.5
 	if not headless and not away:
 		var me := Vector2(game.pos.x, game.pos.z)
 		var dm := here.distance_to(me)
@@ -1329,7 +1347,7 @@ class _Bubbles extends Control:
 		_sb_far.set_border_width_all(1)
 	func tick(dt: float) -> void:
 		var any := false
-		for p in life.people:
+		for p in life.people + life.companions.pets:
 			if not p.bubble.is_empty() and p.bubble.has("delay"):
 				p.bubble.delay -= dt
 				if p.bubble.delay <= 0.0: p.bubble.erase("delay")
@@ -1340,9 +1358,9 @@ class _Bubbles extends Control:
 	func _draw() -> void:
 		var cam: Camera3D = life.game.cam
 		var me: Vector3 = life.game.pos
-		for p in life.people:
+		for p in life.people + life.companions.pets:
 			if not p.seen or p.state == "inside": continue
-			var hh := 1.55 if p.age == "kid" else 2.05
+			var hh: float = p.get("bub_h", 1.55 if p.age == "kid" else 2.05)
 			var head: Vector3 = p.pos + Vector3(0, hh, 0)
 			if cam.is_position_behind(head): continue
 			var d := cam.global_position.distance_to(head)

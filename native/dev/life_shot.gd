@@ -4,6 +4,8 @@ extends Node
 #   godot --path native --rendering-driver opengl3 res://dev/life_shot.tscn -- --out=/tmp/a.png
 #     [--clock=HH:MM[,day]] [--follow=<id> | --follow=chat] [--until=act|walk|door_in|door_out|chat|knock]
 #     [--view=dist,height,side] [--cam=px,py,pz,tx,ty,tz] [--player=x,z | --player=near] [--ff=30] [--max=600] [--debug]
+#     [--pet=<companion id>]   frame the person's Pokémon (companions.gd) instead, looking at it from --view
+#     [--keep=N]               then go on N frames, saving out_000.png.. (a filmstrip)
 var main: Node
 var A := {}
 var frame := 0
@@ -29,6 +31,8 @@ func _find() -> Variant:
 	var until: String = A.get("until", "act")
 	var cands: Array = life.people if f == "chat" or f == "" else [life.by_id[f]]
 	for p in cands:
+		var pt = life.companions.by_id.get(A.get("pet", ""))
+		if pt != null and A.has("near") and Vector2(pt.pos.x - p.pos.x, pt.pos.z - p.pos.z).length() > float(A.near): continue
 		if f == "chat":
 			if p.state == "chat" and not p.bubble.is_empty() and not p.bubble.has("delay"): return p
 			continue
@@ -40,6 +44,8 @@ func _find() -> Variant:
 
 func _process(dt: float) -> void:
 	frame += 1
+	var ov = Settings.get("overlay")
+	if ov and not A.has("perf"): ov.visible = false
 	if frame < 3 or phase == 2: return
 	var life := _life()
 	var ff := float(A.get("ff", "30"))
@@ -69,6 +75,12 @@ func _process(dt: float) -> void:
 	if A.has("trace") and who != null and frame % 10 == 0: print("trace %s ff %.0f %s seen %s" % [life.clock.time_text(), life.clock.ff, life.describe(who), who.seen])
 	var tp: Vector3
 	if who != null: tp = who.pos
+	var pet = life.companions.by_id.get(A.get("pet", ""))
+	if pet != null and A.has("pat") and phase == 1 and settle == int(A.get("settle", "40")) - 2:
+		pet.pat_cd = 0.0; pet.still_t = 5.0; life.companions.force_pat = true   # (dev) the owner's moment with it now
+	if pet != null and who != null:
+		tp = pet.pos
+		who = {"pos": pet.pos, "yaw": pet.yaw}
 	if A.has("player") and who != null and A.player == "near":
 		var off := Vector3(sin(who.yaw), 0, cos(who.yaw)) * 3.2
 		main.pos = Vector3(tp.x + off.x + 1.2, 0, tp.z + off.z)
@@ -85,9 +97,17 @@ func _process(dt: float) -> void:
 		var ang: float = who.yaw + float(v[2])
 		var eye := tp + Vector3(sin(ang) * v[0], v[1], cos(ang) * v[0])
 		eye.y = maxf(eye.y, main.world.height_at(eye.x, eye.z) + 0.6)
-		main.cam.look_at_from_position(eye, tp + Vector3(0, 1.1, 0))
+		main.cam.look_at_from_position(eye, tp + Vector3(0, float(A.get("aim", "1.1")), 0))
 	if phase == 1:
 		settle -= 1
+		if settle <= 0 and A.has("keep"):
+			var k := -settle
+			if pet != null: print("pet %s mode %s v %.2f path %d/%d stuck %.1f d_owner %.1f pos %s force %.1f" % [pet.id, pet.mode, pet.v, pet.pi, pet.path.size(), pet.stuck, Vector2(pet.pos.x - pet.owner.pos.x, pet.pos.z - pet.owner.pos.z).length(), pet.pos, pet.get("force_path", 0.0)])
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(String(A.get("out", "/tmp/life_shot.png")).replace(".png", "_%03d.png" % k))
+			if k + 1 >= int(A.keep):
+				print("life_shot: saved %d frames" % int(A.keep)); get_tree().quit(0)
+			return
 		if settle <= 0:
 			phase = 2
 			await RenderingServer.frame_post_draw

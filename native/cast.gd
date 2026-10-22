@@ -170,6 +170,11 @@ func nearby() -> Dictionary:
 	var t := life.nearest_talk(me, fx, fz, minf(2.2, bd)) if not indoors else {}
 	if not t.is_empty():
 		best = {"label": "Talk", "person": t, "at": t.pos + Vector3(0, 1.5 if t.age == "kid" else 2.0, 0)}
+		bd = Vector2(t.pos.x - me.x, t.pos.z - me.z).length()
+	# the townspeople's Pokémon (companions.gd)
+	var c := life.companions.nearest_talk(me, fx, fz, minf(2.2, bd)) if not indoors else {}
+	if not c.is_empty():
+		best = {"label": "Talk", "pet": c, "at": life.companions.talk_at(c)}
 	return best
 
 # ---------- the frame ----------
@@ -199,6 +204,10 @@ func update(dt: float) -> void:
 					var pp: Dictionary = n.person
 					face = atan2(pp.pos.x - me.x, pp.pos.z - me.z)
 					dialog.say(life.begin_talk(pp), func(): life.end_talk(pp))
+				elif n.has("pet"):
+					var pc: Dictionary = n.pet
+					face = atan2(pc.pos.x - me.x, pc.pos.z - me.z)
+					dialog.say(life.companions.begin_talk(pc), func(): life.companions.end_talk(pc))
 				else:
 					if n.has("npc"):
 						var c: Dictionary = n.npc

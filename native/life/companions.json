@@ -1,0 +1,33 @@
+{
+ "_doc": "The townspeople's Pokémon (companions.gd): who they belong to, where they sleep, what they say. Lines: the player talks to them (A): 'talk' by mood ('asleep', 'happy', 'any', a period of the day), 'owner_talk' (the owner's line when near, by the same keys; a list of strings or [strings] for two lines), 'quest' by quest state ('<quest id>:active' | ':done') and flag; 'barks' over its head now and then; 'owner_barks' the owner says to it.",
+ "companions": [
+  {"id": "nibbles", "name": "Nibbles", "species": "caterpie", "owner": "lily",
+   "speed": 0.95, "hurry": 1.7, "follow": 0.75, "side": 0.45, "inside": true, "pace_cap": 1.05,
+   "night": {"place": [-21.2, 33.9], "label": "the Caterpie Corner"},
+   "talk": {
+    "any": [["NIBBLES: Cater! Cater!", "(Nibbles waves his little front feet at you.)"], ["NIBBLES: Caaater?", "(He tilts his head. His red horn wobbles.)"], ["NIBBLES: Cater-cater!", "(He wriggles happily.)"], ["(Nibbles is busy nibbling something. Probably a leaf. Probably.)", "NIBBLES: ...Cater."]],
+    "morning": [["NIBBLES: Cater!", "(He smells of fresh leaves and morning dew.)"]],
+    "evening": [["NIBBLES: Ca... ter...", "(Nibbles yawns. A very small yawn.)"]],
+    "asleep": [["(Nibbles is curled up asleep in the Caterpie Corner.)", "NIBBLES: ...cater... zzz..."], ["(Nibbles is fast asleep. His horn twitches. Dreaming of leaves?)"]]
+   },
+   "owner_talk": {
+    "any": ["LILY: That's Nibbles! He likes you, Ash. I can tell.", "LILY: Don't poke him! Farmer Ben says Caterpie don't like being poked.", "LILY: Nibbles, say hello! ...He said hello.", ["LILY: Did you know Caterpie have little feet? Sixteen of them!", "LILY: Well. I counted six. But the book says sixteen."]],
+    "morning": ["LILY: Nibbles ate a whole leaf this morning. A WHOLE one!"],
+    "evening": ["LILY: Shh. Nibbles gets sleepy at supper time."],
+    "asleep": ["LILY: Shh! He's sleeping. Butterfree need lots of sleep. Caterpie too."]
+   },
+   "quest": {
+    "q_butterfree:active": [["NIBBLES: Cater...", "(Nibbles looks up at you. He seems... fine? It's hard to tell with Caterpie.)"]],
+    "butterfree_tips": [["NIBBLES: Cater! Cater!", "(Nibbles looks plump, shiny and very content. Lily's been talking to him every day.)"]]
+   },
+   "quest_owner": {
+    "q_butterfree:active": ["LILY: See? Is that a happy face? I can't tell! That's why I need your help, Ash!"],
+    "butterfree_tips": ["LILY: I tell him about my whole day now. He listens SO well. He's going to be the best Butterfree ever."]
+   },
+   "barks": ["Cater!", "Cater cater!", "Caaater!"],
+   "owner_barks": ["Come on, Nibbles!", "Good boy, Nibbles!", "Nibbles, keep up!", "Who's a good Caterpie?", "Nibbles, no! Not that leaf!", "Wait for Nibbles!"],
+   "owner_pat": ["There you are, Nibbles!", "Good Caterpie!", "You're getting so big!"],
+   "bed": ["Night night, Nibbles!"]
+  }
+ ]
+}

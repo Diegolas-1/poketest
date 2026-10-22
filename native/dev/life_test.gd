@@ -5,6 +5,8 @@ extends Node
 #   - nobody stays stuck (re-plans and hops counted; no walker without progress for long),
 #   - everyone is at home (Gus at the lighthouse) in the small hours,
 #   - the schedule blocks reach their places (hit rate per person),
+#   - the Pokémon (companions.gd) keep to free ground, keep up with their owners,
+#     go in with them (Nibbles) or wait outside (Doduo), and sleep at night,
 # and prints the sim's cost. Run:
 #   godot --headless --path native res://dev/life_test.tscn -- --days=3 [--dt=0.1] [--verbose]
 
@@ -54,6 +56,8 @@ func _ready() -> void:
 	var end_min := clock.minutes + days * 1440.0
 	var last_check_day := -1
 	var noprog := {}
+	var pet := {}
+	for c in life.companions.pets: pet[c.id] = {"bad": 0, "far": 0.0, "with": 0.0, "night": [0, 0], "in": [0, 0]}
 	for p in life.people:
 		hits[p.id] = [0, 0]; seen_blk[p.id] = -1; hit_now[p.id] = false; max_noprog[p.id] = 0.0; walk_t[p.id] = 0.0; noprog[p.id] = 0.0
 	var t_start := Time.get_ticks_msec()
@@ -86,10 +90,26 @@ func _ready() -> void:
 				walk_t[id] += dt
 				noprog[id] = p.prog_t + 0.0
 				max_noprog[id] = maxf(max_noprog[id], p.stuck_total)
+		for c in life.companions.pets:
+			var o: Dictionary = c.owner
+			var pr: Dictionary = pet[c.id]
+			if c.inside == "":
+				if not life.walkable(Vector2(c.pos.x, c.pos.z)): pr.bad += 1
+				if o.state == "act" and c.mode == "follow" and c.extra.is_empty():
+					pr.with += dt
+					if Vector2(c.pos.x - o.pos.x, c.pos.z - o.pos.z).length() > 8.0: pr.far += dt
+			if o.state == "inside" and o.act != "sleep" and c.data.get("inside", false):
+				pr["in"][1] += 1
+				if c.inside != "" or c.mode == "door": pr["in"][0] += 1
 		# the small hours: everyone home
 		var h := clock.hour()
 		if h > 3.0 and h < 3.2 and clock.day() != last_check_day:
 			last_check_day = clock.day()
+			for c in life.companions.pets:
+				var pr2: Dictionary = pet[c.id]
+				pr2.night[1] += 1
+				if c.sleep and c.inside == "" and Vector2(c.pos.x, c.pos.z).distance_to(c.night) < 0.8: pr2.night[0] += 1
+				else: fails.append("day %d 03:00: %s not asleep in its bed (mode %s at %s)" % [clock.day(), c.id, c.mode, c.pos])
 			for p in life.people:
 				night_checks += 1
 				var want: String = p.home
@@ -108,6 +128,23 @@ func _ready() -> void:
 		total_hit += hh[0]; total += hh[1]
 		print("  %-6s blocks reached %3d / %3d   walking %5.0f s   stuck time (re-plan windows) %4.0f s" % [p.id, hh[0], hh[1], walk_t[p.id], max_noprog[p.id]])
 	print("blocks reached overall: %d / %d (%.0f%%)" % [total_hit, total, 100.0 * total_hit / maxf(1, total)])
+	print("pokemon: paths %d, blocked steps %d, hops %d" % [life.companions.stats.paths, life.companions.stats.blocked, life.companions.stats.hops])
+	if verbose:
+		for l in life.companions.log: print("  ", l)
+	# talking to them (A): their lines, and the owner's when near
+	for c in life.companions.pets:
+		var lines: Array = life.companions.begin_talk(c)
+		life.companions.end_talk(c)
+		print("  talk %s (%s): %s" % [c.id, "asleep" if c.sleep else c.mode, " / ".join(lines)])
+		if lines.is_empty(): fails.append("%s has nothing to say" % c.id)
+	for c in life.companions.pets:
+		var pr: Dictionary = pet[c.id]
+		var farf: float = pr.far / maxf(1.0, pr.with)
+		print("  %-8s on blocked cells %d steps; away from %s while they stand %.0f%% of %.0f s; asleep in bed at 03:00 %d / %d; in with them %d / %d" % [
+			c.id, pr.bad, c.owner.id, 100.0 * farf, pr.with, pr.night[0], pr.night[1], pr["in"][0], pr["in"][1]])
+		if pr.bad > 0: fails.append("%s stood on blocked ground" % c.id)
+		if farf > 0.15: fails.append("%s left behind %.0f%% of the time" % [c.id, 100.0 * farf])
+		if pr["in"][1] > 0 and pr["in"][0] < pr["in"][1] * 0.95: fails.append("%s not in with its owner" % c.id)
 	for f in fails: print("FAIL ", f)
 	if verbose:
 		var dumped := {}
@@ -117,7 +154,7 @@ func _ready() -> void:
 			if not dumped.has(k) and dumped.size() < 6:
 				dumped[k] = true
 				_dump(life, s[1], s[2])
-	var ok: bool = fails.is_empty() and life.stats.teleport <= days * 3 and total_hit >= total * 0.9
+	var ok: bool = fails.is_empty() and life.stats.teleport <= days * 3 and total_hit >= total * 0.9 and life.companions.stats.hops <= days * 4
 	print("RESULT ", "PASS" if ok else "FAIL")
 	get_tree().quit(0 if ok else 1)
 
