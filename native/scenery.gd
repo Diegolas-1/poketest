@@ -43,7 +43,9 @@ func _plants() -> void:
 var plants_dirty := false
 func _on_setting(key: String, _v) -> void:
 	if key in ["lod", "trees", "plants"]: plants_dirty = true
-	if key == "shadow_dist" and veg: veg.shadow_far = minf(45.0, float(_v) * 0.75)
+	if key == "shadow_dist" and veg:
+		veg.shadow_far = minf(45.0, float(_v) * 0.75)
+		veg.last_pos = Vector3(INF, INF, INF)
 
 func update(cam_pos: Vector3) -> void:
 	if plants_dirty:

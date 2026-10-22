@@ -34,6 +34,8 @@ const KINDS := {
 	"flower": {"fade": Vector2(32, 36), "shadow": 0.0},
 	"rock": {"fade": Vector2(-1, -1), "shadow": 25.0},   # (-1: keep the baked range)
 }
+var last_pos := Vector3(INF, INF, INF)
+var last_ink := false
 var stats := {"chunks": 0, "bill": 0, "copies": 0}
 
 static func _rgb(hex: String) -> Color:
@@ -322,6 +324,9 @@ func update(cam_pos: Vector3) -> void:
 	RenderingServer.global_shader_parameter_set("veg_cam", cam_pos)
 	var ink = get_node_or_null("/root/Ink")
 	var ink_on: bool = ink != null and ink.enabled and ink.quality >= 0.75
+	# the chunk switches only change every metre or so: skip the walk otherwise
+	if cam_pos.distance_squared_to(last_pos) < 0.25 and ink_on == last_ink: return
+	last_pos = cam_pos; last_ink = ink_on
 	for ch in chunks:
 		var c: Vector3 = ch.c
 		var d: float = Vector2(c.x - cam_pos.x, c.z - cam_pos.z).length() - float(ch.r)
