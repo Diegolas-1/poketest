@@ -1,0 +1,223 @@
+{
+  "format": "pallet-map",
+  "version": 1,
+  "id": "oak_lab",
+  "name": "Prof. Oak's Lab",
+  "kind": "interior",
+  "grid": 0.05,
+  "bounds": [-1, -7, 19.5, 14.5],
+  "place": { "map": "pallet_town", "at": [57.81, 13], "rot": 0, "note": "local (0, 0) is the front door; the hall runs east into the hill, the wing south, as the building outside" },
+  "palette": {
+    "lilac_tile": { "color": "#c7b4e8", "label": "glossy lilac tile", "pattern": "tile1" },
+    "grey_tile": { "color": "#c9ccd4", "label": "grey tile", "pattern": "tile05" },
+    "cream_plaster": { "color": "#f4e2ad", "label": "cream plaster" },
+    "warm_plaster": { "color": "#f1e6c4", "label": "pale plaster" },
+    "wood_panel": { "color": "#a8743f", "label": "wood wainscot" },
+    "beige_panel": { "color": "#d8c49a", "label": "beige wainscot" },
+    "maroon_vault": { "color": "#a24c62", "label": "maroon barrel vault" },
+    "rib": { "color": "#7d3149", "label": "vault rib" },
+    "ceiling_white": { "color": "#f1eee4", "label": "white ceiling" },
+    "steel_green": { "color": "#9cc0ad", "label": "green steel" },
+    "steel_plate": { "color": "#b9cfc3", "label": "steel deck" },
+    "pipe_green": { "color": "#8cc4a2", "label": "green pipe" },
+    "steel": { "color": "#8e98a4", "label": "steel" },
+    "trim_white": { "color": "#fbf7ea", "label": "white trim" }
+  },
+  "levels": [
+    { "id": "ground", "name": "Ground floor", "y": 0 },
+    { "id": "mezz", "name": "Mezzanine", "y": 3.4 }
+  ],
+  "zones": [
+    { "id": "hall", "name": "Main Hall", "level": "ground", "poly": [[0, -6], [18, -6], [18, 6], [0, 6]], "floor": "lilac_tile",
+      "ceiling": { "type": "vault", "axis": "x", "spring": 6.2, "rise": 4.0, "ribs": 2.25, "mat": "maroon_vault", "rib": "rib" }, "tags": ["double-height"] },
+    { "id": "wing", "name": "Research Wing", "level": "ground", "poly": [[2.5, 6], [12.5, 6], [12.5, 13], [2.5, 13]], "floor": "grey_tile",
+      "ceiling": { "type": "flat", "h": 3.4, "mat": "ceiling_white" } }
+  ],
+  "slabs": [
+    { "id": "mezz_deck", "name": "Mezzanine", "level": "mezz", "poly": [[14, -6], [18, -6], [18, 6], [14, 6]], "t": 0.25, "mat": "steel_plate", "under": "steel_green", "columns": [[14.15, -2.4], [14.15, 2.6]] }
+  ],
+  "walls": [
+    { "id": "w_west", "level": "ground", "path": [[0, 6], [0, -6]], "t": 0.3, "h": 6.2, "mat": "cream_plaster",
+      "gable": { "axis": "z", "c": 0, "half": 6, "rise": 4.0 }, "wainscot": { "h": 1.05, "mat": "wood_panel" },
+      "openings": [
+        { "id": "front_door", "type": "door", "at": 6, "w": 1.7, "h": 2.8, "style": "double", "portal": "to_town" },
+        { "id": "win_w1", "type": "window", "at": 2.4, "w": 1.0, "h": 2.0, "sill": 0.9, "style": "plain", "outside": "garden" },
+        { "id": "win_w2", "type": "window", "at": 9.6, "w": 1.0, "h": 2.0, "sill": 0.9, "style": "plain", "outside": "garden" },
+        { "id": "rose", "type": "window", "at": 6, "w": 1.8, "h": 1.8, "sill": 7.1, "style": "round", "outside": "sky" }
+      ] },
+    { "id": "w_east", "level": "ground", "path": [[18, -6], [18, 6]], "t": 0.3, "h": 6.2, "mat": "cream_plaster",
+      "gable": { "axis": "z", "c": 0, "half": 6, "rise": 4.0 }, "wainscot": { "h": 1.05, "mat": "wood_panel" },
+      "openings": [
+        { "id": "win_blinds", "type": "window", "at": 6, "w": 6.0, "h": 1.8, "sill": 0.95, "style": "blinds", "outside": "trees" },
+        { "id": "arch_l", "type": "window", "at": 4.45, "w": 1.3, "h": 3.9, "sill": 4.5, "style": "arched", "outside": "sky_branches" },
+        { "id": "arch_c", "type": "window", "at": 6, "w": 1.5, "h": 4.6, "sill": 4.5, "style": "arched", "outside": "sky_branches" },
+        { "id": "arch_r", "type": "window", "at": 7.55, "w": 1.3, "h": 3.9, "sill": 4.5, "style": "arched", "outside": "sky_branches" }
+      ] },
+    { "id": "w_north", "level": "ground", "path": [[0, -6], [18, -6]], "t": 0.3, "h": 6.2, "mat": "cream_plaster",
+      "wainscot": { "h": 1.05, "mat": "wood_panel" },
+      "openings": [
+        { "id": "clere_n1", "type": "window", "at": 3.0, "w": 1.1, "h": 2.0, "sill": 3.3, "style": "arched", "outside": "sky" },
+        { "id": "clere_n2", "type": "window", "at": 6.0, "w": 1.1, "h": 2.0, "sill": 3.3, "style": "arched", "outside": "sky" },
+        { "id": "study_door", "type": "door", "at": 16.0, "w": 1.1, "h": 2.3, "sill": 3.4, "style": "panel", "locked": true, "level": "mezz",
+          "use": { "label": "Door", "dialogue": "study_door", "side": 1 } }
+      ] },
+    { "id": "w_south", "level": "ground", "path": [[0, 6], [18, 6]], "t": 0.3, "h": 6.2, "mat": "cream_plaster",
+      "wainscot": { "h": 1.05, "mat": "wood_panel" },
+      "openings": [
+        { "id": "wing_arch", "type": "arch", "at": 5.0, "w": 3.0, "h": 2.9 },
+        { "id": "clere_s1", "type": "window", "at": 8.0, "w": 1.1, "h": 2.0, "sill": 3.8, "style": "arched", "outside": "sky" },
+        { "id": "clere_s2", "type": "window", "at": 14.4, "w": 1.1, "h": 2.0, "sill": 3.8, "style": "arched", "outside": "sky" }
+      ] },
+    { "id": "w_wing_w", "level": "ground", "path": [[2.5, 6], [2.5, 13]], "t": 0.3, "h": 3.4, "mat": "warm_plaster",
+      "wainscot": { "h": 0.95, "mat": "beige_panel" }, "openings": [] },
+    { "id": "w_wing_s", "level": "ground", "path": [[2.5, 13], [12.5, 13]], "t": 0.3, "h": 3.4, "mat": "warm_plaster",
+      "wainscot": { "h": 0.95, "mat": "beige_panel" },
+      "openings": [
+        { "id": "win_s1", "type": "window", "at": 2.4, "w": 1.3, "h": 1.3, "sill": 1.15, "style": "plain", "outside": "trees" },
+        { "id": "win_s2", "type": "window", "at": 5.0, "w": 1.3, "h": 1.3, "sill": 1.15, "style": "plain", "outside": "trees" },
+        { "id": "win_s3", "type": "window", "at": 7.6, "w": 1.3, "h": 1.3, "sill": 1.15, "style": "plain", "outside": "sea" }
+      ] },
+    { "id": "w_wing_e", "level": "ground", "path": [[12.5, 13], [12.5, 6]], "t": 0.3, "h": 3.4, "mat": "warm_plaster",
+      "wainscot": { "h": 0.95, "mat": "beige_panel" },
+      "openings": [
+        { "id": "win_e1", "type": "window", "at": 3.5, "w": 1.3, "h": 1.3, "sill": 1.15, "style": "plain", "outside": "sea" }
+      ] }
+  ],
+  "stairs": [
+    { "id": "stair_mezz", "from": "ground", "to": "mezz", "a": [8.5, -5.3], "b": [14, -5.3], "w": 1.1, "steps": 17, "style": "open_metal", "rails": "r", "mat": "steel_green" }
+  ],
+  "rails": [
+    { "id": "rail_mezz", "level": "mezz", "path": [[14, -4.75], [14, 6]], "h": 1.0, "style": "bars", "mat": "steel_green" }
+  ],
+  "runs": [
+    { "id": "pipe_north", "type": "pipe", "pts": [[17.7, 5.9, -5.7], [1.3, 5.9, -5.7], [1.3, 0.0, -5.7]], "r": 0.1, "mat": "pipe_green" },
+    { "id": "pipe_south", "type": "pipe", "pts": [[6.9, 5.95, 5.7], [17.7, 5.95, 5.7]], "r": 0.1, "mat": "pipe_green" },
+    { "id": "pipe_tank", "type": "pipe", "pts": [[16.8, 5.95, 5.7], [16.8, 2.75, 5.7]], "r": 0.08, "mat": "pipe_green" },
+    { "id": "pipe_crown", "type": "pipe", "pts": [[0.3, 9.4, 1.4], [17.7, 9.4, 1.4]], "r": 0.12, "mat": "pipe_green" },
+    { "id": "pipe_crown2", "type": "pipe", "pts": [[0.3, 9.25, -1.9], [17.7, 9.25, -1.9]], "r": 0.07, "mat": "pipe_green" },
+    { "id": "hoist_beam", "type": "beam", "pts": [[11.5, 7.4, -5.0], [11.5, 7.4, 5.0]], "r": 0.12, "mat": "steel" }
+  ],
+  "props": [
+    { "id": "oak_pc", "type": "computer_console", "pos": [3.0, -5.35], "rot": 0, "level": "ground", "use": { "label": "Look", "dialogue": "oak_pc" } },
+    { "id": "oak_chair", "type": "swivel_chair", "pos": [3.1, -4.3], "rot": 165, "level": "ground" },
+    { "id": "pic_1", "type": "framed_picture", "pos": [2.3, -5.8], "rot": 0, "level": "ground", "y": 2.75, "params": { "art": "pokemon", "seed": 3 } },
+    { "id": "pic_2", "type": "framed_picture", "pos": [3.75, -5.8], "rot": 0, "level": "ground", "y": 2.85, "params": { "art": "landscape", "seed": 7, "scale": 0.85 } },
+    { "id": "shelf_n", "type": "bookshelf", "pos": [5.6, -5.6], "rot": 0, "level": "ground", "params": { "seed": 2 } },
+    { "id": "board_n", "type": "notice_board", "pos": [7.4, -5.8], "rot": 0, "level": "ground", "y": 1.55,
+      "params": { "title": "LAB NOTES", "lines": ["Feed the tank at noon.", "Check the hoist chain.", "New trainers: Monday!"], "style": "pinned" },
+      "use": { "label": "Read", "dialogue": "board_n" } },
+    { "id": "vent_n", "type": "wall_vent", "pos": [7.4, -5.8], "rot": 0, "level": "ground", "y": 2.75 },
+    { "id": "crates_stair", "type": "crate", "pos": [12.8, -5.3], "rot": 0, "level": "ground", "walk": "free", "params": { "stack": 2, "seed": 4 } },
+    { "id": "crate_stair2", "type": "crate", "pos": [11.9, -5.35], "rot": 15, "level": "ground", "walk": "free", "params": { "stack": 1, "seed": 5, "scale": 0.8 } },
+
+    { "id": "machine_a", "type": "machinery_block", "pos": [8.0, 5.15], "rot": 180, "level": "ground", "params": { "seed": 1 } },
+    { "id": "tank", "type": "specimen_tank", "pos": [10.6, 4.6], "rot": 180, "level": "ground", "params": { "duct": 8.9 } },
+    { "id": "cylinder", "type": "cylinder_machine", "pos": [12.75, 5.1], "rot": 180, "level": "ground",
+      "use": { "label": "Look", "lines": ["A tall cylinder machine. The green gauge reads FULL.", "It keeps the big tank's liquid at just the right temperature."] } },
+    { "id": "crate_s", "type": "crate", "pos": [14.3, 5.35], "rot": 0, "level": "ground", "params": { "stack": 2, "seed": 9 } },
+    { "id": "hoist", "type": "chain_hoist", "pos": [11.5, 3.2], "rot": 90, "level": "ground", "y": 7.3, "params": { "drop": 2.4 } },
+    { "id": "vent_s", "type": "wall_vent", "pos": [16.2, 5.8], "rot": 180, "level": "ground", "y": 2.2 },
+
+    { "id": "starters", "type": "round_table_holder", "pos": [9.0, 0.0], "rot": 0, "level": "ground", "use": { "label": "Look", "dialogue": "starters" } },
+    { "id": "lamp_big", "type": "pendant_lamp", "pos": [9.0, 0.0], "rot": 0, "level": "ground", "y": 10.15, "params": { "drop": 5.6 } },
+
+    { "id": "desk_back", "type": "desk", "pos": [15.0, -3.5], "rot": 270, "level": "ground", "use": { "label": "Look", "dialogue": "desk_back" } },
+    { "id": "desk_chair", "type": "swivel_chair", "pos": [15.95, -3.45], "rot": 260, "level": "ground", "params": { "color": "#6f7fa8" } },
+    { "id": "desk_lamp", "type": "desk_lamp", "pos": [15.1, -4.0], "rot": 290, "level": "ground", "y": 0.78 },
+    { "id": "sofa", "type": "sofa", "pos": [17.25, 0.0], "rot": 270, "level": "ground" },
+    { "id": "drafting", "type": "drafting_table", "pos": [15.5, 3.4], "rot": 255, "level": "ground" },
+    { "id": "green_tank", "type": "green_tank_machine", "pos": [16.6, 5.05], "rot": 180, "level": "ground",
+      "use": { "label": "Look", "lines": ["A tank of bubbling green liquid.", "A label says: NUTRIENT MIX - DO NOT DRINK."] } },
+    { "id": "plant_back", "type": "potted_plant", "pos": [17.4, -5.35], "rot": 0, "level": "ground", "params": { "seed": 11, "size": 0.6 } },
+
+    { "id": "mat_front", "type": "door_mat", "pos": [0.9, 0.0], "rot": 90, "level": "ground" },
+    { "id": "plant_door_l", "type": "potted_plant", "pos": [0.6, -1.6], "rot": 0, "level": "ground", "params": { "seed": 21 } },
+    { "id": "plant_door_r", "type": "potted_plant", "pos": [0.6, 1.6], "rot": 0, "level": "ground", "params": { "seed": 22 } },
+    { "id": "board_door", "type": "notice_board", "pos": [0.2, -2.3], "rot": 90, "level": "ground", "y": 1.6,
+      "params": { "title": "WELCOME", "lines": ["OAK POKéMON RESEARCH LAB", "Please wipe your feet.", "Ask before touching!"], "style": "chalk" },
+      "use": { "label": "Read", "dialogue": "board_door" } },
+    { "id": "clock", "type": "wall_clock", "pos": [0.2, 0.0], "rot": 90, "level": "ground", "y": 3.7 },
+
+    { "id": "mz_shelf_1", "type": "bookshelf", "pos": [17.6, -3.4], "rot": 270, "level": "mezz", "params": { "seed": 5, "size3": [1.8, 0.46, 1.05], "shelves": 2 } },
+    { "id": "mz_shelf_2", "type": "bookshelf", "pos": [17.6, 3.4], "rot": 270, "level": "mezz", "params": { "seed": 6, "size3": [1.8, 0.46, 1.05], "shelves": 2 } },
+    { "id": "mz_plant_1", "type": "potted_plant", "pos": [14.45, 5.4], "rot": 0, "level": "mezz", "params": { "seed": 31, "size": 0.62 } },
+    { "id": "mz_plant_2", "type": "potted_plant", "pos": [17.45, -5.4], "rot": 0, "level": "mezz", "params": { "seed": 32 } },
+    { "id": "mz_globe", "type": "globe", "pos": [16.3, 1.6], "rot": 30, "level": "mezz",
+      "use": { "label": "Look", "lines": ["A globe of the POKéMON world.", "Someone circled KANTO, JOHTO and an island far to the south."] } },
+    { "id": "mz_crates", "type": "crate", "pos": [15.2, 5.3], "rot": 10, "level": "mezz", "params": { "stack": 2, "seed": 12, "scale": 0.85 } },
+    { "id": "mz_cabinet", "type": "filing_cabinet", "pos": [14.9, -5.45], "rot": 0, "level": "mezz" },
+
+    { "id": "capsule", "type": "capsule_machine", "pos": [3.6, 12.05], "rot": 180, "level": "ground" },
+    { "id": "desk_w1", "type": "desk", "pos": [6.0, 12.4], "rot": 180, "level": "ground", "params": { "wood": "#e3d2a8", "drawers": "left" } },
+    { "id": "desk_w2", "type": "desk", "pos": [7.8, 12.4], "rot": 180, "level": "ground", "params": { "wood": "#e3d2a8", "drawers": "right" } },
+    { "id": "pc_w1", "type": "desk_computer", "pos": [6.15, 12.5], "rot": 180, "level": "ground", "y": 0.78, "use": { "label": "Look", "dialogue": "pc_w" } },
+    { "id": "pc_w2", "type": "desk_computer", "pos": [7.65, 12.5], "rot": 180, "level": "ground", "y": 0.78 },
+    { "id": "dex_w1", "type": "tablet", "pos": [5.45, 12.2], "rot": 160, "level": "ground", "y": 0.78 },
+    { "id": "dex_w2", "type": "tablet", "pos": [8.35, 12.15], "rot": 200, "level": "ground", "y": 0.78 },
+    { "id": "green_table", "type": "green_table", "pos": [7.5, 9.2], "rot": 0, "level": "ground", "use": { "label": "Look", "dialogue": "dex_table" } },
+    { "id": "dex_t1", "type": "tablet", "pos": [7.0, 9.25], "rot": 10, "level": "ground", "y": 0.8 },
+    { "id": "dex_t2", "type": "tablet", "pos": [7.55, 9.2], "rot": 355, "level": "ground", "y": 0.8 },
+    { "id": "shelf_wing", "type": "bookshelf", "pos": [2.9, 9.0], "rot": 90, "level": "ground", "params": { "seed": 7, "wood": "#ece6da" } },
+    { "id": "cabinet_wing", "type": "filing_cabinet", "pos": [3.0, 7.45], "rot": 90, "level": "ground" },
+    { "id": "counter_e", "type": "lab_counter", "pos": [11.95, 9.5], "rot": 270, "level": "ground", "params": { "seed": 3 } },
+    { "id": "counter_s", "type": "lab_counter", "pos": [10.8, 12.45], "rot": 180, "level": "ground", "params": { "seed": 4, "sink": true } },
+    { "id": "crate_wing", "type": "crate", "pos": [11.85, 6.75], "rot": 0, "level": "ground", "params": { "seed": 14 } },
+    { "id": "plant_wing", "type": "potted_plant", "pos": [3.1, 6.55], "rot": 0, "level": "ground", "params": { "seed": 41, "size": 0.5 } },
+    { "id": "board_wing_1", "type": "notice_board", "pos": [12.3, 7.6], "rot": 270, "level": "ground", "y": 1.65,
+      "params": { "title": "POKéDEX", "lines": ["Project status: 63%", "Field data due Friday"], "style": "pinned" }, "use": { "label": "Read", "dialogue": "board_dex" } },
+    { "id": "board_wing_2", "type": "notice_board", "pos": [12.3, 11.4], "rot": 270, "level": "ground", "y": 1.65,
+      "params": { "title": "SAFETY", "lines": ["Goggles on!", "No running in the lab", "Return all POKé BALLS"], "style": "chalk" } },
+    { "id": "panel_1", "type": "panel_light", "pos": [5.0, 8.2], "rot": 0, "level": "ground", "y": 3.4 },
+    { "id": "panel_2", "type": "panel_light", "pos": [10.0, 8.2], "rot": 0, "level": "ground", "y": 3.4 },
+    { "id": "panel_3", "type": "panel_light", "pos": [5.0, 11.2], "rot": 0, "level": "ground", "y": 3.4 },
+    { "id": "panel_4", "type": "panel_light", "pos": [10.0, 11.2], "rot": 0, "level": "ground", "y": 3.4 },
+    { "id": "clock_wing", "type": "wall_clock", "pos": [2.7, 11.0], "rot": 90, "level": "ground", "y": 2.4 }
+  ],
+  "actors": [
+    { "id": "oak", "look": "oak", "name": "Prof. Oak", "pos": [4.7, -4.35], "rot": 235, "level": "ground", "pose": "stand", "dialogue": "oak_hello" }
+  ],
+  "dialogue": {
+    "oak_hello": ["OAK: Ah, there you are! Welcome to my lab.", "This is where I study everything about POKéMON.", "Have a look around. When you're ready, come see me by the POKé BALLS!"],
+    "oak_pc": ["PROF. OAK's computer.", "The screen is full of charts about how POKéMON grow and evolve."],
+    "starters": ["Three POKé BALLS rest in the holder.", "Each one holds a POKéMON PROF. OAK caught for new trainers.", "Better ask the PROFESSOR before choosing one!"],
+    "board_n": ["LAB NOTES", "Feed the tank at noon. Check the hoist chain.", "New trainers arrive Monday!"],
+    "board_door": ["WELCOME to the OAK POKéMON RESEARCH LAB.", "Please wipe your feet, and ask before touching anything!"],
+    "desk_back": ["PROF. OAK's writing desk.", "A letter is half written: 'Dear Professor Elm, about the egg...'"],
+    "study_door": ["The door to PROF. OAK's study.", "It's locked. A sign says: PRIVATE - THINKING IN PROGRESS."],
+    "pc_w": ["The computer is running the POKéDEX program.", "It shows a long list of POKéMON with question marks."],
+    "dex_table": ["Brand-new POKéDEXes, ready for new trainers.", "They're high-tech encyclopedias that record every POKéMON you meet."],
+    "board_dex": ["POKéDEX PROJECT", "Status: 63% of known POKéMON catalogued.", "Field data is due on Friday."]
+  },
+  "spawns": [
+    { "id": "from_town", "pos": [1.25, 0], "level": "ground", "rot": 90 }
+  ],
+  "portals": [
+    { "id": "to_town", "level": "ground", "rect": [0.0, -0.8, 0.4, 0.8], "trigger": "walk", "spawn": "from_town", "to": { "map": "pallet_town", "spawn": "lab_door" }, "label": "Outside" }
+  ],
+  "lights": {
+    "key": { "dir": [0.18, 0.96, 0.22], "shadow": true, "dist": 26 },
+    "palette": { "bands": [0.02, 0.12, 0.6], "deep": [0.78, 0.76, 0.92], "shade": [0.87, 0.86, 0.97], "lit": [1.05, 1.03, 0.97], "litAdd": [0.03, 0.025, 0.0] },
+    "bg": "#2a2440",
+    "lamps": [
+      { "id": "lamp_big", "pos": [9.0, 4.6, 0.0], "r": 3.6, "color": "#fff2c8", "kind": "pendant" },
+      { "id": "desk_lamp", "pos": [15.1, 1.3, -4.0], "r": 1.0, "color": "#ffe8a8", "kind": "desk" },
+      { "id": "tank", "pos": [10.6, 1.6, 4.6], "r": 2.2, "color": "#7ff4f0", "kind": "fluid" },
+      { "id": "screen", "pos": [3.0, 1.4, -5.0], "r": 1.4, "color": "#9fdcff", "kind": "screen" },
+      { "id": "wing_1", "pos": [5.0, 3.3, 8.2], "r": 1.8, "color": "#fffbe8", "kind": "panel" },
+      { "id": "wing_2", "pos": [10.0, 3.3, 8.2], "r": 1.8, "color": "#fffbe8", "kind": "panel" },
+      { "id": "wing_3", "pos": [5.0, 3.3, 11.2], "r": 1.8, "color": "#fffbe8", "kind": "panel" },
+      { "id": "wing_4", "pos": [10.0, 3.3, 11.2], "r": 1.8, "color": "#fffbe8", "kind": "panel" }
+    ]
+  },
+  "camera": {
+    "default": { "dist": 5.2, "pitch": 0.3, "fov": 56, "height": 1.4 },
+    "margin": 0.28,
+    "volumes": [
+      { "id": "under_mezz", "box": [14, 0, -5.85, 17.85, 3.15, 5.85], "dist": 3.8, "pitch": 0.2, "note": "under the mezzanine slab: close and low" },
+      { "id": "mezz_top", "box": [14, 3.4, -5.85, 17.85, 10.2, 5.85], "vault": { "axis": "x", "spring": 6.2, "rise": 4.0 }, "dist": 4.6, "pitch": 0.42 },
+      { "id": "hall", "box": [0, 0, -5.85, 14, 10.2, 5.85], "vault": { "axis": "x", "spring": 6.2, "rise": 4.0 }, "dist": 5.6, "pitch": 0.32 },
+      { "id": "wing_arch", "box": [3.5, 0, 5.4, 6.5, 2.9, 6.6], "dist": 4.2, "pitch": 0.38 },
+      { "id": "wing", "box": [2.65, 0, 6.15, 12.35, 3.4, 12.85], "dist": 4.2, "pitch": 0.4, "note": "low flat ceiling: closer and steeper" }
+    ]
+  }
+}
