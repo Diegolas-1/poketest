@@ -48,6 +48,9 @@ func _ready() -> void:
 	_terrain()
 	_town()
 	_water()
+	# ---- ink (worker 2): vector lines on the town; see ink.gd ----
+	Ink.add_world_lines(self)
+	Ink.outline_town(self)
 	grass = Grass.new()
 	add_child(grass)
 	grass.build(world, int(Settings.get_value("grass")), float(Settings.get_value("grass_size")), SUN_DIR.normalized())
@@ -238,6 +241,7 @@ func _process(dt: float) -> void:
 	cast.update(dt)
 	if grass_dirty: _rebuild_grass()
 	if not grass.tiles.is_empty(): grass.update(pos)
+	Ink.set_focus(pos)   # ink thins with distance from Red (ink.gd)
 	_camera(dt)
 	fps_acc += dt; fps_n += 1; fps_worst = maxf(fps_worst, dt)
 	if fps_acc >= 0.5:

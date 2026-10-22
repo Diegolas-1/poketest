@@ -1,7 +1,7 @@
 // The pond and the stream (terrain.js freshFrag): lighter green-blue, gentle
 // ripples; the stream flows along its ribbon with white water at its banks.
 shader_type spatial;
-render_mode unshaded, blend_mix, depth_draw_never, cull_disabled;
+render_mode unshaded, blend_mix, depth_draw_always, cull_disabled;
 
 uniform float flow = 0.0;
 varying vec3 v_w;

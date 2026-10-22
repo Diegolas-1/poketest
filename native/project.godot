@@ -11,6 +11,7 @@ config/icon="res://icon.png"
 [autoload]
 
 Settings="*res://settings.gd"
+Ink="*res://ink.gd"
 
 [display]
 
@@ -143,4 +144,11 @@ textures/vram_compression/import_etc2_astc=true
 
 texture={
 "mipmaps/generate": true
+}
+
+[shader_globals]
+
+ink_focus={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
 }
