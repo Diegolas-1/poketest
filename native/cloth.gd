@@ -4,7 +4,8 @@ extends RefCounted
 # (web/world/garments.js clothSim, and dressAsh's in ashcloth.js, which is the
 # same machine). The garments hang off "cloth bones" in panels (Ash's jacket,
 # sleeve and trouser hems; the girl's dress; Oak's lab coat) and the hair off
-# chains added by the bake (the girl's ponytail, Ash's spikes); the layout comes
+# chains added by the bake (the girl's ponytail, Ash's and Oak's spikes, which the
+# web keeps rigid on the head; they clear the head, neck and upper back); the layout comes
 # from cast.json (looks.<look>.sim, made by tools/native/bake_cast.mjs).
 #
 # Each chain is a few particles hanging from a pin on the body. A step: every
@@ -14,20 +15,22 @@ extends RefCounted
 # with damping and a speed cap relative to that hang; then a few passes of
 # constraints: each link keeps its length within a cone round its hang,
 # neighbouring panels keep their spacing (+-8 %) and are smoothed towards each
-# other so a hem stays one line, and every particle (and points along its link)
-# is pushed out of the body at its current pose: tapered capsules on the arms,
+# other so a hem stays one line; after the last pass every particle (and points
+# along its link) is pushed out of the body at its current pose: tapered capsules on the arms,
 # legs and head, rings of the body's girth round the chest, waist and hips, and
 # the jacket's shell for Ash's sleeves. A leg is always under the cloth (a
 # point caught between it and the trunk goes round its outside), so a dress or a
 # coat never cuts a knee mid-stride. Then each cloth bone is turned to point at
 # its particle.
 #
-# The sim runs at a fixed 60 steps a second (STEP_HZ) whatever the frame rate;
-# in between, the particles are carried on by their own speed when the bones are
-# aimed, so the cloth moves smoothly at 120 fps for the cost of 60.
+# The sim runs at a fixed 60 steps a second (STEP_HZ, fewer for villagers further
+# off) whatever the frame rate, on a worker thread (threaded) while the frame is
+# drawn: each batch of steps works with the bones where they will be a frame later
+# and makes the cloth bones' turns for each frame until the next batch (carried on
+# by the particles' speed), so the main thread only reads the bones and sets turns.
 #
 #   var cs := ClothSim.make(actor)          # null when the look has no moving cloth
-#   cs.update(dt, speed)                    # after the body's pose is set
+#   cs.update(dt, speed[, rate])            # after the body's pose is set
 #   cs.hold()                               # far off: the cloth hangs as it rests
 
 const G := -9.8
@@ -48,8 +51,9 @@ var D: Dictionary
 var W: Array[Transform3D] = []
 var Wi: Array[Transform3D] = []
 var sc := PackedFloat32Array()
-var Pq: Array[Quaternion] = []
-var Wa: Array[Transform3D] = []
+var Wh: Array = []          # per frame ahead: the parents' world -> rest frames
+var _sets: Array = []       # per frame ahead: the cloth bones' turns
+var _set_i := 0
 var Wp: Array[Transform3D] = []
 var _have_prev := false
 # capsules in the world
@@ -76,12 +80,10 @@ var clock := 0.0
 var acc := 0.0
 var since := 0.0
 var gap := 0.0          # since the bones' frames were last read
-var _ahead0 := 0.0      # how far ahead the last steps were
 var step_us := 0.0     # the last steps' time, and the time waited for them (dev)
 var wait_us := 0.0
 var _task := -1
 static var threaded := true
-var near := PackedInt64Array()
 var root_prev := Vector3.ZERO
 var v_root := Vector3.ZERO
 var fwd := Vector3.BACK
@@ -106,7 +108,7 @@ func _init_for(a: Node3D, sim: Dictionary) -> void:
 	D = _prep[a.look]
 	cap_out = D.cap_out; cap_inn = D.cap_inn; rings = D.rings; shells = D.shells
 	var ns: int = D.slot_bone.size()
-	W.resize(ns); Wi.resize(ns); Wa.resize(ns); Wp.resize(ns); sc.resize(ns); Pq.resize(ns)
+	W.resize(ns); Wi.resize(ns); Wp.resize(ns); sc.resize(ns)
 	var nc: int = D.cap_slot.size()
 	ca.resize(nc); cab.resize(nc); cc.resize(nc); cl2.resize(nc); cr0.resize(nc); cr1.resize(nc); cR2.resize(nc); cR.resize(nc)
 	var np: int = D.np
@@ -231,8 +233,11 @@ static func _prepare(sk: Skeleton3D, sim: Dictionary) -> Dictionary:
 					"h": sh = int(o[1])
 					"hs": shs = int(o[1])
 			p_ops.append([sh, shs, pts, segs, rr[0], rr[1], rr[2], mm[0], mm[1], mm[2], aft])
-	var parents := PackedInt32Array()
-	for pr in c_parent: if not parents.has(pr): parents.append(pr)
+	var is_parent := PackedByteArray()
+	is_parent.resize(slot_bone.size())
+	for pr in c_parent: is_parent[pr] = 1
+	var flat_bones := PackedInt32Array()
+	for bs in c_bones: flat_bones.append_array(bs)
 	# every capsule a chain's particles test, and the chain's reach from its pin
 	var c_caps: Array = []
 	var c_len := PackedFloat32Array()
@@ -255,32 +260,36 @@ static func _prepare(sk: Skeleton3D, sim: Dictionary) -> Dictionary:
 		"rings": rings, "shells": shells, "c_parent": c_parent, "c_hang": c_hang, "c_p0": c_p0, "c_n": c_n,
 		"c_damp": c_damp, "c_vmax": c_vmax, "c_flut": c_flut, "c_quad": c_quad, "c_rest": c_rest, "c_hangw": c_hangw,
 		"c_bones": c_bones, "c_bq": c_bq, "c_dir": c_dir, "np": np, "p_ks": p_ks, "p_drag": p_drag, "p_ccos": p_ccos,
-		"p_csin": p_csin, "p_len": p_len, "p_ops": p_ops, "links": links, "parents": parents, "c_caps": c_caps, "c_len": c_len, "groups": groups, "iter": int(sim.get("iter", 3))}
+		"p_csin": p_csin, "p_len": p_len, "p_ops": p_ops, "links": links, "is_parent": is_parent, "flat_bones": flat_bones, "c_caps": c_caps, "c_len": c_len, "groups": groups, "iter": int(sim.get("iter", 3))}
 
 # ---------- each frame ----------
-# the bones' frames: Wa now (for aiming), and for the sim W, the frames the steps work in:
-# now, or (predict) where they will be when the steps are picked up, a call later, if
-# they keep moving as since the last call (the steps run on a worker meanwhile, so the
-# cloth meets the legs where they are when it is drawn, not a frame behind)
-func _frames(sim: bool, predict: bool) -> void:
+# the bones' frames for the sim (W, at the first time in hz) and for aiming (Wh: the
+# parents', world -> rest frame, at each time in hz), ahead of now as far as asked: if
+# they keep moving as they did since the last call (the steps run on a worker meanwhile,
+# so the cloth meets the legs where they are when it is drawn, not a frame behind)
+func _frames(hz: PackedFloat32Array, predict: bool) -> void:
 	var SG := skel.global_transform
 	var sb: PackedInt32Array = D.slot_bone
 	var rinv: Array = D.slot_rinv
 	var inv: Array = D.slot_inv
-	predict = predict and _have_prev
+	var isp: PackedByteArray = D.is_parent
+	predict = predict and _have_prev and gap > 1e-4
+	while Wh.size() < hz.size():
+		var a: Array[Transform3D] = []
+		a.resize(sb.size()); Wh.append(a)
 	for s in sb.size():
-		var bp := skel.get_bone_global_pose(sb[s])
-		var m := SG * bp * (rinv[s] as Transform3D)
-		Wa[s] = m
-		Pq[s] = bp.basis.get_rotation_quaternion()
-		if sim:
-			var w := (m * Wp[s].affine_inverse()) * m if predict else m
-			W[s] = w
-			if inv[s]: Wi[s] = w.affine_inverse()
-			sc[s] = w.basis.x.length()
+		var m := SG * (skel.get_bone_global_pose(sb[s]) * (rinv[s] as Transform3D))
+		var dm := m * Wp[s].affine_inverse() if predict else Transform3D.IDENTITY
 		Wp[s] = m
+		var w := _ahead(dm, m, hz[0] / gap) if predict else m
+		W[s] = w
+		if inv[s]: Wi[s] = w.affine_inverse()
+		sc[s] = w.basis.x.length()
+		if isp[s]:
+			for j in hz.size():
+				Wh[j][s] = (w if j == 0 else (_ahead(dm, m, hz[j] / gap) if predict else m)).affine_inverse()
 	_have_prev = true
-	if not sim: return
+	gap = 0.0
 	hip = W[D.hips] * (D.hip0 as Vector3)
 	var cs: PackedInt32Array = D.cap_slot
 	var A0: PackedVector3Array = D.cap_a
@@ -298,6 +307,11 @@ func _frames(sim: bool, predict: bool) -> void:
 		var rr := cab[i].length() * 0.5 + maxf(cr0[i], cr1[i])
 		cR2[i] = rr * rr
 		cR[i] = rr
+
+# m moved on by f times the motion dm (rotation and translation, each eased)
+static func _ahead(dm: Transform3D, m: Transform3D, f: float) -> Transform3D:
+	if f <= 1.0: return Transform3D.IDENTITY.interpolate_with(dm, f) * m
+	return Transform3D.IDENTITY.interpolate_with(dm, f - 1.0) * (dm * m)
 
 func _follow() -> void:
 	var cp: PackedInt32Array = D.c_parent
@@ -320,6 +334,8 @@ func hold() -> void:
 	finish()
 	held = true
 	ready = false
+	_sets = []
+	_have_prev = false
 	for c in D.c_bones.size():
 		var bs: PackedInt32Array = D.c_bones[c]
 		for bi in bs:
@@ -327,10 +343,11 @@ func hold() -> void:
 
 # rate: sim steps a second (a villager further off can take fewer). With threaded on,
 # the steps run on a worker thread while the frame is drawn and are picked up by the
-# next update (a frame later, carried on by their speed meanwhile). smooth: the bones
-# are aimed every frame (else only on frames with steps; between them the cloth rides
-# with the body).
-func update(dt: float, speed: float, rate := STEP_HZ, smooth := true) -> void:
+# next updates: they are worked out for the frames ahead (the bones where they will be
+# then, if they keep moving as they did since the last steps), and the cloth bones'
+# turns for each of those frames are made on the worker too, so on the main thread a
+# frame only sets them.
+func update(dt: float, speed: float, rate := STEP_HZ) -> void:
 	if dt <= 0.0: return
 	finish()
 	held = false
@@ -347,45 +364,48 @@ func update(dt: float, speed: float, rate := STEP_HZ, smooth := true) -> void:
 		n = int(acc / H)
 		acc -= n * H
 		if n > MAX_STEPS: n = MAX_STEPS; acc = 0.0
-	if n == 0 and not smooth: return
-	if reset: _have_prev = false
-	var predict := threaded and not reset
-	_frames(n > 0, predict and n > 0)
-	if predict and n > 0: _ahead0 = gap
-	gap = 0.0
-	if n > 0:
-		fwd = actor.global_basis.z.normalized()
-		if reset:
-			_follow()
-			for i in x.size(): x[i] = tg[i]; xp[i] = tg[i]; vt[i] = Vector3.ZERO
-			v_root = Vector3.ZERO
-		else:
-			v_root = (root - root_prev) / since
-		root_prev = root
-		for i in tg.size(): tp[i] = tg[i]
+	# this frame's turns, made with the last steps
+	if not reset and _set_i < _sets.size():
+		_apply(_sets[_set_i]); _set_i += 1
+	if n == 0: return
+	var inline := reset or not threaded
+	# the frames to work out: this one (inline) or the next, then one per frame until the next steps
+	var nh := clampi(int(round(H / dt)), 1, 4) + (0 if inline else 1)
+	var hz := PackedFloat32Array()
+	for j in nh: hz.append(dt * (j if inline else j + 1))
+	_frames(hz, not reset)
+	fwd = actor.global_basis.z.normalized()
+	if reset:
 		_follow()
-		if not reset:
-			var iv := 1.0 / since
-			for i in tg.size(): vt[i] = (tg[i] - tp[i]) * iv
-	if n > 0 and (reset or not threaded):
-		_run(n, H, speed)
-		since = 0.0
-		_ahead0 = 0.0
-		ready = true
-		_aim(0.0)
-		return
-	# aim at what the last steps made (carried on by the particles' speed since their targets were taken)
-	if ready: _aim(maxf(-1.0, (since - _ahead0) * rate))
-	if n > 0:
-		since = 0.0
-		_task = WorkerThreadPool.add_task(_run.bind(n, H, speed), false, "cloth")
+		for i in x.size(): x[i] = tg[i]; xp[i] = tg[i]; vt[i] = Vector3.ZERO
+		v_root = Vector3.ZERO
+	else:
+		v_root = (root - root_prev) / since
+	root_prev = root
+	for i in tg.size(): tp[i] = tg[i]
+	_follow()
+	if not reset:
+		var iv := 1.0 / since
+		for i in tg.size(): vt[i] = (tg[i] - tp[i]) * iv
+	since = 0.0
+	ready = true
+	_set_i = 0
+	if inline:
+		_run(n, H, speed, hz)
+		_apply(_sets[0]); _set_i = 1
+	else:
+		_task = WorkerThreadPool.add_task(_run.bind(n, H, speed, hz), false, "cloth")
 
-# the steps (on a worker thread: only the particles are written)
-func _run(n: int, H: float, speed: float) -> void:
+# the steps, then the bones' turns for each frame ahead (on a worker thread: nothing in
+# the scene is touched)
+func _run(n: int, H: float, speed: float, hz: PackedFloat32Array) -> void:
 	var t0 := Time.get_ticks_usec()
 	for i in n:
 		clock += H
 		_step(H, speed, clock)
+	var sets: Array = []
+	for j in hz.size(): sets.append(_aim(Wh[j], (hz[j] - hz[0]) / H))
+	_sets = sets
 	step_us = Time.get_ticks_usec() - t0
 
 # wait for the steps on the worker thread, if any
@@ -395,6 +415,11 @@ func finish() -> void:
 		WorkerThreadPool.wait_for_task_completion(_task)
 		_task = -1
 		wait_us = Time.get_ticks_usec() - t0
+
+func _apply(qs: Array) -> void:
+	var fb: PackedInt32Array = D.flat_bones
+	for i in fb.size():
+		if fb[i] >= 0: skel.set_bone_pose_rotation(fb[i], qs[i])
 
 func _step(h: float, speed: float, t: float) -> void:
 	var gust := 0.55 + 0.3 * sin(t * 0.63) + 0.2 * sin(t * 1.71 + 1.3) + 0.12 * sin(t * 3.9)
@@ -622,30 +647,31 @@ func _shell_out(p: Vector3, si: int) -> Vector3:
 	q.x += dx / d * (rmin - d); q.z += dz / d * (rmin - d)
 	return W[sl] * q
 
-# turn the cloth bones so each points from its pin at its particle (carried on by
-# its speed for the part of a step since the last one)
-func _aim(ahead: float) -> void:
-	var SGi := skel.global_transform.affine_inverse()
+# the cloth bones' turns (in their parents' frames) so each points from its pin at its
+# particle, carried on by its speed for ahead steps; worked out in the parent's rest
+# frame (wi: the parents' world -> rest frames at that time), like the web's aim
+func _aim(wi: Array, ahead: float) -> Array:
+	var out: Array = []
 	var cp: PackedInt32Array = D.c_parent
 	var p0: PackedInt32Array = D.c_p0
 	var rq: Array = D.slot_rq
 	for c in cp.size():
 		var pr: int = cp[c]
-		var qr: Quaternion = Pq[pr] * (rq[pr] as Quaternion)
-		var parent_g: Quaternion = Pq[pr]
-		var from := SGi * (Wa[pr] * (D.c_rest[c] as PackedVector3Array)[0])
-		var bs: PackedInt32Array = D.c_bones[c]
+		var mi: Transform3D = wi[pr]
+		var rest: PackedVector3Array = D.c_rest[c]
+		var from := rest[0]
+		var g := Quaternion.IDENTITY
+		var prev_b: Quaternion = (rq[pr] as Quaternion).inverse()
 		var bq: Array = D.c_bq[c]
 		var dirs: PackedVector3Array = D.c_dir[c]
-		for k in bs.size():
+		for k in dirs.size():
 			var i := p0[c] + k
-			var xd := x[i] + (x[i] - xp[i]) * ahead
-			var to := SGi * xd
-			var tv := (qr * dirs[k]).normalized()
+			var to := mi * (x[i] + (x[i] - xp[i]) * ahead)
+			var tv := (g * dirs[k]).normalized()
 			var ts := (to - from).normalized()
-			var qd := Quaternion(tv, ts) if tv.dot(ts) > -0.999 else Quaternion.IDENTITY
-			var want: Quaternion = qd * qr * (bq[k] as Quaternion)
-			if bs[k] >= 0: skel.set_bone_pose_rotation(bs[k], parent_g.inverse() * want)
-			parent_g = want
-			qr = qd * qr
+			if tv.dot(ts) > -0.999: g = Quaternion(tv, ts) * g
+			var want: Quaternion = g * (bq[k] as Quaternion)
+			out.append(prev_b.inverse() * want)
+			prev_b = want
 			from = to
+	return out

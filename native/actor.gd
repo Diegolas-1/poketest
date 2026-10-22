@@ -214,7 +214,7 @@ func animate(dt: float, speed: float, air: bool) -> void:
 	if cloth:
 		var t0 := Time.get_ticks_usec()
 		if cloth_far: cloth.hold()
-		else: cloth.update(dt, speed, cloth_rate, cloth_rate >= 60.0)
+		else: cloth.update(dt, speed, cloth_rate)
 		sim_cost_us = Time.get_ticks_usec() - t0
 	_blink(dt)
 

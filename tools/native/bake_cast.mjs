@@ -156,7 +156,7 @@ const res = await p.evaluate(async () => {
       }
       pts[N - 1].y = bot;
       const bones = addChain(m, 'T', 'Head', pts, (p) => along(pts, p), 0.7);
-      chain({ parent: 'Head', bones, pts, ks: [40, 32, 26, 20], drag: [0.5, 0.6, 0.7, 0.8], cone: [0.45, 0.55, 0.62, 0.7], flut: 0.3, damp: 4 });
+      chain({ parent: 'Head', bones, pts, ks: [44, 36, 30, 26], drag: [0.45, 0.5, 0.55, 0.6], cone: [0.4, 0.45, 0.5, 0.55], flut: 0.3, damp: 4.5 });
     }
     // spiky hair (Ash's under the cap, Oak's swept back): a ring of short stiff chains round
     // the back half of the head; each spike goes with the chains either side of it by its
