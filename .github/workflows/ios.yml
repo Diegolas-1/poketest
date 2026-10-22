@@ -6,7 +6,7 @@ name: iOS app
 on:
   push:
     branches: [main]
-    paths: ['native/**', '.github/workflows/ios.yml']
+    paths: ['native/**', '.github/workflows/ios.yml', 'tools/native/pack_ids.sh']
   workflow_dispatch:
 
 permissions:
@@ -63,6 +63,10 @@ jobs:
         working-directory: native
         run: |
           G=~/godot/Godot.app/Contents/MacOS/Godot
+          # the app's own patch ids (boot.gd / updater.gd compare them with the
+          # patch server's manifest); before --import, which may add files
+          ../tools/native/pack_ids.sh "$($G --version | tail -1 | cut -d. -f1-4)" > patch_base.json
+          cat patch_base.json
           $G --headless --path . --import || true
           mkdir -p build/ios
           # project only: signing happens on the phone (SideStore)

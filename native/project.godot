@@ -10,6 +10,9 @@ config/icon="res://icon.png"
 
 [autoload]
 
+; Boot must stay first: it loads the over-the-air patch packs before the
+; other autoloads and the main scene are read (boot.gd)
+Boot="*res://boot.gd"
 Settings="*res://settings.gd"
 Ink="*res://ink.gd"
 

@@ -16,7 +16,8 @@ extends Node
 # outlines, outline_q, shadow, shadow_dist, shadow_soft, grass, grass_size,
 # lod (view distance), trees, plants, fog (haze distance), exposure, fps, perf,
 # face, cam_speed, invert_y, deadzone, clock ("game" | "real"), day_len (real
-# minutes per game day), clock_hud, town_debug (clock.gd, life.gd).
+# minutes per game day), clock_hud, town_debug (clock.gd, life.gd), auto_update
+# (updater.gd).
 #
 # Viewport-wide things (render scale, upscaler, anti-aliasing, frame cap,
 # shadow atlas size and filter, outlines through the Ink autoload) are applied
@@ -46,7 +47,7 @@ const DEFAULT_PRESET := "high"
 
 # settings that are not part of a preset
 const EXTRA := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
-	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0}
+	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1}
 
 # rows of the menu, by tab: key, label, values, hint (format in fmt())
 const ROWS := {
@@ -85,6 +86,9 @@ const ROWS := {
 		["day_len", "Length of a day", [24, 48, 96, 144], "real minutes per game day"],
 		["clock_hud", "Clock on screen", [0, 1], ""],
 		["town_debug", "Town debug overlay", [0, 1], "who is doing what (also F3)"],
+	],
+	"Updates": [
+		["auto_update", "Auto-update", [0, 1], "download new versions in the background"],
 	],
 }
 

@@ -8,7 +8,7 @@ extends CanvasLayer
 const BG := Color(0.086, 0.118, 0.172, 0.97)
 const ACCENT := Color("e8735a")
 const GOLD := Color("ffd27a")
-const TABS := ["Display", "World", "Controls", "Time"]
+const TABS := ["Display", "World", "Controls", "Time", "Updates"]
 const COG := Rect2(16, 16, 56, 56)
 
 var cog: Button
@@ -94,7 +94,7 @@ func _build() -> void:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.anchor_top = 0.0; panel.anchor_bottom = 1.0
 	panel.offset_left = 16; panel.offset_top = 16; panel.offset_bottom = -16
-	panel.offset_right = 16 + 600
+	panel.offset_right = 16 + 700
 	root.add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
@@ -110,9 +110,9 @@ func _build() -> void:
 	for t in TABS:
 		var b := Button.new()
 		b.text = t
-		b.custom_minimum_size = Vector2(112, 46)
+		b.custom_minimum_size = Vector2(92, 46)
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 19)
+		b.add_theme_font_size_override("font_size", 18)
 		b.pressed.connect(_set_tab.bind(t, false))
 		head.add_child(b)
 		tab_btns.append(b)
@@ -171,6 +171,7 @@ func _fill() -> void:
 	for r in Settings.ROWS[tab]:
 		_row(r[0], r[1], r[2], r[3])
 	if tab == "Controls": _legend()
+	if tab == "Updates": _updates()
 	_refresh_values()
 	scroll.scroll_vertical = 0
 
@@ -250,6 +251,44 @@ func _legend() -> void:
 	m.add_theme_constant_override("margin_left", 8)
 	m.add_child(l)
 	list.add_child(m)
+
+# the Updates tab: version in use, the updater's status, Check for updates
+# (updater.gd at /root/Updater; absent in a dev run from the project folder)
+func _updates() -> void:
+	var up := get_node_or_null("/root/Updater")
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_top", 10)
+	m.add_theme_constant_override("margin_left", 8)
+	m.add_child(box)
+	list.add_child(m)
+	var ver := _text("Version: %s" % (up.version_text() if up else "dev build (no updates)"), 19)
+	box.add_child(ver)
+	var st := _text(up.status if up else "", 16)
+	st.modulate.a = 0.8
+	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(st)
+	var b := Button.new()
+	b.text = "Check for updates"
+	b.custom_minimum_size = Vector2(0, 50)
+	b.add_theme_font_size_override("font_size", 19)
+	_style_btn(b, Color(1, 1, 1, 0.14), 12)
+	b.disabled = up == null
+	b.pressed.connect(func(): if up: up.check(true))
+	box.add_child(b)
+	if up:
+		var on_status := func(t):
+			st.text = t
+			ver.text = "Version: %s" % up.version_text()
+		up.status_changed.connect(on_status)
+		box.tree_exiting.connect(func(): up.status_changed.disconnect(on_status))
+		var notes = up.boot.applied.get("notes", []) if up.boot else []
+		if notes is Array and notes.size() > 0:
+			var nl := _text("What's new:\n" + "\n".join(notes.slice(0, 6).map(func(n): return "· " + str(n))), 15)
+			nl.modulate.a = 0.7
+			nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(nl)
 
 func _refresh_values() -> void:
 	for r in rows:

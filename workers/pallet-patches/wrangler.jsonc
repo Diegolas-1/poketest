@@ -1,0 +1,9 @@
+// Over-the-air patches for the native game (native/, the iPhone build).
+// Read-only: publishing writes R2 straight from tools/native/publish_patch.mjs.
+{
+  "name": "pallet-patches",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "r2_buckets": [{ "binding": "PATCHES", "bucket_name": "pallet-patches" }]
+}
