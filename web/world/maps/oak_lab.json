@@ -65,8 +65,8 @@
       "wainscot": { "h": 1.05, "mat": "wood_panel" },
       "openings": [
         { "id": "wing_arch", "type": "arch", "at": 5.0, "w": 3.0, "h": 2.9 },
-        { "id": "clere_s1", "type": "window", "at": 8.0, "w": 1.1, "h": 2.0, "sill": 3.8, "style": "arched", "outside": "sky" },
-        { "id": "clere_s2", "type": "window", "at": 14.4, "w": 1.1, "h": 2.0, "sill": 3.8, "style": "arched", "outside": "sky" }
+        { "id": "clere_s1", "type": "window", "at": 8.0, "w": 1.1, "h": 1.9, "sill": 3.4, "style": "arched", "outside": "sky" },
+        { "id": "clere_s2", "type": "window", "at": 14.4, "w": 1.1, "h": 1.9, "sill": 3.6, "style": "arched", "outside": "sky" }
       ] },
     { "id": "w_wing_w", "level": "ground", "path": [[2.5, 6], [2.5, 13]], "t": 0.3, "h": 3.4, "mat": "warm_plaster",
       "wainscot": { "h": 0.95, "mat": "beige_panel" }, "openings": [] },
@@ -90,9 +90,9 @@
     { "id": "rail_mezz", "level": "mezz", "path": [[14, -4.75], [14, 6]], "h": 1.0, "style": "bars", "mat": "steel_green" }
   ],
   "runs": [
-    { "id": "pipe_north", "type": "pipe", "pts": [[17.7, 5.9, -5.7], [1.3, 5.9, -5.7], [1.3, 0.0, -5.7]], "r": 0.1, "mat": "pipe_green" },
-    { "id": "pipe_south", "type": "pipe", "pts": [[6.9, 5.95, 5.7], [17.7, 5.95, 5.7]], "r": 0.1, "mat": "pipe_green" },
-    { "id": "pipe_tank", "type": "pipe", "pts": [[16.8, 5.95, 5.7], [16.8, 2.75, 5.7]], "r": 0.08, "mat": "pipe_green" },
+    { "id": "pipe_north", "type": "pipe", "pts": [[14.9, 5.55, -5.7], [1.3, 5.55, -5.7], [1.3, 0.0, -5.7]], "r": 0.1, "mat": "pipe_green" },
+    { "id": "pipe_south", "type": "pipe", "pts": [[6.9, 5.55, 5.7], [17.7, 5.55, 5.7]], "r": 0.1, "mat": "pipe_green" },
+    { "id": "pipe_tank", "type": "pipe", "pts": [[16.8, 5.55, 5.7], [16.8, 2.75, 5.7]], "r": 0.08, "mat": "pipe_green" },
     { "id": "pipe_crown", "type": "pipe", "pts": [[0.3, 9.4, 1.4], [17.7, 9.4, 1.4]], "r": 0.12, "mat": "pipe_green" },
     { "id": "pipe_crown2", "type": "pipe", "pts": [[0.3, 9.25, -1.9], [17.7, 9.25, -1.9]], "r": 0.07, "mat": "pipe_green" },
     { "id": "hoist_beam", "type": "beam", "pts": [[11.5, 7.4, -5.0], [11.5, 7.4, 5.0]], "r": 0.12, "mat": "steel" }
@@ -145,7 +145,7 @@
     { "id": "mz_globe", "type": "globe", "pos": [16.3, 1.6], "rot": 30, "level": "mezz",
       "use": { "label": "Look", "lines": ["A globe of the POKéMON world.", "Someone circled KANTO, JOHTO and an island far to the south."] } },
     { "id": "mz_crates", "type": "crate", "pos": [15.2, 5.3], "rot": 10, "level": "mezz", "params": { "stack": 2, "seed": 12, "scale": 0.85 } },
-    { "id": "mz_cabinet", "type": "filing_cabinet", "pos": [14.9, -5.45], "rot": 0, "level": "mezz" },
+    { "id": "mz_cabinet", "type": "filing_cabinet", "pos": [17.5, 0.2], "rot": 270, "level": "mezz" },
 
     { "id": "capsule", "type": "capsule_machine", "pos": [3.6, 12.05], "rot": 180, "level": "ground" },
     { "id": "desk_w1", "type": "desk", "pos": [6.0, 12.4], "rot": 180, "level": "ground", "params": { "wood": "#e3d2a8", "drawers": "left" } },

@@ -64,6 +64,7 @@
 //   {id, name, levels, grid:{x0, z0, res, nx, nz}, walk:[{level, y, h (base64
 //    int16 cm), f (base64 uint8 flags)}], colliders:[[level, kind, ...]],
 //    uses, portals, spawns, actors, camera, lights, props, place}
+//   camera.blocks: [level, x, z, hw, hd, rot, y0, y1, round] big props the camera stays out of
 //   flags: 1 OPEN floor, 2 STAIR (shared by both levels it joins), 4 PROP under
 //   a blocking prop, 8 WALL, 16 RAIL, 32 PORTAL
 //   collider [levelIndex, 1, x, z, hw, hd, rot (radians)] box, [levelIndex, 0, x, z, r] circle
@@ -227,12 +228,17 @@ export function compile(bp, cat) {
     }
   }
   // props
-  const props = [];
+  const props = [], camBlocks = [];
   for (const p of bp.props) {
     const L = LI[p.level], mount = propMount(p, cat), b = propBox(p, cat), c = cat[p.type] || {};
     const s = (p.params && p.params.size3) || c.size || [1, 1, 1], k = (p.params && p.params.scale) || 1;
     const y = mount === 'floor' ? LY[L] + (p.y || 0) : mount === 'top' ? LY[L] + (p.y || 0) : (p.y ?? 0) + (mount === 'wall' ? LY[L] : 0);
     props.push({ id: p.id, type: p.type, x: p.pos[0], z: p.pos[1], y, rot: (p.rot || 0) * D2R, level: L, mount, size: [s[0] * k, s[1] * k, s[2] * k], params: p.params || {}, tags: p.tags || [] });
+    // big tall props also stop the camera (it never ends up inside a tank)
+    if (mount === 'floor' && s[2] * k >= 1.8 && Math.max(s[0], s[1]) * k >= 0.9) {
+      const top = Math.max(y + s[2] * k, p.params && p.params.duct ? LY[L] + p.params.duct : 0);
+      camBlocks.push([L, +b[0].toFixed(3), +b[1].toFixed(3), +b[2].toFixed(3), +b[3].toFixed(3), +b[4].toFixed(4), +y.toFixed(3), +top.toFixed(3), propShape(p, cat) === 'round' ? 1 : 0]);
+    }
     if (propWalk(p, cat) === 'block') {
       if (propShape(p, cat) === 'round') col.push([L, 0, b[0], b[1], +Math.max(b[2], b[3]).toFixed(4)]);
       else boxCol(L, b);
@@ -278,7 +284,7 @@ export function compile(bp, cat) {
     walk: bp.levels.map((l, i) => ({ level: i, y: l.y, h: b64(new Uint8Array(H[i].buffer)), f: b64(FL[i]) })),
     _raw: { H, FL },
     colliders: col, uses, portals, spawns, actors, props,
-    camera: bp.camera, lights: bp.lights || {},
+    camera: { ...bp.camera, blocks: camBlocks }, lights: bp.lights || {},
   };
 }
 
@@ -468,6 +474,14 @@ export function validate(bp, cat) {
     };
     for (const s of S.spawns) if (!reach(s.level, s.x, s.z, 0.3)) err(`spawn ${s.id}: cannot be walked to`);
     for (const p of S.portals) { const [a, b, c, d] = p.rect; if (!reach(p.level, (a + c) / 2, (b + d) / 2, Math.max(c - a, d - b) / 2 + 0.2)) err(`portal ${p.id}: cannot be walked to`); }
+    // the floor just off each end of a stair must be clear to step onto
+    for (const st of bp.stairs || []) {
+      const len = Math.hypot(st.b[0] - st.a[0], st.b[1] - st.a[1]), ux = (st.b[0] - st.a[0]) / len, uz = (st.b[1] - st.a[1]) / len;
+      for (const [L, x, z, end] of [[LI[st.from], st.a[0] - ux * 0.6, st.a[1] - uz * 0.6, 'foot'], [LI[st.to], st.b[0] + ux * 0.6, st.b[1] + uz * 0.6, 'head']]) {
+        const k = cellOf(x, z);
+        if (k < 0 || !free[L][k]) err(`stairs ${st.id}: the ${end} lands on a blocked or missing floor at ${x.toFixed(2)}, ${z.toFixed(2)}`);
+      }
+    }
     for (const u of S.uses) if (!reach(u.level, u.x, u.z, u.r + 0.5)) err(`use ${u.id}: cannot be walked to (within ${(u.r + 0.5).toFixed(2)} m)`);
     // open floor nobody can reach (a sealed corner): a warning
     let lost = 0;

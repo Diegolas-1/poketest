@@ -24,6 +24,7 @@ var colliders: Array = []    # per level: [box?, x, z, hw|r, hd, rot] (WorldData
 var level := 0
 var sea_y := -1000.0
 var volumes: Array = []      # camera volumes
+var blocks: Array = []       # big props the camera stays out of
 var cam_margin := 0.28
 
 func load_space(path: String) -> bool:
@@ -40,6 +41,7 @@ func load_space(path: String) -> bool:
 	for c in meta.colliders:
 		colliders[int(c[0])].append(c.slice(1))
 	volumes = meta.camera.volumes
+	blocks = meta.camera.get("blocks", [])
 	cam_margin = float(meta.camera.get("margin", 0.28))
 	return true
 
@@ -139,6 +141,14 @@ func in_volume(v: Dictionary, p: Vector3, m: float) -> bool:
 	return p.y <= top - m
 
 func _in_any(p: Vector3) -> bool:
+	for b in blocks:
+		if p.y < b[6] or p.y > b[7]: continue
+		var dx: float = p.x - b[1]; var dz: float = p.z - b[2]
+		if b[8] == 1:
+			if dx * dx + dz * dz < float(b[3]) * float(b[3]): return false
+		else:
+			var cs := cos(float(b[5])); var sn := sin(float(b[5]))
+			if absf(dx * cs - dz * sn) < float(b[3]) and absf(dx * sn + dz * cs) < float(b[4]): return false
 	for v in volumes:
 		if in_volume(v, p, 0.0): return true
 	return false

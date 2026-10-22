@@ -13,6 +13,7 @@ const TOON := preload("res://shaders/toon.gdshader")
 const TOON_DS := preload("res://shaders/toon_ds.gdshader")
 const UNLIT := preload("res://shaders/interior_unlit.gdshader")
 const GLOW := preload("res://shaders/interior_glow.gdshader")
+const FLOOR := preload("res://shaders/interior_floor.gdshader")
 const Veg := preload("res://veg.gd")
 const DIR := "res://interiors/"
 
@@ -97,13 +98,13 @@ func _material(src: Material, pal: Dictionary) -> Material:
 		m.set_shader_parameter("use_vc", nm.contains("_vc"))
 		if nm.begins_with("glow"): m.render_priority = 1
 		return m
-	m.shader = TOON
+	m.shader = FLOOR if nm.begins_with("floor") else TOON
 	if b:
 		m.set_shader_parameter("albedo", b.albedo_color)
 		if b.albedo_texture:
 			m.set_shader_parameter("albedo_tex", b.albedo_texture)
 			m.set_shader_parameter("use_tex", true)
-		if b.cull_mode == BaseMaterial3D.CULL_DISABLED: m.shader = TOON_DS
+		if b.cull_mode == BaseMaterial3D.CULL_DISABLED and m.shader == TOON: m.shader = TOON_DS
 	m.set_shader_parameter("use_vc", nm.contains("_vc"))
 	var v3 := func(k: String, d: Vector3) -> Vector3:
 		var a = pal.get(k, null)

@@ -175,7 +175,8 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
     const p = bp.palette[z.floor] || {}, n = p.pattern === 'tile05' ? 4 : 2, rep = p.pattern === 'tile05' ? 0.5 : 0.5;
     const uv = g.attributes.uv, P = g.attributes.position;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, P.getX(i) * rep * (n / 2), P.getZ(i) * rep * (n / 2));
-    const m = new THREE.Mesh(g, texm(tileTex(p.color || '#cccccc', n)));
+    const fm = texm(tileTex(p.color || '#cccccc', n)); fm.name = 'floor';   // glossy in the native game (interior_floor.gdshader)
+    const m = new THREE.Mesh(g, fm);
     m.position.y = LY[LI[z.level]]; m.receiveShadow = true; m.userData.outline = false; m.userData.noShadow = true; F.add(m);
   }
 
