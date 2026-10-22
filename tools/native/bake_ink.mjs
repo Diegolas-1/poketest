@@ -48,6 +48,7 @@ console.log('world ready');
 const res = await p.evaluate(async () => {
   const THREE = await import('three');
   const O = await import('/world/outline.js');
+  const T = await import('/world/terrain.js');
   const w = window.world;
   const shown = (o) => { for (let q = o; q; q = q.parent) if (q.userData.inkLines ? false : !q.visible) return false; return true; };
   const out = [];
@@ -72,7 +73,38 @@ const res = await p.evaluate(async () => {
   // screen-space 'solid' props of the town (outline.js autoKind), as vector ink
   const mark = (o) => { for (let q = o; q; q = q.parent) if (q.userData.outline !== undefined) return q.userData.outline; return undefined; };
   const radius = (o, g) => { if (!g.boundingSphere) g.computeBoundingSphere(); return g.boundingSphere.radius * o.matrixWorld.getMaxScaleOnAxis(); };
-  let solids = 0;
+  let solids = 0, meets = 0;
+  // where a prop goes into the ground or the water (rocks in the stream bank,
+  // posts in the grass): the web's screen-space pass draws a line there; here
+  // the cut of each triangle with the visible ground surface becomes an
+  // always-shown line (kind 2)
+  // the terrain as drawn: terrain.js buildTerrain's 420 m grid of 280 cells,
+  // each cell split along its (0,1)-(1,0) diagonal
+  const meshH = (x, z) => {
+    const u = (x + 210) / 1.5, w2 = (z + 210) / 1.5, i = Math.floor(u), j = Math.floor(w2), fx = u - i, fz = w2 - j;
+    const H = (a, b) => T.height(-210 + a * 1.5, -210 + b * 1.5);
+    const ha = H(i, j), hb = H(i, j + 1), hc = H(i + 1, j + 1), hd = H(i + 1, j);
+    return fx + fz <= 1 ? ha + fz * (hb - ha) + fx * (hd - ha) : hc + (1 - fx) * (hb - hc) + (1 - fz) * (hd - hc);
+  };
+  const ground = (x, z) => Math.max(meshH(x, z), T.waterLevel(x, z));
+  const meet = (geo, m4) => {
+    const P = geo.attributes.position, idx = geo.index ? geo.index.array : null, n = idx ? idx.length : P.count;
+    const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], d = [0, 0, 0], nr = new THREE.Vector3(), t1 = new THREE.Vector3(), t2 = new THREE.Vector3();
+    for (let t = 0; t + 2 < n; t += 3) {
+      for (let c = 0; c < 3; c++) { v[c].fromBufferAttribute(P, idx ? idx[t + c] : t + c).applyMatrix4(m4); d[c] = v[c].y - ground(v[c].x, v[c].z); }
+      if ((d[0] > 0) === (d[1] > 0) && (d[1] > 0) === (d[2] > 0)) continue;
+      const pts = [];
+      for (let c = 0; c < 3; c++) {
+        const a = c, b2 = (c + 1) % 3;
+        if ((d[a] > 0) !== (d[b2] > 0)) { const f = d[a] / (d[a] - d[b2]); pts.push(v[a].clone().lerp(v[b2], f)); }
+      }
+      if (pts.length < 2) continue;
+
+      nr.copy(t1.subVectors(v[1], v[0])).cross(t2.subVectors(v[2], v[0])).normalize();
+      out.push(pts[0].x, pts[0].y, pts[0].z, pts[1].x, pts[1].y, pts[1].z, nr.x, nr.y, nr.z, nr.x, nr.y, nr.z, 2);
+      meets++;
+    }
+  };
   const hull = [], leaf = [], bb = new THREE.Box3(), cc = new THREE.Vector3();
   // the box Godot gives the same mesh in town.glb: a mesh's own box through its
   // transform; instances are merged into one world-space mesh there (exact box)
@@ -103,13 +135,14 @@ const res = await p.evaluate(async () => {
       if (o.isInstancedMesh) { o.getMatrixAt(i, im); m4.multiplyMatrices(o.matrixWorld, im); } else m4.copy(o.matrixWorld);
       const ed = O.partEdges(o.geometry, m4, [], -1);
       for (let j = 0; j < ed.k.length; j++) out.push(...ed.pos.slice(j * 6, j * 6 + 6), ...ed.n1.slice(j * 3, j * 3 + 3), ...ed.n2.slice(j * 3, j * 3 + 3), ed.k[j]);
+      meet(o.geometry, m4);
       solids++;
     }
   });
   const f = new Float32Array(out);
   const u8 = new Uint8Array(f.buffer);
   let str = ''; for (let i = 0; i < u8.length; i += 0x8000) str += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
-  return { objs, solids, hull, leaf, n: f.length / 13, b64: btoa(str) };
+  return { objs, solids, meets, hull, leaf, n: f.length / 13, b64: btoa(str) };
 });
 
 // float32 -> float16 bits
@@ -150,5 +183,5 @@ for (const [k, ids] of bins) {
 fs.writeFileSync(path.join(OUT, 'ink.bin'), Buffer.concat(parts));
 fs.writeFileSync(path.join(OUT, 'ink_meshes.json'), JSON.stringify({ hull: res.hull, leaf: res.leaf }));
 console.log('ink_meshes.json', res.hull.length, 'hull', res.leaf.length, 'leaf');
-console.log('ink.bin', res.n, 'edges from', res.objs, 'line objects +', res.solids, 'props,', bins.size, 'cells,', (fs.statSync(path.join(OUT, 'ink.bin')).size / 1048576).toFixed(2), 'MB');
+console.log('ink.bin', res.n, 'edges from', res.objs, 'line objects +', res.solids, 'props (', res.meets, 'ground cuts),', bins.size, 'cells,', (fs.statSync(path.join(OUT, 'ink.bin')).size / 1048576).toFixed(2), 'MB');
 await b.close();

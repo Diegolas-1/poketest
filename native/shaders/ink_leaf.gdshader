@@ -44,6 +44,9 @@ void vertex() {
 	vec4 c = PROJECTION_MATRIX * vec4(vp, 1.0);
 	if (l > 1e-4) c.xy += d / l * px / (0.5 * VIEWPORT_SIZE) * c.w;
 	POSITION = c;
+	// one plant too far from the player: nothing to draw (the whole plant at once,
+	// so no triangle is left half collapsed)
+	if (use_center && w <= 0.01) POSITION = vec4(0.0, 0.0, -2.0, 1.0);
 	v_w = w;
 }
 

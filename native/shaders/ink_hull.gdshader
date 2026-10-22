@@ -21,10 +21,14 @@ varying float v_alpha;
 varying vec3 v_col;
 
 void vertex() {
+	// DEFORM: a mesh that moves its vertices in its own shader repeats that here
 	vec3 vp = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 vn = normalize(MODELVIEW_NORMAL_MATRIX * NORMAL);
-	float w = 1.0 - smoothstep(focus_range.x, focus_range.y, distance(vp, (VIEW_MATRIX * vec4(ink_focus, 1.0)).xyz));
-	float fl = 1.0 - smoothstep(fade.x, fade.y, -vp.z);
+	// width and fade from the object's origin (a character is small), so the
+	// whole hull goes at once when it is too far
+	vec3 vo = (MODELVIEW_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float w = 1.0 - smoothstep(focus_range.x, focus_range.y, distance(vo, (VIEW_MATRIX * vec4(ink_focus, 1.0)).xyz));
+	float fl = 1.0 - smoothstep(fade.x, fade.y, -vo.z);
 	float core = max(1.0, width_1080 * VIEWPORT_SIZE.y / 1080.0) * w;
 	// below a pixel the line keeps one pixel and fades instead
 	float px = max(core, 1.0);
@@ -34,6 +38,7 @@ void vertex() {
 	float l = length(nd);
 	if (l > 1e-5) c.xy += nd / l * px / (0.5 * VIEWPORT_SIZE) * c.w;
 	POSITION = c;
+	if (fl * w <= 0.003) POSITION = vec4(0.0, 0.0, -2.0, 1.0);   // too far: nothing to draw
 	v_alpha = fl * min(core, 1.0) * ink_color.a;
 	v_col = aces_three(ink_color.rgb);
 }

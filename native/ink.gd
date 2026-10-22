@@ -60,7 +60,6 @@ const CELL := 64.0
 var enabled := true
 var quality := 1.0
 var hull_mat: ShaderMaterial    # shared by the characters
-var inked := {}                 # characters already outlined (instance id)
 var scan_t := 0.0
 var line_mat: ShaderMaterial
 var line_nodes: Array = []
@@ -77,23 +76,27 @@ func _ready() -> void:
 # characters (actor.gd adds each to the group "characters"): every mesh in
 # its .meshes gets the hull, except those with meta no_ink (the web leaves
 # them out) or ink_group (drawn as part of another mesh, e.g. the eye patch on
-# the face). Checked twice a second, so new villagers are picked up.
+# the face). Checked twice a second, so new villagers and meshes added later
+# (hair, cloth) are picked up.
+# Deforming meshes: skinning, blend shapes and CPU-updated meshes (cloth or
+# hair written into the mesh or driven by bones) are followed by the hull as
+# they are. A mesh that moves its vertices in its OWN vertex shader must give
+# the ink the same motion: set meta "ink_material" on the MeshInstance3D to a
+# ShaderMaterial made from shaders/ink_hull.gdshader with that vertex code
+# added (marked DEFORM there); Ink uses it instead of the shared hull.
 func _process(dt: float) -> void:
 	scan_t -= dt
 	if scan_t > 0.0: return
 	scan_t = 0.5
 	for a in get_tree().get_nodes_in_group("characters"):
-		var id := a.get_instance_id()
-		if inked.has(id): continue
 		var list = a.get("meshes")
-		if list == null or list.is_empty(): continue
-		inked[id] = true
+		if list == null: continue
 		for m3 in list:
-			if not is_instance_valid(m3) or m3.has_meta("no_ink") or m3.has_meta("ink_group"): continue
-			_attach(m3, hull_mat)
-	if inked.size() > 256:   # stale ids of freed actors (re-adding is harmless: _attach skips duplicates)
-		inked.clear()
-		overlays = overlays.filter(func(p): return is_instance_valid(p[0]))
+			if not is_instance_valid(m3) or m3.has_meta("ink_done") or m3.has_meta("no_ink") or m3.has_meta("ink_group"): continue
+			m3.set_meta("ink_done", true)
+			var mat = m3.get_meta("ink_material") if m3.has_meta("ink_material") else null
+			if mat is ShaderMaterial: _common(mat, {})
+			_attach(m3, mat if mat is ShaderMaterial else hull_mat)
 
 func set_enabled(on: bool) -> void:
 	if on == enabled: return
@@ -263,6 +266,8 @@ func _first_material(mi: GeometryInstance3D) -> Material:
 	return null
 
 func _attach(mi: GeometryInstance3D, ink: ShaderMaterial) -> void:
+	if overlays.size() > 64 and overlays.size() % 64 == 0:
+		overlays = overlays.filter(func(p): return is_instance_valid(p[0]))   # freed villagers
 	for p in overlays:
 		if p[0] == mi and p[1] == ink: return
 	overlays.append([mi, ink])
