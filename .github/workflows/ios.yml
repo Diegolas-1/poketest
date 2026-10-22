@@ -29,6 +29,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Godot 4.7's iOS engine links against the iOS 26 SDK (Metal tensors,
+      # HDR display ranges): build with the newest Xcode on the runner
+      - name: Newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "using $X"; ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
       - name: Godot and the iOS export template (cached)
         id: cache
         uses: actions/cache@v4
