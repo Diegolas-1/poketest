@@ -239,7 +239,8 @@ const res = await p.evaluate(async () => {
       const a = g.attributes, e = { v: a.position.count };
       const f32 = (attr) => { const o = new Float32Array(attr.count * attr.itemSize); for (let i = 0; i < attr.count; i++) for (let k = 0; k < attr.itemSize; k++) o[i * attr.itemSize + k] = attr.getComponent(i, k); return put(o); };
       e.pos = f32(a.position); e.nrm = f32(a.normal);
-      if (a.uv) e.uv = f32(a.uv);
+      // uv with v down, as Godot reads images (three's canvas textures are flipped: v up)
+      if (a.uv) { const o = new Float32Array(a.uv.count * 2); for (let i = 0; i < a.uv.count; i++) { o[i * 2] = a.uv.getX(i); o[i * 2 + 1] = 1 - a.uv.getY(i); } e.uv = put(o); }
       // colour as rgba and flutter as (flutter, 0), so they load straight
       // into Godot's colour and uv2 arrays
       if (a.color) { const o = new Float32Array(a.color.count * 4); for (let i = 0; i < a.color.count; i++) o.set([a.color.getX(i), a.color.getY(i), a.color.getZ(i), 1], i * 4); e.col = put(o); }
