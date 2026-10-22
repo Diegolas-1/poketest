@@ -435,7 +435,99 @@ func _necks(dt: float, v: float) -> void:
 		turn_rest(h.lo, Vector3.RIGHT, h.beak * 0.9)
 		turn_rest(h.up, Vector3.RIGHT, -h.beak * 0.25)
 		_eye(h, dt, eye)
+	if heads_solid: _heads_apart()
 	crouch = damp(crouch, want_crouch, 5.0, dt)
+
+# ---------- the heads are solid to each other ----------
+# Each head is a ball round its crown and its beak a capsule. After the necks are
+# posed (looks, glances, pecks, moods), they are checked against each other: balls
+# kept HEAD_GAP apart (the bind pose has them just touching), a beak kept outside
+# the other ball. Overlap splays the necks outward (both, from the base) or turns
+# the beak's head away, a few passes, so two heads glancing or arguing stop face
+# to face instead of passing through each other.
+const HEAD_R := 0.092             # the crown ball (skeleton units; the mesh is wider at the cheeks but they nest)
+const BEAK_R := 0.032
+const HEAD_GAP := 2.0 * HEAD_R
+var heads_solid := true           # (dev: --soft shows the heads passing through each other)
+var _head_pts := []               # per head, rest-local points: [crown in the head's frame, beak root, beak tip]
+
+func _head_fk(i: int) -> Array:
+	var chain: Array = heads[i].n
+	var hp: Array = _head_pts[i]
+	var x := _under_waist(chain[0]) * rest_l[chain[0]].affine_inverse()
+	var xs := [x]                     # each neck bone's parent frame, then the head's own
+	for k in 4:
+		var bi: int = chain[k]
+		x = x * Transform3D(Basis(_tl.get(bi, rest_l[bi].basis.get_rotation_quaternion())), rest_l[bi].origin)
+		xs.append(x)
+	return [x, x * (hp[0] as Vector3), x * (hp[1] as Vector3), x * (hp[2] as Vector3), xs]
+
+# turn a neck bone by `a` about a skeleton-space axis through its joint, given its parent's frame
+func _turn_sk(bi: int, parent_g: Transform3D, axis: Vector3, a: float) -> void:
+	var la := (parent_g.basis.inverse() * axis).normalized()
+	_tl[bi] = Quaternion(la, a) * (_tl.get(bi, rest_l[bi].basis.get_rotation_quaternion()) as Quaternion)
+
+func _head_points() -> void:
+	if _head_pts.is_empty():
+		for h in heads:
+			var inv: Transform3D = rest_g[h.n[3]].affine_inverse()
+			var hp: Vector3 = rest_at(h.n[3])
+			_head_pts.append([inv * (hp + Vector3(0, 0.11, 0.01)), inv * rest_at(h.up), inv * rest_at(h.tip)])
+
+# dev: [crown gap, worst beak overlap] this frame (after apply), skeleton units
+func head_clearance() -> Vector2:
+	_head_points()
+	var P := []
+	for i in 2:
+		var g: Transform3D = G[heads[i].n[3]]
+		P.append([g * (_head_pts[i][0] as Vector3), g * (_head_pts[i][1] as Vector3), g * (_head_pts[i][2] as Vector3)])
+	var gap: float = (P[0][0] as Vector3).distance_to(P[1][0]) - HEAD_GAP
+	var pen := 0.0
+	for i in 2:
+		pen = maxf(pen, HEAD_R + BEAK_R - float(_seg_dist(P[1 - i][0], P[i][1], P[i][2])[0]))
+	return Vector2(gap, pen)
+
+static func _seg_dist(p: Vector3, a: Vector3, b2: Vector3) -> Array:   # [distance, closest point]
+	var ab := b2 - a
+	var u := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 1e-8), 0.0, 1.0)
+	var c := a + ab * u
+	return [p.distance_to(c), c]
+
+func _heads_apart() -> void:
+	_head_points()
+	for it in 6:
+		var A := _head_fk(0)
+		var Bh := _head_fk(1)
+		var hit := false
+		# crown against crown: splay both necks outward from the base
+		var dd: float = (A[1] as Vector3).distance_to(Bh[1])
+		if dd < HEAD_GAP:
+			var a := minf((HEAD_GAP - dd) / 0.7, 0.25)   # ~0.7: crown height over the neck base
+			for h in heads:
+				turn_rest(h.n[0], Vector3(0, 0, 1), -float(h.sg) * a * 0.6)
+				turn_rest(h.n[1], Vector3(0, 0, 1), -float(h.sg) * a * 0.4)
+			hit = true
+		# a beak against the other crown: that head turns away from it (yaw outward)
+		for i in 2:
+			var me: Array = A if i == 0 else Bh
+			var ot: Array = Bh if i == 0 else A
+			var r := _seg_dist(ot[1], me[2], me[3])
+			var pen: float = HEAD_R + BEAK_R - float(r[0])
+			if pen > 0.0:
+				# swing the head (and the top of the neck) so the beak's nearest point moves
+				# straight away from the other crown
+				var h: Dictionary = heads[i]
+				var xs: Array = me[4]
+				var away := ((r[1] as Vector3) - (ot[1] as Vector3)).normalized()
+				for k in [3, 2]:
+					var piv: Vector3 = (xs[k + 1] as Transform3D).origin
+					var arm := (r[1] as Vector3) - piv
+					var ax := arm.cross(away)
+					if ax.length_squared() < 1e-10: ax = Vector3.UP * float(h.sg)
+					var a2 := minf((pen + 0.004) / maxf(arm.length(), 0.05), 0.3) * (0.65 if k == 3 else 0.35)
+					_turn_sk(h.n[k], xs[k], ax.normalized(), a2)
+				hit = true
+		if not hit: break
 
 # a few CCD passes on the neck (and head) so the beak tip comes to tgt (skeleton space), weighted by w
 func _ccd(h: Dictionary, tgt: Vector3, w: float) -> void:

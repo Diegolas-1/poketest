@@ -28,7 +28,7 @@ const SPECIES = {
   caterpie: { dir: 'Caterpie', smd: 'Caterpie.SMD', scale: 0.025,
     extra: [{ name: 'Horn', parent: 'Head', png: 'pm0010_00_Body1.png', pick: ([r, g, b]) => r > 200 && g < 160 && b < 110, ramp: 1.2 }] },
   // the heads at about 1.2 m with the necks up (about Ben's chest)
-  doduo: { dir: 'Doduo', smd: 'DoduoM.SMD', scale: 0.0082, split: { 'pm0084_00_Eye1.png': ['LHead', 'RHead'] } },
+  doduo: { dir: 'Doduo', smd: 'DoduoM.SMD', scale: 0.0082, split: { 'pm0084_00_Eye1.png': ['LHead', 'RHead'] }, solo: ['LNeck1', 'RNeck1'] },
 };
 
 const args = process.argv.slice(2);
@@ -178,6 +178,23 @@ async function bake(id) {
     const tex = doc.createTexture(nm).setImage(img).setMimeType('image/png').setURI(nm + '.png');
     return (mats[key] = doc.createMaterial(key).setBaseColorTexture(tex).setRoughnessFactor(1).setMetallicFactor(0));
   };
+  // branches that must not share a triangle (Doduo's two necks: the heads touch in the
+  // bind pose and a few faces are welded across, which stretch into a web as they part):
+  // a corner on the other branch gets this triangle's own copy, weighted like the rest
+  if (sp.solo) {
+    const roots = sp.solo.map((nm) => byName[nm]);
+    const branch = (v) => { const b = v.w.reduce((a, c) => (c[1] > a[1] ? c : a))[0]; return roots.findIndex((r) => under(b, r)); };
+    let fixed = 0;
+    for (const t of tris) {
+      const br = t.v.map(branch), on = br.filter((x) => x >= 0);
+      if (new Set(on).size < 2) continue;
+      const keep = [0, 1].map((k) => on.filter((x) => x === k).length);
+      const major = keep[0] >= keep[1] ? 0 : 1, donor = t.v[br.indexOf(major)];
+      t.v = t.v.map((v, k) => (br[k] >= 0 && br[k] !== major ? { ...v, w: donor.w.map((x) => [...x]) } : v));
+      fixed++;
+    }
+    if (fixed) console.log(`  ${fixed} faces welded across ${sp.solo.join(' / ')} split`);
+  }
   const groups = {};
   for (const t of tris) {
     let key = t.mat.replace(/\.png$/i, '').replace(/^pm\d+_\d+_/, id + '_').toLowerCase();

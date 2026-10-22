@@ -5,7 +5,8 @@ extends Node3D
 #     --write-movie /tmp/f.png --fixed-fps 30 --quit-after 90 -- --id=caterpie --act=crawl [--v=0.5]
 #     [--cam=dist,height,yaw_deg] [--track] [--look] [--noink]
 # acts: idle, crawl (along +x, side on), circle (round and round), stopgo (crawl, stop, crawl),
-# happy, hop, sleep, talk, run (Doduo: --v=3.5), peck, call
+# happy, hop, sleep, talk, run (Doduo: --v=3.5), peck, call; Doduo heads: argue, glance
+# (--heads prints how close the two heads come; --soft turns their collision off)
 var A := {}
 var c: Creature
 var cam: Camera3D
@@ -68,7 +69,10 @@ func _ready() -> void:
 	c.position = Vector3(x, 0, 0)
 	c.rotation.y = yaw
 	if act == "sleep": c.sleep = true
+	if A.has("soft") and "heads_solid" in c: c.heads_solid = false
 
+var _gap := 1e9
+var _pen := -1e9
 func _process(dt: float) -> void:
 	t += dt
 	var ov = Settings.get("overlay")
@@ -88,6 +92,10 @@ func _process(dt: float) -> void:
 		"hop": if int(t * 30) == 15: c.mood("hop")
 		"talk": if int(t * 30) % 30 == 10: c.mood("talk")
 		"peck", "call": if int(t * 30) == 15: c.mood(act)
+		"argue": if int(t * 30) % 90 == 15: c.mood("argue")
+		"glance":
+			for h in c.heads:
+				if h.act != "glance": h.act = "glance"; h.at = 0.0; h.dur = 1e9
 	if act in ["crawl", "stopgo", "run"]:
 		x += v * dt
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
@@ -115,6 +123,10 @@ func _process(dt: float) -> void:
 				else: _plant[k] = w
 			else: _plant.erase(k)
 		if int(t * 30) % 30 == 0: print("slip max %.4f m  speed %.2f" % [_slip, v])
+	if A.has("heads") and c.has_method("head_clearance"):
+		var hc: Vector2 = c.head_clearance()
+		_gap = minf(_gap, hc.x); _pen = maxf(_pen, hc.y)
+		if int(t * 30) % 30 == 0: print("heads: crown gap min %.3f  beak overlap max %.3f" % [_gap, _pen])
 	var cv := Array(String(A.get("cam", "1.4,0.35,0")).split(",")).map(func(s): return float(s))
 	var focus := Vector3(c.position.x if A.has("track") else 0.0, float(A.get("fy", "0.18")), c.position.z if (A.has("track") or act == "circle") else 0.0)
 	if act == "circle" and not A.has("track"): focus = Vector3(0, float(A.get("fy", "0.18")), 0)
