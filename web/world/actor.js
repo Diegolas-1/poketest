@@ -605,8 +605,35 @@ export const LOOKS = {
   },
 };
 
-// the others are made from the same base model too, reworked in cast.js
-for (const k of ['girl', 'fisher', 'kid', 'oak']) Object.assign(LOOKS[k], { base: 'calem', cast: k });
+// the rest of the town (cast2.js); these fields are the procedural stand-in shown until
+// the model is ready
+const W_FACE = (eye, brow) => ({ eye: '#3a2418', eye2: eye, lash: 0.14, flick: 0.2, mouth: 'smile', brow });
+const M_FACE = (brow, o = {}) => ({ eye: '#2a2020', eye2: '#5a4a3a', ew: 0.22, eh: 0.28, mouth: 'smile', brow, browW: 10, ...o });
+Object.assign(LOOKS, {
+  delia: { adult: true, hair: '#8e4422', hairStyle: 'pony', ribbon: '#4cb86a', skin: '#f6c9a8', face: W_FACE('#9a5a1e', '#7a3418'), shirt: null, pants: null,
+    dress: { color: '#9cc4ee', collar: '#f6d65a', sleeve: '#f4a2b8', trim: '#9cc4ee' }, shoes: { up: '#f6f2ea', sole: '#d8d2c4', collar: '#f6f2ea' } },
+  rose: { adult: true, hair: '#6e3424', hairStyle: 'pony', ribbon: '#e0566e', skin: '#f6d2b2', face: W_FACE('#4a7a3a', '#5a2a1c'), shirt: null, pants: null,
+    hat: { color: '#ecd59a', band: '#e0566e' }, dress: { color: '#86b88a', collar: '#fbf4e2', sleeve: '#fbf4e2', trim: '#f2b8c0' }, shoes: { up: '#8a5a3a', sole: '#5a3a26', collar: '#8a5a3a' } },
+  bram: { adult: true, wide: 1.3, hair: '#8a4a28', hairStyle: 'short', skin: '#f3c6a0', face: M_FACE('#7a4024', { beard: 'rgba(138,74,40,0.5)' }),
+    shirt: '#f8f6f0', sleeve: 'short', pants: '#6a6c76', cuff: '#6a6c76', boots: { up: '#5a3a28', sole: '#3a2418' } },
+  ada: { adult: true, hair: '#4a2c22', hairStyle: 'pony', ribbon: '#e8b448', skin: '#f4cfae', face: W_FACE('#3a2a20', '#3a2218'), shirt: null, pants: null,
+    dress: { color: '#3f7c78', collar: '#a990cc', sleeve: '#a990cc', trim: '#fbf8f2' }, shoes: { up: '#6a3e2c', sole: '#40261a', collar: '#6a3e2c' } },
+  mae: { adult: true, hair: '#eeeef2', hairStyle: 'grey', skin: '#f4d2b8', face: { old: true, mouth: 'smile', brow: '#c8c6c2', browW: 12, blush: 'rgba(230,140,140,0.3)' }, shirt: null, pants: null,
+    dress: { color: '#4e5a7a', collar: '#c4788e', sleeve: '#f2ead6', trim: '#4e5a7a' }, shoes: { up: '#3a3034', sole: '#241e22', collar: '#3a3034' } },
+  marina: { adult: true, hair: '#2c2836', hairStyle: 'pony', ribbon: '#36b0a8', skin: '#e8b48c', face: W_FACE('#2a4a5a', '#24202c'),
+    shirt: '#f6f4ee', sleeve: 'short', pants: '#c0583e', cuff: '#c0583e', boots: { up: '#3f6e4a', sole: '#2a4a32' } },
+  ben: { adult: true, wide: 1.15, hair: '#6a5240', hairStyle: 'short', skin: '#dca27a', face: M_FACE('#5a4434', { beard: 'rgba(110,90,70,0.35)' }),
+    hat: { color: '#e4c674', band: '#b8402e' }, shirt: '#cc4a3e', sleeve: 'short', pants: '#4a70a8', cuff: '#4a70a8', boots: { up: '#5a4030', sole: '#3a2a20' } },
+  tom: { adult: true, wide: 1.15, hair: '#f2f2f0', hairStyle: 'grey', skin: '#eebf9c', face: { old: true, mouth: 'smile', brow: '#e4e2de', browW: 12, beard: 'rgba(250,250,250,0.8)' },
+    hat: { color: '#fbfbf8', band: '#1e2436' }, shirt: '#2a3552', sleeve: 'long', coat: { color: '#2a3552' }, pants: '#55595f', shoes: { up: '#2a2626', sole: '#1a1616' } },
+  gus: { adult: true, wide: 1.15, hair: '#5e4a3e', hairStyle: 'short', skin: '#e9b896', face: M_FACE('#4a3a30', { beard: 'rgba(90,74,64,0.6)' }),
+    shirt: '#3e5a4e', sleeve: 'long', coat: { color: '#f2c22e' }, pants: '#3e4452', boots: { up: '#2a2a2e', sole: '#1a1a1e' } },
+});
+// the townspeople, in the order the town lists them (Ash and Prof. Oak aside)
+export const TOWNSFOLK = ['delia', 'girl', 'rose', 'bram', 'ada', 'kid', 'mae', 'fisher', 'marina', 'ben', 'tom', 'gus'];
+
+// the others are made from the same base model too, reworked in cast.js (and cast2.js)
+for (const k of ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus']) Object.assign(LOOKS[k], { base: 'calem', cast: k });
 
 // ---------- optional local base model ----------
 // web/world/local/ash.glb holds a skinned 3D-game body dressed as Ash. When it
@@ -716,6 +743,7 @@ function calemActor(look) {
     };
     rig = { pose, bend, bones, holder, y0: holder.position.y, eyes, k: base.k, cloth, rest: R, root: fb.root };
     actor.cloth = cloth;   // (its sim's layout is read by tools/native/bake_cast.mjs)
+    actor.rig = rig;       // (for previews: rig.idles.force(name) plays an idle action)
     const A = base.anims;
     if (A && A.clips.idle && A.clips.walk && A.clips.run) {
       const mixer = new THREE.AnimationMixer(m), act = {};

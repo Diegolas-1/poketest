@@ -1,0 +1,1098 @@
+{
+  "_doc": "Townspeople's voices for native/quests.gd. Each person: greet[period] (first talk of the day), period, activity, place (house ids, 'home' = their own house), ash (said to Ash's face), town, about[other id], after[flag] (unlocked by quest flags), sleep, bark (overheard one-liners by activity/period/any), chat (NPC-to-NPC: open[topic] / reply[topic] / close; {b} = the partner's short name). An entry is a line or a list of lines shown together. Unknown keys are fine: quests.gd falls back period -> any.",
+  "people": {
+    "delia": {
+      "name": "Delia Ketchum", "tag": "MOM", "short": "Delia", "label": "Mom", "home": "red",
+      "voice": "Warm, a little anxious, quietly proud; worries out loud and then talks herself into being brave for him.",
+      "greet": {
+        "dawn": ["Ash? You're up before the sun? Are you feeling all right, sweetie?", "Oh! You startled me. I thought you were still sound asleep."],
+        "morning": ["Good morning, sleepyhead! Did you eat? There's toast on the table.", "There you are! I called you three times, Ash. Three!", "Morning, honey. Careful, I just watered that bed."],
+        "midday": ["Hi, sweetie. Back for lunch? I can make you a sandwich.", "Ash! Have you had any water today? It's warm out."],
+        "afternoon": ["Hello, honey. Having a nice day? Tell me everything.", "There's my boy. You've got grass all over your knees!"],
+        "evening": ["Supper's almost ready, Ash. Wash your hands, please.", "Oh good, you're home before dark. Thank you, sweetie."],
+        "night": ["Ash, it's late. You need your sleep, especially now.", "Still up? Your bed won't sleep in itself, you know."]
+      },
+      "period": {
+        "dawn": ["I like the yard at this hour. The sea is so quiet you can hear the Pidgey wake.", "I couldn't sleep, so I came out to pull a few weeds. Don't worry about me."],
+        "morning": ["Did you remember to change your socks? Don't make that face, I'm your mother.", "I left your breakfast warming. Eggs, toast, and a little jam. Your favourite."],
+        "midday": ["The sun's high. Wear your cap if you're going down to the beach.", "Midday already? Where does the time go? Feels like you were just six."],
+        "afternoon": ["Afternoons are for the roses. They sulk if I skip them.", "If you see Ada, tell her the bread was lovely this morning."],
+        "evening": ["I made stew. Bram gave us a loaf with a burnt corner. That's the best part, he says.", "Look at that sky, honey. Pallet Town really is beautiful at this hour."],
+        "night": ["Goodnight, Ash. Big dreams tonight, all right? Just not too big to come home from.", "I'll leave the hall light on for you. I always do."]
+      },
+      "activity": {
+        "yardwork": [
+          "These weeds come back faster than I can pull them! Just like your laundry.",
+          ["I'm turning the soil for the tomatoes.", "Your grandmother always said a busy garden keeps a worried heart steady."],
+          "Hand me that trowel, would you? Thank you, sweetie. What a helpful boy.",
+          "I'm trimming the hedge so it doesn't swallow the gate again. It nearly ate the postman.",
+          ["The Oddish in the field keep nibbling my lettuce.", "I don't have the heart to shoo them away. They look so happy."],
+          "The lawn needs mowing, but the Pidgey like the long bits. I'll leave a corner for them."
+        ],
+        "breakfast": ["Sit, eat. A future... well, anybody needs a good breakfast.", "You're going to grow so tall. Have another slice."],
+        "supper": ["Elbows off the table, mister.", "Tell me about your day while it's hot. Every little bit."],
+        "home": ["I'm tidying up. Your room, mostly. Honestly, Ash, how many POKéMON posters does one boy need?", "I found your old alarm clock. Still in pieces from when you smashed it in your sleep."],
+        "shop": ["I'm getting a few things from Marina. Fish on Fridays, like always.", "Ada saved me a seed loaf. She's a treasure."],
+        "chat": ["Oh, just catching up with the neighbours. Go on, I'll be home soon."],
+        "walk": ["A little walk clears my head. The sea air is good for worrying less."]
+      },
+      "place": {
+        "home": ["Our little house. I painted the shutters the year you were born.", "Mind the step, it's loose. I keep meaning to ask Bram to look at it."],
+        "lily": ["Rose and I are swapping cuttings. She gets my mint, I get her sweet peas."],
+        "beach": ["I used to bring you here in a little bucket hat. You'd chase the Krabby and cry when they pinched."],
+        "pier": ["The boats look so small from up here. I always wonder where they're going."],
+        "plaza": ["PROF. OAK's lab is up those stairs. You've been looking up there a lot lately."]
+      },
+      "ash": [
+        ["Everyone in town says you've got something special, Ash.", "I know you do. I've known since you were tiny."],
+        ["PROF. OAK says ten is old enough to start a journey.", "Ten! I still have your first shoes in a drawer."],
+        ["I don't know the first thing about POKéMON battles, honey.", "But I know you. When you love something, you give it everything."],
+        ["A POKéMON Master, hm?", "Well. If anyone could, it's you. Just promise you'll write."],
+        ["Don't think I didn't notice you practising throws with my tomatoes.", "A POKé BALL is round, sweetie. My tomatoes are not POKé BALLS."],
+        ["Kai told me about his fishing rod.", "I'm not angry. Just... next time, ask. And bring it back with the hook still on."],
+        ["You were out chasing that Rattata until dark again.", "My heart was in my throat. But your face when you came home... you were glowing."],
+        ["Sometimes I hear you talking to the Pidgey from your window.", "They listen to you, you know. Animals always have."],
+        ["It's a big world out there past Route 1.", "Bigger than Pallet Town. Bigger than me. But I think it's just the right size for you."],
+        ["If you ever do go, honey, you remember: clean socks, a warm jacket, and call your mother.", "In that order. Well, call your mother first."],
+        ["I'm not sad you dream big, Ash.", "I'm a mom. Being a little scared is part of the job. Being proud is the best part."],
+        ["Gary's grandfather keeps telling me you have an instinct for POKéMON.", "I just nod like I understand. But I'm so proud I could burst."]
+      ],
+      "town": [
+        "Ada brings our bread every morning. She knows every bit of news before the Pidgey do.",
+        "Granny Mae knitted your first blanket. She still asks after you every single day.",
+        ["Rose has the loveliest garden in Pallet Town.", "Don't tell her I said so. She'll make me plant more."],
+        "Old Tom's been talking about rumbling from the south again. I hope it's just his knees.",
+        "Marina says the catch is good this season. Fish on Friday it is."
+      ],
+      "about": {
+        "rose": ["Rose is my best friend. We've been through a lot of school runs and scraped knees together."],
+        "mae": ["Mae's been like a grandmother to you, Ash. Be sure to thank her for the scarf."],
+        "lily": ["Lily's been raising a POKéMON of her own. Maybe you two could compare notes?"],
+        "kai": ["Kai's a good man. A bit loud about his gadgets, but a good man."],
+        "tom": ["Don't believe everything Old Tom tells you about sea serpents. Just most of it."]
+      },
+      "after": {
+        "fanclub_card": [["Timmy showed me his little card. 'Future POKéMON Master', in crayon.", "I put it on the fridge. Don't tell him I asked for a copy."]],
+        "rumbles_heard": ["You've been asking about Cinnabar Island? It's so far across the water, sweetie... isn't it?"]
+      },
+      "sleep": [["...Mmm... Ash, socks...", "(Mom is fast asleep.)"]],
+      "bark": {
+        "any": ["Where did I put the watering can...", "Oh, these weeds!", "Ash, wear your cap!"],
+        "yardwork": ["One more row and I'll stop. Probably.", "Come on, little sprout, you can do it.", "Shoo, Oddish, shoo... oh, all right, one leaf."],
+        "evening": ["Supper in ten minutes!", "Ash! Ten minutes!"],
+        "night": ["Lights out soon, mister."]
+      },
+      "chat": {
+        "open": {
+          "any": ["Morning, {b}! How's the family?", "{b}, have you seen my good trowel?", "Isn't it a lovely day, {b}?"],
+          "ash": ["Ash was up past midnight reading about POKéMON again, {b}.", "Do you think Ash is really ready, {b}? He's only ten.", "Ash talked about the POKéMON League at breakfast. Again."],
+          "evening": ["Long day, {b}? Mine was all weeds."],
+          "weather": ["Think it'll rain, {b}? My tomatoes could use it."]
+        },
+        "reply": {
+          "any": ["Oh, I know exactly what you mean.", "Ha! Isn't that the truth.", "Well, I never!"],
+          "ash": ["He gets that stubborn streak from me, I'm afraid.", "I worry. But I'm proud. Mostly proud.", "Don't encourage him! ...All right, encourage him a little."],
+          "sea": ["The sea always makes me a little nervous.", "I'd rather keep my feet on the grass, thank you."],
+          "cinnabar": ["Cinnabar? Oh, I hope it stays nice and quiet over there.", "Don't let Ash hear you, he'll want to swim there."]
+        },
+        "close": ["Well, I'd better get back to the garden.", "Give my love to everyone!"]
+      }
+    },
+
+    "lily": {
+      "name": "Lily", "tag": "LILY", "short": "Lily", "label": "Lily", "home": "lily",
+      "voice": "Eleven, earnest and breathless; Butterfree-mad, a little competitive with Ash, very serious about her Caterpie, Nibbles.",
+      "greet": {
+        "dawn": ["Shh! Caterpie wake up at dawn. I'm taking notes!", "You're up early! Did you come to see the Caterpie?"],
+        "morning": ["Ash! Guess what Nibbles ate today. A whole leaf! A WHOLE one!", "Morning! I'm raising POKéMON too, you know!"],
+        "midday": ["Hi Ash! It's too hot for bug POKéMON at midday. They hide in the shade.", "Oh, it's you. Want to see my notebook?"],
+        "afternoon": ["Ash! I saw a Butterfree over the fields! Well, I think it was one.", "Hey! Did you see that Pidgey? It went right over your head!"],
+        "evening": ["I have to be home by supper. Mom's rules.", "Evening, Ash. Nibbles is sleepy. Shh."],
+        "night": ["I'm not supposed to be out! Don't tell my mom!", "Can you see the stars? Butterfree fly by the moon, you know."]
+      },
+      "period": {
+        "dawn": ["The dew on the leaves is like little POKé BALLS. Glittery ones."],
+        "morning": [["When POKéMON get strong, they can protect me!", "That's what I'm training Nibbles for. Someday."], "Mom says if I water her flowers, I can keep Nibbles in the greenhouse."],
+        "midday": ["Bug POKéMON don't like noon. Neither do I. Too sunny."],
+        "afternoon": ["I'm going to look for Weedle by the fields. But not touch them. They sting!", "I drew a Butterfree today. The wings are the hardest part."],
+        "evening": ["Butterfree like flowers that open at night. Mom grows some just for them."],
+        "night": ["When Caterpie evolve, they make a cocoon. A Metapod! Then they wait and wait and wait."]
+      },
+      "activity": {
+        "play": ["I'm training! This is a training stick. Don't laugh!", "I'm playing POKéMON Trainer. I'm the Champion and you're... a Rattata."],
+        "garden": ["I'm helping Mom. Well, Nibbles is helping. He's eating the weeds. Mostly.", "Caterpie love the leaves on Mom's rose bushes. Mom does NOT love that."],
+        "walk": ["I'm looking for bug POKéMON. Shh, don't step on anything!"],
+        "home": ["I'm reading 'Bug POKéMON of Kanto'. For the fourth time."],
+        "chat": ["We're talking about POKéMON. Grown-ups don't get it."]
+      },
+      "place": {
+        "home": ["This is our house. The garden's Mom's, the Caterpie corner is mine."],
+        "fields": ["Farmer Ben lets me look for Caterpie on his bushes if I don't trample the berries."],
+        "pond": ["Sometimes a Butterfree comes down to drink at the pond. Sometimes."],
+        "beach": ["Bug POKéMON don't like the sea. I like it, though. The shells are pretty."],
+        "plaza": ["PROF. OAK's lab is up there. I'm going to work there someday. Or be a Champion. Both."]
+      },
+      "ash": [
+        ["You want to be a POKéMON Master? Ha! I'm going to be one first.", "...Okay, maybe second. But a close second!"],
+        ["Everyone says you're going to do something big.", "I'm going to do something big too! Butterfree-sized."],
+        ["You chased a Rattata into Granny Mae's flowerbed last week.", "She pretended to be cross, but she was laughing."],
+        ["When you get your first POKéMON, can I see it?", "I'll show you Nibbles. Fair trade."],
+        ["Timmy says you can talk to POKéMON.", "Can you? ...You can't, can you. But they do follow you around."],
+        ["You were asleep under the big tree by the pond yesterday.", "A Caterpie crawled on your cap and you didn't even wake up!"],
+        "You're going to leave Pallet Town someday, aren't you? Everyone can tell."
+      ],
+      "town": ["My mom grows the flowers for the whole town. Even the ones on PROF. OAK's desk.", "Timmy is SO annoying. He thinks a Metapod is a rock. It's not a rock!"],
+      "about": {
+        "rose": ["My mom knows every flower's name. Even the Latin ones."],
+        "timmy": ["Timmy tried to catch a Pidgey with a bread crust and a sock."],
+        "ben": ["Farmer Ben found a Caterpie on his berry bush and gave it to me! That's Nibbles!"],
+        "mae": ["Granny Mae knows all the Pidgey by their faces. She says I'll learn too."]
+      },
+      "after": {
+        "butterfree_tips": ["Nibbles has been SO happy since I started talking to him. Thank you, Ash!", ["I gave Nibbles a quiet corner and a leaf every morning.", "Mom says he's 'thriving'. That means really, really good."]],
+        "pidgey_found": ["Granny Mae's Pidgey came back! I saw them! I counted twenty-two!"]
+      },
+      "sleep": ["(Lily is asleep, hugging a Butterfree plushie.)"],
+      "bark": {
+        "any": ["Nibbles, no! Not Mom's roses!", "Butterfree, Butterfree, where are you...", "I'm a POKéMON Trainer!"],
+        "play": ["Nibbles, use Tackle! ...Nibbles? Nibbles, wake up.", "I choose you!"],
+        "garden": ["Mom, can Caterpie eat daisies?"]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}! Did you know Caterpie have little feet? Sixteen of them!", "{b}, have you seen any Butterfree today?"],
+          "ash": ["{b}, do you think Ash will really be a POKéMON Master?", "Ash fell asleep in the grass again, {b}!"],
+          "morning": ["Morning, {b}! Nibbles ate a whole leaf!"]
+        },
+        "reply": {
+          "any": ["Whoa, really?", "That's SO cool.", "Hmm. I'm writing that down."],
+          "ash": ["He'll probably be pretty good. Not as good as me, though.", "Ash? He's okay. He's kind of brave, actually."],
+          "sea": ["Bug POKéMON don't swim. Except Surskit. Maybe."],
+          "cinnabar": ["Are there bug POKéMON on Cinnabar? It's probably too hot."]
+        },
+        "close": ["I have to go feed Nibbles!", "Bye! Butterfree forever!"]
+      }
+    },
+
+    "rose": {
+      "name": "Rose", "tag": "ROSE", "short": "Rose", "label": "Rose", "home": "lily",
+      "voice": "A gentle, unhurried florist with a dry sense of humour; speaks in flowers and seasons; Delia's best friend and Lily's patient mum.",
+      "greet": {
+        "dawn": ["Good dawn, Ash. Flowers drink best before the sun gets greedy.", "Up with the bees? I approve."],
+        "morning": ["Morning, Ash. Mind the seedlings, they're shy.", "Hello, dear. Your mother was just here, looking for her trowel. Again."],
+        "midday": ["Ash. Come stand in the shade before you wilt.", "Midday's for shade and lemonade. There's some on the step."],
+        "afternoon": ["Afternoon, Ash. The sweet peas are showing off today.", "Hello, dear. Lily's somewhere, probably whispering to a Caterpie."],
+        "evening": ["Evening, Ash. The night jasmine's opening. Smell that?", "Heading home? Tell your mother the cuttings took."],
+        "night": ["Ash? It's late for a garden visit. Everything's asleep but the moonflowers.", "Shouldn't you be in bed, dear?"]
+      },
+      "period": {
+        "dawn": ["At dawn the dew tells you which plants are thirsty. They glitter less."],
+        "morning": ["Mornings I cut flowers for the stall. Ada sells them beside her bread."],
+        "midday": ["I don't water at noon. You'd just be making soup."],
+        "afternoon": ["Afternoons I'm all thumbs and dirt. Happily."],
+        "evening": ["Evening is the garden's sigh. Everything settles."],
+        "night": ["Some flowers only open in the dark. Patience is a kind of bloom, too."]
+      },
+      "activity": {
+        "garden": [
+          ["I'm deadheading the roses.", "Snip the tired blooms and the plant puts its heart into new ones."],
+          "These are sunflowers for PROF. OAK's lab. He says they cheer up the visitors.",
+          ["Gloom have been sniffing round the compost.", "I don't mind. Their smell keeps the Ekans away."],
+          "Never plant mint in the open ground. It's the town gossip of herbs. Gets everywhere."
+        ],
+        "shop": ["I'm dropping flowers at Ada's stall. Two bunches for the bread lady, one for the baker."],
+        "home": ["Pressing petals. Lily wants a Butterfree made of them."],
+        "chat": ["Just trading news. Mostly about weather and children. Same thing, really."]
+      },
+      "place": {
+        "home": ["Welcome to the garden. Mind Lily's 'Caterpie Corner'. It's sacred ground, apparently."],
+        "red": ["Your mother's tomatoes are doing better than mine this year. I'm furious. Delighted, but furious."],
+        "plaza": ["I bring the lab a bunch every week. Science needs colour, PROF. OAK says."]
+      },
+      "ash": [
+        ["Your mother says you've been staring up Route 1 again.", "Some seeds want to blow far from the tree, Ash. That's how forests start."],
+        ["You trampled my snapdragons chasing a Pidgey last spring.", "They grew back thicker. Funny how that works."],
+        ["Everyone in town can see it in you, dear.", "Whatever you're meant for, it's bigger than this valley."],
+        ["Delia worries. That's love with nowhere to go.", "Give her somewhere to put it. Write to her, when the time comes."],
+        ["A POKéMON Master. Well.", "My grandmother said you can't hurry a flower. But some of them bloom early."],
+        "You've got dirt on your nose, Ash. A good sign. Means you've been somewhere interesting."
+      ],
+      "town": ["Pallet Town's a garden. Small, a bit wild at the edges, and everyone knows everyone's roots.", "Ada sells my flowers by her bread. People buy both and go home happy."],
+      "about": {
+        "delia": ["Your mother and I have been friends since before you could walk. She's stronger than she looks."],
+        "lily": ["Lily's Caterpie has eaten a third of my rose bush. I've never seen her happier."],
+        "ben": ["Ben brings me compost and calls it 'a gift'. It's manure. But a kind thought."]
+      },
+      "after": {
+        "butterfree_tips": ["Lily's been reading to that Caterpie every evening. I peek. It's the sweetest thing."]
+      },
+      "sleep": ["(Rose is asleep. There's soil under her fingernails.)"],
+      "bark": {
+        "any": ["Hm, aphids.", "There you are, little bud.", "Who stepped on my marigolds?"],
+        "garden": ["Snip, snip.", "Drink up, you lot.", "Lily! Caterpie off the roses, please!"]
+      },
+      "chat": {
+        "open": {
+          "any": ["Your hydrangeas are blue this year, {b}. Must be the sea air.", "Lovely morning, {b}. Even the weeds look happy."],
+          "ash": ["Have you noticed Ash lately, {b}? He's growing up fast.", "{b}, Ash was helping Mae with her Pidgey this morning. Sweet boy."],
+          "weather": ["Clouds coming in from the south, {b}. My knees aren't wrong."]
+        },
+        "reply": {
+          "any": ["Mm. Things take root in their own time.", "That's lovely, dear.", "Well, I'll be."],
+          "ash": ["He's a seed that wants to travel, that one.", "He'll be fine. He's got good soil under him."],
+          "sea": ["The sea gives my roses that salty tang. They like it."],
+          "cinnabar": ["Hot springs, they say. I'd love to grow orchids in that warmth."]
+        },
+        "close": ["I'd better get these into water.", "Off to the garden. Wish me luck with the aphids."]
+      }
+    },
+
+    "bram": {
+      "name": "Bram Hollis", "tag": "BRAM", "short": "Bram", "label": "Bram", "home": "hollis",
+      "voice": "Big, jolly, booming baker; laughs at his own bread puns, up at four, floured to the elbows, soft as dough underneath.",
+      "greet": {
+        "dawn": ["HO HO! Ash! Up before the loaves? That's a first!", "Dawn's the best hour, lad. Ovens hot, town asleep, me singing."],
+        "morning": ["Morning, Ash! Smell that? That's a rye that's rising to the occasion!", "Ash, my boy! You look hungry. You always look hungry!"],
+        "midday": ["Ash! Lunch? I've a roll with your name on it. Not literally. Well, once.", "Middle of the day, middle of the dough. What can I do for you?"],
+        "afternoon": ["Afternoon, Ash! The ovens are cooling and so am I.", "Hullo, lad! Just scraping the trays. Want a burnt corner?"],
+        "evening": ["Evening, Ash! Ovens are cold. I'm just a man now, not a baker.", "Ho there! Off home for supper? Give your mum my best."],
+        "night": ["Ash! I'm off to bed. Baker's hours! Four o'clock comes fast.", "Late, isn't it? Even the yeast's asleep."]
+      },
+      "period": {
+        "dawn": ["Bread doesn't sleep in, lad. Neither do I."],
+        "morning": ["Morning batch is out! Ada's loading the cart now."],
+        "midday": ["The midday rush is three people. Pallet Town rush, ha!"],
+        "afternoon": ["Afternoons I plan tomorrow's bake. Big thinking. Big hands."],
+        "evening": ["Evening means feet up and Ada's stew. Best part of the day!"],
+        "night": ["At night the house still smells of bread. Dreams smell of bread too, at our place."]
+      },
+      "activity": {
+        "bake": [
+          ["Knead, fold, turn. Knead, fold, turn.", "Bread's like training, Ash. Patience and a bit of muscle!"],
+          "This is my seaweed loaf. Marina's idea. Tastes like a nice day at the beach!",
+          ["I'm testing a new one. The 'Volcano Bun'. Spicy!", "Named after Cinnabar. Old Tom says it'll make your ears smoke."],
+          "Don't touch the tray, lad, it's hotter than a Charmander's tail!",
+          "A pinch of salt, a pinch of luck, and a great big ho-ho!"
+        ],
+        "home": ["I'm resting my eyes. And my arms. And my everything."],
+        "supper": ["Ada's stew and my bread. A marriage made in the kitchen!"],
+        "deliver": ["Ada's usually the one on the round. I'm helping. Slowly. My legs are dough."],
+        "chat": ["Just chewing the fat. Well, the crust!"],
+        "walk": ["Stretching the legs! A baker's walk is mostly to the flour sack and back."]
+      },
+      "place": {
+        "home": ["Mind the flour on the step! Everything at ours is floury. The cat's floury."],
+        "plaza": ["I bring the lab a basket on Fridays. PROF. OAK likes the raisin ones."],
+        "beach": ["I come to the beach to cool off. Bakers run hot, lad."]
+      },
+      "ash": [
+        ["Remember when you ate a whole tray of my honey rolls?", "You said a Rattata did it. With honey on your chin! HO HO!"],
+        ["You've got fire in your belly, lad. Like a good oven.", "This town's too small for a fire like that. I mean that kindly."],
+        ["A POKéMON Master! Ha! Why not?", "When you're famous, tell 'em your bread came from Bram's!"],
+        ["Timmy tells everyone you're his hero.", "Don't let it go to your head. Let it go to your legs. Walk far!"],
+        ["Your mum frets, I know.", "But she brags about you at my counter every single morning."],
+        ["You've got it in you, Ash.", "Same as a good dough. You can just feel when something's going to rise."]
+      ],
+      "town": ["Ada knows everything that happens in town. I know everything that happens in my oven. Fair split.", "Ben's flour, Marina's salt, my hands. Pallet Town bread, that is."],
+      "about": {
+        "ada": ["My Ada. Sharpest tongue and softest heart in Kanto."],
+        "timmy": ["Timmy wants to be a POKéMON Trainer. Last week it was a pirate. Before that, a loaf."],
+        "tom": ["Old Tom's my father-in-law. Tells a story like I bake a loaf: big, and a bit puffed up."],
+        "ben": ["Ben grows the wheat, I bake it. Fine arrangement. He's got opinions about my crusts, though."]
+      },
+      "after": {
+        "bread_round_done": ["Thanks for helping Ada with the round, lad! Have a roll. Have two!"],
+        "gus_supper": ["Gus says my bread tastes better at the top of a lighthouse. I'll take it!"]
+      },
+      "sleep": ["(Bram is snoring like a bread oven. HRRNK. Shhh.)"],
+      "bark": {
+        "any": ["Ho ho!", "Bread's up!", "Who wants a roll?"],
+        "bake": ["Rise, my beauties, rise!", "Ada! The rye's ready!", "Where's my big spoon?"],
+        "night": ["Four o'clock comes fast..."]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}! Have a roll! I insist!", "Ho ho, {b}! What news?", "{b}, try this. Tell me honestly. Is it too seaweedy?"],
+          "ash": ["Saw Ash sprinting past the bakery at dawn, {b}. Chasing a Pidgey, I think!", "Mark my words, {b}, that Ketchum boy will make this town famous."],
+          "morning": ["Morning batch is the best batch, {b}!"],
+          "cinnabar": ["{b}, I'm calling it the Volcano Bun. Too much?"]
+        },
+        "reply": {
+          "any": ["HO HO! You don't say!", "Ha! Well, that's half-baked, isn't it!", "Bless my oven mitts!"],
+          "ash": ["That boy's got real yeast in him! He'll rise!", "Ha! He'll be a Master, you'll see. I'll bake the cake."],
+          "sea": ["The sea's for Kai. I've got an ocean of flour, thank you."],
+          "cinnabar": ["Hot springs! Imagine proving bread in a hot spring!"]
+        },
+        "close": ["Right, back to the ovens!", "Take a roll for the road!"]
+      }
+    },
+
+    "ada": {
+      "name": "Ada Hollis", "tag": "ADA", "short": "Ada", "label": "Ada", "home": "hollis",
+      "voice": "Fast-talking, warm-hearted gossip who runs the bread stall and round; passes every story along, usually slightly wrong.",
+      "greet": {
+        "dawn": ["Ash! You're never up this early. Did something happen? Tell me everything!", "Morning, early bird! I'm loading the cart. Have you heard anything new?"],
+        "morning": ["Ash, dear! Your mum's seed loaf is in the basket. Did you hear about the Pidgey?", "There you are! I was just telling Marina about you. Good things! Mostly!"],
+        "midday": ["Ash! Quick, before Bram eats it, there's one roll left.", "Hello, dear! Lunch-time news: Ben's goat ate a sock. Apparently."],
+        "afternoon": ["Afternoon, Ash! The stall's quiet, so I'm all ears. And mouth, Bram says.", "Ash! Have you heard? No? Oh, you'll love this."],
+        "evening": ["Evening, dear! I've had a day. Do you want the long version or the long version?", "Ash! Home for supper? Tell your mum I said hello. And the news."],
+        "night": ["Ash! You shouldn't be out! ...What are people saying, though?", "Shush, Bram's asleep. What brings you round so late?"]
+      },
+      "period": {
+        "dawn": ["Bread at dawn, news by breakfast. That's my motto."],
+        "morning": ["I do the round every morning. Twelve doors, twelve stories."],
+        "midday": ["Midday at the stall is all elbows and change. Lovely!"],
+        "afternoon": ["Afternoon's for catching up. Not gossip! Community news."],
+        "evening": ["Evenings I tell Bram everything. He nods. He's asleep, but he nods."],
+        "night": ["Night-time's when the real stories come out. Ask Gus, he's up all night."]
+      },
+      "activity": {
+        "deliver": [
+          ["Bread round! Mae gets the soft white, Ben gets the brown, Gus gets the leftovers.", "He says he likes them stale. Lighthouse keepers are odd."],
+          "Mind the cart, dear! It's got a wobble. Like Bram after supper.",
+          "Every door in town, every morning, rain or shine. Rain mostly, this spring."
+        ],
+        "shop": ["I'm selling bread, flowers and news. The news is free. Well, cheap."],
+        "bake": ["Bram bakes, I shape and sell. He's the hands, I'm the mouth! Ha!"],
+        "chat": ["We're just talking, dear. Nothing you need to hear. ...Unless you want to?"],
+        "home": ["Putting my feet up. Don't tell anyone. I mean, tell them, I don't mind."]
+      },
+      "place": {
+        "home": ["Come in, come in! Mind the flour! Mind the cat!"],
+        "plaza": ["I've a little stall here on market days. Bread, Rose's flowers, and all the news fit to print."],
+        "pier": ["I love the pier. All the boats come in with stories."]
+      },
+      "ash": [
+        ["Everyone says you're going to be a big POKéMON star, dear.", "I say it the loudest. Twice a day, at the stall!"],
+        ["Is it true you tried to ride a Tauros at the ranch?", "No? Timmy said... well, Timmy says a lot of things."],
+        ["You borrowed Kai's fishing rod and caught a boot!", "Or was it a Magikarp in a boot? Either way, the whole town heard!"],
+        ["Your mum's so proud of you. She doesn't say it to your face.", "She says it to me! And I tell everyone. That's how it works."],
+        ["A POKéMON Master from Pallet Town!", "We'll put up a sign. 'Home of Ash Ketchum'. I'll paint it myself!"],
+        ["You overslept on market day and missed the parade, dear!", "Well, the cart. The cart was the parade."]
+      ],
+      "town": ["Rose's flowers, Bram's bread, my mouth. That's the stall.", "There's always news in Pallet Town. Even when there isn't, there is."],
+      "about": {
+        "bram": ["Bram's a big soft loaf of a man. I wouldn't change a crumb."],
+        "timmy": ["Timmy's a handful. Gets it from his grandpa. And me. And Bram."],
+        "tom": ["Dad tells such stories. Half of them true! I pass on the true ones. I think."],
+        "marina": ["Marina and I share a corner at the market. Fish on one side, bread on the other. It's a smell."]
+      },
+      "after": {
+        "bread_round_done": ["Thanks again for the round, Ash. Bram's fixed the wheel. Well, he says he has."],
+        "twine_found": ["Did you hear Timmy built a POKéMON trap out of Marina's twine? Caught a cabbage, I heard!"]
+      },
+      "sleep": ["(Ada is asleep. She mumbles: '...and then Marina said...')"],
+      "bark": {
+        "any": ["Fresh bread! Fresh news!", "Did you hear...?", "Oh, you'll never guess..."],
+        "deliver": ["Bread round! Bread round!", "Wobbly wheel, wobbly wheel...", "Morning, Mae! Brown or white?"],
+        "chat": ["...and THEN he said...", "No! He didn't!"]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}! Did you hear? No? Oh, sit down.", "{b}, dear, I've been dying to tell you!", "You'll never guess what I heard, {b}."],
+          "ash": ["{b}, Timmy says Ash can talk to POKéMON now. Is that true?", "I heard Ash wants to go all the way to the POKéMON League, {b}!"],
+          "cinnabar": ["{b}, Dad says the mountain on Cinnabar is sneezing again!"],
+          "morning": ["Brown or white this morning, {b}? And any news?"]
+        },
+        "reply": {
+          "any": ["NO! Really? I'm telling Bram.", "Oh, that's nothing, wait till you hear mine!", "Well, I heard it differently, but go on."],
+          "ash": ["That boy! The whole town's rooting for him.", "I always said he'd be famous! I said it first!"],
+          "sea": ["Kai says the fish are jumpy. Means something, he says."],
+          "cinnabar": ["Ooh! I heard there's a ghost scientist in that old mansion!"]
+        },
+        "close": ["Oh, I've got to run, the cart!", "Tell no one! ...Tell everyone."]
+      }
+    },
+
+    "timmy": {
+      "name": "Timmy Hollis", "tag": "TIMMY", "short": "Timmy", "label": "Timmy", "home": "hollis",
+      "voice": "Eight years old, idolises Ash, exaggerates everything to legendary size, mixes up big words.",
+      "greet": {
+        "dawn": ["ASH! You're up! Are you going on your journey RIGHT NOW?", "Whoa, Ash! It's so early it's still night time!"],
+        "morning": ["ASH! Hi! Hi! Have you got a POKéMON yet? Have you? Have you?", "Ash! I saw a Pidgeotto! It was THIS big! Bigger!"],
+        "midday": ["Ash! Want to see my POKéMON trap? It's top secret. I'll show you.", "Hi Ash! Mom gave me a bun. Want half? Want a quarter?"],
+        "afternoon": ["Ash! I'm practising being a Gym Leader. You can challenge me!", "Ash! Grandpa told me about a sea monster! It ate a boat! Two boats!"],
+        "evening": ["Aw, it's almost supper. Mom says I have to go in soon.", "Ash! Did you see the sunset? It looked like a Charmander's tail!"],
+        "night": ["I'm not allowed out! But I snuck! Don't tell!", "Ash! Shh! I'm looking for Gastly. They come out at night!"]
+      },
+      "period": {
+        "dawn": ["Grandpa says real trainers get up at dawn. I got up at dawn! Once!"],
+        "morning": ["Dad says I can have a POKéMON when I'm ten. That's like a HUNDRED years."],
+        "midday": ["It's lunchtime! Even Snorlax eats lunch! Grandpa says."],
+        "afternoon": ["I'm going to be the strongest trainer ever. After you, Ash. You're first."],
+        "evening": ["When the lighthouse turns on, it means bedtime. I hate the lighthouse."],
+        "night": ["Is that a Gastly? ...No, it's the cat. Probably."]
+      },
+      "activity": {
+        "play": [
+          ["I'm being a Gym Leader!", "My badge is the Bread Badge. You get it if you beat me. And Mom gives you a bun."],
+          "Pew pew! That's a Thunderbolt! I'm a Pikachu! ...What's a Pikachu do, again?",
+          ["I made a POKé BALL out of a coconut.", "It didn't work. The Rattata just ate the coconut."],
+          "I'm digging for fossils! Grandpa says Cinnabar has fossils! Pallet Town probably does too!"
+        ],
+        "walk": ["I'm on a journey! To the pond. And back. For lunch."],
+        "home": ["I'm drawing you, Ash! You're holding a hundred POKé BALLS!"],
+        "chat": ["The grown-ups are talking about boring stuff. Fish and bread and weather."],
+        "supper": ["I'm eating my carrots so I can grow big like you!"]
+      },
+      "place": {
+        "home": ["This is my house! It smells like bread all the time! Even my socks!"],
+        "pond": ["There's a Poliwag in the pond. I named it Captain. It doesn't come when I call."],
+        "beach": ["I found a shell! Maybe it's an Omanyte! ...It's just a shell."],
+        "fields": ["Farmer Ben says if I scare his Doduo again, he'll tell Mom."],
+        "plaza": ["PROF. OAK lives up there! He has a MILLION POKéMON! Probably!"]
+      },
+      "ash": [
+        ["Ash, you're gonna be the best POKéMON Master EVER!", "Like, even better than the Champion! Even better than a dragon!"],
+        ["When you go on your journey, can I come? I'll carry your bag!", "...Mom says no. Mom always says no."],
+        ["Remember when you took Kai's fishing rod?", "And you fell in the sea? That was the BEST day!"],
+        ["You overslept again! Mom says you'd sleep through a Snorlax stampede.", "That would be SO cool though."],
+        ["Everybody says you're special, Ash.", "I already knew. I've known since I was FIVE."],
+        ["When you're famous, will you still know me?", "I'm gonna tell everyone I knew you first!"],
+        "Can you do the POKé BALL throw again? The one where you spin? Do it! Do it!"
+      ],
+      "town": ["My Grandpa was a real sailor! He fought a Gyarados! With a spoon!", "My dad makes bread. It's okay. I'd rather make POKéMON."],
+      "about": {
+        "tom": ["Grandpa saw a Lapras once! And a sea serpent! And a mermaid! ...He says."],
+        "lily": ["Lily thinks she's SO good at POKéMON. She just has a worm."],
+        "kai": ["Kai has a gadget that tells the weather. It said sun and it rained!"]
+      },
+      "after": {
+        "twine_found": ["Sorry about the twine, Ash. My trap only caught a cabbage. A big one, though!"],
+        "fanclub_card": ["I'm member number one of the Ash Ketchum Fan Club! You're the president! And the Master!"]
+      },
+      "sleep": ["(Timmy is asleep. He mumbles: '...I choose you... cabbage...')"],
+      "bark": {
+        "any": ["Pew pew!", "I choose you!", "Ash! ASH!"],
+        "play": ["Gotcha! ...Aww.", "Grr! I'm a Gyarados!", "Thunderbolt!"],
+        "night": ["Is that a Gastly?!"]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}! {b}! Guess what! Guess what!", "{b}, did you know Snorlax can eat a whole house?", "{b}, wanna see my coconut POKé BALL?"],
+          "ash": ["{b}, Ash is gonna be a POKéMON Master! He told me! Sort of!", "Ash can throw a POKé BALL a hundred miles, {b}!"],
+          "cinnabar": ["{b}, Grandpa says there's a fire dragon in the volcano!"]
+        },
+        "reply": {
+          "any": ["Whoaaa!", "That's SO cool!", "No way! Way? No way!"],
+          "ash": ["Ash is the best! He's my hero!", "When he's famous I'm gonna be famous too!"],
+          "sea": ["I'm gonna surf on a Lapras someday!"],
+          "cinnabar": ["Is there a dinosaur? I bet there's a dinosaur!"]
+        },
+        "close": ["I gotta go, I'm on a mission!", "Bye! Pew pew!"]
+      }
+    },
+
+    "mae": {
+      "name": "Granny Mae", "tag": "GRANNY MAE", "short": "Mae", "label": "Granny Mae", "home": "mae",
+      "voice": "Slow, kind, wise and a little wry; knits, feeds the wild Pidgey, speaks in old sayings, has known Ash since he was a baby.",
+      "greet": {
+        "dawn": ["Ah, dearie. Come watch the Pidgey breakfast with me.", "Up with the birds, are we? Good for the soul."],
+        "morning": ["Morning, Ash dear. Come here, let me fix that collar.", "There's my boy. You've grown again. Stop it at once."],
+        "midday": ["Hello, dearie. Sit a while. My knees and I enjoy company.", "Ash! Have you had a proper lunch? You're all elbows."],
+        "afternoon": ["Afternoon, dear. Wind's from the south. Something's stirring.", "Hello, Ash. I'm knitting you a scarf. Don't peek."],
+        "evening": ["Evening, dearie. The Pidgey go to roost and so do old ladies.", "Off home with you soon, love. Your mother counts the minutes."],
+        "night": ["Goodness, Ash, it's dark. Your mother will be pacing.", "Night-time, dear. Even the Hoothoot think you should be in bed."]
+      },
+      "period": {
+        "dawn": ["The Pidgey come at first light. Twenty-two of them. I know every one."],
+        "morning": ["A warm cup and a cold breeze. That's a Pallet morning."],
+        "midday": ["I nap at noon. Old ladies' privilege. Wake me if the sea catches fire."],
+        "afternoon": ["Knit one, purl one. My mother taught me, and hers taught her."],
+        "evening": ["Look how the sea goes gold. I've watched it eighty years. Never bored once."],
+        "night": ["Night is long when you're old, dear. But the lighthouse keeps me company."]
+      },
+      "activity": {
+        "feed": [
+          ["There, there, little ones. Plenty for everyone.", "That's Rusty. She's the bossy one. And that's Pip, he's shy."],
+          "Pidgey know a kind hand. Remember that, dearie. So do all POKéMON.",
+          "Don't move too quick, you'll startle them. Slowly. That's it."
+        ],
+        "porch": ["Rocking chair, wool, and the sea. What more could an old lady want?"],
+        "knit": ["Knitting a scarf. Roads north get cold, I hear. No particular reason."],
+        "garden": ["My herb patch. Thyme for soup, sage for wisdom. I need more sage."],
+        "home": ["Kettle's on, dear. It's always on."],
+        "chat": ["We're just chatting about the old days. You'll have old days too, one day."],
+        "walk": ["A little walk keeps the joints honest."]
+      },
+      "place": {
+        "home": ["My little cottage. Built by my husband, God rest him. The porch still squeaks where he stood."],
+        "beach": ["I courted on this beach, you know. Sixty years ago. He found me a pearl in a Shellder."],
+        "pier": ["The boats came back late in my day. I'd wait right here with a lamp."]
+      },
+      "ash": [
+        ["I knitted your first blanket, Ash. Blue, with a little POKé BALL.", "You chewed the corner off. Started early, didn't you?"],
+        ["There's something in your eyes, dearie.", "Same thing I saw in the old trainers that passed through. A spark that doesn't go out."],
+        ["You chased my Pidgey round the yard when you were four.", "Now they come to your whistle. That's not nothing, Ash."],
+        ["Your mother's frightened, dear. That's what love does.", "Go gently with her. And go, when it's time. Both are kindness."],
+        ["They say you want to be a POKéMON Master.", "Well. The sea doesn't ask the river where it's going. It just waits with open arms."],
+        ["You fell asleep in my rocking chair last summer.", "Snored like a Snorlax. I didn't have the heart to wake you."],
+        ["Pallet Town is a fine place to be from, dearie.", "The best people are from somewhere small. They carry it with them."]
+      ],
+      "town": ["This town hasn't changed much in eighty years. That's its charm, and its curse.", "Everyone looks after each other here. You'll miss it, one day. Then you'll come home."],
+      "about": {
+        "ben": ["Ben brings me berries every week. His seeds feed my Pidgey too. He pretends to mind."],
+        "delia": ["Your mother's a gem, dearie. Brave as a lion and soft as wool."],
+        "ada": ["Ada brings my bread and the town's news. I believe about half. The good half."],
+        "tom": ["Tom and I were at school together. He was a liar then too. A charming one."]
+      },
+      "after": {
+        "pidgey_found": ["My Pidgey are back, Ash. Twenty-two. Bless you for asking round.", ["Gus says they were sheltering at his lighthouse.", "Clever things. Cleverer than people, often."]],
+        "fanclub_card": ["I signed that little card for Timmy. I meant every word, dearie."]
+      },
+      "sleep": ["(Granny Mae is dozing in her chair, knitting in her lap.)"],
+      "bark": {
+        "any": ["Knit one, purl one...", "Mm. Wind's turning.", "Ah, there's Rusty."],
+        "feed": ["Here, Pidgey Pidgey...", "Plenty for all, no squabbling.", "Pip, come on, don't be shy."],
+        "night": ["Lighthouse is on. Good."]
+      },
+      "chat": {
+        "open": {
+          "any": ["How are your bones, {b}? Mine are telling me rain.", "Come sit, {b}. Tea?", "{b}, dear, you look tired. Sit down."],
+          "ash": ["Have you seen young Ash lately, {b}? He's got that faraway look.", "That Ketchum boy will go far, {b}. Mark an old woman's words."],
+          "weather": ["Wind from the south, {b}. Cinnabar's breathing."],
+          "evening": ["Lovely sunset, {b}. They're always lovelier at my age."]
+        },
+        "reply": {
+          "any": ["Mm. That's how it goes, dear.", "Well, in my day... oh, never mind.", "Ha! You'll make an old lady laugh."],
+          "ash": ["He's got a good heart. That's what matters, out there.", "The boy's been born for the road, dear. I can feel it."],
+          "sea": ["The sea's kept its secrets eighty years. It'll keep a few more."],
+          "cinnabar": ["I took the waters at Cinnabar once. Hot springs. I was young and silly."]
+        },
+        "close": ["Off you go, dear. Mind how you go.", "Well, these Pidgey won't feed themselves."]
+      }
+    },
+
+    "kai": {
+      "name": "Kai", "tag": "KAI", "short": "Kai", "label": "Kai", "home": "marina",
+      "voice": "Cheerful, chatty fisherman in love with gadgets ('Technology is incredible!'); weather-radio nerd; still a bit sore about his rod.",
+      "greet": {
+        "dawn": ["Ash! Dawn's when the fish are dumb and the fishermen are smart!", "Morning, kiddo! Checking my weather radio. Seventy percent chance of fish!"],
+        "morning": ["Hey Ash! Technology is incredible! My new reel counts the turns!", "Ahoy, Ash! You're not here for my rod again, are you? Ha!"],
+        "midday": ["Ash! The fish are napping. So's Marina. Don't tell her I said so.", "Hey, kiddo! Lunch break! Want a dried Magikarp chip? They're crunchy."],
+        "afternoon": ["Ash! You know you can store items on a PC now? As data! Incredible!", "Afternoon! The tide's turning. So's my stomach."],
+        "evening": ["Evening, Ash! Coming in with the boats? Good catch today!", "Hey Ash. The radio says calm seas tonight. Radio's never wrong. Mostly."],
+        "night": ["Ash? It's late, kiddo! Even the Remoraid are asleep.", "Can't sleep? Me neither. I'm reading my reel's manual. Again."]
+      },
+      "period": {
+        "dawn": ["First light, first cast. That's the fisherman's rule."],
+        "morning": [["Technology is incredible!", "You can now store and recall items and POKéMON as data via PC!"]],
+        "midday": ["Midday the fish go deep. Smart fish. I respect 'em."],
+        "afternoon": ["Afternoon tide brings in the Tentacool. Watch your step on the beach."],
+        "evening": ["Evening's for counting the catch and telling lies about the one that got away."],
+        "night": ["At night I listen to the ship-to-shore radio. Whole world out there talking."]
+      },
+      "activity": {
+        "fish": [
+          ["Shh. They're biting.", "...They're not biting. Talk all you like."],
+          ["Got a Magikarp! ...And it's flopped back in. Typical.", "Never mind. Never curse a Magikarp, Ash. Old sailor's rule."],
+          "This is my new rod. Carbon fibre! Don't even LOOK at it, Ketchum. Ha!",
+          ["Sea's a bit warm today.", "Old Tom says warm water from the south means the volcano's restless."],
+          "Patience is the bait, kiddo. Fish can smell hurry."
+        ],
+        "commute": ["Off to the pier! Tide waits for no man. Or boy."],
+        "home": ["I'm fixing the radio. Or breaking it. Hard to tell, at this stage."],
+        "mend": ["Marina's got me mending nets. My knots are, she says, 'creative'."],
+        "chat": ["Talking fish. Always talking fish."],
+        "supper": ["Fish for supper! Surprise! It's always fish."]
+      },
+      "place": {
+        "pier": ["Best spot on the pier, this. I've got a cushion and everything."],
+        "beach": ["The beach is great for Krabby. Watch your toes!"],
+        "boathouse": ["The boathouse smells of tar and old rope. Love it."],
+        "home": ["Our house! Marina's nets, my gadgets. Some days you can't get through the door."]
+      },
+      "ash": [
+        ["Remember when you 'borrowed' my rod?", "I found you knee-deep in the sea with a Tentacool on the line! A Tentacool!"],
+        ["You cast like a natural, though. Wild, but a natural.", "Don't tell Marina I said that, she still thinks I should've grounded you."],
+        ["POKéMON Master, eh?", "You'll need gadgets! A POKéDEX! A PC box! Technology is incredible, kiddo!"],
+        ["You've got that look old trainers get, staring at the horizon.", "I had it too. Then I met Marina, and a fishing rod. Ha!"],
+        ["Everyone in town's betting you'll leave on your journey before summer's out.", "I've got five on spring."],
+        ["You fell asleep on my boat last month and drifted halfway to the buoy!", "Gus had to wave a lantern at you. Kid, you'd sleep through a typhoon."]
+      ],
+      "town": ["Pallet Town's slow, but the sea isn't. Every day's different out there.", "I'm the only man in town with a PC. People think I'm a wizard. I'm not. I'm better: I'm informed."],
+      "about": {
+        "marina": ["Marina's the real boss of the boat. I'm just the engine. And the entertainment."],
+        "gus": ["Gus thinks he can read the weather off the clouds. I've got a RADIO. We have a bet going."],
+        "tom": ["Old Tom taught me to fish. He also taught me to exaggerate. Both very useful."]
+      },
+      "after": {
+        "twine_found": ["Marina says Timmy made off with her twine. Ha! At least this time it wasn't my rod, eh, Ash?"],
+        "rumbles_heard": ["Still asking about the rumbles? The ferry radio says Cinnabar's quiet. Too quiet? Nah, just quiet."]
+      },
+      "sleep": ["(Kai is asleep with the radio crackling on his chest.)"],
+      "bark": {
+        "any": ["Technology is incredible!", "Seventy percent chance of fish!", "Where's my reel?"],
+        "fish": ["Come on, come on...", "Bite, you beauty!", "Aw, a boot. Again."],
+        "evening": ["Good catch today!"]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}! Have you seen my new reel? It clicks! Listen!", "{b}, the radio says sun. Bet you a fish it's sun.", "Technology is incredible, {b}!"],
+          "ash": ["Saw Ash watching the boats again, {b}. Kid's got the wanderlust bad.", "{b}, Ash asked me how far Cinnabar is. I said 'too far to swim, kiddo'."],
+          "sea": ["Tentacool are thick off the point today, {b}.", "Water's warm, {b}. Warm from the south."],
+          "cinnabar": ["Ferry radio says the Cinnabar lab's busy again, {b}. Fossils!"]
+        },
+        "reply": {
+          "any": ["Ha! That's a good one!", "Incredible! Truly incredible!", "Well, my radio says otherwise. But okay."],
+          "ash": ["That kid's going places! On the right boat, too, I hope.", "Ha! He'll have a PC box full of POKéMON one day."],
+          "sea": ["Sea's a moody old girl. Treat her right and she feeds you."],
+          "cinnabar": ["I hear there's a machine there that brings fossils back to life! Incredible!"]
+        },
+        "close": ["Gotta check the tide!", "Back to the boat!"]
+      }
+    },
+
+    "marina": {
+      "name": "Marina", "tag": "MARINA", "short": "Marina", "label": "Marina", "home": "marina",
+      "voice": "Practical, salty, quick-witted net-mender and fish-seller; teases Kai mercilessly; protective of the town's kids in a gruff way.",
+      "greet": {
+        "dawn": ["Ash. You're up. Wonders never cease.", "Morning. Mind the hooks, they're out to dry."],
+        "morning": ["Ash! Want to buy a fish? No? Then hold this net.", "Morning, Ketchum. Kai's rod is locked away. Just so you know."],
+        "midday": ["Midday, Ash. Fish don't sell themselves, more's the pity.", "Hello, trouble. What do you want?"],
+        "afternoon": ["Afternoon, Ash. Back to mending. Always mending.", "Ash. Sit, if you're staying. Hands busy, mouth free."],
+        "evening": ["Evening. Boats are in. All of them, thank the sea.", "Ash. Off home soon? Good. Don't loiter on the pier after dark."],
+        "night": ["Ash, it's night. Go home before your mother calls the coastguard.", "You're out late. Same as Kai at your age. Look how he turned out."]
+      },
+      "period": {
+        "dawn": ["Dawn's when I lay the catch on ice. Freshest fish in Kanto, I'll have you know."],
+        "morning": ["Morning market. Everyone wants the big ones, nobody wants to gut them."],
+        "midday": ["Midday's for mending. Tide's out, nets are dry, I'm cross."],
+        "afternoon": ["Afternoons I teach the knots. Nobody comes. I teach the gulls."],
+        "evening": ["Evenings I count the boats in. One, two, three. All home. Good."],
+        "night": ["I sleep with one ear on the wind. Fisherman's wife habit."]
+      },
+      "activity": {
+        "mend": [
+          ["Over, under, through, pull.", "A net's only as strong as its worst knot. Same with people."],
+          "Krabby got into this one. Snipped right through. Little monsters.",
+          ["Gyarados tore a hole in Tom's net once. Big as a door, he says.", "Hole was the size of a plate. Tom's never let truth spoil a story."],
+          "Hand me the twine? ...Not that twine. That's for the good nets."
+        ],
+        "shop": ["Fresh catch! Mackerel, sea bream, and a Shellder that keeps snapping at me."],
+        "fish": ["I'm out with Kai today. Someone has to steer while he talks to his radio."],
+        "home": ["I'm salting fish. Don't touch. You'll smell of it for a week."],
+        "chat": ["I'm talking to Ada. Well. Ada's talking. I'm nodding."]
+      },
+      "place": {
+        "pier": ["The pier's mine in the mornings. Kai's in the evenings. We've negotiated."],
+        "beach": ["Low tide's good for clams. And for kids who should be helping their mothers."],
+        "boathouse": ["The boathouse is where the nets live. And where Kai hides from chores."],
+        "home": ["Our house. If it smells of fish, that's because it is fish."]
+      },
+      "ash": [
+        ["You and that rod. Kai's still telling the story.", "Gets bigger every time. Last week the Tentacool was a Tentacruel."],
+        ["You're a good kid, Ash. Reckless. But good.", "Reckless and good is how most heroes start, I suppose."],
+        ["POKéMON Master. Hmph.", "Well, you've got the stubborn for it. That's half the battle, so they say."],
+        ["Your mother came down here crying once, when you were six and lost at the beach.", "You'd fallen asleep under a boat with three Krabby. Hugging them."],
+        ["This town's going to miss you when you go.", "Don't make that face. Everyone knows you're going. Even the fish know."],
+        ["You're the only kid in town who's ever thanked a Magikarp for biting.", "That's the sort of thing trainers are made of, I reckon."]
+      ],
+      "town": ["Kai catches it, I clean it, Ada sells bread next to it. That's commerce in Pallet Town.", "Quiet town. Good town. Bit too quiet, some days, but the sea makes up for it."],
+      "about": {
+        "kai": ["Kai's a fool. Mine, though. Thirteen years married, and he still talks to his radio more than me."],
+        "ada": ["Ada knows what you had for breakfast before you do."],
+        "gus": ["Gus is a good man. Odd. All lighthouse keepers are odd. You'd be odd too."]
+      },
+      "after": {
+        "twine_found": ["Got my twine back, thanks to you. Timmy owes me a week of gutting. He doesn't know yet."]
+      },
+      "sleep": ["(Marina is asleep. One hand still clutches a netting needle.)"],
+      "bark": {
+        "any": ["Hmph.", "Over, under, through...", "Kai! The radio's on again!"],
+        "mend": ["Blasted Krabby.", "Who's been at my twine?", "Pull, and pull, and done."],
+        "shop": ["Fresh catch!", "Mackerel! Bream! Bargains!"]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}. You look like you need a fish.", "Morning, {b}. Seen my twine?", "{b}, tell Kai his radio's wrong. He listens to you."],
+          "ash": ["{b}, Ash was down at the pier at dawn. Watching the boats go south.", "That Ketchum boy's going to leave us one of these days, {b}."],
+          "sea": ["Tide's strange today, {b}. Warm.", "Tentacool bloom coming, {b}. I can smell it."],
+          "cinnabar": ["{b}, the ferry men say Cinnabar's had smoke three mornings running."]
+        },
+        "reply": {
+          "any": ["Hmph. Could be.", "That's daft. I love it.", "Don't tell Kai."],
+          "ash": ["Good. Town's too small for that one.", "He'll be fine. He's a Pallet boy. We float."],
+          "sea": ["The sea's always up to something. Like Kai."],
+          "cinnabar": ["Cinnabar. Hot water, hot tempers, and a gym nobody can find."]
+        },
+        "close": ["Right. Nets.", "Off with you, I've fish to sell."]
+      }
+    },
+
+    "ben": {
+      "name": "Farmer Ben", "tag": "FARMER BEN", "short": "Ben", "label": "Farmer Ben", "home": "farmer",
+      "voice": "Laconic, earthy farmer; up before the sun, muddy boots, reads weather by his bad knee, says more with 'Mm.' than most do with speeches.",
+      "greet": {
+        "dawn": ["Mornin'. Been up two hours. Cows don't milk themselves.", "Ash. Early. Good."],
+        "morning": ["Mornin', Ash. Mind the furrows.", "Mm. Ash. Bit late, isn't it? It's seven."],
+        "midday": ["Hot one. Sit in the shade if you're sitting.", "Ash. Lunch? Bread and cheese. That's lunch."],
+        "afternoon": ["Afternoon. Doduo's in a mood. Stay clear.", "Mm. Ash."],
+        "evening": ["Evening. Long day. Good day.", "Ash. Off home? Me too. Soon."],
+        "night": ["Late. You should be asleep. I am. Nearly.", "Night, Ash. Go on home."]
+      },
+      "period": {
+        "dawn": ["Dawn's the best of it. Dew on the fields. No talking."],
+        "morning": ["Morning's for the work that matters. Afternoon's for the rest."],
+        "midday": ["Too hot to dig. Not too hot to sharpen."],
+        "afternoon": ["Afternoons I mend fences. Tauros from Route 1 leaning on 'em again."],
+        "evening": ["Evening, I check the sky. Red sky. Good tomorrow."],
+        "night": ["Night. Owl hoots, I sleep."]
+      },
+      "activity": {
+        "farm": [
+          ["Oran berries are coming on. Pecha too.", "Pidgey get a share. Always have. Price of a good field."],
+          "Boots are muddy. Always are. Mud's honest.",
+          ["Knee says rain Thursday.", "Kai's radio says sun. My knee's never been wrong."],
+          "Caterpie on the bushes. I let 'em be. Lily collects them."
+        ],
+        "work": ["Busy. Always busy. That's farming."],
+        "commute": ["Off to the fields. Same way as yesterday. Same as tomorrow."],
+        "home": ["Supper and a sit. Farmer's luxury."],
+        "chat": ["Talkin'. Mm. Don't get used to it."],
+        "shop": ["Selling eggs. Brown ones. Better."]
+      },
+      "place": {
+        "fields": ["My fields. My father's before. His before."],
+        "home": ["Farmhouse. Kettle's on the range. Mind the dog."],
+        "plaza": ["Don't come down to town much. Too many people. Twelve's a crowd."]
+      },
+      "ash": [
+        ["You flattened a row of my wheat chasing that Nidoran.", "Mm. It grew back. Things do."],
+        ["You've got a way with the beasts, Ash.", "Doduo don't let just anyone near. They let you."],
+        ["POKéMON Master. Hm.", "Big field to plough. You've the back for it, I reckon."],
+        ["Saw you up at dawn last week, practising throws at a fence post.", "Hit it, too. Twice."],
+        ["Town's not big enough for some folks.", "Nothing wrong with that. Nothing wrong with coming back, either."]
+      ],
+      "town": ["Town's fine. Quiet. Suits me.", "Bram buys my wheat. Rose buys my muck. Mae steals my berries. Everyone's happy."],
+      "about": {
+        "mae": ["Mae's Pidgey eat my seed. I leave extra. Don't tell her."],
+        "bram": ["Bram burns the crusts. Says it's 'character'. Hm."],
+        "rose": ["Rose's flowers are pretty. Can't eat 'em. Still. Pretty."]
+      },
+      "after": {
+        "pidgey_found": ["Mae's birds are back on my fields. Good. Field feels wrong without 'em."],
+        "bread_round_done": ["Got the bread late. Didn't mind. Told Ada. She talked for ten minutes."]
+      },
+      "sleep": ["(Farmer Ben is asleep. Even asleep, he's frowning at the weather.)"],
+      "bark": {
+        "any": ["Mm.", "Hm.", "Rain Thursday."],
+        "farm": ["Easy, Doduo.", "Get off the berries, you.", "Good soil."],
+        "dawn": ["Up and at it."]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}. Mm.", "Rain Thursday, {b}.", "{b}. Berries are in."],
+          "ash": ["Ash was up at my fields at dawn, {b}. Throwing at fence posts.", "Boy's got a gift with beasts, {b}."],
+          "weather": ["Knee's aching, {b}. Storm coming."]
+        },
+        "reply": {
+          "any": ["Mm.", "Hm. Could be.", "Right."],
+          "ash": ["Good lad.", "He'll do. He'll do fine."],
+          "sea": ["Don't hold with the sea. Ground stays still."],
+          "cinnabar": ["Felt it in the soil last night. Shiver. Mm."]
+        },
+        "close": ["Right. Fields.", "Mm. Off."]
+      }
+    },
+
+    "tom": {
+      "name": "Old Tom", "tag": "OLD TOM", "short": "Tom", "label": "Old Tom", "home": "oldman",
+      "voice": "Retired sailor and grandpa, spins tall tales from his porch on the hill with a spyglass trained on Cinnabar; half the tales are true, he won't say which half.",
+      "greet": {
+        "dawn": ["Ahoy, young Ash! Watch the horizon with me. See that smudge? Cinnabar.", "Up at the dawn watch? Good lad. Sailor's hours."],
+        "morning": ["Morning, Ash! Fair winds and fat Magikarp to you.", "Ahoy! Come up, come up. Mind the third step, it's older than me."],
+        "midday": ["Ash! Pull up a crate. Have I told you about the Gyarados of '52?", "Midday, lad. Sun's over the yardarm. Well, over the chimney."],
+        "afternoon": ["Afternoon, Ash! Sea's flat as a Magikarp's thinking.", "Ahoy, lad! Come to hear a tale? I've a hundred. Some true."],
+        "evening": ["Evening, Ash. Watch the light go. Gus'll fire the lamp soon.", "Sun's going down red. Sailor's delight, lad."],
+        "night": ["Ash! Out late! In my day I'd stand the middle watch at your age.", "Night, lad. Hear the sea? She's telling stories too."]
+      },
+      "period": {
+        "dawn": ["At dawn you can see Cinnabar from my porch. A grey hump on the sea."],
+        "morning": ["Mornings, the ferry lane's busy. Supply boats, fishers, the odd trainer swimming."],
+        "midday": ["Midday heat brings out my sea stories. Like Seaking from the deep."],
+        "afternoon": ["Afternoon squalls come up quick off Route 21. Seen boats lost to 'em."],
+        "evening": ["Evening's for my pipe and my spyglass. I don't smoke the pipe any more. Just hold it."],
+        "night": ["At night the old mountain glows, sometimes. Faint as a coal. If you know where to look."]
+      },
+      "activity": {
+        "porch": [
+          ["Got my spyglass on the south.", "Something's up on Cinnabar. Mark my words."],
+          "Sit, lad. The porch has a fine view and a finer storyteller.",
+          ["I was a deckhand at fifteen. Bosun at twenty.", "Captain never. Too fond of telling the captain he was wrong."]
+        ],
+        "walk": ["Constitutional! Doctor's orders. Also Ada's orders."],
+        "home": ["Polishing my old ship's bell. She still rings true."],
+        "chat": ["Telling tales, lad. Don't spoil it with facts."]
+      },
+      "place": {
+        "home": ["My cabin on the hill. Highest porch in Pallet. Best view of the south."],
+        "pier": ["This pier was half the length in my day. And twice as busy."],
+        "beach": ["I washed up on this beach once. Long story. Mostly a Tentacruel."],
+        "hill": ["From up here you see the whole sea lane. Every boat bound for Cinnabar."]
+      },
+      "ash": [
+        ["I've seen trainers pass through this town for fifty years, lad.", "Precious few had what you've got. That stubborn shine."],
+        ["A POKéMON Master, eh?", "I sailed with a trainer once who had a Butterfree. Kind man. He talked to it every night."],
+        ["You took Kai's rod and fell off the pier, I hear.", "Ha! First thing I did as a lad too. Proper sailor's baptism."],
+        ["The sea doesn't keep the restless ones, lad.", "Neither will Pallet Town. Go see the world. Then come tell me about it."],
+        ["Your mother's a good woman. Frets like a gull over a nest.", "Don't scold her for it. Bring her home stories."],
+        ["You overslept the whole Pidgeotto migration last spring!", "Most beautiful sky in Kanto, and you snored through it. Next year, lad."]
+      ],
+      "town": ["Pallet Town's been fishing these waters a hundred years. My grandfather, his grandfather.", "Ada's my daughter. Bram's my son-in-law. Timmy's my sun and moon."],
+      "about": {
+        "timmy": ["My grandson Timmy thinks I fought a Gyarados with a spoon. I let him. It was a ladle."],
+        "gus": ["Gus and I argue over every tale. He has a logbook. Logbooks have no poetry."],
+        "ada": ["My Ada repeats every story I tell. Never the same way twice!"]
+      },
+      "after": {
+        "rumbles_heard": ["Thanks for asking round about the rumbles, lad. Old ears like to know they're not just old."],
+        "fanclub_card": ["Signed Timmy's card, didn't I? Proudest signature I've given. After my discharge papers."]
+      },
+      "sleep": ["(Old Tom is asleep in his chair, spyglass in his lap.)"],
+      "bark": {
+        "any": ["Ahoy!", "In my day...", "Mark my words."],
+        "porch": ["Smoke on Cinnabar again...", "There's the ferry.", "Spyglass, spyglass..."],
+        "night": ["Middle watch. Quiet."]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}! Did I ever tell you about the Gyarados of '52?", "Ahoy, {b}! Fair winds!", "{b}, my knee and the barometer agree. Change is coming."],
+          "ash": ["{b}, that Ketchum boy has the look of a born trainer.", "Saw Ash on the pier again, {b}, staring south like a gull."],
+          "cinnabar": ["{b}, felt the ground shake last night. Cinnabar's old mountain, I'd wager.", "Smoke on Cinnabar this morning, {b}. Saw it through the glass."],
+          "sea": ["Sea's restless, {b}. Same as in '52."]
+        },
+        "reply": {
+          "any": ["Ha! That reminds me of a tale...", "Aye, aye.", "In my day, we'd have called that a breeze!"],
+          "ash": ["He'll make us proud. Mark my words.", "Born for the sea lanes and the long roads, that one."],
+          "sea": ["The sea's a book you never finish, mate."],
+          "cinnabar": ["Cinnabar's got more secrets than fish, that I'll tell you."]
+        },
+        "close": ["Well, my porch is calling.", "Fair winds!"]
+      }
+    },
+
+    "gus": {
+      "name": "Gus", "tag": "GUS", "short": "Gus", "label": "Gus", "home": "lighthouse",
+      "voice": "Quiet, precise lighthouse keeper; keeps a logbook of every ship and storm, speaks softly and a little poetically, night owl who naps mornings.",
+      "greet": {
+        "dawn": ["Ash. Dawn. Logged: lamp out, sea calm, one boy.", "Morning, lad. I'm just off watch. Speak softly."],
+        "morning": ["Mm? Ash. I was asleep. It's all right. I'm up now.", "Morning. Yawn. Excuse me. Long night."],
+        "midday": ["Ash. Good day. Wind south-south-west, light.", "Hello, Ash. Polishing brass. Brass does not polish itself."],
+        "afternoon": ["Ash. Come to see the lens? Don't touch. Fingerprints are a crime.", "Afternoon. Sea's glassy. Logged."],
+        "evening": ["Ash. Lamp-lighting soon. The best moment of the day.", "Evening, lad. The ships will want my light tonight."],
+        "night": ["Ash. Night watch. Sit if you're quiet. The sea talks at night.", "You're up late. So am I. Always."]
+      },
+      "period": {
+        "dawn": ["At dawn I write the night down. Every ship, every star."],
+        "morning": ["Mornings I sleep. Badly. Gulls."],
+        "midday": ["Midday I trim the wick and wind the clockwork. Ritual."],
+        "afternoon": ["Afternoons I watch the sea lane with the big glass. Cinnabar boats come and go."],
+        "evening": ["Lamp's lit at dusk. Sixty years, never missed. My father before me."],
+        "night": ["At night the sea shows you what it hides by day. Lights. Shapes. Songs, once."]
+      },
+      "activity": {
+        "lighthouse": [
+          ["One flash every four seconds. Pallet's signature.", "Ships know it's us by the count."],
+          ["Logbook, page two hundred.", "'Smoke over Cinnabar, morning. Slight.' I write it all down."],
+          "Mind the stairs. A hundred and twelve. I count them every night.",
+          ["The lens is older than the town hall.", "We don't have a town hall. Older than that."]
+        ],
+        "walk": ["Stretching sea legs on land. Feels wrong."],
+        "home": ["Sleeping. Or trying."],
+        "chat": ["Talking. Rare for me. Enjoy it."]
+      },
+      "place": {
+        "lighthouse": ["My lighthouse. Watching over Route 21 and every soul on it."],
+        "boathouse": ["Boathouse. I keep a dinghy here. For emergencies. And Thursdays."],
+        "beach": ["The tide brings me things. Bottles. Shells. Once, a Slowpoke. Asleep."],
+        "pier": ["The pier light is mine too. Small lamp, big job."]
+      },
+      "ash": [
+        ["Logged, three summers ago: 'Ketchum boy asleep in Kai's boat, drifting south.'", "I waved the lantern for an hour. You waved back. Then went back to sleep."],
+        ["You watch the sea like a keeper, Ash.", "But your feet want roads, not stairs. I can tell."],
+        ["POKéMON Master. I'll log it, when it happens.", "Not 'if'. When."],
+        ["Every ship that leaves Pallet Town, I watch till it's gone.", "I'll watch you go too. With the big glass."],
+        ["Your mother brings me soup when it storms.", "She asks if I've seen you on the beach. I always have."]
+      ],
+      "town": ["Pallet Town sleeps, I watch. That's the deal.", "The town is small from up here. Small and warm. Like a lantern."],
+      "about": {
+        "tom": ["Tom and I disagree about everything. Weather, fish, history. Best friend I have."],
+        "kai": ["Kai has a radio. I have eyes. The bet stands at forty-one to thirty-nine. Mine."],
+        "mae": ["Mae waves at my light every night. I flash it twice for her. She doesn't know. Or does."]
+      },
+      "after": {
+        "gus_supper": ["Bram's bread at the top of the tower. Best meal I've had in years. Thank you, Ash."],
+        "pidgey_found": ["Mae's Pidgey have left the gallery. I miss them, a little. Logged."]
+      },
+      "sleep": ["(Gus is asleep, sitting up. His logbook is open on his knees.)"],
+      "bark": {
+        "any": ["Logged.", "Wind south-south-west.", "Hm. A sail."],
+        "lighthouse": ["One, two, three, four. Flash.", "Lens is clean.", "Steady, now."],
+        "night": ["Quiet sea.", "Something on the water..."]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}. Good day. I've logged it.", "Wind's backing, {b}.", "{b}. Seen anything odd lately? I collect odd."],
+          "ash": ["Ash was on the beach last night, {b}. Watching my light.", "That boy will leave on a morning like this one, {b}. Mark the date."],
+          "sea": ["Strange lights out on the sea lane last night, {b}.", "Tentacool bloom forming off the point, {b}."],
+          "cinnabar": ["Smoke over Cinnabar again this morning, {b}. Thin, white.", "{b}, a glow on the southern horizon. Third night this month."]
+        },
+        "reply": {
+          "any": ["Hm. Logged.", "Noted.", "Interesting."],
+          "ash": ["He'll go far. Farther than my light reaches.", "Good boy. Restless. Logged."],
+          "sea": ["The sea remembers everything. I just write it down."],
+          "cinnabar": ["The mountain breathes. Most nights, it breathes gently."]
+        },
+        "close": ["Back to the lamp.", "Fair seas."]
+      }
+    }
+  },
+
+  "relations": {
+    "_doc": "Kinds: family, friends, rivals, neighbours. quests.gd relation(a, b) returns the kind (SIM may favour these pairs for social time).",
+    "bram|ada": "family", "ada|timmy": "family", "bram|timmy": "family", "tom|ada": "family", "tom|timmy": "family", "tom|bram": "family",
+    "kai|marina": "family", "lily|rose": "family",
+    "delia|rose": "friends", "delia|mae": "friends", "ada|mae": "friends", "ada|marina": "friends", "ben|mae": "friends",
+    "ben|bram": "friends", "tom|gus": "rivals", "kai|gus": "rivals", "lily|timmy": "rivals", "delia|ada": "friends",
+    "rose|ben": "neighbours", "mae|gus": "friends", "lily|ben": "friends", "kai|tom": "friends", "marina|rose": "neighbours"
+  },
+
+  "pairs": {
+    "_doc": "Pair-specific NPC exchanges (either order works; speakers by id). An exchange is a list of [id, line] or {when: [periods/activities], lines: [...]}.",
+    "bram|ada": [
+      [["ada", "Bram, the wheel's wobbling again."], ["bram", "It's character, love!"], ["ada", "It's a wheel, Bram."]],
+      [["bram", "Taste this, Ada. Seaweed loaf, mark two."], ["ada", "...It's very... beachy."], ["bram", "HO HO! That's the idea!"]],
+      {"when": ["night", "evening"], "lines": [["ada", "...and then Marina said Kai said..."], ["bram", "Mm-hm."], ["ada", "Are you asleep?"], ["bram", "Mm-hm."]]},
+      [["ada", "Did you hear Ash wants to go to the POKéMON League?"], ["bram", "Heard it from you. Four times."], ["ada", "Well, it's news!"]]
+    ],
+    "ada|timmy": [
+      [["ada", "Timmy Hollis, where are my clothes pegs?"], ["timmy", "They're POKéMON! I'm training them!"], ["ada", "Train them back onto the line, please."]],
+      [["timmy", "Mom! Ash threw a POKé BALL a mile!"], ["ada", "Did he now? A whole mile?"], ["timmy", "Okay, a garden. A big garden!"]]
+    ],
+    "bram|timmy": [
+      [["timmy", "Dad, can I have a POKéMON?"], ["bram", "When you're ten, son."], ["timmy", "Can I have a bun?"], ["bram", "Ha! That I can do."]],
+      [["bram", "Who ate the raisins out of my raisin rolls?"], ["timmy", "...A Rattata?"], ["bram", "A Rattata with your face, eh? HO HO!"]]
+    ],
+    "tom|timmy": [
+      [["timmy", "Grandpa! Tell the Gyarados story!"], ["tom", "Which one, lad? The spoon or the ladle?"], ["timmy", "THE LADLE!"]],
+      [["tom", "Timmy, see that grey hump on the sea? Cinnabar."], ["timmy", "Is there a dragon?"], ["tom", "Ha! Maybe a little one."]],
+      [["timmy", "Grandpa, will Ash beat the Elite Four?"], ["tom", "The Elite Four had better start practising."]]
+    ],
+    "tom|ada": [
+      [["tom", "Ada, love. Felt the ground shake last night."], ["ada", "Dad! Was it an earthquake?"], ["tom", "Just the old mountain grumbling, I'd say."], ["ada", "I'm telling everyone."]],
+      [["ada", "Dad, you've told the Lapras story to the whole market."], ["tom", "And the whole market enjoyed it."]]
+    ],
+    "tom|bram": [
+      [["bram", "Tom! Try the Volcano Bun!"], ["tom", "...Hot. Hot as Cinnabar's belly. Another!"]],
+      [["tom", "Your crusts are getting darker, Bram."], ["bram", "It's a style!"], ["tom", "It's a fire."]]
+    ],
+    "kai|marina": [
+      [["kai", "Marina! The radio says sun all week!"], ["marina", "The sky says rain."], ["kai", "The sky's not technology."]],
+      [["marina", "Kai, where's my twine?"], ["kai", "Wasn't me!"], ["marina", "It's always you."], ["kai", "Not this time! Probably!"]],
+      {"when": ["evening", "night"], "lines": [["marina", "All the boats in?"], ["kai", "All in. Counted twice."], ["marina", "Good. Then we can sleep."]]},
+      [["kai", "Saw Ash eyeing my new rod."], ["marina", "Lock it up, then."], ["kai", "I did! He was eyeing the lock!"]]
+    ],
+    "lily|rose": [
+      [["lily", "Mom! Nibbles ate the whole rose!"], ["rose", "The whole rose?"], ["lily", "...Most of it."], ["rose", "Well. He has taste."]],
+      [["rose", "Lily, supper soon."], ["lily", "Five more minutes! I'm observing!"], ["rose", "Observe your vegetables, then."]],
+      [["lily", "Mom, can Caterpie eat sweet peas?"], ["rose", "Not my sweet peas, darling."]]
+    ],
+    "delia|rose": [
+      [["delia", "Rose, Ash was up reading about the POKéMON League till midnight."], ["rose", "He's ten, Delia. It's what ten is for."], ["delia", "I know. I just... worry."]],
+      [["rose", "Your tomatoes are better than mine this year."], ["delia", "It's the eggshells. Don't tell anyone."], ["rose", "Your secret dies with me."]],
+      [["delia", "Do you think I'm being silly, Rose? About him leaving?"], ["rose", "No. Being his mother. It's not silly."], ["delia", "...Thank you."]],
+      {"when": ["evening"], "lines": [["rose", "Tea, Delia?"], ["delia", "Oh, I'd love some. Ash is out chasing a Pidgey again."], ["rose", "Then we have time for two cups."]]}
+    ],
+    "delia|mae": [
+      [["mae", "Your boy came by and helped me with the Pidgey, Delia."], ["delia", "Did he? He never helps me with the dishes!"], ["mae", "Ha! Pidgey are more fun than dishes, dear."]],
+      [["delia", "Mae, how did you let your son go to sea?"], ["mae", "With a scarf and a prayer, dearie. And he came home."], ["delia", "...A scarf and a prayer."]],
+      [["mae", "I'm knitting Ash a scarf. For the road north."], ["delia", "Oh, Mae. Don't. I'll cry."], ["mae", "Then cry, dear. It's good wool."]]
+    ],
+    "delia|ada": [
+      [["ada", "Your seed loaf, Delia! And did you hear?"], ["delia", "Hear what?"], ["ada", "Ash told Timmy he'll be a POKéMON Master!"], ["delia", "...He tells me that every morning, Ada."]],
+      [["delia", "Ada, is Ash going round asking everyone questions again?"], ["ada", "Oh, he's been helping half the town!"], ["delia", "Has he? Oh, that's my boy."]]
+    ],
+    "ada|mae": [
+      [["ada", "Mae, did you hear about the lab on Cinnabar?"], ["mae", "Which lab, dear? They have two."], ["ada", "The one that brings back dinosaurs!"], ["mae", "Fossils, dear. Fossils."]],
+      [["mae", "White loaf today, Ada."], ["ada", "And the news?"], ["mae", "Go on then. Just the short version."], ["ada", "There is no short version!"]]
+    ],
+    "ada|marina": [
+      [["ada", "Marina! You'll never guess."], ["marina", "Then don't make me."], ["ada", "Timmy's building a POKéMON trap!"], ["marina", "...With what?"]],
+      [["marina", "Ada, your stall smells of bread."], ["ada", "Your stall smells of fish."], ["marina", "Together it smells like lunch."]]
+    ],
+    "ben|mae": [
+      [["ben", "Berries, Mae."], ["mae", "Thank you, Ben. Your Pidgey say thank you too."], ["ben", "My seed says they're not mine."], ["mae", "Ha! They're everyone's, dear."]],
+      [["mae", "Rain coming, Ben?"], ["ben", "Thursday."], ["mae", "My bones say Wednesday."], ["ben", "Mm. We'll see."]]
+    ],
+    "ben|bram": [
+      [["bram", "Ben! Your flour made the best loaf of my life!"], ["ben", "Mm. You burnt the bottom."], ["bram", "HO HO! That's flavour!"]],
+      [["ben", "Wheat's in by Friday."], ["bram", "Then Saturday, we bake the town a feast!"], ["ben", "...Mm. Good."]]
+    ],
+    "tom|gus": [
+      [["tom", "Gus! Smoke on Cinnabar this morning."], ["gus", "Logged it at dawn. Thin, white."], ["tom", "Thick, black!"], ["gus", "Thin. White. Logged."]],
+      [["gus", "The Gyarados of '52 was a big Magikarp, Tom."], ["tom", "It was the size of this pier!"], ["gus", "I have it logged as 'large fish'."], ["tom", "Your log has no soul, Gus."]],
+      {"when": ["night", "evening"], "lines": [["tom", "Seen the glow tonight?"], ["gus", "Faint. South-south-east."], ["tom", "The old mountain's restless."], ["gus", "For once, Tom, I agree."]]},
+      [["tom", "That Ketchum boy, Gus. He's got it."], ["gus", "Logged three years ago, Tom. Same entry."]]
+    ],
+    "kai|gus": [
+      [["kai", "Radio says calm tonight, Gus."], ["gus", "Clouds say squall by midnight."], ["kai", "Bet you a fish."], ["gus", "Forty-two to thirty-nine, then."]],
+      [["gus", "Your radio was wrong again yesterday."], ["kai", "It was slightly right!"], ["gus", "Logged: 'slightly right'."]]
+    ],
+    "kai|tom": [
+      [["tom", "Kai, lad, when I was your age I'd no radio. Just my nose."], ["kai", "And how often was your nose right?"], ["tom", "...Often enough to retire."]],
+      [["kai", "Tom! Got a Magikarp this long!"], ["tom", "Pfah. In my day they were THIS long."]]
+    ],
+    "lily|timmy": [
+      [["timmy", "Lily! I caught a POKéMON!"], ["lily", "That's a rock, Timmy."], ["timmy", "It's a Geodude! A baby one!"], ["lily", "It's a ROCK."]],
+      [["lily", "My Caterpie is going to be a Butterfree!"], ["timmy", "My rock is going to be a Golem!"], ["lily", "Rocks don't evolve!"]],
+      [["timmy", "Ash is gonna be a POKéMON Master!"], ["lily", "So am I!"], ["timmy", "You can be his helper!"], ["lily", "TIMMY!"]]
+    ],
+    "lily|ben": [
+      [["lily", "Farmer Ben, any Caterpie on the bushes today?"], ["ben", "Two. Left side. Gentle."], ["lily", "Thank you thank you thank you!"]],
+      [["ben", "Mind the berries."], ["lily", "I'm minding! I'm minding!"]]
+    ],
+    "rose|ben": [
+      [["ben", "Brought you some muck, Rose."], ["rose", "Oh, Ben. You shouldn't have."], ["ben", "Good muck."], ["rose", "...The best muck."]],
+      [["rose", "Your sunflowers are taller than mine, Ben."], ["ben", "Mm. Muck."]]
+    ],
+    "marina|rose": [
+      [["marina", "Rose, can I have some flowers for the stall? Fish need cheering up."], ["rose", "Everything needs cheering up, Marina. Take the yellow ones."]]
+    ],
+    "mae|gus": [
+      [["mae", "I wave at your light every night, Gus."], ["gus", "I know. I flash twice."], ["mae", "...Oh! I thought it was just me."]],
+      [["gus", "Your Pidgey roost on my gallery when it's windy, Mae."], ["mae", "They know a safe place when they see one, dear."]]
+    ],
+    "delia|kai": [
+      [["kai", "Delia! Ash was asking about the sea lane south."], ["delia", "Oh, he wasn't thinking of swimming, was he?"], ["kai", "No, no! ...Probably not."]]
+    ],
+    "delia|tom": [
+      [["tom", "Delia, that boy of yours has a sailor's eyes."], ["delia", "Oh, Tom, please don't put him on a boat."], ["tom", "Ha! A road, then. Same eyes."]]
+    ],
+    "delia|bram": [
+      [["bram", "Delia! A roll for the future Master's breakfast!"], ["delia", "Bram, you'll spoil him."], ["bram", "HO HO! That's the plan!"]]
+    ],
+    "delia|ben": [
+      [["ben", "Delia. Ash was up my fields at dawn."], ["delia", "Oh no, was he trampling the wheat again?"], ["ben", "No. Throwing at a post. Hit it."], ["delia", "...Did he? Good."]]
+    ],
+    "delia|lily": [
+      [["lily", "Mrs. Ketchum! Ash says he'll catch a Butterfree for me!"], ["delia", "Did he, sweetie? Well, he keeps his promises."]]
+    ],
+    "delia|timmy": [
+      [["timmy", "Mrs. Ketchum! When Ash is a Master, can I visit?"], ["delia", "Of course, Timmy. I'll make cookies."], ["timmy", "YESSS!"]]
+    ],
+    "delia|gus": [
+      [["delia", "Gus, have you seen Ash down on the beach?"], ["gus", "An hour ago. Watching the boats. Safe."], ["delia", "Thank you, Gus. You always know."]]
+    ],
+    "delia|marina": [
+      [["marina", "Delia. Ash was down on the pier at dawn again."], ["delia", "Watching the boats?"], ["marina", "Watching the horizon."], ["delia", "...Oh."]]
+    ]
+  },
+
+  "fallback": {
+    "talk": ["Lovely day in Pallet Town, isn't it?", "Hello there, Ash!", "The sea's calm today."],
+    "chat_open": ["Morning!", "Lovely weather, isn't it?", "How's the family?"],
+    "chat_reply": ["Isn't it just.", "Can't complain.", "Fine, fine, thank you."],
+    "busy": ["(They're busy right now.)"]
+  }
+}

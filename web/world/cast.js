@@ -23,6 +23,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
 import { labCoat } from './labcoat.js';
 import { Build, slab, hangGrid, gridWeights, gridChains, paintGrid, clothSim, trisOf, nearW, mixW, ringOf, cast, fixRing, ZC, ARM_Y, ARM_Z } from './garments.js';
+import { townsfolk } from './cast2.js';
 
 const V3 = THREE.Vector3, M4 = THREE.Matrix4;
 const hex = (c) => { const n = parseInt(c.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
@@ -172,7 +173,7 @@ function eyeTex(src, L) {
       if (cy > 0.5 || !(o[0] > 150 && o[0] > o[2] + 10)) continue;
       const cx = (x % cw) / cw, t = sstep(0.5, 0.42, cy);
       let r = mix(o, sk, t);
-      for (const [ly, lw] of [[0.1, 0.22], [0.19, 0.27]]) if (Math.abs(cy - ly - 0.03 * Math.cos((cx - 0.38) * 6)) < 0.012 && Math.abs(cx - 0.38) < lw) r = mix(r, line, 0.8);
+      if (L.face.forehead !== 'smooth') for (const [ly, lw] of [[0.1, 0.22], [0.19, 0.27]]) if (Math.abs(cy - ly - 0.03 * Math.cos((cx - 0.38) * 6)) < 0.012 && Math.abs(cx - 0.38) < lw) r = mix(r, line, 0.8);
       px[k] = r[0]; px[k + 1] = r[1]; px[k + 2] = r[2];
     }
   }
@@ -882,6 +883,7 @@ export function castBase(base, name, hooks) {
   // flat-coloured parts go into one vertex-coloured mesh per person (fewer draws)
   const flats = [], garmentFns = [];
   const v = {
+    name, meshes, sk, hairM, add, C: C[name], CLOTH, SKIN,
     // a real garment over the body (garments.js), made once the body is shaped: fn(G)
     garment: (fn) => garmentFns.push(fn),
     flat: (geo, color, wfn) => { const c = new THREE.Color(color), n = geo.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) a.set([c.r, c.g, c.b], i * 3); geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); flats.push(skinGeo(geo, sk, wfn)); },
@@ -1057,10 +1059,36 @@ function faceFn(F, skin) {
       const ax0 = Math.abs(p.x), t = clamp((1.138 - p.y) / 0.024), cx = 0.021 + 0.016 * t;
       if (t > 0 && t < 1 && Math.abs(ax0 - cx) < 0.0016) r = mul(r, 0.8);
     }
+    // lips a little coloured: the mouth's dark line and the texels round it
+    if (F.lips && p.z > 0.06 && Math.abs(p.x) < 0.024 && Math.abs(p.y - 1.1175) < 0.007) {
+      const k = sstep(0.024, 0.012, Math.abs(p.x)) * sstep(0.007, 0.003, Math.abs(p.y - 1.1175));
+      if (lum(r) < 0.62) r = mix(r, hex(F.lips), 0.55 * k);
+    }
+    // freckles across the nose and the cheeks
+    if (F.freckles && p.z > 0.05) {
+      const d = Math.hypot((Math.abs(p.x) - 0.036) / 0.026, (p.y - 1.141) / 0.009);
+      if (d < 1) { const gx = u * 512, gy = vv * 512, cx = Math.floor(gx / 3.2), cy = Math.floor(gy / 3.2), h = ((Math.sin(cx * 127.1 + cy * 311.7) * 43758.5) % 1 + 1) % 1;
+        if (h > 0.82 && Math.hypot(gx / 3.2 - cx - 0.5, gy / 3.2 - cy - 0.5) < 0.42) r = mix(r, hex(F.freckles), 0.55 * (1 - d)); }
+    }
+    // age: a line under each eye and lines out from the corners
+    if (F.wrinkles && p.z > 0.02) {
+      const x0 = Math.abs(p.x);
+      if (x0 > 0.026 && x0 < 0.062 && Math.abs(p.y - 1.1405 - 0.05 * (x0 - 0.044) ** 2 * 40) < 0.0013) r = mul(r, 0.86);
+      for (const [dy, k] of [[0.006, 0.4], [-0.002, 0.25]]) if (x0 > 0.068 && x0 < 0.082 && Math.abs(p.y - 1.155 - dy - (x0 - 0.068) * k) < 0.0012) r = mul(r, 0.85);
+    }
     if (F.mouth === 'o' && p.z > 0.06) {
       const dx = p.x / 0.0092, dy = (p.y - 1.1175) / 0.0108, d = Math.hypot(dx, dy);
       if (d < 1) r = d > 0.68 ? mix([62, 30, 32], r, sstep(0.88, 1, d)) : [110, 46, 50];
     }
     return r;
   };
+}
+
+// the rest of the town (cast2.js): their colours, proportions and builds, made with the same kit
+{
+  const T = townsfolk({
+    hex, mix, mul, lum, clamp, sstep, keepShade, toneSkin, isArm, ax, sleeveTo, V, sheet, mergeGeos, shade, roundBox, canvasMat, flatMat,
+    rowsOf, rowAt, offTop, drawIn, slimLegs, lowerCollar, looseSleeves, shirtFolds, limbR, legR, foldFringe, liftNape, crown, skinGeo, labCoat,
+  });
+  Object.assign(C, T.C); Object.assign(CAST, T.CAST); Object.assign(BUILD, T.BUILD);
 }
