@@ -1,0 +1,347 @@
+{
+  "_doc": "Quest seeds for native/quests.gd. A quest: id, title, giver, summary, unlock {day_min, hour_min, hour_max, periods, after: [quest ids], flags: [flags]}, offer (lines when the giver hands it over; it starts at once), remind (giver's lines while you're busy with it), steps, reward {say, flag, rumor, item}. A step: hint (quest log), who (id, list, or 'giver'), mode 'any' (one of them) or 'all' (each of them, any order), when {periods, places, activities} with not_now lines, needs (an item you must carry, else missing lines), say (lines, or {id: lines}), give / take (item ids), set (a flag), clues {id: lines} (others you can ask: they help but don't advance the step). Lines may use {name} for the step person's short name. disabled: true keeps a quest out of play.",
+  "items": {
+    "net_twine": {"name": "Net twine", "desc": "Marina's good waxed twine, slightly cabbage-scented."},
+    "fresh_bread": {"name": "Fresh bread", "desc": "A warm loaf from Bram's oven, wrapped in a cloth."},
+    "honey_roll": {"name": "Honey roll", "desc": "Ada's thank-you. Sticky. Delicious."},
+    "fan_card": {"name": "Fan club card", "desc": "Timmy's 'Ash Ketchum Fan Club' card, in crayon. Three grown-ups have signed it."}
+  },
+  "quests": [
+    {
+      "id": "q_rumbles", "title": "Rumbles from the South", "giver": "tom",
+      "summary": "Old Tom felt the ground shake last night and wonders if Cinnabar's volcano is stirring.",
+      "unlock": {"day_min": 1},
+      "offer": [
+        "Ash, lad! Did you feel it? Ground shook in the night. My ship's bell rang on its own.",
+        "That's the old mountain on Cinnabar, I'd wager. South across the sea.",
+        "Do an old sailor a favour. Ask Gus up at the lighthouse what he saw last night.",
+        "And ask Kai or Marina what the sailors are saying. Then come tell me."
+      ],
+      "remind": ["Been to Gus yet, lad? And the fishing folk? I'm itching to know.", "Gus at the lighthouse, then Kai or Marina. Then back to me, lad."],
+      "steps": [
+        {
+          "hint": "Ask Gus at the lighthouse what he saw last night.", "who": "gus",
+          "say": [
+            "The shake? Logged it. One-oh-five in the morning. Eleven seconds.",
+            "And from the gallery I saw a red glow, low on the southern horizon. Cinnabar.",
+            "Smoke at dawn, too. Thin and white. Tell Tom it wasn't his imagination. This time."
+          ],
+          "clues": {
+            "mae": ["The shake, dearie? Gus will know. He writes everything down in that big book of his."],
+            "delia": ["Oh, the shaking? I thought it was the washing machine. Ask Gus, sweetie, he sees everything from up there."]
+          }
+        },
+        {
+          "hint": "Ask Kai or Marina what the sailors are saying.", "who": ["kai", "marina"],
+          "say": {
+            "kai": [
+              "The rumbles? Ferry radio was buzzing about it! Technology is incredible!",
+              "The Cinnabar boats say the hot springs are bubbling extra hot. Tourists love it.",
+              "And the Gym's closed. Again. Blaine's a funny one, they say. Ask Tom about him."
+            ],
+            "marina": [
+              "The sailors? Jumpy. Tentacool scattered off the point like someone kicked the sea.",
+              "Water's warm. Warm from the south. That's Cinnabar's mountain, sure as salt.",
+              "Ferry men say Blaine's gym is shut up tight. Ask Old Tom about that one."
+            ]
+          },
+          "clues": {
+            "ada": ["The sailors? Oh, Kai and Marina hear it all from the boats. Ask them, dear! Then tell me."],
+            "timmy": ["Kai has a RADIO! It talks to BOATS! Ask him!"]
+          }
+        },
+        {
+          "hint": "Report back to Old Tom.", "who": "giver",
+          "say": [
+            "A red glow, smoke at dawn, warm water and jumpy Tentacool. Ha! I knew it.",
+            "The old mountain's stirring, lad. Not angry, I'd say. Restless.",
+            "And the Gym's shut, eh? That'll be Blaine. Let me tell you about Blaine...",
+            "Fire POKéMON, a bald head, dark glasses, and a riddle for everyone who knocks.",
+            "They say his gym's hard to find. You'd need a clever head to get in. You'd do it, lad."
+          ]
+        }
+      ],
+      "reward": {"flag": "rumbles_heard", "rumor": "blaine_riddles", "say": ["Thank you, Ash. An old man sleeps better knowing. Come by, I've more where that came from."]}
+    },
+
+    {
+      "id": "q_bread", "title": "Bread Round", "giver": "ada",
+      "summary": "Ada's cart has a wobbly wheel. She needs someone to tell three households that the bread will be late.",
+      "unlock": {"day_min": 1, "hour_min": 5, "hour_max": 15},
+      "offer": [
+        "Ash! Oh, thank goodness. The cart's wheel's gone all wobbly. Bram's on it, but he's slow.",
+        "Be a dear and tell Granny Mae, Rose and Farmer Ben their bread will be late today?",
+        "Mae will worry, Rose won't mind, and Ben will say 'Mm'. Then come back for a treat!"
+      ],
+      "remind": ["Mae, Rose and Ben, dear! Then back here.", "Still going? Don't forget Ben, he's out in the fields."],
+      "steps": [
+        {
+          "hint": "Tell Granny Mae, Rose and Farmer Ben the bread will be late.", "who": ["mae", "rose", "ben"], "mode": "all",
+          "say": {
+            "mae": ["Late, is it? That's all right, dearie. The Pidgey can wait for their crusts.", "Tell Ada not to rush. Old ladies have time."],
+            "rose": ["Late bread? Then I'll have a late breakfast. Thank you, Ash.", "Tell Ada there's a bunch of sweet peas waiting for her stall."],
+            "ben": ["Mm. Late.", "...Thanks for telling me. Tell Ada the wheat's good this year."]
+          },
+          "progress": ["{done} of {total} told."],
+          "clues": {
+            "bram": ["Ha! Wheel's on the bench. Ada's sent you round? Good lad. Mae, Rose and Ben, isn't it?"],
+            "delia": ["Late bread? Oh, I can wait, sweetie. Are you helping Ada? That's very kind of you."]
+          }
+        },
+        {
+          "hint": "Go back to Ada.", "who": "giver",
+          "say": [
+            "All three? You're a treasure, Ash! Mae worried, Rose didn't mind, and Ben said...",
+            "'Mm'? I KNEW it. Here, a honey roll, still warm. Don't tell Bram."
+          ],
+          "give": "honey_roll"
+        }
+      ],
+      "reward": {"flag": "bread_round_done", "say": ["Everyone in town says you're a helpful boy. I say it loudest!"]}
+    },
+
+    {
+      "id": "q_twine", "title": "Lost Twine", "giver": "marina",
+      "summary": "Marina's good net twine has gone missing. Somebody in town must have seen where it went.",
+      "unlock": {"day_min": 1, "hour_min": 9},
+      "offer": [
+        "Ash. My good waxed twine is gone. The whole spool. From the boathouse.",
+        "Kai swears it wasn't him. For once I believe him.",
+        "Ask around for me, would you? Somebody always sees something in this town."
+      ],
+      "remind": ["Found my twine yet? Ask around. Somebody saw something.", "Ask Ada, she sees everything. Or the kids. Kids see more than they let on."],
+      "steps": [
+        {
+          "hint": "Ask around town about Marina's missing twine.", "who": ["lily", "ada"],
+          "say": {
+            "lily": [
+              "The twine? Timmy had it! A whole big spool!",
+              "He's building a 'POKéMON trap' by the pond. It's not even a good trap.",
+              "He'll be playing somewhere. Probably. Don't say I told."
+            ],
+            "ada": [
+              "Twine? Oh! Timmy came through the kitchen with a spool under his shirt this morning.",
+              "Said it was 'for science'. That boy. Go and find him, dear. I'll have words later."
+            ]
+          },
+          "clues": {
+            "kai": ["Marina's twine? Not me this time! Honest! You'd know about borrowing things, eh, Ash? Ha!"],
+            "bram": ["Twine? Haven't seen it. Ask Ada. Ada knows where everything is. Everything."],
+            "tom": ["Twine walks off when there's a boy in the house. Ask my daughter Ada. She'll know."],
+            "rose": ["Twine? Lily's been whispering about 'Timmy's secret project'. Ask her, Ash."],
+            "mae": ["String, dearie? The little ones always know. Ask Lily."]
+          }
+        },
+        {
+          "hint": "Find Timmy and get the twine back.", "who": "timmy",
+          "say": [
+            "Wh-what twine? ...Oh. THAT twine.",
+            "It's for my POKéMON trap! I nearly caught something! A big cabbage. Well, a cabbage.",
+            "Here. You can have it. Will you tell Marina sorry? And not tell my mom? Thanks, Ash!"
+          ],
+          "give": "net_twine"
+        },
+        {
+          "hint": "Bring the twine back to Marina.", "who": "giver", "needs": "net_twine", "take": "net_twine",
+          "missing": ["No twine yet, Ash? Keep asking."],
+          "say": [
+            "My twine! Smells of cabbage. Why does it smell of cabbage?",
+            "...Timmy. Of course. Well, you found it. That's what matters.",
+            "You're a good one, Ash. Like I said. Reckless, but good."
+          ]
+        }
+      ],
+      "reward": {"flag": "twine_found", "say": ["Tell your mother she's fish on Friday, on the house."]}
+    },
+
+    {
+      "id": "q_pidgey", "title": "Granny Mae's Pidgey", "giver": "mae",
+      "summary": "Granny Mae's flock of wild Pidgey hasn't come by for breakfast. She's worried.",
+      "unlock": {"day_min": 1},
+      "offer": [
+        "Ash, dearie. My Pidgey didn't come this morning. Twenty-two of them, and not one.",
+        "I'm sure it's nothing. Birds are birds. But my old heart worries.",
+        "Would you ask Farmer Ben, little Lily and Gus? Between them they see every wing in town."
+      ],
+      "remind": ["Ben, Lily and Gus, dearie. Any news of my Pidgey?", "Have you asked them all yet, dear? No hurry. Well. A little hurry."],
+      "steps": [
+        {
+          "hint": "Ask Farmer Ben, Lily and Gus about Mae's Pidgey.", "who": ["ben", "lily", "gus"], "mode": "all",
+          "say": {
+            "ben": ["Mae's Pidgey? Saw 'em yesterday on the berry rows. Then a flock of Spearow came.", "Mean birds. Pidgey scattered. South, toward the sea."],
+            "lily": ["Pidgey? I saw a whole flock fly past the pond yesterday! A Spearow was chasing them!", "They went toward the lighthouse. Is Granny Mae sad?"],
+            "gus": ["Pidgey? Twenty-two of them roosted on my gallery last night. Out of the wind.", "Logged it. They're still there, preening. Tell Mae they're safe."]
+          },
+          "progress": ["{done} of {total} asked."],
+          "clues": {
+            "rose": ["Mae's Pidgey? They were in my garden yesterday until a Spearow came screeching."],
+            "delia": ["Mae's birds are missing? Oh, the poor thing. You ask around for her, sweetie. She adores you."],
+            "timmy": ["The Pidgey? I didn't do it! ...Did what? I don't know! I didn't do it!"]
+          }
+        },
+        {
+          "hint": "Tell Granny Mae what you learned.", "who": "giver",
+          "say": [
+            "A Spearow chased them off Ben's fields, and they're sheltering at Gus's lighthouse?",
+            "Oh, clever little things. Gus will look after them. He pretends he doesn't like birds.",
+            "Thank you, dearie. You've always had a way with them, you know."
+          ]
+        }
+      ],
+      "reward": {"flag": "pidgey_found", "say": ["They'll be back in the morning, I'm sure of it now. Bless you, Ash."]}
+    },
+
+    {
+      "id": "q_butterfree", "title": "The Butterfree Question", "giver": "lily",
+      "summary": "Lily wants to know how to keep her Caterpie, Nibbles, happy so he'll grow into a Butterfree.",
+      "unlock": {"day_min": 1, "hour_min": 11},
+      "offer": [
+        "Ash! Ash! I need help. It's about Nibbles. My Caterpie.",
+        "He's eating fine, but he's not happy. Well, I THINK he's not happy. How do you tell?",
+        "Can you ask my mom, and Farmer Ben, and Old Tom? Grandpa Tom knew real trainers!"
+      ],
+      "remind": ["Have you asked Mom, Farmer Ben and Old Tom yet? Nibbles is waiting!", "Old Tom knew real trainers, Ash. Ask him!"],
+      "steps": [
+        {
+          "hint": "Ask Rose, Farmer Ben and Old Tom how to keep a Caterpie happy.", "who": ["rose", "ben", "tom"], "mode": "all",
+          "say": {
+            "rose": [
+              "Lily sent you? Bless her. Caterpie like fresh leaves, but not just any leaves.",
+              "Young, soft ones from the top of the plant. And they like things to stay the same.",
+              "A quiet corner, same time every day. A bit like Lily, actually."
+            ],
+            "ben": [
+              "Caterpie? On my bushes all summer. Mm.",
+              "They like shade. Morning dew. Don't like being poked.",
+              "Leave 'em be and they're happy. Bit like me."
+            ],
+            "tom": [
+              "Caterpie, eh? I sailed with a trainer once. Had a Butterfree he raised from a Caterpie.",
+              "Every night he'd sit on deck and talk to it. Just talk. About his day, his home.",
+              "'POKéMON grow strong when they know they're loved,' he said. Never forgot it."
+            ]
+          },
+          "progress": ["{done} of {total} asked."],
+          "clues": {
+            "gus": ["Caterpie? I log ships, not bugs. Though one lived on my rail all last summer."],
+            "delia": ["A happy Caterpie? Same as a happy boy, I'd guess, sweetie. Good food, rest, and someone who listens."],
+            "timmy": ["Caterpie are happy if you give them a coconut POKé BALL! ...It didn't work for me."]
+          }
+        },
+        {
+          "hint": "Tell Lily what everyone said.", "who": "giver",
+          "say": [
+            "Soft leaves from the top. Shade and morning dew. Don't poke him. And... talk to him?",
+            "I can do that! I'm GREAT at talking! Mom says too great!",
+            "Nibbles, did you hear that? I'm going to tell you about my whole day. Every bit!"
+          ]
+        }
+      ],
+      "reward": {"flag": "butterfree_tips", "say": ["Thank you, Ash! When Nibbles is a Butterfree, you'll be the first to see. Second. After me."]}
+    },
+
+    {
+      "id": "q_fanclub", "title": "The Future POKéMON Master", "giver": "timmy",
+      "summary": "Timmy has started the Ash Ketchum Fan Club and needs three grown-ups to sign its very first card.",
+      "unlock": {"day_min": 1, "after": ["q_twine"]},
+      "offer": [
+        "Ash! I started a club! The Ash Ketchum Fan Club! I'm member number one!",
+        "But Mom says a club isn't real unless grown-ups sign it. So it's official.",
+        "Can you get Grandpa Tom, Granny Mae and Kai to sign my card? Please please please?",
+        "It's okay that it's about you. That's what makes it a fan club!"
+      ],
+      "remind": ["Did Grandpa sign? Did Granny Mae? Did Kai? Did they?!", "Three grown-ups, Ash! Grandpa Tom, Granny Mae and Kai!"],
+      "steps": [
+        {
+          "hint": "Get Old Tom, Granny Mae and Kai to sign Timmy's fan club card.", "who": ["tom", "mae", "kai"], "mode": "all",
+          "say": {
+            "tom": [
+              "A fan club for you, lad? Ha! Hand it here.",
+              "'To the future POKéMON Master. Fair winds and following seas. Old Tom.' There.",
+              "I meant that, you know. Every word. I've seen a lot of trainers. You're the one."
+            ],
+            "mae": [
+              "Timmy's card? Of course, dearie. Let me find my glasses.",
+              "'For Ash, who I've known since he was this big. Go far. Come home. Love, Mae.'",
+              "There. Now don't you dare make an old lady cry in public."
+            ],
+            "kai": [
+              "A fan club! Incredible! Of course I'll sign!",
+              "'Ash Ketchum: future POKéMON Master, former rod thief. Your pal, Kai.'",
+              "Ha! Kidding. Mostly. Go get 'em, kiddo. The whole town's behind you."
+            ]
+          },
+          "progress": ["{done} of {total} signatures."],
+          "clues": {
+            "delia": [
+              "A fan club? For you? Oh my goodness.",
+              "Timmy asked for grown-ups to sign it? ...I'd sign it a hundred times, sweetie.",
+              "But it's for the town to sign, I think. Don't tell him I said I'd be member number two."
+            ],
+            "ada": ["Timmy's fan club! He told the whole market. I'd sign, but he says I'm 'too Mom'."],
+            "bram": ["HO HO! A fan club! I'd sign but I'd get flour on it. Ask the others, lad!"],
+            "lily": ["A fan club? For YOU? ...Can I be member number two? Don't tell Timmy I asked."]
+          }
+        },
+        {
+          "hint": "Bring the signed card back to Timmy.", "who": "giver",
+          "say": [
+            "You got them ALL?! Grandpa! Granny Mae! KAI!",
+            "Now you sign it too! Right there! 'Ash Ketchum, POKéMON Master'!",
+            "...Okay, 'future'. But someday you can cross it out!",
+            "The Ash Ketchum Fan Club is OFFICIAL! This is the best day EVER!"
+          ],
+          "give": "fan_card"
+        }
+      ],
+      "reward": {"flag": "fanclub_card", "say": ["Here, you keep a copy. So you remember us when you're famous. Promise?"]}
+    },
+
+    {
+      "id": "q_lighthouse", "title": "Supper for the Keeper", "giver": "gus",
+      "summary": "Gus keeps watch all night on bread and tea. Bring him a fresh loaf from Bram, after dark.",
+      "unlock": {"day_min": 1, "after": ["q_rumbles"]},
+      "offer": [
+        "Ash. A favour. Since the rumbles, I've been watching every night. Long nights.",
+        "Bram's bread would make them shorter. He bakes in the mornings, before the ovens go cold.",
+        "Fetch me a loaf, then bring it up after dark, when the lamp's lit. I'll be at the top."
+      ],
+      "remind": ["A loaf from Bram while the ovens are hot. Then up to me after dark.", "Bram bakes in the morning. Bring the bread at night. Logged."],
+      "steps": [
+        {
+          "hint": "Get a fresh loaf from Bram while the ovens are hot (dawn to afternoon).", "who": "bram",
+          "when": {"periods": ["dawn", "morning", "midday", "afternoon"]},
+          "not_now": ["Ovens are cold, lad! Bread for Gus? Come back in the morning, I'll bake him a beauty."],
+          "say": [
+            "A loaf for Gus? HO HO! The keeper's finally eating properly!",
+            "Here. Fresh rye, still warm. I've put a burnt corner on. He likes those.",
+            "Keep it wrapped till dark. Bread's best by lamplight, he says. Odd fellow. Good fellow."
+          ],
+          "give": "fresh_bread"
+        },
+        {
+          "hint": "Bring the bread to Gus after dark (evening or night).", "who": "giver", "needs": "fresh_bread", "take": "fresh_bread",
+          "when": {"periods": ["evening", "night"]},
+          "not_now": ["Not yet, Ash. After dark, when the lamp's lit. That's when I'm hungry.", "The light's not on yet. Come back after sundown."],
+          "missing": ["Bread first, Ash. Bram bakes in the mornings."],
+          "say": [
+            "Bram's rye. At the top of the tower, with the lamp turning. Thank you, Ash.",
+            "Sit a moment. Listen. Hear that? No? Neither do I. Not tonight.",
+            "Some still nights, far out on the sea lane, you can hear a Lapras singing.",
+            "I've heard it four times in forty years. Logged every one. Maybe you'll hear it too."
+          ]
+        }
+      ],
+      "reward": {"flag": "gus_supper", "rumor": "lapras_song", "say": ["Logged: 'Supper delivered by A. Ketchum. Excellent.' That goes in the book for good."]}
+    },
+
+    {
+      "id": "q_delia", "title": "Mom's Garden", "giver": "delia", "disabled": true,
+      "summary": "HOOK: Delia's own story quests come later (her worry about Ash leaving, and her quiet support of his dream). Until then she does yard work by day and never hands out test quests. Turn this into her first quest by removing 'disabled' and writing steps.",
+      "unlock": {"day_min": 1},
+      "offer": ["(Coming soon.)"],
+      "steps": [{"hint": "(Coming soon.)", "who": "giver", "say": ["(Coming soon.)"]}],
+      "reward": {"flag": "delia_garden"}
+    }
+  ]
+}
