@@ -15,7 +15,8 @@ extends Node
 # Keys (see ROWS for the steps): scale, upscale, auto_res, fps_cap, aa,
 # outlines, outline_q, shadow, shadow_dist, shadow_soft, grass, grass_size,
 # lod (view distance), trees, plants, fog (haze distance), exposure, fps, perf,
-# face, cam_speed, invert_y, deadzone.
+# face, cam_speed, invert_y, deadzone, clock ("game" | "real"), day_len (real
+# minutes per game day), clock_hud, town_debug (clock.gd, life.gd).
 #
 # Viewport-wide things (render scale, upscaler, anti-aliasing, frame cap,
 # shadow atlas size and filter, outlines through the Ink autoload) are applied
@@ -44,7 +45,8 @@ const PRESET_LABEL := {"battery": "Battery", "low": "Low", "medium": "Medium", "
 const DEFAULT_PRESET := "high"
 
 # settings that are not part of a preset
-const EXTRA := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15}
+const EXTRA := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
+	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0}
 
 # rows of the menu, by tab: key, label, values, hint (format in fmt())
 const ROWS := {
@@ -77,6 +79,12 @@ const ROWS := {
 		["cam_speed", "Camera speed", [0.5, 0.75, 1.0, 1.25, 1.5, 2.0], "stick and arrow keys"],
 		["invert_y", "Invert camera up/down", [0, 1], ""],
 		["deadzone", "Stick deadzone", [0.05, 0.1, 0.15, 0.2, 0.25, 0.3], "raise if the camera drifts"],
+	],
+	"Time": [
+		["clock", "Time of day", ["game", "real"], "Real time follows the phone's clock"],
+		["day_len", "Length of a day", [24, 48, 96, 144], "real minutes per game day"],
+		["clock_hud", "Clock on screen", [0, 1], ""],
+		["town_debug", "Town debug overlay", [0, 1], "who is doing what (also F3)"],
 	],
 }
 
@@ -154,7 +162,7 @@ func step(key: String, values: Array, d: int) -> void:
 			for k in values.size():
 				if absf(float(values[k]) - float(v)) < absf(float(values[i]) - float(v)): i = k
 	var n := values.size()
-	if key in ["preset", "face", "upscale", "aa"] or values == [0, 1]:
+	if key in ["preset", "face", "upscale", "aa", "clock"] or values == [0, 1]:
 		i = (i + d + n) % n                      # choices wrap round
 	else:
 		i = clampi(i + d, 0, n - 1)
@@ -178,6 +186,8 @@ func fmt(key: String, v) -> String:
 		"grass_size": return "%d m" % roundi(v / 2.0)
 		"face": return "A right (Nintendo)" if v == "nintendo" else "A bottom (Xbox)"
 		"deadzone": return "%d%%" % roundi(float(v) * 100.0)
+		"clock": return "Real time" if v == "real" else "Game time"
+		"day_len": return "%d min" % int(v)
 	if typeof(v) == TYPE_INT and (v == 0 or v == 1): return "On" if v == 1 else "Off"
 	return str(v)
 

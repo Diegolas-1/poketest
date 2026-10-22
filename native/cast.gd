@@ -1,9 +1,10 @@
 class_name Cast
 extends Node3D
 # The people and the gameplay around them (web/world/main.js): Ash (the
-# player's model, CastActor "ash"), the villagers wandering about their homes,
-# talking (A / "use": the player and the villager stop and turn to face each
-# other), signs and other things to read (town.use, baked to cast.json), the
+# player's model, CastActor "ash"), the townspeople living their days (life.gd
+# on the game clock, clock.gd), talking (A / "use": the player and the person
+# stop and turn to face each other; the lines come from Quests.talk), signs and
+# other things to read (town.use, baked to cast.json), the
 # jump, the area banners, and Prof. Oak stopping you at the tall grass north
 # of town and leading you back down Route 1 to his lab.
 #
@@ -14,8 +15,10 @@ extends Node3D
 var game: Node3D        # main.gd: pos, yaw, speed, cam, cam_yaw, world
 var player: CastActor
 var dialog: DialogBox
-var npcs: Array = []
+var npcs: Array = []     # Prof. Oak (the townspeople are life.gd's)
 var oak: Dictionary
+var clock: GameClock
+var life: TownLife
 var uses: Array = []
 var road: Array = []
 var tall: Array = []
@@ -44,6 +47,7 @@ func setup(g: Node3D) -> void:
 	player = CastActor.make("ash")
 	add_child(player)
 	for n in d.npcs:
+		if n.name != "Prof. Oak": continue   # the old wandering villagers: life.gd has the town now
 		var a := CastActor.make(n.look)
 		add_child(a)
 		var x: float = n.x
@@ -69,6 +73,11 @@ func setup(g: Node3D) -> void:
 	layer.add_child(btn_ui)
 	dialog.banner("Pallet Town", "A quiet seaside village")
 	_air_y = game.pos.y
+	clock = GameClock.new()
+	add_child(clock)
+	life = TownLife.new()
+	add_child(life)
+	life.setup(game, self, clock)
 
 # the actions worker settings define in project.godot; added here only when missing
 func _actions() -> void:
@@ -117,6 +126,9 @@ func nearby() -> Dictionary:
 		var dd := sqrt(dx * dx + dz * dz)
 		if dd < 2.2 and (dx * fx + dz * fz) / maxf(dd, 1e-4) > 0.2 and dd < bd:
 			best = {"label": "Talk", "lines": n.lines, "npc": n, "at": p + Vector3(0, 2.0, 0)}; bd = dd
+	var t := life.nearest_talk(me, fx, fz, minf(2.2, bd))
+	if not t.is_empty():
+		best = {"label": "Talk", "person": t, "at": t.pos + Vector3(0, 1.5 if t.age == "kid" else 2.0, 0)}
 	return best
 
 # ---------- the frame ----------
@@ -137,15 +149,20 @@ func update(dt: float) -> void:
 			var n := nearby()
 			if not n.is_empty():
 				var me: Vector3 = game.pos
-				if n.has("npc"):
-					var c: Dictionary = n.npc
-					c.target = null; c.wait = 3.0; c.speed = 0.0
-					c.face = atan2(me.x - c.pos.x, me.z - c.pos.z)
-					face = atan2(c.pos.x - me.x, c.pos.z - me.z)
-				else:
-					face = atan2(n.at.x - me.x, n.at.z - me.z)
 				game.speed = 0.0
-				dialog.say(n.lines)
+				if n.has("person"):
+					var pp: Dictionary = n.person
+					face = atan2(pp.pos.x - me.x, pp.pos.z - me.z)
+					dialog.say(life.begin_talk(pp), func(): life.end_talk(pp))
+				else:
+					if n.has("npc"):
+						var c: Dictionary = n.npc
+						c.target = null; c.wait = 3.0; c.speed = 0.0
+						c.face = atan2(me.x - c.pos.x, me.z - c.pos.z)
+						face = atan2(c.pos.x - me.x, c.pos.z - me.z)
+					else:
+						face = atan2(n.at.x - me.x, n.at.z - me.z)
+					dialog.say(n.lines)
 	# turn smoothly to face whoever (or whatever) you're talking to
 	if dialog.open and not is_nan(face):
 		game.yaw += wrapf(face - game.yaw, -PI, PI) * (1.0 - exp(-dt * 10.0))
@@ -166,6 +183,7 @@ func update(dt: float) -> void:
 	player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
 	player.animate(dt, absf(game.speed), not ground)
 	_villagers(dt)
+	life.update(dt)
 	# areas and events
 	var me2: Vector3 = game.pos
 	var in_grass := false
@@ -331,9 +349,12 @@ func _test_step(dt: float) -> void:
 			game.cam_yaw = game.yaw + PI / 2.0; game.cam_dist = 4.0; game.cam_pitch = 0.1
 			if fmod(t, 1.2) < dt: _btn_jump = true
 		"talk":
-			var g: Dictionary = npcs[0]
 			if t < dt * 1.5:
-				game.pos = g.pos + Vector3(0, 0, 1.6); game.yaw = PI; g.target = null; g.wait = 99.0
+				var g: Dictionary = {}
+				for p in life.people:
+					if p.state == "act": g = p; break
+				if g.is_empty(): return
+				game.pos = g.pos + Vector3(0, 0, 1.6); game.yaw = PI
 			game.cam_yaw = game.yaw + PI / 2.0 + 0.5; game.cam_dist = 4.5; game.cam_pitch = 0.2
 			if absf(t - 0.5) < dt * 0.5: _btn_a = true
 		"sign":

@@ -8,7 +8,7 @@ extends CanvasLayer
 const BG := Color(0.086, 0.118, 0.172, 0.97)
 const ACCENT := Color("e8735a")
 const GOLD := Color("ffd27a")
-const TABS := ["Display", "World", "Controls"]
+const TABS := ["Display", "World", "Controls", "Time"]
 const COG := Rect2(16, 16, 56, 56)
 
 var cog: Button
