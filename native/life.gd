@@ -110,7 +110,8 @@ var _us_n := 0
 var _anim_us := 0.0             # this frame's actor animation (cloth included), kept apart from the sim
 var _anim_acc := 0.0
 var _jumped := false
-var _chase := {}                 # {chaser, runner, t}
+var _chase := {}                 # the kids' game of tag (see _chase_tick)
+var _tag_cd := 30.0              # game seconds until they may start another
 var _delia_cd := 30.0
 var _talking = null
 
@@ -1073,9 +1074,10 @@ func place_of(p: Dictionary) -> String:
 	if pl.begins_with("route:"): return "town"
 	return pl.split(".")[0]
 
-func say(p: Dictionary, text: String, secs := 3.0) -> void:
+func say(p: Dictionary, text: String, secs := 3.0, delay := 0.0) -> void:
 	if text == "": return
 	p.bubble = {"text": text, "t": secs}
+	if delay > 0.0: p.bubble.delay = delay
 
 func _free_for_chat(p: Dictionary) -> bool:
 	return p.state in ["walk", "act", "wait_path"] and p.inside == "" and _talking != p
@@ -1128,12 +1130,15 @@ func _social(dt: float) -> void:
 				p.target = Vector3(side.x, side.y, NAN)
 				_walk(p, snap(side), "chat_seek")
 				break
-	# the kids play tag
-	if _chase.is_empty():
+	# the kids play tag: one starts only when it can sneak up on the other from behind
+	_tag_cd -= dt
+	if _chase.is_empty() and _tag_cd <= 0.0:
 		var l = by_id.get("lily"); var t = by_id.get("timmy")
-		if l and t and l.state == "act" and t.state == "act" and l.act == "play" and t.act == "play" \
-				and _xz3(l.pos).distance_to(_xz3(t.pos)) < 14.0 and _rng.randf() < 0.08 * dt * 4.0:
-			_start_chase(l, t)
+		if l and t and _playing(l) and _playing(t) and _xz3(l.pos).distance_to(_xz3(t.pos)) < 14.0 \
+				and _rng.randf() < 0.3 * dt:
+			for pr in [[l, t], [t, l]]:
+				if _behind(pr[0], pr[1]) < -0.35:
+					_start_chase(pr[0], pr[1]); break
 	# Delia keeps an eye out for Ash; others mutter as he passes
 	if not headless and not away:
 		var me := Vector2(game.pos.x, game.pos.z)
@@ -1211,37 +1216,116 @@ func _end_chat(p: Dictionary) -> void:
 	# the schedule may have moved on meanwhile
 	if p.blk != _block_at(p, float(clock.minute_of_day())): _check(p, true)
 
+# ---------- tag ----------
+# sneak: the sneaker creeps up behind the other (who goes on playing); if the
+#   other turns and sees it coming (within 6 m, the sneaker in front of them) the
+#   game is off ("I see you!")
+# tag: within reach and still unseen: "Tag, you're it!" - the tagger runs off at
+#   once, the tagged one is startled for a moment, then gives chase
+# chase: 15 s; whether the chaser catches up is decided at the start (its speed
+#   a little over or under the runner's): "Gotcha!" / "Oh man, you caught me!",
+#   or at the end "Man, you're too fast!"
+# after a catch, sometimes one more round the other way (a pause, then the new
+# runner gets a head start before it can be caught): at most two tags a game,
+# then a rest of a few minutes before the next
+const TAG_REACH := 0.85
+func _playing(p: Dictionary) -> bool:
+	return p.state == "act" and p.act == "play"
+
+# how far a is behind b: -1 straight behind b's back, 1 in front of b's face
+func _behind(a: Dictionary, b: Dictionary) -> float:
+	var to := _xz3(a.pos) - _xz3(b.pos)
+	if to.length() < 1e-3: return 0.0
+	return Vector2(sin(b.yaw), cos(b.yaw)).dot(to.normalized())
+
 func _start_chase(a: Dictionary, b: Dictionary) -> void:
-	_chase = {"chaser": a, "runner": b, "t": _rng.randf_range(8, 15), "tags": 0}
-	for p in [a, b]:
-		p.state = "chase"
-	say(a, "Tag! You're it!" if _rng.randf() < 0.5 else "Bet you can't catch me!", 2.0)
+	_chase = {"phase": "sneak", "a": a, "b": b, "t": 25.0, "tags": 0, "catch": false}
+	a.state = "chase"
 
 func _end_chase() -> void:
 	if _chase.is_empty(): return
-	for p in [_chase.chaser, _chase.runner]:
+	for p in [_chase.a, _chase.b]:
 		if p.state == "chase":
 			p.state = "act"; p.hop_t = _rng.randf_range(4, 12); p.v = 0.0
 	_chase = {}
+	_tag_cd = _rng.randf_range(90, 180)
+
+# from here a runs and b is "it" (chases)
+func _round(runner: Dictionary, chaser: Dictionary, head_start: float) -> void:
+	_chase.a = runner; _chase.b = chaser
+	_chase.phase = "flee"; _chase.t = head_start
+	_chase.chase_t = 15.0
+	_chase.catch = _rng.randf() < 0.5
+	chaser.state = "chase"; runner.state = "chase"
 
 func _chase_tick(dt: float) -> void:
 	var c: Dictionary = _chase
+	var a: Dictionary = c.a
+	var b: Dictionary = c.b
 	c.t -= dt
-	var ch: Dictionary = c.chaser
-	var ru: Dictionary = c.runner
-	if c.t <= 0.0 or ch.state != "chase" or ru.state != "chase":
-		_end_chase(); return
-	var a := _xz3(ch.pos); var b := _xz3(ru.pos)
-	var d := a.distance_to(b)
-	if d < 0.9:
-		c.chaser = ru; c.runner = ch; c.tags += 1
-		say(ch, ["Tag!", "Gotcha!", "You're it!"][_rng.randi() % 3], 1.6)
-		ru.v = 0.0
-		c.t = minf(c.t, 10.0)
-		return
-	_run(ch, (b - a).normalized(), 3.1, dt)
-	var away := (b - a).normalized().rotated(sin(Time.get_ticks_msec() * 0.0013 + ru.idx) * 0.9)
-	_run(ru, away, 2.7, dt)
+	var pa := _xz3(a.pos); var pb := _xz3(b.pos)
+	var d := pa.distance_to(pb)
+	var nm := func(p): return String(p.name).split(" ")[0]
+	match c.phase:
+		"sneak":
+			if a.state != "chase" or not _playing(b) or c.t <= 0.0: _end_chase(); return
+			# spotted: the other is facing the sneaker
+			if d < 6.0 and _behind(a, b) > 0.45:
+				b.face = atan2(pa.x - pb.x, pa.y - pb.y)
+				say(b, ["I see you, %s!", "Nice try, %s!", "Ha! I can see you, %s!"][_rng.randi() % 3] % nm.call(a), 2.2)
+				a.v = 0.0
+				_end_chase(); return
+			if d < TAG_REACH:
+				say(a, ["Tag, you're it!", "Tag! You're it!", "Gotcha! You're it!"][_rng.randi() % 3], 2.0)
+				say(b, ["Hey!", "Whoa!", "No fair!"][_rng.randi() % 3], 1.4, 0.5)
+				c.tags = 1
+				_round(a, b, 0.8)       # b is it now; a runs off at once
+				return
+			# creep up to just behind the other's back
+			var back := pb - Vector2(sin(b.yaw), cos(b.yaw)) * 0.5
+			_run(a, (back - pa).normalized(), 1.3 if d > 3.0 else 0.9, dt)
+		"flee":
+			# the runner gets away while the chaser is startled / pausing
+			b.v = 0.0
+			_turn(b, atan2(pa.x - pb.x, pa.y - pb.y), dt, 8.0)
+			_run(a, _away(a, b), 3.0, dt)
+			if c.t <= 0.0: c.phase = "chase"
+		"chase":
+			c.chase_t -= dt
+			# a.runs, b.chases (b is "it")
+			if d < TAG_REACH and c.catch:
+				say(b, ["Gotcha!", "Caught you!", "Got you!"][_rng.randi() % 3], 1.8)
+				say(a, ["Oh man, you caught me!", "Aww, no fair!", "Okay, okay, you got me!"][_rng.randi() % 3], 2.2, 0.6)
+				c.tags += 1
+				if c.tags < 3 and _rng.randf() < 0.4:
+					c.phase = "pause"; c.t = 2.5    # laugh, then one more round the other way
+					a.v = 0.0; b.v = 0.0
+				else:
+					_end_chase()
+				return
+			if c.chase_t <= 0.0:
+				say(b, ["Man, you're too fast!", "Phew... you're too fast, %s!" % nm.call(a), "No fair, you're too quick!"][_rng.randi() % 3], 2.4)
+				say(a, ["Ha! Can't catch me!", "Too slow!", "Hehe!"][_rng.randi() % 3], 1.8, 0.6)
+				_end_chase(); return
+			var vr := 2.8
+			var vc := vr * (1.12 if c.catch else 0.9)
+			# a caught-in-the-end chase closes in the last seconds, not straight away
+			if c.catch and c.chase_t > 6.0: vc = vr * 0.97
+			_run(b, (pa - pb).normalized(), vc, dt)
+			_run(a, _away(a, b), vr, dt)
+		"pause":
+			a.v = 0.0; b.v = 0.0
+			_turn(a, atan2(pb.x - pa.x, pb.y - pa.y), dt, 6.0); _turn(b, atan2(pa.x - pb.x, pa.y - pb.y), dt, 6.0)
+			if c.t <= 0.0:
+				# the one just caught is it; the other runs with a head start
+				say(b, ["Your turn!", "Now you're it!", "Catch me if you can!"][_rng.randi() % 3], 1.8)
+				_round(b, a, 1.2)       # the one just caught (a) is it; b runs
+
+# away from the chaser, weaving a little
+func _away(runner: Dictionary, chaser: Dictionary) -> Vector2:
+	var d := _xz3(runner.pos) - _xz3(chaser.pos)
+	if d.length() < 1e-3: d = Vector2(sin(runner.yaw), cos(runner.yaw))
+	return d.normalized().rotated(sin(Time.get_ticks_msec() * 0.0013 + runner.idx) * 0.7)
 
 func _run(p: Dictionary, dir: Vector2, v: float, dt: float) -> void:
 	p.v += (v - p.v) * (1.0 - exp(-dt * 5.0))
