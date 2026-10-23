@@ -928,7 +928,7 @@
   {
    "id": "jump_dirt",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 0.5,
    "pitch": [
     0.94,
     1.06
@@ -958,7 +958,7 @@
   {
    "id": "jump_grass",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.0,
    "pitch": [
     0.94,
     1.06
@@ -1018,7 +1018,7 @@
   {
    "id": "jump_sand",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -2.0,
    "pitch": [
     0.94,
     1.06
@@ -1048,7 +1048,7 @@
   {
    "id": "jump_stone",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -2.0,
    "pitch": [
     0.94,
     1.06
@@ -1078,7 +1078,7 @@
   {
    "id": "jump_tile",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.0,
    "pitch": [
     0.94,
     1.06
@@ -1108,7 +1108,7 @@
   {
    "id": "jump_water",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -3.0,
    "pitch": [
     0.94,
     1.06
@@ -1140,7 +1140,7 @@
   {
    "id": "jump_wood",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 2.0,
    "pitch": [
     0.94,
     1.06
@@ -1171,7 +1171,7 @@
   {
    "id": "land_dirt",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -0.5,
    "pitch": [
     0.94,
     1.06
@@ -1202,7 +1202,7 @@
   {
    "id": "land_grass",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 0.5,
    "pitch": [
     0.94,
     1.06
@@ -1264,7 +1264,7 @@
   {
    "id": "land_sand",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -2.0,
    "pitch": [
     0.94,
     1.06
@@ -1295,7 +1295,7 @@
   {
    "id": "land_stone",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -3.5,
    "pitch": [
     0.94,
     1.06
@@ -1326,7 +1326,7 @@
   {
    "id": "land_tile",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 0.5,
    "pitch": [
     0.94,
     1.06
@@ -1390,7 +1390,7 @@
   {
    "id": "land_wood",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.5,
    "pitch": [
     0.94,
     1.06
@@ -1456,7 +1456,7 @@
   {
    "id": "step_dirt_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -1.0,
    "pitch": [
     0.94,
     1.06
@@ -1488,7 +1488,7 @@
   {
    "id": "step_grass",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.0,
    "pitch": [
     0.94,
     1.06
@@ -1521,7 +1521,7 @@
   {
    "id": "step_grass_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.0,
    "pitch": [
     0.94,
     1.06
@@ -1588,7 +1588,7 @@
   {
    "id": "step_metal_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 0.5,
    "pitch": [
     0.94,
     1.06
@@ -1620,7 +1620,7 @@
   {
    "id": "step_sand",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -2.5,
    "pitch": [
     0.94,
     1.06
@@ -1654,7 +1654,7 @@
   {
    "id": "step_sand_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -3.0,
    "pitch": [
     0.94,
     1.06
@@ -1687,7 +1687,7 @@
   {
    "id": "step_stone",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -2.5,
    "pitch": [
     0.94,
     1.06
@@ -1721,7 +1721,7 @@
   {
    "id": "step_stone_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.5,
    "pitch": [
     0.94,
     1.06
@@ -1754,7 +1754,7 @@
   {
    "id": "step_tallgrass",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -3.5,
    "pitch": [
     0.94,
     1.06
@@ -1789,7 +1789,7 @@
   {
    "id": "step_tallgrass_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -3.0,
    "pitch": [
     0.94,
     1.06
@@ -1823,7 +1823,7 @@
   {
    "id": "step_tile",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.0,
    "pitch": [
     0.94,
     1.06
@@ -1856,7 +1856,7 @@
   {
    "id": "step_tile_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.0,
    "pitch": [
     0.94,
     1.06
@@ -1889,7 +1889,7 @@
   {
    "id": "step_water",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -3.0,
    "pitch": [
     0.94,
     1.06
@@ -1925,7 +1925,7 @@
   {
    "id": "step_water_run",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": -3.0,
    "pitch": [
     0.94,
     1.06
@@ -1960,7 +1960,7 @@
   {
    "id": "step_wood",
    "category": "footsteps",
-   "vol": 0.0,
+   "vol": 1.5,
    "pitch": [
     0.94,
     1.06
