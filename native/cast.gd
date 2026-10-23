@@ -465,10 +465,26 @@ class _TouchButtons extends Control:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		font = FontVariation.new(); font.base_font = load("res://fonts/PixelifySans.woff2"); font.variation_opentype = {"wght": 700}
-		shown = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or OS.get_cmdline_user_args().has("--touch")
+		_update()
+		Input.joy_connection_changed.connect(func(_d, _c): _update())
+		get_viewport().size_changed.connect(queue_redraw)
+	# on a touch screen, shown while no game controller is connected (it comes back
+	# when the controller goes); --touch forces it on (desktop tests)
+	func _update() -> void:
+		var touch := DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
+		shown = OS.get_cmdline_user_args().has("--touch") or (touch and Input.get_connected_joypads().is_empty())
 		visible = shown
+		if not shown:
+			for k in down: down[k] = false
+	# placed by the screen's size (under a CanvasLayer the full-rect anchors leave this
+	# control 0 x 0, which put the buttons off screen), inside the iPhone's safe area
 	func centres() -> Dictionary:
-		var s := size
+		var s := get_viewport_rect().size
+		var safe := DisplayServer.get_display_safe_area()
+		var win := DisplayServer.window_get_size()
+		if safe.size.x > 0 and win.x > 0:
+			var k := s.x / float(win.x)
+			s -= Vector2(maxf(0.0, win.x - safe.end.x), maxf(0.0, win.y - safe.end.y)) * k
 		return {"use": Vector2(s.x - 12 - 10 - 32, s.y - 86 - 10 - 32), "jump": Vector2(s.x - 86 - 10 - 32, s.y - 30 - 10 - 32)}
 	func hit(p: Vector2) -> String:
 		if not shown: return ""
