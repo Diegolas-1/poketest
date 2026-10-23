@@ -144,6 +144,11 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 			"actor": null, "req": 0, "last_place": "", "act": "", "place": "", "target_text": "", "stuck_total": 0.0}
 		if not headless:
 			var a := CastActor.make(look)
+			# townspeople's gait: walks of 1-2 m/s at a natural step rate, a run from ~2 m/s
+			# (tag, a kid's jog) rather than Ash's 4.5 m/s walk
+			a.walk_v = 2.0; a.run_v = 3.6
+			a.cad_walk = 0.8 if e.age == "elder" else (1.0 if e.age == "kid" else 0.9)
+			a.cad_run = 1.45
 			a.visible = false
 			add_child(a)
 			p.actor = a

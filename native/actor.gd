@@ -16,6 +16,18 @@ const SHADER_DS := preload("res://shaders/actor_ds.gdshader")
 const WALK_V := 4.5
 const RUN_V := 8.5
 const TEMPO_MAX := 3.0
+# the walk -> run crossfade (m/s): Ash's (the clips are styled for his 4.5 / 8.5);
+# the townspeople set slower ones (life.gd), so a kid at tag runs instead of
+# power-walking
+var walk_v := WALK_V
+var gait := 1.0          # this frame's stride scale (1 = the clip's own)
+var run_v := RUN_V
+# the step rate a gait settles at (cycles of two steps a second; 0 = off, Ash):
+# slower than that the stride shortens (the legs swing less) instead of the steps
+# slowing, so a slow walker takes small steps at a natural pace, not slow-motion
+# long ones
+var cad_walk := 0.0
+var cad_run := 0.0
 
 static var _data: Dictionary = {}
 static var _scenes: Dictionary = {}
@@ -222,7 +234,7 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var dW: float = anims.walk.length
 	var dR: float = anims.run.length
 	var loco := _sm(0.05, 0.7, speed)
-	var rb := _sm(WALK_V * 1.05, WALK_V + (RUN_V - WALK_V) * 0.7, speed)
+	var rb := _sm(walk_v * 1.05, walk_v + (run_v - walk_v) * 0.7, speed)
 	var tw := {"idle": 1.0 - loco, "walk": loco * (1.0 - rb), "run": loco * rb}
 	var e := 1.0 - exp(-dt * 10.0)
 	for n in tw: w[n] += (tw[n] - w[n]) * e
@@ -230,7 +242,9 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var sr: float = float(meta.run.stride)
 	var stride := lerpf(sw, sr, w.run / maxf(1e-3, w.walk + w.run)) * k
 	var tempo := lerpf(1.0 / dW, 1.0 / dR, rb)
-	if not air: phase = fmod(phase + dt * minf(maxf(speed, 0.8) / stride, tempo * TEMPO_MAX), 1.0)
+	var cad := lerpf(cad_walk, cad_run, rb)
+	gait = clampf(maxf(speed, 0.8) / (cad * stride), 0.35, 1.0) if cad > 0.0 else 1.0
+	if not air: phase = fmod(phase + dt * minf(maxf(speed, 0.8) / (stride * gait), tempo * TEMPO_MAX), 1.0)
 	idle_t = fmod(idle_t + dt, float(anims.idle.length))
 	var times := {"idle": idle_t, "walk": fmod(phase + float(meta.walk.lead), 1.0) * dW, "run": fmod(phase + float(meta.run.lead), 1.0) * dR}
 	# blended clip pose (weights add to one; a clip without a track holds the rest pose)
@@ -252,12 +266,15 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 		var acc := Quaternion(0, 0, 0, 0)
 		if wi > 0.001:
 			acc = (Ai.rotation_track_interpolate(ki[j], ti) if ki[j] >= 0 else rq) * wi
+		var still: Quaternion = (Ai.rotation_track_interpolate(ki[j], ti) if ki[j] >= 0 else rq) if gait < 1.0 else rq
 		if ww > 0.001:
 			var r: Quaternion = Aw.rotation_track_interpolate(kw[j], tw2) if kw[j] >= 0 else rq
+			if gait < 1.0: r = still.slerp(r, gait)
 			if acc.dot(r) < 0.0: r = -r
 			acc += r * ww
 		if wr > 0.001:
 			var r2: Quaternion = Ar.rotation_track_interpolate(kr[j], tr2) if kr[j] >= 0 else rq
+			if gait < 1.0: r2 = still.slerp(r2, gait)
 			if acc.dot(r2) < 0.0: r2 = -r2
 			acc += r2 * wr
 		q[bi] = acc.normalized() if acc.length_squared() > 1e-8 else rq
@@ -268,12 +285,16 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 			var wt: float = w[an]
 			if wt < 0.001: continue
 			var tr: int = pos_tr[an]
-			p += (anims[an].position_track_interpolate(tr, times[an]) if tr >= 0 else rest_waist) * wt
+			var wp: Vector3 = anims[an].position_track_interpolate(tr, times[an]) if tr >= 0 else rest_waist
+			if an != "idle" and gait < 1.0:
+				var ip: Vector3 = anims.idle.position_track_interpolate(pos_tr.idle, times.idle) if pos_tr.idle >= 0 else rest_waist
+				wp = ip.lerp(wp, gait)
+			p += wp * wt
 			sum += wt
 		waist_pos = p / maxf(sum, 1e-4)
 		skel.set_bone_pose_position(waist, waist_pos)
 	# a sprint past the run clip's own speed leans into it
-	var lean := _sm(RUN_V * 1.1, RUN_V * 1.8, speed) * (1.0 - air_w)
+	var lean := _sm(run_v * 1.1, run_v * 1.8, speed) * (1.0 - air_w)
 	if lean > 0.001:
 		bend("Spine2", 1, 0, 0, lean * 0.14); bend("Spine3", 1, 0, 0, lean * 0.07); bend("Head", 1, 0, 0, -lean * 0.12)
 	_idle_life(dt, w.idle * (1.0 - air_w), (w.idle + w.walk * 0.6) * (1.0 - air_w))
