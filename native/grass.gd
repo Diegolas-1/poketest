@@ -3,7 +3,12 @@ extends Node3D
 # square of side SIZE that repeats around the player. The square is cut into
 # tiles; each frame every tile moves to its copy nearest the player, tiles out
 # of view are culled by Godot (custom AABB), tiles past the round edge are
-# hidden, and farther tiles use lighter clumps.
+# hidden, and farther tiles use lighter clumps. "count" is the density over a
+# 64 m square, so a bigger field keeps the same grass up close; past THIN_AT
+# a tile draws only a share of its clumps (the first k: their order is
+# random, so any k are an even sample), falling off with the distance cubed,
+# and the shader grows the clumps it keeps. The cost stays about the same at
+# any grass distance.
 
 const SHADER := preload("res://shaders/grass.gdshader")
 
@@ -12,6 +17,9 @@ var tiles: Array = []
 var mat: ShaderMaterial
 var world  # WorldData, for heights under each tile
 var t_size := 8.0
+const THIN_AT := 16.0    # m: full density inside this
+const THIN_MIN := 0.008  # share of the clumps kept far out
+const FAR2 := 34.0
 
 func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 	world = w
@@ -39,7 +47,8 @@ func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 	var near := _clump(blades, 5, 3)
 	var mid := _clump(blades, 4, 1)
 	var far := _clump(blades, 2, 0)   # (2 segments: a third fewer triangles where a blade is a few pixels)
-	var n := int(round(count / 14.0))
+	var far2 := _clump(blades, 1, 0)  # past FAR2: one segment, a blade is a pixel or two there
+	var n := int(round(count / 14.0 * maxf(1.0, size * size / 4096.0)))
 	var offs := PackedFloat32Array()
 	offs.resize(n * 4)
 	for i in n:
@@ -50,7 +59,7 @@ func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 	mat.set_shader_parameter("area", world.grass_area)
 	mat.set_shader_parameter("field_size", size)
 	mat.set_shader_parameter("sun_dir", sun_dir)
-	var g := maxi(4, roundi(size / 7.0))
+	var g := clampi(roundi(size / 7.0), 4, 22)   # tiles grow past 154 m to bound the draw calls
 	t_size = size / g
 	var bins: Array = []
 	bins.resize(g * g)
@@ -62,18 +71,24 @@ func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 		for gj in g:
 			var ids: PackedInt32Array = bins[gi * g + gj]
 			if ids.is_empty(): continue
-			var t := {"cx": (gi + 0.5) * t_size, "cz": (gj + 0.5) * t_size, "kx": 99999, "kz": 99999, "mm": []}
-			for mesh in [near, mid, far]:
+			var t := {"cx": (gi + 0.5) * t_size, "cz": (gj + 0.5) * t_size, "kx": 99999, "kz": 99999, "mm": [], "n": 0, "vis": -1}
+			# one buffer per tile, shared by its four meshes: 12 floats of
+			# transform (identity) + 4 of custom data per clump
+			var buf := PackedFloat32Array()
+			buf.resize(ids.size() * 16)
+			for k in ids.size():
+				var id := ids[k]; var o := k * 16
+				buf[o] = 1.0; buf[o + 5] = 1.0; buf[o + 10] = 1.0
+				buf[o + 12] = offs[id * 4]; buf[o + 13] = offs[id * 4 + 1]; buf[o + 14] = offs[id * 4 + 2]; buf[o + 15] = offs[id * 4 + 3]
+			for mesh in [near, mid, far, far2]:
 				var mm := MultiMesh.new()
 				mm.transform_format = MultiMesh.TRANSFORM_3D
 				mm.use_custom_data = true
 				mm.mesh = mesh
 				mm.instance_count = ids.size()
-				for k in ids.size():
-					var id := ids[k]
-					mm.set_instance_transform(k, Transform3D.IDENTITY)
-					mm.set_instance_custom_data(k, Color(offs[id * 4], offs[id * 4 + 1], offs[id * 4 + 2], offs[id * 4 + 3]))
+				mm.buffer = buf
 				t.mm.append(mm)
+			t.n = ids.size(); t.vis = -1
 			var mi := MultiMeshInstance3D.new()
 			mi.multimesh = t.mm[0]
 			mi.material_override = mat
@@ -113,8 +128,9 @@ func _clump(blades: Array, segs: int, max_role: int) -> ArrayMesh:
 
 func update(cam_pos: Vector3) -> void:
 	mat.set_shader_parameter("cam", cam_pos)
-	var mid_d := size * 0.15
-	var far_d := size * 0.3
+	# lighter clumps by distance in metres (as at the old 64 m field), not by field size
+	var mid_d := minf(size * 0.15, 9.6)
+	var far_d := minf(size * 0.3, 19.2)
 	var edge := size * 0.5
 	for t in tiles:
 		var kx := floori((cam_pos.x - t.cx) / size + 0.5)
@@ -133,5 +149,16 @@ func update(cam_pos: Vector3) -> void:
 		var dz := maxf(0.0, absf(cam_pos.z - z) - t_size * 0.5)
 		var d := sqrt(dx * dx + dz * dz)
 		t.node.visible = d < edge
-		var mm: MultiMesh = t.mm[2] if d > far_d else (t.mm[1] if d > mid_d else t.mm[0])
-		if t.node.multimesh != mm: t.node.multimesh = mm
+		var mm: MultiMesh = t.mm[3] if d > FAR2 else (t.mm[2] if d > far_d else (t.mm[1] if d > mid_d else t.mm[0]))
+		# thin by the distance to the tile's middle (its nearest edge would keep
+		# the big tiles of a wide field at full density far out)
+		var dc := Vector2(cam_pos.x - x, cam_pos.z - z).length()
+		var f := 1.0 if dc <= THIN_AT else maxf(THIN_MIN, pow(THIN_AT / dc, 3.0))
+		var vis: int = t.n if f >= 1.0 else maxi(1, int(ceil(t.n * snappedf(f, 0.01))))
+		if t.node.multimesh != mm:
+			t.node.multimesh = mm
+			t.vis = -1
+		if vis != t.vis:
+			t.vis = vis
+			mm.visible_instance_count = vis if vis < t.n else -1
+			t.node.set_instance_shader_parameter("thin", float(vis) / float(t.n))

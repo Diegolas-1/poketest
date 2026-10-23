@@ -69,7 +69,7 @@ const ROWS := {
 		["shadow_dist", "Shadow distance", [30, 45, 60, 80, 100], ""],
 		["shadow_soft", "Shadow edges", [0, 1, 2, 3], ""],
 		["grass", "Grass density", [0, 20000, 40000, 60000, 90000, 120000, 150000, 180000, 220000, 260000], ""],
-		["grass_size", "Grass distance", [30, 40, 50, 64, 76, 90], ""],
+		["grass_size", "Grass distance", [30, 40, 50, 64, 76, 90, 110, 130, 160, 200, 250, 300], "far grass thins out"],
 		["lod", "View distance", [0.5, 0.7, 0.85, 1.0, 1.2, 1.35, 1.6, 2.0], ""],
 		["trees", "Trees", [0.3, 0.45, 0.6, 0.8, 1.0, 1.25, 1.5], ""],
 		["plants", "Bushes and flowers", [0.25, 0.5, 0.75, 1.0, 1.25, 1.5], ""],

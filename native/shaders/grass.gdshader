@@ -9,6 +9,7 @@ uniform sampler2D height_map : filter_linear, repeat_disable;   // R height, G d
 uniform vec4 area;   // x0, z0, w, d
 uniform vec3 cam;
 uniform float field_size = 64.0;
+instance uniform float thin = 1.0;   // share of this tile's clumps drawn (grass.gd)
 uniform vec3 sun_dir = vec3(-0.55, 0.75, 0.45);
 
 varying vec3 v_col;
@@ -24,7 +25,7 @@ void vertex() {
 	float dist = length(p - cam.xz);
 	float fk = smoothstep(field_size * 0.3, field_size * 0.5, dist);
 	float keep = step(off.z, dens) * (1.0 - smoothstep(off.w * 0.75, off.w * 0.75 + 0.25, fk)) * (1.0 - fk * 0.35);
-	float sc = (0.45 + off.w * 0.35) * (0.6 + dens * 0.6) * keep;
+	float sc = (0.45 + off.w * 0.35) * (0.6 + dens * 0.6) * keep * min(2.2, pow(thin, -0.3));   // fewer clumps far out: bigger ones
 	if (sc <= 0.0) {
 		// no grass here: every vertex to one point, so nothing is drawn
 		VERTEX = vec3(0.0);
