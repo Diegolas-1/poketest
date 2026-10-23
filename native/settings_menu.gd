@@ -8,7 +8,7 @@ extends CanvasLayer
 const BG := Color(0.086, 0.118, 0.172, 0.97)
 const ACCENT := Color("e8735a")
 const GOLD := Color("ffd27a")
-const TABS := ["Display", "World", "Controls", "Time", "Updates"]
+const TABS := ["Display", "World", "Controls", "Time", "Audio", "Updates"]
 const COG := Rect2(16, 16, 56, 56)
 
 var cog: Button
@@ -94,7 +94,7 @@ func _build() -> void:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.anchor_top = 0.0; panel.anchor_bottom = 1.0
 	panel.offset_left = 16; panel.offset_top = 16; panel.offset_bottom = -16
-	panel.offset_right = 16 + 700
+	panel.offset_right = 16 + 790   # room for six tabs
 	root.add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)

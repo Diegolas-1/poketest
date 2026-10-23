@@ -58,6 +58,7 @@ var interior: Interior
 var trans := {}          # a door fade in progress: {t, mid (Callable at full black), done}
 var trans_busy := false  # true while a fade has the controls
 var fader: ColorRect
+var music: Node          # music.gd
 var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
 
 func _ready() -> void:
@@ -79,6 +80,10 @@ func _ready() -> void:
 	_player()
 	_hud()
 	_settings_hook()
+	music = preload("res://music.gd").new()   # background music (music.gd)
+	music.name = "Music"
+	add_child(music)
+	music.setup(self)
 
 # ---------- sky, sun, haze ----------
 func _environment() -> void:

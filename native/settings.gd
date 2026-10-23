@@ -17,7 +17,7 @@ extends Node
 # lod (view distance), trees, plants, fog (haze distance), exposure, fps, perf,
 # face, cam_speed, invert_y, deadzone, clock ("game" | "real"), day_len (real
 # minutes per game day), clock_hud, town_debug (clock.gd, life.gd), auto_update
-# (updater.gd).
+# (updater.gd), music, music_vol (music.gd).
 #
 # Viewport-wide things (render scale, upscaler, anti-aliasing, frame cap,
 # shadow atlas size and filter, outlines through the Ink autoload) are applied
@@ -47,7 +47,8 @@ const DEFAULT_PRESET := "high"
 
 # settings that are not part of a preset
 const EXTRA := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
-	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1}
+	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
+	"music": 1, "music_vol": 0.7}
 
 # rows of the menu, by tab: key, label, values, hint (format in fmt())
 const ROWS := {
@@ -86,6 +87,10 @@ const ROWS := {
 		["day_len", "Length of a day", [24, 48, 96, 144], "real minutes per game day"],
 		["clock_hud", "Clock on screen", [0, 1], ""],
 		["town_debug", "Town debug overlay", [0, 1], "who is doing what (also F3)"],
+	],
+	"Audio": [
+		["music", "Music", [0, 1], "orchestral town and lab themes"],
+		["music_vol", "Music volume", [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], ""],
 	],
 	"Updates": [
 		["auto_update", "Auto-update", [0, 1], "download new versions in the background"],
@@ -178,7 +183,7 @@ func step(key: String, values: Array, d: int) -> void:
 func fmt(key: String, v) -> String:
 	match key:
 		"preset": return PRESET_LABEL.get(v, str(v))
-		"scale", "lod", "trees", "plants", "fog", "exposure", "cam_speed": return "%d%%" % roundi(float(v) * 100.0)
+		"scale", "lod", "trees", "plants", "fog", "exposure", "cam_speed", "music_vol": return "%d%%" % roundi(float(v) * 100.0)
 		"outline_q": return _num(v) + "x"
 		"upscale": return {"auto": "Auto (%s)" % ("MetalFX" if metalfx_ok() else ("FSR 1" if fsr_ok() else "Bilinear")), "bilinear": "Bilinear", "fsr": "FSR 1", "metalfx": "MetalFX"}.get(v, str(v))
 		"fps_cap": return "Unlimited" if int(v) == 0 else "%d fps" % v
