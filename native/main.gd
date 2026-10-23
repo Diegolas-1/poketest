@@ -238,7 +238,10 @@ func _input(e: InputEvent) -> void:
 			cam_idle = 0.0
 
 func _process(dt: float) -> void:
-	dt = minf(dt, 0.05)
+	# a long frame (a hitch, a busy moment on the phone) is caught up in real time down to
+	# 10 fps; below that the game slows rather than jumping (it was 20 fps, so a phone
+	# running at 15 fps had the whole town walking at three quarters of its pace)
+	dt = minf(dt, 0.1)
 	# keyboard and gamepad through the InputMap actions (project.godot)
 	var cs: float = Settings.get_value("cam_speed")
 	var look := Input.get_vector("cam_left", "cam_right", "cam_down", "cam_up")

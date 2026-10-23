@@ -2,7 +2,7 @@
  "_doc": "The townspeople's Pokémon (companions.gd): who they belong to, where they sleep, what they say. Lines: the player talks to them (A): 'talk' by mood ('asleep', 'happy', 'any', a period of the day), 'owner_talk' (the owner's line when near, by the same keys; a list of strings or [strings] for two lines), 'quest' by quest state ('<quest id>:active' | ':done') and flag; 'barks' over its head now and then; 'owner_barks' the owner says to it.",
  "companions": [
   {"id": "nibbles", "name": "Nibbles", "species": "caterpie", "owner": "lily",
-   "speed": 1.7, "hurry": 2.3, "follow": 0.75, "side": 0.45, "inside": true, "pace_cap": 1.9,
+   "speed": 1.6, "hurry": 2.3, "follow": 0.75, "side": 0.45, "inside": true, "pace_cap": 1.75,
    "night": {"place": [-21.2, 33.9], "label": "the Caterpie Corner"},
    "talk": {
     "any": [["NIBBLES: Cater! Cater!", "(Nibbles waves his little front feet at you.)"], ["NIBBLES: Caaater?", "(He tilts his head. His red horn wobbles.)"], ["NIBBLES: Cater-cater!", "(He wriggles happily.)"], ["(Nibbles is busy nibbling something. Probably a leaf. Probably.)", "NIBBLES: ...Cater."]],
@@ -30,7 +30,7 @@
    "bed": ["Night night, Nibbles!"]
   },
   {"id": "doduo", "name": "Doduo", "species": "doduo", "owner": "ben",
-   "speed": 2.7, "hurry": 5.5, "follow": 1.5, "side": 1.1, "inside": false,
+   "speed": 1.35, "hurry": 3.6, "follow": 1.5, "side": 1.1, "inside": false,
    "night": {"place": [-71.6, 26.6], "label": "the farmyard"},
    "yard": [[-70.9, 28.4], [-72.8, 28.6], [-75.0, 27.2], [-70.0, 29.6]],
    "talk": {
