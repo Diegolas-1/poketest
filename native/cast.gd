@@ -177,6 +177,24 @@ func nearby() -> Dictionary:
 		best = {"label": "Talk", "pet": c, "at": life.companions.talk_at(c)}
 	return best
 
+# the text box's typing blips for whoever speaks (dialog.gd voice): the
+# townspeople by age (and the women's voices higher), Oak low, the Pokémon
+# a little chirp, signs and things a plain tick
+const HIGH_VOICES := ["delia", "rose", "ada", "marina", "mae"]
+func _voice(n: Dictionary) -> void:
+	var v := "text"
+	var pitch := 1.0
+	if n.has("person"):
+		var pp: Dictionary = n.person
+		match String(pp.age):
+			"kid": v = "kid"; pitch = 1.08 if String(pp.id) == "lily" else 0.95
+			"elder": v = "low" if not HIGH_VOICES.has(String(pp.id)) else "high"; pitch = 0.9
+			_: v = "high" if HIGH_VOICES.has(String(pp.id)) else "mid"
+	elif n.has("pet"): v = "critter"
+	elif n.has("npc"): v = "low"
+	dialog.voice = v
+	dialog.voice_pitch = pitch
+
 # ---------- the frame ----------
 func update(dt: float) -> void:
 	ready_t += dt
@@ -200,6 +218,7 @@ func update(dt: float) -> void:
 			if not n.is_empty():
 				var me: Vector3 = game.pos
 				game.speed = 0.0
+				_voice(n)
 				if n.has("person"):
 					var pp: Dictionary = n.person
 					face = atan2(pp.pos.x - me.x, pp.pos.z - me.z)
@@ -216,6 +235,8 @@ func update(dt: float) -> void:
 						face = atan2(c.pos.x - me.x, c.pos.z - me.z)
 					else:
 						face = atan2(n.at.x - me.x, n.at.z - me.z)
+						var sw = game.get("sfx_world")
+						if sw and n.has("u"): sw.on_use(n.u)
 					dialog.say(n.lines)
 	# turn smoothly to face whoever (or whatever) you're talking to
 	if dialog.open and not is_nan(face):
@@ -344,6 +365,7 @@ func _oak_scene(dt: float) -> void:
 			oak.speed = 0.0; script_phase = 1
 			game.yaw = atan2(oak.pos.x - me.x, oak.pos.z - me.z)
 			oak.face = atan2(me.x - oak.pos.x, me.z - oak.pos.z)
+			dialog.voice = "low"; dialog.voice_pitch = 1.0
 			dialog.say(["OAK: Hey! Wait! Don't go out!", "It's unsafe! Wild POKéMON live in tall grass!",
 				"You need your own POKéMON for your protection.", "I know! Come see me at my lab, by the sea. Follow me!"], func(): script_phase = 2)
 	elif script_phase == 1:

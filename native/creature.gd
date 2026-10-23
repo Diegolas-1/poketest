@@ -38,6 +38,10 @@ var mats: Array[ShaderMaterial] = []
 var mat_by := {}                     # material name -> ShaderMaterial
 var look_at_pos := Vector3(NAN, NAN, NAN)
 var sleep := false
+# counters for sfx_world.gd (a sound each time one goes up): feet put down, pecks, hops
+var footfalls := 0
+var pecks := 0
+var hops := 0
 var rng := RandomNumberGenerator.new()
 var _tg := {}                        # bone -> global basis wanted this frame
 var _tl := {}                        # bone -> local rotation this frame

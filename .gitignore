@@ -16,3 +16,4 @@ web/world/lineup.html
 # model sources stay on this machine; only the finished player model is published
 web/world/local/*
 !web/world/local/ash.glb
+__pycache__/

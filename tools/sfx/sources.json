@@ -1,0 +1,487 @@
+{
+ "note": "Sources of tools/sfx/build.py. kenney: packs from kenney.nl (CC0). oga: OpenGameArt.org submissions, every one checked as CC0 only on its page.",
+ "kenney": {
+  "impact-sounds": "https://kenney.nl/assets/impact-sounds",
+  "interface-sounds": "https://kenney.nl/assets/interface-sounds",
+  "rpg-audio": "https://kenney.nl/assets/rpg-audio",
+  "ui-audio": "https://kenney.nl/assets/ui-audio",
+  "sci-fi-sounds": "https://kenney.nl/assets/sci-fi-sounds",
+  "digital-audio": "https://kenney.nl/assets/digital-audio",
+  "casino-audio": "https://kenney.nl/assets/casino-audio"
+ },
+ "oga": {
+  "fantozzis-footsteps-grasssand-stone": {
+   "title": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/Fantozzi-footsteps.7z"
+   ]
+  },
+  "42-snow-and-gravel-footsteps": {
+   "title": "42 Snow and Gravel Footsteps",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/42-snow-and-gravel-footsteps",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/corsica_s-walking_in_snow.7z"
+   ]
+  },
+  "metal-footsteps-on-concrete": {
+   "title": "Metal footsteps on concrete",
+   "author": "Thimras",
+   "url": "https://opengameart.org/content/metal-footsteps-on-concrete",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/metal_steps_48k24b.7z"
+   ]
+  },
+  "100-cc0-sfx-2": {
+   "title": "100 CC0 SFX #2",
+   "author": "rubberduck",
+   "url": "https://opengameart.org/content/100-cc0-sfx-2",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/sfx_100_v2.zip"
+   ]
+  },
+  "6-short-water-splashes": {
+   "title": "6 Short water splashes",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/6-short-water-splashes",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/ezwa-water_splash.7z"
+   ]
+  },
+  "20-rustles-dry-leaves": {
+   "title": "20 Rustles of dry leaves",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/20-rustles-dry-leaves",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/qubodup-rustle.7z"
+   ]
+  },
+  "door-open-door-close-set": {
+   "title": "Door Open, Door Close Set",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/door-open-door-close-set",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/qubodup-DoorSet.7z"
+   ]
+  },
+  "100-cc0-sfx": {
+   "title": "100 CC0 SFX",
+   "author": "rubberduck",
+   "url": "https://opengameart.org/content/100-cc0-sfx",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/100-CC0-SFX_0.zip"
+   ]
+  },
+  "100-cc0-metal-and-wood-sfx": {
+   "title": "100 CC0 metal and wood SFX",
+   "author": "rubberduck",
+   "url": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip"
+   ]
+  },
+  "10-clicks-and-switches": {
+   "title": "10 Clicks and Switches",
+   "author": "StarNinjas",
+   "url": "https://opengameart.org/content/10-clicks-and-switches",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/10_clicks_and_switches.zip"
+   ]
+  },
+  "bubble-sound-effects": {
+   "title": "Bubble Sound Effects",
+   "author": "BMacZero",
+   "url": "https://opengameart.org/content/bubble-sound-effects",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/bubbles-loop1-amp.wav",
+    "https://opengameart.org/sites/default/files/bubbles-loop2-amp.wav",
+    "https://opengameart.org/sites/default/files/bubbles-single1.wav",
+    "https://opengameart.org/sites/default/files/bubbles-single2.wav",
+    "https://opengameart.org/sites/default/files/bubbles-single3.wav"
+   ]
+  },
+  "ticking-clock": {
+   "title": "Ticking clock.",
+   "author": "bart",
+   "url": "https://opengameart.org/content/ticking-clock",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/ticking_clock.wav",
+    "https://opengameart.org/sites/default/files/ticks.zip"
+   ]
+  },
+  "general-household-sound-effects": {
+   "title": "General Household Sound Effects",
+   "author": "bretbernhoft",
+   "url": "https://opengameart.org/content/general-household-sound-effects",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/airconditioner01.wav",
+    "https://opengameart.org/sites/default/files/airconditioner02.wav",
+    "https://opengameart.org/sites/default/files/airconditioner03.wav",
+    "https://opengameart.org/sites/default/files/airconditioner04.wav",
+    "https://opengameart.org/sites/default/files/airfryer01.wav",
+    "https://opengameart.org/sites/default/files/airfryer02.wav",
+    "https://opengameart.org/sites/default/files/airfryer03.wav",
+    "https://opengameart.org/sites/default/files/boilingwater01.wav",
+    "https://opengameart.org/sites/default/files/boilingwater02.wav",
+    "https://opengameart.org/sites/default/files/boilingwater03.wav",
+    "https://opengameart.org/sites/default/files/clangingglass01.wav",
+    "https://opengameart.org/sites/default/files/clangingglass02.wav",
+    "https://opengameart.org/sites/default/files/computerfans01.wav",
+    "https://opengameart.org/sites/default/files/computerfans02.wav",
+    "https://opengameart.org/sites/default/files/computerfans03.wav",
+    "https://opengameart.org/sites/default/files/computerfans04.wav",
+    "https://opengameart.org/sites/default/files/crunchingpapertowels01.wav",
+    "https://opengameart.org/sites/default/files/electriccanopener01.wav",
+    "https://opengameart.org/sites/default/files/forkonplate01.wav",
+    "https://opengameart.org/sites/default/files/fryingpan01.wav",
+    "https://opengameart.org/sites/default/files/hepafilter01.wav",
+    "https://opengameart.org/sites/default/files/hepafilter02.wav",
+    "https://opengameart.org/sites/default/files/industrialblower01.wav",
+    "https://opengameart.org/sites/default/files/kitchencuttingboard01.wav",
+    "https://opengameart.org/sites/default/files/kitchensink01.wav",
+    "https://opengameart.org/sites/default/files/kitchensink02.wav",
+    "https://opengameart.org/sites/default/files/kitchensink03.wav",
+    "https://opengameart.org/sites/default/files/kitchensink04.wav",
+    "https://opengameart.org/sites/default/files/kitchenstovefan01.wav",
+    "https://opengameart.org/sites/default/files/microwave01.wav",
+    "https://opengameart.org/sites/default/files/microwave02.wav",
+    "https://opengameart.org/sites/default/files/microwave03.wav",
+    "https://opengameart.org/sites/default/files/mouseclicking01.wav",
+    "https://opengameart.org/sites/default/files/mouseclicking02.wav",
+    "https://opengameart.org/sites/default/files/poppingbubbles01.wav",
+    "https://opengameart.org/sites/default/files/shakingcoffeegrounds01.wav",
+    "https://opengameart.org/sites/default/files/sharpeningknives01.wav",
+    "https://opengameart.org/sites/default/files/vacuumcleaner01.wav",
+    "https://opengameart.org/sites/default/files/washer01.wav"
+   ]
+  },
+  "park-ambiences": {
+   "title": "Park ambiences",
+   "author": "Thimras",
+   "url": "https://opengameart.org/content/park-ambiences",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/park_ambience_birds.wav",
+    "https://opengameart.org/sites/default/files/park_ambience_river.wav",
+    "https://opengameart.org/sites/default/files/park_ambience_wind.wav"
+   ]
+  },
+  "sea-and-river-wave-sounds": {
+   "title": "Sea and river wave sounds",
+   "author": "RandomMind",
+   "url": "https://opengameart.org/content/sea-and-river-wave-sounds",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/Vistula.zip",
+    "https://opengameart.org/sites/default/files/VistulaShort_0.mp3"
+   ]
+  },
+  "beach-ocean-waves": {
+   "title": "Beach Ocean Waves",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/beach-ocean-waves",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/wave_01_cc0-18363__jasinski__alkaibeach.flac",
+    "https://opengameart.org/sites/default/files/wave_02_cc0-18363__jasinski__alkaibeach.flac",
+    "https://opengameart.org/sites/default/files/wave_03_cc0-18363__jasinski__alkaibeach.flac",
+    "https://opengameart.org/sites/default/files/wave_04_cc0-18363__jasinski__alkaibeach.flac"
+   ]
+  },
+  "water-waves": {
+   "title": "Water Waves",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/water-waves",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/wave_01_cc0-11505__transitking__wavesound.flac",
+    "https://opengameart.org/sites/default/files/wave_02_cc0-11505__transitking__wavesound.flac",
+    "https://opengameart.org/sites/default/files/wave_03_cc0-11505__transitking__wavesound.flac",
+    "https://opengameart.org/sites/default/files/wave_04_cc0-11505__transitking__wavesound.flac"
+   ]
+  },
+  "rain-loopable": {
+   "title": "Rain (loopable)",
+   "author": "Ylmir",
+   "url": "https://opengameart.org/content/rain-loopable",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/Rain%20MP3.zip",
+    "https://opengameart.org/sites/default/files/Rain%20OGG.zip"
+   ]
+  },
+  "rain-long-thunder": {
+   "title": "Rain + Long Thunder",
+   "author": "WuxiaScrub",
+   "url": "https://opengameart.org/content/rain-long-thunder",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/rain-thunder.ogg"
+   ]
+  },
+  "crickets-ambient-noise-loopable": {
+   "title": "Crickets Ambient Noise - loopable",
+   "author": "Wolfgang_",
+   "url": "https://opengameart.org/content/crickets-ambient-noise-loopable",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/crickets_1.mp3"
+   ]
+  },
+  "cricket-sounds": {
+   "title": "cricket sounds",
+   "author": "syncopika",
+   "url": "https://opengameart.org/content/cricket-sounds",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/cricketsounds090613.wav",
+    "https://opengameart.org/sites/default/files/cricketsounds090613_0.mp3"
+   ]
+  },
+  "ambient-bird-sounds": {
+   "title": "Ambient Bird Sounds",
+   "author": "isaiah658",
+   "url": "https://opengameart.org/content/ambient-bird-sounds",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/birds-isaiah658_0.ogg"
+   ]
+  },
+  "bird-chirping-sounds": {
+   "title": "Bird chirping sounds",
+   "author": "syncopika",
+   "url": "https://opengameart.org/content/bird-chirping-sounds",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/birdchirping071414.wav",
+    "https://opengameart.org/sites/default/files/birdchirping071414_0.mp3"
+   ]
+  },
+  "solo-seagull-sound-effects": {
+   "title": "Solo Seagull Sound Effects",
+   "author": "Rango Mango",
+   "url": "https://opengameart.org/content/solo-seagull-sound-effects",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/Seaguall%20Hit%201.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Ambient%201.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Ambient%202.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Ambient%203.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Ambient%204.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Ambient%205.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Ambient%206.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Ambient%207.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Big%20Ambient%202.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Big%20Ambient.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Big%20Hit%202.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Big%20Hit.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Death%201.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Death%202.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Death%203.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Death%204.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Hit%202.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Hit%203.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Hit%204.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Hit%205.wav",
+    "https://opengameart.org/sites/default/files/Seagull%20Hit%205_0.wav"
+   ]
+  },
+  "frog-croaks": {
+   "title": "Frog Croaks",
+   "author": "EZduzziteh",
+   "url": "https://opengameart.org/content/frog-croaks",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/croak_01_0.mp3",
+    "https://opengameart.org/sites/default/files/croak_02.mp3",
+    "https://opengameart.org/sites/default/files/croak_03.mp3",
+    "https://opengameart.org/sites/default/files/croak_04.mp3"
+   ]
+  },
+  "ribbit-frog-sounds": {
+   "title": "Ribbit Frog Sounds",
+   "author": "EZduzziteh",
+   "url": "https://opengameart.org/content/ribbit-frog-sounds",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/ribbit_01.mp3",
+    "https://opengameart.org/sites/default/files/ribbit_02.mp3",
+    "https://opengameart.org/sites/default/files/ribbit_03.mp3"
+   ]
+  },
+  "tree-creaking": {
+   "title": "Tree Creaking",
+   "author": "AntumDeluge",
+   "url": "https://opengameart.org/content/tree-creaking",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/tree_creak.flac",
+    "https://opengameart.org/sites/default/files/tree_creak_0.ogg"
+   ]
+  },
+  "dog-sounds": {
+   "title": "Dog sounds",
+   "author": "pauliuw",
+   "url": "https://opengameart.org/content/dog-sounds",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/dog.7z"
+   ]
+  },
+  "large-wings-flap": {
+   "title": "Large Wings Flap",
+   "author": "AntumDeluge",
+   "url": "https://opengameart.org/content/large-wings-flap",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/wings_flap_large.zip"
+   ]
+  },
+  "various-sound-effects-0": {
+   "title": "Various Sound Effects",
+   "author": "Spring Spring",
+   "url": "https://opengameart.org/content/various-sound-effects-0",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/bangs.wav",
+    "https://opengameart.org/sites/default/files/beep1.wav",
+    "https://opengameart.org/sites/default/files/big_amber.wav",
+    "https://opengameart.org/sites/default/files/break_stone.wav",
+    "https://opengameart.org/sites/default/files/bup.wav",
+    "https://opengameart.org/sites/default/files/cannonball_tap.wav",
+    "https://opengameart.org/sites/default/files/click_1.wav",
+    "https://opengameart.org/sites/default/files/crush.wav",
+    "https://opengameart.org/sites/default/files/death_2.wav",
+    "https://opengameart.org/sites/default/files/dull_explosion.wav",
+    "https://opengameart.org/sites/default/files/fall_0.wav",
+    "https://opengameart.org/sites/default/files/get_important_item.wav",
+    "https://opengameart.org/sites/default/files/glug.wav",
+    "https://opengameart.org/sites/default/files/moan.wav",
+    "https://opengameart.org/sites/default/files/nom.wav",
+    "https://opengameart.org/sites/default/files/player_hit.wav",
+    "https://opengameart.org/sites/default/files/pop.wav",
+    "https://opengameart.org/sites/default/files/powered_door.wav",
+    "https://opengameart.org/sites/default/files/rustling_of_the_weeds.wav",
+    "https://opengameart.org/sites/default/files/scooter_p.wav",
+    "https://opengameart.org/sites/default/files/small_amber.wav",
+    "https://opengameart.org/sites/default/files/small_rock_impact.wav",
+    "https://opengameart.org/sites/default/files/snd_ambient_impact1.wav",
+    "https://opengameart.org/sites/default/files/snd_batwings.wav",
+    "https://opengameart.org/sites/default/files/snd_birdcrash.wav",
+    "https://opengameart.org/sites/default/files/snd_birdscream.wav",
+    "https://opengameart.org/sites/default/files/snd_bulletcrackle.wav",
+    "https://opengameart.org/sites/default/files/snd_bullethit.wav",
+    "https://opengameart.org/sites/default/files/snd_death1.wav",
+    "https://opengameart.org/sites/default/files/snd_death2.wav",
+    "https://opengameart.org/sites/default/files/snd_enemyjump.wav",
+    "https://opengameart.org/sites/default/files/snd_enemyland.wav",
+    "https://opengameart.org/sites/default/files/snd_enemyscream.wav",
+    "https://opengameart.org/sites/default/files/snd_enemysword.wav",
+    "https://opengameart.org/sites/default/files/snd_fillenergy.wav",
+    "https://opengameart.org/sites/default/files/snd_flap.wav",
+    "https://opengameart.org/sites/default/files/snd_footsteps1.wav",
+    "https://opengameart.org/sites/default/files/snd_fox_footstep.wav",
+    "https://opengameart.org/sites/default/files/snd_getpowerup.wav",
+    "https://opengameart.org/sites/default/files/snd_gunshot1.wav",
+    "https://opengameart.org/sites/default/files/snd_menu_move.wav",
+    "https://opengameart.org/sites/default/files/snd_menu_select.wav",
+    "https://opengameart.org/sites/default/files/snd_npc_message.wav",
+    "https://opengameart.org/sites/default/files/snd_slip_on_ice.wav",
+    "https://opengameart.org/sites/default/files/snd_splat.wav",
+    "https://opengameart.org/sites/default/files/snd_splathit.wav",
+    "https://opengameart.org/sites/default/files/snd_splurt.wav",
+    "https://opengameart.org/sites/default/files/snd_sproing.wav",
+    "https://opengameart.org/sites/default/files/snd_throw1.wav",
+    "https://opengameart.org/sites/default/files/snd_treasure.wav",
+    "https://opengameart.org/sites/default/files/snd_warp_in.wav",
+    "https://opengameart.org/sites/default/files/snd_warp_out.wav",
+    "https://opengameart.org/sites/default/files/snd_yoghurtblast.wav",
+    "https://opengameart.org/sites/default/files/spear.wav",
+    "https://opengameart.org/sites/default/files/steal.wav",
+    "https://opengameart.org/sites/default/files/swim_0.wav",
+    "https://opengameart.org/sites/default/files/tap_stone.wav",
+    "https://opengameart.org/sites/default/files/teleport_2.wav",
+    "https://opengameart.org/sites/default/files/tick_0.wav",
+    "https://opengameart.org/sites/default/files/uff.wav"
+   ]
+  },
+  "shovel-sound": {
+   "title": "Shovel Sound",
+   "author": "themightyglider",
+   "url": "https://opengameart.org/content/shovel-sound",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/shovel_0.ogg"
+   ]
+  },
+  "rabbit-eating": {
+   "title": "Rabbit Eating",
+   "author": "Voltiment555",
+   "url": "https://opengameart.org/content/rabbit-eating",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/RabbitEating.wav"
+   ]
+  },
+  "bicycle-sounds": {
+   "title": "Bicycle Sounds",
+   "author": "AntumDeluge",
+   "url": "https://opengameart.org/content/bicycle-sounds",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/bicycle_sounds.zip"
+   ]
+  },
+  "metal-interactions": {
+   "title": "Metal Interactions",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/metal-interactions",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/metal_interactions.7z"
+   ]
+  },
+  "tiny-naval-battle-sounds-set": {
+   "title": "Tiny Naval Battle Sounds Set",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/tiny-naval-battle-sounds-set",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/qubodup-NavalBattleSoundSet-cc0_0.7z"
+   ]
+  },
+  "dripping-water-loop": {
+   "title": "Dripping water loop",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/dripping-water-loop",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/atmosbasement.mp3_.flac"
+   ]
+  },
+  "30-cc0-sfx-loops": {
+   "title": "30 CC0 SFX loops",
+   "author": "rubberduck",
+   "url": "https://opengameart.org/content/30-cc0-sfx-loops",
+   "license": "CC0 1.0",
+   "files": [
+    "https://opengameart.org/sites/default/files/sfx_loops.zip"
+   ]
+  }
+ }
+}

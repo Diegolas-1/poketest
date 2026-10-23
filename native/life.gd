@@ -457,8 +457,13 @@ func _make_doors() -> void:
 
 func _open_door(h: String, secs: float) -> void:
 	if doors.has(h):
+		if doors[h].t <= 0.0: _door_sound(h, true)
 		doors[h].t = maxf(doors[h].t, secs)
 		doors[h].mesh.visible = true
+
+func _door_sound(h: String, opening: bool) -> void:
+	var sw = game.get("sfx_world") if game != null else null
+	if sw and doors.has(h): sw.house_door(doors[h].mesh.position, opening)
 
 # where a person stands to go into a house (the boat steps for the lighthouse)
 func door_of(h: String) -> Vector3:
@@ -1055,7 +1060,9 @@ func _doors(dt: float) -> void:
 		var dd: Dictionary = doors[h]
 		if dd.t > 0.0:
 			dd.t -= dt
-			if dd.t <= 0.0: dd.mesh.visible = false
+			if dd.t <= 0.0:
+				dd.mesh.visible = false
+				_door_sound(h, false)
 
 # ======================================================================
 # social life
@@ -1229,6 +1236,10 @@ func _end_chat(p: Dictionary) -> void:
 # runner gets a head start before it can be caught): at most two tags a game,
 # then a rest of a few minutes before the next
 const TAG_REACH := 0.85
+# the tap on the back (a soft clap where the tagger stands)
+func _tag_sound(p: Dictionary) -> void:
+	if not away and not headless and game != null and game.get("sfx_world") != null: Sfx.play("tag_tap", p.pos + Vector3(0, 1.1, 0), {"vol": -2.0})
+
 func _playing(p: Dictionary) -> bool:
 	return p.state == "act" and p.act == "play"
 
@@ -1276,6 +1287,7 @@ func _chase_tick(dt: float) -> void:
 				a.v = 0.0
 				_end_chase(); return
 			if d < TAG_REACH:
+				_tag_sound(a)
 				say(a, ["Tag, you're it!", "Tag! You're it!", "Gotcha! You're it!"][_rng.randi() % 3], 2.0)
 				say(b, ["Hey!", "Whoa!", "No fair!"][_rng.randi() % 3], 1.4, 0.5)
 				c.tags = 1
@@ -1294,6 +1306,7 @@ func _chase_tick(dt: float) -> void:
 			c.chase_t -= dt
 			# a.runs, b.chases (b is "it")
 			if d < TAG_REACH and c.catch:
+				_tag_sound(b)
 				say(b, ["Gotcha!", "Caught you!", "Got you!"][_rng.randi() % 3], 1.8)
 				say(a, ["Oh man, you caught me!", "Aww, no fair!", "Okay, okay, you got me!"][_rng.randi() % 3], 2.2, 0.6)
 				c.tags += 1

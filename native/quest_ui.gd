@@ -210,12 +210,14 @@ func open() -> void:
 	unread = false
 	btn.queue_redraw()
 	root.visible = true
+	Sfx.ui("ui_menu_open")
 	_layout()
 	_fill()
 
 func close() -> void:
 	if not root.visible: return
 	root.visible = false
+	Sfx.ui("ui_menu_close")
 	get_tree().paused = was_paused
 	var f := root.get_viewport().gui_get_focus_owner()
 	if f: f.release_focus()
@@ -239,6 +241,7 @@ func _input(e: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _set_tab(k: String) -> void:
+	if k != tab: Sfx.ui("ui_tab")
 	tab = k
 	_fill()
 
@@ -311,6 +314,7 @@ func _fill() -> void:
 # ---------- events ----------
 func _on_event(kind: String, _qid: String, text: String) -> void:
 	toast(kind, text)
+	Sfx.ui("ui_item_get" if kind in ["complete", "item"] else "ui_notify")
 	if kind in ["start", "complete", "step", "rumor", "item"]: unread = true
 	btn.queue_redraw()
 

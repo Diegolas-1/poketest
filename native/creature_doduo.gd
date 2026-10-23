@@ -105,6 +105,7 @@ func mood(what: String) -> void:
 			for h in heads: if h.act != "peck": _head_act(h, "peck"); break
 		_:
 			mood_k = what; mood_t = 0.0
+			if what == "happy": hops += 1
 
 func busy() -> bool:
 	return mood_t >= 0.0 and mood_k in ["happy", "call", "argue"]
@@ -195,6 +196,7 @@ func _gait(dt: float, v: float) -> void:
 				l.toyaw = yaw + turn_v * left
 			if l.u >= 1.0:
 				l.p = l.to; l.yaw = l.toyaw; l.u = -1.0
+				footfalls += 1
 	# the stamp: the right foot comes down hard twice
 	if stamp_t >= 0.0:
 		stamp_t += dt
@@ -328,6 +330,7 @@ func _head_act(h: Dictionary, act: String) -> void:
 			h.blink = minf(h.blink, 0.06)
 		"glance": h.dur = rng.randf_range(0.8, 1.6)
 		"peck":
+			pecks += 1
 			h.dur = rng.randf_range(1.6, 2.6)
 			var fwd := Vector3(sin(global_rotation.y), 0, cos(global_rotation.y))
 			var side := Vector3(cos(global_rotation.y), 0, -sin(global_rotation.y))

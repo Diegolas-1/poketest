@@ -59,6 +59,8 @@ var trans := {}          # a door fade in progress: {t, mid (Callable at full bl
 var trans_busy := false  # true while a fade has the controls
 var fader: ColorRect
 var music: Node          # music.gd
+var sfx: Sfx             # sfx.gd: the sound effects library and players
+var sfx_world: Node      # sfx_world.gd: the town's footsteps, ambience, doors
 var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
 
 func _ready() -> void:
@@ -84,6 +86,13 @@ func _ready() -> void:
 	music.name = "Music"
 	add_child(music)
 	music.setup(self)
+	sfx = preload("res://sfx.gd").new()
+	add_child(sfx)
+	sfx.setup()
+	sfx_world = preload("res://sfx_world.gd").new()
+	sfx_world.name = "SfxWorld"
+	add_child(sfx_world)
+	sfx_world.setup(self)
 
 # ---------- sky, sun, haze ----------
 func _environment() -> void:
@@ -277,6 +286,7 @@ func _process(dt: float) -> void:
 	if speed > 0.05 and not cast.busy() and not trans_busy:
 		pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt)
 	cast.update(dt)
+	if sfx_world: sfx_world.update(dt)
 	_trans_step(dt)
 	if indoors and trans.is_empty() and speed > 0.3:
 		var po: Dictionary = interior.data.portal_at(pos)
@@ -325,9 +335,11 @@ func _camera(dt: float) -> void:
 const FADE := 0.32
 
 func enter_space(id: String, spawn_id := "", instant := false) -> void:
+	if trans.is_empty() and sfx_world: sfx_world.door_lab(true)
 	_fade(func(): _enter_now(id, spawn_id), instant)
 
 func leave_space(instant := false) -> void:
+	if trans.is_empty() and sfx_world: sfx_world.door_lab(false)
 	_fade(func(): _leave_now(), instant)
 
 func _fade(mid: Callable, instant: bool) -> void:

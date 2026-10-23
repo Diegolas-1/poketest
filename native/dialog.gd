@@ -6,6 +6,8 @@ extends Control
 # the "A" prompt over whatever is in reach; and the area banner.
 #
 #   say(lines, on_done)   next()   open   prompt = {pos, label} or {}   banner(title, sub)
+#   voice = "text" | "low" | "mid" | "high" | "kid" | "critter", voice_pitch: the
+#   typing blips (sfx ui_blip_<voice>), set by the caller before say()
 
 const INK := Color("23284f")
 const RED := Color("e8463c")
@@ -39,6 +41,9 @@ var _ban_sub := ""
 var _ban_t := 99.0
 var _ball_tex: ImageTexture
 var _was_busy := true
+var voice := "text"
+var voice_pitch := 1.0
+var _blip_at := -1           # the last group of three letters that blipped
 
 var open: bool:
 	get: return not lines.is_empty()
@@ -58,7 +63,8 @@ func _ready() -> void:
 	_ball_tex = ImageTexture.create_from_image(img)
 
 func say(l: Array, done: Callable = Callable()) -> void:
-	lines = l; i = 0; shown = 0.0; on_done = done
+	lines = l; i = 0; shown = 0.0; on_done = done; _blip_at = -1
+	Sfx.ui("ui_dialog_open")
 	queue_redraw()
 
 # A press: finish the line, or go to the next one, or close
@@ -67,7 +73,8 @@ func next() -> void:
 	var line: String = lines[i]
 	if shown < line.length():
 		shown = line.length(); return
-	i += 1; shown = 0.0
+	i += 1; shown = 0.0; _blip_at = -1
+	Sfx.ui("ui_dialog_advance" if i < lines.size() else "ui_dialog_close")
 	if i >= lines.size():
 		lines = []
 		var f := on_done
@@ -76,6 +83,7 @@ func next() -> void:
 
 func banner(title: String, sub: String) -> void:
 	_ban_title = title; _ban_sub = sub; _ban_t = 0.0
+	Sfx.ui("ui_banner")
 
 func _process(dt: float) -> void:
 	t += dt
@@ -83,7 +91,14 @@ func _process(dt: float) -> void:
 	var busy := open or not prompt.is_empty() or _ban_t < 4.3 or _was_busy
 	_was_busy = open or not prompt.is_empty() or _ban_t < 4.3
 	if busy: queue_redraw()
-	if open: shown = minf(float(String(lines[i]).length()), shown + dt * 55.0)
+	if open:
+		var line: String = lines[i]
+		shown = minf(float(line.length()), shown + dt * 55.0)
+		# a blip every third letter typed (not on a space), in the speaker's voice
+		var k := int(shown) - 1
+		if k >= 0 and floori(k / 3.0) != _blip_at and k < line.length() - 1:
+			_blip_at = floori(k / 3.0)
+			if line[k] != " " and Sfx.I != null and Sfx.I.ui_on: Sfx.play("ui_blip_" + voice, null, {"pitch": voice_pitch})
 	_ban_t += dt
 
 func _wrap(text: String, w: float, size: int) -> Array:

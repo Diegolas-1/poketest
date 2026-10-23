@@ -559,6 +559,8 @@ func _say_pet(c: Dictionary, secs: float, delay := 0.0) -> void:
 	if b.is_empty(): return
 	c.bubble = {"text": _pick(b), "t": secs}
 	if delay > 0.0: c.bubble.delay = delay
+	var sw = life.game.get("sfx_world") if life.game != null else null
+	if sw: sw.pet_call(c)
 
 func _barks(c: Dictionary, dt: float) -> void:
 	c.bark_cd -= dt

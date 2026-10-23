@@ -137,7 +137,7 @@ func _reset_now() -> void:
 func mood(what: String) -> void:
 	match what:
 		"happy": if happy_t < 0.0 and hop_t < 0.0: happy_t = 0.0
-		"hop": if hop_t < 0.0: hop_t = 0.0; happy_t = -1.0
+		"hop": if hop_t < 0.0: hop_t = 0.0; happy_t = -1.0; hops += 1
 		"talk": talk_t = 0.0
 
 func busy() -> bool:
@@ -229,6 +229,7 @@ func _steps(dt: float, v: float) -> void:
 				# every joint of a wave steps to the same reference: the spacing comes out whole
 				waves[steps[0] + 1] = dist + stride * 1.4
 				waves.erase(steps[0] - 3)
+				footfalls += 1
 			step_u[k] = 0.0
 			step_from[k] = gp[k]
 			steps[k] += 1

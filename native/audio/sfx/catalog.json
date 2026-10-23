@@ -1,0 +1,5030 @@
+{
+ "format": "pallet-sfx/catalog",
+ "version": 1,
+ "note": "Built by tools/sfx/build.py; played by native/sfx.gd. Fields: id, category, files (variants), vol (dB), pitch [lo, hi], vjit (dB), mode 2d|3d, dist (3D max distance m), unit (3D unit size m), loop, voices, bus SFX|UI|Ambience, gap (s), tags, source, license.",
+ "licenses": {
+  "kenney": "Kenney audio packs (kenney.nl): CC0 1.0 Universal",
+  "opengameart": "OpenGameArt.org submissions listed in sources: each CC0 1.0 Universal (checked on its page)",
+  "original": "Sounds made for this game in tools/sfx/synth.py: CC0 1.0 Universal"
+ },
+ "sounds": [
+  {
+   "id": "catch_click",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "catch",
+    "capture-ball"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/catch_click_1.ogg"
+   ]
+  },
+  {
+   "id": "catch_wobble",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "catch",
+    "capture-ball"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/catch_wobble_1.ogg",
+    "battle/catch_wobble_2.ogg",
+    "battle/catch_wobble_3.ogg"
+   ]
+  },
+  {
+   "id": "encounter",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "encounter",
+    "stinger"
+   ],
+   "source": [
+    "original stinger"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/encounter_1.ogg"
+   ]
+  },
+  {
+   "id": "heal",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "heal"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/heal_1.ogg"
+   ]
+  },
+  {
+   "id": "hit_heavy",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "hit",
+    "heavy"
+   ],
+   "source": [
+    "Kenney Impact Sounds: impactPunch_heavy",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/hit_heavy_1.ogg",
+    "battle/hit_heavy_2.ogg",
+    "battle/hit_heavy_3.ogg",
+    "battle/hit_heavy_4.ogg"
+   ]
+  },
+  {
+   "id": "hit_soft",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "hit",
+    "soft"
+   ],
+   "source": [
+    "Kenney Impact Sounds: impactSoft_medium"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "battle/hit_soft_1.ogg",
+    "battle/hit_soft_2.ogg",
+    "battle/hit_soft_3.ogg",
+    "battle/hit_soft_4.ogg"
+   ]
+  },
+  {
+   "id": "level_up",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "level",
+    "fanfare"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/level_up_1.ogg"
+   ]
+  },
+  {
+   "id": "sparkle",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "sparkle",
+    "magic"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/sparkle_1.ogg",
+    "battle/sparkle_2.ogg"
+   ]
+  },
+  {
+   "id": "throw",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "throw"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/throw_1.ogg",
+    "battle/throw_2.ogg"
+   ]
+  },
+  {
+   "id": "whoosh",
+   "category": "battle",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "whoosh",
+    "swipe"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "battle/whoosh_1.ogg",
+    "battle/whoosh_2.ogg",
+    "battle/whoosh_3.ogg",
+    "battle/whoosh_4.ogg"
+   ]
+  },
+  {
+   "id": "bag_jostle",
+   "category": "character",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 18.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "bag",
+    "leather"
+   ],
+   "source": [
+    "Kenney RPG Audio: handleSmallLeather, beltHandle"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "character/bag_jostle_1.ogg",
+    "character/bag_jostle_2.ogg",
+    "character/bag_jostle_3.ogg",
+    "character/bag_jostle_4.ogg"
+   ]
+  },
+  {
+   "id": "clap",
+   "category": "character",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 18.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "clap",
+    "hands"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "character/clap_1.ogg",
+    "character/clap_2.ogg",
+    "character/clap_3.ogg",
+    "character/clap_4.ogg"
+   ]
+  },
+  {
+   "id": "cloth_rustle",
+   "category": "character",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 18.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "cloth"
+   ],
+   "source": [
+    "Kenney RPG Audio: cloth, clothBelt"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "character/cloth_rustle_1.ogg",
+    "character/cloth_rustle_2.ogg",
+    "character/cloth_rustle_3.ogg",
+    "character/cloth_rustle_4.ogg",
+    "character/cloth_rustle_5.ogg",
+    "character/cloth_rustle_6.ogg"
+   ]
+  },
+  {
+   "id": "scuff",
+   "category": "character",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 18.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "scuff",
+    "shoe"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_carpet",
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "character/scuff_1.ogg",
+    "character/scuff_2.ogg",
+    "character/scuff_3.ogg",
+    "character/scuff_4.ogg",
+    "character/scuff_5.ogg"
+   ]
+  },
+  {
+   "id": "tag_tap",
+   "category": "character",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 18.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "tap",
+    "tag",
+    "play"
+   ],
+   "source": [
+    "original",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "character/tag_tap_1.ogg",
+    "character/tag_tap_2.ogg",
+    "character/tag_tap_3.ogg"
+   ]
+  },
+  {
+   "id": "creature_call",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "bird",
+    "call"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "creatures/creature_call_1.ogg",
+    "creatures/creature_call_2.ogg",
+    "creatures/creature_call_3.ogg",
+    "creatures/creature_call_4.ogg"
+   ]
+  },
+  {
+   "id": "creature_honk",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "bird",
+    "honk",
+    "large"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "creatures/creature_honk_1.ogg",
+    "creatures/creature_honk_2.ogg",
+    "creatures/creature_honk_3.ogg",
+    "creatures/creature_honk_4.ogg"
+   ]
+  },
+  {
+   "id": "creature_hop",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "hop",
+    "land"
+   ],
+   "source": [
+    "Kenney Impact Sounds: impactSoft_medium",
+    "original"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "creatures/creature_hop_1.ogg",
+    "creatures/creature_hop_2.ogg",
+    "creatures/creature_hop_3.ogg"
+   ]
+  },
+  {
+   "id": "creature_rustle",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "plants",
+    "rustle"
+   ],
+   "source": [
+    "\"20 Rustles of dry leaves\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/20-rustles-dry-leaves"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "creatures/creature_rustle_1.ogg",
+    "creatures/creature_rustle_2.ogg",
+    "creatures/creature_rustle_3.ogg"
+   ]
+  },
+  {
+   "id": "creature_splash",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "water",
+    "splash"
+   ],
+   "source": [
+    "\"6 Short water splashes\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/6-short-water-splashes",
+    "\"Tiny Naval Battle Sounds Set\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/tiny-naval-battle-sounds-set"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "creatures/creature_splash_1.ogg",
+    "creatures/creature_splash_2.ogg",
+    "creatures/creature_splash_3.ogg",
+    "creatures/creature_splash_4.ogg"
+   ]
+  },
+  {
+   "id": "critter_chirp",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "chirp",
+    "small"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "creatures/critter_chirp_1.ogg",
+    "creatures/critter_chirp_2.ogg",
+    "creatures/critter_chirp_3.ogg",
+    "creatures/critter_chirp_4.ogg",
+    "creatures/critter_chirp_5.ogg",
+    "creatures/critter_chirp_6.ogg"
+   ]
+  },
+  {
+   "id": "critter_squeak",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "squeak",
+    "small"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "creatures/critter_squeak_1.ogg",
+    "creatures/critter_squeak_2.ogg",
+    "creatures/critter_squeak_3.ogg",
+    "creatures/critter_squeak_4.ogg"
+   ]
+  },
+  {
+   "id": "dig",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "dig",
+    "dirt"
+   ],
+   "source": [
+    "\"Shovel Sound\" by themightyglider (OpenGameArt, CC0): https://opengameart.org/content/shovel-sound"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "creatures/dig_1.ogg",
+    "creatures/dig_2.ogg",
+    "creatures/dig_3.ogg"
+   ]
+  },
+  {
+   "id": "munch",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "eat",
+    "munch"
+   ],
+   "source": [
+    "\"Rabbit Eating\" by Voltiment555 (OpenGameArt, CC0): https://opengameart.org/content/rabbit-eating",
+    "\"Various Sound Effects\" by Spring Spring (OpenGameArt, CC0): https://opengameart.org/content/various-sound-effects-0"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "creatures/munch_1.ogg",
+    "creatures/munch_2.ogg",
+    "creatures/munch_3.ogg",
+    "creatures/munch_4.ogg",
+    "creatures/munch_5.ogg"
+   ]
+  },
+  {
+   "id": "patter_heavy",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "footstep",
+    "heavy"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_concrete (pitched)",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "creatures/patter_heavy_1.ogg",
+    "creatures/patter_heavy_2.ogg",
+    "creatures/patter_heavy_3.ogg",
+    "creatures/patter_heavy_4.ogg"
+   ]
+  },
+  {
+   "id": "patter_small",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "footstep",
+    "small"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_grass (pitched)"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "creatures/patter_small_1.ogg",
+    "creatures/patter_small_2.ogg",
+    "creatures/patter_small_3.ogg",
+    "creatures/patter_small_4.ogg",
+    "creatures/patter_small_5.ogg"
+   ]
+  },
+  {
+   "id": "peck",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "peck",
+    "beak"
+   ],
+   "source": [
+    "Kenney Impact Sounds: impactWood_light (pitched)"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "creatures/peck_1.ogg",
+    "creatures/peck_2.ogg",
+    "creatures/peck_3.ogg"
+   ]
+  },
+  {
+   "id": "wing_flap_large",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "wings",
+    "flap",
+    "large"
+   ],
+   "source": [
+    "\"Large Wings Flap\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/large-wings-flap"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "creatures/wing_flap_large_1.ogg",
+    "creatures/wing_flap_large_2.ogg",
+    "creatures/wing_flap_large_3.ogg"
+   ]
+  },
+  {
+   "id": "wing_flap_small",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creature",
+    "wings",
+    "flap",
+    "small"
+   ],
+   "source": [
+    "\"Large Wings Flap\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/large-wings-flap",
+    "\"Various Sound Effects\" by Spring Spring (OpenGameArt, CC0): https://opengameart.org/content/various-sound-effects-0"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "creatures/wing_flap_small_1.ogg",
+    "creatures/wing_flap_small_2.ogg",
+    "creatures/wing_flap_small_3.ogg",
+    "creatures/wing_flap_small_4.ogg",
+    "creatures/wing_flap_small_5.ogg"
+   ]
+  },
+  {
+   "id": "jump_dirt",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "dirt"
+   ],
+   "source": [
+    "Kenney RPG Audio: footstep",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "footsteps/jump_dirt_1.ogg",
+    "footsteps/jump_dirt_2.ogg"
+   ]
+  },
+  {
+   "id": "jump_grass",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "grass"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_grass",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "footsteps/jump_grass_1.ogg",
+    "footsteps/jump_grass_2.ogg"
+   ]
+  },
+  {
+   "id": "jump_metal",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "metal"
+   ],
+   "source": [
+    "\"Metal footsteps on concrete\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/metal-footsteps-on-concrete",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/jump_metal_1.ogg",
+    "footsteps/jump_metal_2.ogg"
+   ]
+  },
+  {
+   "id": "jump_sand",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "sand"
+   ],
+   "source": [
+    "\"Fantozzi's Footsteps (Grass/Sand & Stone)\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/jump_sand_1.ogg",
+    "footsteps/jump_sand_2.ogg"
+   ]
+  },
+  {
+   "id": "jump_stone",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "stone"
+   ],
+   "source": [
+    "\"Fantozzi's Footsteps (Grass/Sand & Stone)\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/jump_stone_1.ogg",
+    "footsteps/jump_stone_2.ogg"
+   ]
+  },
+  {
+   "id": "jump_tile",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "tile"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_concrete (+ original tile tick)",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/jump_tile_1.ogg",
+    "footsteps/jump_tile_2.ogg"
+   ]
+  },
+  {
+   "id": "jump_water",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "water"
+   ],
+   "source": [
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "\"6 Short water splashes\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/6-short-water-splashes",
+    "Kenney Impact Sounds: footstep_grass",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/jump_water_1.ogg",
+    "footsteps/jump_water_2.ogg"
+   ]
+  },
+  {
+   "id": "jump_wood",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "jump",
+    "wood"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_wood",
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "Kenney RPG Audio: cloth"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/jump_wood_1.ogg",
+    "footsteps/jump_wood_2.ogg"
+   ]
+  },
+  {
+   "id": "land_dirt",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "dirt"
+   ],
+   "source": [
+    "Kenney RPG Audio: footstep",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_dirt_1.ogg",
+    "footsteps/land_dirt_2.ogg",
+    "footsteps/land_dirt_3.ogg"
+   ]
+  },
+  {
+   "id": "land_grass",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "grass"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_grass",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_grass_1.ogg",
+    "footsteps/land_grass_2.ogg",
+    "footsteps/land_grass_3.ogg"
+   ]
+  },
+  {
+   "id": "land_metal",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "metal"
+   ],
+   "source": [
+    "\"Metal footsteps on concrete\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/metal-footsteps-on-concrete",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_metal_1.ogg",
+    "footsteps/land_metal_2.ogg",
+    "footsteps/land_metal_3.ogg"
+   ]
+  },
+  {
+   "id": "land_sand",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "sand"
+   ],
+   "source": [
+    "\"Fantozzi's Footsteps (Grass/Sand & Stone)\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_sand_1.ogg",
+    "footsteps/land_sand_2.ogg",
+    "footsteps/land_sand_3.ogg"
+   ]
+  },
+  {
+   "id": "land_stone",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "stone"
+   ],
+   "source": [
+    "\"Fantozzi's Footsteps (Grass/Sand & Stone)\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_stone_1.ogg",
+    "footsteps/land_stone_2.ogg",
+    "footsteps/land_stone_3.ogg"
+   ]
+  },
+  {
+   "id": "land_tile",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "tile"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_concrete (+ original tile tick)",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_tile_1.ogg",
+    "footsteps/land_tile_2.ogg",
+    "footsteps/land_tile_3.ogg"
+   ]
+  },
+  {
+   "id": "land_water",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "water"
+   ],
+   "source": [
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "\"6 Short water splashes\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/6-short-water-splashes",
+    "Kenney Impact Sounds: footstep_grass",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_water_1.ogg",
+    "footsteps/land_water_2.ogg",
+    "footsteps/land_water_3.ogg"
+   ]
+  },
+  {
+   "id": "land_wood",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "land",
+    "wood"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_wood",
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "original thump"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/land_wood_1.ogg",
+    "footsteps/land_wood_2.ogg",
+    "footsteps/land_wood_3.ogg"
+   ]
+  },
+  {
+   "id": "step_dirt",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "dirt",
+    "walk"
+   ],
+   "source": [
+    "Kenney RPG Audio: footstep"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "footsteps/step_dirt_1.ogg",
+    "footsteps/step_dirt_2.ogg",
+    "footsteps/step_dirt_3.ogg",
+    "footsteps/step_dirt_4.ogg",
+    "footsteps/step_dirt_5.ogg",
+    "footsteps/step_dirt_6.ogg"
+   ]
+  },
+  {
+   "id": "step_dirt_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "dirt",
+    "run"
+   ],
+   "source": [
+    "Kenney RPG Audio: footstep"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "footsteps/step_dirt_run_1.ogg",
+    "footsteps/step_dirt_run_2.ogg",
+    "footsteps/step_dirt_run_3.ogg",
+    "footsteps/step_dirt_run_4.ogg"
+   ]
+  },
+  {
+   "id": "step_grass",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "grass",
+    "walk"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_grass"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "footsteps/step_grass_1.ogg",
+    "footsteps/step_grass_2.ogg",
+    "footsteps/step_grass_3.ogg",
+    "footsteps/step_grass_4.ogg",
+    "footsteps/step_grass_5.ogg"
+   ]
+  },
+  {
+   "id": "step_grass_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "grass",
+    "run"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_grass"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "footsteps/step_grass_run_1.ogg",
+    "footsteps/step_grass_run_2.ogg",
+    "footsteps/step_grass_run_3.ogg",
+    "footsteps/step_grass_run_4.ogg",
+    "footsteps/step_grass_run_5.ogg"
+   ]
+  },
+  {
+   "id": "step_metal",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "metal",
+    "walk"
+   ],
+   "source": [
+    "\"Metal footsteps on concrete\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/metal-footsteps-on-concrete"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_metal_1.ogg",
+    "footsteps/step_metal_2.ogg",
+    "footsteps/step_metal_3.ogg",
+    "footsteps/step_metal_4.ogg",
+    "footsteps/step_metal_5.ogg",
+    "footsteps/step_metal_6.ogg"
+   ]
+  },
+  {
+   "id": "step_metal_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "metal",
+    "run"
+   ],
+   "source": [
+    "\"Metal footsteps on concrete\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/metal-footsteps-on-concrete"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_metal_run_1.ogg",
+    "footsteps/step_metal_run_2.ogg",
+    "footsteps/step_metal_run_3.ogg",
+    "footsteps/step_metal_run_4.ogg"
+   ]
+  },
+  {
+   "id": "step_sand",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "sand",
+    "walk"
+   ],
+   "source": [
+    "\"Fantozzi's Footsteps (Grass/Sand & Stone)\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/fantozzis-footsteps-grasssand-stone"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_sand_1.ogg",
+    "footsteps/step_sand_2.ogg",
+    "footsteps/step_sand_3.ogg",
+    "footsteps/step_sand_4.ogg",
+    "footsteps/step_sand_5.ogg",
+    "footsteps/step_sand_6.ogg"
+   ]
+  },
+  {
+   "id": "step_sand_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "sand",
+    "run"
+   ],
+   "source": [
+    "\"Fantozzi's Footsteps (Grass/Sand & Stone)\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/fantozzis-footsteps-grasssand-stone"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_sand_run_1.ogg",
+    "footsteps/step_sand_run_2.ogg",
+    "footsteps/step_sand_run_3.ogg",
+    "footsteps/step_sand_run_4.ogg",
+    "footsteps/step_sand_run_5.ogg"
+   ]
+  },
+  {
+   "id": "step_stone",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "stone",
+    "walk"
+   ],
+   "source": [
+    "\"Fantozzi's Footsteps (Grass/Sand & Stone)\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/fantozzis-footsteps-grasssand-stone"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_stone_1.ogg",
+    "footsteps/step_stone_2.ogg",
+    "footsteps/step_stone_3.ogg",
+    "footsteps/step_stone_4.ogg",
+    "footsteps/step_stone_5.ogg",
+    "footsteps/step_stone_6.ogg"
+   ]
+  },
+  {
+   "id": "step_stone_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "stone",
+    "run"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_concrete"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "footsteps/step_stone_run_1.ogg",
+    "footsteps/step_stone_run_2.ogg",
+    "footsteps/step_stone_run_3.ogg",
+    "footsteps/step_stone_run_4.ogg",
+    "footsteps/step_stone_run_5.ogg"
+   ]
+  },
+  {
+   "id": "step_tallgrass",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "tallgrass",
+    "walk"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_grass",
+    "\"20 Rustles of dry leaves\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/20-rustles-dry-leaves"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_tallgrass_1.ogg",
+    "footsteps/step_tallgrass_2.ogg",
+    "footsteps/step_tallgrass_3.ogg",
+    "footsteps/step_tallgrass_4.ogg",
+    "footsteps/step_tallgrass_5.ogg",
+    "footsteps/step_tallgrass_6.ogg"
+   ]
+  },
+  {
+   "id": "step_tallgrass_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "tallgrass",
+    "run"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_grass",
+    "\"20 Rustles of dry leaves\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/20-rustles-dry-leaves"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_tallgrass_run_1.ogg",
+    "footsteps/step_tallgrass_run_2.ogg",
+    "footsteps/step_tallgrass_run_3.ogg",
+    "footsteps/step_tallgrass_run_4.ogg",
+    "footsteps/step_tallgrass_run_5.ogg"
+   ]
+  },
+  {
+   "id": "step_tile",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "tile",
+    "walk"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_concrete (+ original tile tick)"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/step_tile_1.ogg",
+    "footsteps/step_tile_2.ogg",
+    "footsteps/step_tile_3.ogg",
+    "footsteps/step_tile_4.ogg",
+    "footsteps/step_tile_5.ogg"
+   ]
+  },
+  {
+   "id": "step_tile_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "tile",
+    "run"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_concrete (+ original tile tick)"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "footsteps/step_tile_run_1.ogg",
+    "footsteps/step_tile_run_2.ogg",
+    "footsteps/step_tile_run_3.ogg",
+    "footsteps/step_tile_run_4.ogg",
+    "footsteps/step_tile_run_5.ogg"
+   ]
+  },
+  {
+   "id": "step_water",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "water",
+    "walk"
+   ],
+   "source": [
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "\"6 Short water splashes\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/6-short-water-splashes",
+    "Kenney Impact Sounds: footstep_grass"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_water_1.ogg",
+    "footsteps/step_water_2.ogg",
+    "footsteps/step_water_3.ogg",
+    "footsteps/step_water_4.ogg",
+    "footsteps/step_water_5.ogg",
+    "footsteps/step_water_6.ogg"
+   ]
+  },
+  {
+   "id": "step_water_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "water",
+    "run"
+   ],
+   "source": [
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "\"6 Short water splashes\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/6-short-water-splashes",
+    "Kenney Impact Sounds: footstep_grass"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_water_run_1.ogg",
+    "footsteps/step_water_run_2.ogg",
+    "footsteps/step_water_run_3.ogg",
+    "footsteps/step_water_run_4.ogg",
+    "footsteps/step_water_run_5.ogg"
+   ]
+  },
+  {
+   "id": "step_wood",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "wood",
+    "walk"
+   ],
+   "source": [
+    "Kenney Impact Sounds: footstep_wood",
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_wood_1.ogg",
+    "footsteps/step_wood_2.ogg",
+    "footsteps/step_wood_3.ogg",
+    "footsteps/step_wood_4.ogg",
+    "footsteps/step_wood_5.ogg",
+    "footsteps/step_wood_6.ogg"
+   ]
+  },
+  {
+   "id": "step_wood_run",
+   "category": "footsteps",
+   "vol": 0.0,
+   "pitch": [
+    0.94,
+    1.06
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 6,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "footstep",
+    "wood",
+    "run"
+   ],
+   "source": [
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "Kenney Impact Sounds: footstep_wood"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "footsteps/step_wood_run_1.ogg",
+    "footsteps/step_wood_run_2.ogg",
+    "footsteps/step_wood_run_3.ogg",
+    "footsteps/step_wood_run_4.ogg"
+   ]
+  },
+  {
+   "id": "ball_click",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "capture-ball",
+    "click"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/ball_click_1.ogg",
+    "interior/ball_click_2.ogg",
+    "interior/ball_click_3.ogg"
+   ]
+  },
+  {
+   "id": "ball_open",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "capture-ball",
+    "open"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/ball_open_1.ogg",
+    "interior/ball_open_2.ogg"
+   ]
+  },
+  {
+   "id": "book_shelf",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "book"
+   ],
+   "source": [
+    "Kenney RPG Audio: bookPlace, bookClose"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "interior/book_shelf_1.ogg",
+    "interior/book_shelf_2.ogg",
+    "interior/book_shelf_3.ogg",
+    "interior/book_shelf_4.ogg"
+   ]
+  },
+  {
+   "id": "clock_loop",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    1.0,
+    1.0
+   ],
+   "vjit": 0.0,
+   "mode": "3d",
+   "dist": 7.0,
+   "unit": 1.0,
+   "loop": true,
+   "voices": 8,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "clock",
+    "loop"
+   ],
+   "source": [
+    "\"Ticking clock.\" by bart (OpenGameArt, CC0): https://opengameart.org/content/ticking-clock"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/clock_loop_1.ogg"
+   ]
+  },
+  {
+   "id": "clock_tick",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "clock"
+   ],
+   "source": [
+    "\"Ticking clock.\" by bart (OpenGameArt, CC0): https://opengameart.org/content/ticking-clock"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/clock_tick_1.ogg",
+    "interior/clock_tick_2.ogg",
+    "interior/clock_tick_3.ogg",
+    "interior/clock_tick_4.ogg"
+   ]
+  },
+  {
+   "id": "cupboard",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "cupboard",
+    "door"
+   ],
+   "source": [
+    "\"100 CC0 metal and wood SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "Kenney RPG Audio: creak"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/cupboard_1.ogg",
+    "interior/cupboard_2.ogg",
+    "interior/cupboard_3.ogg"
+   ]
+  },
+  {
+   "id": "door_knock",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "door",
+    "knock"
+   ],
+   "source": [
+    "Kenney Impact Sounds: impactWood_medium"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "interior/door_knock_1.ogg",
+    "interior/door_knock_2.ogg"
+   ]
+  },
+  {
+   "id": "door_locked",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "door",
+    "locked"
+   ],
+   "source": [
+    "Kenney RPG Audio: metalLatch, metalClick"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "interior/door_locked_1.ogg"
+   ]
+  },
+  {
+   "id": "door_slide_close",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "door",
+    "automatic",
+    "lab"
+   ],
+   "source": [
+    "Kenney Sci-fi Sounds: doorClose",
+    "original hiss"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/door_slide_close_1.ogg",
+    "interior/door_slide_close_2.ogg"
+   ]
+  },
+  {
+   "id": "door_slide_open",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "door",
+    "automatic",
+    "lab"
+   ],
+   "source": [
+    "Kenney Sci-fi Sounds: doorOpen",
+    "original hiss"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/door_slide_open_1.ogg",
+    "interior/door_slide_open_2.ogg"
+   ]
+  },
+  {
+   "id": "door_wood_close",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "door",
+    "wood"
+   ],
+   "source": [
+    "\"Door Open, Door Close Set\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/door-open-door-close-set",
+    "Kenney RPG Audio: doorClose"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/door_wood_close_1.ogg",
+    "interior/door_wood_close_2.ogg",
+    "interior/door_wood_close_3.ogg",
+    "interior/door_wood_close_4.ogg",
+    "interior/door_wood_close_5.ogg"
+   ]
+  },
+  {
+   "id": "door_wood_open",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "door",
+    "wood"
+   ],
+   "source": [
+    "\"Door Open, Door Close Set\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/door-open-door-close-set",
+    "Kenney RPG Audio: doorOpen"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/door_wood_open_1.ogg",
+    "interior/door_wood_open_2.ogg",
+    "interior/door_wood_open_3.ogg",
+    "interior/door_wood_open_4.ogg",
+    "interior/door_wood_open_5.ogg"
+   ]
+  },
+  {
+   "id": "drawer",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "drawer",
+    "wood"
+   ],
+   "source": [
+    "\"100 CC0 metal and wood SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-metal-and-wood-sfx"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/drawer_1.ogg",
+    "interior/drawer_2.ogg",
+    "interior/drawer_3.ogg"
+   ]
+  },
+  {
+   "id": "fence_latch",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "fence",
+    "latch"
+   ],
+   "source": [
+    "Kenney RPG Audio: metalLatch, metalClick",
+    "\"100 CC0 metal and wood SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-metal-and-wood-sfx"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/fence_latch_1.ogg",
+    "interior/fence_latch_2.ogg",
+    "interior/fence_latch_3.ogg"
+   ]
+  },
+  {
+   "id": "gate_creak",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "gate",
+    "creak",
+    "hinge"
+   ],
+   "source": [
+    "\"100 CC0 SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx",
+    "\"100 CC0 metal and wood SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "\"Metal Interactions\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/metal-interactions"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/gate_creak_1.ogg",
+    "interior/gate_creak_2.ogg",
+    "interior/gate_creak_3.ogg",
+    "interior/gate_creak_4.ogg",
+    "interior/gate_creak_5.ogg"
+   ]
+  },
+  {
+   "id": "glass_clink",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "glass",
+    "lab"
+   ],
+   "source": [
+    "Kenney Impact Sounds: impactGlass_light"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "interior/glass_clink_1.ogg",
+    "interior/glass_clink_2.ogg",
+    "interior/glass_clink_3.ogg",
+    "interior/glass_clink_4.ogg"
+   ]
+  },
+  {
+   "id": "globe_spin",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "globe"
+   ],
+   "source": [
+    "original whoosh",
+    "Kenney RPG Audio: creak"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/globe_spin_1.ogg"
+   ]
+  },
+  {
+   "id": "light_buzz",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    1.0,
+    1.0
+   ],
+   "vjit": 0.0,
+   "mode": "3d",
+   "dist": 5.0,
+   "unit": 1.0,
+   "loop": true,
+   "voices": 8,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "light",
+    "buzz",
+    "loop"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/light_buzz_1.ogg"
+   ]
+  },
+  {
+   "id": "machine_hum",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    1.0,
+    1.0
+   ],
+   "vjit": 0.0,
+   "mode": "3d",
+   "dist": 16.0,
+   "unit": 2.5,
+   "loop": true,
+   "voices": 8,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "machine",
+    "hum",
+    "loop"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/machine_hum_1.ogg"
+   ]
+  },
+  {
+   "id": "mailbox",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "mailbox",
+    "metal",
+    "lid"
+   ],
+   "source": [
+    "\"100 CC0 metal and wood SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "\"Metal Interactions\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/metal-interactions"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/mailbox_1.ogg",
+    "interior/mailbox_2.ogg",
+    "interior/mailbox_3.ogg",
+    "interior/mailbox_4.ogg"
+   ]
+  },
+  {
+   "id": "page_turn",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "paper",
+    "book"
+   ],
+   "source": [
+    "Kenney RPG Audio: bookFlip"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "interior/page_turn_1.ogg",
+    "interior/page_turn_2.ogg",
+    "interior/page_turn_3.ogg"
+   ]
+  },
+  {
+   "id": "pc_beep",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "computer",
+    "beep"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/pc_beep_1.ogg",
+    "interior/pc_beep_2.ogg",
+    "interior/pc_beep_3.ogg",
+    "interior/pc_beep_4.ogg"
+   ]
+  },
+  {
+   "id": "pc_boot",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "computer",
+    "boot"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/pc_boot_1.ogg"
+   ]
+  },
+  {
+   "id": "pc_hum",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    1.0,
+    1.0
+   ],
+   "vjit": 0.0,
+   "mode": "3d",
+   "dist": 7.0,
+   "unit": 1.5,
+   "loop": true,
+   "voices": 8,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "computer",
+    "fan",
+    "loop"
+   ],
+   "source": [
+    "\"General Household Sound Effects\" by bretbernhoft (OpenGameArt, CC0): https://opengameart.org/content/general-household-sound-effects"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/pc_hum_1.ogg"
+   ]
+  },
+  {
+   "id": "room_tone",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "room",
+    "tone",
+    "loop"
+   ],
+   "source": [
+    "\"General Household Sound Effects\" by bretbernhoft (OpenGameArt, CC0): https://opengameart.org/content/general-household-sound-effects"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/room_tone_1.ogg"
+   ]
+  },
+  {
+   "id": "sign_knock",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "sign",
+    "wood"
+   ],
+   "source": [
+    "Kenney Impact Sounds: impactWood_light"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "interior/sign_knock_1.ogg",
+    "interior/sign_knock_2.ogg",
+    "interior/sign_knock_3.ogg"
+   ]
+  },
+  {
+   "id": "switch",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "switch",
+    "light",
+    "button"
+   ],
+   "source": [
+    "\"10 Clicks and Switches\" by StarNinjas (OpenGameArt, CC0): https://opengameart.org/content/10-clicks-and-switches",
+    "\"100 CC0 SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/switch_1.ogg",
+    "interior/switch_2.ogg",
+    "interior/switch_3.ogg",
+    "interior/switch_4.ogg",
+    "interior/switch_5.ogg",
+    "interior/switch_6.ogg"
+   ]
+  },
+  {
+   "id": "tank_bubbles",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    1.0,
+    1.0
+   ],
+   "vjit": 0.0,
+   "mode": "3d",
+   "dist": 14.0,
+   "unit": 2.0,
+   "loop": true,
+   "voices": 8,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "water",
+    "bubbles",
+    "tank",
+    "aquarium",
+    "loop"
+   ],
+   "source": [
+    "\"Bubble Sound Effects\" by BMacZero (OpenGameArt, CC0): https://opengameart.org/content/bubble-sound-effects",
+    "original pump hum"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "interior/tank_bubbles_1.ogg"
+   ]
+  },
+  {
+   "id": "tank_glug",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "water",
+    "bubbles",
+    "tank"
+   ],
+   "source": [
+    "\"Bubble Sound Effects\" by BMacZero (OpenGameArt, CC0): https://opengameart.org/content/bubble-sound-effects"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/tank_glug_1.ogg",
+    "interior/tank_glug_2.ogg",
+    "interior/tank_glug_3.ogg"
+   ]
+  },
+  {
+   "id": "vent_loop",
+   "category": "interior",
+   "vol": 0.0,
+   "pitch": [
+    1.0,
+    1.0
+   ],
+   "vjit": 0.0,
+   "mode": "3d",
+   "dist": 10.0,
+   "unit": 2.0,
+   "loop": true,
+   "voices": 8,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "vent",
+    "air",
+    "loop"
+   ],
+   "source": [
+    "\"General Household Sound Effects\" by bretbernhoft (OpenGameArt, CC0): https://opengameart.org/content/general-household-sound-effects"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "interior/vent_loop_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_birds_day",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "day",
+    "birds",
+    "park",
+    "loop"
+   ],
+   "source": [
+    "\"Park ambiences\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/park-ambiences"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_birds_day_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_crickets",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "night",
+    "crickets",
+    "insects",
+    "loop"
+   ],
+   "source": [
+    "\"Crickets Ambient Noise - loopable\" by Wolfgang_ (OpenGameArt, CC0): https://opengameart.org/content/crickets-ambient-noise-loopable",
+    "\"cricket sounds\" by syncopika (OpenGameArt, CC0): https://opengameart.org/content/cricket-sounds"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_crickets_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_drips",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "3d",
+   "dist": 20.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "cave",
+    "drips",
+    "water",
+    "loop"
+   ],
+   "source": [
+    "\"Dripping water loop\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/dripping-water-loop"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_drips_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_pond",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 6.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "pond",
+    "water",
+    "loop"
+   ],
+   "source": [
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2",
+    "original plops"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/amb_pond_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_rain_heavy",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "rain",
+    "heavy",
+    "loop"
+   ],
+   "source": [
+    "\"Rain (loopable)\" by Ylmir (OpenGameArt, CC0): https://opengameart.org/content/rain-loopable"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_rain_heavy_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_rain_light",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "rain",
+    "light",
+    "loop"
+   ],
+   "source": [
+    "\"Rain (loopable)\" by Ylmir (OpenGameArt, CC0): https://opengameart.org/content/rain-loopable"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_rain_light_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_rain_roof",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "rain",
+    "roof",
+    "indoor",
+    "loop"
+   ],
+   "source": [
+    "\"Rain (loopable)\" by Ylmir (OpenGameArt, CC0): https://opengameart.org/content/rain-loopable",
+    "original drips"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/amb_rain_roof_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_sea_waves",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "3d",
+   "dist": 160.0,
+   "unit": 18.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "sea",
+    "waves",
+    "surf",
+    "loop"
+   ],
+   "source": [
+    "\"Sea and river wave sounds\" by RandomMind (OpenGameArt, CC0): https://opengameart.org/content/sea-and-river-wave-sounds"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_sea_waves_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_shore_lap",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "sea",
+    "shore",
+    "lapping",
+    "beach",
+    "loop"
+   ],
+   "source": [
+    "\"Beach Ocean Waves\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/beach-ocean-waves",
+    "\"Water Waves\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/water-waves",
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_shore_lap_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_stream",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "3d",
+   "dist": 45.0,
+   "unit": 5.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "stream",
+    "brook",
+    "river",
+    "water",
+    "loop"
+   ],
+   "source": [
+    "\"Park ambiences\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/park-ambiences"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_stream_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_wind_light",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "wind",
+    "light",
+    "loop"
+   ],
+   "source": [
+    "\"Park ambiences\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/park-ambiences"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_wind_light_1.ogg"
+   ]
+  },
+  {
+   "id": "amb_wind_strong",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "wind",
+    "strong",
+    "gusts",
+    "hill",
+    "loop"
+   ],
+   "source": [
+    "original wind",
+    "\"Park ambiences\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/park-ambiences"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py); CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/amb_wind_strong_1.ogg"
+   ]
+  },
+  {
+   "id": "bird_call",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 60.0,
+   "unit": 6.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "bird",
+    "day",
+    "song"
+   ],
+   "source": [
+    "\"Park ambiences\" by Thimras (OpenGameArt, CC0): https://opengameart.org/content/park-ambiences",
+    "\"Ambient Bird Sounds\" by isaiah658 (OpenGameArt, CC0): https://opengameart.org/content/ambient-bird-sounds"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/bird_call_1.ogg",
+    "nature/bird_call_2.ogg",
+    "nature/bird_call_3.ogg",
+    "nature/bird_call_4.ogg",
+    "nature/bird_call_5.ogg",
+    "nature/bird_call_6.ogg",
+    "nature/bird_call_7.ogg",
+    "nature/bird_call_8.ogg"
+   ]
+  },
+  {
+   "id": "bush_rustle",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 16.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "plants",
+    "bush",
+    "leaves",
+    "rustle"
+   ],
+   "source": [
+    "\"20 Rustles of dry leaves\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/20-rustles-dry-leaves"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/bush_rustle_1.ogg",
+    "nature/bush_rustle_2.ogg",
+    "nature/bush_rustle_3.ogg",
+    "nature/bush_rustle_4.ogg",
+    "nature/bush_rustle_5.ogg",
+    "nature/bush_rustle_6.ogg",
+    "nature/bush_rustle_7.ogg"
+   ]
+  },
+  {
+   "id": "dog_distant",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 120.0,
+   "unit": 8.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "dog",
+    "town",
+    "distant",
+    "bark"
+   ],
+   "source": [
+    "\"Dog sounds\" by pauliuw (OpenGameArt, CC0): https://opengameart.org/content/dog-sounds"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/dog_distant_1.ogg",
+    "nature/dog_distant_2.ogg",
+    "nature/dog_distant_3.ogg",
+    "nature/dog_distant_4.ogg"
+   ]
+  },
+  {
+   "id": "frog",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 4.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "frog",
+    "night",
+    "pond"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/frog_1.ogg",
+    "nature/frog_2.ogg",
+    "nature/frog_3.ogg",
+    "nature/frog_4.ogg",
+    "nature/frog_5.ogg",
+    "nature/frog_6.ogg"
+   ]
+  },
+  {
+   "id": "owl",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 90.0,
+   "unit": 8.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "owl",
+    "night"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/owl_1.ogg",
+    "nature/owl_2.ogg",
+    "nature/owl_3.ogg"
+   ]
+  },
+  {
+   "id": "seagull",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 90.0,
+   "unit": 8.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "seagull",
+    "coast"
+   ],
+   "source": [
+    "\"Solo Seagull Sound Effects\" by Rango Mango (OpenGameArt, CC0): https://opengameart.org/content/solo-seagull-sound-effects"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/seagull_1.ogg",
+    "nature/seagull_2.ogg",
+    "nature/seagull_3.ogg",
+    "nature/seagull_4.ogg"
+   ]
+  },
+  {
+   "id": "thunder",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "thunder",
+    "storm"
+   ],
+   "source": [
+    "\"Rain + Long Thunder\" by WuxiaScrub (OpenGameArt, CC0): https://opengameart.org/content/rain-long-thunder",
+    "original"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/thunder_1.ogg",
+    "nature/thunder_2.ogg",
+    "nature/thunder_3.ogg"
+   ]
+  },
+  {
+   "id": "town_bell",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 200.0,
+   "unit": 15.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "bell",
+    "town"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/town_bell_1.ogg",
+    "nature/town_bell_2.ogg"
+   ]
+  },
+  {
+   "id": "tree_creak",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "tree",
+    "creak",
+    "wind",
+    "wood"
+   ],
+   "source": [
+    "\"Tree Creaking\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/tree-creaking"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "nature/tree_creak_1.ogg",
+    "nature/tree_creak_2.ogg",
+    "nature/tree_creak_3.ogg"
+   ]
+  },
+  {
+   "id": "water_drip",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 12.0,
+   "unit": 1.5,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "water",
+    "drip"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/water_drip_1.ogg",
+    "nature/water_drip_2.ogg",
+    "nature/water_drip_3.ogg",
+    "nature/water_drip_4.ogg"
+   ]
+  },
+  {
+   "id": "wind_chimes",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "chimes",
+    "porch",
+    "wind"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/wind_chimes_1.ogg",
+    "nature/wind_chimes_2.ogg",
+    "nature/wind_chimes_3.ogg"
+   ]
+  },
+  {
+   "id": "wind_gust",
+   "category": "nature",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "wind",
+    "gust"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "nature/wind_gust_1.ogg",
+    "nature/wind_gust_2.ogg",
+    "nature/wind_gust_3.ogg"
+   ]
+  },
+  {
+   "id": "bike_bell",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "bicycle",
+    "bell"
+   ],
+   "source": [
+    "\"Bicycle Sounds\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/bicycle-sounds"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "town/bike_bell_1.ogg",
+    "town/bike_bell_2.ogg",
+    "town/bike_bell_3.ogg"
+   ]
+  },
+  {
+   "id": "bike_freewheel",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "bicycle",
+    "ratchet",
+    "spokes"
+   ],
+   "source": [
+    "\"Bicycle Sounds\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/bicycle-sounds"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "town/bike_freewheel_1.ogg",
+    "town/bike_freewheel_2.ogg"
+   ]
+  },
+  {
+   "id": "boat_creak",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "boat",
+    "wood",
+    "creak",
+    "dock"
+   ],
+   "source": [
+    "\"100 CC0 metal and wood SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "\"Tree Creaking\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/tree-creaking"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "town/boat_creak_1.ogg",
+    "town/boat_creak_2.ogg",
+    "town/boat_creak_3.ogg"
+   ]
+  },
+  {
+   "id": "chicken",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "chicken",
+    "hen",
+    "farm"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "town/chicken_1.ogg",
+    "town/chicken_2.ogg",
+    "town/chicken_3.ogg",
+    "town/chicken_4.ogg",
+    "town/chicken_5.ogg"
+   ]
+  },
+  {
+   "id": "cow_bell",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "cow",
+    "bell",
+    "farm"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "town/cow_bell_1.ogg",
+    "town/cow_bell_2.ogg",
+    "town/cow_bell_3.ogg"
+   ]
+  },
+  {
+   "id": "dock_bell",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 150.0,
+   "unit": 10.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "bell",
+    "dock",
+    "ship"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "town/dock_bell_1.ogg",
+    "town/dock_bell_2.ogg"
+   ]
+  },
+  {
+   "id": "garden_rake",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "garden",
+    "tool",
+    "rake"
+   ],
+   "source": [
+    "\"42 Snow and Gravel Footsteps\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/42-snow-and-gravel-footsteps"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "town/garden_rake_1.ogg",
+    "town/garden_rake_2.ogg",
+    "town/garden_rake_3.ogg"
+   ]
+  },
+  {
+   "id": "rope_creak",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "rope",
+    "dock",
+    "mooring"
+   ],
+   "source": [
+    "\"Tree Creaking\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/tree-creaking"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "town/rope_creak_1.ogg",
+    "town/rope_creak_2.ogg",
+    "town/rope_creak_3.ogg"
+   ]
+  },
+  {
+   "id": "shovel",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "garden",
+    "tool",
+    "shovel"
+   ],
+   "source": [
+    "\"Shovel Sound\" by themightyglider (OpenGameArt, CC0): https://opengameart.org/content/shovel-sound"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "town/shovel_1.ogg",
+    "town/shovel_2.ogg"
+   ]
+  },
+  {
+   "id": "water_pump",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "pump",
+    "water",
+    "farm",
+    "well"
+   ],
+   "source": [
+    "\"100 CC0 metal and wood SFX\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "\"100 CC0 SFX #2\" by rubberduck (OpenGameArt, CC0): https://opengameart.org/content/100-cc0-sfx-2"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source)",
+   "files": [
+    "town/water_pump_1.ogg",
+    "town/water_pump_2.ogg"
+   ]
+  },
+  {
+   "id": "well_plop",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "well",
+    "water",
+    "echo"
+   ],
+   "source": [
+    "\"6 Short water splashes\" by qubodup (OpenGameArt, CC0): https://opengameart.org/content/6-short-water-splashes",
+    "original echo"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "town/well_plop_1.ogg",
+    "town/well_plop_2.ogg"
+   ]
+  },
+  {
+   "id": "windmill_creak",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "3d",
+   "dist": 70.0,
+   "unit": 8.0,
+   "loop": true,
+   "voices": 1,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "windmill",
+    "creak",
+    "loop"
+   ],
+   "source": [
+    "\"Tree Creaking\" by AntumDeluge (OpenGameArt, CC0): https://opengameart.org/content/tree-creaking",
+    "original whoosh"
+   ],
+   "license": "CC0 1.0 (OpenGameArt; authors in source); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "town/windmill_creak_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_banner",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_banner_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_blip_critter",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.95,
+    1.08
+   ],
+   "vjit": 1.0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui",
+    "dialogue"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_blip_critter_1.ogg",
+    "ui/ui_blip_critter_2.ogg",
+    "ui/ui_blip_critter_3.ogg",
+    "ui/ui_blip_critter_4.ogg"
+   ]
+  },
+  {
+   "id": "ui_blip_high",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.97,
+    1.03
+   ],
+   "vjit": 1.0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui",
+    "dialogue"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_blip_high_1.ogg",
+    "ui/ui_blip_high_2.ogg",
+    "ui/ui_blip_high_3.ogg",
+    "ui/ui_blip_high_4.ogg"
+   ]
+  },
+  {
+   "id": "ui_blip_kid",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.97,
+    1.03
+   ],
+   "vjit": 1.0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui",
+    "dialogue"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_blip_kid_1.ogg",
+    "ui/ui_blip_kid_2.ogg",
+    "ui/ui_blip_kid_3.ogg",
+    "ui/ui_blip_kid_4.ogg"
+   ]
+  },
+  {
+   "id": "ui_blip_low",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.97,
+    1.03
+   ],
+   "vjit": 1.0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui",
+    "dialogue"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_blip_low_1.ogg",
+    "ui/ui_blip_low_2.ogg",
+    "ui/ui_blip_low_3.ogg",
+    "ui/ui_blip_low_4.ogg"
+   ]
+  },
+  {
+   "id": "ui_blip_mid",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.97,
+    1.03
+   ],
+   "vjit": 1.0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui",
+    "dialogue"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_blip_mid_1.ogg",
+    "ui/ui_blip_mid_2.ogg",
+    "ui/ui_blip_mid_3.ogg",
+    "ui/ui_blip_mid_4.ogg"
+   ]
+  },
+  {
+   "id": "ui_blip_text",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.97,
+    1.03
+   ],
+   "vjit": 1.0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui",
+    "dialogue"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_blip_text_1.ogg",
+    "ui/ui_blip_text_2.ogg",
+    "ui/ui_blip_text_3.ogg",
+    "ui/ui_blip_text_4.ogg"
+   ]
+  },
+  {
+   "id": "ui_cancel",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: back"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_cancel_1.ogg",
+    "ui/ui_cancel_2.ogg",
+    "ui/ui_cancel_3.ogg"
+   ]
+  },
+  {
+   "id": "ui_confirm",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: confirmation"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_confirm_1.ogg",
+    "ui/ui_confirm_2.ogg",
+    "ui/ui_confirm_3.ogg"
+   ]
+  },
+  {
+   "id": "ui_cursor",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: select"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_cursor_1.ogg",
+    "ui/ui_cursor_2.ogg",
+    "ui/ui_cursor_3.ogg",
+    "ui/ui_cursor_4.ogg"
+   ]
+  },
+  {
+   "id": "ui_dialog_advance",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_dialog_advance_1.ogg",
+    "ui/ui_dialog_advance_2.ogg",
+    "ui/ui_dialog_advance_3.ogg"
+   ]
+  },
+  {
+   "id": "ui_dialog_close",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: close"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_dialog_close_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_dialog_open",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: open"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_dialog_open_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_error",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: error"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl); CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_error_1.ogg",
+    "ui/ui_error_2.ogg"
+   ]
+  },
+  {
+   "id": "ui_item_get",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "original stinger"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_item_get_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_menu_close",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: minimize"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_menu_close_1.ogg",
+    "ui/ui_menu_close_2.ogg"
+   ]
+  },
+  {
+   "id": "ui_menu_open",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: maximize"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_menu_open_1.ogg",
+    "ui/ui_menu_open_2.ogg"
+   ]
+  },
+  {
+   "id": "ui_notify",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_notify_1.ogg",
+    "ui/ui_notify_2.ogg"
+   ]
+  },
+  {
+   "id": "ui_prompt",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: drop"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_prompt_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_save",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "ui/ui_save_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_slider_tick",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: tick"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_slider_tick_1.ogg",
+    "ui/ui_slider_tick_2.ogg",
+    "ui/ui_slider_tick_3.ogg"
+   ]
+  },
+  {
+   "id": "ui_tab",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: switch"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_tab_1.ogg",
+    "ui/ui_tab_2.ogg",
+    "ui/ui_tab_3.ogg"
+   ]
+  },
+  {
+   "id": "ui_toggle_off",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: toggle"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_toggle_off_1.ogg"
+   ]
+  },
+  {
+   "id": "ui_toggle_on",
+   "category": "ui",
+   "vol": 0.0,
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "vjit": 0.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "UI",
+   "gap": 0.0,
+   "tags": [
+    "ui"
+   ],
+   "source": [
+    "Kenney Interface Sounds: toggle"
+   ],
+   "license": "CC0 1.0 (Kenney, kenney.nl)",
+   "files": [
+    "ui/ui_toggle_on_1.ogg"
+   ]
+  }
+ ],
+ "sources": [
+  {
+   "title": "10 Clicks and Switches",
+   "author": "StarNinjas",
+   "url": "https://opengameart.org/content/10-clicks-and-switches",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "100 CC0 metal and wood SFX",
+   "author": "rubberduck",
+   "url": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "100 CC0 SFX",
+   "author": "rubberduck",
+   "url": "https://opengameart.org/content/100-cc0-sfx",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "100 CC0 SFX #2",
+   "author": "rubberduck",
+   "url": "https://opengameart.org/content/100-cc0-sfx-2",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "20 Rustles of dry leaves",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/20-rustles-dry-leaves",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "42 Snow and Gravel Footsteps",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/42-snow-and-gravel-footsteps",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "6 Short water splashes",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/6-short-water-splashes",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Ambient Bird Sounds",
+   "author": "isaiah658",
+   "url": "https://opengameart.org/content/ambient-bird-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Beach Ocean Waves",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/beach-ocean-waves",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Bicycle Sounds",
+   "author": "AntumDeluge",
+   "url": "https://opengameart.org/content/bicycle-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Bubble Sound Effects",
+   "author": "BMacZero",
+   "url": "https://opengameart.org/content/bubble-sound-effects",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "cricket sounds",
+   "author": "syncopika",
+   "url": "https://opengameart.org/content/cricket-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Crickets Ambient Noise - loopable",
+   "author": "Wolfgang_",
+   "url": "https://opengameart.org/content/crickets-ambient-noise-loopable",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Dog sounds",
+   "author": "pauliuw",
+   "url": "https://opengameart.org/content/dog-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Door Open, Door Close Set",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/door-open-door-close-set",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Dripping water loop",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/dripping-water-loop",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "General Household Sound Effects",
+   "author": "bretbernhoft",
+   "url": "https://opengameart.org/content/general-household-sound-effects",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Large Wings Flap",
+   "author": "AntumDeluge",
+   "url": "https://opengameart.org/content/large-wings-flap",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Metal footsteps on concrete",
+   "author": "Thimras",
+   "url": "https://opengameart.org/content/metal-footsteps-on-concrete",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Metal Interactions",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/metal-interactions",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Park ambiences",
+   "author": "Thimras",
+   "url": "https://opengameart.org/content/park-ambiences",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Rabbit Eating",
+   "author": "Voltiment555",
+   "url": "https://opengameart.org/content/rabbit-eating",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Rain + Long Thunder",
+   "author": "WuxiaScrub",
+   "url": "https://opengameart.org/content/rain-long-thunder",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Rain (loopable)",
+   "author": "Ylmir",
+   "url": "https://opengameart.org/content/rain-loopable",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Sea and river wave sounds",
+   "author": "RandomMind",
+   "url": "https://opengameart.org/content/sea-and-river-wave-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Shovel Sound",
+   "author": "themightyglider",
+   "url": "https://opengameart.org/content/shovel-sound",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Solo Seagull Sound Effects",
+   "author": "Rango Mango",
+   "url": "https://opengameart.org/content/solo-seagull-sound-effects",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Ticking clock.",
+   "author": "bart",
+   "url": "https://opengameart.org/content/ticking-clock",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Tiny Naval Battle Sounds Set",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/tiny-naval-battle-sounds-set",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Tree Creaking",
+   "author": "AntumDeluge",
+   "url": "https://opengameart.org/content/tree-creaking",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Various Sound Effects",
+   "author": "Spring Spring",
+   "url": "https://opengameart.org/content/various-sound-effects-0",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Water Waves",
+   "author": "qubodup",
+   "url": "https://opengameart.org/content/water-waves",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Kenney Impact Sounds",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/impact-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Kenney Interface Sounds",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Kenney Rpg Audio",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Kenney Ui Audio",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/ui-audio",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Kenney Sci Fi Sounds",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/sci-fi-sounds",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Kenney Digital Audio",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0 1.0"
+  },
+  {
+   "title": "Kenney Casino Audio",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/casino-audio",
+   "license": "CC0 1.0"
+  }
+ ],
+ "oga_used": [
+  "10-clicks-and-switches",
+  "100-cc0-metal-and-wood-sfx",
+  "100-cc0-sfx",
+  "100-cc0-sfx-2",
+  "20-rustles-dry-leaves",
+  "42-snow-and-gravel-footsteps",
+  "6-short-water-splashes",
+  "ambient-bird-sounds",
+  "beach-ocean-waves",
+  "bicycle-sounds",
+  "bubble-sound-effects",
+  "cricket-sounds",
+  "crickets-ambient-noise-loopable",
+  "dog-sounds",
+  "door-open-door-close-set",
+  "dripping-water-loop",
+  "fantozzis-footsteps-grasssand-stone",
+  "general-household-sound-effects",
+  "large-wings-flap",
+  "metal-footsteps-on-concrete",
+  "metal-interactions",
+  "park-ambiences",
+  "rabbit-eating",
+  "rain-long-thunder",
+  "rain-loopable",
+  "sea-and-river-wave-sounds",
+  "shovel-sound",
+  "solo-seagull-sound-effects",
+  "ticking-clock",
+  "tiny-naval-battle-sounds-set",
+  "tree-creaking",
+  "various-sound-effects-0",
+  "water-waves"
+ ]
+}

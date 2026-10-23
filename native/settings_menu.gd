@@ -44,12 +44,14 @@ func open(pad := false) -> void:
 	was_paused = get_tree().paused
 	get_tree().paused = true
 	root.visible = true
+	Sfx.ui("ui_menu_open")
 	_fill()
 	if pad: _focus_first()
 
 func close() -> void:
 	if not root.visible: return
 	root.visible = false
+	Sfx.ui("ui_menu_close")
 	get_tree().paused = was_paused
 	var f := root.get_viewport().gui_get_focus_owner()
 	if f: f.release_focus()
@@ -158,6 +160,7 @@ func _build() -> void:
 	Settings.changed.connect(func(_k, _v): if root.visible: _refresh_values())
 
 func _set_tab(t: String, pad: bool) -> void:
+	if t != tab: Sfx.ui("ui_tab")
 	tab = t
 	_fill()
 	if pad: _focus_first()
@@ -172,6 +175,7 @@ func _fill() -> void:
 		_row(r[0], r[1], r[2], r[3])
 	if tab == "Controls": _legend()
 	if tab == "Updates": _updates()
+	if tab == "Audio": _audio_credits()
 	_refresh_values()
 	scroll.scroll_vertical = 0
 
@@ -217,18 +221,26 @@ func _row(key: String, label: String, values: Array, hint: String) -> void:
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	val.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var rt := _arrow("›")
-	lt.pressed.connect(func(): Settings.step(key, values, -1))
-	rt.pressed.connect(func(): Settings.step(key, values, 1))
+	lt.pressed.connect(func(): _step(key, values, -1))
+	rt.pressed.connect(func(): _step(key, values, 1))
 	h.add_child(lt); h.add_child(val); h.add_child(rt)
 	row.gui_input.connect(func(e: InputEvent):
 		var d := 0
 		if e.is_action_pressed("ui_left", true): d = -1
 		elif e.is_action_pressed("ui_right", true) or e.is_action_pressed("ui_accept"): d = 1
 		if d != 0:
-			Settings.step(key, values, d)
+			_step(key, values, d)
 			row.accept_event())
 	list.add_child(row)
 	rows.append([row, key, values, val])
+
+# a value changes: a switch clicks on or off, anything else ticks (after the
+# change, so turning UI sounds back on is heard and turning them off is not)
+func _step(key: String, values: Array, d: int) -> void:
+	Settings.step(key, values, d)
+	var v = Settings.get_value(key)
+	if values.size() == 2 and values.has(0) and values.has(1): Sfx.ui("ui_toggle_on" if int(v) == 1 else "ui_toggle_off")
+	else: Sfx.ui("ui_slider_tick")
 
 func _legend() -> void:
 	var pads := Input.get_connected_joypads()
@@ -254,6 +266,26 @@ func _legend() -> void:
 
 # the Updates tab: version in use, the updater's status, Check for updates
 # (updater.gd at /root/Updater; absent in a dev run from the project folder)
+# who made the sound effects (all CC0: credit is a courtesy), from the catalog
+func _audio_credits() -> void:
+	var path := "res://audio/sfx/catalog.json"
+	if not FileAccess.file_exists(path): return
+	var cat = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if typeof(cat) != TYPE_DICTIONARY: return
+	var who := []
+	for s in cat.get("sources", []):
+		var a := String(s.get("author", ""))
+		if a != "" and not a.begins_with("Kenney") and not who.has(a): who.append(a)
+	var t := _text("Sound effects: original sounds made for this game, Kenney's audio packs and recordings shared on OpenGameArt.org by %s. All CC0 (public domain)." % ", ".join(who), 14)
+	t.modulate.a = 0.55
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_top", 12)
+	m.add_theme_constant_override("margin_left", 8)
+	m.add_theme_constant_override("margin_right", 8)
+	m.add_child(t)
+	list.add_child(m)
+
 func _updates() -> void:
 	var up := get_node_or_null("/root/Updater")
 	var box := VBoxContainer.new()

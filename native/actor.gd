@@ -64,6 +64,8 @@ var cloth_rate := 60.0      # sim steps a second (fewer further off: the bones t
 var sim_cost_us := 0.0      # the last frame's sim time (dev)
 
 var phase := 0.0
+var steps := 0              # feet put down so far (sfx_world.gd: one footstep sound each)
+var _half := 0
 var idle_t := 0.0
 var w := {"idle": 1.0, "walk": 0.0, "run": 0.0}
 var blink := 2.0
@@ -245,6 +247,11 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var cad := lerpf(cad_walk, cad_run, rb)
 	gait = clampf(maxf(speed, 0.8) / (cad * stride), 0.35, 1.0) if cad > 0.0 else 1.0
 	if not air: phase = fmod(phase + dt * minf(maxf(speed, 0.8) / (stride * gait), tempo * TEMPO_MAX), 1.0)
+	# a foot comes down at phase 0 (the left, as the clip's lead) and at 0.5 (the right)
+	var half := int(phase * 2.0)
+	if half != _half:
+		_half = half
+		if speed > 0.3 and not air: steps += 1
 	idle_t = fmod(idle_t + dt, float(anims.idle.length))
 	var times := {"idle": idle_t, "walk": fmod(phase + float(meta.walk.lead), 1.0) * dW, "run": fmod(phase + float(meta.run.lead), 1.0) * dR}
 	# blended clip pose (weights add to one; a clip without a track holds the rest pose)
