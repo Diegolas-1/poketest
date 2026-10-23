@@ -3,7 +3,13 @@
 // sway shared with the wood plus a little flutter, cel bands with the
 // vertex colour as ambient occlusion.
 shader_type spatial;
-render_mode cull_disabled, ambient_light_disabled, specular_disabled;
+// shadows_disabled: the leaves cast shadows (from veg.gd's stand-ins) but do
+// not receive them. A canopy's own shadow on its cut-out cards came from
+// stand-ins that do not match them, at ~10 cm shadow texels: it fell as dark
+// blotches that crawled with the wind and jumped as the camera moved (the
+// shadow cascades follow it). The cel bands come from the puff normals and
+// the baked occlusion instead.
+render_mode cull_disabled, ambient_light_disabled, specular_disabled, shadows_disabled;
 #include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/veg.gdshaderinc"
 
@@ -32,10 +38,10 @@ void vertex() {
 void fragment() {
 	if (v_k > 0.0 && fd_b8(FRAGCOORD.xy) < v_k) discard;
 	vec4 tx = texture(albedo_tex, UV);
-	vec3 fN = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
-	float edge_on = abs(dot(fN, normalize(VERTEX)));
-	vec2 tl = fract(UV * 4.0) - 0.5;
-	if (tx.a < alpha_scissor || length(tl) > mix(0.0, 0.75, smoothstep(0.1, 0.5, edge_on))) discard;
+	// (no cut by the angle to the camera: it shrank and grew each lobe as the
+	// camera turned, and in the shadow pass it followed the shadow camera, so
+	// the leaves' own shadows crawled whenever the view moved)
+	if (tx.a < alpha_scissor) discard;
 	ALBEDO = tx.rgb * tint;   // before the occlusion (celify divides it back out)
 	// keep the puff normal on the back faces too (celify noflip)
 	if (!FRONT_FACING) NORMAL = -NORMAL;

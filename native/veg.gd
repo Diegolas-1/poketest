@@ -20,20 +20,24 @@ const FADE_W := 2.5        # a plant hands over to its billboard over this many 
 var meshes: Array = []     # ArrayMesh per baked mesh
 var mats: Array = []       # [ShaderMaterial] per baked material (one per set, see _set_mat)
 var chunks: Array = []     # {node, c: Vector3, r, shadow: float (0 = never)}
-var shadow_far := 45.0     # trees cast shadows nearer than this (to the chunk's edge)
+var shadow_far := 60.0     # plants cast shadows nearer than this (to the chunk's edge): the sun's shadow distance
 # Where each kind of plant hands over to its billboard (or fades out), at
 # view distance 1.0, and how far it casts shadows (times shadow_far / 45).
+# Every kind that casts does so out to the sun's whole shadow distance: a chunk
+# switching its casters on nearer than that made its shadows pop in and out
+# (on the ground and on other plants) as the camera walked; past the shadow
+# distance Godot draws no shadow anyway, and it fades them out before it.
 # Closer than the web's ranges: leaf cards pile up many layers of cut-out
 # pixels, which a phone's GPU cannot sort away, while a billboard is one
 # layer; at these distances a bush is ~50 px and a tree ~200 px tall on a
 # phone, the billboards' own size. (web veg.js: trees 75, bushes 70,
 # ferns 60, flowers 55 x its view distance; the town's bushes never faded)
 const KINDS := {
-	"tree": {"fade": Vector2(48, 50.5), "shadow": 40.0, "ink": 32.0, "chunk": 24.0},   # (billboarded kinds fade over FADE_W)
-	"bush": {"fade": Vector2(25, 27.5), "shadow": 20.0, "ink": 24.0, "chunk": 24.0},
+	"tree": {"fade": Vector2(48, 50.5), "shadow": 45.0, "ink": 32.0, "chunk": 24.0},   # (billboarded kinds fade over FADE_W)
+	"bush": {"fade": Vector2(25, 27.5), "shadow": 45.0, "ink": 24.0, "chunk": 24.0},
 	"fern": {"fade": Vector2(38, 42), "shadow": 0.0},
 	"flower": {"fade": Vector2(32, 36), "shadow": 0.0},
-	"rock": {"fade": Vector2(-1, -1), "shadow": 25.0},   # (-1: keep the baked range)
+	"rock": {"fade": Vector2(-1, -1), "shadow": 45.0},   # (-1: keep the baked range)
 }
 var last_pos := Vector3(INF, INF, INF)
 var last_ink := false
@@ -161,6 +165,10 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 					if im:
 						im.set_shader_parameter("leaf_wind", part_mats[pi].get_shader_parameter("wind"))
 						im.set_shader_parameter("leaf_fade", fade)
+						# each plant's ink thins to nothing before the chunk's ink is
+						# switched off (update), so no chunk's lines pop
+						var ink_d: float = float(KINDS[kind].get("ink", 0.0))
+						im.set_shader_parameter("ink_far", Vector2(ink_d - 8.0, ink_d))
 						ch.ink = im
 				stats.chunks += 1
 			stats.copies += ids.size()
