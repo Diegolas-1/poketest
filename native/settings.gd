@@ -89,7 +89,7 @@ const ROWS := {
 		["town_debug", "Town debug overlay", [0, 1], "who is doing what (also F3)"],
 	],
 	"Audio": [
-		["music", "Music", [0, 1], "orchestral town and lab themes"],
+		["music", "Music", [0, 1], "the town theme for each time of day, and the lab theme"],
 		["music_vol", "Music volume", [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], ""],
 	],
 	"Updates": [

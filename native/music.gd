@@ -1,29 +1,46 @@
 extends Node
-# Background music (created by main.gd). Orchestral scores rendered by
-# tools/music/build.py into res://audio/music/*.ogg; each file loops on import
-# (the town themes skip their intro on every pass after the first).
+# Background music (created by main.gd).
 #
-#   town   pallet_town.ogg         "Hometown by the Sea", outdoors by day
-#   night  pallet_town_night.ogg   "Evening Tide", outdoors from 6 PM to 5 AM
-#   lab    oak_lab.ogg             "Curious Minds", inside Professor Oak's lab
+# The town's soundtrack is one song in five versions, one per part of the day
+# (GameClock.period_of), built by tools/music/ost.py from the recording in
+# tools/music/sources/ into res://audio/music/pallet_ost_*.ogg. Each file
+# loops on import (an intro plays once, then the loop body):
 #
-# Two players crossfade (1.5 s through a door, 5 s when the day turns to
-# evening). The music bus "Music" is made at run time (no project setting) and
+#   dawn     pallet_ost_dawn.ogg      5-7 AM     92 bpm, piano and pads waking up
+#   morning  pallet_ost_morning.ogg   7-11 AM    light percussion, bright
+#   day      pallet_ost_day.ogg       11 AM-6 PM the full song, long form
+#   evening  pallet_ost_evening.ogg   6-9 PM     100 bpm, soft drums, warm
+#   night    pallet_ost_night.ogg     9 PM-5 AM  82 bpm, no drums, dark and roomy
+#   lab      oak_lab.ogg              "Curious Minds", inside Professor Oak's lab
+#
+# The orchestral town themes (tools/music/build.py: "Hometown by the Sea" and
+# "Evening Tide") are kept as town_orch / night_orch: play(id) takes them, but
+# the town no longer asks for them.
+#
+# Two players crossfade (1.5 s through a door, 6 s when the part of the day
+# changes). The music bus "Music" is made at run time (no project setting) and
 # carries a low-pass that closes when the town theme plays inside a building
 # other than the lab, as if heard through the walls. The music dips a little
 # while a dialog box is open and pauses while the app is in the background.
 # Settings: "music" (on / off), "music_vol" (0..1).
-# Samples: VSCO 2 Community Edition, Versilian Studios (Sam Gossner, Simon
-# Dalzell), free for any use; scores and mix: tools/music/.
+# Orchestral samples: VSCO 2 Community Edition, Versilian Studios (Sam Gossner,
+# Simon Dalzell), free for any use; scores and mix: tools/music/.
 
 const TRACKS := {
-	"town": "res://audio/music/pallet_town.ogg",
-	"night": "res://audio/music/pallet_town_night.ogg",
+	"dawn": "res://audio/music/pallet_ost_dawn.ogg",
+	"morning": "res://audio/music/pallet_ost_morning.ogg",
+	"day": "res://audio/music/pallet_ost_day.ogg",
+	"evening": "res://audio/music/pallet_ost_evening.ogg",
+	"night": "res://audio/music/pallet_ost_night.ogg",
 	"lab": "res://audio/music/oak_lab.ogg",
+	"town_orch": "res://audio/music/pallet_town.ogg",
+	"night_orch": "res://audio/music/pallet_town_night.ogg",
 }
-const TRACK_DB := {"town": 0.0, "night": -1.5, "lab": -0.5}
+# the town's version for each part of the day (clock.gd periods)
+const PERIOD_TRACK := {"dawn": "dawn", "morning": "morning", "midday": "day", "afternoon": "day", "evening": "evening", "night": "night"}
+const TRACK_DB := {"lab": -0.5, "night_orch": -1.5}   # the town versions are levelled in the files
 const DOOR_FADE := 1.5
-const DAY_FADE := 5.0
+const DAY_FADE := 6.0
 const DUCK_DB := -4.5
 const BUS := "Music"
 
@@ -86,16 +103,16 @@ func _stream(id: String) -> AudioStream:
 	return streams[id]
 
 # the track this moment wants: the lab inside Oak's lab; outdoors (and in
-# other buildings) the town theme, or its evening version after dark
+# other buildings) the town's version for this part of the day
 func _wanted() -> String:
-	if game == null: return "town"
+	if game == null: return "day"
 	var inside: bool = bool(game.get("indoors"))
 	var it = game.get("interior")
 	if inside and it != null and String(it.name).contains("oak_lab"): return "lab"
 	var h := 12.0
 	var c = game.get("cast")
 	if c != null and c.get("clock") != null: h = c.clock.hour()
-	return "night" if (h >= 18.0 or h < 5.0) else "town"
+	return PERIOD_TRACK[GameClock.period_of(h)]
 
 func play(id: String, fade := DOOR_FADE) -> void:
 	if id == track or not enabled: return
@@ -120,8 +137,8 @@ func _process(dt: float) -> void:
 	if enabled:
 		var w := _wanted()
 		if w != track:
-			# evening comes in slowly; doors are quick
-			var slow := (w == "night" and track == "town") or (w == "town" and track == "night")
+			# the day turning comes in slowly; doors are quick
+			var slow := PERIOD_TRACK.values().has(w) and PERIOD_TRACK.values().has(track)
 			play(w, DAY_FADE if slow else DOOR_FADE)
 	# ducking under dialog, muffling inside other buildings
 	var c = game.get("cast")

@@ -1,7 +1,7 @@
 extends Node
 # Dev only: music.gd's logic, headless. A stand-in game walks through the
-# cases (outdoors by day, into Oak's lab, a dialog, out again, evening, another
-# building, music off and on, volume) and checks the track, the crossfade and
+# cases (outdoors by day, into Oak's lab, a dialog, out again, every part of
+# the day, another building, music off and on, volume) and checks the track, the crossfade and
 # the levels. Also checks that each track loads and loops on import.
 #   godot --headless --path native res://dev/music_test.tscn
 
@@ -26,7 +26,7 @@ var m: Node
 var fails := 0
 
 func _ready() -> void:
-	for id in ["town", "night", "lab"]:
+	for id in ["dawn", "morning", "day", "evening", "night", "lab", "town_orch", "night_orch"]:
 		var s = load(preload("res://music.gd").TRACKS[id])
 		_check(s is AudioStreamOggVorbis, "%s loads" % id)
 		if s is AudioStreamOggVorbis:
@@ -38,9 +38,9 @@ func _ready() -> void:
 	add_child(m)
 	m.setup(g)
 	await _run(0.3)
-	_check(m.track == "town", "outdoors by day: town (got %s)" % m.track)
+	_check(m.track == "day", "outdoors at noon: day (got %s)" % m.track)
 	await _run(2.0)
-	_check(_db(m.cur) > -3.0, "town faded in (%.1f dB)" % _db(m.cur))
+	_check(_db(m.cur) > -3.0, "day faded in (%.1f dB)" % _db(m.cur))
 	# into the lab
 	var it := Node.new(); it.name = "Interior_oak_lab"; g.add_child(it)
 	g.interior = it; g.indoors = true
@@ -50,7 +50,7 @@ func _ready() -> void:
 	var other := 1 - int(m.cur)
 	_check(_db(m.cur) > -20.0 and _db(m.cur) < -0.5 and _db(other) < -2.0, "mid crossfade (in %.1f, out %.1f)" % [_db(m.cur), _db(other)])
 	await _run(1.0)
-	_check(not m.players[other].playing, "the town theme stopped after the crossfade")
+	_check(not m.players[other].playing, "the day version stopped after the crossfade")
 	# a dialog ducks it
 	g.cast.dialog.open = true
 	await _run(0.6)
@@ -61,17 +61,21 @@ func _ready() -> void:
 	# out again, then evening
 	g.indoors = false; g.interior = null; it.queue_free()
 	await _run(2.0)
-	_check(m.track == "town", "outside again: town (got %s)" % m.track)
-	g.cast.clock.h = 19.5
-	await _run(0.1)
-	_check(m.track == "night", "evening: night theme (got %s)" % m.track)
-	await _run(6.0)
+	_check(m.track == "day", "outside again: day (got %s)" % m.track)
+	for step in [[19.5, "evening"], [22.0, "night"], [3.0, "night"], [5.5, "dawn"], [8.0, "morning"], [15.0, "day"]]:
+		g.cast.clock.h = step[0]
+		await _run(0.1)
+		_check(m.track == step[1], "%.1f h: %s (got %s)" % [step[0], step[1], m.track])
+		await _run(3.0)
+		_check(_db(m.cur) > -6.0 and _db(1 - int(m.cur)) < -2.0, "  slow crossfade under way (in %.1f, out %.1f)" % [_db(m.cur), _db(1 - int(m.cur))])
+		await _run(3.5)
+		_check(not m.players[1 - int(m.cur)].playing, "  and done")
 	# another building: the town theme through the walls
 	var house := Node.new(); house.name = "Interior_red_house"; g.add_child(house)
 	g.cast.clock.h = 10.0
 	g.interior = house; g.indoors = true
 	await _run(6.0)
-	_check(m.track == "town", "another building keeps the town theme (got %s)" % m.track)
+	_check(m.track == "morning", "another building keeps the town's version (got %s)" % m.track)
 	_check(m.lp.cutoff_hz < 2000.0, "and muffles it (%.0f Hz)" % m.lp.cutoff_hz)
 	g.indoors = false; g.interior = null
 	await _run(1.0)
@@ -85,7 +89,7 @@ func _ready() -> void:
 	_check(AudioServer.is_bus_mute(bus) and not m.players[0].playing and not m.players[1].playing, "music off stops it")
 	Settings.set_value("music", 1)
 	await _run(0.2)
-	_check(m.track == "town" and m.players[m.cur].playing, "music on plays again")
+	_check(m.track == "morning" and m.players[m.cur].playing, "music on plays again")
 	Settings.set_value("music_vol", 0.7)
 	print("music_test: %s" % ("OK" if fails == 0 else "%d FAILED" % fails))
 	get_tree().quit(1 if fails else 0)
