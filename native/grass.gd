@@ -17,9 +17,9 @@ var tiles: Array = []
 var mat: ShaderMaterial
 var world  # WorldData, for heights under each tile
 var t_size := 8.0
-const THIN_AT := 16.0    # m: full density inside this
+const THIN_AT := 1.0e9  # full density everywhere (no thinning)    # m: full density inside this
 const THIN_MIN := 0.008  # share of the clumps kept far out
-const FAR2 := 34.0
+const FAR2 := 1.0e9
 
 func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 	world = w
@@ -129,8 +129,8 @@ func _clump(blades: Array, segs: int, max_role: int) -> ArrayMesh:
 func update(cam_pos: Vector3) -> void:
 	mat.set_shader_parameter("cam", cam_pos)
 	# lighter clumps by distance in metres (as at the old 64 m field), not by field size
-	var mid_d := minf(size * 0.15, 9.6)
-	var far_d := minf(size * 0.3, 19.2)
+	var mid_d := size * 0.15
+	var far_d := size * 0.3
 	var edge := size * 0.5
 	for t in tiles:
 		var kx := floori((cam_pos.x - t.cx) / size + 0.5)
