@@ -26,6 +26,7 @@ global uniform vec3 veg_cam;
 uniform float leaf_wind = 0.0;
 uniform bool atlas_cut = true;   // the leaf texture is the 4 x 4 leaf atlas
 uniform vec2 leaf_fade = vec2(100000.0, 100001.0);
+uniform vec2 ink_far = vec2(100000.0, 100001.0);   // the ink thins out over these metres from the camera (veg.gd switches it off past them)
 
 varying float v_w;
 
@@ -35,7 +36,7 @@ void vertex() {
 	bool plant_gone = false;
 	if (leaf_wind > 0.0 || leaf_fade.x < 99999.0) {
 		vec3 ip = MODEL_MATRIX[3].xyz;
-		plant_gone = distance(ip, veg_cam) > leaf_fade.x;
+		plant_gone = distance(ip, veg_cam) > min(leaf_fade.x, ink_far.y);
 		float sw = sin(TIME * 1.2 + ip.x * 0.2 + ip.z * 0.17) * 0.6 + sin(TIME * 2.3 + ip.x * 0.5) * 0.25;
 		float k = clamp(VERTEX.y / 8.0, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
 		VERTEX += vec3(sw * leaf_wind * k * 3.0, 0.0, sw * leaf_wind * 0.6 * k * 3.0);
@@ -45,6 +46,7 @@ void vertex() {
 	vec3 vc = use_center ? (MODELVIEW_MATRIX * vec4(center, 1.0)).xyz : vp;
 	float w = 1.0 - smoothstep(focus_range.x, focus_range.y, distance(vc, (VIEW_MATRIX * vec4(ink_focus, 1.0)).xyz));
 	w *= 1.0 - smoothstep(fade.x, fade.y, -vc.z);
+	w *= 1.0 - smoothstep(ink_far.x, ink_far.y, distance(MODEL_MATRIX[3].xyz, veg_cam));
 	float px = max(1.0, width_1080 * VIEWPORT_SIZE.y / 1080.0) * w;
 	vec4 cv = PROJECTION_MATRIX * vec4(vp, 1.0);
 	vec2 d;
@@ -69,12 +71,13 @@ void vertex() {
 void fragment() {
 	float a = use_tex ? texture(leaf_tex, UV).a : 1.0;
 	if (a < cut || v_w <= 0.01 || (!double_sided && !FRONT_FACING)) discard;
-	// leaf cards seen edge-on thin out, as in the leaf shader (veg_leaf.gdshader),
-	// or their stretched copies streak across the canopy
+	// a leaf card seen edge-on draws no ink (its grown copy would streak
+	// across the canopy). Only the whole card goes, and only when it is
+	// nearly a line: the leaf shader no longer trims the cards by the view
+	// angle, so the ink keeps the same lobes as the leaves at any angle.
 	if (atlas_cut && use_tex) {
 		vec3 fN = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
-		vec2 tl = fract(UV * 4.0) - 0.5;
-		if (length(tl) > mix(0.0, 0.75, smoothstep(0.1, 0.5, abs(dot(fN, normalize(VERTEX)))))) discard;
+		if (abs(dot(fN, VIEW)) < 0.12) discard;
 	}
 	ALBEDO = aces_three(ink_color.rgb);
 }

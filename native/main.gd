@@ -110,6 +110,9 @@ func _environment() -> void:
 	sun.directional_shadow_max_distance = 70.0
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.0
+	# blend the two shadow cascades over their seam: things standing at the seam
+	# (a few metres from the camera) no longer switch shadow detail as it moves
+	sun.directional_shadow_blend_splits = true
 	add_child(sun)
 	sun.look_at_from_position(SUN_DIR.normalized() * 50.0, Vector3.ZERO)
 

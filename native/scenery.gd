@@ -38,13 +38,13 @@ func _plants() -> void:
 	var S = get_node_or_null("/root/Settings")
 	var lod := float(S.get_value("lod")) if S else 1.0
 	veg.build(lod, float(S.get_value("trees")) if S else 1.0, float(S.get_value("plants")) if S else 1.0)
-	if S: veg.shadow_far = minf(45.0, float(S.get_value("shadow_dist")) * 0.75)
+	if S: veg.shadow_far = float(S.get_value("shadow_dist"))
 
 var plants_dirty := false
 func _on_setting(key: String, _v) -> void:
 	if key in ["lod", "trees", "plants"]: plants_dirty = true
 	if key == "shadow_dist" and veg:
-		veg.shadow_far = minf(45.0, float(_v) * 0.75)
+		veg.shadow_far = float(_v)
 		veg.last_pos = Vector3(INF, INF, INF)
 
 func update(cam_pos: Vector3) -> void:
