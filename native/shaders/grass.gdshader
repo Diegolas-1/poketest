@@ -11,6 +11,12 @@ uniform vec3 cam;
 uniform float field_size = 64.0;
 instance uniform float thin = 1.0;   // share of this tile's clumps drawn (grass.gd)
 uniform vec3 sun_dir = vec3(-0.55, 0.75, 0.45);
+// people walking through (grass.gd set_walkers): x, z, radius, strength. Strength
+// 1 under someone, then a damped spring as they pass (below 0 the blades overshoot
+// back past upright before settling)
+const int PUSH_MAX = 16;
+uniform vec4 push[PUSH_MAX];
+uniform int push_n = 0;
 
 varying vec3 v_col;
 varying float v_light;
@@ -37,6 +43,32 @@ void vertex() {
 		float w = sin(TIME * 1.5 + p.x * 0.25 + p.y * 0.18) * 0.5 + sin(TIME * 3.1 + p.x * 0.9) * 0.2;
 		lp.x += w * t * t * 0.12 * sc * 3.0; lp.z += w * t * t * 0.05 * sc * 3.0;
 		vec3 wp = vec3(p.x, hm.r, p.y) + lp;
+		// parted by whoever walks through: each clump bent away from them and pressed
+		// down a little, more toward the tip (lp.y: the height up the blade)
+		if (push_n > 0 && dist < 40.0) {
+			vec2 bend = vec2(0.0);
+			float press = 0.0;
+			for (int i = 0; i < PUSH_MAX; i++) {
+				if (i >= push_n) break;
+				vec4 q = push[i];
+				vec2 dv = p - q.xy;   // from the clump's root: its blades bend as one (per vertex they shear into sheets)
+				float d = length(dv);
+				float f = 1.0 - smoothstep(q.z * 0.3, q.z * 1.25, d);
+				if (f <= 0.0) continue;
+				bend += (d > 1e-3 ? dv / d : vec2(0.0)) * f * q.w;
+				press += f * q.w;
+			}
+			// a turn of the blade about its root (keeps its length): up to ~60 degrees away,
+			// a few degrees back toward them on the overshoot
+			float bl = length(bend);
+			if (bl > 1e-4) {
+				float th = clamp(bl, 0.0, 1.0) * 1.05 * sign(press + 1e-4);
+				vec2 dir = bend / bl;
+				float h = max(lp.y, 0.0);
+				wp.xz += dir * sin(th) * h;
+				wp.y -= (1.0 - cos(th)) * h;
+			}
+		}
 		float n = hash(floor(p * 0.3));
 		vec3 root = vec3(0.03, 0.2, 0.1), body = mix(vec3(0.2, 0.52, 0.08), vec3(0.26, 0.58, 0.08), n);
 		vec3 tip = mix(vec3(0.66, 0.86, 0.16), vec3(0.78, 0.9, 0.24), n);

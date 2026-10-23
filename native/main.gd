@@ -292,7 +292,9 @@ func _process(dt: float) -> void:
 		var po: Dictionary = interior.data.portal_at(pos)
 		if not po.is_empty(): leave_space()
 	if grass_dirty and not indoors: _rebuild_grass()
-	if grass and not grass.tiles.is_empty(): grass.update(pos)
+	if grass and not grass.tiles.is_empty():
+		grass.set_walkers(_walkers(), dt, cam.global_position)
+		grass.update(pos)
 	Ink.set_focus(pos)   # ink thins with distance from Red (ink.gd)
 	if indoors: _camera_in(dt)
 	else: _camera(dt)
@@ -564,3 +566,17 @@ func _rebuild_grass() -> void:
 	add_child(grass)
 	var n := int(Settings.get_value("grass"))
 	if n > 0: grass.build(world, n, float(Settings.get_value("grass_size")), SUN_DIR.normalized())
+
+# who walks through the grass this frame (grass.gd set_walkers): Ash, the
+# townspeople out and about, their Pokémon; [id, position, radius]
+func _walkers() -> Array:
+	var out := [["ash", pos, 0.5]]
+	if indoors or cast == null or cast.life == null: return out
+	for p in cast.life.people:
+		if p.state == "inside" or not p.seen: continue
+		out.append([p.id, p.pos, 0.42 if p.age == "kid" else 0.5])
+	if cast.life.companions:
+		for c in cast.life.companions.pets:
+			if c.inside != "" or not c.get("seen", false): continue
+			out.append(["pet_" + String(c.id), c.pos, float(c.sp.r) + 0.12])
+	return out

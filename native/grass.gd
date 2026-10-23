@@ -126,6 +126,66 @@ func _clump(blades: Array, segs: int, max_role: int) -> ArrayMesh:
 		base += (segs + 1) * 2
 	return st.commit()
 
+# ---------- walking through it ----------
+# set_walkers() each frame with who is about: [id, world position, radius]. The
+# grass is pressed under each of them and keeps a short trail of where they
+# stepped: each point springs back (a damped spring, a little past upright, then
+# still) as it ages. The nearest walkers to the camera get the budget of
+# PUSH_MAX points (shaders/grass.gdshader push[]).
+const PUSH_MAX := 16
+const TRAIL_STEP := 0.22          # metres between trail points
+const TRAIL_LIFE := 1.3           # seconds a point takes to settle
+var _trails := {}                 # id -> {"last": Vector2, "pts": [[Vector2, age, r]]}
+var _push := PackedVector4Array()
+
+static func _spring(age: float) -> float:
+	# 1 when just left, through 0 at ~0.3 s, a small overshoot (~-0.2), settled by ~1.2 s
+	return exp(-3.4 * age) * cos(5.2 * age)
+
+func set_walkers(list: Array, dt: float, cam_pos: Vector3) -> void:
+	var live := {}
+	for w in list:
+		var id: String = w[0]
+		var p2 := Vector2((w[1] as Vector3).x, (w[1] as Vector3).z)
+		live[id] = true
+		var tr: Dictionary = _trails.get(id, {})
+		if tr.is_empty():
+			tr = {"last": p2, "pts": []}
+			_trails[id] = tr
+		if p2.distance_to(tr.last) > TRAIL_STEP:
+			tr.pts.push_front([tr.last, 0.0, float(w[2])])
+			tr.last = p2
+		tr.cur = p2; tr.r = float(w[2])
+		tr.d = Vector2(cam_pos.x, cam_pos.z).distance_to(p2)
+	for id in _trails.keys():
+		var tr: Dictionary = _trails[id]
+		var keep := []
+		for q in tr.pts:
+			q[1] += dt
+			if q[1] < TRAIL_LIFE: keep.append(q)
+		tr.pts = keep
+		if not live.has(id):
+			tr.erase("cur")
+			if keep.is_empty(): _trails.erase(id)
+	# nearest first: each walker's own spot, then its newest trail points
+	var order := _trails.keys()
+	order.sort_custom(func(a, b): return _trails[a].get("d", 1e9) < _trails[b].get("d", 1e9))
+	_push.clear()
+	for id in order:
+		var tr: Dictionary = _trails[id]
+		if tr.has("cur") and tr.d < 40.0 and _push.size() < PUSH_MAX:
+			_push.append(Vector4(tr.cur.x, tr.cur.y, tr.r, 1.0))
+	for id in order:
+		var tr: Dictionary = _trails[id]
+		if tr.get("d", 1e9) > 40.0: continue
+		for q in tr.pts:
+			if _push.size() >= PUSH_MAX: break
+			_push.append(Vector4(q[0].x, q[0].y, q[2], _spring(q[1])))
+	var n := _push.size()
+	while _push.size() < PUSH_MAX: _push.append(Vector4(0, 0, 0, 0))
+	mat.set_shader_parameter("push", _push)
+	mat.set_shader_parameter("push_n", n)
+
 func update(cam_pos: Vector3) -> void:
 	mat.set_shader_parameter("cam", cam_pos)
 	# lighter clumps by distance in metres (as at the old 64 m field), not by field size
