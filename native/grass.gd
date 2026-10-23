@@ -132,17 +132,19 @@ func _clump(blades: Array, segs: int, max_role: int) -> ArrayMesh:
 # stepped: each point springs back (a damped spring, a little past upright, then
 # still) as it ages. The nearest walkers to the camera get the budget of
 # PUSH_MAX points (shaders/grass.gdshader push[]).
-const PUSH_MAX := 16
+const PUSH_MAX := 12
+const NEAR := 14.0               # metres from Ash (the camera's target) a walker is pressed into the grass
 const TRAIL_STEP := 0.22          # metres between trail points
 const TRAIL_LIFE := 1.3           # seconds a point takes to settle
 var _trails := {}                 # id -> {"last": Vector2, "pts": [[Vector2, age, r]]}
 var _push := PackedVector4Array()
+var _sent_n := -1
 
 static func _spring(age: float) -> float:
 	# 1 when just left, through 0 at ~0.3 s, a small overshoot (~-0.2), settled by ~1.2 s
 	return exp(-3.4 * age) * cos(5.2 * age)
 
-func set_walkers(list: Array, dt: float, cam_pos: Vector3) -> void:
+func set_walkers(list: Array, dt: float, cam_pos: Vector3, focus: Vector3) -> void:
 	var live := {}
 	for w in list:
 		var id: String = w[0]
@@ -156,7 +158,7 @@ func set_walkers(list: Array, dt: float, cam_pos: Vector3) -> void:
 			tr.pts.push_front([tr.last, 0.0, float(w[2])])
 			tr.last = p2
 		tr.cur = p2; tr.r = float(w[2])
-		tr.d = Vector2(cam_pos.x, cam_pos.z).distance_to(p2)
+		tr.d = Vector2(focus.x, focus.z).distance_to(p2)
 	for id in _trails.keys():
 		var tr: Dictionary = _trails[id]
 		var keep := []
@@ -173,18 +175,30 @@ func set_walkers(list: Array, dt: float, cam_pos: Vector3) -> void:
 	_push.clear()
 	for id in order:
 		var tr: Dictionary = _trails[id]
-		if tr.has("cur") and tr.d < 40.0 and _push.size() < PUSH_MAX:
+		if tr.has("cur") and tr.d < NEAR and _push.size() < PUSH_MAX:
 			_push.append(Vector4(tr.cur.x, tr.cur.y, tr.r, 1.0))
 	for id in order:
 		var tr: Dictionary = _trails[id]
-		if tr.get("d", 1e9) > 40.0: continue
+		if tr.get("d", 1e9) > NEAR: continue
 		for q in tr.pts:
 			if _push.size() >= PUSH_MAX: break
 			_push.append(Vector4(q[0].x, q[0].y, q[2], _spring(q[1])))
 	var n := _push.size()
+	# a circle round every point's reach, so the shader skips the loop for all the
+	# grass outside it (most of the field)
+	var c := Vector2.ZERO
+	var rad := -1.0
+	if n > 0:
+		var lo := Vector2(1e9, 1e9); var hi := Vector2(-1e9, -1e9)
+		for q in _push:
+			lo = lo.min(Vector2(q.x - q.z * 1.3, q.y - q.z * 1.3)); hi = hi.max(Vector2(q.x + q.z * 1.3, q.y + q.z * 1.3))
+		c = (lo + hi) * 0.5; rad = (hi - lo).length() * 0.5 + 0.6
 	while _push.size() < PUSH_MAX: _push.append(Vector4(0, 0, 0, 0))
+	if n == 0 and _sent_n == 0: return    # nothing to change
+	_sent_n = n
 	mat.set_shader_parameter("push", _push)
 	mat.set_shader_parameter("push_n", n)
+	mat.set_shader_parameter("push_c", Vector3(c.x, c.y, rad))
 
 func update(cam_pos: Vector3) -> void:
 	mat.set_shader_parameter("cam", cam_pos)

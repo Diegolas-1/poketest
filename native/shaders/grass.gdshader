@@ -14,9 +14,10 @@ uniform vec3 sun_dir = vec3(-0.55, 0.75, 0.45);
 // people walking through (grass.gd set_walkers): x, z, radius, strength. Strength
 // 1 under someone, then a damped spring as they pass (below 0 the blades overshoot
 // back past upright before settling)
-const int PUSH_MAX = 16;
+const int PUSH_MAX = 12;
 uniform vec4 push[PUSH_MAX];
 uniform int push_n = 0;
+uniform vec3 push_c = vec3(0.0, 0.0, -1.0);   // x, z, radius round every push point's reach: the loop runs only inside
 
 varying vec3 v_col;
 varying float v_light;
@@ -45,7 +46,7 @@ void vertex() {
 		vec3 wp = vec3(p.x, hm.r, p.y) + lp;
 		// parted by whoever walks through: each clump bent away from them and pressed
 		// down a little, more toward the tip (lp.y: the height up the blade)
-		if (push_n > 0 && dist < 40.0) {
+		if (push_n > 0 && length(p - push_c.xy) < push_c.z) {
 			vec2 bend = vec2(0.0);
 			float press = 0.0;
 			for (int i = 0; i < PUSH_MAX; i++) {
