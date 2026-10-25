@@ -1212,4 +1212,4 @@ export function grassMap(x0, z0, w, d, res) {
 
 // the editor's hooks: the edited and the unedited ground (vegetation follows
 // the sculpted ground, keeps off painted paths)
-if (!IS_RAW) Object.assign(E.fn, { height, rawHeight: RAWT ? RAWT.height : height, onPath, pathSD, groundColor, meshY, rebuildPathMap: () => { PM = null; return pathMap(); }, pathMapNow: pathMap });
+if (!IS_RAW) Object.assign(E.fn, { height, rawHeight: RAWT ? RAWT.height : height, onPath, pathSD, groundColor, meshY, rebuildPathMap: () => { PM = null; return pathMap(); }, pathMapNow: pathMap, noWalk });

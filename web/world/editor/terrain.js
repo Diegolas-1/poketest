@@ -194,3 +194,34 @@ function repaintPaths([x0, z0, x1, z1]) {
 // flatten: sample the target height (Ctrl + click)
 export function sampleTarget(p) { BRUSH.target = E.fn.height(p.x, p.z); BRUSH.keep = true; }
 void S;
+
+// ---------- the mask overlay: what the Walk / Thin / Blades brushes paint ----------
+// dots on the ground round the cursor: Walk shows where the player cannot go
+// (red: blocked by the world or painted, green: painted walkable, orange:
+// ledge); Thin shows how many plants are kept (red = none); Blades the grass.
+let ov = null, ovAt = null, ovTool = null;
+export function overlay(tool, p) {
+  if (!W) return;
+  if (!ov) {
+    ov = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: 5, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true, opacity: 0.85 }));
+    ov.renderOrder = 996; ov.frustumCulled = false; ov.userData.noPick = true; W.scene.add(ov);
+  }
+  const on = !!p && (tool === 'walk' || tool === 'vegdens' || tool === 'grassk');
+  ov.visible = on;
+  if (!on || (ovAt && ovTool === tool && ovAt.distanceTo(p) < 3 && !overlay.dirty)) return;
+  ovAt = p.clone(); ovTool = tool; overlay.dirty = false;
+  const R = 36, step = tool === 'walk' ? 1 : 1.5, pos = [], col = [], H = E.fn.height, NW = E.fn.noWalk;
+  for (let z = Math.round(p.z - R); z <= p.z + R; z += step) for (let x = Math.round(p.x - R); x <= p.x + R; x += step) {
+    if ((x - p.x) ** 2 + (z - p.z) ** 2 > R * R) continue;
+    let c = null;
+    if (tool === 'walk') {
+      const f = E.walkFlag(x, z), blocked = NW ? NW(x, z) : false;
+      c = f === 3 ? [1, 0.6, 0.1] : f === 2 ? [0.2, 1, 0.4] : blocked ? [1, 0.2, 0.2] : null;
+    } else if (tool === 'vegdens') { const d = E.vegDensity(x, z); if (d < 0.99) c = [1, d, d * 0.5]; }
+    else { const k = E.grassK(x, z); if (Math.abs(k - 1) > 0.02) c = k < 1 ? [1, k, 0.3] : [0.3, 1, Math.min(1, k - 1)]; }
+    if (!c) continue;
+    pos.push(x, H(x, z) + 0.25, z); col.push(...c);
+  }
+  ov.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  ov.geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+}

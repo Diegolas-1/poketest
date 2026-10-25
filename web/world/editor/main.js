@@ -132,6 +132,7 @@ function setTool(t) {
   UI.toolOpts($('toolOpts'), BRUSHES.has(t) || t === 'plant' ? t : null);
   if (t === 'plant') plantOpts();
   RD.showRoads(t === 'roads'); if (t === 'roads') roadOpts();
+  TR.overlay(t, null);
   V.showRing(null);
   hint();
 }
@@ -194,7 +195,7 @@ V.onMove = (e) => {
   const rr = V.rayAt(e.clientX, e.clientY);
   if (S.tool === 'roads') { RD.onMove(e, rr); return; }
   if (S.tool === 'plant') { const g = V.ground(rr); V.showRing(g, TR.BRUSH.r, 0.98); if (stroke && g) stroke.p = g; }
-  if (BRUSHES.has(S.tool)) { const g = V.ground(rr); V.showRing(g, TR.BRUSH.r, TR.BRUSH.hard); if (stroke && g) stroke.p = g; if (g) $('stPos').textContent = `x ${g.x.toFixed(1)} · y ${g.y.toFixed(2)} · z ${g.z.toFixed(1)}`; }
+  if (BRUSHES.has(S.tool)) { const g = V.ground(rr); V.showRing(g, TR.BRUSH.r, TR.BRUSH.hard); TR.overlay(S.tool, g); if (stroke && g) stroke.p = g; if (g) $('stPos').textContent = `x ${g.x.toFixed(1)} · y ${g.y.toFixed(2)} · z ${g.z.toFixed(1)}`; }
   if (box) {
     const r = $('view').getBoundingClientRect();
     Object.assign(boxEl.style, { display: 'block', left: Math.min(box.x, e.clientX) - r.left + 'px', top: Math.min(box.y, e.clientY) - r.top + 'px', width: Math.abs(e.clientX - box.x) + 'px', height: Math.abs(e.clientY - box.y) + 'px' });
@@ -202,7 +203,7 @@ V.onMove = (e) => {
 };
 V.onUp = (e) => {
   if (S.tool === 'roads') { RD.onUp(); return; }
-  if (stroke) { if (stroke.plant) SC.plantEnd(); else TR.strokeEnd(); stroke = null; }
+  if (stroke) { if (stroke.plant) SC.plantEnd(); else { TR.strokeEnd(); TR.overlay.dirty = true; } stroke = null; }
   if (box) {
     boxEl.style.display = 'none';
     const x0 = Math.min(box.x, e.clientX), x1 = Math.max(box.x, e.clientX), y0 = Math.min(box.y, e.clientY), y1 = Math.max(box.y, e.clientY);
@@ -324,10 +325,20 @@ async function versions() {
         vs.slice().reverse().map((v) => h('tr', {}, h('td', {}, v.id), h('td', {}, new Date(v.at).toLocaleString()), h('td', {}, v.message), h('td', {}, (v.size / 1024).toFixed(0) + ' KB'),
           h('td', {}, h('div', { class: 'btns' },
             h('button', { onclick: async () => { const r = await api.publish(v.id, v.message); UI.toast('Publish request #' + r.id + ' filed'); draw(); } }, 'Publish to phone'),
+            h('button', { onclick: () => showDiff(v) }, 'Changes'),
             h('button', { onclick: async () => { if (!confirm('Replace the draft with version ' + v.id + '? (Save a version of the draft first if you want to keep it.)')) return; const b = await api.version(v.id); await api.putDraft(JSON.stringify(b)); S.dirty = false; location.reload(); } }, 'Open')))))) : h('div', { class: 'note' }, 'No versions yet.'),
     );
   };
   draw().catch((e) => { body.textContent = 'Could not load: ' + e.message; });
+}
+
+// what changed from a version to the draft
+async function showDiff(v) {
+  const { diffBundles } = await import('./diff.js');
+  const [old, cur] = await Promise.all([api.version(v.id), ST.bundle()]);
+  const d = diffBundles(old, cur), h = UI.h;
+  UI.modal(`Changes from version ${v.id} to the draft`, d.length ? h('div', {}, d.map(([t, list]) => h('div', { class: 'sect' }, h('h3', {}, t), h('div', { class: 'mono', style: 'white-space:pre-wrap' }, list.slice(0, 80).join('\n') + (list.length > 80 ? `\n… ${list.length - 80} more` : '')))),
+    h('div', { class: 'btns' }, h('button', { onclick: async () => { if (!confirm('Replace the draft with version ' + v.id + '?')) return; await api.putDraft(JSON.stringify(old)); S.dirty = false; location.reload(); } }, 'Revert the draft to version ' + v.id))) : h('div', { class: 'note' }, 'No changes.'));
 }
 
 // ---------- Play here ----------
@@ -351,7 +362,9 @@ $('bHelp').onclick = () => UI.modal('PalletEdit: how it works', UI.h('div', { cl
 <p><b>Camera</b>: right drag looks around; hold it and <kbd>W A S D</kbd> fly (<kbd>Q</kbd>/<kbd>E</kbd> down/up, <kbd>Shift</kbd> faster). Middle drag or <kbd>Alt</kbd>+left drag orbits, <kbd>Shift</kbd>+middle drag pans, the wheel zooms to the cursor, <kbd>F</kbd> frames the selection.</p>
 <p><b>Pieces</b>: <kbd>Q</kbd> select, <kbd>W</kbd> move, <kbd>E</kbd> turn, <kbd>R</kbd> scale. Click selects a whole piece, double-click goes into its parts; <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click adds; drag on empty ground for a box. <kbd>Ctrl+D</kbd> duplicate, <kbd>Delete</kbd>, <kbd>End</kbd> drop to the ground, <kbd>G</kbd> keeps moved pieces on the ground. Assets tab: pick one and click to place it.</p>
 <p><b>Ground</b>: <kbd>1</kbd>–<kbd>5</kbd> raise, lower, smooth, flatten (<kbd>Ctrl</kbd>+click picks its height), noise; <kbd>6</kbd>–<kbd>9</kbd> paint dirt path, sand, rock, grass. Plants thins or clears trees and bushes, Blades the grass, Walk paints where you can walk (blocked, walkable, ledge). <kbd>[</kbd> <kbd>]</kbd> brush size.</p>
-<p><b>Saving</b>: the draft saves itself every 20 s (and <kbd>Ctrl+S</kbd>). <b>Versions</b> keeps copies and sends one to the phone ("Publish to phone"). <kbd>Ctrl+Z</kbd> undo, <kbd>Ctrl+Shift+Z</kbd> redo. <b>Play here</b> (<kbd>P</kbd>) walks the draft from the middle of the view.</p>
+<p><b>Plants and roads</b>: <kbd>T</kbd> Plant paints trees, bushes, rocks, ferns or flowers (<kbd>Shift</kbd> removes); <kbd>Y</kbd> Roads: drag a road's points, <kbd>Alt</kbd>+click adds one, New road draws one; Rebuild shows the ground following it.</p>
+<p><b>Town life</b>: people and their days (the day's route shows in the view), places (markers you move and turn), dialogue, quests, rumours, the Pokémon; ▶ plays lines in a text box like the game's; Check lists problems. <b>Game</b>: speeds, camera, look, music, clock, settings, creatures, every sound effect, and the interiors (move props and people in the rooms). <b>Characters</b>: each person's materials, skeleton, animation keys, gait and cloth.</p>
+<p><b>Saving</b>: the draft saves itself every 20 s (and <kbd>Ctrl+S</kbd>). <b>Versions</b> keeps copies, shows what changed (Changes, with Revert) and sends one to the phone ("Publish to phone"); the publisher reports back there (status and log). <kbd>Ctrl+Z</kbd> undo, <kbd>Ctrl+Shift+Z</kbd> redo. <b>Play here</b> (<kbd>P</kbd>) walks the draft from the middle of the view.</p>
 <p class="mono">Server: ${API_URL}${api.offline ? ' (offline)' : ''}</p>` }));
 
 // ---------- the loop ----------
