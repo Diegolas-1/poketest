@@ -3,7 +3,11 @@
 // and unattended (a scheduled Claude session runs it):
 //
 //   node tools/editor/publish.mjs              handle the newest pending request
-//   node tools/editor/publish.mjs --dry-run    everything but push and publish
+//   node tools/editor/publish.mjs --dry-run    everything but push and publish: the
+//                                              bakes and the patch export run (local
+//                                              commits, then put back), nothing is
+//                                              uploaded; the report lists the packs
+//                                              phones would download
 //   node tools/editor/publish.mjs --status     list the requests
 //
 // For the newest pending request (older pending ones are marked superseded):
@@ -136,7 +140,6 @@ async function handle(pending) {
     const c = await check({ game: world, port, log: (t) => logs.push(t) });
     if (c.errors.length) throw new Error('checks failed:\n' + c.errors.join('\n'));
     await report('working', ['checks ok' + (c.warnings.length ? ` (${c.warnings.length} warnings)` : ''), ...logs.slice(0, 12)]);
-    if (DRY) { say('dry run: stopping before commit'); git('checkout', '--', 'web/world/edits', 'web/world/maps', 'native/life', 'native/tunables'); git('clean', '-fdq', 'web/world/edits'); await report('pending', 'dry run done (nothing pushed)'); return; }
     // ---------- 6. commit, bake, push ----------
     if (changed.length) {
       git('add', '-A', 'web/world/edits', 'web/world/maps', 'native/life', 'native/tunables');
@@ -165,21 +168,29 @@ async function handle(pending) {
       git('add', '-A', 'native/interiors');
       if (git('status', '--porcelain', 'native/interiors')) git('commit', '-q', '-m', `Interiors rebaked for editor version ${req.version}`);
     }
-    push();
+    if (!DRY) push();
     // ---------- 7. the patch ----------
-    if (!world && !life && !maps.length) { await report('done', 'nothing new to publish (the game already has this version)', { patch: null }); return; }
-    await report('working', 'publishing the patch');
+    if (!world && !life && !maps.length) { if (DRY) undoDry(headR); await report(DRY ? 'pending' : 'done', 'nothing new to publish (the game already has this version)', { patch: null }); return; }
+    await report('working', DRY ? 'exporting the patch (dry run: nothing uploaded)' : 'publishing the patch');
     const GODOT = process.env.GODOT || 'godot';
-    const r = spawnSync('node', [path.join(ROOT, 'tools/native/publish_patch.mjs'), '--notes', `Editor: ${req.message || 'world edits'}`], { cwd: ROOT, env: { ...process.env, GODOT }, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 3 * 3600e3 });
+    const r = spawnSync('node', [path.join(ROOT, 'tools/native/publish_patch.mjs'), '--notes', `Editor: ${req.message || 'world edits'}`, ...(DRY ? ['--dry-run'] : [])], { cwd: ROOT, env: { ...process.env, GODOT }, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 3 * 3600e3 });
     const out = (r.stdout || '') + (r.stderr || '');
     if (r.status !== 0) throw new Error('publish_patch failed:\n' + out.slice(-3000));
+    // what a phone downloads: the packs (world regions, plants, code...) that changed
+    const lines = out.split('\n').filter((l) => /exported|^changed:|published|dry run/.test(l)).slice(-20);
+    if (DRY) {
+      undoDry(headR);
+      await report('pending', ['dry run done (nothing pushed or uploaded):', ...lines]);
+      for (const l of lines) say(l);
+      say('dry run done'); return;
+    }
     const m = /published v(\d+) on (\S+)/.exec(out);
-    await report('done', out.split('\n').filter((l) => /exported|reusing|published/.test(l)).slice(-8), { patch: m ? +m[1] : null, channel: m ? m[2] : null, git: git('rev-parse', 'HEAD') });
+    await report('done', lines, { patch: m ? +m[1] : null, channel: m ? m[2] : null, git: git('rev-parse', 'HEAD') });
     say('done: patch v' + (m ? m[1] : '?'));
   } catch (e) {
     say('failed: ' + e.message);
     // put back anything not pushed
-    try { if (!pushed) git('reset', '-q', '--hard', headR); git('checkout', '--', 'web/world/edits', 'web/world/maps', 'native/life', 'native/tunables'); git('clean', '-fdq', 'web/world/edits'); } catch { /* */ }
+    try { if (!pushed) git('reset', '-q', '--hard', headR); git('checkout', '--', 'web/world/edits', 'web/world/maps', 'native/life', 'native/tunables'); git('clean', '-fdq', 'web/world/edits', 'native/world'); } catch { /* */ }
     await report('failed', String(e.message).slice(0, 3800));
     process.exitCode = 1;
   }
@@ -201,6 +212,11 @@ async function ownServer() {
     }
   } finally { fs.rmSync(probe, { force: true }); }
   throw new Error('could not start a web server for this checkout');
+}
+// a dry run's local commits and bakes, put back
+function undoDry(head) {
+  git('reset', '-q', '--hard', head);
+  git('clean', '-fdq', 'web/world/edits', 'native/world');
 }
 let pushed = false;
 function push() {

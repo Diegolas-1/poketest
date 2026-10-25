@@ -30,7 +30,18 @@ export function token() {
   throw new Error('set PALLET_EDITOR_TOKEN (the editor passphrase) or write it to ~/.pallet-editor-token');
 }
 export async function call(method, p, body) {
-  const r = await fetch(API + p, { method, headers: { authorization: 'Bearer ' + token(), 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  // (retried: after a long bake the kept-alive connection has been closed by
+  // the other end, and the first request on it fails)
+  let r;
+  for (let i = 0; ; i++) {
+    try {
+      r = await fetch(API + p, { method, headers: { authorization: 'Bearer ' + token(), 'content-type': 'application/json', connection: 'close' }, body: body === undefined ? undefined : JSON.stringify(body) });
+      break;
+    } catch (e) {
+      if (i >= 3) throw e;
+      await new Promise((ok) => setTimeout(ok, 1000 * (i + 1)));
+    }
+  }
   const t = await r.text();
   let j; try { j = JSON.parse(t); } catch { j = { error: t }; }
   if (!r.ok) throw new Error(`${method} ${p}: ${r.status} ${j.error || ''}`);

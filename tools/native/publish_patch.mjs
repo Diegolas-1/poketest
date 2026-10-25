@@ -18,7 +18,7 @@
 //
 //   node tools/native/publish_patch.mjs                 publish the committed native/
 //   node tools/native/publish_patch.mjs --notes "..."   with a note for the phone
-//   node tools/native/publish_patch.mjs --dry-run       export and show, upload nothing
+//   node tools/native/publish_patch.mjs --dry-run       export and show what would download, upload nothing
 //   node tools/native/publish_patch.mjs --status        the live manifest and history
 //   node tools/native/publish_patch.mjs --rollback      live = the version before it
 //   node tools/native/publish_patch.mjs --rollback --to 3
@@ -39,7 +39,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdtempSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, existsSync, statSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -195,7 +195,7 @@ async function publish() {
     packs: packs.map(({ name, file, sha256, size, src }) => ({ name, file, sha256, size, src })),
   };
   console.log(JSON.stringify(m, null, 1));
-  if (flag('--dry-run')) return console.log(`dry run: packs in ${dir}`);
+  if (flag('--dry-run')) { rmSync(dir, { recursive: true, force: true }); return console.log('dry run: nothing uploaded'); }
   for (const p of packs) {
     if (!p.path) continue;
     if (await exists('/packs/' + p.file)) { console.log(`${p.file}: already on the server`); continue; }
