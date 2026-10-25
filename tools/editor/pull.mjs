@@ -89,7 +89,7 @@ export function writeBundle(b, { dry = false, log = console.log } = {}) {
   const conflicts = [];
   for (const [name, { base, data }] of Object.entries(b.life || {})) {
     // 'people.json' = native/life/people.json; a path = that file (game data folders only)
-    if (!/^[\w.-]+\.json$/.test(name) && !/^(native\/(life|tunables)|web\/world\/edits)\/[\w./-]+\.json$/.test(name) || name.includes('..')) throw new Error('bad game file ' + name);
+    if (!/^[\w.-]+\.json$/.test(name) && !/^(native\/(life|tunables)|web\/world\/(edits|maps))\/[\w./-]+\.json$/.test(name) || name.includes('..')) throw new Error('bad game file ' + name);
     const f = name.includes('/') ? path.join(ROOT, name) : path.join(ROOT, 'native/life', name);
     const theirs = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : base;
     const c = [];
@@ -114,7 +114,7 @@ async function main() {
   const { changed } = writeBundle(b, { dry: flag('--dry-run') });
   console.log(`${label}: ${changed.length ? changed.join('\n  ') : 'nothing changed'}`);
   if (opt('--commit') && changed.length && !flag('--dry-run')) {
-    execFileSync('git', ['add', '-A', 'web/world/edits', 'native/life', 'native/tunables'], { cwd: ROOT });
+    execFileSync('git', ['add', '-A', 'web/world/edits', 'web/world/maps', 'native/life', 'native/tunables'], { cwd: ROOT });
     execFileSync('git', ['commit', '-q', '-m', opt('--commit')], { cwd: ROOT, stdio: 'inherit' });
   }
 }

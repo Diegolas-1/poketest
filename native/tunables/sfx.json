@@ -1,0 +1,4 @@
+{
+ "_doc": "Sound effect changes from the world editor (sfx.gd applies them over audio/sfx/catalog.json, which tools/sfx/build.py makes): sounds.<id> {vol (dB), pitch [lo, hi], vjit (dB), dist (m), unit, voices, gap (s), loop, bus}.",
+ "sounds": {}
+}

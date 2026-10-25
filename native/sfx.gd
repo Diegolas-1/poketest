@@ -150,7 +150,10 @@ func _load_catalog() -> void:
 		push_warning("sfx: no catalog"); return
 	var d = JSON.parse_string(FileAccess.get_file_as_string(CATALOG))
 	if typeof(d) != TYPE_DICTIONARY: return
+	# the world editor's changes (res://tunables/sfx.json sounds.<id>: vol, pitch, vjit, dist, voices, gap...)
+	var ov = preload("res://tunables.gd").file("sfx").get("sounds", {})
 	for e in d.sounds:
+		if ov is Dictionary and ov.get(e.id) is Dictionary: for k in ov[e.id]: e[k] = ov[e.id][k]
 		var files: Array[String] = []
 		for f in e.files: files.append("res://audio/sfx/" + String(f))
 		var p: Array = e.get("pitch", [1.0, 1.0])
