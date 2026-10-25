@@ -121,7 +121,7 @@ async function handle(pending) {
     }
     const c = await check({ game: world, port, log: (t) => logs.push(t) });
     if (c.errors.length) throw new Error('checks failed:\n' + c.errors.join('\n'));
-    await report('working', ['checks ok' + (c.warnings.length ? ` (${c.warnings.length} warnings)` : ''), ...logs.slice(-10)]);
+    await report('working', ['checks ok' + (c.warnings.length ? ` (${c.warnings.length} warnings)` : ''), ...logs.slice(0, 12)]);
     if (DRY) { say('dry run: stopping before commit'); git('checkout', '--', 'web/world/edits', 'web/world/maps', 'native/life', 'native/tunables'); git('clean', '-fdq', 'web/world/edits'); await report('pending', 'dry run done (nothing pushed)'); return; }
     // ---------- 6. commit, bake, push ----------
     if (changed.length) {
