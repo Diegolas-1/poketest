@@ -232,7 +232,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   // Route 1's flower meadow, in drifts (route1veg.js): one scatter per kind
   {
     const M = meadowFlowers(free, quality);
-    M.pts.forEach((list, i) => { keepOff(list, 0.3); sow(M.models[i], list, () => ({ chunk: 48, fade: [62 * quality.lod - 3, 62 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false })); });
+    M.pts.forEach((list, i) => { keepOff(list, 0.3); sow(M.models[i], list, () => ({ chunk: 64, fade: [62 * quality.lod - 3, 62 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false })); });
   }
 
   // ---------- rocks ----------
