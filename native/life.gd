@@ -63,8 +63,8 @@ signal person_entered(id: String, house: String)
 signal person_exited(id: String, house: String)
 
 const X0 := -112.0
-const Z0 := -62.0
-const X1 := 80.0
+const Z0 := -110.0   # (Route 1's fields reach z -105)
+const X1 := 166.0   # (PALLET HOUSE on its hill reaches x ~160)
 const Z1 := 152.0   # (the harbour piers reach z 149)
 const CS := 0.5
 const R_PERSON := 0.5
@@ -72,9 +72,9 @@ const W_ROAD := 1.0
 const W_YARD := 1.15
 const W_GRASS := 2.4
 const FAR := 45.0
-const ROAM := ["yardwork", "garden", "play", "work:farm", "feed", "walk", "shop"]
-const SOCIAL := ["chat", "walk", "shop", "yarn", "porch", "work:market", "work:sell", "work:stall", "play", "visit", "mend"]
-const DOOR_ACTS := ["sleep", "home", "breakfast", "supper", "bake", "lighthouse", "visit", "inside"]
+const ROAM := ["yardwork", "garden", "play", "work:farm", "feed", "walk", "shop", "serve"]
+const SOCIAL := ["chat", "walk", "shop", "yarn", "porch", "tea", "serve", "work:market", "work:sell", "work:stall", "play", "visit", "mend"]
+const DOOR_ACTS := ["sleep", "home", "breakfast", "supper", "bake", "lighthouse", "visit", "inside", "cook"]
 
 var game: Node3D
 var cast: Node
@@ -432,6 +432,55 @@ func _snap_places() -> void:
 			var v = pl[key]
 			if v is Array and v.size() > 0 and v[0] is Array: pl[key] = v.map(func(a): return _v(a))
 			elif key in ["well", "boat_steps", "head", "foot", "door", "center"] and v is Array: pl[key] = _v(v)
+	if places.has("pallet_house"): _pallet_house(places.pallet_house)
+
+# PALLET HOUSE (Delia's restaurant on the hill; places.json pallet_house, its
+# named spots from terrain.js): its single spots become points, and the lists
+# the schedules use are made from them: terrace (where one stands to serve or
+# wipe a table, facing it), seats (the chairs), garden, kitchen, porch, bench,
+# fence. Its front door is a house of its own (life.houses.pallet_house), so
+# Delia can go in to cook and come out to serve; it has no room yet.
+func _pallet_house(pl: Dictionary) -> void:
+	var raw := {}
+	for key in pl.keys():
+		var v = pl[key]
+		if v is Array and v.size() >= 2 and (v[0] is float or v[0] is int) and key != "middle":
+			raw[key] = Vector3(v[0], v[1], float(v[2]) if v.size() > 2 else NAN)
+			pl[key] = _v(v)
+	pl.raw = raw      # (unsnapped: the bench's seat, the basket bed; for Mr. Mime, who sits right on them)
+	var mid := Vector2(pl.middle[0], pl.middle[1])
+	var terrace := []
+	var seats := []
+	var tables := []
+	for t in pl.get("tables", []):
+		var tc := Vector2(t.table[0], t.table[1])
+		tables.append(Vector3(tc.x, tc.y, NAN))
+		# the serving side: toward the house, where nobody sits
+		var d := (mid - tc).normalized()
+		var at := tc + d * 1.45
+		terrace.append(Vector3(at.x, at.y, atan2(-d.x, -d.y)))
+		for ch in t.chairs: seats.append(_v(ch))
+	pl.table_at = tables
+	pl.terrace = terrace
+	pl.spots = terrace
+	pl.seats = seats
+	var fd: Vector3 = pl.front_door
+	var yaw: float = fd.z
+	var n := Vector2(sin(yaw + PI), cos(yaw + PI))      # out of the front door
+	var porch := Vector2(fd.x, fd.y) + n * 2.0
+	pl.porch = [_v([porch.x, porch.y, yaw + PI])]
+	pl.garden = [pl.herb_bed, pl.veg_patch, pl.water_butt]
+	pl.roses = [pl.cottage_garden]
+	pl.kitchen = [pl.kitchen_window]
+	var vb: Vector3 = raw.get("view_bench", pl.view_bench)
+	pl.bench = [Vector3(vb.x, vb.y, yaw + PI)]     # facing the sea, as the house does
+	pl.fence = [pl.cliff_fence]
+	if not houses.has("pallet_house"):
+		var rd: Vector3 = raw.get("front_door", fd)
+		var dr := Vector3(rd.x, rd.y, yaw)
+		houses.pallet_house = {"center": [mid.x, mid.y], "rot": yaw - PI, "floor_y": float(pl.get("floor_y", world.height_at(dr.x, dr.y))),
+			"door": fd, "door_raw": dr, "doorway": Vector3(dr.x - n.x * 1.0, dr.y - n.y * 1.0, yaw),
+			"porch": pl.porch[0], "gate": pl.porch[0], "lane": pl.porch[0], "mailbox": pl.porch[0], "yard": pl.porch, "normal": n, "places": true}
 
 func _make_doors() -> void:
 	if headless: return
@@ -552,7 +601,10 @@ func _goal(p: Dictionary, blk: Dictionary) -> Dictionary:
 	var parts := place.split(".")
 	var spots: Array = []
 	var key := place
-	if houses.has(parts[0]):
+	if parts.size() > 1 and places.has(parts[0]) and places[parts[0]].has(parts[1]):
+		var pv = places[parts[0]][parts[1]]
+		spots = pv if pv is Array else [pv]
+	elif houses.has(parts[0]):
 		var hs2: Dictionary = houses[parts[0]]
 		var sub: String = parts[1] if parts.size() > 1 else "door"
 		if sub == "yard": spots = hs2.yard

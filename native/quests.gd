@@ -476,6 +476,25 @@ func state(qid: String, ctx: Dictionary = {}) -> String:
 func step_index(qid: String) -> int:
 	return int(st.quests.get(qid, {}).get("step", 0))
 
+# ---------- money for Mom ----------
+# Some trainers send part of their prize money home after a battle (a hook for
+# the battles to come; no UI yet). st.mom = {"saved": total sent, "last": the
+# last amount, "day": the game day it came, "n": how many times}. Delia's
+# lines can read it later (mom_savings()).
+func send_money_home(amount: int, day := -1) -> void:
+	_ensure()
+	if amount <= 0: return
+	var m: Dictionary = st.get("mom", {"saved": 0, "last": 0, "day": -1, "n": 0})
+	m.saved = int(m.saved) + amount
+	m.last = amount
+	m.day = day
+	m.n = int(m.n) + 1
+	st.mom = m
+	if autosave: save()
+
+func mom_savings() -> int:
+	return int(st.get("mom", {}).get("saved", 0))
+
 func flag(f: String) -> bool:
 	return st.flags.has(f)
 

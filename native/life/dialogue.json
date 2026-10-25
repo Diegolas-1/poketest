@@ -34,14 +34,19 @@
         "home": ["I'm tidying up. Your room, mostly. Honestly, Ash, how many POKéMON posters does one boy need?", "I found your old alarm clock. Still in pieces from when you smashed it in your sleep."],
         "shop": ["I'm getting a few things from Marina. Fish on Fridays, like always.", "Ada saved me a seed loaf. She's a treasure."],
         "chat": ["Oh, just catching up with the neighbours. Go on, I'll be home soon."],
-        "walk": ["A little walk clears my head. The sea air is good for worrying less."]
+        "walk": ["A little walk clears my head. The sea air is good for worrying less."],
+        "open": [["Morning, sweetie! I'm just opening up.", "Mr. Mime's had the terrace swept since sunrise. Twice."], ["Every morning I unlock that door and think of your grandmother.", "She'd be tickled to see Mr. Mime in her old apron."]],
+        "serve": [["Today's special is Grandma's seafood stew.", "Marina brought the catch up the hill herself this morning."], "Table two wanted more tea... oh, Mr. Mime already took it. What would I do without him?", ["Lunch rush! Well, Pallet Town's version of one.", "Three tables and Old Tom telling the same story twice."], ["Try the Pecha berry tart, honey. It's new.", "Mr. Mime decorated it. You can't see the icing, but he swears it's there."], ["There's a bowl of soup with your name on it.", "Mr. Mime wrote it in the steam. It was very moving."], ["Mr. Mime carries three trays at once. Three!", "I asked where he learned it. He mimed a circus. I didn't ask again."]],
+        "garden": [["The herbs for tonight: basil, thyme, a little mint for the tea.", "Mr. Mime waters them. He mimes the watering can first, then uses the real one."], "Grandma planted these roses the year she opened. They've outlived three parasols.", ["Tomatoes, beans, and a very stubborn zucchini.", "Everything on the menu comes from this patch or Marina's boat."]],
+        "break": ["Five minutes on the bench. That's all I ask. Just look at that view, Ash.", ["On a clear day you can see Cinnabar Island from up here.", "Grandpa used to say the sea never looks the same twice."], ["Mr. Mime always saves me this end of the bench.", "He sits on the invisible end. It's very polite of him."]]
       },
       "place": {
         "home": ["Our little house. I painted the shutters the year you were born.", "Mind the step, it's loose. I keep meaning to ask Bram to look at it."],
         "lily": ["Rose and I are swapping cuttings. She gets my mint, I get her sweet peas."],
         "beach": ["I used to bring you here in a little bucket hat. You'd chase the Krabby and cry when they pinched."],
         "pier": ["The boats look so small from up here. I always wonder where they're going."],
-        "plaza": ["PROF. OAK's lab is up those stairs. You've been looking up there a lot lately."]
+        "plaza": ["PROF. OAK's lab is up those stairs. You've been looking up there a lot lately."],
+        "pallet_house": [["PALLET HOUSE has been in our family since your great-grandmother.", "Rooms upstairs, kitchen downstairs, and the best view in Kanto."], ["Mind the terrace, it's freshly swept.", "Mr. Mime sweeps it four times a day. I think he likes the sound."], ["Look at the sea from up here, honey.", "I could serve soup to the whole world and never get tired of this view."]]
       },
       "ash": [
         ["Everyone in town says you've got something special, Ash.", "I know you do. I've known since you were tiny."],
@@ -55,7 +60,15 @@
         ["It's a big world out there past Route 1.", "Bigger than Pallet Town. Bigger than me. But I think it's just the right size for you."],
         ["If you ever do go, honey, you remember: clean socks, a warm jacket, and call your mother.", "In that order. Well, call your mother first."],
         ["I'm not sad you dream big, Ash.", "I'm a mom. Being a little scared is part of the job. Being proud is the best part."],
-        ["Gary's grandfather keeps telling me you have an instinct for POKéMON.", "I just nod like I understand. But I'm so proud I could burst."]
+        ["Gary's grandfather keeps telling me you have an instinct for POKéMON.", "I just nod like I understand. But I'm so proud I could burst."],
+        ["Mr. Mime has been helping me since you were in diapers, you know.", "He used to rock your cradle. A mimed cradle, but you never knew the difference."],
+        ["You grew up with POKéMON all around you, Ash. PROF. OAK's, Lily's Nibbles, Farmer Ben's Doduo...", "But a battle is a different thing. Be gentle with whoever you meet out there."],
+        ["You've never been in a real POKéMON battle, have you?", "Not that I'm complaining. I just... worry. That's my job."],
+        ["Remember when Doduo chased you round the farmyard? You laughed the whole way.", "You always made friends with POKéMON before you made plans."],
+        ["Feeding PROF. OAK's POKéMON is one thing, sweetie.", "Battling with them is another. I hope you'll learn the first part never stops mattering."],
+        ["Lily talks to that Caterpie of hers all day long.", "You were the same with Mr. Mime. You taught him peekaboo. Well. He taught you."],
+        ["Some trainers send a little prize money home to their mothers, I hear.", "Ha! I'm joking. Mostly. PALLET HOUSE pays the bills. But a letter would be nice."],
+        ["Mr. Mime will look after the place. And me.", "So don't you go worrying about us. You worry about clean socks."]
       ],
       "town": [
         "Ada brings our bread every morning. She knows every bit of news before the Pidgey do.",
@@ -69,7 +82,8 @@
         "mae": ["Mae's been like a grandmother to you, Ash. Be sure to thank her for the scarf."],
         "lily": ["Lily's been raising a POKéMON of her own. Maybe you two could compare notes?"],
         "kai": ["Kai's a good man. A bit loud about his gadgets, but a good man."],
-        "tom": ["Don't believe everything Old Tom tells you about sea serpents. Just most of it."]
+        "tom": ["Don't believe everything Old Tom tells you about sea serpents. Just most of it."],
+        "mrmime": [["Mr. Mime came to us when you were a baby. He's been family ever since.", "He doesn't say much. He doesn't have to."], ["Mr. Mime sleeps in his basket by the door.", "I tell him he can have a room upstairs. He mimes a room. He seems happy with it."]]
       },
       "after": {
         "fanclub_card": [["Timmy showed me his little card. 'Future POKéMON Master', in crayon.", "I put it on the fridge. Don't tell him I asked for a copy."]],
@@ -77,7 +91,11 @@
       },
       "sleep": [["...Mmm... Ash, socks...", "(Mom is fast asleep.)"]],
       "bark": {
-        "any": ["Where did I put the watering can...", "Oh, these weeds!", "Ash, wear your cap!"],
+        "any": ["Where did I put the watering can...", "Ash, wear your cap!", "Ash! Come up for lunch sometime!", "Is that Ash? Wave to Mr. Mime, honey!", "Have you eaten today, sweetie?"],
+        "serve": ["Order up!", "Mr. Mime, table three!", "Careful, it's hot!", "Seafood stew, fresh today!", "More tea? Mr. Mime!"],
+        "open": ["Good morning, terrace!", "Mr. Mime, have you seen my apron?", "Open for business!"],
+        "garden": ["A little thyme for the stew...", "Mr. Mime, the watering can, please!", "Shoo, Oddish, those are tonight's beans."],
+        "break": ["Ahh... what a view.", "Five more minutes.", "Look at the sea today, Mr. Mime."],
         "yardwork": ["One more row and I'll stop. Probably.", "Come on, little sprout, you can do it.", "Shoo, Oddish, shoo... oh, all right, one leaf."],
         "evening": ["Supper in ten minutes!", "Ash! Ten minutes!"],
         "night": ["Lights out soon, mister."]
@@ -154,7 +172,7 @@
       },
       "sleep": ["(Lily is asleep, hugging a Butterfree plushie.)"],
       "bark": {
-        "any": ["Nibbles, no! Not Mom's roses!", "Butterfree, Butterfree, where are you...", "I'm a POKéMON Trainer!"],
+        "any": ["Mr. Mime did the invisible box for me again!", "Nibbles, no! Not Mom's roses!", "Butterfree, Butterfree, where are you...", "I'm a POKéMON Trainer!"],
         "play": ["Nibbles, use Tackle! ...Nibbles? Nibbles, wake up.", "I choose you!"],
         "garden": ["Mom, can Caterpie eat daisies?"]
       },
@@ -228,7 +246,7 @@
       },
       "sleep": ["(Rose is asleep. There's soil under her fingernails.)"],
       "bark": {
-        "any": ["Hm, aphids.", "There you are, little bud.", "Who stepped on my marigolds?"],
+        "any": ["Delia's Mr. Mime trimmed my hedge. With invisible shears.", "Hm, aphids.", "There you are, little bud.", "Who stepped on my marigolds?"],
         "garden": ["Snip, snip.", "Drink up, you lot.", "Lily! Caterpie off the roses, please!"]
       },
       "chat": {
@@ -306,7 +324,7 @@
       },
       "sleep": ["(Bram is snoring like a bread oven. HRRNK. Shhh.)"],
       "bark": {
-        "any": ["Ho ho!", "Bread's up!", "Who wants a roll?"],
+        "any": ["Mr. Mime buys my rolls. Pays with real coins, thank goodness.", "Ho ho!", "Bread's up!", "Who wants a roll?"],
         "bake": ["Rise, my beauties, rise!", "Ada! The rye's ready!", "Where's my big spoon?"],
         "night": ["Four o'clock comes fast..."]
       },
@@ -383,7 +401,7 @@
       },
       "sleep": ["(Ada is asleep. She mumbles: '...and then Marina said...')"],
       "bark": {
-        "any": ["Fresh bread! Fresh news!", "Did you hear...?", "Oh, you'll never guess..."],
+        "any": ["Did you hear? Mr. Mime served Old Tom an invisible soup!", "Fresh bread! Fresh news!", "Did you hear...?", "Oh, you'll never guess..."],
         "deliver": ["Bread round! Bread round!", "Wobbly wheel, wobbly wheel...", "Morning, Mae! Brown or white?"],
         "chat": ["...and THEN he said...", "No! He didn't!"]
       },
@@ -463,7 +481,7 @@
       },
       "sleep": ["(Timmy is asleep. He mumbles: '...I choose you... cabbage...')"],
       "bark": {
-        "any": ["Pew pew!", "I choose you!", "Ash! ASH!"],
+        "any": ["Mr. Mime! Do the wall! Do the wall!", "Pew pew!", "I choose you!", "Ash! ASH!"],
         "play": ["Gotcha! ...Aww.", "Grr! I'm a Gyarados!", "Thunderbolt!"],
         "night": ["Is that a Gastly?!"]
       },
@@ -542,7 +560,7 @@
       },
       "sleep": ["(Granny Mae is dozing in her chair, knitting in her lap.)"],
       "bark": {
-        "any": ["Knit one, purl one...", "Mm. Wind's turning.", "Ah, there's Rusty."],
+        "any": ["That Mr. Mime bowed to me again. Such manners.", "Knit one, purl one...", "Mm. Wind's turning.", "Ah, there's Rusty."],
         "feed": ["Here, Pidgey Pidgey...", "Plenty for all, no squabbling.", "Pip, come on, don't be shy."],
         "night": ["Lighthouse is on. Good."]
       },
@@ -622,7 +640,7 @@
       },
       "sleep": ["(Kai is asleep with the radio crackling on his chest.)"],
       "bark": {
-        "any": ["Technology is incredible!", "Seventy percent chance of fish!", "Where's my reel?"],
+        "any": ["How does Mr. Mime make a wall out of nothing? Physics, I tell you.", "Technology is incredible!", "Seventy percent chance of fish!", "Where's my reel?"],
         "fish": ["Come on, come on...", "Bite, you beauty!", "Aw, a boot. Again."],
         "evening": ["Good catch today!"]
       },
@@ -699,7 +717,7 @@
       },
       "sleep": ["(Marina is asleep. One hand still clutches a netting needle.)"],
       "bark": {
-        "any": ["Hmph.", "Over, under, through...", "Kai! The radio's on again!"],
+        "any": ["Mr. Mime carried my catch up the hill. Didn't spill a drop.", "Hmph.", "Over, under, through...", "Kai! The radio's on again!"],
         "mend": ["Blasted Krabby.", "Who's been at my twine?", "Pull, and pull, and done."],
         "shop": ["Fresh catch!", "Mackerel! Bream! Bargains!"]
       },
@@ -776,7 +794,7 @@
       },
       "sleep": ["(Farmer Ben is asleep. Even asleep, he's frowning at the weather.)"],
       "bark": {
-        "any": ["Mm.", "Hm.", "Rain Thursday."],
+        "any": ["Delia's Mr. Mime. Good worker. Odd fella.", "Mm.", "Hm.", "Rain Thursday."],
         "farm": ["Easy, Doduo.", "Get off the berries, you.", "Good soil."],
         "dawn": ["Up and at it."]
       },
@@ -851,7 +869,7 @@
       },
       "sleep": ["(Old Tom is asleep in his chair, spyglass in his lap.)"],
       "bark": {
-        "any": ["Ahoy!", "In my day...", "Mark my words."],
+        "any": ["Hmph. That Mr. Mime swept MY step too.", "Ahoy!", "In my day...", "Mark my words."],
         "porch": ["Smoke on Cinnabar again...", "There's the ferry.", "Spyglass, spyglass..."],
         "night": ["Middle watch. Quiet."]
       },

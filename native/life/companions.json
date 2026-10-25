@@ -1,5 +1,5 @@
 {
- "_doc": "The townspeople's Pokémon (companions.gd): who they belong to, where they sleep, what they say. Lines: the player talks to them (A): 'talk' by mood ('asleep', 'happy', 'any', a period of the day), 'owner_talk' (the owner's line when near, by the same keys; a list of strings or [strings] for two lines), 'quest' by quest state ('<quest id>:active' | ':done') and flag; 'barks' over its head now and then; 'owner_barks' the owner says to it.",
+ "_doc": "The townspeople's Pokémon (companions.gd): who they belong to, where they sleep, what they say. Lines: the player talks to them (A): 'talk' by mood ('asleep', 'happy', 'any', a period of the day), 'owner_talk' (the owner's line when near, by the same keys; a list of strings or [strings] for two lines), 'quest' by quest state ('<quest id>:active' | ':done') and flag; 'barks' over its head now and then; 'owner_barks' the owner says to it. A companion with 'home': 'pallet_house' (Mr. Mime, mime_life.gd) lives and works there instead of following: 'schedule' = his own day while the owner is away ([HH:MM, job, spot]; jobs sleep, sweep, water, tidy, practice, bench; spots nook, porch, terrace, garden, roses, fence, bench from places.json pallet_house), 'jobs' = each job's task, duration range [min, max] s, carried prop and table / seat height 'th'; 'mimes' = [mood, line] when the player talks to him; 'owner_chat' = [the owner's line, his mimed answer] when they hang out; 'hello' / 'goodbye' = the owner's lines as she arrives and leaves.",
  "companions": [
   {"id": "nibbles", "name": "Nibbles", "species": "caterpie", "owner": "lily",
    "speed": 1.6, "hurry": 2.3, "follow": 0.75, "side": 0.45, "inside": true, "pace_cap": 1.75,
@@ -28,6 +28,56 @@
    "owner_barks": ["Come on, Nibbles!", "Good boy, Nibbles!", "Nibbles, keep up!", "Who's a good Caterpie?", "Nibbles, no! Not that leaf!", "Wait for Nibbles!"],
    "owner_pat": ["There you are, Nibbles!", "Good Caterpie!", "You're getting so big!"],
    "bed": ["Night night, Nibbles!"]
+  },
+  {"id": "mrmime", "name": "Mr. Mime", "species": "mrmime", "owner": "delia", "home": "pallet_house",
+   "speed": 1.25, "hurry": 2.1, "follow": 1.0, "side": 0.9, "inside": false,
+   "schedule": [["00:00", "sleep", "nook"], ["05:45", "sweep", "porch"], ["06:30", "water", "garden"], ["07:15", "tidy", "terrace"], ["09:00", "sweep", "terrace"], ["10:30", "practice", "fence"], ["11:30", "tidy", "terrace"], ["13:00", "water", "roses"], ["14:00", "practice", "fence"], ["15:00", "sweep", "porch"], ["16:00", "tidy", "terrace"], ["17:30", "water", "garden"], ["18:15", "tidy", "terrace"], ["18:55", "bench", "bench"], ["20:00", "sweep", "terrace"], ["20:30", "tidy", "terrace"], ["21:00", "practice", "fence"], ["21:40", "sleep", "nook"]],
+   "jobs": {
+    "sweep": {"task": "sweep", "dur": [12.0, 22.0], "carry": "broom"},
+    "tidy": {"task": "wipe", "dur": [7.0, 12.0], "th": 0.78},
+    "tray": {"task": "serve", "dur": [2.8, 2.8], "carry": "tray", "th": 0.78},
+    "water": {"task": "water", "dur": [7.0, 11.0], "carry": "can"},
+    "practice": {"task": "wall", "dur": [14.0, 24.0]},
+    "bench": {"task": "sit", "dur": [30.0, 60.0], "th": 0.5},
+    "sleep": {"task": "rest", "dur": [120.0, 240.0], "th": 0.27},
+    "hang": {"task": "listen", "dur": [9.0, 9.0]},
+    "wait": {"task": "", "dur": [4.0, 8.0]}
+   },
+   "mimes": [
+    ["polish", "(Mr. Mime mimes polishing an invisible window, then waves.)"],
+    ["wall", "(Mr. Mime presses his palms flat against the air. There's a wall between you. He looks very sorry about it.)"],
+    ["box", "(Mr. Mime finds himself trapped in an invisible box. He feels along every side, then pops the lid and bows.)"],
+    ["rope", "(Mr. Mime hauls on an invisible rope, hand over hand. Whatever's on the end must be heavy. Then he hands you the end.)"],
+    ["bow", "(Mr. Mime bows deeply, one hand on his heart, as if you were the most important guest at PALLET HOUSE.)"],
+    ["wave", "(Mr. Mime waves both hands. Then one. Then a tiny wave with one finger, just for you.)"],
+    ["laugh", "(Mr. Mime laughs without a sound, holding his tummy, at a joke you didn't hear.)"],
+    ["shrug", "(Mr. Mime looks at you, looks at the sky, and shrugs. Some things just are.)"],
+    ["talk", "(Mr. Mime mimes a small boy, very short, toddling about. Then points at you. Then makes himself very tall. Then points at you again.)"],
+    ["talk", "(Mr. Mime mimes a POKé BALL, throws it, and watches it fly away over the sea. He shades his eyes. He waves goodbye to it.)"],
+    ["clap", "(Mr. Mime claps silently. You're not sure what for, but you'll take it.)"]
+   ],
+   "talk": {
+    "asleep": [["(Mr. Mime is curled up in his basket by the door, fast asleep.)", "MR. MIME: ...mime... mime..."], ["(Mr. Mime is asleep. His fingers are still miming something. A broom, maybe.)"]],
+    "busy": [["(Mr. Mime holds up one finger: just a moment.)", "(He finishes, then gives you a little bow.)"]]
+   },
+   "owner_talk": {
+    "any": ["MOM: Say hello, Mr. Mime! ...He says hello.", ["MOM: Mr. Mime's been with us since you were a baby, Ash.", "MOM: He taught you to wave before you could walk."], "MOM: Don't let him trap you in a box again, sweetie. It took you an hour to get out last time.", ["MOM: He's a better waiter than I'll ever be a cook.", "MOM: Don't tell him I said so."]],
+    "asleep": ["MOM: Shh. Let him sleep. He's swept that terrace a dozen times today."]
+   },
+   "barks": ["Mime!", "Mime mime!", "Mr. Mime!", "Miiime!"],
+   "owner_barks": ["Thank you, Mr. Mime!", "Mr. Mime, table two, please!", "Oh, you're a treasure.", "Careful with the good cups!", "Did you sweep the steps again? You're a dear."],
+   "owner_chat": [
+    ["Mr. Mime, did you see the sunrise? All pink and gold.", "laugh"],
+    ["Do you think Ash will be all right out there, Mr. Mime?", "bow"],
+    ["Old Tom says the soup needs more salt. Old Tom says that about the sea.", "shrug"],
+    ["We need more basil. Could you...? Oh, you already did. Of course you did.", "clap"],
+    ["Remember when Ash was little and you'd hide behind the invisible wall?", "wall"],
+    ["Rose wants the tart recipe. I told her it's a family secret. Which family, she said. Ours, I said. You included.", "polish"],
+    ["Ash is getting so big. You'll keep an eye on him for me, won't you? From up here?", "wave"],
+    ["Mr. Mime, what would you say if you could talk? ...That's what I thought.", "talk"]
+   ],
+   "goodbye": ["See you tomorrow, Mr. Mime! Lock up for me?", "Night, Mr. Mime! Don't sweep all night!", "I'm off home. Look after the place!"],
+   "hello": ["Morning, Mr. Mime! Did you sleep well?", "Good morning, partner!", "There you are! Ready for another day?"]
   },
   {"id": "doduo", "name": "Doduo", "species": "doduo", "owner": "ben",
    "speed": 1.35, "hurry": 3.6, "follow": 1.5, "side": 1.1, "inside": false,

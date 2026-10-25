@@ -30,6 +30,7 @@ extends Node3D
 const SPECIES := {
 	"caterpie": {"r": 0.2, "talk_h": 0.55, "bub_h": 0.75, "turn": 4.0, "acc": 3.0, "talk_r": 1.7},
 	"doduo": {"r": 0.32, "talk_h": 1.45, "bub_h": 1.6, "turn": 7.0, "acc": 5.0, "talk_r": 2.2},
+	"mrmime": {"r": 0.3, "talk_h": 1.05, "bub_h": 1.5, "turn": 6.0, "acc": 4.0, "talk_r": 2.0},
 }
 
 var life: TownLife
@@ -62,6 +63,10 @@ func setup(l: TownLife) -> void:
 			"extra": {}, "extra_cd": _rng.randf_range(25, 50), "stand_t": 0.0, "spot": null, "spot_t": 0.0, "talking": false,
 			"owner_was": "", "call_cd": 30.0, "stuck": 0.0, "best": INF, "best_way": Vector2(INF, INF), "nudged": false, "force_path": 0.0, "creature": null, "peck_t": 2.0, "out_t": 0.0, "met": false}
 		if e.has("pace_cap"): o.pace_cap = float(e.pace_cap)
+		if e.get("home", "") == "pallet_house":
+			# Mr. Mime: he lives and works at PALLET HOUSE (mime_life.gd)
+			c.mime = MimeLife.new(self, c)
+			if not c.mime.ok(): c.erase("mime")
 		if not life.headless:
 			var cr := Creature.make(e.species)
 			cr.visible = false
@@ -77,6 +82,11 @@ func resync() -> void:
 	for c in pets:
 		var o: Dictionary = c.owner
 		c.path = PackedVector2Array(); c.v = 0.0; c.extra = {}; c.talking = false
+		if c.has("mime"):
+			c.sleep = false; c.inside = ""; c.mode = "mime"
+			c.mime.resync()
+			if c.creature: c.creature.reset()
+			continue
 		c.sleep = false; c.inside = ""
 		var m := _mode(c)
 		c.mode = m
@@ -142,6 +152,10 @@ func _tick(c: Dictionary, dt: float, full: bool) -> void:
 	c.owner_was = o.state
 	if c.talking:
 		c.v = damp(c.v, 0.0, 8.0, dt)
+		return
+	if c.has("mime"):
+		c.mime.tick(dt, full)
+		_barks(c, dt)
 		return
 	# coming out behind the owner
 	if c.inside != "" and m == "follow":
@@ -530,6 +544,8 @@ func _show(c: Dictionary, dt: float) -> void:
 	cr.position = c.pos
 	cr.rotation.y = c.yaw
 	cr.sleep = c.sleep
+	if c.has("mime"):
+		cr.task = c.task; cr.carry = c.carry; cr.task_h = c.th
 	var me: Vector3 = life.game.pos
 	var look = c.look
 	if c.talking or (me.distance_to(c.pos) < 3.0 and not c.sleep and c.v < 0.3):
@@ -591,6 +607,15 @@ func begin_talk(c: Dictionary) -> Array:
 	var me: Vector3 = life.game.pos
 	c.face = atan2(me.x - c.pos.x, me.z - c.pos.z)
 	if not c.sleep: c.yaw = wrapf(c.yaw + wrapf(c.face - c.yaw, -PI, PI) * 0.5, -PI, PI)
+	if c.has("mime"):
+		var ml: Array = c.mime.talk_lines()
+		var sw = life.game.get("sfx_world") if life.game != null else null
+		if sw and not c.sleep: sw.pet_call(c)
+		var o2: Dictionary = c.owner
+		if o2.state != "inside" and _xz(o2.pos).distance_to(_xz(c.pos)) < 8.0 and o2.state != "talk" and _rng.randf() < 0.6:
+			ml.append_array(_as_lines(_pick_any(_pool(c.data.owner_talk, "asleep" if c.sleep else "", life.clock.period()))))
+			o2.face = atan2(c.pos.x - o2.pos.x, c.pos.z - o2.pos.z)
+		return ml
 	if c.creature and not c.sleep:
 		var mo := "happy" if _rng.randf() < 0.5 else "talk"
 		if c.species == "doduo" and _rng.randf() < 0.4: mo = "argue"
