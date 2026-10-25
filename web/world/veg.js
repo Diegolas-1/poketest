@@ -2,7 +2,7 @@
 // birches, poplars and cypresses, willows by the pond, Scots pines and giants
 // on the hills, palms on the beach, bushes and hedges, fern beds in the shade,
 // flower clumps and mossy rocks. Seeded, so the town always looks the same.
-import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS } from './terrain.js';
+import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS, BOATHOUSE } from './terrain.js';
 import { Scatter, Impostor } from './assets.js';
 import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
@@ -12,7 +12,8 @@ import { BEDS } from './town.js';
 
 const TALL = TALL_GRASS;
 const HQ = HARBOUR.quay;
-const inHarbour = (x, z, m = 0) => x > HQ.x0 - 4 - m && x < HQ.x1 + 4 + m && z > HQ.z0 - 3 - m && z < HARBOUR.arms[0].z1 + HARBOUR.head.d + 2 + m;
+const HA = HARBOUR.apron;
+const inHarbour = (x, z, m = 0) => (x > HA.x0 - 8 - m && x < HA.x1 + 8 + m && z > HQ.z0 - 3 - m && z < HA.z1 + 4 + m) || Math.hypot(x - BOATHOUSE.x, z - BOATHOUSE.z) < 6 + m;
 const inPlaza = (x, z, m = 0) => x > PLAZA.x0 - m && x < PLAZA.x1 + m && z > PLAZA.z0 - m && z < PLAZA.z1 + m;
 // the lab hill's slopes (not the plateau, not the stairs and the bushes beside them)
 const onHill = (x, z) => { const u = labHillU(x, z); return u > 0.06 && u < 0.95 && !(Math.abs(z - STAIRS.z) < 10.5 && x < STAIRS.x1 + 3); };

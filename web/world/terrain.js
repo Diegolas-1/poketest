@@ -51,11 +51,12 @@ export const SEA_Y = -0.7;
 // a curve; shoreSD(x, z) is the signed distance to it in metres (positive on
 // land, negative at sea), from a 2 m raster made once.
 export const COAST = [
-  // the town beach at the head of the bay, west to east (a dozen metres
-  // further out than the old straight beach)
-  [-60, 74], [-30, 73.5], [-5, 72.5], [20, 73], [45, 75.5], [75, 80],
+  // the town beach at the head of the bay, west to east: it reaches out to
+  // the ends of the harbour's piers (the basin between them is cut into the
+  // land: see HARBOUR and base())
+  [-62, 111.5], [-30, 112], [-5, 112], [20, 110.5], [45, 107], [72, 102],
   // the bay's east side, rocky, down to the east headland
-  [98, 90], [115, 108], [125, 132], [129, 158], [126, 182], [119, 199],
+  [100, 99], [115, 110], [125, 132], [129, 158], [126, 182], [119, 199],
   [127, 212], [145, 217], [168, 207],
   // the outer east coast, north to the mainland
   [190, 183], [205, 150], [213, 110], [215, 65], [207, 25], [213, -25], [228, -75], [224, -128], [210, -172], [219, -212],
@@ -65,7 +66,7 @@ export const COAST = [
   [-760, -445], [-600, -438], [-480, -428], [-380, -412], [-318, -388], [-282, -352], [-262, -306], [-250, -258], [-236, -212],
   [-222, -168], [-228, -124], [-238, -78], [-226, -28], [-214, 22], [-215, 72], [-207, 118], [-190, 160], [-165, 192], [-140, 210],
   // the west headland's tip and the bay's west side, back to the beach
-  [-118, 214], [-103, 205], [-100, 188], [-106, 166], [-113, 140], [-110, 115], [-99, 97], [-82, 83],
+  [-118, 214], [-103, 205], [-100, 188], [-106, 166], [-113, 140], [-109, 121], [-96, 112.5], [-80, 111],
 ];
 // the bay's mouth and the lighthouse islet out in it
 export const ISLET = { x: -48, z: 176 };
@@ -183,6 +184,7 @@ export const PLAZA = { x0: 11.6, x1: STAIRS.x0, z0: 7, z1: 25 };
 export const BRIDGES = [
   { x0: 4.0, x1: 12.4, z: 16, w: 3.6, rails: true, kind: 'lab' },
   { x0: 4.6, x1: 13.8, z: -7.5, w: 3.0, rails: true, kind: 'lane' },
+  { x0: 105.5, x1: 119.5, z: 91, w: 3.0, rails: true, kind: 'lane' },
 ];
 export const SQUARE = { x: -3, z: -2, r: 8.5 };
 // The harbour: a square U of timber piers in the bay, open to the sea. A quay
@@ -194,6 +196,15 @@ export const HARBOUR = {
   arms: [{ x: -37.7, z0: 75.0, z1: 106 }, { x: -6.3, z0: 75.0, z1: 106 }],
   w: 3.6, head: { w: 7.0, d: 5.0 }, y: 1.02,
 };
+// The land comes out round the harbour: an apron of ground at quay level
+// round the piers (its sea front a stone quay wall at z1), and the basin cut
+// into it between the piers, open to the sea (its edges under the decks, so
+// the mesh's slope down into it is hidden: the decks and their piles are the
+// basin's sides, as at any timber quay)
+HARBOUR.apron = { x0: -47, x1: -1, z0: 64, z1: 111.6, fade: 7 };
+HARBOUR.basin = { x0: HARBOUR.arms[0].x + 0.2, x1: HARBOUR.arms[1].x - 0.2, z0: HARBOUR.quay.z0 + 3.6, floor: -3.4 };
+HARBOUR.apronY = SEA_Y + HARBOUR.y - 0.07;
+export const BOATHOUSE = { x: -59, z: 101 };
 
 // ---------- roads as control points; smoothed into dense polylines ----------
 // Each is a winding dirt lane; the ends of house lanes run to the house gates.
@@ -221,6 +232,13 @@ const ROAD_CTRL = [
   [[-4.2, -44], [-12, -41.5], [-22, -38.5], [-30, -37], ...approach(H.oldman)],
   // Lily's lane off the main lane
   [[-6.2, 37], [-11, 39], [-16, 38.6], ...approach(H.lily)],
+  // the stream path: from the plaza before the lab gate, south and east round
+  // the foot of Oak's hill between the hill and the stream, and up onto the
+  // east headland (a footbridge over the stream's last bend joins the beach to it)
+  [[15.5, 24.5], [19.5, 38], [26, 51], [40, 57.5], [60, 59.5], [80, 61], [96, 64], [110, 70], [119, 78.5], [124, 88], [125, 97], [127, 104]],
+  // and the footbridge over the stream's last bend: the beach to that path
+  [[BRIDGES[2].x0, 91], [101, 95], [97, 98]],
+  [[BRIDGES[2].x1, 91], [124, 91]],
   // along the back of the beach to Marina's
   [[-7.6, 50], [-14, 55.5], [-22, 57.6], [-28, 57.4], ...approach(H.marina)],
 ];
@@ -234,7 +252,11 @@ function dense(ctrl, step = 1) {
   return curve.getSpacedPoints(n).map((p) => [p.x, p.z]);
 }
 export const ROADS = ROAD_CTRL.map((c) => dense(c));
-export const STREAM = dense([[17, -62], [15, -48], [12.6, -33], [10.4, -19], [9.5, -7.5], [9.2, 4], [8.2, 16], [7.4, 28], [8.6, 40], [6, 52], [4, 62], [3, 74], [1, 90]]);
+export const STREAM = dense([[17, -62], [15, -48], [12.6, -33], [10.4, -19], [9.5, -7.5], [9.2, 4], [8.2, 16], [7.4, 28], [8.8, 40], [13, 52.5], [24, 61.5], [42, 66.5], [62, 68], [82, 69.5], [97, 75], [107.5, 84], [111.5, 94], [113, 104], [114, 113], [115, 124]]);
+// (it runs south past the town, under the two bridges, then bends east round
+// the foot of Oak's hill, with a path between it and the hill, and out to sea
+// at the bay's east side; a footbridge over its last bend joins the beach
+// to the path on the east headland)
 
 // ---------- polyline distance with a bucket grid ----------
 function segDist2(px, pz, ax, az, bx, bz) {
@@ -306,6 +328,18 @@ function base(x, z) {
   const under = sd < 0 ? lerp(0.11, 0.3, cl) : 0.11;
   const beach = Math.max(-14, SEA_Y + under * sd + (fbm(x * 0.08, z * 0.08, 2) - 0.5) * 0.25 * smooth(-2, 6, -sd));
   h = lerp(h, beach, lerp(smooth(26, 9, sd), smooth(6, 0.8, sd), cl));
+  // the harbour's apron and basin
+  const A = HARBOUR.apron, B = HARBOUR.basin;
+  if (x > A.x0 - A.fade && x < A.x1 + A.fade && z > A.z0 - A.fade && z < A.z1 + 14) {
+    if (z <= A.z1) {
+      const e = Math.max(A.x0 - x, x - A.x1, A.z0 - z, 0);
+      h = lerp(HARBOUR.apronY, h, smooth(0, A.fade, e));
+    } else if (x > A.x0 - 2 && x < A.x1 + 2) {
+      // in front of the quay wall the sea is a couple of metres deep
+      h = Math.min(h, lerp(SEA_Y - 2.4, h, smooth(1, 14, z - A.z1)));
+    }
+    if (x > B.x0 && x < B.x1 && z > B.z0) h = Math.min(h, B.floor);
+  }
   return h;
 }
 export const baseHeight = base;

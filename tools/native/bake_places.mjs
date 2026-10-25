@@ -72,10 +72,10 @@ out.places.pier = {
   head: P(PX, PZ1 + 2.0), foot: P((Q.x0 + Q.x1) / 2, Q.z0 + 0.8),
   boat_steps: P(PX + HW - 0.45, PZ1 - 3, Math.PI / 2),   // Gus's dinghy: off to the lighthouse from here
 };
-const bhx = -51, bhz = 63;
+const bhx = T.BOATHOUSE.x, bhz = T.BOATHOUSE.z;
 out.places.boathouse = { spots: [P(bhx + 0.2, bhz + 3.4, pierY), P(bhx - 1.8, bhz + 3.8, pierY + 0.4), P(bhx + 2.2, bhz + 4.0, pierY - 0.5)], door: P(bhx + 0.2, bhz + 3.2, pierY) };
 const beach = [];
-for (const x of [-58, -50, 2, 8, 14, 22]) beach.push(P(x, T.coastZ(x) - 3.5, 0 + (x % 3) * 0.2));
+for (const x of [-72, -66, 12, 20, 30, 40]) beach.push(P(x, T.coastZ(x) - 3.5, 0 + (x % 3) * 0.2));
 out.places.beach = { spots: beach };
 out.places.lighthouse = { spots: [P(T.ISLET.x, T.ISLET.z)], offmap: true, via: 'pier.boat_steps' };
 

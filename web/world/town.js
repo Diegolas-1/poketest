@@ -5,7 +5,7 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, ROUTE1, routeX, LEDGES, ledgeLineZ } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, ROUTE1, routeX, LEDGES, ledgeLineZ } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
@@ -1061,8 +1061,7 @@ function dock(world) {
   const pg = new THREE.CylinderGeometry(0.17, 0.2, 4.4, 8), pm = new THREE.InstancedMesh(pg, flat(post), piles.length);
   piles.forEach(([px, pz], i) => { m4.compose(V(px, y - 1.6, pz), q, V(1, 1, 1)); pm.setMatrixAt(i, m4); });
   pm.castShadow = pm.receiveShadow = true; g.add(pm);
-  // steps up from the sand where the lane comes down onto the quay
-  for (let k = 0; k < 2; k++) box(4.2, 0.12, 0.5, wood, -19.5, y - 0.26 - k * 0.24, Q.z0 - 0.25 - k * 0.45, g, { line: false });
+  harbourFront(world, g);
   // bollards along the basin's sides, iron ladders down to the water
   const bollard = (bx, bz) => { cyl(0.16, 0.2, 0.55, '#3a3d46', bx, y + 0.3, bz, g, 10); cyl(0.24, 0.24, 0.08, '#3a3d46', bx, y + 0.6, bz, g, 10); world.colliders.push({ x: bx, z: bz, r: 0.25 }); };
   const [W, E] = HB.arms, inW = W.x + hw - 0.35, inE = E.x - hw + 0.35;
@@ -1120,8 +1119,50 @@ function dock(world) {
   for (const a of HB.arms) world.use.push({ x: a.x, z: a.z1 + 3.4, r: 1.8, label: 'Look', lines: ['The sea stretches south toward CINNABAR ISLAND.', 'You\'d need a POKéMON that can SURF to go any further.'] });
   world.use.push({ x: (bx0 + bx1) / 2 + 2, z: Q.z1 + 1.0, r: 2.0, label: 'Look', lines: ['A little fishing boat, the SEAGULL.', 'Nets piled in the stern. It smells of salt and fish.'] });
   world.solid.push(g);
-  boathouse(world, -51, 63);
+  boathouse(world, BOATHOUSE.x, BOATHOUSE.z);
   lighthouse(world, ISLET.x, ISLET.z);
+}
+// The apron's sea front (terrain.js HARBOUR.apron): a stone quay wall on
+// either side of the basin's mouth, running on a little into the beach, with
+// boulders heaped at its foot and a ragged ribbon of foam where the sea
+// breaks on it.
+function harbourFront(world, g) {
+  const A = HARBOUR.apron, B = HARBOUR.basin, zf = A.z1 + 0.3;
+  const runs = [];
+  for (const [xa, xb] of [[A.x0 - 8, B.x0 - 1.6], [B.x1 + 1.6, A.x1 + 6]]) {
+    runs.push({ a: [xa, zf], b: [xb, zf], t: 0.9, top: (u) => Math.max(height(xa + u, zf - 0.6), SEA_Y + 0.25) + 0.04, faces: [{ side: -1, bottom: () => SEA_Y - 1.6 }] });
+  }
+  world.group.add(...wallMeshes(runs, 7711, { fade: WALL_FADE }));
+  // boulders at its foot
+  const R = rng(7712), list = [];
+  for (const [xa, xb] of [[A.x0 - 8, B.x0 - 2.5], [B.x1 + 2.5, A.x1 + 6]]) for (let x = xa; x < xb; x += 1.1 + R() * 1.4) list.push([x + R() * 0.6, zf + 0.9 + R() * 1.3, R() * 6, 0.5 + R() * 0.7]);
+  const models = [makeRock(91, 1.0, { col: STONE.beach }), makeRock(92, 1.2, { col: STONE.beach, kind: 'slab' }), makeRock(93, 0.8, { col: STONE.beach })];
+  const by = models.map(() => []); list.forEach((p, i) => by[i % 3].push(p));
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  models.forEach((mod, k) => {
+    for (const p of mod.parts) {
+      const im = new THREE.InstancedMesh(p.geometry, p.material, by[k].length);
+      by[k].forEach(([x, z, r, sc], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, SEA_Y - 0.12 * sc, z), q, V(sc, sc * 1.1, sc)); im.setMatrixAt(i, m4); });
+      im.castShadow = im.receiveShadow = true; world.group.add(im);
+    }
+  });
+  // the foam: a wobbly white ribbon on the water along the wall and the rocks
+  const fp = [];
+  for (const [xa, xb] of [[A.x0 - 8, B.x0 - 1.4], [B.x1 + 1.4, A.x1 + 6]]) {
+    const n = Math.ceil((xb - xa) / 0.8);
+    for (let i = 0; i < n; i++) {
+      const x0 = xa + (xb - xa) * i / n, x1 = xa + (xb - xa) * (i + 1) / n;
+      const w0 = 0.5 + Math.sin(x0 * 0.9) * 0.25 + Math.sin(x0 * 2.3) * 0.15, w1 = 0.5 + Math.sin(x1 * 0.9) * 0.25 + Math.sin(x1 * 2.3) * 0.15;
+      fp.push(x0, 0, zf + 0.4, x0, 0, zf + 0.4 + w0, x1, 0, zf + 0.4 + w1, x0, 0, zf + 0.4, x1, 0, zf + 0.4 + w1, x1, 0, zf + 0.4);
+      // a broken second line further out, where the swell meets the rocks
+      if (Math.sin(x0 * 0.7) + Math.sin(x0 * 1.9) > 0.5) fp.push(x0, 0, zf + 2.3, x0, 0, zf + 2.6, x1, 0, zf + 2.6, x0, 0, zf + 2.3, x1, 0, zf + 2.6, x1, 0, zf + 2.3);
+    }
+  }
+  const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.computeVertexNormals();
+  const foam = new THREE.Mesh(fg, flat('#ffffff')); foam.position.y = SEA_Y + 0.14; foam.userData.outline = false; foam.castShadow = false; foam.receiveShadow = false; g.add(foam);
+  // the heads' sea ends: a stout timber fender across each
+  for (const a of HARBOUR.arms) box(HARBOUR.head.w + 0.3, 0.5, 0.3, tex(planks('#8a5f3c')), a.x, SEA_Y + HARBOUR.y - 0.3, a.z1 + HARBOUR.head.d - 0.05, g);
+  void g;
 }
 function boathouse(world, x, z) {
   [x, z] = offPath(x, z, 3.6, world);
