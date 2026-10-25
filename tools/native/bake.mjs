@@ -97,10 +97,10 @@ const res = await p.evaluate(async () => {
   const canvasPngOf = (cv) => cv.toDataURL('image/png').split(',')[1];
 
   // terrain
+  // (chunks of the ground and Route 1's ledges, one mesh each: terrain.js buildTerrain)
   const terr = w.scene.children.find((o) => o.name === 'terrain');
-  const tg = new THREE.Group();
-  const tm = new THREE.Mesh(terr.geometry, new THREE.MeshLambertMaterial({ vertexColors: true }));
-  tm.name = 'terrain'; tg.add(tm);
+  const tg = new THREE.Group(), terrMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  for (const c of terr.children) { const tm = new THREE.Mesh(c.geometry, terrMat); tm.name = c.name; tg.add(tm); }
   out.terrain = b64(await glb(tg));
 
   // town (static, merged), with plain materials: colour, texture, flags
@@ -411,8 +411,10 @@ const res = await p.evaluate(async () => {
   const gt = P.grassTexture();
   out.grass = (gt.image.toDataURL ? gt.image : (() => { const c = document.createElement('canvas'); c.width = gt.image.width; c.height = gt.image.height; c.getContext('2d').drawImage(gt.image, 0, 0); return c; })()).toDataURL('image/png').split(',')[1];
 
-  // walk grid: height + flags (1 water, 2 no-walk hill, 4 deck/walkway)
-  const G = { x0: -150, z0: -205, w: 300, d: 320, res: 0.25 };
+  // walk grid: height + flags (1 water, 2 no-walk (the lab hill, cliffs, the
+  // world's edges), 4 deck/walkway, 8 sea (not fresh water), 16 beach sand,
+  // 32 a Route 1 ledge: entered only going south, never climbed)
+  const G = { x0: T.WALK.x0 - 4, z0: T.WALK.z0 - 4, w: T.WALK.x1 - T.WALK.x0 + 8, d: T.WALK.z1 - T.WALK.z0 + 8, res: 0.25 };
   const nx = Math.round(G.w / G.res), nz = Math.round(G.d / G.res);
   const hb = new Uint16Array(nx * nz), fb = new Uint8Array(nx * nz);
   const walk = w.town.walk;
@@ -423,10 +425,14 @@ const res = await p.evaluate(async () => {
   };
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const x = G.x0 + (i + 0.5) * G.res, z = G.z0 + (j + 0.5) * G.res;
-    let y = T.height(x, z), f = 0;
+    const h0 = T.height(x, z);
+    let y = h0, f = 0;
     for (const d of walk) if (onDeck(d, x, z)) { if (d.y > y) y = d.y; f |= 4; }
-    if (T.isWater(x, z)) f |= 1;
+    const wl = T.waterLevel(x, z);
+    if (h0 < wl - 0.05) { f |= 1; if (wl === T.SEA_Y && Math.hypot(x - T.POND.x, z - T.POND.z) > T.POND.r + 3 && T.streamAt(x, z).d > 4) f |= 8; }
     if (T.noWalk(x, z)) f |= 2;
+    if (h0 - T.SEA_Y < 2.6 && T.shoreSD(x, z) < 16 && T.cliffiness(x, z) < 0.6) f |= 16;
+    if (z < -90 && z > -380 && T.ledgeAt(x, z, 0.5)) f |= 32;
     hb[j * nx + i] = Math.max(0, Math.min(65535, Math.round(y * 100 + 2000)));
     fb[j * nx + i] = f;
   }
@@ -436,14 +442,18 @@ const res = await p.evaluate(async () => {
   out.groundGrid = { ...G, nx, nz };
 
   // seabed: terrain height every metre over the terrain's 420 m square
-  const S = { x0: -210, z0: -210, n: 420 };
+  const S = { x0: T.SEA_BOX.x0, z0: T.SEA_BOX.z0, n: T.SEA_BOX.n };
   const sb = new Float32Array(S.n * S.n);
-  for (let j = 0; j < S.n; j++) for (let i = 0; i < S.n; i++) sb[j * S.n + i] = T.height(S.x0 + i + 0.5, S.z0 + j + 0.5);
+  // (far inland or far out at sea the plain land shape is enough)
+  for (let j = 0; j < S.n; j++) for (let i = 0; i < S.n; i++) {
+    const x = S.x0 + i + 0.5, z = S.z0 + j + 0.5, sd = T.shoreSD(x, z);
+    sb[j * S.n + i] = sd > 40 || sd < -40 ? T.baseHeight(x, z) : T.height(x, z);
+  }
   out.seabed = b64(new Uint8Array(sb.buffer));
   out.seabedGrid = S;
 
   // grass field: height + density (same rules as the web grass)
-  const GA = { x0: -150, z0: -200, w: 300, d: 290, res: 1 };
+  const GA = { x0: T.WALK.x0, z0: T.WALK.z0, w: T.WALK.x1 - T.WALK.x0, d: T.WALK.z1 - T.WALK.z0, res: 1 };
   const gm = T.grassMap(GA.x0, GA.z0, GA.w, GA.d, GA.res).image;
   const gp = new Float32Array(gm.width * gm.height * 2);
   for (let k = 0; k < gm.width * gm.height; k++) { gp[k * 2] = gm.data[k * 4]; gp[k * 2 + 1] = gm.data[k * 4 + 1]; }

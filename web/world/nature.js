@@ -1,6 +1,6 @@
 // Sky, clouds, mountains, trees, grass, tall grass and flowers.
 import * as THREE from 'three';
-import { height, roadMask, isWater, fbm, rng, SEA_Y, POND } from './terrain.js';
+import { height, roadMask, isWater, fbm, rng, SEA_Y, POND, TALL_GRASS } from './terrain.js';
 
 const C = (h) => new THREE.Color(h);
 
@@ -92,6 +92,9 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
   // Painted ranges as in the anime: rounded blue ridges, cel lit, streaked
   // with vertical brush marks, melting into pale haze at the foot.
   const group = new THREE.Group();
+  // the ranges ring the peninsula's mainland: centred north of the town,
+  // far out past the end of the land (Route 1 runs inside the ring)
+  const CX = 0, CZ = -250;
   const layer = (d, depth, hMin, hMax, seed, far) => {
     const r = rng(seed), N = 360, rows = 12;
     const ph = [r() * 9, r() * 9, r() * 9];
@@ -104,10 +107,13 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
       for (let j = 0; j <= rows; j++) {
         const k = j / rows, rr = d + (1 - Math.cos(k * Math.PI / 2)) * depth;
         const y = -20 + (h + 20) * Math.sin(k * Math.PI / 2);
-        pos.push(Math.cos(a) * rr, y, Math.sin(a) * rr); hv.push(k); av.push(i / N);
+        pos.push(CX + Math.cos(a) * rr, y, CZ + Math.sin(a) * rr); hv.push(k); av.push(i / N);
       }
       if (i > 0) for (let j = 0; j < rows; j++) { const p0 = (i - 1) * (rows + 1) + j, p1 = i * (rows + 1) + j; idx.push(p0, p0 + 1, p1, p1, p0 + 1, p1 + 1); }
     }
+    addMesh(pos, hv, av, idx, far);
+  };
+  const addMesh = (pos, hv, av, idx, far) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('h', new THREE.Float32BufferAttribute(hv, 1));
@@ -139,8 +145,25 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
     const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = -1;
     group.add(mesh);
   };
-  layer(470, 40, 70, 160, 7, 1);
-  layer(340, 30, 30, 95, 3, 0);
+  layer(1250, 80, 190, 420, 7, 1);
+  layer(1000, 60, 90, 260, 3, 0);
+  // the two conical peaks at the head of Route 1 (the old map's Mt. pair),
+  // standing in front of the ranges
+  const peak = (px, pz, r0, ht, seed) => {
+    const R = rng(seed), N = 72, rows = 14, pos = [], hv = [], av = [], idx = [], ph = [R() * 9, R() * 9];
+    for (let i = 0; i <= N; i++) {
+      const a = i / N * Math.PI * 2;
+      const wob = 1 + 0.12 * Math.sin(a * 3 + ph[0]) + 0.06 * Math.sin(a * 7 + ph[1]);
+      for (let j = 0; j <= rows; j++) {
+        const k = j / rows, rr = r0 * wob * Math.pow(1 - k, 1.25) + 2;
+        pos.push(px + Math.cos(a) * rr, -20 + (ht + 20) * k, pz + Math.sin(a) * rr); hv.push(k); av.push(i / N);
+      }
+      if (i > 0) for (let j = 0; j < rows; j++) { const p0 = (i - 1) * (rows + 1) + j, p1 = i * (rows + 1) + j; idx.push(p0, p0 + 1, p1, p1, p0 + 1, p1 + 1); }
+    }
+    addMesh(pos, hv, av, idx, 0.35);
+  };
+  peak(-240, -1000, 210, 210, 11);
+  peak(-60, -1140, 250, 270, 12);
   return group;
 }
 
@@ -270,7 +293,7 @@ export function buildGrass(uTime, blocked, count) {
   return group;
 }
 // [x0, z0, x1, z1]
-export const TALL_GRASS = [[-9, -80, 9, -58], [-22, -112, -6, -92], [6, -128, 22, -104], [-14, -150, 4, -134]];
+export { TALL_GRASS } from './terrain.js';
 
 // ---------- flowers ----------
 function flowerGeo() {

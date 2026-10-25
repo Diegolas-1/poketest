@@ -5,6 +5,8 @@ extends RefCounted
 # groundAt / step / collide in main.js.
 
 const DIR := "res://world/"
+# walk grid flags (tools/native/bake.mjs)
+const WATER := 1; const NO_WALK := 2; const DECK := 4; const SEA := 8; const SAND := 16; const LEDGE := 32
 var meta: Dictionary
 var gx0: float; var gz0: float; var gres: float; var gnx: int; var gnz: int
 var heights: PackedByteArray   # uint16 cm + 2000, little endian
@@ -83,6 +85,8 @@ func step(pos: Vector3, dx: float, dz: float) -> Vector3:
 	if f == 255: return pos
 	if (f & 1) and not (f & 4): return pos
 	var here := flag(pos.x, pos.z)
+	# Route 1's ledges (32): hop down them going south (+z), never climb them
+	if (f & LEDGE) and (dz < -1e-4 if (here != 255 and (here & LEDGE)) else dz <= 1e-4): return pos
 	if (f & 2) and not (here & 2): return pos
 	var p := Vector3(nx, pos.y, nz)
 	p = collide(p)

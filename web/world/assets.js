@@ -500,7 +500,9 @@ export function grassField(scene, { count, size, heightTex, area, sunDir, height
         // the clump's tile has been moved next to the player (its model matrix)
         vec2 p = off.xy + vec2(modelMatrix[3].x, modelMatrix[3].z);
         vec4 hm = texture2D(uHeight, (p - uArea.xy) / uArea.zw);
-        float dens = hm.g;
+        // density + 2 = Route 1's tall grass (terrain.js grassMap)
+        float tall = step(1.5, hm.g);
+        float dens = hm.g - 2.0 * tall;
         float dist = length(p - uCam.xz);
         // the field's edge: clumps thin out (small ones first) and shrink over
         // the outer half of the radius, all gone before the wrap at uSize / 2
@@ -511,7 +513,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir, height
         if (sc <= 0.0) { vT = 0.0; vCol = vec3(0.0); vFog = 0.0; vLight = 0.0; gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
         // turn each clump its own way
         float ra = off.z * 40.0, c = cos(ra), s = sin(ra);
-        vec3 lp = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c) * sc;
+        vec3 lp = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c) * sc * vec3(1.0 + tall * 0.35, 1.0 + tall * 1.3, 1.0 + tall * 0.35);
         float t = bt; vT = t;
         float w = sin(uTime * 1.5 + p.x * 0.25 + p.y * 0.18) * 0.5 + sin(uTime * 3.1 + p.x * 0.9) * 0.2;
         lp.x += w * t * t * 0.12 * sc * 3.0; lp.z += w * t * t * 0.05 * sc * 3.0;
@@ -520,6 +522,7 @@ export function grassField(scene, { count, size, heightTex, area, sunDir, height
         float n = hash(floor(p * 0.3));
         vec3 root = vec3(0.03, 0.2, 0.1), body = mix(vec3(0.2, 0.52, 0.08), vec3(0.26, 0.58, 0.08), n);
         vec3 tip = mix(vec3(0.66, 0.86, 0.16), vec3(0.78, 0.9, 0.24), n);
+        tip = mix(tip, vec3(0.42, 0.7, 0.2), tall); body = mix(body, vec3(0.12, 0.42, 0.12), tall);
         vCol = mix(mix(root, body, smoothstep(0.0, 0.35, t)), tip, smoothstep(0.4, 0.85, t)) * mix(vec3(0.55, 0.75, 0.9), vec3(1.0), blay);
         // blades turned to the sun are lit, the rest in cool shade (two bands)
         float fa = bface + ra;

@@ -2,13 +2,17 @@
 // birches, poplars and cypresses, willows by the pond, Scots pines and giants
 // on the hills, palms on the beach, bushes and hedges, fern beds in the shade,
 // flower clumps and mossy rocks. Seeded, so the town always looks the same.
-import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, coastZ, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath } from './terrain.js';
+import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS } from './terrain.js';
 import { Scatter, Impostor } from './assets.js';
 import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
 import { STONE } from './stone.js';
 import { BEDS } from './town.js';
 
+
+const TALL = TALL_GRASS;
+const HQ = HARBOUR.quay;
+const inHarbour = (x, z, m = 0) => x > HQ.x0 - 4 - m && x < HQ.x1 + 4 + m && z > HQ.z0 - 3 - m && z < HARBOUR.arms[0].z1 + HARBOUR.head.d + 2 + m;
 const inPlaza = (x, z, m = 0) => x > PLAZA.x0 - m && x < PLAZA.x1 + m && z > PLAZA.z0 - m && z < PLAZA.z1 + m;
 // the lab hill's slopes (not the plateau, not the stairs and the bushes beside them)
 const onHill = (x, z) => { const u = labHillU(x, z); return u > 0.06 && u < 0.95 && !(Math.abs(z - STAIRS.z) < 10.5 && x < STAIRS.x1 + 3); };
@@ -16,7 +20,8 @@ const onHill = (x, z) => { const u = labHillU(x, z); return u > 0.06 && u < 0.95
 export async function buildVegetation(scene, renderer, blocked, colliders, quality, onProgress) {
   const R = rng(4242);
   const free = (x, z, r = 1) => !blocked(x, z, r) && roadDist(x, z) > 2.5 + r * 0.3 && !isWater(x, z) && height(x, z) > SEA_Y + 0.8
-    && !fieldAt(x, z, 0.8) && !onStairs(x, z, 3) && !inYard(x, z, 0.4) && !inPlaza(x, z, 1) && streamAt(x, z).d > 3.4 && labHillU(x, z) > 0.04;
+    && !fieldAt(x, z, 0.8) && !onStairs(x, z, 3) && !inYard(x, z, 0.4) && !inPlaza(x, z, 1) && streamAt(x, z).d > 3.4 && labHillU(x, z) > 0.04
+    && !(z < -90 && ledgeAt(x, z, 2.2 + r)) && !inHarbour(x, z, r);
   const scatters = [], impostors = [];
   // how far a model's base (everything within 0.7 m of the ground) reaches out
   const baseR = (list) => { let r = 0; for (const m of list) for (const p of m.parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) < 0.7) r = Math.max(r, Math.hypot(a.getX(i), a.getZ(i))); } return r; };
@@ -95,15 +100,22 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     if (tooClose(x, z, r * 1.1)) continue;
     place(k, x, z, s);
   }
-  for (let i = 0; i < 14000 && all.length < 400 * quality.trees; i++) {
-    const x = (R() - 0.5) * 320, z = -200 + R() * 270;
+  for (let i = 0; i < 40000 && all.length < 880 * quality.trees; i++) {
+    const x = (R() - 0.5) * 470, z = -470 + R() * 700;
     if (onHill(x, z) || labHillU(x, z) < 1.02) continue;
-    if (roadDist(x, z) < 7 && z < -56) continue;
-    const td = townDist(x, z);
-    const c = coastZ(x), beach = z > c - 16;
-    if (beach && z > c - 3) continue;
+    if (roadDist(x, z) < (z < -56 ? 5 : 7) && z < -56) continue;
+    const td = townDist(x, z), sd = shoreSD(x, z);
+    const beach = sd < 16 && cliffiness(x, z) < 0.5;
+    if (sd < 3) continue;
     const ring = td > 10 && td < 40 && z > -64;
-    const dens = beach ? 0.22 : td < 10 ? 0.05 : ring ? 0.8 : 0.35 + fbm(x * 0.025, z * 0.025, 2) * 0.6;
+    let dens = beach ? 0.22 : td < 10 ? 0.05 : ring ? 0.8 : 0.35 + fbm(x * 0.025, z * 0.025, 2) * 0.6;
+    if (z < -70) {
+      // Route 1: groves on the valley floor, a wall of forest along its sides,
+      // thinning out over the hills beyond (in the haze)
+      const e = Math.abs(x - routeX(z)) - routeHalfWidth(z);
+      dens = e < -8 ? 0.1 + fbm(x * 0.05 + 3, z * 0.05, 2) * 0.25 : e < 24 ? 0.95 : e < 70 ? 0.22 : 0.03;
+      if (e < -8 && TALL.some(([a, b, c2, d]) => x > a - 3 && x < c2 + 3 && z > b - 3 && z < d + 3)) dens = 0.02;
+    }
     if (R() > dens || !free(x, z, 2.5)) continue;
     let k = beach ? 'palm' : pick(z < -64 ? north : ring || td < 10 ? edge : far);
     if (k === 'dead' && (ring || R() < 0.5)) k = 'tiered';   // snags only deep in the woods
@@ -135,8 +147,8 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   onProgress('Planting bushes');
   const bushes = [makeBush(1, { size: 1.0 }), makeBush(2, { size: 1.3 }), makeBush(3, { size: 0.9, flowers: TILE.flowersR }), makeBush(4, { size: 1.1, flowers: TILE.flowersY }), makeBush(5, { size: 1.5 })];
   const bp = [];
-  for (let i = 0; i < 14000 && bp.length < 900 * quality.plants; i++) {
-    const x = (R() - 0.5) * 230, z = -150 + R() * 210;
+  for (let i = 0; i < 30000 && bp.length < 1400 * quality.plants; i++) {
+    const x = (R() - 0.5) * 380, z = -450 + R() * 650;
     if (!free(x, z, 0.9)) continue;
     const edge = all.some((t) => { const d = (t.x - x) ** 2 + (t.z - z) ** 2; return d < 60 && d > 6; });
     const rd = roadDist(x, z), lane = rd > 3 && rd < 4.5 && R() < 0.25;  // along roads
@@ -176,8 +188,8 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   const ferns = [makeClump(1, TILE.fern, 1.4), makeClump(2, TILE.fern, 1.1)];
   const flowers = [makeClump(3, TILE.flowersY, 0.9), makeClump(4, TILE.flowersR, 0.9), makeClump(5, TILE.blossom, 0.7), makeClump(6, TILE.blossomW, 0.7)];
   const fp = [], fl = [];
-  for (let i = 0; i < 16000 && fp.length < 1200 * quality.plants; i++) {
-    const x = (R() - 0.5) * 220, z = -150 + R() * 200;
+  for (let i = 0; i < 30000 && fp.length < 1700 * quality.plants; i++) {
+    const x = (R() - 0.5) * 360, z = -450 + R() * 640;
     if (!free(x, z, 0.4)) continue;
     const under = all.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < 30);
     const pond = Math.hypot(x - POND.x, z - POND.z) < POND.r + 5;
@@ -188,7 +200,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     for (let x = x0 + 0.4; x < x1; x += 0.7) for (let z = z0 + 0.4; z < z1; z += 0.7) fl.push({ x: x + (R() - 0.5) * 0.4, z: z + (R() - 0.5) * 0.4, y: height(x, z), rot: R() * 6.28, s: 1.1 + R() * 0.4 });
   }
   for (let i = 0; i < 500 * quality.plants; i++) {
-    const cx = (R() - 0.5) * 180, cz = -120 + R() * 160;
+    const cx = (R() - 0.5) * 180, cz = -420 + R() * 460;
     if (!free(cx, cz, 1.5) || fbm(cx * 0.05, cz * 0.05, 2) < 0.48) continue;
     const n = 4 + Math.floor(R() * 8);
     for (let k = 0; k < n; k++) {
@@ -197,9 +209,10 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     }
   }
   // marram grass on the dunes at the back of the beach
-  for (let i = 0; i < 3000 && fp.length < 1500 * quality.plants; i++) {
-    const x = -150 + R() * 300, c = coastZ(x), z = c - 17 + R() * 11;
-    if (z < c - 6 && R() < 0.3) continue;
+  for (let i = 0; i < 9000 && fp.length < 2100 * quality.plants; i++) {
+    const x = -230 + R() * 460, z = -120 + R() * 350, sdx = shoreSD(x, z);
+    if (sdx < 6 || sdx > 17 || cliffiness(x, z) > 0.5) continue;
+    if (sdx < 11 && R() < 0.3) continue;
     if (roadDist(x, z) < 2.5 || isWater(x, z) || blocked(x, z, 0.5) || labHillU(x, z) < 1 || streamAt(x, z).d < 4) continue;
     if (fbm(x * 0.1, z * 0.1, 2) < 0.45) continue;
     fp.push({ x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s: 0.7 + R() * 0.5 });
@@ -212,19 +225,22 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   // ---------- rocks ----------
   const rocks = [makeRock(1, 1.0), makeRock(2, 1.4), makeRock(3, 0.8, { kind: 'slab' }), makeRock(4, 2.0), makeRock(5, 1.2)];
   const rp = [];
-  for (let i = 0; i < 3000 && rp.length < 45; i++) {
-    const x = (R() - 0.5) * 240, z = -170 + R() * 220;
+  for (let i = 0; i < 6000 && rp.length < 110; i++) {
+    const x = (R() - 0.5) * 300, z = -440 + R() * 480;
     if (townDist(x, z) < 12) continue;
     if (!free(x, z, 1.5)) continue;
     rp.push({ x, z, y: height(x, z) - 0.15, rot: R() * 6.28, s: 0.5 + R() * 0.7 });
   }
   // small grey rocks along the beach and below the lab hill
   const brp = [];
-  for (let i = 0; i < 500 && brp.length < 60; i++) {
-    const x = -140 + R() * 260, c = coastZ(x), z = c - 4 + R() * 7;
-    if (roadDist(x, z) < 3 || Math.abs(x - (-16)) < 6 || blocked(x, z, 1.0) || streamAt(x, z).d < 4) continue;
-    if (R() < 0.6 && labHillU(x, z) > 1.3) continue;
-    brp.push({ x, z, y: height(x, z) - 0.2, rot: R() * 6.28, s: 0.35 + R() * 0.45 });
+  // and boulders heaped at the foot of the rocky shores and the headlands' cliffs
+  for (let i = 0; i < 20000 && brp.length < 320; i++) {
+    const x = -235 + R() * 470, z = -140 + R() * 370, sdx = shoreSD(x, z);
+    if (sdx < -5 || sdx > 4) continue;
+    const cl = cliffiness(x, z);
+    if (roadDist(x, z) < 3 || inHarbour(x, z, 2) || blocked(x, z, 1.0) || streamAt(x, z).d < 4) continue;
+    if (cl < 0.4 && (R() < 0.85 || labHillU(x, z) > 1.3 && R() < 0.6)) continue;
+    brp.push({ x, z, y: height(x, z) - 0.2, rot: R() * 6.28, s: cl > 0.4 ? 0.6 + R() * 1.3 : 0.35 + R() * 0.45 });
   }
   const beachRocks = [makeRock(11, 1.0, { col: STONE.beach }), makeRock(12, 0.8, { col: STONE.beach, kind: 'slab' }), makeRock(13, 1.2, { col: STONE.beach }), makeRock(14, 0.7, { col: STONE.beach, kind: 'pebble' })];
   keepOff(brp, baseR(beachRocks));

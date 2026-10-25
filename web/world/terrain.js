@@ -38,9 +38,106 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
 // ---------- the sea and the coast ----------
 export const SEA_Y = -0.7;
-// where the dry beach meets the water (the waterline), as a function of x
+
+// ---------- the peninsula: where the land meets the sea ----------
+// Pallet Town sits at the southern tip of a long hilly peninsula (the old
+// Kanto magazine map): the land wraps round the town in two headlands, west
+// and east, so the town lies in a bowl at the head of a sheltered bay that
+// opens to the open sea in the south (Cinnabar beyond the horizon). The
+// harbour is in the bay; the lighthouse islet stands near its mouth. North
+// of town Route 1 climbs the peninsula's spine to the mainland, which widens
+// out past z -400.
+// COAST is the waterline (x, z), a closed loop round the land, smoothed into
+// a curve; shoreSD(x, z) is the signed distance to it in metres (positive on
+// land, negative at sea), from a 2 m raster made once.
+export const COAST = [
+  // the town beach at the head of the bay, west to east (a dozen metres
+  // further out than the old straight beach)
+  [-60, 74], [-30, 73.5], [-5, 72.5], [20, 73], [45, 75.5], [75, 80],
+  // the bay's east side, rocky, down to the east headland
+  [98, 90], [115, 108], [125, 132], [129, 158], [126, 182], [119, 199],
+  [127, 212], [145, 217], [168, 207],
+  // the outer east coast, north to the mainland
+  [190, 183], [205, 150], [213, 110], [215, 65], [207, 25], [213, -25], [228, -75], [224, -128], [210, -172], [219, -212],
+  [236, -258], [250, -305], [270, -348], [305, -382], [370, -405], [470, -420], [600, -428], [760, -432],
+  [760, -1100], [-760, -1100],
+  // the mainland's west shore and the outer west coast, back south
+  [-760, -445], [-600, -438], [-480, -428], [-380, -412], [-318, -388], [-282, -352], [-262, -306], [-250, -258], [-236, -212],
+  [-222, -168], [-228, -124], [-238, -78], [-226, -28], [-214, 22], [-215, 72], [-207, 118], [-190, 160], [-165, 192], [-140, 210],
+  // the west headland's tip and the bay's west side, back to the beach
+  [-118, 214], [-103, 205], [-100, 188], [-106, 166], [-113, 140], [-110, 115], [-99, 97], [-82, 83],
+];
+// the bay's mouth and the lighthouse islet out in it
+export const ISLET = { x: -48, z: 176 };
+const SD_RES = 2, SD_X0 = -800, SD_Z0 = -1140, SD_NX = 800, SD_NZ = 720;   // x -800..800, z -1140..300
+const SD = (() => {
+  // the loop as a dense smooth curve
+  const pts = COAST.map(([x, z]) => new THREE.Vector3(x, 0, z));
+  const curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal', 0.5);
+  const poly = curve.getSpacedPoints(Math.ceil(curve.getLength() / 2)).map((p) => [p.x, p.z]);
+  // inside / outside per cell (scanlines), then the distance to the other side
+  const N = SD_NX * SD_NZ, inside = new Uint8Array(N);
+  for (let j = 0; j < SD_NZ; j++) {
+    const z = SD_Z0 + (j + 0.5) * SD_RES, xs = [];
+    for (let k = 0; k < poly.length; k++) {
+      const [ax, az] = poly[k], [bx, bz] = poly[(k + 1) % poly.length];
+      if ((az <= z) !== (bz <= z)) xs.push(ax + (z - az) / (bz - az) * (bx - ax));
+    }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const i0 = Math.max(0, Math.ceil((xs[k] - SD_X0) / SD_RES - 0.5)), i1 = Math.min(SD_NX - 1, Math.floor((xs[k + 1] - SD_X0) / SD_RES - 0.5));
+      for (let i = i0; i <= i1; i++) inside[j * SD_NX + i] = 1;
+    }
+  }
+  // squared Euclidean distance transform (Felzenszwalb & Huttenlocher)
+  const edt = (f, n, m) => {
+    const d = new Float64Array(Math.max(n, m)), v = new Int32Array(Math.max(n, m)), zz = new Float64Array(Math.max(n, m) + 1);
+    const pass = (get, set, len) => {
+      let k = 0; v[0] = 0; zz[0] = -Infinity; zz[1] = Infinity;
+      for (let q = 1; q < len; q++) {
+        let s;
+        do { const p = v[k]; s = ((get(q) + q * q) - (get(p) + p * p)) / (2 * q - 2 * p); if (s <= zz[k]) k--; else break; } while (k >= 0);
+        k++; v[k] = q; zz[k] = s; zz[k + 1] = Infinity;
+      }
+      k = 0;
+      for (let q = 0; q < len; q++) { while (zz[k + 1] < q) k++; d[q] = (q - v[k]) ** 2 + get(v[k]); }
+      for (let q = 0; q < len; q++) set(q, d[q]);
+    };
+    for (let i = 0; i < n; i++) pass((q) => f[q * n + i], (q, val) => { f[q * n + i] = val; }, m);
+    for (let j = 0; j < m; j++) pass((q) => f[j * n + q], (q, val) => { f[j * n + q] = val; }, n);
+  };
+  const BIG = 1e12, toSea = new Float64Array(N), toLand = new Float64Array(N);
+  for (let k = 0; k < N; k++) { toSea[k] = inside[k] ? BIG : 0; toLand[k] = inside[k] ? 0 : BIG; }
+  edt(toSea, SD_NX, SD_NZ); edt(toLand, SD_NX, SD_NZ);
+  const sd = new Float32Array(N);
+  for (let k = 0; k < N; k++) sd[k] = inside[k] ? (Math.sqrt(toSea[k]) - 0.5) * SD_RES : -(Math.sqrt(toLand[k]) - 0.5) * SD_RES;
+  return sd;
+})();
+// signed distance to the waterline: + on land, - at sea (metres), with a
+// little wobble so the shore is never a perfect curve
+export function shoreSD(x, z) {
+  const fx = (x - SD_X0) / SD_RES - 0.5, fz = (z - SD_Z0) / SD_RES - 0.5;
+  if (fx < 0 || fz < 0 || fx >= SD_NX - 1 || fz >= SD_NZ - 1) return -400;
+  const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j, k = j * SD_NX + i;
+  const a = SD[k], b = SD[k + 1], c = SD[k + SD_NX], d = SD[k + SD_NX + 1];
+  return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz + (fbm(x * 0.045 + 13, z * 0.045 + 2, 3) - 0.5) * 5;
+}
+// 0 on a sandy shore, 1 where the land ends in cliffs: the town beach at the
+// head of the bay is sand, the bay's sides and the headlands rocky, the outer
+// coasts mostly cliffs with a few pocket beaches
+export function cliffiness(x, z) {
+  const bay = 1 - smooth(62, 96, Math.hypot((x + 8) * 0.85, (z - 74) * 1.6));
+  let c = smooth(0.38, 0.55, fbm(x * 0.011 + 3.3, z * 0.011 + 9.1, 3));
+  // the bay's sides and the headlands rocky, a pocket beach here and there
+  const pocket = smooth(0.62, 0.7, fbm(x * 0.03 + 1.7, z * 0.03 + 4.4, 2));
+  c = Math.max(c, smooth(78, 112, Math.abs(x + 3)) * smooth(70, 100, z) * (1 - pocket), smooth(150, 195, z) * 0.9, smooth(150, 205, Math.abs(x)) * smooth(0, 60, -z) * 0.6);
+  return c * (1 - bay);
+}
+// The old beach as a line (z of the waterline at x), for the bay head only:
+// the shore straight south of x, searched from the town out.
 export function coastZ(x) {
-  return 61 + 5 * Math.sin(0.035 * x + 1.3) + 2.5 * Math.sin(0.09 * x + 0.4) + 1.2 * Math.sin(0.21 * x + 2.0);
+  for (let z = 40; z < 140; z += 1) if (shoreSD(x, z) < 0) return z;
+  return 140;
 }
 export const POND = { x: -50, z: 40, r: 7, y: -0.1 };
 
@@ -88,14 +185,27 @@ export const BRIDGES = [
   { x0: 4.6, x1: 13.8, z: -7.5, w: 3.0, rails: true, kind: 'lane' },
 ];
 export const SQUARE = { x: -3, z: -2, r: 8.5 };
+// The harbour: a square U of timber piers in the bay, open to the sea. A quay
+// along the waterline (the cross pier, where the main lane comes down onto
+// it), and two long piers out from its ends with a wider head on each; boats
+// moored in the basin between them. Deck heights are SEA_Y + y.
+export const HARBOUR = {
+  quay: { x0: -39.5, x1: -4.5, z0: 69.4, z1: 75.0 },
+  arms: [{ x: -37.7, z0: 75.0, z1: 106 }, { x: -6.3, z0: 75.0, z1: 106 }],
+  w: 3.6, head: { w: 7.0, d: 5.0 }, y: 1.02,
+};
 
 // ---------- roads as control points; smoothed into dense polylines ----------
 // Each is a winding dirt lane; the ends of house lanes run to the house gates.
 const ROAD_CTRL = [
-  // Route 1: down the valley from the north and through the cutting in the rim
-  [[1, -150], [-5, -128], [4, -104], [-3, -82], [2, -66], [-1, -56], [-4, -46], [-2, -36], [-5, -26], [-6, -14], [-3, -2]],
-  // the main lane south from the square to the beach
-  [[-3, -2], [-6, 10], [-5, 24], [-8, 38], [-7, 49], [-9, 56]],
+  // Route 1: from the forest gate at the mainland end, down the valley,
+  // weaving round the ledges' ends, and through the cutting in the rim
+  [[-2, -446], [-5, -425], [-10, -400], [-16, -380], [-19, -363], [-12, -347], [6, -337], [26, -328], [29, -318], [20, -306],
+    [3, -298], [-10, -291], [-8, -280], [6, -270], [18, -263], [21, -255], [12, -243], [-10, -233], [-30, -224], [-29, -212],
+    [-10, -201], [5, -191], [2, -178], [-17, -164], [-28, -151], [-21, -139], [3, -128], [20, -117], [22, -108], [15, -96],
+    [5, -83], [1, -72], [2, -64], [-1, -56], [-4, -46], [-2, -36], [-5, -26], [-6, -14], [-3, -2]],
+  // the main lane south from the square, across the sand to the harbour quay
+  [[-3, -2], [-6, 10], [-5, 24], [-8, 38], [-7, 49], [-9, 56], [-13, 62.5], [-19, 68.6]],
   // to Red's house
   [[-5.6, -18], [-12, -15.5], [-18, -16], ...approach(H.red)],
   // east over the little bridge to Blue's house
@@ -178,19 +288,109 @@ function base(x, z) {
   for (const hs of HOUSES) { const d2 = (x - hs.x) ** 2 + (z - hs.z) ** 2; if (d2 < 900) h += hs.rise * Math.exp(-d2 / 260); }
   // the northern rim of the valley
   h += 5.5 * Math.exp(-(((z + 52) / 10) ** 2)) * (1 - smooth(70, 110, Math.abs(x))) * (0.7 + fbm(x * 0.05, 3, 2) * 0.6);
-  // hills beyond the town, except toward the sea
+  // hills beyond the town, except toward the sea; to the west and east they
+  // run on south as the two headlands that wrap round the bay
   const r = Math.max(Math.abs(x + 8) / 88, z < 0 ? Math.abs(z) / 64 : 0);
   const hill = smooth(1.0, 2.0, r) * (6 + fbm(x * 0.02, z * 0.02, 4) * 22);
-  // Route 1 runs north through a valley between the hills
-  const valley = 1 - smooth(6, 26, Math.abs(x + Math.sin(z * 0.02) * 6));
-  h += hill * (z < -62 ? 1 - valley * 0.85 : 1) * (1 - smooth(28, 50, z));
-  // the beach: the land eases down to the waterline and on under the sea
-  const c = coastZ(x);
-  const beach = Math.max(-7, SEA_Y + 0.11 * (c - z) + (fbm(x * 0.08, z * 0.08, 2) - 0.5) * 0.25 * smooth(c + 2, c - 6, z));
-  h = lerp(h, beach, smooth(c - 26, c - 9, z));
+  const head = smooth(96, 128, Math.abs(x - 6));
+  h += hill * Math.max(1 - smooth(28, 50, z), head * (0.75 + 0.35 * smooth(60, 150, z)));
+  // north of the rim the land is Route 1's valley and the peninsula's spine
+  const wr = smooth(-56, -86, z);
+  if (wr > 0) h = lerp(h, routeLand(x, z), wr);
+  // the coast: a beach eases down to the waterline and on under the sea;
+  // where the coast is rocky the land keeps its height to the edge and drops
+  // in a cliff, and the sea floor falls away faster
+  const sd = shoreSD(x, z), cl = cliffiness(x, z);
+  // inland, the ground never dips below the sea (that read as a salt lagoon)
+  if (sd > 0) h = Math.max(h, SEA_Y + 0.35 + 0.04 * Math.min(sd, 40));
+  const under = sd < 0 ? lerp(0.11, 0.3, cl) : 0.11;
+  const beach = Math.max(-14, SEA_Y + under * sd + (fbm(x * 0.08, z * 0.08, 2) - 0.5) * 0.25 * smooth(-2, 6, -sd));
+  h = lerp(h, beach, lerp(smooth(26, 9, sd), smooth(6, 0.8, sd), cl));
   return h;
 }
 export const baseHeight = base;
+
+// ---------- Route 1 ----------
+// The route climbs the peninsula's spine from the town's northern rim to the
+// mainland: a broad grassy valley between forested hills, rising gently and
+// in terraces (one-way ledges, as in the games: you can hop down them going
+// south, toward Pallet, but must walk round their ends going north).
+// RC: the valley's centre line, x at each z (it winds); FLOOR at z.
+const RC_CTRL = [[-3, -40], [2, -75], [6, -100], [0, -130], [-12, -165], [-18, -200], [-10, -235], [6, -270], [14, -305], [8, -340], [-4, -375], [-8, -405], [-2, -440], [4, -480], [0, -560], [-20, -700], [0, -900]];
+const RC = (() => {
+  const c = new THREE.CatmullRomCurve3(RC_CTRL.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+  const pts = c.getSpacedPoints(2000), out = new Float32Array(1001);   // x at z = -40 - i
+  let k = 0;
+  for (let i = 0; i <= 1000; i++) {
+    const z = -40 - i;
+    while (k < pts.length - 2 && pts[k + 1].z > z) k++;
+    const a = pts[k], b = pts[k + 1], t = b.z === a.z ? 0 : (z - a.z) / (b.z - a.z);
+    out[i] = a.x + (b.x - a.x) * Math.min(1, Math.max(0, t));
+  }
+  return out;
+})();
+export function routeX(z) {
+  const f = Math.min(1000, Math.max(0, -40 - z)), i = Math.min(999, Math.floor(f)), t = f - i;
+  return RC[i] + (RC[i + 1] - RC[i]) * t;
+}
+// the end of the route for now: a gate in the forest, Viridian City beyond
+export const ROUTE1 = { z0: -60, z1: -445, gateZ: -438 };
+export function routeHalfWidth(z) { return 34 + 7 * Math.sin(z * 0.021 + 1.2) + 4 * Math.sin(z * 0.057); }
+// the ledges: a line at z (with a wobble) from x0 to x1, `drop` metres high
+// on its south face. Outside its ends the step spreads into a gentle ramp, so
+// the way round a ledge is an easy slope.
+export const LEDGES = [
+  { z: -112, x0: -46, x1: 12 }, { z: -150, x0: -17, x1: 34 }, { z: -188, x0: -58, x1: -6 }, { z: -222, x0: -23, x1: 28 },
+  { z: -258, x0: -44, x1: 9 }, { z: -290, x0: 0, x1: 50 }, { z: -325, x0: -32, x1: 19 }, { z: -360, x0: -7, x1: 44 },
+].map((L, i) => ({ ...L, drop: 1.0, i }));
+const ledgeLine = (L, x) => L.z + Math.sin(x * 0.11 + L.i) * 0.9 + Math.sin(x * 0.31 + L.i * 2) * 0.3;
+// how far past the ledge's ends (0 inside)
+const ledgeOut = (L, x) => Math.max(0, L.x0 - x, x - L.x1);
+// the ledge's step at (x, z): 1 north of its line (the high side), 0 south;
+// `shift` moves the line north (the terrain mesh's step sits under the ledge's
+// own top, so it is hidden: see buildTerrain)
+function ledgeStep(L, x, z, shift = 0) {
+  const e = ledgeOut(L, x), t = ledgeLine(L, x) - shift * (1 - smooth(0, 4, e)) - z;
+  const w = 0.12 + Math.min(16, e * 1.25);
+  return smooth(-w, w, t);
+}
+let ledgeShift = 0;   // buildTerrain: where the mesh puts the steps
+function ledgeSum(x, z) {
+  if (z > -88) return 0;
+  let s = 0;
+  for (const L of LEDGES) {
+    const dz = L.z - z;                 // > 0: north of the ledge, its high side
+    if (dz < -20) continue;
+    s += dz > 20 ? L.drop : L.drop * ledgeStep(L, x, z, ledgeShift);
+  }
+  return s;
+}
+// the ledge whose sharp step is at (x, z) within m metres, or null
+export function ledgeAt(x, z, m = 0.5) {
+  for (const L of LEDGES) {
+    if (x < L.x0 || x > L.x1 || Math.abs(L.z - z) > 3) continue;
+    if (Math.abs(ledgeLine(L, x) - z) <= m) return L;
+  }
+  return null;
+}
+export const ledgeLineZ = ledgeLine;
+// Route 1's tall grass, between its ledges [x0, z0, x1, z1]
+export const TALL_GRASS = [[-22, -104, -4, -86], [10, -145, 30, -122], [-48, -182, -22, -158], [8, -216, 30, -194], [-40, -252, -14, -230],
+  [16, -284, 40, -264], [-28, -318, -4, -298], [22, -354, 44, -334], [-34, -400, -12, -372]];
+export const inTallGrass = (x, z) => TALL_GRASS.some(([a, b, c, d]) => x > a && x < c && z > b && z < d);
+// the valley floor and the hills either side of it
+function routeLand(x, z) {
+  const c = routeX(z), d = Math.abs(x - c), fw = routeHalfWidth(z);
+  const n = fbm(x * 0.035 + 2, z * 0.035 + 7, 3);
+  // the floor: rising gently north, hummocky
+  let h = 3.2 + 0.03 * Math.max(0, -62 - z) + (n - 0.5) * 2.4 + ledgeSum(x, z);
+  // the valley's sides: forested hills, then the higher ground of the spine
+  h += smooth(fw - 6, fw + 26, d) * (6 + fbm(x * 0.02 + 5, z * 0.02 + 1, 4) * 18);
+  h += smooth(fw + 30, fw + 140, d) * 7;
+  // the mainland past the route's end: rolling, wooded, higher
+  h += smooth(-430, -520, z) * (6 + fbm(x * 0.01, z * 0.01, 3) * 20) * smooth(fw, fw + 40, d);
+  return h;
+}
 
 // house pads: each house stands level at its knoll's height
 for (const hs of HOUSES) hs.y = base(hs.x, hs.z + 1.5) + 0.1;
@@ -431,10 +631,22 @@ export function stairDist(x, z) {
 }
 export function onStairs(x, z, m = 0) { return x > STAIRS.x0 - 0.4 && x < STAIRS.x1 + 0.6 && Math.abs(z - STAIRS.z) < STAIRS.hw + m; }
 // the hill blocks walking everywhere but the stairs and the plateau
+// and the world has edges: the cliffs where the coast is rocky, the forest
+// past the town's hills, and the hillsides either side of Route 1 up to its
+// gate in the forest at the mainland end
+export const WALK = { x0: -186, x1: 186, z0: -452, z1: 230 };
+export function outOfBounds(x, z) {
+  if (x < WALK.x0 || x > WALK.x1 || z < WALK.z0 || z > WALK.z1) return true;
+  const sd = shoreSD(x, z);
+  if (sd > -4 && sd < 4.5 && cliffiness(x, z) > 0.45 && base(x, z) > SEA_Y + 1.4) return true;
+  if (z > -70) return false;
+  if (z < ROUTE1.gateZ) return true;
+  return Math.abs(x - routeX(z)) > routeHalfWidth(z) + 8;
+}
 export function noWalk(x, z) {
   const u = hillU(x, z);
-  if (u <= 0.002 || u > 0.985) return false;
-  return !onStairs(x, z, -0.15);
+  if (u > 0.002 && u <= 0.985 && !onStairs(x, z, -0.15)) return true;
+  return outOfBounds(x, z);
 }
 
 // ---------- the height ----------
@@ -528,8 +740,8 @@ export function groundColor(x, z, h, slope, out) {
   const st = streamAt(x, z);
   if (st.d < 3.6) out.lerp(ROCK.clone().lerp(MUD, 0.4), (1 - smooth(2.2, 3.6, st.d)) * 0.7);
   // the beach: dry pale sand up top, warm sand, dark wet sand at the water
-  const c = coastZ(x);
-  const sandK = smooth(c - 17, c - 12, z + (n - 0.5) * 3) * (1 - smooth(1.8, 3.5, h - SEA_Y)) ;
+  const sdc = shoreSD(x, z);
+  const sandK = smooth(17, 12, sdc + (n - 0.5) * 3) * (1 - smooth(1.8, 3.5, h - SEA_Y)) ;
   if (sandK > 0) {
     const s = SAND.clone().lerp(SAND_DRY, smooth(0.6, 1.4, h - SEA_Y)).lerp(SAND_W, 1 - smooth(0.05, 0.35, h - SEA_Y));
     out.lerp(s, sandK);
@@ -538,41 +750,189 @@ export function groundColor(x, z, h, slope, out) {
 }
 
 // ---------- meshes ----------
-export function buildTerrain() {
-  const size = 420, seg = 280;
-  const g = new THREE.PlaneGeometry(size, size, seg, seg);
-  g.rotateX(-Math.PI / 2);
-  const pos = g.attributes.position;
-  const col = new Float32Array(pos.count * 3);
-  const tmp = new THREE.Color();
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i);
-    let y = height(x, z);
-    // under the stairs the ground sinks out of sight (the stone flights cover it)
-    // At the two ends the grid's last vertex is not sunk (that left a deep
-    // wedge in front of the first riser and behind the top tread): the plaza
-    // runs flat to the first riser, and under the top tread the ground sits
-    // 4 cm below its face (not on it, where the two fought).
-    if (onStairs(x, z, 0.6)) {
-      if (x <= STAIRS.x0 + 0.05) y = Math.min(y, PLAZA.y);
-      else if (x >= STAIRS.x1 - 0.01) y = Math.min(y, PLAT_Y - 0.04);
-      else y -= 1.4;
+// The ground is cut into 45 m chunks: fine (1.5 m cells) round where you can
+// walk, coarse (4.5 m) out on the far hills and the mainland, and none at all
+// out under the deep sea (the opaque deep water hides the floor there). Fine
+// edges next to coarse chunks follow the coarse edge, so they meet without
+// cracks; normals come from the same height grid either side of a seam.
+// Chunks are merged into blocks of 4 x 4 (one mesh each, for culling).
+// the sea's depth map and fine mesh cover this square (native: seabed.bin)
+export const SEA_BOX = { x0: -460, z0: -640, n: 920 };
+export const TB = { x0: -495, x1: 495, z0: -900, z1: 315, chunk: 45, fine: 1.5, coarse: 4.5 };
+const FINE_ZONE = { x0: -240, x1: 240, z0: -500, z1: 250 };
+let TCH = null;   // per chunk: { step, n, y (heights, (n+1)^2) } or null (dropped)
+function chunkInfo() {
+  if (TCH) return TCH;
+  const C = TB.chunk, ncx = Math.round((TB.x1 - TB.x0) / C), ncz = Math.round((TB.z1 - TB.z0) / C);
+  const info = [];
+  for (let cj = 0; cj < ncz; cj++) for (let ci = 0; ci < ncx; ci++) {
+    const x0 = TB.x0 + ci * C, z0 = TB.z0 + cj * C;
+    // fine where you can walk, or within ~35 m of it (and the shallows round it)
+    let fine = false;
+    if (x0 + C > FINE_ZONE.x0 && x0 < FINE_ZONE.x1 && z0 + C > FINE_ZONE.z0 && z0 < FINE_ZONE.z1) {
+      for (let a = 0; a <= 8 && !fine; a++) for (let b = 0; b <= 8 && !fine; b++) {
+        const x = x0 - 35 + a * (C + 70) / 8, z = z0 - 35 + b * (C + 70) / 8;
+        if (!outOfBounds(x, z) && shoreSD(x, z) > -25) fine = true;
+      }
     }
-    pos.setY(i, y);
+    // drop chunks that lie wholly under the deep sea (with a margin round them)
+    let deep = true;
+    for (let a = -1; a <= 11 && deep; a++) for (let b = -1; b <= 11 && deep; b++) if (base(x0 + a * C / 10, z0 + b * C / 10) > SEA_Y - 2.6) deep = false;
+    info.push({ ci, cj, x0, z0, fine, keep: !deep });
   }
+  TCH = { ncx, ncz, info };
+  return TCH;
+}
+// the ground the mesh draws at (x, z): the ledges' steps sit under their tops
+function meshY(x, z) {
+  let y = height(x, z);
+  // under the stairs the ground sinks out of sight (the stone flights cover it)
+  // At the two ends the grid's last vertex is not sunk (that left a deep
+  // wedge in front of the first riser and behind the top tread): the plaza
+  // runs flat to the first riser, and under the top tread the ground sits
+  // 4 cm below its face (not on it, where the two fought).
+  if (onStairs(x, z, 0.6)) {
+    if (x <= STAIRS.x0 + 0.05) y = Math.min(y, PLAZA.y);
+    else if (x >= STAIRS.x1 - 0.01) y = Math.min(y, PLAT_Y - 0.04);
+    else y -= 1.4;
+  }
+  return y;
+}
+const LEDGE_MESH_SHIFT = 1.9;
+export function buildTerrain() {
+  const T = chunkInfo(), C = TB.chunk, group = new THREE.Group();
+  group.name = 'terrain';
+  const at = (ci, cj) => (ci < 0 || cj < 0 || ci >= T.ncx || cj >= T.ncz ? null : T.info[cj * T.ncx + ci]);
+  ledgeShift = LEDGE_MESH_SHIFT;
+  const tmp = new THREE.Color();
+  const blocks = new Map();
+  for (const ch of T.info) {
+    if (!ch.keep) continue;
+    const step = ch.fine ? TB.fine : TB.coarse, n = Math.round(C / step), W = n + 3;
+    // heights with a one-cell border (for normals)
+    const Y = new Float32Array(W * W);
+    for (let j = 0; j < W; j++) for (let i = 0; i < W; i++) Y[j * W + i] = meshY(ch.x0 + (i - 1) * step, ch.z0 + (j - 1) * step);
+    // a fine chunk's edge next to a coarse one follows the coarse edge
+    if (ch.fine) {
+      const k = Math.round(TB.coarse / TB.fine);
+      const coarseAt = (dc, dj) => { const o = at(ch.ci + dc, ch.cj + dj); return o && o.keep && !o.fine; };
+      const fix = (idx) => { for (let m = 0; m <= n; m++) { if (m % k === 0) continue; const m0 = m - (m % k), t = (m % k) / k; const [a, b, c] = [idx(m0), idx(m0 + k), idx(m)]; Y[c] = Y[a] + (Y[b] - Y[a]) * t; } };
+      if (coarseAt(-1, 0)) fix((m) => (m + 1) * W + 1);
+      if (coarseAt(1, 0)) fix((m) => (m + 1) * W + n + 1);
+      if (coarseAt(0, -1)) fix((m) => W + m + 1);
+      if (coarseAt(0, 1)) fix((m) => (n + 1) * W + m + 1);
+    }
+    const pos = [], nrm = [], col = [], uv = [], idx = [];
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
+      const x = ch.x0 + i * step, z = ch.z0 + j * step, y = Y[(j + 1) * W + i + 1];
+      const dx = (Y[(j + 1) * W + i + 2] - Y[(j + 1) * W + i]) / (2 * step), dz = (Y[(j + 2) * W + i + 1] - Y[j * W + i + 1]) / (2 * step);
+      const l = Math.hypot(dx, 1, dz);
+      pos.push(x, y, z); nrm.push(-dx / l, 1 / l, -dz / l); uv.push(x / 4, z / 4);
+      groundColor(x, z, y, 1 - 1 / l, tmp);
+      col.push(tmp.r, tmp.g, tmp.b);
+    }
+    // cells split along the (0,1)-(1,0) diagonal, as three's PlaneGeometry
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const a = j * (n + 1) + i, b = a + n + 1, c = b + 1, d = a + 1;
+      idx.push(a, b, d, b, c, d);
+    }
+    ch.step = step; ch.n = n; ch.y = new Float32Array((n + 1) * (n + 1));
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) ch.y[j * (n + 1) + i] = Y[(j + 1) * W + i + 1];
+    const key = Math.floor(ch.ci / 4) + ',' + Math.floor(ch.cj / 4);
+    if (!blocks.has(key)) blocks.set(key, []);
+    blocks.get(key).push({ pos, nrm, col, uv, idx });
+  }
+  ledgeShift = 0;
+  for (const [key, parts] of blocks) {
+    const P = [], N = [], Cc = [], U = [], I = [];
+    for (const p of parts) { const o = P.length / 3; P.push(...p.pos); N.push(...p.nrm); Cc.push(...p.col); U.push(...p.uv); for (const k of p.idx) I.push(k + o); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+    g.setIndex(I);
+    g.computeBoundingSphere(); g.computeBoundingBox();
+    const m = new THREE.Mesh(g);
+    m.name = 'terrain_' + key.replace(',', '_');
+    m.receiveShadow = true;
+    group.add(m);
+  }
+  // the ledges: one mesh for all of them (one draw)
+  {
+    const gs = LEDGES.map((L) => ledgeMesh(L).geometry), P = [], N = [], Cc = [], U = [], I = [];
+    for (const g of gs) { const o = P.length / 3; P.push(...g.attributes.position.array); N.push(...g.attributes.normal.array); Cc.push(...g.attributes.color.array); U.push(...g.attributes.uv.array); for (const k of g.index.array) I.push(k + o); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+    g.setIndex(I);
+    const m = new THREE.Mesh(g); m.name = 'ledges'; m.receiveShadow = true;
+    group.add(m);
+  }
+  return group;
+}
+// the ground as the terrain mesh draws it (for the ink's ground cuts)
+export function meshHeight(x, z) {
+  const T = chunkInfo(), C = TB.chunk;
+  const ci = Math.floor((x - TB.x0) / C), cj = Math.floor((z - TB.z0) / C);
+  const ch = ci >= 0 && cj >= 0 && ci < T.ncx && cj < T.ncz ? T.info[cj * T.ncx + ci] : null;
+  if (!ch || !ch.y) return SEA_Y - 30;
+  const u = (x - ch.x0) / ch.step, w = (z - ch.z0) / ch.step, n = ch.n;
+  const i = Math.min(n - 1, Math.floor(u)), j = Math.min(n - 1, Math.floor(w)), fx = u - i, fz = w - j;
+  const H = (a, b) => ch.y[b * (n + 1) + a];
+  const ha = H(i, j), hb = H(i, j + 1), hc = H(i + 1, j + 1), hd = H(i + 1, j);
+  return fx + fz <= 1 ? ha + fz * (hb - ha) + fx * (hd - ha) : hc + (1 - fx) * (hb - hc) + (1 - fz) * (hd - hc);
+}
+// A ledge as part of the ground: its grassy top (over the hidden step of the
+// terrain mesh, which sits LEDGE_MESH_SHIFT north of the edge), a rounded lip
+// and a rocky face down to the low side, running a few metres past its ends
+// where it fades into the ramp. Same material as the ground.
+const LEDGE_FACE = new THREE.Color('#a4805a'), LEDGE_FACE_D = new THREE.Color('#7a5a42'), LEDGE_LIP = new THREE.Color('#4a3a2c');
+function ledgeMesh(L) {
+  // rows across: [t (m north of the edge), dy over the ground there, face colour k (-1 = ground colour)]
+  const ROWS = [[-1.6, 0, -1], [-0.7, 0, -1], [-0.06, -0.12, 2], [-0.02, 0, 1], [0.04, 0.05, 3], [0.2, 0.05, -1], [1.0, 0.04, -1], [2.0, 0.04, -1], [3.0, 0.04, -1], [4.0, 0.03, -1], [4.7, -0.03, -1]];
+  const pos = [], nrm = [], col = [], uv = [], idx = [], tmp = new THREE.Color();
+  const xa = L.x0 - 3, xb = L.x1 + 3, n = Math.ceil((xb - xa) / 0.5);
+  const R = ROWS.length;
+  for (let k = 0; k <= n; k++) {
+    const x = xa + (xb - xa) * k / n, zl = ledgeLine(L, x), e = ledgeOut(L, x);
+    const lo = height(x, zl + 0.35), hi = height(x, zl - 0.35);
+    for (const [t, dy, ck] of ROWS) {
+      const z = zl - t;
+      let y;
+      if (t < -0.1) y = height(x, z) + (e > 0.3 ? 0.04 : -0.06);   // in front: only past the ends, where the ramp starts
+      else if (ck === 2) y = Math.min(lo, height(x, z)) + dy;          // the foot of the face, a little sunk
+      else if (ck === 1 || ck === 3) y = Math.max(hi, height(x, z)) + dy;
+      else y = height(x, z) + dy;
+      pos.push(x, y, z); uv.push(x / 4, z / 4);
+      if (ck < 0) { groundColor(x, z, y, 0.05, tmp); col.push(tmp.r, tmp.g, tmp.b); }
+      else { const c = ck === 3 ? LEDGE_LIP : ck === 1 ? LEDGE_FACE : LEDGE_FACE_D; col.push(c.r, c.g, c.b); }
+      nrm.push(0, 1, 0);
+    }
+  }
+  for (let k = 0; k < n; k++) for (let r = 0; r < R - 1; r++) {
+    const a = k * R + r, b = a + 1, c = a + R, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
   g.computeVertexNormals();
-  const nrm = g.attributes.normal;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i);
-    groundColor(x, z, pos.getY(i), 1 - nrm.getY(i), tmp);
-    col[i * 3] = tmp.r; col[i * 3 + 1] = tmp.g; col[i * 3 + 2] = tmp.b;
+  // the top keeps the ground's normals (up, as the mesh under it), the face its own
+  const N = g.attributes.normal;
+  for (let k = 0; k <= n; k++) for (let r = 0; r < R; r++) if (ROWS[r][2] < 0) {
+    const x = pos[(k * R + r) * 3], z = pos[(k * R + r) * 3 + 2];
+    const dx = (height(x + 0.75, z) - height(x - 0.75, z)) / 1.5, dz = (height(x, z + 0.75) - height(x, z - 0.75)) / 1.5, l = Math.hypot(dx, 1, dz);
+    N.setXYZ(k * R + r, -dx / l, 1 / l, -dz / l);
   }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const m = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const mesh = new THREE.Mesh(g, m);
-  mesh.receiveShadow = true;
-  mesh.name = 'terrain';
-  return mesh;
+  const m = new THREE.Mesh(g);
+  m.name = 'ledge_' + L.i;
+  m.receiveShadow = true;
+  return m;
 }
 
 // The water as the anime paints it: turquoise over sand, deep blue further
@@ -581,17 +941,18 @@ export function buildTerrain() {
 // floor (baked once) tells the shader how deep the water is.
 export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 }) {
   const group = new THREE.Group();
-  // depth map over the coast: 1 texel = 1 m
-  const DX0 = -210, DZ0 = 20, DW = 420, DD = 160;
-  const data = new Uint8Array(DW * DD * 4);
-  for (let j = 0; j < DD; j++) for (let i = 0; i < DW; i++) {
-    const x = DX0 + i + 0.5, z = DZ0 + j + 0.5;
-    const d = SEA_Y - height(x, z);
-    const k = (j * DW + i) * 4;
-    data[k] = Math.max(0, Math.min(255, Math.round((0.5 + d / 16) * 255)));
+  // depth map over the whole coast (SEA_BOX): 1 texel = 2 m
+  const { x0: DX0, z0: DZ0, n: DN } = SEA_BOX, DW = DN, DD = DN, R2 = 2;
+  const TW = DW / R2, TD = DD / R2;
+  const data = new Uint8Array(TW * TD * 4);
+  for (let j = 0; j < TD; j++) for (let i = 0; i < TW; i++) {
+    const x = DX0 + (i + 0.5) * R2, z = DZ0 + (j + 0.5) * R2;
+    const sd = shoreSD(x, z), d = sd > 30 ? -8 : SEA_Y - (sd < -40 ? base(x, z) : height(x, z));
+    const k = (j * TW + i) * 4;
+    data[k] = Math.max(0, Math.min(255, Math.round((0.5 + d / 32) * 255)));
     data[k + 1] = data[k + 2] = 0; data[k + 3] = 255;
   }
-  const depthTex = new THREE.DataTexture(data, DW, DD, THREE.RGBAFormat);
+  const depthTex = new THREE.DataTexture(data, TW, TD, THREE.RGBAFormat);
   depthTex.magFilter = depthTex.minFilter = THREE.LinearFilter;
   depthTex.needsUpdate = true;
   const seaVert = `
@@ -610,8 +971,8 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
     void main(){
       vec2 uv = (vW.xz - uDB.xy) / uDB.zw;
       float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
-      float depth = mix(30.0, (texture2D(uDepth, clamp(uv, 0.0, 1.0)).r - 0.5) * 16.0, inside);
-      depth = mix(depth, 30.0, smoothstep(0.85, 1.0, uv.y));
+      float depth = mix(30.0, (texture2D(uDepth, clamp(uv, 0.0, 1.0)).r - 0.5) * 32.0, inside);
+      depth = mix(depth, 30.0, smoothstep(0.9, 1.0, max(abs(uv.x - 0.5), abs(uv.y - 0.5)) * 2.0));
       float wob = n(vW.xz*0.25 + vec2(uTime*0.1, uTime*0.05)) - 0.5;
       float dd = depth + wob * 0.5;
       // painted bands of colour, from the sand out to the deep
@@ -650,15 +1011,17 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
       fogColor: { value: C(fog.color) }, fogNear: { value: fog.near }, fogFar: { value: fog.far } },
     vertexShader: seaVert, fragmentShader: seaFrag, transparent: true, depthWrite: false,
   });
-  // near the coast a fine mesh for the swell, then a vast flat sea to the horizon
-  const near = new THREE.Mesh(new THREE.PlaneGeometry(440, 160, 220, 80).rotateX(-Math.PI / 2), seaMat);
-  near.position.set(0, SEA_Y, 100);
+  // one 4 m grid over the coast (SEA_BOX; the native game leaves out what lies
+  // under the land and splits the rest into deep and shallow), then a vast
+  // flat sea round it to the horizon
+  const near = new THREE.Mesh(new THREE.PlaneGeometry(DN, DN, DN / 4, DN / 4).rotateX(-Math.PI / 2), seaMat);
+  near.position.set(DX0 + DN / 2, SEA_Y, DZ0 + DN / 2);
   near.renderOrder = 1;
   group.add(near);
   const farG = new THREE.BufferGeometry();
   {
-    // a big flat ring of sea round the near patch: x -3000..3000, z 0..3000
-    const quads = [[-3000, 180, 3000, 3000], [-3000, 20, -220, 180], [220, 20, 3000, 180]];
+    const X0 = DX0, X1 = DX0 + DN, Z0 = DZ0, Z1 = DZ0 + DN, F = 3000;
+    const quads = [[-F, Z1, F, F], [-F, -F, F, Z0], [-F, Z0, X0, Z1], [X1, Z0, F, Z1]];
     const p = [];
     for (const [x0, z0, x1, z1] of quads) p.push(x0, 0, z0, x0, 0, z1, x1, 0, z1, x0, 0, z0, x1, 0, z1, x1, 0, z0);
     farG.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
@@ -725,13 +1088,21 @@ export function grassMap(x0, z0, w, d, res) {
     const h = height(x, z);
     // grass stops at the dirt's edge (a few blades lean over it)
     let g = smooth(-0.15, 0.55, pathSD(x, z));
-    if (isWater(x, z) || h < SEA_Y + 1.6 && z > coastZ(x) - 16) g = 0;
+    if (isWater(x, z) || h < SEA_Y + 1.6 && shoreSD(x, z) < 16) g = 0;
     if (onStairs(x, z, 0.4) || fieldAt(x, z, 0.3)) g = 0;
     if (streamAt(x, z).d < 3.2) g = 0;
+    // no grass on a ledge's edge (the clumps would float off its face)
+    if (z < -90 && z > -380 && ledgeAt(x, z, 1.7)) g = 0;
     // patchy: tufts and drifts, open lawn between
     g *= 0.12 + smooth(0.42, 0.68, fbm(x * 0.11 + 3, z * 0.11, 3)) * 0.88;
+    // Route 1's tall grass: density + 2 marks it (the grass shaders grow it
+    // tall there), its edge a little ragged
+    if (g > 0.02) {
+      const e = (fbm(x * 0.3 + 8, z * 0.3, 2) - 0.5) * 2.4;
+      if (TALL_GRASS.some(([a, b, c, d]) => x > a - e && x < c + e && z > b - e && z < d + e)) g = 2 + Math.max(0.85, g);
+    }
     const k = (j * nx + i) * 4;
-    data[k] = h; data[k + 1] = Math.max(0, Math.min(1, g)); data[k + 3] = 1;
+    data[k] = h; data[k + 1] = g > 1.5 ? Math.min(3, g) : Math.max(0, Math.min(1, g)); data[k + 3] = 1;
   }
   const t = new THREE.DataTexture(data, nx, nz, THREE.RGBAFormat, THREE.FloatType);
   t.magFilter = t.minFilter = THREE.NearestFilter;

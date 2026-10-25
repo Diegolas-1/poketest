@@ -79,14 +79,8 @@ const res = await p.evaluate(async () => {
   // posts in the grass): the web's screen-space pass draws a line there; here
   // the cut of each triangle with the visible ground surface becomes an
   // always-shown line (kind 2)
-  // the terrain as drawn: terrain.js buildTerrain's 420 m grid of 280 cells,
-  // each cell split along its (0,1)-(1,0) diagonal
-  const meshH = (x, z) => {
-    const u = (x + 210) / 1.5, w2 = (z + 210) / 1.5, i = Math.floor(u), j = Math.floor(w2), fx = u - i, fz = w2 - j;
-    const H = (a, b) => T.height(-210 + a * 1.5, -210 + b * 1.5);
-    const ha = H(i, j), hb = H(i, j + 1), hc = H(i + 1, j + 1), hd = H(i + 1, j);
-    return fx + fz <= 1 ? ha + fz * (hb - ha) + fx * (hd - ha) : hc + (1 - fx) * (hb - hc) + (1 - fz) * (hd - hc);
-  };
+  // the terrain as drawn (terrain.js buildTerrain's chunks: T.meshHeight)
+  const meshH = (x, z) => T.meshHeight(x, z);
   const ground = (x, z) => Math.max(meshH(x, z), T.waterLevel(x, z));
   const meet = (geo, m4) => {
     const P = geo.attributes.position, idx = geo.index ? geo.index.array : null, n = idx ? idx.length : P.count;

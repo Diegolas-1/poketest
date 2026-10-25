@@ -28,7 +28,9 @@ void vertex() {
 	vec4 off = INSTANCE_CUSTOM;
 	vec2 p = off.xy + MODEL_MATRIX[3].xz;
 	vec4 hm = texture(height_map, (p - area.xy) / area.zw);
-	float dens = hm.g;
+	// density + 2 = Route 1's tall grass (terrain.js grassMap)
+	float tall = step(1.5, hm.g);
+	float dens = hm.g - 2.0 * tall;
 	float dist = length(p - cam.xz);
 	float fk = smoothstep(field_size * 0.3, field_size * 0.5, dist);
 	float keep = step(off.z, dens) * (1.0 - smoothstep(off.w * 0.75, off.w * 0.75 + 0.25, fk)) * (1.0 - fk * 0.35);
@@ -39,7 +41,7 @@ void vertex() {
 		v_col = vec3(0.0); v_light = 0.0;
 	} else {
 		float ra = off.z * 40.0, c = cos(ra), s = sin(ra);
-		vec3 lp = vec3(VERTEX.x * c - VERTEX.z * s, VERTEX.y, VERTEX.x * s + VERTEX.z * c) * sc;
+		vec3 lp = vec3(VERTEX.x * c - VERTEX.z * s, VERTEX.y, VERTEX.x * s + VERTEX.z * c) * sc * vec3(1.0 + tall * 0.35, 1.0 + tall * 1.3, 1.0 + tall * 0.35);
 		float t = UV.y;
 		float w = sin(TIME * 1.5 + p.x * 0.25 + p.y * 0.18) * 0.5 + sin(TIME * 3.1 + p.x * 0.9) * 0.2;
 		lp.x += w * t * t * 0.12 * sc * 3.0; lp.z += w * t * t * 0.05 * sc * 3.0;
@@ -73,6 +75,7 @@ void vertex() {
 		float n = hash(floor(p * 0.3));
 		vec3 root = vec3(0.03, 0.2, 0.1), body = mix(vec3(0.2, 0.52, 0.08), vec3(0.26, 0.58, 0.08), n);
 		vec3 tip = mix(vec3(0.66, 0.86, 0.16), vec3(0.78, 0.9, 0.24), n);
+		tip = mix(tip, vec3(0.42, 0.7, 0.2), tall); body = mix(body, vec3(0.12, 0.42, 0.12), tall);
 		v_col = mix(mix(root, body, smoothstep(0.0, 0.35, t)), tip, smoothstep(0.4, 0.85, t)) * mix(vec3(0.55, 0.75, 0.9), vec3(1.0), UV2.x);
 		float fa = UV.x + ra;
 		vec3 nrm = normalize(vec3(cos(fa), 0.7, sin(fa)));

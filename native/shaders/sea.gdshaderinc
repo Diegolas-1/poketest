@@ -23,7 +23,7 @@ void fragment() {
 	vec2 uv = (v_w.xz - bed_box.xy) / bed_box.zw;
 	float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
 	float depth = mix(30.0, sea_y - texture(seabed, clamp(uv, 0.0, 1.0)).r, inside);
-	depth = mix(depth, 30.0, smoothstep(0.85, 1.0, uv.y));
+	depth = mix(depth, 30.0, smoothstep(0.9, 1.0, max(abs(uv.x - 0.5), abs(uv.y - 0.5)) * 2.0));
 	float wob = n(v_w.xz * 0.25 + vec2(TIME * 0.1, TIME * 0.05)) - 0.5;
 	float dd = depth + wob * 0.5;
 	vec3 c0 = vec3(0.47, 0.90, 0.84), c1 = vec3(0.20, 0.74, 0.82), c2 = vec3(0.13, 0.52, 0.78), c3 = vec3(0.10, 0.36, 0.66);

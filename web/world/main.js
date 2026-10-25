@@ -1,6 +1,6 @@
 // Pallet Town in 3D: a modern seaside eco-village to walk around freely.
 import * as THREE from 'three';
-import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU } from './terrain.js';
+import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU, ledgeAt, WALK } from './terrain.js';
 import { buildSky, buildClouds, buildMountains, TALL_GRASS } from './nature.js';
 import { buildTown, BEDS, PIER } from './town.js';
 import { celify } from './toon.js';
@@ -178,11 +178,11 @@ const gfx = createSettings({
 status('Shaping the land');
 const terrain = buildTerrain();
 {
-  // flat anime ground: bright in the sun, cool where shadows fall
-  const pos = terrain.geometry.attributes.position, uv = terrain.geometry.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / 4, pos.getZ(i) / 4);
-  terrain.material = celify(pathGround(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() })), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
+  // flat anime ground: bright in the sun, cool where shadows fall (one
+  // material for every chunk and ledge; their uv is already x / 4, z / 4)
+  const mat = celify(pathGround(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() })), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
     deep: [0.5, 0.62, 0.8], shade: [0.66, 0.78, 0.9], lit: [1.06, 1.06, 0.98] });
+  terrain.traverse((o) => { if (o.isMesh) o.material = mat; });
 }
 scene.add(terrain);
 const uTime = wind.uTime;
@@ -318,7 +318,7 @@ async function grow() {
   status('Loading plants');
   veg = await buildVegetation(scene, renderer, blocked, colliders, QUALITY, status);
   status('Growing grass');
-  const area = { x0: -150, z0: -200, w: 300, d: 290 };
+  const area = { x0: WALK.x0, z0: WALK.z0, w: WALK.x1 - WALK.x0, d: WALK.z1 - WALK.z0 };
   const tex = grassMap(area.x0, area.z0, area.w, area.d, 1);
   grass = grassField(grassScene, { count: QUALITY.grass, size: QUALITY.grassSize, heightTex: tex, area, sunDir, heightAt: groundAt });
   for (const imp of veg.impostors) Object.assign(imp.material.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
@@ -368,7 +368,9 @@ function step(obj, dx, dz) {
   if (space && space.active) return space.step(obj, dx, dz);
   const nx = obj.pos.x + dx, nz = obj.pos.z + dz;
   if (isWater(nx, nz) && !onWalk(nx, nz)) return false;
-  if (nx < -150 || nx > 150 || nz < -205 || nz > 115) return false;
+  // Route 1's ledges: hop down them going south, never climb them
+  const lg = ledgeAt(nx, nz), lh = ledgeAt(obj.pos.x, obj.pos.z);
+  if (lg && (lh ? dz < -1e-4 : dz <= 1e-4)) return false;
   // the lab hill is too steep and overgrown: only the stairs go up
   if (noWalk(nx, nz) && !noWalk(obj.pos.x, obj.pos.z)) return false;
   const ox = obj.pos.x, oz = obj.pos.z;
@@ -697,9 +699,9 @@ function frame(fixed) {
   }
   // areas and events
   const inGrass = TALL_GRASS.some(([x0, z0, x1, z1]) => me.pos.x > x0 && me.pos.x < x1 && me.pos.z > z0 && me.pos.z < z1);
-  const now = me.pos.z < -60 ? 'route1' : 'town';
+  const now = me.pos.z < -66 ? 'route1' : 'town';
   if (now !== area && !space.active) { area = now; banner(now === 'route1' ? 'Route 1' : 'Pallet Town', now === 'route1' ? 'Pallet Town - Viridian City' : 'A quiet seaside village'); }
-  if (inGrass && !script && !dialog.open && window.worldReady && !space.active) oakScene();
+  void inGrass;   // (Oak no longer stops you at the tall grass: Route 1 is open)
   updateCamera(dt);
   clouds.userData.tick(dt);
   for (const f of town.anim) f(dt, t);

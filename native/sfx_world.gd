@@ -86,8 +86,6 @@ func setup(g: Node) -> void:
 	_plants()
 
 # ---------- surfaces ----------
-static func coast_z(x: float) -> float:
-	return 61.0 + 5.0 * sin(0.035 * x + 1.3) + 2.5 * sin(0.09 * x + 0.4) + 1.2 * sin(0.21 * x + 2.0)
 
 # the path map: R = signed distance to the dirt (< 0 on it); G, B, A shade it
 func _pm_at(x: float, z: float) -> Color:
@@ -119,7 +117,7 @@ func surface_at(p: Vector3) -> String:
 	if h < W.sea_y + 0.06: return "water"               # the waterline
 	if fw != 255 and (fw & 1): return "water"
 	if STAIRS.has_point(Vector2(p.x, p.z)): return "stone"
-	if p.z > coast_z(p.x) - 14.5 and h - W.sea_y < 2.6: return "sand"   # the beach (its paths too)
+	if fw != 255 and (fw & WorldData.SAND): return "sand"   # the beaches (their paths too; baked flag 16)
 	if _pm_at(p.x, p.z).r * 8.0 - 4.0 < 0.0: return "dirt"           # roads, the square, the plaza
 	if in_tall_grass(p.x, p.z): return "tallgrass"
 	return "grass"
@@ -141,7 +139,7 @@ func _water_grid(W: WorldData) -> void:
 			var f := W.flag(x, z)
 			near_sea[k] = far; near_fresh[k] = far; ds[k] = 1e12; df[k] = 1e12
 			if f == 255 or not (f & 1) or (f & 4): continue
-			if z > coast_z(x) - 10.0:
+			if f & WorldData.SEA:
 				near_sea[k] = Vector2(x, z); ds[k] = 0.0
 			else:
 				near_fresh[k] = Vector2(x, z); df[k] = 0.0
@@ -170,7 +168,7 @@ func _chamfer(pts: PackedVector2Array, d: PackedFloat32Array) -> void:
 
 func nearest_water(p: Vector3, sea: bool) -> Vector2:
 	var i := int((p.x - w_x0) / WG); var j := int((p.z - w_z0) / WG)
-	if i < 0 or j < 0 or i >= w_nx or j >= w_nz: return Vector2(1e6, 1e6) if not sea else Vector2(p.x, maxf(p.z, coast_z(p.x)))
+	if i < 0 or j < 0 or i >= w_nx or j >= w_nz: return Vector2(1e6, 1e6)
 	return (near_sea if sea else near_fresh)[j * w_nx + i]
 
 # ---------- plants (bushes, ferns, flowers) from the baked plant list ----------

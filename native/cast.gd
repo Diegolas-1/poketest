@@ -5,8 +5,8 @@ extends Node3D
 # on the game clock, clock.gd), talking (A / "use": the player and the person
 # stop and turn to face each other; the lines come from Quests.talk), signs and
 # other things to read (town.use, baked to cast.json), the
-# jump, the area banners, and Prof. Oak stopping you at the tall grass north
-# of town and leading you back down Route 1 to his lab.
+# jump, the area banners, the hop down Route 1's ledges, and Prof. Oak's walk
+# back to his lab (no longer started by the tall grass: Route 1 is open).
 #
 # main.gd owns the player's position, yaw and speed and the camera; it calls
 #   busy()          -> true while a text box or a scene has the controls
@@ -31,6 +31,7 @@ var face := NAN
 var area := "town"
 var ready_t := 0.0
 var _air_y := 0.0
+var _on_ledge := false
 var _rng := RandomNumberGenerator.new()
 # touch buttons (A, Jump)
 var btn_ui: Control
@@ -269,12 +270,23 @@ func update(dt: float) -> void:
 	var in_grass := false
 	for b in tall:
 		if me2.x > b[0] and me2.x < b[2] and me2.z > b[1] and me2.z < b[3]: in_grass = true
-	var now := "route1" if me2.z < -60.0 else "town"
+	var now := "town"
+	if me2.z < -66.0: now = "route1"
+	if me2.z < -420.0: now = "viridian_gate"
 	if now != area:
+		var was := area
 		area = now
-		if now == "route1": dialog.banner("Route 1", "Pallet Town - Viridian City")
-		else: dialog.banner("Pallet Town", "A quiet seaside village")
-	if in_grass and script_phase < 0 and not dialog.open and ready_t > 1.0: _oak_start()
+		if now == "route1" and was != "viridian_gate": dialog.banner("Route 1", "Pallet Town - Viridian City")
+		elif now == "viridian_gate": dialog.banner("Viridian City ahead", "The road beyond the gate is closed for now")
+		elif now == "town": dialog.banner("Pallet Town", "A quiet seaside village")
+	# (Prof. Oak no longer stops you at the tall grass: Route 1 is open. His
+	# scene is still here for the cast test, --cast-test=oak)
+	var _grass := in_grass
+	# hopping down a ledge on Route 1: a little jump as you go over its edge
+	var fl: int = game.world.flag(me2.x, me2.z)
+	if fl != 255 and (fl & 32) and ground and not _on_ledge:
+		vy = 3.2; ground = false
+	_on_ledge = fl != 255 and (fl & 32) != 0
 	# the prompt over whatever is in reach
 	var n2 := nearby() if not dialog.open and script_phase < 0 else {}
 	var cam: Camera3D = game.cam
@@ -454,7 +466,8 @@ func _test_step(dt: float) -> void:
 			if t < dt * 1.5:
 				game.pos = Vector3(0, 0, -59.0); game.pos.y = game.world.height_at(0, -59.0); game.yaw = PI
 				_air_y = game.pos.y
-			game.stick_vec = Vector2(0, -0.5) if script_phase < 0 and t < 1.0 else Vector2.ZERO
+			if absf(t - 0.5) < dt * 0.6 and script_phase < 0: _oak_start()
+			game.stick_vec = Vector2.ZERO
 			if dialog.open and fmod(t, 0.6) < dt: _btn_a = true
 			game.cam_dist = 6.0
 

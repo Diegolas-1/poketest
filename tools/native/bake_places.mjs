@@ -61,19 +61,23 @@ for (const hs of T.HOUSES) {
 }
 
 // ---------- the waterfront ----------
-const PX = -16, PZ0 = T.coastZ(-16) - 4.5, PZ1 = T.coastZ(-16) + 24, HW = 1.7;
+// the harbour (terrain.js HARBOUR): "pier" is the west pier and its head,
+// with spots on the quay too; Gus's boat steps are the iron ladder at the
+// west pier's head (town.js dock)
+const HB = T.HARBOUR, [WA, EA] = HB.arms, Q = HB.quay, PX = WA.x, PZ0 = WA.z0, PZ1 = WA.z1, HW = HB.w / 2;
 const pierY = Math.PI;   // looking out to sea is +z (south): yaw 0; the land is yaw PI
 out.places.pier = {
-  spots: [P(PX - 2.2, PZ1 + 3.4, 0), P(PX + 1.2, PZ1 + 3.6, 0.2), P(PX - 1.0, PZ1 + 1.2, -0.3), P(PX + 0.9, PZ1 - 3.0, Math.PI / 2), P(PX - 0.9, PZ1 - 10.0, -Math.PI / 2), P(PX + 0.9, PZ0 + 12.0, Math.PI / 2)],
-  head: P(PX, PZ1 + 2.0), foot: P(PX, PZ0 + 1.0),
-  boat_steps: P(PX + HW - 0.45, PZ1 - 6.5, Math.PI / 2),   // Gus's dinghy: off to the lighthouse from here
+  spots: [P(PX - 2.2, PZ1 + 3.4, 0), P(PX + 1.2, PZ1 + 3.6, 0.2), P(PX - 1.0, PZ1 + 1.2, -0.3), P(PX + 0.9, PZ1 - 3.0, Math.PI / 2), P(PX - 0.9, PZ1 - 10.0, -Math.PI / 2),
+    P(EA.x - 0.9, EA.z1 + 3.4, 0), P(EA.x + 0.9, EA.z0 + 14.0, -Math.PI / 2), P((Q.x0 + Q.x1) / 2 + 3, Q.z1 - 1.0, 0)],
+  head: P(PX, PZ1 + 2.0), foot: P((Q.x0 + Q.x1) / 2, Q.z0 + 0.8),
+  boat_steps: P(PX + HW - 0.45, PZ1 - 3, Math.PI / 2),   // Gus's dinghy: off to the lighthouse from here
 };
-const bhx = PX + 9, bhz = T.coastZ(PX + 9) - 7.5;
+const bhx = -51, bhz = 63;
 out.places.boathouse = { spots: [P(bhx + 0.2, bhz + 3.4, pierY), P(bhx - 1.8, bhz + 3.8, pierY + 0.4), P(bhx + 2.2, bhz + 4.0, pierY - 0.5)], door: P(bhx + 0.2, bhz + 3.2, pierY) };
 const beach = [];
-for (const x of [-30, -24, -8, -2, 4, 10]) beach.push(P(x, T.coastZ(x) - 3.5, 0 + (x % 3) * 0.2));
+for (const x of [-58, -50, 2, 8, 14, 22]) beach.push(P(x, T.coastZ(x) - 3.5, 0 + (x % 3) * 0.2));
 out.places.beach = { spots: beach };
-out.places.lighthouse = { spots: [P(-64, 96)], offmap: true, via: 'pier.boat_steps' };
+out.places.lighthouse = { spots: [P(T.ISLET.x, T.ISLET.z)], offmap: true, via: 'pier.boat_steps' };
 
 // ---------- the square (the market), the lab gate, Route 1 ----------
 const S = T.SQUARE;

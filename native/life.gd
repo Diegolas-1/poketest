@@ -65,7 +65,7 @@ signal person_exited(id: String, house: String)
 const X0 := -112.0
 const Z0 := -62.0
 const X1 := 80.0
-const Z1 := 95.0
+const Z1 := 116.0   # (the harbour piers reach z 111)
 const CS := 0.5
 const R_PERSON := 0.5
 const W_ROAD := 1.0

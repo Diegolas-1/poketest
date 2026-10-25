@@ -5,7 +5,7 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, ROUTE1, routeX, LEDGES, ledgeLineZ } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
@@ -741,7 +741,7 @@ function streamRocks(world) {
   const R = rng(611), list = [];
   for (let i = 2; i < STREAM.length - 1; i += 1) {
     const [x, z] = STREAM[i];
-    if (z > coastZ(x) - 6) break;
+    if (shoreSD(x, z) < 6) break;
     const a = STREAM[i - 1], b = STREAM[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
     const nx = -dz / l, nz = dx / l;
     for (const s of [-1, 1]) {
@@ -801,12 +801,19 @@ function laneFurniture(world) {
   });
   let ci = 0;
   for (const runs of cells.values()) world.group.add(...wallMeshes(runs, 5200 + ci++, { fade: WALL_FADE }));
-  const g = new THREE.BoxGeometry(1, 1, 1), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-
   // white rail fences beside some lanes
-  const runs = [[0, 6, 60, [-1, 1]], [8, 2, 36, [1]], [1, 10, 46, [1]], [6, 8, 30, [-1]], [9, 3, 20, [-1]]];
-  const posts = [], rails = [];
-  for (const [ri, i0, i1, sides] of runs) {
+  // (Route 1's road runs from its far end: the town's stretch is its last 60 m)
+  const r0n = ROADS[0].length, idxAt = (z) => ROADS[0].findIndex((p) => p[1] > z);
+  const runs = [[0, r0n - 60, r0n - 6, [-1, 1]], [8, 2, 36, [1]], [1, 10, 46, [1]], [6, 8, 30, [-1]], [9, 3, 20, [-1]]];
+  // rustic post-and-rail stretches along Route 1
+  const brown = [];
+  for (const [za, zb, sd] of [[-96, -82, 1], [-134, -122, -1], [-176, -168, 1], [-212, -200, -1], [-250, -238, 1], [-300, -292, -1], [-332, -318, 1], [-372, -360, 1], [-420, -400, -1]]) brown.push([0, idxAt(za), idxAt(zb), [sd]]);
+  const nWhite = runs.length;
+  runs.push(...brown);
+  const posts = [], rails = [], bPosts = [], bRails = [];
+  runs.forEach(([ri, i0, i1, sides], runI) => {
+    const isBrown = runI >= nWhite;
+    const P = isBrown ? bPosts : posts, Rr = isBrown ? bRails : rails;
     const road = ROADS[ri];
     for (const s of sides) {
       let prev = null;
@@ -816,26 +823,14 @@ function laneFurniture(world) {
         const ok = roadDist(px, pz) > 2.9 && !onPath(px, pz, 0.12) && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5;
         if (!ok) { prev = null; continue; }
         const py = height(px, pz);
-        posts.push([px, py, pz]);
-        if (prev && !onPath((prev[0] + px) / 2, (prev[2] + pz) / 2, 0.1)) rails.push([prev, [px, py, pz]]);
+        P.push([px, py, pz]);
+        if (prev && !onPath((prev[0] + px) / 2, (prev[2] + pz) / 2, 0.1)) Rr.push([prev, [px, py, pz]]);
         prev = [px, py, pz];
       }
     }
-  }
-  const pm = new THREE.InstancedMesh(g, flat('#fbfaf4'), posts.length || 1);
-  posts.forEach(([x, y, z], i) => { m4.compose(V(x, y + 0.55, z), q.identity(), V(0.14, 1.25, 0.14)); pm.setMatrixAt(i, m4); world.colliders.push({ x, z, r: 0.18 }); });
-  pm.count = posts.length;
-  const rm = new THREE.InstancedMesh(g, flat('#fbfaf4'), Math.max(1, rails.length * 2));
-  rails.forEach(([a, b], i) => {
-    const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz);
-    q.setFromAxisAngle(V(0, 1, 0), Math.atan2(dx, dz));
-    const tilt = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -Math.atan2(b[1] - a[1], len));
-    const qq = q.clone().multiply(tilt);
-    for (const [k, hh] of [[0, 0.55], [1, 0.98]]) { m4.compose(V((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + hh, (a[2] + b[2]) / 2), qq, V(0.07, 0.11, Math.hypot(len, b[1] - a[1]) + 0.1)); rm.setMatrixAt(i * 2 + k, m4); }
-    world.colliders.push({ box: true, x: (a[0] + b[0]) / 2, z: (a[2] + b[2]) / 2, hw: 0.08, hd: len / 2, rot: Math.atan2(dx, dz) });
   });
-  rm.count = rails.length * 2;
-  for (const o of [pm, rm]) { o.castShadow = o.receiveShadow = true; world.group.add(o); }
+  fenceMeshes(world, posts, rails, '#fbfaf4');
+  fenceMeshes(world, bPosts, bRails, '#9a6b42');
 
   // lamps along the lanes in town
   ROADS.forEach((road, ri) => {
@@ -847,6 +842,71 @@ function laneFurniture(world) {
       lamp(px, pz, world);
     }
   });
+}
+function fenceMeshes(world, posts, rails, colour) {
+  const g = new THREE.BoxGeometry(1, 1, 1), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  const pm = new THREE.InstancedMesh(g, flat(colour), posts.length || 1);
+  posts.forEach(([x, y, z], i) => { m4.compose(V(x, y + 0.55, z), q.identity(), V(0.14, 1.25, 0.14)); pm.setMatrixAt(i, m4); world.colliders.push({ x, z, r: 0.18 }); });
+  pm.count = posts.length;
+  const rm = new THREE.InstancedMesh(g, flat(colour), Math.max(1, rails.length * 2));
+  rails.forEach(([a, b], i) => {
+    const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz);
+    q.setFromAxisAngle(V(0, 1, 0), Math.atan2(dx, dz));
+    const tilt = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -Math.atan2(b[1] - a[1], len));
+    const qq = q.clone().multiply(tilt);
+    for (const [k, hh] of [[0, 0.55], [1, 0.98]]) { m4.compose(V((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + hh, (a[2] + b[2]) / 2), qq, V(0.07, 0.11, Math.hypot(len, b[1] - a[1]) + 0.1)); rm.setMatrixAt(i * 2 + k, m4); }
+    world.colliders.push({ box: true, x: (a[0] + b[0]) / 2, z: (a[2] + b[2]) / 2, hw: 0.08, hd: len / 2, rot: Math.atan2(dx, dz) });
+  });
+  rm.count = rails.length * 2;
+  for (const o of [pm, rm]) { o.castShadow = o.receiveShadow = true; world.group.add(o); }
+}
+
+// ---------- Route 1: signs along the way, and the gate at the mainland end ----------
+function route1(world) {
+  const at = (z, off) => { const road = ROADS[0]; const p = road.reduce((b, q) => (Math.abs(q[1] - z) < Math.abs(b[1] - z) ? q : b)); return [p[0] + off, p[1]]; };
+  // where the route proper begins, past the rim
+  { const [x, z] = at(-80, 4.2); sign(x, z, -0.2, () => routeSign({ num: '1', north: 'VIRIDIAN CITY', south: 'PALLET TOWN' }), ['ROUTE 1', 'PALLET TOWN - VIRIDIAN CITY'], world, 1.1); }
+  // a tip by the first ledge
+  { const [x, z] = at(-104, 4.0); sign(x, z, -0.4, () => noticeBoard('TRAINER TIPS', ['Hop down a ledge to get', 'back to PALLET TOWN fast.', 'You can\'t climb back up!'], { style: 'chalk' }),
+    ['TRAINER TIPS', 'Jump down a ledge for a shortcut back to PALLET TOWN.', 'Ledges only go one way: you can\'t climb back up!'], world, 0.9); }
+  { const [x, z] = at(-262, -3.6); signpost(x, z, [['VIRIDIAN CITY', Math.PI], ['PALLET TOWN', 0]], world); }
+  // the gate: two stone-footed posts, a timber arch with the city's name, the
+  // gates shut, and rail fences off into the woods either side
+  const gz = ROUTE1.gateZ, gx = routeX(gz) + (at(gz, 0)[0] - routeX(gz));
+  const G = new THREE.Group(); G.position.set(gx, height(gx, gz) - 0.05, gz); world.group.add(G);
+  const wood = tex(planks('#9a6b42'));
+  for (const sx of [-3.2, 3.2]) {
+    box(0.9, 0.7, 0.9, tex(stones('#c9c0ae')), sx, 0.3, 0, G);
+    box(0.42, 4.6, 0.42, wood, sx, 2.6, 0, G);
+    add(new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.4, 4), flat('#6f4a30')), G, sx, 5.1, 0).rotation.y = Math.PI / 4;
+    world.colliders.push({ x: gx + sx, z: gz, r: 0.55 });
+  }
+  box(7.4, 0.3, 0.36, wood, 0, 4.35, 0, G);
+  box(7.0, 0.18, 0.3, wood, 0, 3.75, 0, G);
+  const np = nameplate('VIRIDIAN CITY', { w: 3.2, h: 0.5 }); np.position.set(0, 4.05, 0.2); G.add(np);
+  const np2 = nameplate('VIRIDIAN CITY', { w: 3.2, h: 0.5 }); np2.position.set(0, 4.05, -0.2); np2.rotation.y = Math.PI; G.add(np2);
+  for (const sx of [-1, 1]) {
+    const leaf = new THREE.Group(); leaf.position.set(sx * 2.95, 0, 0); leaf.rotation.y = sx * 0.05; G.add(leaf);
+    for (const yy of [0.5, 1.15, 1.8]) box(2.9, 0.16, 0.1, wood, -sx * 1.45, yy, 0, leaf);
+    for (const xx of [0.15, 1.45, 2.75]) box(0.12, 1.6, 0.12, wood, -sx * xx, 1.0, 0.05, leaf);
+    const br = box(3.2, 0.12, 0.1, wood, -sx * 1.45, 1.15, 0.08, leaf); br.rotation.z = sx * 0.42;
+  }
+  world.colliders.push({ box: true, x: gx, z: gz, hw: 3.2, hd: 0.25 });
+  // fences into the woods
+  const fp = [], fr = [];
+  for (const sd of [-1, 1]) {
+    let prev = null;
+    for (let k = 0; k <= 12; k++) {
+      const px = gx + sd * (4.2 + k * 2.4), pz = gz + Math.sin(k * 0.7) * 0.4, py = height(px, pz);
+      fp.push([px, py, pz]);
+      if (prev) fr.push([prev, [px, py, pz]]);
+      prev = [px, py, pz];
+    }
+  }
+  fenceMeshes(world, fp, fr, '#9a6b42');
+  world.use.push({ x: gx, z: gz + 1.6, r: 2.2, label: 'Look', lines: ['The gate to VIRIDIAN CITY is shut.', 'A note: ROAD WORKS AHEAD. Come back another day!'] });
+  { const [x, z] = at(gz + 9, -4.5); sign(x, z, 0.3, () => noticeBoard('VIRIDIAN CITY AHEAD', ['The road beyond the gate', 'is closed for repairs.', 'Sorry for the trouble!'], { style: 'pinned', frame: '#5f8fb0', roof: '#3d6fa8' }),
+    ['VIRIDIAN CITY AHEAD', 'The road beyond the gate is closed for repairs. Sorry for the trouble!'], world, 0.9); }
 }
 
 // ---------- town furniture ----------
@@ -938,79 +998,130 @@ function bedBorder([x0, z0, x1, z1], world) {
 }
 
 // ---------- the waterfront ----------
-// A long timber pier on posts with railings, lamps, crates, barrels and coiled
-// rope, a rowing boat moored alongside, a boathouse on the sand, and a little
-// red-and-white lighthouse on a rocky islet out in the bay.
-export const PIER = { x: -16, z0: coastZ(-16) - 4.5, z1: coastZ(-16) + 24, w: 3.4, y: SEA_Y + 0.95 };
+// The harbour in the bay (terrain.js HARBOUR): a square U of timber piers on
+// piles, open to the sea. The quay along the waterline is where the main lane
+// comes down; a long pier runs out from each end of it to a wider head with
+// lamps. Bollards, iron ladders down to the water, lifebuoys, crates, barrels,
+// nets and coiled rope; rowing boats and a little fishing boat moored in the
+// basin. A boathouse on the sand, and the red-and-white lighthouse on its
+// rocky islet near the bay's mouth.
+const HB = HARBOUR, HB_Y = SEA_Y + HB.y;
+// (the west pier as "the pier": the fisher stands on its head)
+export const PIER = { x: HB.arms[0].x, z0: HB.arms[0].z0, z1: HB.arms[0].z1, w: HB.w, y: HB_Y };
+function rowboat(g, x, z, rot, hullCol, trim, world, phase = 0) {
+  const boat = new THREE.Group(); boat.userData.keep = true; boat.position.set(x, SEA_Y + 0.2, z); boat.rotation.y = rot; g.add(boat);
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.6, 3.8, 14, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI), flat(hullCol));
+  hull.scale.set(1, 0.62, 1); add(hull, boat, 0, 0.3, 0);
+  box(1.85, 0.12, 3.82, trim, 0, 0.32, 0, boat, { line: false });
+  for (const zz of [-0.7, 0.5]) box(1.7, 0.08, 0.32, tex(planks('#c99a62')), 0, 0.18, zz, boat, { line: false });
+  for (const sd of [-1, 1]) { const oar = box(0.06, 0.06, 2.4, '#c9a876', sd * 0.55, 0.38, 0.1, boat, { line: false }); oar.rotation.y = sd * 0.15; }
+  world.anim.push((k, time) => { boat.position.y = SEA_Y + 0.17 + Math.sin(time * 1.1 + phase) * 0.06; boat.rotation.z = Math.sin(time * 0.9 + phase) * 0.035; boat.rotation.x = Math.sin(time * 0.7 + phase) * 0.02; });
+  return boat;
+}
+// a small wooden fishing boat with a wheelhouse and a mast
+function fishingBoat(g, x, z, rot, world) {
+  const b = new THREE.Group(); b.userData.keep = true; b.position.set(x, SEA_Y + 0.35, z); b.rotation.y = rot; g.add(b);
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.0, 7.2, 16, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI), flat('#2f6fa8'));
+  hull.scale.set(1, 0.7, 1); add(hull, b, 0, 0.55, 0);
+  box(3.15, 0.14, 7.25, '#f4f1e6', 0, 0.58, 0, b, { line: false });
+  box(2.9, 0.08, 6.6, tex(planks('#c99a62')), 0, 0.5, 0, b, { line: false });
+  box(1.7, 1.5, 1.8, tex(planks('#f4f1e6')), 0, 1.3, 0.9, b);
+  box(2.0, 0.14, 2.1, '#d8473a', 0, 2.1, 0.9, b);
+  windowAt(b, 0, 1.55, 1.82, 1.1, 0.5, 2, 1);
+  cyl(0.07, 0.09, 4.2, '#7d5536', 0, 2.6, -1.4, b, 8);
+  box(1.8, 0.06, 0.06, '#7d5536', 0, 3.6, -1.4, b, { line: false });
+  for (const zz of [-2.6, -2.0]) add(new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 5, 16).rotateX(Math.PI / 2), flat('#e8402e')), b, 0.9, 0.62, zz, { line: false });
+  world.anim.push((k, time) => { b.position.y = SEA_Y + 0.35 + Math.sin(time * 0.8 + 1.7) * 0.07; b.rotation.z = Math.sin(time * 0.6 + 0.4) * 0.03; });
+}
 function dock(world) {
   const g = new THREE.Group(); world.group.add(g);
-  const { x, z0, z1, w, y } = PIER, hw = w / 2, len = z1 - z0;
-  const wood = tex(planks('#c99a62')), post = '#7d5536';
-  // deck: planks across
-  const n = Math.ceil(len / 0.42);
-  const pk = new THREE.InstancedMesh(new THREE.BoxGeometry(w, 0.14, 0.38), toon('#d2a56c', { cel: BUILD }), n);
+  const y = HB_Y, hw = HB.w / 2, Q = HB.quay, wood = tex(planks('#c99a62')), post = '#7d5536';
+  // the deck: planks across the way you walk (instanced, each a shade apart)
+  const planksAt = [];
+  for (let xx = Q.x0; xx < Q.x1 - 0.05; xx += 0.42) planksAt.push([xx + 0.21, (Q.z0 + Q.z1) / 2, 0.38, Q.z1 - Q.z0]);
+  for (const a of HB.arms) for (let zz = a.z0; zz < a.z1 - 0.05; zz += 0.42) planksAt.push([a.x, zz + 0.21, HB.w, 0.38]);
+  const pk = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.14, 1), toon('#d2a56c', { cel: BUILD }), planksAt.length);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-  for (let i = 0; i < n; i++) { m4.compose(V(x, y, z0 + 0.21 + i * 0.42), q, V(1, 1, 1)); pk.setMatrixAt(i, m4); pk.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.86 + ((i * 7919) % 11) / 11 * 0.2)); }
+  planksAt.forEach(([px, pz, sx, sz], i) => { m4.compose(V(px, y, pz), q, V(sx, 1, sz)); pk.setMatrixAt(i, m4); pk.setColorAt(i, new THREE.Color('#ffffff').multiplyScalar(0.86 + ((i * 7919) % 11) / 11 * 0.2)); });
   pk.castShadow = pk.receiveShadow = true; g.add(pk);
-  for (const s of [-1, 1]) box(0.24, 0.34, len, wood, x + s * (hw - 0.13), y - 0.22, (z0 + z1) / 2, g);   // 1 cm in from the plank ends
-  // a wider head at the end
-  box(7.0, 0.16, 4.6, wood, x, y + 0.01, z1 + 2.2, g);   // 2 cm over the plank tops it covers, not 1
-  for (let zz = z0 + 1.5; zz <= z1; zz += 2.6) for (const s of [-1, 1]) cyl(0.17, 0.19, 4.2, post, x + s * (hw + 0.05), y - 1.6, zz, g, 8);
-  for (const [sx, sz] of [[-3.3, 0.2], [3.3, 0.2], [-3.3, 4.2], [3.3, 4.2], [0, 4.3]]) cyl(0.2, 0.22, 4.4, post, x + sx, y - 1.5, z1 + sz, g, 8);
-  // railings with a gap for the boat steps
-  const railPosts = (xx, za, zb) => {
-    const m = Math.max(2, Math.round((zb - za) / 1.3));
-    for (let i = 0; i <= m; i++) box(0.1, 1.05, 0.1, post, xx, y + 0.55, za + (zb - za) * i / m, g, { line: false });   // slimmer than the rail: no shared faces
-    box(0.12, 0.1, zb - za, wood, xx, y + 1.05, (za + zb) / 2, g);
-    box(0.08, 0.08, zb - za, wood, xx, y + 0.6, (za + zb) / 2, g, { line: false });
-    world.colliders.push({ box: true, x: xx, z: (za + zb) / 2, hw: 0.08, hd: (zb - za) / 2 });
-  };
-  railPosts(x - hw + 0.06, z0 + 4, z1 + 0.1);
-  railPosts(x + hw - 0.06, z0 + 4, z1 - 8);
-  railPosts(x + hw - 0.06, z1 - 5, z1 + 0.1);
-  for (const s of [-1, 1]) {
-    box(0.12, 0.1, 7.0, wood, x + s * 3.45, y + 1.05, z1 + 2.2, g).rotation.y = 0;
-    for (let i = 0; i <= 4; i++) box(0.1, 1.05, 0.1, post, x + s * 3.45, y + 0.55, z1 + 0.2 + i, g, { line: false });
-    world.colliders.push({ box: true, x: x + s * 3.45, z: z1 + 2.2, hw: 0.08, hd: 2.2 });
+  // edge beams under the plank ends, and the heads
+  for (const sz of [Q.z0 + 0.13, Q.z1 - 0.13]) box(Q.x1 - Q.x0 - 0.02, 0.34, 0.24, wood, (Q.x0 + Q.x1) / 2, y - 0.22, sz, g);
+  for (const a of HB.arms) {
+    for (const sx of [-1, 1]) box(0.24, 0.34, a.z1 - a.z0, wood, a.x + sx * (hw - 0.13), y - 0.22, (a.z0 + a.z1) / 2, g);
+    box(HB.head.w, 0.16, HB.head.d, wood, a.x, y + 0.01, a.z1 + HB.head.d / 2 - 0.2, g);
+    box(HB.head.w + 0.1, 0.12, 0.2, wood, a.x, y + 0.12, a.z1 + HB.head.d - 0.2, g, { line: false });
   }
-  box(7.0, 0.1, 0.12, wood, x, y + 1.045, z1 + 4.45, g);
-  world.colliders.push({ box: true, x, z: z1 + 4.45, hw: 3.5, hd: 0.08 });
-  // lamps on the head, bollards, crates, barrels and rope
-  for (const s of [-1, 1]) {
-    const L = new THREE.Group(); L.position.set(x + s * 3.0, y, z1 + 4.0); g.add(L);
+  // piles: along the arms' sides and the quay's sea side, and under the heads
+  const piles = [];
+  for (const a of HB.arms) {
+    for (let zz = a.z0 + 1.3; zz <= a.z1; zz += 2.6) for (const sx of [-1, 1]) piles.push([a.x + sx * (hw + 0.05), zz]);
+    for (const [px, pz] of [[-3.3, 0.2], [3.3, 0.2], [-3.3, 4.4], [3.3, 4.4], [0, 4.5], [-1.1, 4.5], [1.1, 4.5]]) piles.push([a.x + px, a.z1 + pz]);
+  }
+  for (let xx = Q.x0 + 1.2; xx <= Q.x1; xx += 2.6) piles.push([xx, Q.z1 + 0.05]);
+  const pg = new THREE.CylinderGeometry(0.17, 0.2, 4.4, 8), pm = new THREE.InstancedMesh(pg, flat(post), piles.length);
+  piles.forEach(([px, pz], i) => { m4.compose(V(px, y - 1.6, pz), q, V(1, 1, 1)); pm.setMatrixAt(i, m4); });
+  pm.castShadow = pm.receiveShadow = true; g.add(pm);
+  // steps up from the sand where the lane comes down onto the quay
+  for (let k = 0; k < 2; k++) box(4.2, 0.12, 0.5, wood, -19.5, y - 0.26 - k * 0.24, Q.z0 - 0.25 - k * 0.45, g, { line: false });
+  // bollards along the basin's sides, iron ladders down to the water
+  const bollard = (bx, bz) => { cyl(0.16, 0.2, 0.55, '#3a3d46', bx, y + 0.3, bz, g, 10); cyl(0.24, 0.24, 0.08, '#3a3d46', bx, y + 0.6, bz, g, 10); world.colliders.push({ x: bx, z: bz, r: 0.25 }); };
+  const [W, E] = HB.arms, inW = W.x + hw - 0.35, inE = E.x - hw + 0.35;
+  for (const zz of [W.z0 + 6, W.z0 + 15, W.z0 + 24]) { bollard(inW, zz); bollard(inE, zz + 2); }
+  for (const xx of [Q.x0 + 6, Q.x1 - 6]) bollard(xx, Q.z1 - 0.35);
+  const ladder = (lx, lz, side) => {
+    for (const dz of [-0.28, 0.28]) box(0.06, 2.3, 0.06, '#3a3d46', lx + side * 0.08, y - 0.85, lz + dz, g, { line: false });
+    for (let k = 0; k < 6; k++) box(0.05, 0.05, 0.56, '#3a3d46', lx + side * 0.08, y - 0.1 - k * 0.32, lz, g, { line: false });
+  };
+  ladder(W.x + hw, W.z0 + 10.5, 1); ladder(E.x - hw, E.z0 + 19.5, -1); ladder(W.x + hw, W.z1 - 3, 1);
+  // lamps: a pair on each head, two on the quay
+  const lampAt = (lx, lz) => {
+    const L = new THREE.Group(); L.position.set(lx, y, lz); g.add(L);
     cyl(0.06, 0.08, 2.6, '#2f4a40', 0, 1.3, 0, L, 8);
     const glow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.34, 0.24), new THREE.MeshBasicMaterial({ color: '#fff1c4' })); glow.position.y = 2.75; L.add(glow);
     add(new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.24, 4), flat('#2f4a40')), L, 0, 3.05, 0).rotation.y = Math.PI / 4;
-    world.colliders.push({ x: x + s * 3.0, z: z1 + 4.0, r: 0.2 });
+    world.colliders.push({ x: lx, z: lz, r: 0.2 });
+  };
+  for (const a of HB.arms) for (const sx of [-1, 1]) lampAt(a.x + sx * 3.0, a.z1 + 4.2);
+  lampAt(Q.x0 + 1.0, Q.z0 + 0.6); lampAt(Q.x1 - 1.0, Q.z0 + 0.6);
+  // lifebuoys on posts at the heads' inner corners
+  for (const [lx, lz] of [[W.x + 3.2, W.z1 + 0.5], [E.x - 3.2, E.z1 + 0.5]]) {
+    box(0.12, 1.4, 0.12, post, lx, y + 0.7, lz, g);
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.08, 6, 18), flat('#e8402e')), g, lx, y + 0.95, lz + 0.12, { line: false });
+    world.colliders.push({ x: lx, z: lz, r: 0.2 });
   }
-  for (const zz of [z0 + 9, z1 - 6.5]) { cyl(0.16, 0.2, 0.55, '#3a3d46', x + hw - 0.35, y + 0.3, zz, g, 10); world.colliders.push({ x: x + hw - 0.35, z: zz, r: 0.25 }); }
+  // crates, barrels, nets and rope on the quay and the west head
   const crate = tex(planks('#b9884f'));
-  for (const [cx, cz, s, r] of [[x - 2.4, z1 + 3.3, 0.8, 0.2], [x - 2.4, z1 + 2.3, 0.7, -0.1], [x - 2.35, z1 + 2.8, 0.6, 0.5]]) {
-    const c = box(s, s, s, crate, cx, y + s / 2 + 0.08 + (cz === z1 + 2.8 ? 0.75 : 0), cz, g); c.rotation.y = r;
+  for (const [cx, cz, sz, r, up] of [[Q.x0 + 2.4, Q.z0 + 1.3, 0.8, 0.2, 0], [Q.x0 + 2.4, Q.z0 + 2.3, 0.7, -0.1, 0], [Q.x0 + 2.45, Q.z0 + 1.8, 0.6, 0.5, 0.75], [W.x - 2.4, W.z1 + 3.3, 0.8, 0.3, 0]]) {
+    const c = box(sz, sz, sz, crate, cx, y + sz / 2 + 0.08 + up, cz, g); c.rotation.y = r;
   }
-  world.colliders.push({ box: true, x: x - 2.4, z: z1 + 2.8, hw: 0.5, hd: 1.0 });
-  for (const [bx, bz] of [[x + 2.5, z1 + 3.4], [x + 2.9, z1 + 2.6]]) {
+  world.colliders.push({ box: true, x: Q.x0 + 2.4, z: Q.z0 + 1.8, hw: 0.5, hd: 1.0 }, { x: W.x - 2.4, z: W.z1 + 3.3, r: 0.55 });
+  for (const [bx, bz] of [[Q.x1 - 2.6, Q.z0 + 1.2], [Q.x1 - 2.2, Q.z0 + 2.1], [E.x + 2.5, E.z1 + 3.4]]) {
     cyl(0.36, 0.36, 0.9, '#8a5a36', bx, y + 0.53, bz, g, 12);
     for (const yy of [0.25, 0.8]) add(new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.035, 4, 16).rotateX(Math.PI / 2), flat('#3a3d46')), g, bx, y + yy, bz, { line: false });
     world.colliders.push({ x: bx, z: bz, r: 0.42 });
   }
-  for (const [rx, rz] of [[x + 0.9, z0 + 12], [x - 0.6, z1 + 1.2]]) for (let k = 0; k < 3; k++) add(new THREE.Mesh(new THREE.TorusGeometry(0.3 - k * 0.07, 0.05, 5, 16).rotateX(Math.PI / 2), flat('#d8c290')), g, rx, y + 0.12 + k * 0.08, rz, { line: false });
-  // steps down to the water and the boat moored alongside
-  for (let s = 0; s < 4; s++) box(0.5, 0.12, 1.8, wood, x + hw + 0.3 + s * 0.02, y - 0.25 - s * 0.32, z1 - 6.5, g, { line: false });
-  const boat = new THREE.Group(); boat.userData.keep = true; boat.position.set(x + hw + 1.7, SEA_Y + 0.05, z1 - 7.5); boat.rotation.y = 0.08; g.add(boat);
-  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.6, 3.8, 14, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI), flat('#f4f1e6'));
-  hull.scale.set(1, 0.62, 1); add(hull, boat, 0, 0.3, 0);
-  box(1.85, 0.12, 3.82, '#d84a3a', 0, 0.32, 0, boat, { line: false });
-  for (const zz of [-0.7, 0.5]) box(1.7, 0.08, 0.32, tex(planks('#c99a62')), 0, 0.18, zz, boat, { line: false });
-  for (const s of [-1, 1]) { const oar = box(0.06, 0.06, 2.4, '#c9a876', s * 0.55, 0.38, 0.1, boat, { line: false }); oar.rotation.y = s * 0.15; }
-  world.anim.push((k, time) => { boat.position.y = SEA_Y + 0.02 + Math.sin(time * 1.1) * 0.06; boat.rotation.z = Math.sin(time * 0.9) * 0.035; boat.rotation.x = Math.sin(time * 0.7) * 0.02; });
-  world.colliders.push({ box: true, x: x + hw + 1.7, z: z1 - 7.5, hw: 1.0, hd: 1.9 });
-  world.walk.push({ x0: x - hw, x1: x + hw, z0: z0, z1: z1 + 0.2, y: y + 0.08 });
-  world.walk.push({ x0: x - 3.5, x1: x + 3.5, z0: z1, z1: z1 + 4.5, y: y + 0.09 });
-  world.use.push({ x, z: z1 + 3.4, r: 1.8, label: 'Look', lines: ['The sea stretches south toward CINNABAR ISLAND.', 'You\'d need a POKéMON that can SURF to go any further.'] });
+  for (const [rx, rz] of [[W.x - 0.6, W.z0 + 12], [E.x + 0.6, E.z1 + 1.2], [Q.x0 + 12, Q.z0 + 1.6]]) for (let k = 0; k < 3; k++) add(new THREE.Mesh(new THREE.TorusGeometry(0.3 - k * 0.07, 0.05, 5, 16).rotateX(Math.PI / 2), flat('#d8c290')), g, rx, y + 0.12 + k * 0.08, rz, { line: false });
+  const net = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), flat('#5f7f8a')); net.scale.set(1.2, 0.35, 0.8); add(net, g, Q.x0 + 16, y + 0.07, Q.z0 + 1.4, { line: false });
+  // boats moored in the basin: rowing boats along the piers, the fishing boat
+  // at the quay; mooring lines to the bollards
+  const bx0 = W.x + hw, bx1 = E.x - hw;
+  rowboat(g, bx0 + 1.4, W.z0 + 7.5, 0.06, '#f4f1e6', '#d84a3a', world, 0);
+  rowboat(g, bx0 + 1.5, W.z0 + 20, -0.04, '#f4e7c8', '#3d6fa8', world, 1.3);
+  rowboat(g, bx1 - 1.5, E.z0 + 12, 0.1, '#e8f0ec', '#3f9a6a', world, 2.1);
+  fishingBoat(g, (bx0 + bx1) / 2 + 2, Q.z1 + 6.5, Math.PI / 2 + 0.05, world);
+  const rope = (ax, az, zx, zz) => { const len = Math.hypot(zx - ax, zz - az); const r = box(0.04, 0.04, len, '#d8c290', (ax + zx) / 2, y + 0.1, (az + zz) / 2, g, { line: false }); r.rotation.y = Math.atan2(zx - ax, zz - az); r.rotation.x = 0.08; };
+  rope(inW, W.z0 + 6, bx0 + 1.4, W.z0 + 5.8); rope(inW, W.z0 + 15, bx0 + 1.5, W.z0 + 18.2); rope(inE, E.z0 + 8, bx1 - 1.5, E.z0 + 10.2);
+  // walking on it
+  world.walk.push({ x0: Q.x0, x1: Q.x1, z0: Q.z0, z1: Q.z1 + 0.05, y: y + 0.08 });
+  for (const a of HB.arms) {
+    world.walk.push({ x0: a.x - hw, x1: a.x + hw, z0: a.z0 - 0.05, z1: a.z1 + 0.2, y: y + 0.08 });
+    world.walk.push({ x0: a.x - HB.head.w / 2, x1: a.x + HB.head.w / 2, z0: a.z1 - 0.2, z1: a.z1 + HB.head.d - 0.2, y: y + 0.09 });
+  }
+  for (const a of HB.arms) world.use.push({ x: a.x, z: a.z1 + 3.4, r: 1.8, label: 'Look', lines: ['The sea stretches south toward CINNABAR ISLAND.', 'You\'d need a POKéMON that can SURF to go any further.'] });
+  world.use.push({ x: (bx0 + bx1) / 2 + 2, z: Q.z1 + 1.0, r: 2.0, label: 'Look', lines: ['A little fishing boat, the SEAGULL.', 'Nets piled in the stern. It smells of salt and fish.'] });
   world.solid.push(g);
-  boathouse(world, x + 9, coastZ(x + 9) - 7.5);
-  lighthouse(world, -64, 96);
+  boathouse(world, -51, 63);
+  lighthouse(world, ISLET.x, ISLET.z);
 }
 function boathouse(world, x, z) {
   [x, z] = offPath(x, z, 3.6, world);
@@ -1260,6 +1371,7 @@ export function buildTown() {
   sign(-3.5, 52.5, 0.2, () => noticeBoard('PALLET BEACH', ['Mind the tide pools.', 'Take your litter home.', 'No swimming past the buoys.'], { style: 'pinned', frame: '#5f8fb0', roof: '#3d6fa8' }),
     ['PALLET BEACH', 'The salty breeze smells like adventure.'], world, 0.9);
   dock(world);
+  route1(world);
   // the walls, foundations and the islet: one mesh per cell and kind
   world.stoneMeshes = mergeStones(world.group);
   // merge each static piece's meshes by material

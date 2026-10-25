@@ -7,7 +7,7 @@
 // photo dirt texture (Poly Haven "Dry Ground Rocks", CC0; tex/CREDITS.md),
 // used only for its shapes and relief: the colour is our painted palette.
 import * as THREE from 'three';
-import { ROADS, FIELDS, height, rng, pathMap, pathSD } from './terrain.js';
+import { ROADS, FIELDS, height, rng, pathMap, pathSD, meshHeight } from './terrain.js';
 import { celify } from './toon.js';
 import { makeClump, TILE } from './foliage.js';
 
@@ -309,16 +309,7 @@ export function buildFields(scene) {
   // 12 cm off height(): sit each field vertex 8 cm over whichever is higher,
   // the true height or the rendered ground, or the ground pokes through (and
   // fights the field) where it bends.
-  const tm = scene.getObjectByName('terrain'), tp = tm && tm.geometry.parameters, tpos = tm && tm.geometry.attributes.position;
-  const onMesh = (x, z) => {
-    if (!tp) return -1e9;
-    const S = tp.width / tp.widthSegments, n = tp.widthSegments + 1;
-    const fx = (x + tp.width / 2) / S, fz = (z + tp.height / 2) / S, ix = Math.floor(fx), iz = Math.floor(fz);
-    if (ix < 0 || iz < 0 || ix >= tp.widthSegments || iz >= tp.heightSegments) return -1e9;
-    const u = fx - ix, v = fz - iz, Y = (i, j) => tpos.getY(j * n + i);
-    return u + v <= 1 ? Y(ix, iz) + u * (Y(ix + 1, iz) - Y(ix, iz)) + v * (Y(ix, iz + 1) - Y(ix, iz))
-      : Y(ix + 1, iz + 1) + (1 - u) * (Y(ix, iz + 1) - Y(ix + 1, iz + 1)) + (1 - v) * (Y(ix + 1, iz) - Y(ix + 1, iz + 1));
-  };
+  const onMesh = (x, z) => meshHeight(x, z);
   for (const f of FIELDS) {
     const tex = texs[f.kind] || (texs[f.kind] = fieldTexture(f.kind));
     const nu = Math.ceil(f.w / 1.0), nv = Math.ceil(f.d / 1.0);

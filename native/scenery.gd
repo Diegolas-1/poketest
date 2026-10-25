@@ -172,7 +172,7 @@ func _mountains() -> void:
 	mts = MeshInstance3D.new()
 	mts.mesh = m
 	mts.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mts.custom_aabb = AABB(Vector3(-600, -60, -600), Vector3(1200, 260, 1200))
+	mts.custom_aabb = AABB(Vector3(-1450, -60, -1650), Vector3(2900, 520, 2900))
 	add_child(mts)
 
 # ---------- clouds: every sprite a camera-facing quad of one mesh ----------
