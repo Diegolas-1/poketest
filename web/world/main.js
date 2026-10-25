@@ -225,6 +225,12 @@ function blocked(x, z, r = 0) {
     }
     else if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + r) ** 2) return true;
   }
+  // places kept clear of plants that are not solid (the tea house's veranda)
+  for (const c of town.noVeg || []) {
+    let dx = x - c.x, dz = z - c.z;
+    if (c.rot) { const cs = Math.cos(c.rot), sn = Math.sin(c.rot); [dx, dz] = [dx * cs - dz * sn, dx * sn + dz * cs]; }
+    if (Math.abs(dx) < c.hw + r && Math.abs(dz) < c.hd + r) return true;
+  }
   for (const [x0, z0, x1, z1] of BEDS) if (x > x0 - r && x < x1 + r && z > z0 - r && z < z1 + r) return true;
   return false;
 }

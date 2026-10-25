@@ -234,6 +234,35 @@ export function leafAtlas(variant = 'green') {
     // cornflowers: ragged blue heads
     tuft(TILE.ivy2, (x, y) => petals(x, y, 9, 8, 3.2, () => hsl(220 + R() * 14, 75, 60 + R() * 10), hsl(240, 50, 34)));
   }
+  // variant 'crop' (crops.js): the needle tiles become wheat, gold and green
+  // (stalks from the bottom edge, bearded ears at the top), the palm a carrot
+  // top's fronds stay the fern
+  if (variant === 'crop') {
+    const wheat = (i, h, s, l) => {
+      ctx.clearRect((i % 4) * S, Math.floor(i / 4) * S, S, S);
+      tile(i, () => {
+        for (let k = 0; k < 16; k++) {
+          const x0 = S / 2 + (R() - 0.5) * 70, lean = (R() - 0.5) * 0.35, L = 150 + R() * 70;
+          const x1 = x0 + Math.sin(lean) * L, y1 = S - 4 - Math.cos(lean) * L;
+          ctx.strokeStyle = hsl(h + 6, s - 15, l - 8 + R() * 10); ctx.lineWidth = 3; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x0, S - 4); ctx.quadraticCurveTo(x0 + Math.sin(lean) * L * 0.4, S - 4 - L * 0.55, x1, y1); ctx.stroke();
+          // the ear: two rows of grains up the stalk's tip, a few awns
+          const ang = -Math.PI / 2 + lean;
+          for (let g = 0; g < 9; g++) for (const sd of [-1, 1]) {
+            const t = g / 9, gx = x1 + Math.cos(ang) * t * 40 * -1 * 0 + Math.sin(lean) * t * 34, gy = y1 - Math.cos(lean) * t * 34;
+            ctx.fillStyle = hsl(h + (R() - 0.5) * 8, s, l + 6 - t * 6 + R() * 8);
+            ctx.beginPath(); ctx.ellipse(gx + sd * 3.4, gy, 3.6, 5.6, lean + sd * 0.4, 0, 6.28); ctx.fill();
+          }
+          ctx.strokeStyle = hsl(h, s - 10, l + 14, 0.85); ctx.lineWidth = 1;
+          for (let a = 0; a < 6; a++) { const t = 0.3 + a / 6 * 0.7, ax = x1 + Math.sin(lean) * t * 34, ay = y1 - Math.cos(lean) * t * 34, sd = a % 2 ? 1 : -1; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + sd * 10 + Math.sin(lean) * 14, ay - 18); ctx.stroke(); }
+          // a leaf blade or two low down
+          if (k % 3 === 0) { ctx.strokeStyle = hsl(h + 10, s - 20, l - 14); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x0, S - 30); ctx.quadraticCurveTo(x0 + 30 * (R() < 0.5 ? -1 : 1), S - 90, x0 + 46 * (R() < 0.5 ? -1 : 1), S - 70); ctx.stroke(); }
+        }
+      });
+    };
+    wheat(TILE.needles, 42, 68, 58);    // ripe gold
+    wheat(TILE.needles2, 82, 46, 48);   // green, not yet ripe
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
@@ -289,6 +318,14 @@ function addWindDepth(m, wind, leaf) {
   d.onBeforeCompile = (sh) => windVertex(sh, wind, leaf);
   d.customProgramCacheKey = () => 'winddepth' + wind + (leaf ? 'leaf' : 'wood');
   windDepth.set(m, d);
+}
+// sway a solid plant material with the leaves (crops.js plantSolid: stalks,
+// cupped leaves and fruit move with the leaf cards of the same plant)
+export function plantWindVertex(m, wind) {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => { windVertex(sh, wind, false); if (prev) prev.call(m, sh, r); };
+  m.customProgramCacheKey = () => 'plantsolid' + wind;
+  addWindDepth(m, wind, false);
 }
 const leafMats = new Map();
 export function leafMaterial(tint = '#ffffff', wind = 0.08, variant = 'green') {

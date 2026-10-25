@@ -326,7 +326,7 @@ func _quad() -> ArrayMesh:
 # which kind of plant a baked set is
 static func _kind(s: Dictionary, meta: Dictionary) -> String:
 	var m: Dictionary = meta.mats[int(s.parts[0].mat)]
-	if (m.kind == "rock" or m.kind == "stone") and s.parts.size() == 1: return "rock"
+	if (m.kind == "rock" or m.kind == "stone") and s.parts.size() == 1 and s.impostor == null: return "rock"   # (crops: solid but billboarded, as bushes)
 	if s.impostor != null: return "tree" if float(s.radius) > 2.5 else "bush"
 	return "fern" if float(s.fade[1]) > 58.0 else "flower"
 

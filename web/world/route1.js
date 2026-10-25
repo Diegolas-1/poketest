@@ -19,14 +19,19 @@
 // Everything is overgrown more the nearer Viridian is (Ghibli green, lived in).
 // town.js buildTown calls route1Fill(world) after its own Route 1 signs.
 import * as THREE from 'three';
-import { height, baseHeight, ROADS, TRAIL0, routeX, ROUTE1, onPath, pathSD, isWater, roadDist, rng, LEDGES, ledgeLineZ } from './terrain.js';
+import { height, meshHeight, baseHeight, ROADS, TRAIL0, routeX, ROUTE1, onPath, pathSD, isWater, roadDist, rng, LEDGES, ledgeLineZ } from './terrain.js';
 import * as O from './props/outdoor.js';
+import * as FA from './props/farm.js';
+import './props/buildings.js';   // (the building kit: outdoor.js's cottages, tea house and shrine use it)
 import { routeSign, noticeBoard, welcomeSign, fingerpost } from './signs.js';
 import { wallMeshes, boulderGeometry, stoneMesh, STONE } from './stone.js';
 import { POCKET, TREE, LOOKOUT, TEA, SHRINE, REST, ORCHARD, FARM_FIELD, COTTAGE, TOWER, CREEKS, creekAt } from './route1land.js';
 import { handTrees } from './route1veg.js';
+import { leafMaterial, pushCard, toGeometry, cards, TILE } from './foliage.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+// a stable id for the web editor's edit layer: edits stick to it
+const eid = (g, id) => { g.userData.eid = id; return g; };
 const WALL_FADE = [300, 310];
 const road = () => ROADS[0];
 // the road's point nearest z (and its direction)
@@ -72,20 +77,24 @@ export function route1Fill(world) {
   {
     const F = FARM_FIELD;
     const fx = (u, v) => [F.x + u * Math.cos(F.rot) + v * Math.sin(F.rot), F.z - u * Math.sin(F.rot) + v * Math.cos(F.rot)];
-    // crops in rows over the field: cabbages and corn (instanced)
-    const cab = [], corn = [];
-    const R = rng(311);
-    for (let v = -F.d / 2 + 1; v < F.d / 2 - 0.5; v += 1.4) for (let u = -F.w / 2 + 0.8; u < F.w / 2 - 0.5; u += 0.9) {
-      const [x, z] = fx(u, v);
-      if (Math.abs(u - 1) < 1.5 && Math.abs(v) < 1.5) continue;   // the scarecrow's spot
-      (u < 2 ? cab : corn).push([x + (R() - 0.5) * 0.2, z + (R() - 0.5) * 0.2, R() * 6.28, 0.8 + R() * 0.4]);
-    }
-    instanced(G, new THREE.SphereGeometry(0.32, 8, 6).scale(1, 0.7, 1), O.flat('#8fce5a'), cab, 0.18, 0x1);
-    instanced(G, new THREE.ConeGeometry(0.18, 1.6, 5).translate(0, 0.8, 0), O.flat('#c8d45a'), corn, 0, 0x1);
-    { const [x, z] = fx(1, 0); place(O.scarecrow(), x, z, F.rot + 0.4, 0.3); use(x, z + 1.0, 'Look', ['A scarecrow in a patched blue coat.', 'The PIDGEY sitting on its hat don\'t look scared at all.']); }
-    { const [x, z] = fx(-F.w / 2 - 6, -4); place(O.shed(), x, z, F.rot + Math.PI / 2, { hw: 1.8, hd: 1.5 }); }
-    { const [x, z] = fx(-F.w / 2 - 3, 6); place(O.haybale(), x, z, 0.4, 0.8); const [x2, z2] = fx(-F.w / 2 - 4.5, 7.6); place(O.haybale(), x2, z2, 1.2, 0.8); }
-    { const [x, z] = fx(F.w / 2 + 2, F.d / 2 + 1.5); sign(x, z, 0.6, () => noticeBoard('ROUTE 1 FARM', ['Cabbages and corn grow here.', 'Please keep to the path.', 'RATTATA, stay out!'], { style: 'pinned', frame: '#7a5a3a', roof: '#6a8a3a', accent: '#6aa84f' }),
+    // furrowed beds and the crops in them (crops.js, farm.js): rows of
+    // cabbages, lettuces, carrots and radishes, corn, staked tomatoes, a bean
+    // teepee, pumpkins and sunflowers; a gap round the scarecrow
+    const ground = (x, z) => Math.max(height(x, z), meshHeight(x, z)) + 0.02;
+    const [sx0, sz0] = fx(1, 0);
+    FA.cropField(G, F, ground, { seed: 311, skip: (x, z) => Math.hypot(x - sx0, z - sz0) < 1.3 });
+    { const [x, z] = fx(1, 0); place(eid(FA.scarecrow({ seed: 5 }), 'route1/farm/scarecrow'), x, z, F.rot + 0.4, 0.3, -0.05); use(x, z + 1.0, 'Look', ['A scarecrow in a patched blue coat.', 'The PIDGEY sitting on its hat don\'t look scared at all.']); }
+    // the shed, with the farm's odds and ends round it
+    { const [x, z] = fx(-F.w / 2 - 6, -4), sh = eid(FA.farmShed({ seed: 21 }), 'route1/farm/shed'); place(sh, x, z, F.rot + Math.PI / 2, null, footY(x, z, 2) + 0.02 - height(x, z));
+      world.colliders.push({ box: true, x, z, hw: sh.userData.foot.hw, hd: sh.userData.foot.hd, rot: F.rot + Math.PI / 2 });
+      const S = (u, v) => fx(-F.w / 2 - 6 + v, -4 - u);   // the shed's own frame: u right of its door, v out from it
+      for (const [mk, u, v, r, col] of [[() => FA.wheelbarrow(), -2.6, 2.4, 0.6, 0.6], [() => FA.wateringCan(), 1.9, 1.5, 1.2, 0.2], [() => FA.crateStack({ seed: 3 }), -2.4, -0.4, 0.1, 0.6], [() => FA.sack(), -2.0, 0.6, 0.4, 0.3], [() => FA.sack({ col: '#c8b48a' }), -1.75, 1.0, 1.9, 0.3], [() => FA.trough(), 2.6, 2.6, 0.0, { hw: 0.85, hd: 0.4 }]]) {
+        const [x2, z2] = S(u, v); place(mk(), x2, z2, F.rot + Math.PI / 2 + r, col);
+      }
+      use(...S(0.55, 2.0), 'Look', ['The farm shed. Rakes, hoes and a spade hang on a rack by the door.', 'Someone has left the watering can full. The cabbages will be happy.']); }
+    { const [x, z] = fx(-F.w / 2 - 3, 6); place(FA.haybale({ seed: 1 }), x, z, 0.4, 0.8); const [x2, z2] = fx(-F.w / 2 - 4.5, 7.6); place(FA.haybale({ seed: 2 }), x2, z2, 1.2, 0.8);
+      const [x3, z3] = fx(-F.w / 2 - 3.4, 8.4); place(FA.squareBale(), x3, z3, 0.2, 0.5); const [x4, z4] = fx(-F.w / 2 - 3.3, 8.45); place(FA.squareBale(), x4, z4, 0.25, null, 0.42); }
+    { const [x, z] = fx(F.w / 2 + 2, F.d / 2 + 1.5), rr = roadAt(z); sign(x, z, yawTo(x, z, rr.x, rr.z), () => noticeBoard('ROUTE 1 FARM', ['Cabbages and corn grow here.', 'Please keep to the path.', 'RATTATA, stay out!'], { style: 'pinned', frame: '#7a5a3a', roof: '#6a8a3a', accent: '#6aa84f' }),
       ['ROUTE 1 FARM', 'Cabbages and corn grow here. Please keep to the path.', 'Someone has added in pencil: RATTATA, stay out!'], 0.9); }
   }
   // birdhouses on poles along the first stretch (PIDGEY country)
@@ -119,23 +128,51 @@ export function route1Fill(world) {
     void bx; void bz;
     use(TREE.x + 3.2, TREE.z + 1.8, 'Look', ['A rope swing on the old tree\'s low bough.', 'From up here the whole meadow sways like the sea.']);
   }
-  // the lookout: a little deck with a rail, the coin telescope, a sign
+  // the lookout: a plank deck on posts set into the slope, a railed south
+  // (view) side and ends, steps up from the meadow on the north, the coin
+  // telescope looking south over Pallet and the sea, a bench, a sign
   {
-    const L = LOOKOUT, y = footY(L.x, L.z, 3) + 0.25;
-    const D = new THREE.Group(); D.position.set(L.x, y, L.z); G.add(D); D.userData.qa = { k: 'open', why: 'the lookout deck: open, with a rail' };
-    O.box(6, 0.2, 4, O.texm(O.planks('#a87a4c')), 0, 0, 0, D);
-    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) O.box(0.2, 1.4, 0.2, '#7a5a3e', sx * 2.9, -0.6, sz * 1.9, D);
-    // the rail on the south (view) side and the ends
-    for (const [a, b] of [[[-3, 2], [3, 2]], [[-3, -0.6], [-3, 2]], [[3, -0.6], [3, 2]]]) {
-      O.beam(V(a[0], 1.0, a[1]), V(b[0], 1.0, b[1]), 0.1, '#8a6a4a', D, { over: 0.1 });
-      O.beam(V(a[0], 0.55, a[1]), V(b[0], 0.55, b[1]), 0.07, '#8a6a4a', D, { over: 0.1 });
-      for (let k = 0; k <= 3; k++) { const p = V(a[0] + (b[0] - a[0]) * k / 3, 0.55, a[1] + (b[1] - a[1]) * k / 3); O.box(0.1, 1.0, 0.1, '#7a5a3e', p.x, 0.5, p.z, D); }
+    const L = LOOKOUT;
+    let gmax = -Infinity, gmin = Infinity;
+    for (let u = -3; u <= 3; u += 1) for (let v = -2; v <= 2; v += 1) { const h = height(L.x + u, L.z + v); gmax = Math.max(gmax, h); gmin = Math.min(gmin, h); }
+    const y = gmax + 0.32, top = 0.1;   // deck top = y + top
+    const D = eid(new THREE.Group(), 'route1/lookout/deck'); D.position.set(L.x, y, L.z); G.add(D); D.userData.qa = { k: 'open', why: 'the lookout deck: open, with a rail' };
+    const wood = O.texm(O.planks('#a87a4c')), post = '#7a5a3e', rail = '#8a6a4a';
+    // boards (a gap between each), the rim joists, posts down into the ground
+    for (let i = 0; i < 20; i++) O.box(0.28, 0.08, 4.0, wood, -2.86 + i * 0.301, top - 0.04, 0, D);
+    for (const sz of [-1, 1]) O.box(6.1, 0.24, 0.1, rail, 0, top - 0.2, sz * 2.02, D);
+    for (const sx of [-1, 1]) O.box(0.1, 0.24, 4.1, rail, sx * 3.02, top - 0.2, 0, D);
+    for (const px of [-2.9, 0, 2.9]) for (const pz of [-1.9, 1.9]) {
+      const g = height(L.x + px, L.z + pz) - y - 0.3, h = top - 0.08 - g;
+      O.box(0.2, h, 0.2, post, px, g + h / 2, pz, D);
+      if (px !== 0 && h > 0.5) O.beam(V(px, g + 0.25, pz), V(px * 0.55, top - 0.24, pz), 0.09, post, D);
     }
-    const T = O.coinTelescope(); T.position.set(0.8, 0.1, 1.2); D.add(T);
-    const T2 = benchSeat(); T2.position.set(-1.4, 0.1, 0.3); T2.rotation.y = 0; D.add(T2);
-    world.walk.push({ x: L.x, z: L.z, hw: 3, hd: 2, rot: 0, y: y + 0.1 });
-    world.colliders.push({ box: true, x: L.x, z: L.z + 2.05, hw: 3.1, hd: 0.12 }, { box: true, x: L.x - 3.05, z: L.z + 0.7, hw: 0.12, hd: 1.4 }, { box: true, x: L.x + 3.05, z: L.z + 0.7, hw: 0.12, hd: 1.4 },
-      { x: L.x + 0.8, z: L.z + 1.2, r: 0.35 });
+    // the railing: posts, a top and a mid rail, balusters, on the south and the ends
+    for (const [a, b] of [[[-3, 2], [3, 2]], [[-3, -0.7], [-3, 2]], [[3, -0.7], [3, 2]]]) {
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      O.beam(V(a[0], top + 0.98, a[1]), V(b[0], top + 0.98, b[1]), 0.1, rail, D, { over: 0.12 });
+      O.beam(V(a[0], top + 0.5, a[1]), V(b[0], top + 0.5, b[1]), 0.06, rail, D, { over: 0.06 });
+      const n = Math.round(len / 1.5);
+      for (let k = 0; k <= n; k++) { const t = k / n; O.box(0.12, 1.08, 0.12, post, a[0] + (b[0] - a[0]) * t, top + 0.54, a[1] + (b[1] - a[1]) * t, D); }
+      const nb = Math.round(len / 0.2);
+      for (let k = 1; k < nb; k++) { const t = k / nb; O.box(0.045, 0.44, 0.045, rail, a[0] + (b[0] - a[0]) * t, top + 0.74, a[1] + (b[1] - a[1]) * t, D, { line: false, shadow: false }); }
+    }
+    // steps down to the meadow on the north side
+    const gN = height(L.x, L.z - 2.3), nSteps = Math.max(1, Math.ceil((y + top - gN) / 0.22));
+    for (let k = 1; k <= nSteps; k++) {
+      const sy = top - k * (y + top - gN) / (nSteps + 0.5), sz = -2.02 - 0.17 - (k - 1) * 0.34;
+      const below = height(L.x, L.z + sz) - y;
+      O.box(1.8, Math.max(0.1, sy - below + 0.05), 0.34, wood, 0, (sy + below - 0.05) / 2, sz, D);
+      world.walk.push({ x: L.x, z: L.z + sz, hw: 0.9, hd: 0.17, rot: 0, y: y + sy + 0.02 });
+    }
+    for (const sx of [-1, 1]) { const zb = -2.02 - nSteps * 0.34; O.beam(V(sx * 0.95, top + 0.98, -2.0), V(sx * 0.95, top + 0.98 - (y + top - gN) * 0.9, zb + 0.15), 0.07, rail, D, { over: 0.1 });
+      O.box(0.1, 1.0, 0.1, post, sx * 0.95, (height(L.x + sx * 0.95, L.z + zb + 0.15) - y) + 0.5, zb + 0.15, D); }
+    const T = O.coinTelescope(); T.position.set(0.8, top, 1.2); D.add(T);
+    const T2 = benchSeat(); T2.position.set(-1.4, top, 0.6); T2.rotation.y = 0; D.add(T2);
+    world.walk.push({ x: L.x, z: L.z, hw: 3, hd: 2, rot: 0, y: y + top });
+    world.colliders.push({ box: true, x: L.x, z: L.z + 2.05, hw: 3.1, hd: 0.12 }, { box: true, x: L.x - 3.05, z: L.z + 0.65, hw: 0.12, hd: 1.4 }, { box: true, x: L.x + 3.05, z: L.z + 0.65, hw: 0.12, hd: 1.4 },
+      { x: L.x + 0.8, z: L.z + 1.2, r: 0.35 }, { box: true, x: L.x - 2.0, z: L.z - 2.0, hw: 1.0, hd: 0.08 }, { box: true, x: L.x + 2.0, z: L.z - 2.0, hw: 1.0, hd: 0.08 });
+    void gmin;
     use(L.x + 0.8, L.z + 0.4, 'Look', ['You drop a coin in the telescope.', 'PALLET TOWN, tiny and bright in its green bowl... the harbour, the lighthouse... and the sea, all the way to the edge of the world.', 'Somewhere out there is CINNABAR ISLAND.']);
     sign(L.x - 4.2, L.z - 2.2, 0.4, () => noticeBoard('LOOKOUT', ['PALLET TOWN', 'The sea and the harbour', 'Watch for PIDGEOTTO!'], { style: 'pinned', frame: '#7a5a3a', roof: '#3d6fa8', accent: '#3d8fb0' }),
       ['LOOKOUT', 'Below: PALLET TOWN, its harbour and the open sea.', 'On a clear day the wind carries the smell of salt all the way up here.'], 0.9);
@@ -212,10 +249,13 @@ export function route1Fill(world) {
   // the tea house
   {
     const T = TEA, y = footY(T.x, T.z, 5) + 0.05;
-    const H = O.teaHouse(); H.position.set(T.x, y, T.z); H.rotation.y = T.rot; G.add(H);
+    const H = eid(O.teaHouse(), 'route1/teahouse/house'); H.position.set(T.x, y, T.z); H.rotation.y = T.rot; G.add(H);
     const c = Math.cos(T.rot), s = Math.sin(T.rot), W = (lx, lz) => [T.x + lx * c + lz * s, T.z - lx * s + lz * c];
     const fp = H.userData.foot;
-    world.colliders.push({ box: true, x: T.x - s * 1.2, z: T.z - c * 1.2, hw: fp.hw, hd: fp.hd - 1.2, rot: T.rot });
+    { const z0 = -fp.hd, z1 = H.userData.front + 0.12, zc = (z0 + z1) / 2;   // the house up to its front wall; the veranda is open
+      world.colliders.push({ box: true, x: T.x + s * zc, z: T.z + c * zc, hw: fp.hw, hd: (z1 - z0) / 2, rot: T.rot });
+      // no plants under the house, its veranda or its step
+      const z2 = fp.hd + 1.0, zm = (z0 + z2) / 2; (world.noVeg ||= []).push({ box: true, x: T.x + s * zm, z: T.z + c * zm, hw: fp.hw + 0.3, hd: (z2 - z0) / 2, rot: T.rot }); }
     // the floor is a deck you can step onto at the front
     { const [x, z] = W(0, 2.2); world.walk.push({ x, z, hw: 4.1, hd: 0.7, rot: T.rot, y: y + 0.48 }); }
     // lanterns from the eaves (local points), the wind chime
@@ -225,7 +265,7 @@ export function route1Fill(world) {
     for (const [lx, lz, r] of [[-2.6, 5.2, 0.12], [2.2, 5.6, -0.15], [-0.2, 7.4, 0.05]]) { const [x, z] = W(lx, lz); place(O.shogiBench(), x, z, T.rot + r, { hw: 1.0, hd: 0.35 }); }
     { const [x, z] = W(0.2, 6.3); place(O.parasol(), x, z, 0, 0.25); }
     { const [x, z] = W(-3.6, 3.6); place(O.kettleStove(), x, z, T.rot, 0.35); r1.amb.steam = P3([x, height(x, z) + 0.85, z]); }
-    { const [x, z] = W(1.6, -0.2); r1.npcs.push({ id: 'teakeeper', name: 'Tea keeper Hana', look: 'rose', x: +x.toFixed(2), z: +z.toFixed(2), yaw: +(T.rot).toFixed(3), ylock: +(y + 0.48).toFixed(3),
+    { const [x, z] = W(1.9, 0.75); r1.npcs.push({ id: 'teakeeper', name: 'Tea keeper Hana', look: 'rose', x: +x.toFixed(2), z: +z.toFixed(2), yaw: +(T.rot).toFixed(3), ylock: +(y + 0.48).toFixed(3),
       lines: ['Welcome, welcome! Sit down and rest your legs.', 'Travellers from PALLET TOWN always stop here before VIRIDIAN CITY.', 'The tea is green tea from my own bushes, and the water comes from the spring up the hill.', 'Oh, and if you see a PIDGEY on the parasol, don\'t shoo it. It\'s a regular.'] });
       const [cx, cz] = W(4.4, -0.9); r1.amb.chime = P3([cx, y + 3.0, cz]); }
     { const [x, z] = W(4.6, 4.6); place(O.menuBoard(), x, z, T.rot - 0.5, 0.4); use(...W(4.6, 5.6), 'Read', ['TODAY\'S TEA: green tea 50, barley tea 40, sweet dumplings 80, lemonade 60.', '~ please rest a while ~']); }
@@ -237,7 +277,7 @@ export function route1Fill(world) {
   // the wayside shrine with its lanterns
   {
     const S = SHRINE, r = roadAt(S.z), rot = yawTo(S.x, S.z, r.x, r.z);
-    place(O.shrine(), S.x, S.z, rot, { hw: 0.75, hd: 0.65 });
+    place(eid(O.shrine(), 'route1/shrine/shrine'), S.x, S.z, rot, { hw: 0.75, hd: 0.65 });
     const c = Math.cos(rot), s = Math.sin(rot);
     for (const lx of [-1.4, 1.4]) place(O.stoneLantern({ s: 0.8 }), S.x + lx * c + 1.0 * s, S.z - lx * s + 1.0 * c, rot, 0.3);
     use(S.x + s * 2.4, S.z + c * 2.4, 'Look', ['A tiny wayside shrine under a red gate.', 'Someone left a rice cake and a cup of tea. Travellers stop here to wish for a safe road.']);
@@ -245,10 +285,10 @@ export function route1Fill(world) {
   // the rest area: picnic tables, a vending machine, a bin, a sign
   {
     const P = REST;
-    place(O.picnicTable(), P.x - 3, P.z + 2, 0.2, { hw: 1.0, hd: 1.0 });
-    place(O.picnicTable(), P.x + 4, P.z + 4, -0.3, { hw: 1.0, hd: 1.0 });
+    place(eid(O.picnicTable(), 'route1/rest/picnic1'), P.x - 3, P.z + 2, 0.2, { hw: 1.0, hd: 1.0 });
+    place(eid(O.picnicTable(), 'route1/rest/picnic2'), P.x + 4, P.z + 4, -0.3, { hw: 1.0, hd: 1.0 });
     const r = roadAt(P.z), vx = P.x - 9, vz = P.z - 3;
-    place(O.vendingMachine(), vx, vz, yawTo(vx, vz, P.x - 3, P.z + 8), { hw: 0.55, hd: 0.45 });
+    place(eid(O.vendingMachine(), 'route1/rest/vending'), vx, vz, yawTo(vx, vz, P.x - 3, P.z + 8), { hw: 0.55, hd: 0.45 });
     use(vx + 1.2, vz + 0.6, 'Look', ['A vending machine, humming to itself.', 'POKé COLA... FRESH WATER... SODA POP... LEMONADE. It only takes coins.']);
     place(bin(), vx + 1.3, vz + 0.6, 0, 0.3);
     sign(P.x - 12, P.z + 6, yawTo(P.x - 12, P.z + 6, r.x, r.z), () => noticeBoard('REST AREA', ['Tables, water and shade.', 'Take your rubbish home.', 'VIRIDIAN CITY: 1 hour'], { style: 'pinned', frame: '#7a5a3a', roof: '#4f8a6a', accent: '#4f8a6a' }),
@@ -257,7 +297,10 @@ export function route1Fill(world) {
   // the woods' odds and ends: a fallen tree, hollow logs, fairy rings, outcrops
   for (const [x, z, rot, k] of [[44, -334, 0.4, 'fall'], [-36, -142, 1.2, 'hollow'], [46, -214, -0.6, 'hollow'], [-44, -300, 2.2, 'fall']]) {
     if (onPath(x, z, 3)) continue;
-    place(O.fallenLog({ L: k === 'fall' ? 8 : 3.2, r: k === 'fall' ? 0.5 : 0.42, hollow: k === 'hollow', seed: Math.round(x * 7 + z) }), x, z, rot, { hw: (k === 'fall' ? 4 : 1.6), hd: 0.55 }, -0.15).userData.eid = `route1/fallenLog/${k}${Math.round(x)}_${Math.round(z)}`;
+    // laid along the slope: the ground under each end sets its tilt, and it sits a little sunk in
+    { const L = k === 'fall' ? 8 : 3.2, ca = Math.cos(rot), sa = Math.sin(rot), ha = height(x - ca * L * 0.45, z + sa * L * 0.45), hb = height(x + ca * L * 0.45, z - sa * L * 0.45);
+      const g = place(O.fallenLog({ L, r: k === 'fall' ? 0.5 : 0.42, hollow: k === 'hollow', seed: Math.round(x * 7 + z) }), x, z, rot, { hw: L / 2, hd: 0.55 }, 0);
+      g.position.y = Math.min(height(x, z), (ha + hb) / 2) - 0.12; g.rotation.set(0, rot, Math.atan2(hb - ha, L * 0.9), 'YXZ'); g.userData.eid = `route1/fallenLog/${k}${Math.round(x)}_${Math.round(z)}`; }
     if (k === 'hollow') use(x + Math.sin(rot + 1.57) * 1.2, z + Math.cos(rot + 1.57) * 1.2, 'Look', ['A hollow log.', 'It\'s warm inside, and smells of RATTATA. Something squeaks and goes quiet.']);
   }
   for (const [x, z, r] of [[-30, -196, 1.3], [62, -270, 1.6], [-50, -330, 1.2], [34, -160, 1.1]]) if (!onPath(x, z, r + 0.5)) place(O.mushroomRing({ r, seed: Math.round(x - z), ground: (lx, lz) => height(x + lx, z + lz) - height(x, z) }), x, z, 0);
@@ -356,7 +399,7 @@ export function route1Fill(world) {
   // the cottage on the west, with its garden and a washing line
   {
     const C = COTTAGE, y = footY(C.x, C.z, 4) + 0.02;
-    const H = O.cottage({ seed: 401 }); H.position.set(C.x, y, C.z); H.rotation.y = C.rot; G.add(H);
+    const H = eid(O.cottage({ seed: 401 }), 'route1/viridian/ivycottage'); H.position.set(C.x, y, C.z); H.rotation.y = C.rot; G.add(H);
     world.colliders.push({ box: true, x: C.x, z: C.z, hw: H.userData.foot.hw, hd: H.userData.foot.hd, rot: C.rot });
     const c = Math.cos(C.rot), s = Math.sin(C.rot), W = (lx, lz) => [C.x + lx * c + lz * s, C.z - lx * s + lz * c];
     // a picket fence round the front garden
@@ -556,29 +599,44 @@ function benchSeat() {
   for (const sx of [-0.8, 0.8]) { O.box(0.07, 0.48, 0.5, '#2f4a40', sx, 0.24, 0, g); O.box(0.07, 0.6, 0.07, '#2f4a40', sx, 0.8, -0.3, g); }
   return g;
 }
+// a woven basket of berries: a tapered lathe with a rolled rim and weave
+// bands, a hoop handle, a heap of berries
 function basket() {
-  const g = new THREE.Group();
-  O.cyl(0.32, 0.25, 0.32, O.texm(O.thatch('#b88a52')), 0, 0.16, 0, g, 10);
-  for (let i = 0; i < 6; i++) O.ball(0.09, ['#3a6ad8', '#f26aa0', '#e8402e'][i % 3], (i % 3 - 1) * 0.12, 0.34, (i > 2 ? 0.08 : -0.08), g);
+  const g = new THREE.Group(), w = O.texm(O.thatch('#b88a52'));
+  O.put(new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0], [0.24, 0], [0.27, 0.06], [0.33, 0.3], [0.33, 0.32], [0.3, 0.32], [0.24, 0.05], [0.001, 0.05]].map(([a, b]) => new THREE.Vector2(a, b)), 14), w), g, 0, 0, 0);
+  O.put(new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.025, 5, 18).rotateX(Math.PI / 2), O.flat('#9a6a3a')), g, 0, 0.32, 0);
+  for (const y of [0.1, 0.2]) O.put(new THREE.Mesh(new THREE.TorusGeometry(0.29 + y * 0.18, 0.012, 3, 18).rotateX(Math.PI / 2), O.flat('#9a6a3a')), g, 0, y, 0, { line: false });
+  O.put(new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.02, 4, 14, Math.PI), O.flat('#9a6a3a')), g, 0, 0.32, 0);
+  for (let i = 0; i < 9; i++) O.ball(0.07, ['#3a6ad8', '#f26aa0', '#e8402e'][i % 3], (i % 3 - 1) * 0.12, 0.3 + (i > 5 ? 0.06 : 0), (Math.floor(i / 3) - 1) * 0.1, g, { seg: 7, line: false });
   return g;
 }
+// an orchard ladder: two splayed rails, round rungs, a prop leg
 function ladder() {
-  const g = new THREE.Group();
-  for (const sx of [-0.25, 0.25]) { const r = O.box(0.07, 3.0, 0.07, '#9a7a4a', sx, 1.4, 0, g); r.rotation.x = 0.25; }
-  for (let k = 0; k < 8; k++) { const r = O.box(0.5, 0.05, 0.05, '#9a7a4a', 0, 0.3 + k * 0.36, -0.08 - k * 0.09, g); void r; }
+  const g = new THREE.Group(), w = '#9a7a4a';
+  for (const sx of [-1, 1]) O.beam(V(sx * 0.32, 0, 0), V(sx * 0.18, 2.9, -0.75), 0.07, w, g);
+  for (let k = 0; k < 8; k++) { const t = (k + 0.5) / 8, hw = 0.32 - 0.14 * t; const r = O.cyl(0.025, 0.025, hw * 2, w, 0, t * 2.9, -t * 0.75, g, 6); r.rotation.z = Math.PI / 2; }
+  O.beam(V(0, 2.7, -0.7), V(0, 0, -1.6), 0.06, w, g);
   return g;
 }
+// a terracotta pot with a rolled rim, a saucer, a plant of leaf cards
 function pot() {
   const g = new THREE.Group();
-  O.cyl(0.3, 0.22, 0.45, '#c86a3e', 0, 0.22, 0, g, 10);
-  O.mossTop(g, 0.55, 0.55, 0, 0.42, 0, 0, 33);
-  for (let i = 0; i < 5; i++) O.ball(0.16, '#5aa04a', (i % 3 - 1) * 0.15, 0.62 + (i % 2) * 0.12, ((i * 7) % 3 - 1) * 0.12, g, { seg: 7 });
+  O.put(new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0.02], [0.22, 0.02], [0.3, 0.38], [0.33, 0.4], [0.33, 0.46], [0.29, 0.46], [0.27, 0.42], [0.001, 0.42]].map(([a, b]) => new THREE.Vector2(a, b)), 14), O.flat('#c86a3e')), g, 0, 0, 0);
+  O.cyl(0.27, 0.27, 0.03, '#b05a34', 0, 0.015, 0, g, 14);
+  O.mossTop(g, 0.5, 0.5, 0, 0.43, 0, 0, 33);
+  const out = cards();
+  for (let i = 0; i < 9; i++) { const a = i * 2.4, p = V(Math.cos(a) * 0.15, 0.62 + (i % 3) * 0.1, Math.sin(a) * 0.15); pushCard(out, p, V(Math.cos(a), 0.8, Math.sin(a)).normalize(), 0.45, i % 2 ? TILE.bushA : TILE.flowersR, a, V(0, 0.4, 0), 0.4); }
+  O.put(new THREE.Mesh(toGeometry(out), leafMaterial('#ffffff', 0.04)), g, 0, 0, 0, { line: false });
   return g;
 }
+// a litter bin: a slatted drum on a post-mounted frame with a domed lid
 function bin() {
   const g = new THREE.Group();
-  O.cyl(0.26, 0.24, 0.8, '#4f7a6a', 0, 0.4, 0, g, 10);
-  O.cyl(0.28, 0.28, 0.06, '#3a5a4e', 0, 0.82, 0, g, 10);
+  O.cyl(0.26, 0.24, 0.8, '#4f7a6a', 0, 0.42, 0, g, 16);
+  for (let k = 0; k < 16; k++) { const a = k / 16 * 6.28; const s = O.box(0.025, 0.74, 0.02, '#3a5a4e', Math.cos(a) * 0.255, 0.42, Math.sin(a) * 0.255, g, { line: false, shadow: false }); s.rotation.y = -a; }
+  for (const y of [0.1, 0.78]) O.put(new THREE.Mesh(new THREE.TorusGeometry(0.265, 0.02, 4, 18).rotateX(Math.PI / 2), O.flat('#2f4a40')), g, 0, y, 0, { line: false });
+  const lid = O.ball(0.28, '#3a5a4e', 0, 0.82, 0, g, { seg: 14 }); lid.scale.y = 0.35;
+  O.box(0.12, 0.04, 0.03, '#2a2a2a', 0, 0.92, 0, g, { line: false });
   return g;
 }
 function pole(h) { const g = new THREE.Group(); O.cyl(0.05, 0.06, h, '#8a6a4a', 0, h / 2, 0, g, 6); return g; }

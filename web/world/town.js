@@ -5,7 +5,7 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, ROUTE1, routeX, LEDGES, ledgeLineZ, TRAIL0, R1_TRAIL1 } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, FIELDS, meshHeight, ROUTE1, routeX, LEDGES, ledgeLineZ, TRAIL0, R1_TRAIL1 } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
@@ -16,7 +16,12 @@ const WALL_FADE = [300, 310];   // native: walls stay drawn this far (m)
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 import { route1Fill } from './route1.js';   // Route 1's places (worker 12)
 import { trackTown, applyTown } from './editlayer/objects.js';   // the world editor's edits
+import * as BK from './props/buildings.js';   // the building kit
+import * as OD from './props/outdoor.js';
+import * as FA from './props/farm.js';
+import * as CR from './crops.js';
 import { creekAt } from './route1land.js';
+const creekNear = (x, z, m) => { const q = creekAt(x, z); return !!q && q.d < q.c.w + m; };
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -32,8 +37,11 @@ function paint(key, w, h, draw) {
   return t;
 }
 const shade = (hex, k) => '#' + new THREE.Color(hex).multiplyScalar(k).getHexString();
+// the painted surfaces are painted once in a neutral colour and tinted by the
+// material (outdoor.js texm): one picture per kind for every house colour
+const tinted = (col, t) => ({ tint: true, t, col });
 // horizontal clapboards, 0.2 m each (texture = 2 x 2 m)
-const siding = (col) => paint('siding' + col, 256, 256, (x, w, h, R) => {
+const siding = (col0) => tinted(col0, paint('n_siding', 256, 256, (x, w, h, R) => { const col = OD.NEUTRAL_COL;
   x.fillStyle = col; x.fillRect(0, 0, w, h);
   for (let r = 0; r < 10; r++) {
     const y = r * 25.6;
@@ -43,9 +51,9 @@ const siding = (col) => paint('siding' + col, 256, 256, (x, w, h, R) => {
     for (let k = 0; k < 6; k++) x.fillRect(R() * w, y + 8 + R() * 10, 20 + R() * 60, 1.5);
     x.globalAlpha = 1;
   }
-});
+}));
 // rounded clay tiles in rows (texture = 1.5 x 1.5 m)
-const tiles = (col) => paint('tiles' + col, 256, 256, (x, w, h, R) => {
+const tiles = (col0) => tinted(col0, paint('n_tiles', 256, 256, (x, w, h, R) => { const col = OD.NEUTRAL_COL;
   x.fillStyle = shade(col, 0.72); x.fillRect(0, 0, w, h);
   const rows = 7, cols = 9, rh = h / rows, cw = w / cols;
   for (let r = 0; r < rows; r++) for (let c = -1; c <= cols; c++) {
@@ -57,7 +65,7 @@ const tiles = (col) => paint('tiles' + col, 256, 256, (x, w, h, R) => {
     x.quadraticCurveTo(cx + cw / 2, y + rh * 1.12, cx + 1.5, y + rh * 0.7); x.fill();
     x.fillStyle = shade(col, 0.62); x.fillRect(cx + 2, y + rh * 0.86, cw - 4, 2);
   }
-});
+}));
 const bricks = (col) => paint('bricks' + col, 256, 256, (x, w, h, R) => {
   x.fillStyle = '#d9cfbd'; x.fillRect(0, 0, w, h);
   const rows = 12, bw = 64, rh = h / rows;
@@ -66,7 +74,7 @@ const bricks = (col) => paint('bricks' + col, 256, 256, (x, w, h, R) => {
     x.fillRect(c * bw + (r % 2) * bw / 2 + 2, r * rh + 2, bw - 4, rh - 4);
   }
 });
-const stones = (col) => paint('stones' + col, 256, 256, (x, w, h, R) => {
+const stones = (col0) => tinted(col0, paint('n_stones', 256, 256, (x, w, h, R) => { const col = OD.NEUTRAL_COL;
   x.fillStyle = shade(col, 0.6); x.fillRect(0, 0, w, h);
   for (let k = 0; k < 40; k++) {
     const cx = R() * w, cy = R() * h, rx = 18 + R() * 22, ry = 12 + R() * 14;
@@ -75,8 +83,8 @@ const stones = (col) => paint('stones' + col, 256, 256, (x, w, h, R) => {
       x.beginPath(); x.ellipse(cx + ox, cy + oy, rx, ry, R(), 0, 6.28); x.fill();
     }
   }
-});
-const planks = (col) => paint('planks' + col, 256, 256, (x, w, h, R) => {
+}));
+const planks = (col0) => tinted(col0, paint('n_planks', 256, 256, (x, w, h, R) => { const col = OD.NEUTRAL_COL;
   for (let k = 0; k < 8; k++) {
     x.fillStyle = shade(col, 0.9 + R() * 0.18); x.fillRect(0, k * 32, w, 32);
     x.fillStyle = shade(col, 0.7); x.fillRect(0, k * 32 + 30, w, 2);
@@ -84,12 +92,12 @@ const planks = (col) => paint('planks' + col, 256, 256, (x, w, h, R) => {
     for (let j = 0; j < 4; j++) x.fillRect(R() * w, k * 32 + 6 + R() * 20, 40 + R() * 80, 1.5);
     x.globalAlpha = 1;
   }
-});
-const plaster = (col) => paint('plaster' + col, 256, 256, (x, w, h, R) => {
+}));
+const plaster = (col0) => tinted(col0, paint('n_plaster', 256, 256, (x, w, h, R) => { const col = OD.NEUTRAL_COL;
   x.fillStyle = col; x.fillRect(0, 0, w, h);
   for (let k = 0; k < 40; k++) { x.globalAlpha = 0.06; x.fillStyle = R() < 0.5 ? '#ffffff' : shade(col, 0.8); x.beginPath(); x.arc(R() * w, R() * h, 10 + R() * 30, 0, 6.28); x.fill(); }
   x.globalAlpha = 1;
-});
+}));
 // glass: sky blue with a white reflection streak
 const glassTex = () => paint('glass', 128, 128, (x, w, h) => {
   const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#9fd2f2'); g.addColorStop(1, '#4d8fc4');
@@ -119,7 +127,7 @@ function vcFlat(G) {
     o.geometry = g; o.material = vm;
   });
 }
-const tex = (t, col = '#ffffff') => M(t.uuid + col, () => toon(col, { map: t, cel: BUILD }));
+const tex = (t, col = '#ffffff') => (t.tint ? OD.texm(t, col) : M(t.uuid + col, () => toon(col, { map: t, cel: BUILD })));
 const glass = () => M('glass', () => new THREE.MeshBasicMaterial({ map: glassTex() }));
 
 // UVs in metres, projected along the face's main axis
@@ -217,7 +225,14 @@ function archWindow(parent, x, y, z, w, h, frame = '#fbfaf4') {
 }
 // A gable roof over a w (x) by d (z) rectangle: ridge along z at top, eaves at
 // y0. Returns the slabs. Overhang ox at the sides, oz at the ends.
+// a roof material that remembers its colour: the roofs are built by the
+// building kit (props/buildings.js: real tile courses, bargeboards, gutters)
+function roofTex(col) { const m = tex(tiles(col)); m.userData.roofCol = col; return m; }
 function gableRoof(parent, w, d, y0, rise, roofMat, trim, ox = 0.45, oz = 0.5, th = 0.2) {
+  if (roofMat.userData.roofCol) {
+    BK.roof(parent, w, d, y0, { type: 'gable', axis: 'z', rise, over: ox, gableOver: oz, th: Math.min(0.18, th), cover: 'clay', col: roofMat.userData.roofCol, trim, gutters: th >= 0.2 });
+    return;
+  }
   const half = w / 2, ang = Math.atan2(rise, half), slope = Math.hypot(half, rise) + ox / Math.cos(ang);
   for (const s of [-1, 1]) {
     const g = new THREE.Group(); parent.add(g);
@@ -303,6 +318,10 @@ function picketFence(P, ax, az, bx, bz, col = '#fbfaf4') {
 
 // A hip roof over w x d at eaves height y0: four sloping faces, tiled.
 function hipRoof(parent, w, d, y0, rise, roofMat, trim, o = 0.5) {
+  if (roofMat.userData.roofCol) {
+    BK.roof(parent, w, d, y0, { type: 'hip', axis: d > w ? 'z' : 'x', rise, over: o, cover: 'clay', col: roofMat.userData.roofCol, trim, gutters: true, th: 0.18 });
+    return;
+  }
   const hw = w / 2 + o, hd = d / 2 + o;
   const along = d >= w, rl = Math.max(0, (along ? hd - hw : hw - hd));
   const top = y0 + rise;
@@ -365,7 +384,7 @@ function cottage(hs, world) {
   const W = st.W || 7.2, D = 6.4, base = 0.45, wallH = 3.5, rise = st.hip ? 3.0 : 4.6, y0 = base + wallH;
   const fence = st.fence !== false;
   const sid = tex(siding(wall)), trim = '#fbfaf4';
-  const roofMat = tex(tiles(roof));
+  const roofMat = roofTex(roof);
   // stone foundation and the walls
   foundation(G, W + 0.3, D + 0.3, base, 0, 0, 1.3, seed);
   box(W, wallH, D, sid, 0, base + wallH / 2, 0, G);
@@ -488,12 +507,14 @@ function cottage(hs, world) {
   const gx = side * 6.2, gz = 1.0;
   box(2.6, 0.25, 4.6, tex(planks('#8d6a46')), gx, P.hy(gx, gz) + 0.05, gz, G, { line: false });
   add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 4.4), flat('#7a5a3c')), G, gx, P.hy(gx, gz) + 0.18, gz, { line: false });
-  for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) {
-    const px = gx - 0.6 + r * 1.2, pz = gz - 1.6 + k * 1.05, py = P.hy(px, pz) + 0.2;
-    box(0.05, 1.2, 0.05, '#c9a876', px, py + 0.6, pz, G, { line: false });
-    plant(makeBush(seed * 10 + r * 4 + k, { size: 0.5 }), G, px, py, pz, 1, R() * 6);
-    for (let t = 0; t < 3; t++) add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), flat('#e8402e')), G, px + (R() - 0.5) * 0.5, py + 0.4 + R() * 0.5, pz + (R() - 0.5) * 0.5, { line: false });
-  }
+  // staked tomatoes in one row, lettuces and carrots in the other (crops.js)
+  { const tom = [], let_ = [], car = [];
+    for (let k = 0; k < 4; k++) { const pz = gz - 1.6 + k * 1.05; tom.push([gx - 0.6, P.hy(gx - 0.6, pz) + 0.2, pz, R() * 6, 0.85]); }
+    for (let k = 0; k < 8; k++) { const pz = gz - 1.9 + k * 0.54, px = gx + 0.6 + (k % 2 ? 0.2 : -0.2); (k % 3 === 2 ? car : let_).push([px, P.hy(px, pz) + 0.2, pz, R() * 6, 1]); }
+    // (into the town's shared lists: every garden's tomatoes are one set of instances)
+    const toW = ([x, y, z, r, sc]) => { const [wx, wz] = P.W(x, z); return [wx, y + hs.y, wz, r - hs.rot, sc]; };
+    const GC = world.gardenCrops ||= {};
+    for (const [k, l] of [['tomato', tom], ['lettuce', let_], ['carrot', car]]) (GC[k] ||= []).push(...l.map(toW)); }
   P.col(gx, gz, 1.3, 2.3);
   // a washing line across the back of the yard, the washing swaying
   if (st.laundry) {
@@ -799,6 +820,8 @@ function laneFurniture(world) {
         const hNear = height(ox, oz), hFar = baseHeight(x + nx * 7 * s, z + nz * 7 * s);
         const cut = hFar - hNear;
         if (cut < 1.6) continue;
+        // (not where a creek's bed cuts under the road: the bridge and the stepping stones cross there)
+        if (creekNear(ox, oz, 5)) continue;
         if (roadDist(ox, oz) < 2.5 || [-0.5, -0.25, 0, 0.25, 0.5].some((f) => onPath(ox + dx * f * (l + 0.3) / l, oz + dz * f * (l + 0.3) / l, 0.4)) || inYard(ox, oz, 1) || labHillU(ox, oz) < 1) continue;
         walls.push([ox, oz, Math.atan2(dx, dz), Math.min(1.6, 0.55 + cut * 0.22), l, -s]);
       }
@@ -838,7 +861,7 @@ function laneFurniture(world) {
       for (let i = i0; i <= Math.min(i1, road.length - 2); i += 2) {
         const [x, z] = road[i], b = road[i + 1], dx = b[0] - x, dz = b[1] - z, l = Math.hypot(dx, dz) || 1;
         const px = x - dz / l * 3.3 * s, pz = z + dx / l * 3.3 * s;
-        const ok = roadDist(px, pz) > 2.9 && !onPath(px, pz, 0.12) && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5 && !(creekAt(px, pz)?.d < 4);   // (not down Route 1's creek banks either)
+        const ok = !creekNear(px, pz, 4) && roadDist(px, pz) > 2.9 && !onPath(px, pz, 0.12) && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5;
         if (!ok) { prev = null; continue; }
         const py = height(px, pz);
         P.push([px, py, pz]);
@@ -896,51 +919,45 @@ function palletHouse(world) {
   const P = placer(hs, world), G = P.G;
   // (textures shared with the cottages' and the dock's: every distinct painted
   // texture is one more image for the native game to load)
-  const cream = tex(siding('#f2e2b8')), beam = '#6b4a33', wood = tex(planks('#c99a62')), roof = tex(tiles('#c4553a'));
-  // the house: 13 x 9, front (door, terrace) to +z, toward the bay
+  const beam = '#6b4a33', wood = tex(planks('#c99a62'));
+  // the house: 13 x 9, front (door, terrace) to +z, toward the bay; built with
+  // the building kit (props/buildings.js): a plaster ground floor and a
+  // timber-framed upper floor under a steep tiled gable facing the sea, real
+  // tile courses, bargeboards, gutters and downpipes, shuttered windows with
+  // flower boxes, a panelled double door under a gabled canopy
   const W = 13, D = 9, z0 = -6.5, zc = z0 + D / 2, y1 = 3.4, y2 = 6.4;
-  foundation(G, W + 0.4, D + 0.4, 0.3, 0, zc, 1.2, 4401);
-  box(W, y1, D, cream, 0, 0.3 + y1 / 2, zc, G);
-  box(W + 0.3, y2 - y1, D + 0.3, cream, 0, 0.3 + (y1 + y2) / 2, zc, G);
-  // the timber frame on the upper floor: posts, rails and braces
-  for (const sz of [-1, 1]) {
-    const fz = zc + sz * (D / 2 + 0.17);
-    for (let i = 0; i <= 6; i++) box(0.22, y2 - y1, 0.1, beam, -W / 2 + (W * i) / 6, 0.3 + (y1 + y2) / 2, fz, G, { line: false });
-    for (const yy of [y1 + 0.35, y2 + 0.1]) box(W + 0.4, 0.22, 0.12, beam, 0, yy, fz, G, { line: false });
-    for (const xx of [-W / 2 + 1.1, W / 2 - 1.1]) { const b = box(0.16, 2.6, 0.08, beam, xx, 0.3 + (y1 + y2) / 2, fz + sz * 0.02, G, { line: false }); b.rotation.z = xx < 0 ? 0.6 : -0.6; }
+  {
+    const ops = [
+      { face: 'front', kind: 'double', x: 0, w: 1.7, h: 2.3, col: '#7a4a2e', canopy: true, lamp: 'left' },
+      { face: 'front', kind: 'window', x: -4.4, w: 1.6, h: 1.3, panes: [2, 2], shutters: '#3f7a52', box: '#c99a62', y: 0.95 },
+      { face: 'front', kind: 'window', x: 4.4, w: 1.6, h: 1.3, panes: [2, 2], shutters: '#3f7a52', box: '#c99a62', y: 0.95 },
+      { face: 'left', kind: 'window', x: -2, w: 1.3, h: 1.2 }, { face: 'left', kind: 'window', x: 2, w: 1.3, h: 1.2 },
+      { face: 'right', kind: 'window', x: -2, w: 1.3, h: 1.2 }, { face: 'right', kind: 'window', x: 2, w: 1.3, h: 1.2 },
+      { face: 'left', kind: 'window', x: 0, floor: 1, w: 1.1, h: 1.0, y: 0.9 }, { face: 'right', kind: 'window', x: 0, floor: 1, w: 1.1, h: 1.0, y: 0.9 },
+      { face: 'back', kind: 'door', x: -PALLET_HOUSE.spots.kitchen_door[0], w: 1.1, h: 2.15, col: '#7a4a2e', glass: true },
+      { face: 'back', kind: 'window', x: -PALLET_HOUSE.spots.kitchen_window[0], w: 1.4, h: 1.0, panes: [2, 2], y: 1.15 },
+      { face: 'back', kind: 'vent', x: 2.5, y: 2.6 },
+    ];
+    for (const xx of [-3.6, 0, 3.6]) ops.push({ face: 'front', kind: 'window', x: xx, floor: 1, w: 1.1, h: 1.0, panes: [2, 2], box: '#c99a62', y: 0.85 });
+    const H = BK.building({ W, D, floors: 2, floorH: 3.2, trim: '#fbf3e0', seed: 4401,
+      plinth: { h: 0.3, deep: 1.4, kind: 'stone', col: '#b4ad98' },
+      wall: { kind: 'plaster', col: '#f2e2b8', upper: 'timber', frame: '#6b4a33' },
+      roof: { type: 'gable', cover: 'clay', col: '#c4553a', rise: 3.6, over: 0.6, gableOver: 0.55, axis: 'z', trim: '#fbf3e0' },
+      openings: ops });
+    H.position.set(0, 0, zc); H.userData.eid = 'pallethouse/house'; G.add(H);
+    // a round window high in the sea-facing gable, and the sign on its bracket
+    const gw = new THREE.Group(); gw.position.set(0, 0.3 + 6.4 + 1.5, D / 2 + 0.17); H.add(gw);
+    BK.windowUnit(gw, { w: 0.95, round: true, frame: '#fbf3e0' });
+    const bgw = new THREE.Group(); bgw.position.set(0, 0.3 + 6.4 + 1.5, -D / 2 - 0.17); bgw.rotation.y = Math.PI; H.add(bgw);
+    BK.windowUnit(bgw, { w: 0.8, round: true, frame: '#fbf3e0' });
   }
-  gableWall(G, W + 0.3, 3.6, y2 + 0.3, zc + D / 2 + 0.15, cream);
-  gableWall(G, W + 0.3, 3.6, y2 + 0.3, zc - D / 2 - 0.15, cream, -1);
-  const rf = new THREE.Group(); rf.rotation.y = Math.PI / 2; rf.position.set(0, 0, zc); G.add(rf);
-  gableRoof(rf, D + 0.3, W + 0.3, y2 + 0.3, 3.6, roof, '#fbf3e0', 0.6, 0.5);
-  // windows: shuttered below, small under the eaves, flower boxes
-  const flowers = makeClump(4402, TILE.flowersR, 0.6), fl2 = makeClump(4403, TILE.flowersY, 0.6), boxes = [];
-  for (const xx of [-4.4, 4.4]) {
-    windowAt(G, xx, 2.0, zc + D / 2 + 0.03, 1.6, 1.3, 2, 2);
-    for (const s2 of [-1, 1]) box(0.5, 1.4, 0.06, '#3f7a52', xx + s2 * 1.15, 2.0, zc + D / 2 + 0.08, G, { line: false });
-    box(1.9, 0.32, 0.4, wood, xx, 1.18, zc + D / 2 + 0.25, G); boxes.push([xx, zc + D / 2 + 0.25]);
-  }
-  for (const xx of [-3.6, 0, 3.6]) { windowAt(G, xx, y1 + 1.6, zc + D / 2 + 0.2, 1.1, 1.0, 2, 2); box(1.4, 0.26, 0.36, wood, xx, y1 + 0.95, zc + D / 2 + 0.4, G); boxes.push([xx, zc + D / 2 + 0.4, y1 + 1.05]); }
-  windowAt(G, 0, y2 + 1.6, zc + D / 2 + 0.25, 0.9, 0.9, 2, 2);
-  for (const zz of [zc - 2, zc + 2]) { const w2 = windowAt(G, -W / 2 - 0.03, 2.0, zz, 1.3, 1.2, 2, 2); w2.rotation.y = -Math.PI / 2; const w3 = windowAt(G, W / 2 + 0.03, 2.0, zz, 1.3, 1.2, 2, 2); w3.rotation.y = Math.PI / 2; }
-  [flowers, fl2].forEach((mod, k) => {
-    const list = boxes.filter((_, i) => i % 2 === k);
-    const im = new THREE.InstancedMesh(mod.parts[0].geometry, mod.parts[0].material, list.length * 3), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-    list.forEach(([bx, bz, by = 1.18], i) => { for (let j = 0; j < 3; j++) { m4.compose(V(bx - 0.5 + j * 0.5, by + 0.14, bz), q.setFromAxisAngle(V(0, 1, 0), j * 2.1), V(1, 1, 1)); im.setMatrixAt(i * 3 + j, m4); } });
-    im.castShadow = false; G.add(im);
-  });
-  // the front door under a little porch roof, and the hanging sign
-  box(1.5, 2.4, 0.12, tex(planks('#7a4a2e')), 0, 1.5, zc + D / 2 + 0.06, G);
-  box(0.1, 0.1, 0.06, '#e8c45a', 0.5, 1.5, zc + D / 2 + 0.15, G, { line: false });
-  const porch = new THREE.Group(); porch.position.set(0, 0, zc + D / 2 + 0.6); G.add(porch);
-  gableRoof(porch, 2.6, 1.2, 2.95, 0.6, roof, '#fbf3e0', 0.15, 0.05, 0.12);
   box(0.12, 0.12, 1.6, beam, 1.9, 2.75, zc + D / 2 + 0.8, G);
   box(0.08, 0.5, 0.08, beam, 1.9, 2.45, zc + D / 2 + 1.5, G, { line: false });
   const sign = nameplate('PALLET HOUSE', { w: 1.9, h: 0.55 }); sign.position.set(1.9, 2.0, zc + D / 2 + 1.5); sign.rotation.y = Math.PI / 2; G.add(sign);
   const sign2 = sign.clone(); sign2.position.set(1.9, 2.0, zc + D / 2 + 1.5); sign2.rotation.y = -Math.PI / 2; G.add(sign2);
+  BK.chimney(G, { x: -3.6, z: zc - 2.6, y0: y2 - 0.4, h: 3.6, w: 1.0, d: 1.0, col: '#b7604a', pots: 2 });
   // the kitchen chimney at the back, with smoke
-  box(1.0, 3.2, 1.0, tex(bricks('#b7604a')), -3.6, y2 + 2.6, zc - 2.6, G);
-  const smoke = [];
+    const smoke = [];
   for (let k = 0; k < 5; k++) { const pf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), new THREE.MeshBasicMaterial({ color: '#e8e6e2', transparent: true, opacity: 0.7, depthWrite: false })); pf.userData.keep = true; G.add(pf); smoke.push(pf); }
   world.anim.push((dt, t) => smoke.forEach((pf, k) => { const f = (t * 0.25 + k / 5) % 1; pf.position.set(-3.6 + f * 1.8, y2 + 4.4 + f * 4.5, zc - 2.6 + f * 0.6); pf.scale.setScalar(0.6 + f * 1.8); pf.material.opacity = 0.7 * (1 - f); }));
   P.col(0, zc, W / 2 + 0.3, D / 2 + 0.3);
@@ -951,10 +968,8 @@ function palletHouse(world) {
   const parasol = ['#e8402e', '#f4f1e6', '#3d8fb0', '#e8a33a'];
   const SP = PALLET_HOUSE.spots;
   SP.tables.forEach(([tx, tz], k) => {
-    cyl(0.5, 0.5, 0.06, '#fbf3e0', tx, ty + 0.75, tz, G, 14); cyl(0.05, 0.08, 0.72, '#3a3d46', tx, ty + 0.38, tz, G, 6);
-    for (const a of [0, 2.1, 4.2]) { const c = box(0.36, 0.45, 0.36, wood, tx + Math.cos(a) * 0.85, ty + 0.25, tz + Math.sin(a) * 0.85, G, { line: false }); c.rotation.y = a; }
-    cyl(0.03, 0.03, 2.3, '#d8d0c0', tx, ty + 1.2, tz, G, 6, { line: false });
-    add(new THREE.Mesh(new THREE.ConeGeometry(1.4, 0.6, 8), flat(parasol[k])), G, tx, ty + 2.45, tz);
+    const t = OD.bistroSet({ chairs: 3 }); t.position.set(tx, ty, tz); t.rotation.y = k * 1.1; G.add(t);
+    const pa = OD.marketParasol({ col: parasol[k], col2: k === 1 ? '#3d8fb0' : '#f4f1e6' }); pa.position.set(tx, ty, tz); G.add(pa);
     P.circ(tx, tz, 0.9);
   });
   // string lights from posts at the terrace's corners to the eaves
@@ -972,34 +987,60 @@ function palletHouse(world) {
     for (let k = 0; k <= Math.round(len / 1.5); k++) box(0.09, 0.9, 0.09, beam, ax + (bx - ax) * k / Math.round(len / 1.5), ty + 0.45, az + (bz - az) * k / Math.round(len / 1.5), G, { line: false });
     P.col((ax + bx) / 2, (az + bz) / 2, Math.abs(bx - ax) / 2 + 0.08, Math.abs(bz - az) / 2 + 0.08);
   }
-  // the herb garden and the vegetable patch by the kitchen side
-  const soil = '#7a5238';
-  box(4.2, 0.3, 3.0, tex(planks('#a97a4c')), -W / 2 - 3.2, 0.15, zc - 4.5, G); box(3.9, 0.06, 2.7, soil, -W / 2 - 3.2, 0.31, zc - 4.5, G, { line: false });
-  box(5.5, 0.12, 4.5, soil, -3.5, 0.06, zc - 9.5, G, { line: false });
-  const herbs = makeClump(4404, TILE.fern, 0.55), veg = makeClump(4405, TILE.flowersY, 0.7);
-  [[herbs, -W / 2 - 3.2, zc - 4.5, 3.4, 2.2, 0.32], [veg, -3.5, zc - 9.5, 5.0, 3.8, 0.12]].forEach(([mod, cx, cz, w, d, yy]) => {
-    const pts = []; for (let a = 0; a < w; a += 0.7) for (let b = 0; b < d; b += 0.75) pts.push([cx - w / 2 + 0.35 + a, cz - d / 2 + 0.35 + b]);
-    const im = new THREE.InstancedMesh(mod.parts[0].geometry, mod.parts[0].material, pts.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-    pts.forEach(([px, pz], i) => { m4.compose(V(px, yy, pz), q.setFromAxisAngle(V(0, 1, 0), i * 1.7), V(1, 1, 1)); im.setMatrixAt(i, m4); }); im.castShadow = false; G.add(im);
-  });
+  // the herb garden (a raised bed of herbs) and the vegetable patch (furrowed
+  // beds of the kitchen's vegetables) by the kitchen side, on the ground
+  {
+    const hx = -W / 2 - 3.2, hz = zc - 4.5, hy = Math.min(P.hy(hx - 2, hz - 1.4), P.hy(hx + 2, hz + 1.4), P.hy(hx, hz));
+    box(4.2, 0.7, 3.0, tex(planks('#a97a4c')), hx, hy - 0.05, hz, G); box(3.9, 0.06, 2.7, '#6a4632', hx, hy + 0.31, hz, G, { line: false });
+    const herbs = [], R2 = rng(4404);
+    for (let a = 0; a < 5; a++) for (let b = 0; b < 3; b++) herbs.push([hx - 1.55 + a * 0.78, hy + 0.34, hz - 0.9 + b * 0.9, R2() * 6, 0.8 + R2() * 0.3]);
+    CR.plantAt(G, 'carrot', herbs.filter((_, i) => i % 3 === 0), { stage: 2, seeds: 1 });
+    CR.plantAt(G, 'lettuce', herbs.filter((_, i) => i % 3 === 1), { stage: 1, seeds: 1 });
+    CR.plantAt(G, 'radish', herbs.filter((_, i) => i % 3 === 2), { stage: 2, seeds: 1 });
+    const [wx, wz] = P.W(-3.5, zc - 9.5);
+    const f = { x: wx, z: wz, w: 5.0, d: 4.2, rot: hs.rot, kind: 'crop' };
+    // (planted in world coordinates, in its own group of the town)
+    const tmp = new THREE.Group(); FA.cropField(tmp, f, (x, z) => height(x, z) + 0.02, { seed: 4405, plan: [['cabbage', 0.6, 2], ['tomato', 0.7, 2], ['lettuce', 0.42, 2], ['corn', 0.5, 2]] });
+    world.group.add(tmp);
+  }
   P.col(-W / 2 - 3.2, zc - 4.5, 2.2, 1.6); P.col(-3.5, zc - 9.5, 2.8, 2.3);
   // the delivery bicycle by the door, a basket on the front
   { const b = new THREE.Group(); b.position.set(3.6, 0.3, zc + D / 2 + 0.6); b.rotation.y = 0.15; G.add(b);
-    for (const xx of [-0.55, 0.55]) add(new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.035, 5, 16), flat('#2c2d33')), b, xx, 0.36, 0, { line: false });
-    const f1 = box(1.1, 0.05, 0.05, '#c4553a', 0, 0.6, 0, b, { line: false }); f1.rotation.z = 0.15;
-    box(0.05, 0.5, 0.05, '#c4553a', -0.2, 0.55, 0, b, { line: false }); box(0.05, 0.6, 0.05, '#c4553a', 0.5, 0.65, 0, b, { line: false });
-    box(0.28, 0.06, 0.14, '#2c2d33', -0.22, 0.83, 0, b, { line: false }); box(0.06, 0.06, 0.5, '#9a9aa2', 0.52, 0.98, 0, b, { line: false });
-    box(0.36, 0.26, 0.34, tex(planks('#c99a62')), 0.78, 0.86, 0, b);
+    // a delivery bicycle on its stand: spoked wheels with tyres, a diamond
+    // frame of tubes, a saddle, a bell, mudguards, a wicker basket in front
+    const fr = '#c4553a', rod = (a, c, r, col) => OD.beam(V(...a), V(...c), r, col, b);
+    for (const xx of [-0.55, 0.55]) {
+      add(new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.035, 6, 20), flat('#2c2d33')), b, xx, 0.36, 0, { line: false });
+      add(new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 4, 20), flat('#b8bcc0')), b, xx, 0.36, 0, { line: false });
+      for (let k = 0; k < 8; k++) { const sp = box(0.008, 0.58, 0.008, '#b8bcc0', xx, 0.36, 0, b, { line: false, shadow: false }); sp.rotation.z = k / 8 * Math.PI; }
+      cyl(0.04, 0.04, 0.08, '#8a8a90', xx, 0.36, 0, b, 8).rotation.x = Math.PI / 2;
+      add(new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.025, 3, 12, Math.PI * 0.55), flat(fr)), b, xx, 0.36, 0, { line: false }).rotation.z = Math.PI * 0.22;
+    }
+    rod([-0.55, 0.36, 0], [-0.05, 0.42, 0], 0.025, fr); rod([-0.55, 0.36, 0], [-0.18, 0.82, 0], 0.025, fr);
+    rod([-0.05, 0.42, 0], [-0.2, 0.85, 0], 0.03, fr); rod([-0.05, 0.42, 0], [0.45, 0.82, 0], 0.03, fr); rod([-0.2, 0.83, 0], [0.45, 0.83, 0], 0.03, fr);
+    rod([0.55, 0.36, 0], [0.45, 0.95, 0], 0.025, '#b8bcc0'); rod([0.45, 0.95, -0.25], [0.45, 0.95, 0.25], 0.018, '#b8bcc0');
+    for (const zz of [-0.25, 0.25]) cyl(0.022, 0.022, 0.1, '#2c2d33', 0.45, 0.95, zz, b, 6).rotation.x = Math.PI / 2;
+    rod([-0.2, 0.85, 0], [-0.22, 0.95, 0], 0.02, '#b8bcc0');
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6).scale(1.5, 0.35, 0.8), flat('#2c2d33')), b, -0.24, 0.98, 0);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), flat('#e8c45a')), b, 0.45, 0.98, 0.15, { line: false });
+    cyl(0.06, 0.06, 0.03, '#b8bcc0', -0.05, 0.42, 0.05, b, 10).rotation.x = Math.PI / 2;   // the crank
+    rod([-0.05, 0.42, 0.06], [0.05, 0.3, 0.08], 0.012, '#8a8a90');
+    rod([-0.05, 0.42, 0], [-0.1, 0.05, 0.12], 0.012, '#8a8a90');   // the stand
+    // the basket on the front
+    add(new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0], [0.16, 0], [0.19, 0.24], [0.17, 0.24], [0.14, 0.03], [0.001, 0.03]].map(([a2, c2]) => new THREE.Vector2(a2, c2)), 4).rotateY(Math.PI / 4).scale(1.2, 1, 1), tex(planks('#c99a62'))), b, 0.78, 0.8, 0);
     P.circ(3.6, zc + D / 2 + 0.6, 0.6); }
   // the old family cottage behind, and the lookout gazebo on the rim
   { const c = new THREE.Group(); c.position.set(10.5, 0, zc - 4.5); c.rotation.y = -0.4; G.add(c);
-    // grandma's old cottage: weathered cream boards, a mossy green roof
-    const wall = tex(siding('#efe3c6'));
-    box(5.4, 2.6, 4.2, wall, 0, 1.3, 0, c);
-    gableWall(c, 5.4, 1.5, 2.6, 2.1, wall); gableWall(c, 5.4, 1.5, 2.6, -2.1, wall, -1);
-    gableRoof(c, 5.4, 4.2, 2.6, 1.5, tex(tiles('#4f7f4a')), '#d8cfb8', 0.3, 0.3);
-    box(0.7, 1.6, 0.7, tex(bricks('#b7604a')), 1.6, 3.6, -0.6, c);
-    box(1.0, 1.9, 0.1, tex(planks('#7a4a2e')), -1.2, 0.95, 2.12, c); windowAt(c, 1.2, 1.5, 2.12, 0.9, 0.8, 2, 2);
+    // grandma's old cottage: weathered cream boards, a mossy green tiled roof,
+    // a brick chimney, roses at the door (the building kit)
+    const gc = BK.building({ W: 5.4, D: 4.2, floors: 1, floorH: 2.4, trim: '#e8dcc0', seed: 4410,
+      plinth: { h: 0.3, deep: 1.2, kind: 'stone', col: '#aaa490' }, wall: { kind: 'siding', col: '#efe3c6' },
+      roof: { type: 'gable', cover: 'clay', col: '#4f7f4a', rise: 1.6, over: 0.4, gableOver: 0.35, trim: '#e8dcc0' },
+      chimney: { x: 1.6, z: -0.6, w: 0.7, d: 0.7, pots: 1 }, moss: true,
+      openings: [{ face: 'front', kind: 'door', x: -1.2, w: 1.0, h: 2.0, col: '#7a4a2e', canopy: true }, { face: 'front', kind: 'window', x: 1.2, w: 0.9, h: 0.9, panes: [2, 2], shutters: '#7a9a6a', box: '#9a7a52' },
+        { face: 'left', kind: 'window', x: 0, w: 0.8, h: 0.8 }, { face: 'right', kind: 'window', x: 0.4, w: 0.8, h: 0.8 }, { face: 'back', kind: 'window', x: 0, w: 0.8, h: 0.8 }],
+      ivy: [{ face: 'left', x: 0.6, w: 2.2, h: 2.6 }] });
+    gc.userData.eid = 'pallethouse/grandma_cottage'; c.add(gc);
     P.col(10.5, zc - 4.5, 3.0, 2.4, -0.4);
     P.use(10.5 - 1.2, zc - 4.5 + 3.2, 1.2, 'Look', ['The old cottage beside PALLET HOUSE.', 'Grandma lived here when the restaurant was hers. Her roses still bloom by the door.']);
     // her garden: a low picket front and rose beds
@@ -1011,13 +1052,22 @@ function palletHouse(world) {
     box(6.2, 0.07, 0.06, '#fbf3e0', gx, 0.45, gz + 1.9, G, { line: false });
     P.col(gx, gz + 0.5, 3.1, 1.5); }
   // the kitchen's back door and window, the tool shed, the water butt
-  { const [kx] = SP.kitchen_door; box(1.1, 2.2, 0.12, tex(planks('#7a4a2e')), kx, 1.4, z0 - 0.06, G); }
-  { const [wx] = SP.kitchen_window; const kw = windowAt(G, wx, 2.0, z0 - 0.03, 1.4, 1.0, 2, 2); kw.rotation.y = Math.PI; }
   { const [sx, sz] = SP.shed, sh = new THREE.Group(); sh.position.set(sx, 0, sz); sh.rotation.y = Math.PI / 2; G.add(sh);
-    box(2.2, 2.0, 1.4, tex(planks('#7a4a2e')), 0, 1.0, 0, sh);
-    const lean = box(2.5, 0.1, 1.8, tex(planks('#c99a62')), 0, 2.15, 0, sh); lean.rotation.x = 0.18;
-    for (const [tx2, tr] of [[-0.6, 0.1], [0.0, -0.05], [0.6, 0.12]]) { const t = box(0.05, 1.5, 0.05, '#8a5a36', tx2, 0.8, 0.78, sh, { line: false }); t.rotation.z = tr; }
-    box(0.4, 0.08, 0.3, '#9a9aa2', -0.6, 0.06, 0.82, sh, { line: false });
+    // the tool shed: planks on a stone footing, a shingled lean-to roof, a
+    // ledged door; a rake, a spade and a broom leaning by it
+    const ts = BK.building({ W: 2.2, D: 1.4, floors: 1, floorH: 1.9, trim: '#5a3a24', seed: 4420,
+      plinth: { h: 0.15, deep: 1.0, kind: 'stone', col: '#a8a290' }, wall: { kind: 'planks', col: '#7a4a2e' }, cornerBoards: true,
+      roof: { type: 'shed', cover: 'shingle', col: '#8a6a4a', rise: 0.45, over: 0.3, gableOver: 0.2, trim: '#5a3a24' },
+      openings: [{ face: 'front', kind: 'door', x: -0.3, w: 0.9, h: 1.7, col: '#6a4028', glass: false, step: false }] });
+    ts.userData.eid = 'pallethouse/toolshed'; sh.add(ts);
+    for (const [tx2, tr, kind] of [[0.45, 0.1, 'rake'], [0.75, -0.05, 'spade'], [1.0, 0.12, 'broom']]) {
+      const t = new THREE.Group(); t.position.set(tx2, 0, 0.82); t.rotation.z = tr; sh.add(t);
+      box(0.05, 1.5, 0.05, '#8a5a36', 0, 0.8, 0, t, { line: false });
+      if (kind === 'rake') { box(0.36, 0.04, 0.05, '#9aa2a8', 0, 0.06, 0, t, { line: false }); for (let i = 0; i < 8; i++) box(0.015, 0.08, 0.015, '#9aa2a8', -0.15 + i * 0.043, 0.0, 0.02, t, { line: false }); }
+      if (kind === 'spade') box(0.18, 0.26, 0.02, '#9aa2a8', 0, 0.1, 0, t);
+      if (kind === 'broom') add(new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.32, 8), tex(planks('#d8c27a'))), t, 0, 0.12, 0);
+    }
+    box(0.4, 0.08, 0.3, '#9a9aa2', -0.6 + 1.0, 0.06, 0.82 + 0.2, sh, { line: false });
     P.col(sx, sz, 0.8, 1.2);
     P.use(sx + 1.4, sz, 1.0, 'Look', ['The tool shed.', 'A rake, a spade and a broom lean against it. A cushion in the corner smells of... mime?']); }
   { const [bx, bz] = SP.water_butt; cyl(0.45, 0.42, 1.0, '#8a5a36', bx, 0.5, bz, G, 12); add(new THREE.Mesh(new THREE.CircleGeometry(0.4, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#2e5e74' })), G, bx, 0.97, bz, { line: false, shadow: false });
@@ -1026,12 +1076,8 @@ function palletHouse(world) {
   // a little sleeping nook by the front door: a round basket bed with a cushion
   { const [nx, nz] = SP.nook; add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.12, 6, 16).rotateX(Math.PI / 2), flat('#b98a5a')), G, nx, 0.42, nz);
     cyl(0.42, 0.42, 0.08, '#d8473a', nx, 0.38, nz, G, 14, { line: false }); }
-  { const gx = -9.5, gz = tz1 + 2.2, g = new THREE.Group(); g.position.set(gx, 0, gz); G.add(g);
-    box(4.2, 0.2, 4.2, wood, 0, 0.1, 0, g);
-    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; box(0.14, 2.4, 0.14, '#fbf3e0', Math.cos(a) * 1.8, 1.3, Math.sin(a) * 1.8, g); }
-    add(new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.3, 6), flat('#b5523a')), g, 0, 3.15, 0);
-    for (let k = 0; k < 6; k++) { if (k === 1) continue; const a = (k + 0.5) / 6 * Math.PI * 2, r2 = box(1.75, 0.08, 0.08, '#fbf3e0', Math.cos(a) * 1.56, 0.9, Math.sin(a) * 1.56, g, { line: false }); r2.rotation.y = -a + Math.PI / 2; }
-    P.walk(gx, gz, 2.1, 2.1, hs.y + 0.22);
+  { const gx = -9.5, gz = tz1 + 2.2, g = BK.gazebo({ r: 2.1, h: 2.4, col: '#fbf3e0', roof: '#b5523a', deck: '#c99a62', open: 1 }); g.position.set(gx, -0.1, gz); g.userData.eid = 'pallethouse/gazebo'; G.add(g);
+    P.walk(gx, gz, 2.1, 2.1, hs.y + g.userData.deck - 0.1);
     for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; P.circ(gx + Math.cos(a) * 1.8, gz + Math.sin(a) * 1.8, 0.15); } }
   // the door: a portal stub for an interior (pallet-map blueprint) later
   const [dx, dz] = P.W(0, zc + D / 2 + 0.9);
@@ -1139,7 +1185,7 @@ function well(x, z, world) {
   for (const s of [-1, 1]) box(0.16, 2.3, 0.16, '#8a5f3c', s * 1.05, 1.15, 0, g);
   box(2.4, 0.12, 0.12, '#8a5f3c', 0, 2.0, 0, g, { line: false });
   const rf = new THREE.Group(); g.add(rf);
-  gableRoof(rf, 2.6, 1.6, 2.25, 0.7, tex(tiles('#c4553a')), '#fbfaf4', 0.15, 0.1, 0.12);
+  gableRoof(rf, 2.6, 1.6, 2.25, 0.7, roofTex('#c4553a'), '#fbfaf4', 0.15, 0.1, 0.12);
   const bucket = cyl(0.2, 0.16, 0.3, '#9a6a3e', 0, 1.35, 0, g, 10); bucket.userData.keep = true;
   world.anim.push((dt, t) => { bucket.position.y = 1.35 + Math.sin(t * 0.7) * 0.03; });
   world.colliders.push({ x, z, r: 1.35 });
@@ -1342,7 +1388,7 @@ function harbourFront(world, g) {
 function boathouse(world, x, z) {
   [x, z] = offPath(x, z, 3.6, world);
   const G = new THREE.Group(); G.position.set(x, height(x, z), z); G.rotation.y = 0.1; world.group.add(G);
-  const wall = tex(planks('#6f9fbf')), roofMat = tex(tiles('#d8473a'));
+  const wall = tex(planks('#6f9fbf')), roofMat = roofTex('#d8473a');
   foundation(G, 5.2, 4.2, 0.2, 0, 0, 0.8, 991);
   box(5.0, 2.6, 4.0, wall, 0, 1.4, 0, G);
   gableWall(G, 5.0, 1.6, 2.7, 2.0, wall); gableWall(G, 5.0, 1.6, 2.7, -2.0, wall, -1);
@@ -1559,9 +1605,10 @@ export const BEDS = [
 ];
 
 export function buildTown() {
-  const world = { colliders: [], use: [], solid: [], walk: [], anim: [], group: new THREE.Group() };
+  const world = { colliders: [], use: [], solid: [], walk: [], anim: [], noVeg: [], group: new THREE.Group() };
   trackTown(world);
   for (const hs of HOUSES) cottage(hs, world);
+  for (const [k, l] of Object.entries(world.gardenCrops || {})) CR.plantAt(world.group, k, l, { stage: 2, seeds: 1 });
   // the lab on its hill, facing west down the stairs
   const facing = -Math.PI / 2;
   const lx = LAB_HILL.x0 + 9 + 9.05, lz = STAIRS.z + 4;
@@ -1602,8 +1649,13 @@ export function buildTown() {
   palletHouse(world);
   // where the new woodland trail forks off the lane to Blue's house
   signpost(26.6, -11.2, [["BLUE's house", 2.55], ['WOODLAND TRAIL', 2.0], ['TOWN SQUARE', -1.2], ['OAK LAB', -0.5]], world);
+  // the farm fields round the town: furrowed beds, planted (the Route 1
+  // farm's field is planted by route1Fill)
+  { const ground = (x, z) => Math.max(height(x, z), meshHeight(x, z)) + 0.02;
+    FIELDS.forEach((f, i) => { if (f.z > -60) FA.cropField(world.group, f, ground, { seed: 900 + i * 17, skip: (x, z) => onPath(x, z, 0.4) }); }); }
   route1Fill(world);
   applyTown(world);
+  OD.foldFlat(world.group);
   // tools/qa/scan.mjs (?qa): keep every placed piece as its own group, unmerged
   if (globalThis.__PALLET_EDITOR || globalThis.location && /[?&]qa\b/.test(location.search)) return world;   // (and the world editor)
   // the walls, foundations and the islet: one mesh per cell and kind

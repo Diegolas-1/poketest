@@ -310,7 +310,9 @@ export function buildFields(scene) {
   // the true height or the rendered ground, or the ground pokes through (and
   // fights the field) where it bends.
   const onMesh = (x, z) => meshHeight(x, z);
-  for (const f of FIELDS) {
+  // (the fields are modelled now: furrowed beds and crops, props/farm.js
+  // cropField from town.js and route1.js; nothing is painted here)
+  for (const f of FIELDS.filter(() => false)) {
     const tex = texs[f.kind] || (texs[f.kind] = fieldTexture(f.kind));
     const nu = Math.ceil(f.w / 1.0), nv = Math.ceil(f.d / 1.0);
     const g = new THREE.PlaneGeometry(f.w, f.d, nu, nv);

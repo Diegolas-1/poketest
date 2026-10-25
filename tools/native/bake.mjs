@@ -184,7 +184,7 @@ const res = await p.evaluate(async () => {
       const u = m.userData, d = { cel: u.cel || {} };
       if (u.leaf) Object.assign(d, { kind: 'leaf', tint: '#' + m.color.getHexString(), wind: u.leaf.wind, tex: texOf(m.map, 'leaf_' + u.leaf.variant + '_') });
       else if (u.bark) Object.assign(d, { kind: 'bark', color: u.bark.color, style: u.bark.style, wind: u.bark.wind, mossy: u.bark.mossy, tex: texOf(m.map, 'bark') });
-      else Object.assign(d, { kind: u.stone ? 'stone' : 'rock', color: '#' + m.color.getHexString() });   // stone: stone.js (veg_stone.gdshader)
+      else Object.assign(d, { kind: u.stone ? 'stone' : 'rock', color: '#' + m.color.getHexString(), wind: (u.rock && u.rock.wind) || 0 });   // stone: stone.js (veg_stone.gdshader)
       mats.push(d); matId.set(m.uuid, mats.length - 1);
       return mats.length - 1;
     };
@@ -331,7 +331,8 @@ const res = await p.evaluate(async () => {
       const model = { parts: list.map((m) => ({ geometry: m.geometry, material: m.material })) };
       let r = 0, h = 0;
       for (const pp of model.parts) { pp.geometry.computeBoundingBox(); const b = pp.geometry.boundingBox; r = Math.max(r, -b.min.x, b.max.x, -b.min.z, b.max.z); h = Math.max(h, b.max.y); }
-      const leafy = list.some((m) => m.material.userData.leaf);
+      // crops (crops.js plantSolid: userData.rock with a wind) get billboards like the bushes
+      const leafy = list.some((m) => m.material.userData.leaf || (m.material.userData.rock && m.material.userData.rock.wind !== undefined));
       const imp = leafy ? new A.Impostor(w.renderer, model, { size: 56, lights }) : null;
       sets.push({ src: 'town', parts: model.parts.map((pp) => ({ mesh: meshOf(pp.geometry, pp.material), mat: matOf(pp.material) })), radius: r, height: h,
         fade: o.userData.fade || (leafy ? [90, 95] : [140, 146]), shrink: leafy ? 1 : 0.6, wind: 0, shadows: o.castShadow, far: [500, 600], impostor: impOf(imp),
