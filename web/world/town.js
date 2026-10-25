@@ -15,6 +15,7 @@ import { STONE, boulderGeometry, blockGeometry, mergeAll, wallGeometry, wallMesh
 const WALL_FADE = [300, 310];   // native: walls stay drawn this far (m)
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 import { route1Fill } from './route1.js';   // Route 1's places (worker 12)
+import { trackTown, applyTown } from './editlayer/objects.js';   // the world editor's edits
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -1539,6 +1540,7 @@ export const BEDS = [
 
 export function buildTown() {
   const world = { colliders: [], use: [], solid: [], walk: [], anim: [], group: new THREE.Group() };
+  trackTown(world);
   for (const hs of HOUSES) cottage(hs, world);
   // the lab on its hill, facing west down the stairs
   const facing = -Math.PI / 2;
@@ -1581,8 +1583,9 @@ export function buildTown() {
   // where the new woodland trail forks off the lane to Blue's house
   signpost(26.6, -11.2, [["BLUE's house", 2.55], ['WOODLAND TRAIL', 2.0], ['TOWN SQUARE', -1.2], ['OAK LAB', -0.5]], world);
   route1Fill(world);
+  applyTown(world);
   // tools/qa/scan.mjs (?qa): keep every placed piece as its own group, unmerged
-  if (globalThis.location && /[?&]qa\b/.test(location.search)) return world;
+  if (globalThis.__PALLET_EDITOR || globalThis.location && /[?&]qa\b/.test(location.search)) return world;   // (and the world editor)
   // the walls, foundations and the islet: one mesh per cell and kind
   world.stoneMeshes = mergeStones(world.group);
   // merge each static piece's meshes by material

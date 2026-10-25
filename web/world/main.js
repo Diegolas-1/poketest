@@ -15,6 +15,7 @@ import { createOutline, setInkFocus, INK_LAYER } from './outline.js';
 import { createSettings, loadSettings } from './settings.js';
 import { createPerfLog } from './perflog.js';
 import { createSpaces } from './spaces.js';
+import { E } from './editlayer/index.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { $('loadText').textContent = t; };
@@ -215,6 +216,8 @@ const colliders = town.colliders;
 // where plants may not grow: buildings, beds' walls, the dock
 function blocked(x, z, r = 0) {
   for (const c of colliders) {
+    // (the world editor: plants are seeded round the pieces as generated)
+    if (E.raw ? c.ed : c.off) continue;
     if (c.box) {
       let dx = x - c.x, dz = z - c.z;
       if (c.rot) { const cs = Math.cos(c.rot), sn = Math.sin(c.rot); [dx, dz] = [dx * cs - dz * sn, dx * sn + dz * cs]; }
@@ -298,6 +301,8 @@ scene.add(player.root);
 const RED = HOUSES.find((h) => h.id === 'red');
 const SPAWN = toWorld(RED, 1.75, 7.2);
 const me = { pos: new THREE.Vector3(SPAWN[0], 0, SPAWN[1]), yaw: RED.rot, vy: 0, ground: true, speed: 0 };
+// ?at=x,z[,yaw]: start there (the world editor's Play here)
+if (q.get('at')) { const [ax, az, ay] = q.get('at').split(',').map(Number); if (isFinite(ax) && isFinite(az)) { me.pos.set(ax, 0, az); if (isFinite(ay)) me.yaw = ay; } }
 const npcs = [];
 function npc(look, x, z, lines, opts = {}) {
   const a = makeActor(look);
@@ -348,7 +353,7 @@ function groundAt(x, z) {
 }
 function collide(p, r = 0.35) {
   for (const c of colliders) {
-    if (Math.abs(p.x - c.x) > 12 || Math.abs(p.z - c.z) > 12) continue;
+    if (c.off || Math.abs(p.x - c.x) > 12 || Math.abs(p.z - c.z) > 12) continue;
     if (c.box) {
       let dx = p.x - c.x, dz = p.z - c.z;
       const cs = c.rot ? Math.cos(c.rot) : 1, sn = c.rot ? Math.sin(c.rot) : 0;
@@ -731,7 +736,7 @@ function frame(fixed) {
 }
 
 me.pos.y = groundAt(me.pos.x, me.pos.z);
-cam.yaw = 0.35; cam.target.set(me.pos.x, me.pos.y + 1.45, me.pos.z);
+cam.yaw = q.get('at') ? me.yaw + Math.PI : 0.35; cam.target.set(me.pos.x, me.pos.y + 1.45, me.pos.z);
 if (TEST) frame(1 / 60); else requestAnimationFrame(frame);
 grow().catch((e) => { console.error(e); status('Something went wrong loading the plants: ' + e.message); });
 window.world = { outline, me, cam, space, setCam(v) { TEST_CAM = v; }, groundAt, town, dialog, oak, move(dx, dz) { return step(me, dx, dz); }, noWalk, scene, renderer, camera, npcs, step(n = 1, dt = 1 / 30) { for (let i = 0; i < n; i++) frame(dt); } };

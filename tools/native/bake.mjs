@@ -486,7 +486,7 @@ const res = await p.evaluate(async () => {
   out.meta = {
     sea: T.SEA_Y, pathmap: { x0: PM.x0, z0: PM.z0, w: PM.w, d: PM.d, nx: PM.nx, nz: PM.nz },
     spawn: [w.me.pos.x, w.me.pos.y, w.me.pos.z], yaw: w.me.yaw,
-    colliders: w.town.colliders.map((c) => c.box ? [1, +c.x.toFixed(3), +c.z.toFixed(3), +c.hw.toFixed(3), +c.hd.toFixed(3), +(c.rot || 0).toFixed(4)] : [0, +c.x.toFixed(3), +c.z.toFixed(3), +c.r.toFixed(3)]),
+    colliders: w.town.colliders.filter((c) => !c.off).map((c) => c.box ? [1, +c.x.toFixed(3), +c.z.toFixed(3), +c.hw.toFixed(3), +c.hd.toFixed(3), +(c.rot || 0).toFixed(4)] : [0, +c.x.toFixed(3), +c.z.toFixed(3), +c.r.toFixed(3)]),
   };
   return out;
 });
