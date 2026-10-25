@@ -11,7 +11,7 @@
 //                  camera volumes, lights and lamps
 // Run: node tools/native/bake_interior.mjs [oak_lab]   (serves web/ on :8790 if
 // nothing is there; WEB_PORT for another checkout)
-import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
+const { chromium } = await import(process.env.PLAYWRIGHT || '/opt/node-tools/node_modules/playwright/index.mjs');   // (tools/native/setup.sh sets PLAYWRIGHT on a fresh machine)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

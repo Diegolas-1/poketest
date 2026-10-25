@@ -23,8 +23,9 @@
 //      version, or failed with the error. The editor's Versions window shows it.
 //
 // Needs: the editor passphrase (PALLET_EDITOR_TOKEN or ~/.pallet-editor-token),
-// git push access, GODOT (Godot 4.7.2; default: the scratchpad copy if found),
-// CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID (publish_patch.mjs).
+// git push access, CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID (publish_patch.mjs).
+// Godot 4.7.2, its iOS template and Chromium come from tools/native/setup.sh
+// (run only when a request is pending, so an idle run stays instant).
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -65,12 +66,19 @@ async function main() {
   }
 }
 
+// a fresh machine: Godot, the iOS template and Chromium (tools/native/setup.sh; cached after the first run)
+function setup() {
+  const r = spawnSync('bash', [path.join(ROOT, 'tools/native/setup.sh')], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 24, timeout: 3600e3 });
+  if (r.status !== 0) throw new Error('tools/native/setup.sh failed:\n' + (r.stderr || '').slice(-2000));
+  for (const l of r.stdout.split('\n')) { const m = /^(GODOT|PLAYWRIGHT)=(.+)$/.exec(l); if (m) process.env[m[1]] = m[2]; }
+}
 async function handle(pending) {
   const req = pending[pending.length - 1];
   for (const r of pending.slice(0, -1)) await call('POST', '/api/requests/' + r.id, { status: 'superseded', log: `superseded by request #${req.id}` });
   const report = (status, log, result) => call('POST', '/api/requests/' + req.id, { status, log, result }).catch((e) => say('could not report: ' + e.message));
   say(`request #${req.id}: version ${req.version} (${req.message})`);
   await report('working', `picked up by ${OWNER}`);
+  try { setup(); } catch (e) { await report('failed', e.message); process.exitCode = 1; return; }
   let headR = git('rev-parse', 'HEAD');
   try {
     // ---------- 3. a clean tree on top of main ----------
@@ -117,7 +125,7 @@ async function handle(pending) {
     // ---------- 7. the patch ----------
     if (!world && !life) { await report('done', 'nothing new to publish (the game already has this version)', { patch: null }); return; }
     await report('working', 'publishing the patch');
-    const GODOT = process.env.GODOT || ['/tmp/claude-0/-home-user/7870b7e6-726c-53e3-9646-dd6012ceb3b2/scratchpad/godot/Godot_v4.7.2-stable_linux.x86_64'].find((f) => fs.existsSync(f)) || 'godot';
+    const GODOT = process.env.GODOT || 'godot';
     const r = spawnSync('node', [path.join(ROOT, 'tools/native/publish_patch.mjs'), '--notes', `Editor: ${req.message || 'world edits'}`], { cwd: ROOT, env: { ...process.env, GODOT }, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 3 * 3600e3 });
     const out = (r.stdout || '') + (r.stderr || '');
     if (r.status !== 0) throw new Error('publish_patch failed:\n' + out.slice(-3000));
