@@ -5,7 +5,7 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, ROUTE1, routeX, LEDGES, ledgeLineZ } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, ROUTE1, routeX, LEDGES, ledgeLineZ } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
@@ -835,7 +835,9 @@ function laneFurniture(world) {
   // lamps along the lanes in town
   ROADS.forEach((road, ri) => {
     if (ri === 0) return;
-    for (let i = 8; i < road.length - 4; i += 18) {
+    // (on the woodland trails only near town: they fade out into the woods)
+    const iEnd = TRAILS.has(ri) ? Math.min(road.length - 4, ri === ROADS.length - 2 ? 40 : ri === ROADS.length - 1 ? 0 : road.length) : road.length - 4;
+    for (let i = 8; i < iEnd; i += 18) {
       const [x, z] = road[i], b = road[i + 1], dx = b[0] - x, dz = b[1] - z, l = Math.hypot(dx, dz) || 1;
       const s = (i / 18) % 2 ? 1 : -1, px = x - dz / l * 2.9 * s, pz = z + dx / l * 2.9 * s;
       if (roadDist(px, pz) < 2.6 || inYard(px, pz, 0.6) || isWater(px, pz) || streamAt(px, pz).d < 3.6 || labHillU(px, pz) < 1) continue;
@@ -861,6 +863,178 @@ function fenceMeshes(world, posts, rails, colour) {
   for (const o of [pm, rm]) { o.castShadow = o.receiveShadow = true; world.group.add(o); }
 }
 
+// ---------- PALLET HOUSE ----------
+// Delia's restaurant on its hilltop above the bay (terrain.js PALLET_HOUSE):
+// the country restaurant her mother ran before her (Shudo's novel), with two
+// guest rooms upstairs. Plaster ground floor, timber-framed upper floor under a
+// steep tiled gable that faces the sea; a sea-view terrace with tables,
+// parasols and string lights; the hanging sign; a kitchen chimney with smoke;
+// flower boxes, a herb garden and a vegetable patch; the delivery bicycle; a
+// bench with the view; the old family cottage beside it and a little lookout
+// gazebo on the rim. A fence along the drop. Exterior only: the door is a
+// portal stub (world.portals) for an interior made with the blueprints later.
+function palletHouse(world) {
+  const hs = { x: PALLET_HOUSE.x, z: PALLET_HOUSE.z, y: PALLET_HOUSE.y, rot: PALLET_HOUSE.rot };
+  const P = placer(hs, world), G = P.G;
+  // (textures shared with the cottages' and the dock's: every distinct painted
+  // texture is one more image for the native game to load)
+  const cream = tex(siding('#f2e2b8')), beam = '#6b4a33', wood = tex(planks('#c99a62')), roof = tex(tiles('#c4553a'));
+  // the house: 13 x 9, front (door, terrace) to +z, toward the bay
+  const W = 13, D = 9, z0 = -6.5, zc = z0 + D / 2, y1 = 3.4, y2 = 6.4;
+  foundation(G, W + 0.4, D + 0.4, 0.3, 0, zc, 1.2, 4401);
+  box(W, y1, D, cream, 0, 0.3 + y1 / 2, zc, G);
+  box(W + 0.3, y2 - y1, D + 0.3, cream, 0, 0.3 + (y1 + y2) / 2, zc, G);
+  // the timber frame on the upper floor: posts, rails and braces
+  for (const sz of [-1, 1]) {
+    const fz = zc + sz * (D / 2 + 0.17);
+    for (let i = 0; i <= 6; i++) box(0.22, y2 - y1, 0.1, beam, -W / 2 + (W * i) / 6, 0.3 + (y1 + y2) / 2, fz, G, { line: false });
+    for (const yy of [y1 + 0.35, y2 + 0.1]) box(W + 0.4, 0.22, 0.12, beam, 0, yy, fz, G, { line: false });
+    for (const xx of [-W / 2 + 1.1, W / 2 - 1.1]) { const b = box(0.16, 2.6, 0.08, beam, xx, 0.3 + (y1 + y2) / 2, fz + sz * 0.02, G, { line: false }); b.rotation.z = xx < 0 ? 0.6 : -0.6; }
+  }
+  gableWall(G, W + 0.3, 3.6, y2 + 0.3, zc + D / 2 + 0.15, cream);
+  gableWall(G, W + 0.3, 3.6, y2 + 0.3, zc - D / 2 - 0.15, cream, -1);
+  const rf = new THREE.Group(); rf.rotation.y = Math.PI / 2; rf.position.set(0, 0, zc); G.add(rf);
+  gableRoof(rf, D + 0.3, W + 0.3, y2 + 0.3, 3.6, roof, '#fbf3e0', 0.6, 0.5);
+  // windows: shuttered below, small under the eaves, flower boxes
+  const flowers = makeClump(4402, TILE.flowersR, 0.6), fl2 = makeClump(4403, TILE.flowersY, 0.6), boxes = [];
+  for (const xx of [-4.4, 4.4]) {
+    windowAt(G, xx, 2.0, zc + D / 2 + 0.03, 1.6, 1.3, 2, 2);
+    for (const s2 of [-1, 1]) box(0.5, 1.4, 0.06, '#3f7a52', xx + s2 * 1.15, 2.0, zc + D / 2 + 0.08, G, { line: false });
+    box(1.9, 0.32, 0.4, wood, xx, 1.18, zc + D / 2 + 0.25, G); boxes.push([xx, zc + D / 2 + 0.25]);
+  }
+  for (const xx of [-3.6, 0, 3.6]) { windowAt(G, xx, y1 + 1.6, zc + D / 2 + 0.2, 1.1, 1.0, 2, 2); box(1.4, 0.26, 0.36, wood, xx, y1 + 0.95, zc + D / 2 + 0.4, G); boxes.push([xx, zc + D / 2 + 0.4, y1 + 1.05]); }
+  windowAt(G, 0, y2 + 1.6, zc + D / 2 + 0.25, 0.9, 0.9, 2, 2);
+  for (const zz of [zc - 2, zc + 2]) { const w2 = windowAt(G, -W / 2 - 0.03, 2.0, zz, 1.3, 1.2, 2, 2); w2.rotation.y = -Math.PI / 2; const w3 = windowAt(G, W / 2 + 0.03, 2.0, zz, 1.3, 1.2, 2, 2); w3.rotation.y = Math.PI / 2; }
+  [flowers, fl2].forEach((mod, k) => {
+    const list = boxes.filter((_, i) => i % 2 === k);
+    const im = new THREE.InstancedMesh(mod.parts[0].geometry, mod.parts[0].material, list.length * 3), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    list.forEach(([bx, bz, by = 1.18], i) => { for (let j = 0; j < 3; j++) { m4.compose(V(bx - 0.5 + j * 0.5, by + 0.14, bz), q.setFromAxisAngle(V(0, 1, 0), j * 2.1), V(1, 1, 1)); im.setMatrixAt(i * 3 + j, m4); } });
+    im.castShadow = false; G.add(im);
+  });
+  // the front door under a little porch roof, and the hanging sign
+  box(1.5, 2.4, 0.12, tex(planks('#7a4a2e')), 0, 1.5, zc + D / 2 + 0.06, G);
+  box(0.1, 0.1, 0.06, '#e8c45a', 0.5, 1.5, zc + D / 2 + 0.15, G, { line: false });
+  const porch = new THREE.Group(); porch.position.set(0, 0, zc + D / 2 + 0.6); G.add(porch);
+  gableRoof(porch, 2.6, 1.2, 2.95, 0.6, roof, '#fbf3e0', 0.15, 0.05, 0.12);
+  box(0.12, 0.12, 1.6, beam, 1.9, 2.75, zc + D / 2 + 0.8, G);
+  box(0.08, 0.5, 0.08, beam, 1.9, 2.45, zc + D / 2 + 1.5, G, { line: false });
+  const sign = nameplate('PALLET HOUSE', { w: 1.9, h: 0.55 }); sign.position.set(1.9, 2.0, zc + D / 2 + 1.5); sign.rotation.y = Math.PI / 2; G.add(sign);
+  const sign2 = sign.clone(); sign2.position.set(1.9, 2.0, zc + D / 2 + 1.5); sign2.rotation.y = -Math.PI / 2; G.add(sign2);
+  // the kitchen chimney at the back, with smoke
+  box(1.0, 3.2, 1.0, tex(bricks('#b7604a')), -3.6, y2 + 2.6, zc - 2.6, G);
+  const smoke = [];
+  for (let k = 0; k < 5; k++) { const pf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), new THREE.MeshBasicMaterial({ color: '#e8e6e2', transparent: true, opacity: 0.7, depthWrite: false })); pf.userData.keep = true; G.add(pf); smoke.push(pf); }
+  world.anim.push((dt, t) => smoke.forEach((pf, k) => { const f = (t * 0.25 + k / 5) % 1; pf.position.set(-3.6 + f * 1.8, y2 + 4.4 + f * 4.5, zc - 2.6 + f * 0.6); pf.scale.setScalar(0.6 + f * 1.8); pf.material.opacity = 0.7 * (1 - f); }));
+  P.col(0, zc, W / 2 + 0.3, D / 2 + 0.3);
+  // the sea-view terrace: a deck with tables, parasols and string lights
+  const tz0 = zc + D / 2 + 0.3, tz1 = tz0 + 7, tw = 15, ty = 0.32;
+  box(tw, 0.18, tz1 - tz0, wood, 0, ty - 0.09, (tz0 + tz1) / 2, G);
+  P.walk(0, (tz0 + tz1) / 2, tw / 2, (tz1 - tz0) / 2, hs.y + ty + 0.02);
+  const parasol = ['#e8402e', '#f4f1e6', '#3d8fb0', '#e8a33a'];
+  const SP = PALLET_HOUSE.spots;
+  SP.tables.forEach(([tx, tz], k) => {
+    cyl(0.5, 0.5, 0.06, '#fbf3e0', tx, ty + 0.75, tz, G, 14); cyl(0.05, 0.08, 0.72, '#3a3d46', tx, ty + 0.38, tz, G, 6);
+    for (const a of [0, 2.1, 4.2]) { const c = box(0.36, 0.45, 0.36, wood, tx + Math.cos(a) * 0.85, ty + 0.25, tz + Math.sin(a) * 0.85, G, { line: false }); c.rotation.y = a; }
+    cyl(0.03, 0.03, 2.3, '#d8d0c0', tx, ty + 1.2, tz, G, 6, { line: false });
+    add(new THREE.Mesh(new THREE.ConeGeometry(1.4, 0.6, 8), flat(parasol[k])), G, tx, ty + 2.45, tz);
+    P.circ(tx, tz, 0.9);
+  });
+  // string lights from posts at the terrace's corners to the eaves
+  const bulbs = [], postsAt = [[-tw / 2 + 0.2, tz1 - 0.2], [tw / 2 - 0.2, tz1 - 0.2]];
+  for (const [px, pz] of postsAt) { box(0.14, 2.8, 0.14, beam, px, ty + 1.4, pz, G); P.circ(px, pz, 0.2); }
+  const strand = (a, b, n) => { for (let i = 0; i <= n; i++) { const f = i / n, sag = Math.sin(f * Math.PI) * 0.45; bulbs.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f - sag, a[2] + (b[2] - a[2]) * f]); } };
+  strand([-tw / 2 + 0.2, ty + 2.75, tz1 - 0.2], [-W / 2 + 0.3, y1 + 0.3, tz0], 8);
+  strand([tw / 2 - 0.2, ty + 2.75, tz1 - 0.2], [W / 2 - 0.3, y1 + 0.3, tz0], 8);
+  strand([-tw / 2 + 0.2, ty + 2.75, tz1 - 0.2], [tw / 2 - 0.2, ty + 2.75, tz1 - 0.2], 14);
+  { const im = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: '#fff1c4' }), bulbs.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    bulbs.forEach(([bx, by, bz], i) => { m4.compose(V(bx, by, bz), q, V(1, 1, 1)); im.setMatrixAt(i, m4); }); G.add(im); }
+  // a low rail round the terrace's sea edge
+  for (const [ax, az, bx, bz] of [[-tw / 2, tz0, -tw / 2, tz1], [-tw / 2, tz1, -1.2, tz1], [1.2, tz1, tw / 2, tz1], [tw / 2, tz1, tw / 2, tz0]]) {
+    const len = Math.hypot(bx - ax, bz - az), r = box(0.1, 0.1, len, wood, (ax + bx) / 2, ty + 0.9, (az + bz) / 2, G); r.rotation.y = Math.atan2(bx - ax, bz - az);
+    for (let k = 0; k <= Math.round(len / 1.5); k++) box(0.09, 0.9, 0.09, beam, ax + (bx - ax) * k / Math.round(len / 1.5), ty + 0.45, az + (bz - az) * k / Math.round(len / 1.5), G, { line: false });
+    P.col((ax + bx) / 2, (az + bz) / 2, Math.abs(bx - ax) / 2 + 0.08, Math.abs(bz - az) / 2 + 0.08);
+  }
+  // the herb garden and the vegetable patch by the kitchen side
+  const soil = '#7a5238';
+  box(4.2, 0.3, 3.0, tex(planks('#a97a4c')), -W / 2 - 3.2, 0.15, zc - 4.5, G); box(3.9, 0.06, 2.7, soil, -W / 2 - 3.2, 0.31, zc - 4.5, G, { line: false });
+  box(5.5, 0.12, 4.5, soil, -3.5, 0.06, zc - 9.5, G, { line: false });
+  const herbs = makeClump(4404, TILE.fern, 0.55), veg = makeClump(4405, TILE.flowersY, 0.7);
+  [[herbs, -W / 2 - 3.2, zc - 4.5, 3.4, 2.2, 0.32], [veg, -3.5, zc - 9.5, 5.0, 3.8, 0.12]].forEach(([mod, cx, cz, w, d, yy]) => {
+    const pts = []; for (let a = 0; a < w; a += 0.7) for (let b = 0; b < d; b += 0.75) pts.push([cx - w / 2 + 0.35 + a, cz - d / 2 + 0.35 + b]);
+    const im = new THREE.InstancedMesh(mod.parts[0].geometry, mod.parts[0].material, pts.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    pts.forEach(([px, pz], i) => { m4.compose(V(px, yy, pz), q.setFromAxisAngle(V(0, 1, 0), i * 1.7), V(1, 1, 1)); im.setMatrixAt(i, m4); }); im.castShadow = false; G.add(im);
+  });
+  P.col(-W / 2 - 3.2, zc - 4.5, 2.2, 1.6); P.col(-3.5, zc - 9.5, 2.8, 2.3);
+  // the delivery bicycle by the door, a basket on the front
+  { const b = new THREE.Group(); b.position.set(3.6, 0.3, zc + D / 2 + 0.6); b.rotation.y = 0.15; G.add(b);
+    for (const xx of [-0.55, 0.55]) add(new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.035, 5, 16), flat('#2c2d33')), b, xx, 0.36, 0, { line: false });
+    const f1 = box(1.1, 0.05, 0.05, '#c4553a', 0, 0.6, 0, b, { line: false }); f1.rotation.z = 0.15;
+    box(0.05, 0.5, 0.05, '#c4553a', -0.2, 0.55, 0, b, { line: false }); box(0.05, 0.6, 0.05, '#c4553a', 0.5, 0.65, 0, b, { line: false });
+    box(0.28, 0.06, 0.14, '#2c2d33', -0.22, 0.83, 0, b, { line: false }); box(0.06, 0.06, 0.5, '#9a9aa2', 0.52, 0.98, 0, b, { line: false });
+    box(0.36, 0.26, 0.34, tex(planks('#c99a62')), 0.78, 0.86, 0, b);
+    P.circ(3.6, zc + D / 2 + 0.6, 0.6); }
+  // the old family cottage behind, and the lookout gazebo on the rim
+  { const c = new THREE.Group(); c.position.set(10.5, 0, zc - 4.5); c.rotation.y = -0.4; G.add(c);
+    // grandma's old cottage: weathered cream boards, a mossy green roof
+    const wall = tex(siding('#efe3c6'));
+    box(5.4, 2.6, 4.2, wall, 0, 1.3, 0, c);
+    gableWall(c, 5.4, 1.5, 2.6, 2.1, wall); gableWall(c, 5.4, 1.5, 2.6, -2.1, wall, -1);
+    gableRoof(c, 5.4, 4.2, 2.6, 1.5, tex(tiles('#4f7f4a')), '#d8cfb8', 0.3, 0.3);
+    box(0.7, 1.6, 0.7, tex(bricks('#b7604a')), 1.6, 3.6, -0.6, c);
+    box(1.0, 1.9, 0.1, tex(planks('#7a4a2e')), -1.2, 0.95, 2.12, c); windowAt(c, 1.2, 1.5, 2.12, 0.9, 0.8, 2, 2);
+    P.col(10.5, zc - 4.5, 3.0, 2.4, -0.4);
+    P.use(10.5 - 1.2, zc - 4.5 + 3.2, 1.2, 'Look', ['The old cottage beside PALLET HOUSE.', 'Grandma lived here when the restaurant was hers. Her roses still bloom by the door.']);
+    // her garden: a low picket front and rose beds
+    const [gx, gz] = SP.cottage_garden;
+    const roses = makeClump(4406, TILE.flowersR, 0.8), im = new THREE.InstancedMesh(roses.parts[0].geometry, roses.parts[0].material, 10), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    for (let k = 0; k < 10; k++) { m4.compose(V(gx - 2.4 + (k % 5) * 1.1, 0.02, gz + Math.floor(k / 5) * 1.0), q.setFromAxisAngle(V(0, 1, 0), k * 1.3), V(1.1, 1.1, 1.1)); im.setMatrixAt(k, m4); }
+    im.castShadow = false; G.add(im);
+    for (let k = 0; k < 7; k++) box(0.08, 0.6, 0.08, '#fbf3e0', gx - 3.0 + k, 0.3, gz + 1.9, G, { line: false });
+    box(6.2, 0.07, 0.06, '#fbf3e0', gx, 0.45, gz + 1.9, G, { line: false });
+    P.col(gx, gz + 0.5, 3.1, 1.5); }
+  // the kitchen's back door and window, the tool shed, the water butt
+  { const [kx] = SP.kitchen_door; box(1.1, 2.2, 0.12, tex(planks('#7a4a2e')), kx, 1.4, z0 - 0.06, G); }
+  { const [wx] = SP.kitchen_window; const kw = windowAt(G, wx, 2.0, z0 - 0.03, 1.4, 1.0, 2, 2); kw.rotation.y = Math.PI; }
+  { const [sx, sz] = SP.shed, sh = new THREE.Group(); sh.position.set(sx, 0, sz); sh.rotation.y = Math.PI / 2; G.add(sh);
+    box(2.2, 2.0, 1.4, tex(planks('#7a4a2e')), 0, 1.0, 0, sh);
+    const lean = box(2.5, 0.1, 1.8, tex(planks('#c99a62')), 0, 2.15, 0, sh); lean.rotation.x = 0.18;
+    for (const [tx2, tr] of [[-0.6, 0.1], [0.0, -0.05], [0.6, 0.12]]) { const t = box(0.05, 1.5, 0.05, '#8a5a36', tx2, 0.8, 0.78, sh, { line: false }); t.rotation.z = tr; }
+    box(0.4, 0.08, 0.3, '#9a9aa2', -0.6, 0.06, 0.82, sh, { line: false });
+    P.col(sx, sz, 0.8, 1.2);
+    P.use(sx + 1.4, sz, 1.0, 'Look', ['The tool shed.', 'A rake, a spade and a broom lean against it. A cushion in the corner smells of... mime?']); }
+  { const [bx, bz] = SP.water_butt; cyl(0.45, 0.42, 1.0, '#8a5a36', bx, 0.5, bz, G, 12); add(new THREE.Mesh(new THREE.CircleGeometry(0.4, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#2e5e74' })), G, bx, 0.97, bz, { line: false, shadow: false });
+    for (const yy of [0.2, 0.8]) add(new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.03, 4, 16).rotateX(Math.PI / 2), flat('#3a3d46')), G, bx, yy, bz, { line: false });
+    P.circ(bx, bz, 0.5); }
+  // a little sleeping nook by the front door: a round basket bed with a cushion
+  { const [nx, nz] = SP.nook; add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.12, 6, 16).rotateX(Math.PI / 2), flat('#b98a5a')), G, nx, 0.42, nz);
+    cyl(0.42, 0.42, 0.08, '#d8473a', nx, 0.38, nz, G, 14, { line: false }); }
+  { const gx = -9.5, gz = tz1 + 2.2, g = new THREE.Group(); g.position.set(gx, 0, gz); G.add(g);
+    box(4.2, 0.2, 4.2, wood, 0, 0.1, 0, g);
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; box(0.14, 2.4, 0.14, '#fbf3e0', Math.cos(a) * 1.8, 1.3, Math.sin(a) * 1.8, g); }
+    add(new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.3, 6), flat('#b5523a')), g, 0, 3.15, 0);
+    for (let k = 0; k < 6; k++) { if (k === 1) continue; const a = (k + 0.5) / 6 * Math.PI * 2, r2 = box(1.75, 0.08, 0.08, '#fbf3e0', Math.cos(a) * 1.56, 0.9, Math.sin(a) * 1.56, g, { line: false }); r2.rotation.y = -a + Math.PI / 2; }
+    P.walk(gx, gz, 2.1, 2.1, hs.y + 0.22);
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; P.circ(gx + Math.cos(a) * 1.8, gz + Math.sin(a) * 1.8, 0.15); } }
+  // the door: a portal stub for an interior (pallet-map blueprint) later
+  const [dx, dz] = P.W(0, zc + D / 2 + 0.9);
+  world.use.push({ x: dx, z: dz, r: 1.3, label: 'Look', lines: ['PALLET HOUSE', '"Home cooking since Grandma\'s day. Rooms upstairs." The door is shut for now.'] });
+  (world.portals ||= []).push({ id: 'pallet_house_door', x: dx, z: dz, to: { map: 'pallet_house', spawn: 'front_door' }, locked: true });
+  world.solid.push(G);
+  // the bench with the view, and a fence along the hilltop's drop
+  { const [bx, bz] = P.W(5.5, tz1 + 2.5); bench(bx, bz, hs.rot, world); }
+  const posts = [], rails = [], R0 = PALLET_HOUSE.r - 0.6;
+  let prev = null;
+  for (let k = 0; k <= 64; k++) {
+    const a = k / 64 * Math.PI * 2, px = PALLET_HOUSE.x + Math.cos(a) * R0, pz = PALLET_HOUSE.z + Math.sin(a) * R0;
+    const drop = PALLET_HOUSE.y - height(PALLET_HOUSE.x + Math.cos(a) * (R0 + 7), PALLET_HOUSE.z + Math.sin(a) * (R0 + 7));
+    if (drop < 2.2 || roadDist(px, pz) < 3.2) { prev = null; continue; }
+    const py = height(px, pz); posts.push([px, py, pz]);
+    if (prev) rails.push([prev, [px, py, pz]]);
+    prev = [px, py, pz];
+  }
+  fenceMeshes(world, posts, rails, '#fbf3e0');
+}
+
 // ---------- Route 1: signs along the way, and the gate at the mainland end ----------
 function route1(world) {
   const at = (z, off) => { const road = ROADS[0]; const p = road.reduce((b, q) => (Math.abs(q[1] - z) < Math.abs(b[1] - z) ? q : b)); return [p[0] + off, p[1]]; };
@@ -884,7 +1058,7 @@ function route1(world) {
   box(7.4, 0.3, 0.36, wood, 0, 4.35, 0, G);
   box(7.0, 0.18, 0.3, wood, 0, 3.75, 0, G);
   const np = nameplate('VIRIDIAN CITY', { w: 3.2, h: 0.5 }); np.position.set(0, 4.05, 0.2); G.add(np);
-  const np2 = nameplate('VIRIDIAN CITY', { w: 3.2, h: 0.5 }); np2.position.set(0, 4.05, -0.2); np2.rotation.y = Math.PI; G.add(np2);
+  const np2 = np.clone(); np2.position.set(0, 4.05, -0.2); np2.rotation.y = Math.PI; G.add(np2);
   for (const sx of [-1, 1]) {
     const leaf = new THREE.Group(); leaf.position.set(sx * 2.95, 0, 0); leaf.rotation.y = sx * 0.05; G.add(leaf);
     for (const yy of [0.5, 1.15, 1.8]) box(2.9, 0.16, 0.1, wood, -sx * 1.45, yy, 0, leaf);
@@ -1065,13 +1239,17 @@ function dock(world) {
   // bollards along the basin's sides, iron ladders down to the water
   const bollard = (bx, bz) => { cyl(0.16, 0.2, 0.55, '#3a3d46', bx, y + 0.3, bz, g, 10); cyl(0.24, 0.24, 0.08, '#3a3d46', bx, y + 0.6, bz, g, 10); world.colliders.push({ x: bx, z: bz, r: 0.25 }); };
   const [W, E] = HB.arms, inW = W.x + hw - 0.35, inE = E.x - hw + 0.35;
-  for (const zz of [W.z0 + 6, W.z0 + 15, W.z0 + 24]) { bollard(inW, zz); bollard(inE, zz + 2); }
+  for (const zz of [W.z0 + 6, W.z0 + 15, W.z0 + 24, W.z0 + 46, W.z0 + 58]) { bollard(inW, zz); bollard(inE, zz + 2); }
+  // and on the outer sides of the piers' long stretches over the open water
+  const outW = W.x - hw + 0.35, outE = E.x + hw - 0.35;
+  for (const zz of [W.z0 + 44, W.z0 + 56]) { bollard(outW, zz); bollard(outE, zz + 3); }
   for (const xx of [Q.x0 + 6, Q.x1 - 6]) bollard(xx, Q.z1 - 0.35);
   const ladder = (lx, lz, side) => {
     for (const dz of [-0.28, 0.28]) box(0.06, 2.3, 0.06, '#3a3d46', lx + side * 0.08, y - 0.85, lz + dz, g, { line: false });
     for (let k = 0; k < 6; k++) box(0.05, 0.05, 0.56, '#3a3d46', lx + side * 0.08, y - 0.1 - k * 0.32, lz, g, { line: false });
   };
   ladder(W.x + hw, W.z0 + 10.5, 1); ladder(E.x - hw, E.z0 + 19.5, -1); ladder(W.x + hw, W.z1 - 3, 1);
+  ladder(W.x - hw, W.z0 + 50, -1); ladder(E.x + hw, E.z0 + 53, 1); ladder(E.x - hw, E.z0 + 45, -1);
   // lamps: a pair on each head, two on the quay
   const lampAt = (lx, lz) => {
     const L = new THREE.Group(); L.position.set(lx, y, lz); g.add(L);
@@ -1107,8 +1285,14 @@ function dock(world) {
   rowboat(g, bx0 + 1.4, W.z0 + 7.5, 0.06, '#f4f1e6', '#d84a3a', world, 0);
   rowboat(g, bx0 + 1.5, W.z0 + 20, -0.04, '#f4e7c8', '#3d6fa8', world, 1.3);
   rowboat(g, bx1 - 1.5, E.z0 + 12, 0.1, '#e8f0ec', '#3f9a6a', world, 2.1);
+  // boats moored along the piers' outer stretches, and one in the basin's mouth
+  rowboat(g, W.x - hw - 1.5, W.z0 + 46, -0.05, '#f4f1e6', '#e8a33a', world, 0.6);
+  rowboat(g, E.x + hw + 1.5, E.z0 + 52, 0.07, '#e8eef4', '#d84a3a', world, 2.7);
+  fishingBoat(g, E.x + hw + 2.4, E.z0 + 38, 0.04, world);
+  rowboat(g, bx1 - 1.6, E.z0 + 47, -0.08, '#f4e7c8', '#3d6fa8', world, 1.9);
   fishingBoat(g, (bx0 + bx1) / 2 + 2, Q.z1 + 6.5, Math.PI / 2 + 0.05, world);
   const rope = (ax, az, zx, zz) => { const len = Math.hypot(zx - ax, zz - az); const r = box(0.04, 0.04, len, '#d8c290', (ax + zx) / 2, y + 0.1, (az + zz) / 2, g, { line: false }); r.rotation.y = Math.atan2(zx - ax, zz - az); r.rotation.x = 0.08; };
+  rope(outW, W.z0 + 44, W.x - hw - 1.5, W.z0 + 44.4); rope(outE, E.z0 + 55, E.x + hw + 1.5, E.z0 + 54);
   rope(inW, W.z0 + 6, bx0 + 1.4, W.z0 + 5.8); rope(inW, W.z0 + 15, bx0 + 1.5, W.z0 + 18.2); rope(inE, E.z0 + 8, bx1 - 1.5, E.z0 + 10.2);
   // walking on it
   world.walk.push({ x0: Q.x0, x1: Q.x1, z0: Q.z0, z1: Q.z1 + 0.05, y: y + 0.08 });
@@ -1161,7 +1345,7 @@ function harbourFront(world, g) {
   const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.computeVertexNormals();
   const foam = new THREE.Mesh(fg, flat('#ffffff')); foam.position.y = SEA_Y + 0.14; foam.userData.outline = false; foam.castShadow = false; foam.receiveShadow = false; g.add(foam);
   // the heads' sea ends: a stout timber fender across each
-  for (const a of HARBOUR.arms) box(HARBOUR.head.w + 0.3, 0.5, 0.3, tex(planks('#8a5f3c')), a.x, SEA_Y + HARBOUR.y - 0.3, a.z1 + HARBOUR.head.d - 0.05, g);
+  for (const a of HARBOUR.arms) box(HARBOUR.head.w + 0.3, 0.5, 0.3, tex(planks('#7a4a2e')), a.x, SEA_Y + HARBOUR.y - 0.3, a.z1 + HARBOUR.head.d - 0.05, g);
   void g;
 }
 function boathouse(world, x, z) {
@@ -1413,6 +1597,15 @@ export function buildTown() {
     ['PALLET BEACH', 'The salty breeze smells like adventure.'], world, 0.9);
   dock(world);
   route1(world);
+  // the trails' ends: a bench and a fingerpost in each clearing
+  // (fingerpost arms point at atan2(dx, dz): 0 south, PI north, PI / 2 east)
+  for (const c of CLEARINGS) {
+    bench(c.x + 2.2, c.z + (c.z > 0 ? 2.5 : -2.2), c.z > 0 ? 0 : Math.PI + 0.3, world);
+    signpost(c.x - 2.6, c.z + (c.z > 0 ? -1.5 : 1.5), c.z > 0 ? [['PALLET TOWN', -3.0], ['CINNABAR ISLAND', 0.05]] : [['PALLET TOWN', -0.45], ['OAK LAB', -0.9]], world);
+  }
+  palletHouse(world);
+  // where the new woodland trail forks off the lane to Blue's house
+  signpost(26.6, -11.2, [["BLUE's house", 2.55], ['WOODLAND TRAIL', 2.0], ['TOWN SQUARE', -1.2], ['OAK LAB', -0.5]], world);
   // the walls, foundations and the islet: one mesh per cell and kind
   world.stoneMeshes = mergeStones(world.group);
   // merge each static piece's meshes by material

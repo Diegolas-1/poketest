@@ -1,7 +1,7 @@
 // Pallet Town in 3D: a modern seaside eco-village to walk around freely.
 import * as THREE from 'three';
 import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU, ledgeAt, WALK } from './terrain.js';
-import { buildSky, buildClouds, buildMountains, TALL_GRASS } from './nature.js';
+import { buildSky, buildClouds, buildMountains, buildCinnabar, CINNABAR, TALL_GRASS } from './nature.js';
 import { buildTown, BEDS, PIER } from './town.js';
 import { celify } from './toon.js';
 import { foliageTime } from './foliage.js';
@@ -190,6 +190,8 @@ scene.add(outline.mark(buildWater(uTime, { color: '#cfe6f2', near: 140, far: 700
 buildPaths(scene);
 buildFields(scene);
 const clouds = buildClouds(); scene.add(clouds);
+// (the one huge low cloud bank that sat right in front of Cinnabar Island goes)
+for (const c of clouds.children.slice()) if (c.scale.y > 300 && c.position.y < 100 && c.position.z > 450 && Math.abs(c.position.x - CINNABAR.x) < 300) clouds.remove(c);
 {
   // the distant ranges open up to the south so the sea runs to the horizon
   const mts = buildMountains(sunDir);
@@ -205,6 +207,7 @@ const clouds = buildClouds(); scene.add(clouds);
   });
   scene.add(mts);
 }
+const cinnabar = buildCinnabar(sunDir); scene.add(cinnabar);
 const town = buildTown();
 scene.add(town.group);
 const colliders = town.colliders;
@@ -704,6 +707,7 @@ function frame(fixed) {
   void inGrass;   // (Oak no longer stops you at the tall grass: Route 1 is open)
   updateCamera(dt);
   clouds.userData.tick(dt);
+  cinnabar.userData.tick(t);
   for (const f of town.anim) f(dt, t);
   if (space.active) space.update(dt, t);
   else {

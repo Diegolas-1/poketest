@@ -105,9 +105,18 @@ const res = await p.evaluate(async () => {
 
   // town (static, merged), with plain materials: colour, texture, flags
   const tmat = new Map();
+  // one texture per distinct picture: the native game loads every image of
+  // town.glb at start, and too many stalled its loader (see the report)
+  const texByPix = new Map();
+  const sharedMap = (t) => {
+    if (!t || !t.image || !t.image.toDataURL) return t || null;
+    const k = t.image.toDataURL();
+    if (!texByPix.has(k)) texByPix.set(k, t);
+    return texByPix.get(k);
+  };
   const plain = (m) => {
     if (tmat.has(m)) return tmat.get(m);
-    const n = new THREE.MeshStandardMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors,
+    const n = new THREE.MeshStandardMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: sharedMap(m.map), vertexColors: !!m.vertexColors,
       side: m.side, transparent: !!m.transparent, opacity: m.opacity ?? 1, alphaTest: m.alphaTest || 0, roughness: 1, metalness: 0 });
     n.name = m.userData.leaf ? 'leaf_' + m.userData.leaf.variant : (m.name || 'm') + (m.polygonOffset ? '_decal' : '') + (m.vertexColors ? '_vc' : '');
     tmat.set(m, n); return n;
@@ -354,6 +363,20 @@ const res = await p.evaluate(async () => {
     out.mountainsJson = layers;
   }
 
+  // ---------- Cinnabar Island (nature.js buildCinnabar): the land as one
+  // array (x y z, normal, linear rgb per vertex, then uint32 indices); the
+  // native game builds the plume itself from the vent
+  {
+    const N = await import('/world/nature.js');
+    const land = w.scene.getObjectByName('cinnabar_land'), g = land.geometry, a = g.attributes;
+    const f = new Float32Array(a.position.count * 9);
+    for (let i = 0; i < a.position.count; i++) f.set([a.position.getX(i), a.position.getY(i), a.position.getZ(i), a.normal.getX(i), a.normal.getY(i), a.normal.getZ(i), a.color.getX(i), a.color.getY(i), a.color.getZ(i)], i * 9);
+    const ix = new Uint32Array(g.index.array);
+    const all = new Uint8Array(f.byteLength + ix.byteLength); all.set(new Uint8Array(f.buffer), 0); all.set(new Uint8Array(ix.buffer), f.byteLength);
+    out.cinnabar = b64(all);
+    out.cinnabarJson = { v: a.position.count, i: ix.length, vent: N.CINNABAR.vent, puffs: N.PLUME_N };
+  }
+
   // ---------- clouds: one atlas, a quad per sprite ----------
   {
     const cl = w.scene.getObjectByName('clouds');
@@ -484,6 +507,7 @@ for (const f of fs.readdirSync(OUT)) { const m = /^(veg_.*\.png)(\.import)?$/.ex
 for (const [f, d] of Object.entries(res.vegPngs)) save(f, d);
 fs.writeFileSync(path.join(OUT, 'veg.json'), JSON.stringify(res.vegJson));
 save('mountains.bin', res.mountains);
+save('cinnabar.bin', res.cinnabar);
 save('clouds.png', res.clouds);
 // the plant and cloud pictures are imported VRAM compressed (ASTC on the
 // phone): as plain images the billboards alone took 130 MB of GPU memory
@@ -498,7 +522,7 @@ fs.copyFileSync(path.join(ROOT, 'web/world/tex/dirt_pack.webp'), path.join(OUT, 
   const src = fs.readFileSync(path.join(ROOT, 'web/world/stone.js'), 'utf8'), m = src.match(/export const STONE_GLSL = `([\s\S]*?)`;/);
   fs.writeFileSync(path.join(ROOT, 'native/shaders/stone.gdshaderinc'), '// Made by tools/native/bake.mjs from web/world/stone.js STONE_GLSL: edit it there.\n' + m[1].trimStart());
 }
-const meta = { ...res.meta, ground: res.groundGrid, seabed: res.seabedGrid, grassmap: res.grassGrid, inst: res.inst, mountains: res.mountainsJson };
+const meta = { ...res.meta, ground: res.groundGrid, seabed: res.seabedGrid, grassmap: res.grassGrid, inst: res.inst, mountains: res.mountainsJson, cinnabar: res.cinnabarJson };
 fs.writeFileSync(path.join(OUT, 'world.json'), JSON.stringify(meta));
 console.log('town meshes', res.townMeshes, 'instanced', res.inst.length, 'colliders', meta.colliders.length, 'veg sets', res.vegJson.sets.length, 'models', res.vegJson.meshes.length, 'billboards', res.vegJson.impostors.length, 'leaf card area kept', res.cardArea.toFixed(2));
 await b.close();

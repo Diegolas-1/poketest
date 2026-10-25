@@ -30,7 +30,9 @@ const facing = (fx, fz, tx, tz) => Math.atan2(tx - fx, tz - fz);
 
 const doors = cast.use.filter((u) => u.label === 'Door');
 const boxes = cast.use.filter((u) => u.label === 'Look' && /mailbox/.test(u.lines[0]));
-const benches = world.colliders.filter((c) => c[0] === 0 && Math.abs(c[3] - 0.95) < 1e-3).map((c) => ({ x: c[1], z: c[2] }));
+// (only those inside the town life's walk grid, life.gd X0..X1, Z0..Z1: the
+// trails' far benches are out in the woods)
+const benches = world.colliders.filter((c) => c[0] === 0 && Math.abs(c[3] - 0.95) < 1e-3 && c[1] > -110 && c[1] < 78 && c[2] > -60 && c[2] < 150).map((c) => ({ x: c[1], z: c[2] }));
 
 const out = { note: 'baked by tools/native/bake_places.mjs; [x, z] or [x, z, yaw] (yaw: the way a person there faces)', houses: {}, places: {}, roads: [] };
 
@@ -78,6 +80,19 @@ const beach = [];
 for (const x of [-72, -66, 12, 20, 30, 40]) beach.push(P(x, T.coastZ(x) - 3.5, 0 + (x % 3) * 0.2));
 out.places.beach = { spots: beach };
 out.places.lighthouse = { spots: [P(T.ISLET.x, T.ISLET.z)], offmap: true, via: 'pier.boat_steps' };
+
+// ---------- PALLET HOUSE (Delia's restaurant on the hill above the bay) ----------
+// every named spot from terrain.js PALLET_HOUSE.spots, in world space, with the
+// way a person there faces; tables carry their chairs (3 round each). Outside
+// life.gd's walk grid (x up to 80) for now: a later worker extends it there
+{
+  const PH = T.PALLET_HOUSE, hs = { x: PH.x, z: PH.z, rot: PH.rot };
+  const W = (s) => { const [x, z] = T.toWorld(hs, s[0], s[1]); return s.length > 2 ? P(x, z, s[2] + PH.rot) : P(x, z); };
+  const ph = { middle: P(PH.x, PH.z), floor_y: r2(PH.y + 0.3), offmap: false, interior: 'pallet_house (not built: the door is a locked portal stub)' };
+  for (const [k, v] of Object.entries(PH.spots)) if (k !== 'tables') ph[k] = W(v);
+  ph.tables = PH.spots.tables.map(([tx, tz]) => ({ table: W([tx, tz]), chairs: [0, 2.1, 4.2].map((a) => W([tx + Math.cos(a) * 0.85, tz + Math.sin(a) * 0.85, Math.atan2(-Math.cos(a), -Math.sin(a))])) }));
+  out.places.pallet_house = ph;
+}
 
 // ---------- the square (the market), the lab gate, Route 1 ----------
 const S = T.SQUARE;

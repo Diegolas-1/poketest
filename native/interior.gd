@@ -99,6 +99,7 @@ func _material(src: Material, pal: Dictionary) -> Material:
 		if nm.begins_with("glow"): m.render_priority = 1
 		return m
 	m.shader = FLOOR if nm.begins_with("floor") else TOON
+	m.set_shader_parameter("uw_sea_y", -1.0e6)   # (indoors nothing is under the sea)
 	if b:
 		m.set_shader_parameter("albedo", b.albedo_color)
 		if b.albedo_texture:

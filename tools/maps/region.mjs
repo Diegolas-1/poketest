@@ -72,11 +72,14 @@ const bp = {
   props: [],
   camera: { default: { dist: 7.5, pitch: 0.32, fov: 52, height: 1.45 }, volumes: [{ id: 'sky', box: [BOUNDS[0], -20, BOUNDS[1], BOUNDS[2], 400, BOUNDS[3]] }] },
   spawns: [{ id: 'from_viridian', pos: pt([T.routeX(T.ROUTE1.gateZ + 6), T.ROUTE1.gateZ + 6]), level: 'ground', rot: 0 }],
-  portals: [{ id: 'to_viridian', level: 'ground', rect: [r(T.routeX(T.ROUTE1.gateZ) - 4), r(T.ROUTE1.gateZ - 3), r(T.routeX(T.ROUTE1.gateZ) + 4), r(T.ROUTE1.gateZ)], trigger: 'walk', spawn: 'from_viridian', to: { map: 'viridian_city', spawn: 'from_route_1' }, label: 'Viridian City (not built yet: the gate is shut)', locked: true }],
+  portals: [{ id: 'to_pallet_house', level: 'ground', rect: [r(T.PALLET_HOUSE.x - 2), r(T.PALLET_HOUSE.z - 2), r(T.PALLET_HOUSE.x + 2), r(T.PALLET_HOUSE.z + 2)], trigger: 'use', spawn: 'from_viridian', to: { map: 'pallet_house', spawn: 'front_door' }, label: 'PALLET HOUSE (interior not built yet)', locked: true },
+    { id: 'to_viridian', level: 'ground', rect: [r(T.routeX(T.ROUTE1.gateZ) - 4), r(T.ROUTE1.gateZ - 3), r(T.routeX(T.ROUTE1.gateZ) + 4), r(T.ROUTE1.gateZ)], trigger: 'walk', spawn: 'from_viridian', to: { map: 'viridian_city', spawn: 'from_route_1' }, label: 'Viridian City (not built yet: the gate is shut)', locked: true }],
   places: {
     pallet_town: { at: [-3, -2], note: 'the square' }, oak_lab: { at: pt(T.STAIRS ? [T.LAB_HILL.x, T.LAB_HILL.z] : [60, 20]), map: 'oak_lab' },
     harbour: { at: pt([(H.quay.x0 + H.quay.x1) / 2, H.quay.z1 + 10]) }, lighthouse: { at: pt([T.ISLET.x, T.ISLET.z]) },
-    viridian_city: { at: [0, -700], note: 'planned: past the gate, on the mainland' }, cinnabar_island: { at: [-60, 1400], note: 'far south over the sea (painted, off the map)' },
+    viridian_city: { at: [0, -700], note: 'planned: past the gate, on the mainland' }, cinnabar_island: { at: [-60, 1050], note: 'far south over the sea: scenery on the horizon (nature.js buildCinnabar), off the map' },
+    pallet_house: { at: pt([T.PALLET_HOUSE.x, T.PALLET_HOUSE.z]), map: 'pallet_house', note: "Delia's restaurant with rooms upstairs, on the hill above the bay (exterior only; its door is a locked portal stub)" },
+    viewpoint: { at: pt([T.CLEARINGS[0].x, T.CLEARINGS[0].z]), note: 'the east headland trail ends here' },
   },
 };
 const res = F.validate(bp, {});

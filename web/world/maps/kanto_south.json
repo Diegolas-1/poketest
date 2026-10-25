@@ -828,11 +828,11 @@
     ],
     [
      -4,
-     111
+     149
     ],
     [
      -39,
-     111
+     149
     ]
    ],
    "floor": "timber",
@@ -850,20 +850,20 @@
    "level": "ground",
    "poly": [
     [
-     -57,
-     167
-    ],
-    [
-     -39,
-     167
-    ],
-    [
-     -39,
-     185
+     -75,
+     181
     ],
     [
      -57,
-     185
+     181
+    ],
+    [
+     -57,
+     199
+    ],
+    [
+     -75,
+     199
     ]
    ],
    "floor": "rock",
@@ -1784,6 +1784,24 @@
  ],
  "portals": [
   {
+   "id": "to_pallet_house",
+   "level": "ground",
+   "rect": [
+    142,
+    96,
+    146,
+    100
+   ],
+   "trigger": "use",
+   "spawn": "from_viridian",
+   "to": {
+    "map": "pallet_house",
+    "spawn": "front_door"
+   },
+   "label": "PALLET HOUSE (interior not built yet)",
+   "locked": true
+  },
+  {
    "id": "to_viridian",
    "level": "ground",
    "rect": [
@@ -1825,8 +1843,8 @@
   },
   "lighthouse": {
    "at": [
-    -48,
-    176
+    -66,
+    190
    ]
   },
   "viridian_city": {
@@ -1839,9 +1857,24 @@
   "cinnabar_island": {
    "at": [
     -60,
-    1400
+    1050
    ],
-   "note": "far south over the sea (painted, off the map)"
+   "note": "far south over the sea: scenery on the horizon (nature.js buildCinnabar), off the map"
+  },
+  "pallet_house": {
+   "at": [
+    144,
+    98
+   ],
+   "map": "pallet_house",
+   "note": "Delia's restaurant with rooms upstairs, on the hill above the bay (exterior only; its door is a locked portal stub)"
+  },
+  "viewpoint": {
+   "at": [
+    157,
+    188
+   ],
+   "note": "the east headland trail ends here"
   }
  }
 }

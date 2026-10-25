@@ -167,6 +167,156 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
   return group;
 }
 
+// ---------- Cinnabar Island ----------
+// Far scenery on the southern horizon, as the anime shows it from the sea: a
+// volcano cone (ochre and brown, darker rock bands, a flat broken top) with a
+// grey plume drifting sideways, two craggy brown ridges either side coming
+// down to sea cliffs, and at the volcano's foot a green bowl of trees with a
+// little town and stone steps up from a small harbour; dark rock at the
+// waterline. Not reachable. Unfogged (the haze is painted in, as on the
+// mountains), so it reads from the beach and the piers.
+export const CINNABAR = { x: -60, z: 1050, vent: [-60, 176, 1080] };
+export function cinnabarGeometry() {
+  const R = rng(1977), C = CINNABAR;
+  const col = (h) => new THREE.Color(h);
+  const OCHRE = col('#c79d5a'), OCHRE_D = col('#9a7444'), BAND = col('#6e5236'), ASH = col('#8f8a84');
+  const RIDGE = col('#94704a'), RIDGE_D = col('#5e4632'), MOSS = col('#6f8c48'), GREEN = col('#4b8a3e'), SHORE = col('#4a3c34');
+  // the heightfield, local u (east) and v (south, away from the town)
+  const vol = (u, v) => { const r = Math.hypot(u, (v - 30) * 1.05), a = Math.atan2(v - 30, u); let h = 200 * (1 - r / 280) * (0.93 + 0.07 * Math.sin(a * 9 + 1.3)); return Math.min(h, r < 28 ? 178 - (28 - r) * 0.6 : 178); };
+  const ridge = (u, v, cu, cv, hh, wu, wv, seed) => {
+    const d = Math.hypot((u - cu) / wu, (v - cv) / wv);
+    if (d > 1) return -20;
+    const crag = 0.7 + 0.45 * Math.abs(Math.sin(u * 0.045 + seed)) + 0.25 * fbm(u * 0.02 + seed, v * 0.02, 3);
+    return hh * Math.pow(1 - d, 1.15) * crag;
+  };
+  const bowl = (u, v) => { const d = Math.hypot(u / 150, (v + 95) / 75); return d > 1 ? -20 : 22 * (1 - d * d) + fbm(u * 0.05, v * 0.05, 2) * 8; };
+  const H = (u, v) => {
+    let h = Math.max(vol(u, v), ridge(u, v, -300, 10, 92, 260, 170, 1.7), ridge(u, v, 290, 0, 84, 240, 160, 4.1), bowl(u, v));
+    // the island's outline: an ellipse with a wobble; outside it the sea floor
+    const e = Math.hypot(u / 560, v / 230) + (fbm(u * 0.01 + 3, v * 0.01, 2) - 0.5) * 0.12;
+    h = Math.min(h, (1.02 - e) * 900);
+    return Math.max(h, -12);
+  };
+  const kind = (u, v, h) => {
+    const vv = vol(u, v), b = bowl(u, v);
+    if (h < 7) return 'shore';
+    if (b >= h - 0.5 && b > 4) return 'green';
+    if (vv >= h - 0.5) return 'vol';
+    return 'ridge';
+  };
+  const pos = [], nrm = [], cl = [], idx = [];
+  const S = 8, u0 = -576, u1 = 576, v0 = -248, v1 = 248, nu = (u1 - u0) / S, nv = (v1 - v0) / S;
+  const hs = [];
+  for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) hs.push(H(u0 + i * S, v0 + j * S));
+  const tmp = new THREE.Color();
+  for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) {
+    const u = u0 + i * S, v = v0 + j * S, h = hs[j * (nu + 1) + i];
+    const hx = hs[j * (nu + 1) + Math.min(nu, i + 1)] - hs[j * (nu + 1) + Math.max(0, i - 1)], hz = hs[Math.min(nv, j + 1) * (nu + 1) + i] - hs[Math.max(0, j - 1) * (nu + 1) + i];
+    const n = new THREE.Vector3(-hx / (2 * S), 1, -hz / (2 * S)).normalize();
+    pos.push(C.x + u, h, C.z + v); nrm.push(n.x, n.y, n.z);
+    const k = kind(u, v, h), f = fbm(u * 0.03 + 7, v * 0.03, 2);
+    if (k === 'shore') tmp.copy(SHORE);
+    else if (k === 'green') tmp.copy(GREEN).lerp(MOSS, f * 0.6);
+    else if (k === 'vol') { tmp.copy(OCHRE).lerp(OCHRE_D, f); if ((h / 15 + f * 1.4) % 1 < 0.28) tmp.lerp(BAND, 0.7); if (h > 160) tmp.lerp(ASH, 0.75); }
+    else { tmp.copy(RIDGE).lerp(RIDGE_D, smooth01(n.y < 0.75 ? 1 : 0.3 + f * 0.5)); if (h < 40 && f > 0.5) tmp.lerp(MOSS, 0.55); }
+    if (h < 14 && k !== 'green') tmp.lerp(SHORE, 1 - h / 14);
+    cl.push(tmp.r, tmp.g, tmp.b);
+  }
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+    const a = j * (nu + 1) + i, b = a + nu + 1;
+    if (Math.max(hs[a], hs[a + 1], hs[b], hs[b + 1]) < -5) continue;
+    idx.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+  // trees in the bowl, the town, the steps and the harbour: low-poly pieces
+  const add = (g, c) => {
+    g = g.index ? g.toNonIndexed() : g; g.computeVertexNormals();
+    const o = pos.length / 3, P = g.attributes.position, N = g.attributes.normal;
+    for (let i = 0; i < P.count; i++) {
+      pos.push(P.getX(i), P.getY(i), P.getZ(i));
+      const nx = N.getX(i), ny = N.getY(i), nz = N.getZ(i);
+      if (Number.isFinite(nx + ny + nz)) nrm.push(nx, ny, nz); else nrm.push(0, 1, 0);   // (a cone's apex: degenerate)
+      cl.push(c.r, c.g, c.b); idx.push(o + i);
+    }
+  };
+  for (let k = 0; k < 46; k++) {
+    const u = (R() - 0.5) * 250, v = -95 + (R() - 0.5) * 110;
+    if (bowl(u, v) < 6) continue;
+    const r = 8 + R() * 7, g = new THREE.IcosahedronGeometry(r, 0); g.scale(1, 0.8, 1); g.translate(C.x + u, H(u, v) + r * 0.6, C.z + v);
+    add(g, R() < 0.5 ? col('#3c7434') : col('#5a9a46'));
+  }
+  for (let k = 0; k < 11; k++) {
+    const u = -55 + (k % 4) * 30 + R() * 8, v = -120 + Math.floor(k / 4) * 18 + R() * 6, y = H(u, v);
+    const w = new THREE.BoxGeometry(9, 6, 8); w.translate(C.x + u, y + 3, C.z + v); add(w, col('#efe8da'));
+    const rf = new THREE.ConeGeometry(7.5, 4.5, 4); rf.rotateY(Math.PI / 4); rf.translate(C.x + u, y + 8.2, C.z + v); add(rf, col(k % 3 ? '#c4553a' : '#3d6fa8'));
+  }
+  // stone steps up from the harbour to the town, and the quay
+  for (let k = 0; k < 14; k++) {
+    const v = -205 + k * 6.5, y = Math.max(2, H(0, v));
+    const st = new THREE.BoxGeometry(12, 1.6, 6.5); st.translate(C.x, y + 0.2, C.z + v); add(st, col('#b8b0a2'));
+  }
+  const q = new THREE.BoxGeometry(70, 3, 9); q.translate(C.x, 1, C.z - 215); add(q, col('#9d968a'));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cl, 3));
+  g.setIndex(idx);
+  return g;
+}
+const smooth01 = (t) => t * t * (3 - 2 * t);
+// the plume: puffs as camera-facing quads; each rises from the vent and drifts
+// east on the wind, growing and fading, then starts again (aPuff = phase)
+export const PLUME_N = 14;
+export function buildCinnabar(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
+  const group = new THREE.Group(); group.name = 'cinnabar';
+  const land = new THREE.Mesh(cinnabarGeometry(), new THREE.ShaderMaterial({
+    uniforms: { sun: { value: sunDir.clone().normalize() } },
+    vertexShader: `varying vec3 vN; varying vec3 vC; varying float vY; attribute vec3 color;
+      void main(){ vN = normal; vC = color; vY = position.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 sun; varying vec3 vN; varying vec3 vC; varying float vY;
+      void main(){
+        float l = dot(normalize(vN), normalize(sun));
+        vec3 c = vC * mix(0.62, 1.0, smoothstep(0.08, 0.16, l));
+        c = mix(c, vec3(0.78, 0.9, 0.93), 0.16 + 0.42 * (1.0 - smoothstep(0.0, 45.0, vY)));
+        gl_FragColor = vec4(c, 1.0);
+        #include <colorspace_fragment>
+      }`,
+  }));
+  land.name = 'cinnabar_land'; land.frustumCulled = false; land.renderOrder = -1;
+  group.add(land);
+  const pos = [], corner = [], ph = [];
+  for (let i = 0; i < PLUME_N; i++) for (const [cx, cy] of [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]]) { pos.push(...CINNABAR.vent); corner.push(cx, cy); ph.push(i / PLUME_N); }
+  const pg = new THREE.BufferGeometry();
+  pg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  pg.setAttribute('corner', new THREE.Float32BufferAttribute(corner, 2));
+  pg.setAttribute('phase', new THREE.Float32BufferAttribute(ph, 1));
+  const uTime = { value: 0 };
+  const plume = new THREE.Mesh(pg, new THREE.ShaderMaterial({
+    uniforms: { uTime }, transparent: true, depthWrite: false,
+    vertexShader: `attribute vec2 corner; attribute float phase; uniform float uTime; varying vec2 vC; varying float vA; varying float vT;
+      void main(){
+        float t = fract(uTime * 0.02 + phase);
+        vec3 p = position + vec3(t * t * 170.0, t * 150.0, t * 25.0);
+        float s = 12.0 + t * 62.0;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0); mv.xy += corner * s;
+        vC = corner; vT = t; vA = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.55, 1.0, t));
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying vec2 vC; varying float vA; varying float vT;
+      void main(){
+        float d = length(vC);
+        float a = (1.0 - smoothstep(0.55, 1.0, d)) * vA * 0.8;
+        if (a < 0.01) discard;
+        vec3 c = mix(vec3(0.42, 0.42, 0.44), vec3(0.75, 0.77, 0.8), smoothstep(-0.6, 0.6, vC.y + 0.3) * 0.7 + vT * 0.3);
+        c = mix(c, vec3(0.78, 0.9, 0.93), 0.3);
+        gl_FragColor = vec4(c, a);
+        #include <colorspace_fragment>
+      }`,
+  }));
+  plume.name = 'cinnabar_plume'; plume.frustumCulled = false; plume.renderOrder = -1;
+  group.add(plume);
+  group.userData.tick = (t) => { uTime.value = t; };
+  return group;
+}
+
 // ---------- trees ----------
 function broadleaf(seed) {
   const r = rng(seed), parts = [];

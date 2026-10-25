@@ -178,6 +178,13 @@ func toon_for(src: Material) -> ShaderMaterial:
 	return m
 
 func _town() -> void:
+	# town.glb's pictures (town_N.png) loaded one by one first, from here: left
+	# to the scene's own load, the engine loaded its ~100 external textures on
+	# the worker pool, which ran out of threads and stalled for good on a
+	# 4-core machine (6 on the phone); cached now, the scene finds them ready
+	for d in ResourceLoader.get_dependencies("res://world/town.glb"):
+		var p := String(d).get_slice("::", 2) if String(d).contains("::") else String(d)
+		if p.ends_with(".png") or p.ends_with(".webp") or p.ends_with(".jpg"): load(p)
 	var root := _scene("town.glb")
 	town_root = root
 	for mi in _meshes(root, []):

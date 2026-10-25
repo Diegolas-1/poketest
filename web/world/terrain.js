@@ -69,7 +69,7 @@ export const COAST = [
   [-118, 214], [-103, 205], [-100, 188], [-106, 166], [-113, 140], [-109, 121], [-96, 112.5], [-80, 111],
 ];
 // the bay's mouth and the lighthouse islet out in it
-export const ISLET = { x: -48, z: 176 };
+export const ISLET = { x: -66, z: 190 };
 const SD_RES = 2, SD_X0 = -800, SD_Z0 = -1140, SD_NX = 800, SD_NZ = 720;   // x -800..800, z -1140..300
 const SD = (() => {
   // the loop as a dense smooth curve
@@ -193,7 +193,7 @@ export const SQUARE = { x: -3, z: -2, r: 8.5 };
 // moored in the basin between them. Deck heights are SEA_Y + y.
 export const HARBOUR = {
   quay: { x0: -39.5, x1: -4.5, z0: 69.4, z1: 75.0 },
-  arms: [{ x: -37.7, z0: 75.0, z1: 106 }, { x: -6.3, z0: 75.0, z1: 106 }],
+  arms: [{ x: -37.7, z0: 75.0, z1: 144 }, { x: -6.3, z0: 75.0, z1: 144 }],   // (out past the land at z 111.6, over open water)
   w: 3.6, head: { w: 7.0, d: 5.0 }, y: 1.02,
 };
 // The land comes out round the harbour: an apron of ground at quay level
@@ -235,13 +235,41 @@ const ROAD_CTRL = [
   // the stream path: from the plaza before the lab gate, south and east round
   // the foot of Oak's hill between the hill and the stream, and up onto the
   // east headland (a footbridge over the stream's last bend joins the beach to it)
-  [[15.5, 24.5], [19.5, 38], [26, 51], [40, 57.5], [60, 59.5], [80, 61], [96, 64], [110, 70], [119, 78.5], [124, 88], [125, 97], [127, 104]],
+  [[15.5, 24.5], [19.5, 38], [26, 51], [40, 57.5], [60, 59.5], [80, 61], [96, 64], [110, 70], [119, 78.5], [124, 85.5], [131, 90.5], [134.5, 93.5]],
   // and the footbridge over the stream's last bend: the beach to that path
   [[BRIDGES[2].x0, 91], [101, 95], [97, 98]],
-  [[BRIDGES[2].x1, 91], [124, 91]],
+  [[BRIDGES[2].x1, 91], [123.5, 87.5]],
   // along the back of the beach to Marina's
   [[-7.6, 50], [-14, 55.5], [-22, 57.6], [-28, 57.4], ...approach(H.marina)],
+  // woodland trails (TRAILS, narrower): from the plaza north along the stream
+  // to the lane to Blue's; then, forking off that lane where it turns to
+  // Blue's house, up through the woods behind Oak's hill and round back
+  // toward the sea to PALLET HOUSE on its hill above the bay; and from there
+  // on along the east headland to a viewpoint over the sea
+  [[15.5, 8.5], [17, -1], [19, -9.5]],
+  [[24, -13.5], [36, -17.8], [50, -21.8], [66, -23.6], [82, -27], [96, -37], [111, -40], [125, -31], [136, -13], [143, 10], [147, 35], [148, 60], [146.5, 80.5]],
+  [[147, 114.5], [150, 130], [152, 150], [153, 166], [155, 181], [156, 186]],
 ];
+export const TRAILS = new Set([ROAD_CTRL.length - 3, ROAD_CTRL.length - 2, ROAD_CTRL.length - 1]);
+// the trails' ends: a clearing in the woods behind the lab, a viewpoint on the east headland
+export const CLEARINGS = [{ x: 156.5, z: 188, r: 7, name: 'viewpoint' }];
+// PALLET HOUSE (Delia's restaurant, with rooms upstairs), on a level hilltop
+// above the bay's east side: the trails and the stream path end there.
+// door: where an interior will join (a portal stub, locked for now)
+export const PALLET_HOUSE = { x: 144, z: 98, r: 17, y: 13.6, rot: -0.6 };
+// its named spots, in the house's own frame (x right, z out of the front door,
+// toward the bay; terrain.js toWorld turns them): town.js builds at them and
+// tools/native/bake_places.mjs writes them for the native town life
+// ([lx, lz] or [lx, lz, face]: face = the way a person stands there, radians
+// in the house's frame, 0 = facing +z)
+PALLET_HOUSE.spots = {
+  front_door: [0, 3.5, Math.PI], kitchen_door: [-3.6, -7.5, 0], kitchen_window: [2.6, -7.4, 0],
+  tables: [[-5, 5.2], [-1.2, 7.4], [3.2, 5.4], [6.0, 7.8]],
+  shed: [-9.6, -10.6, Math.PI / 2], water_butt: [-7.4, -8.4, 0],
+  herb_bed: [-9.7, -8.3, 0], veg_patch: [-3.5, -14.3, 0], cottage_garden: [12.2, -1.6, 0],
+  view_bench: [5.5, 12.3], cliff_fence: [-13.6, 7.0, -1.0], nook: [-2.5, 3.3, 0],
+  cottage_door: [9.7, -3.9, Math.PI - 0.4],
+};
 const ROAD_W = 1.75;
 
 function dense(ctrl, step = 1) {
@@ -339,6 +367,11 @@ function base(x, z) {
       h = Math.min(h, lerp(SEA_Y - 2.4, h, smooth(1, 14, z - A.z1)));
     }
     if (x > B.x0 && x < B.x1 && z > B.z0) h = Math.min(h, B.floor);
+  }
+  // PALLET HOUSE's hilltop: levelled, the hill falling away round it
+  {
+    const P = PALLET_HOUSE, d = Math.hypot(x - P.x, z - P.z);
+    if (d < P.r + 18) h = lerp(P.y, h, smooth(P.r, P.r + 18, d));
   }
   return h;
 }
@@ -532,7 +565,7 @@ export function pathMap() {
   const R = 3.2, touched = [];
   ROADS.forEach((road, ri) => {
     touched.length = 0;
-    const w = ri <= 1 ? 1.62 : 1.38;
+    const w = ri <= 1 ? 1.62 : TRAILS.has(ri) ? 1.1 : 1.38;
     for (let k = 0; k < road.length - 1; k++) {
       const [ax, az] = road[k], [bx, bz] = road[k + 1];
       const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - R - x0) / PM_RES)), i1 = Math.min(nx - 1, Math.ceil((Math.max(ax, bx) + R - x0) / PM_RES));

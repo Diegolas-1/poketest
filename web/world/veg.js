@@ -2,7 +2,7 @@
 // birches, poplars and cypresses, willows by the pond, Scots pines and giants
 // on the hills, palms on the beach, bushes and hedges, fern beds in the shade,
 // flower clumps and mossy rocks. Seeded, so the town always looks the same.
-import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS, BOATHOUSE } from './terrain.js';
+import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS, BOATHOUSE, CLEARINGS, PALLET_HOUSE } from './terrain.js';
 import { Scatter, Impostor } from './assets.js';
 import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
@@ -22,7 +22,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   const R = rng(4242);
   const free = (x, z, r = 1) => !blocked(x, z, r) && roadDist(x, z) > 2.5 + r * 0.3 && !isWater(x, z) && height(x, z) > SEA_Y + 0.8
     && !fieldAt(x, z, 0.8) && !onStairs(x, z, 3) && !inYard(x, z, 0.4) && !inPlaza(x, z, 1) && streamAt(x, z).d > 3.4 && labHillU(x, z) > 0.04
-    && !(z < -90 && ledgeAt(x, z, 2.2 + r)) && !inHarbour(x, z, r);
+    && !(z < -90 && ledgeAt(x, z, 2.2 + r)) && !inHarbour(x, z, r) && !CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + r) && Math.hypot(x - PALLET_HOUSE.x, z - PALLET_HOUSE.z) > PALLET_HOUSE.r + 1 + r;
   const scatters = [], impostors = [];
   // how far a model's base (everything within 0.7 m of the ground) reaches out
   const baseR = (list) => { let r = 0; for (const m of list) for (const p of m.parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) < 0.7) r = Math.max(r, Math.hypot(a.getX(i), a.getZ(i))); } return r; };

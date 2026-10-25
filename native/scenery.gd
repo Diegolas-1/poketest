@@ -14,6 +14,8 @@ const Veg := preload("res://veg.gd")
 const SEA_DEEP := preload("res://shaders/sea_deep.gdshader")
 const MOUNTAINS := preload("res://shaders/mountains.gdshader")
 const CLOUDS := preload("res://shaders/clouds.gdshader")
+const CINNABAR := preload("res://shaders/cinnabar.gdshader")
+const CINNABAR_SMOKE := preload("res://shaders/cinnabar_smoke.gdshader")
 const DIR := "res://world/"
 
 var main: Node3D
@@ -26,6 +28,7 @@ func setup(m: Node3D, town_root: Node, water_root: Node, terrain_mat: ShaderMate
 	_town_parts(town_root)
 	_sea(water_root, terrain_mat)
 	_mountains()
+	_cinnabar()
 	_clouds()
 	_plants()
 	var S = get_node_or_null("/root/Settings")
@@ -174,6 +177,56 @@ func _mountains() -> void:
 	mts.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mts.custom_aabb = AABB(Vector3(-1450, -60, -1650), Vector3(2900, 520, 2900))
 	add_child(mts)
+
+# ---------- Cinnabar Island: far scenery on the southern horizon ----------
+func _cinnabar() -> void:
+	var d: Dictionary = main.world.meta.get("cinnabar", {})
+	if d.is_empty() or not FileAccess.file_exists(DIR + "cinnabar.bin"): return
+	var b := FileAccess.get_file_as_bytes(DIR + "cinnabar.bin")
+	var nv := int(d.v); var ni := int(d.i)
+	var f := b.slice(0, nv * 36).to_float32_array()
+	var ix := b.slice(nv * 36).to_int32_array()
+	var pos := PackedVector3Array(); var nrm := PackedVector3Array(); var col := PackedColorArray()
+	pos.resize(nv); nrm.resize(nv); col.resize(nv)
+	for i in nv:
+		var q := i * 9
+		pos[i] = Vector3(f[q], f[q + 1], f[q + 2]); nrm[i] = Vector3(f[q + 3], f[q + 4], f[q + 5]); col[i] = Color(f[q + 6], f[q + 7], f[q + 8])
+	var a := []
+	a.resize(Mesh.ARRAY_MAX)
+	a[Mesh.ARRAY_VERTEX] = pos; a[Mesh.ARRAY_NORMAL] = nrm; a[Mesh.ARRAY_COLOR] = col; a[Mesh.ARRAY_INDEX] = ix.slice(0, ni)
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+	var mat := ShaderMaterial.new()
+	mat.shader = CINNABAR
+	mat.set_shader_parameter("sun", main.SUN_DIR.normalized())
+	mat.render_priority = -5
+	var land := MeshInstance3D.new()
+	land.mesh = m
+	land.material_override = mat
+	land.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(land)
+	# the plume: puffs as quads at the vent, moved by the shader
+	var vent := Vector3(d.vent[0], d.vent[1], d.vent[2])
+	var n := int(d.get("puffs", 14))
+	var pp := PackedVector3Array(); var uv := PackedVector2Array(); var uv2 := PackedVector2Array(); var idx := PackedInt32Array()
+	for k in n:
+		var b0 := pp.size()
+		for c in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			pp.append(vent); uv.append(c); uv2.append(Vector2(float(k) / n, 0.0))
+		idx.append_array([b0, b0 + 1, b0 + 2, b0, b0 + 2, b0 + 3])
+	var a2 := []
+	a2.resize(Mesh.ARRAY_MAX)
+	a2[Mesh.ARRAY_VERTEX] = pp; a2[Mesh.ARRAY_TEX_UV] = uv; a2[Mesh.ARRAY_TEX_UV2] = uv2; a2[Mesh.ARRAY_INDEX] = idx
+	var pm := ArrayMesh.new()
+	pm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a2)
+	var smat := ShaderMaterial.new()
+	smat.shader = CINNABAR_SMOKE
+	var plume := MeshInstance3D.new()
+	plume.mesh = pm
+	plume.material_override = smat
+	plume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	plume.custom_aabb = AABB(vent - Vector3(120, 20, 120), Vector3(400, 300, 300))
+	add_child(plume)
 
 # ---------- clouds: every sprite a camera-facing quad of one mesh ----------
 func _clouds() -> void:

@@ -8,6 +8,7 @@ render_mode ambient_light_disabled, specular_disabled;
 #include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/veg.gdshaderinc"
 #include "res://shaders/stone.gdshaderinc"
+#include "res://shaders/underwater.gdshaderinc"
 
 varying float v_k;
 varying vec3 v_sp;
@@ -27,6 +28,8 @@ void vertex() {
 void fragment() {
 	if (v_k > 0.0 && fd_b8(FRAGCOORD.xy) < v_k) discard;
 	ALBEDO = COLOR.rgb * stone_paint(v_sp, normalize(v_sn), UV, length(fwidth(v_sp)));
+	float uwd = uw_depth(VERTEX, INV_VIEW_MATRIX);
+	if (uwd > 0.0) { EMISSION = uw_colour(COLOR.rgb, uwd); ALBEDO = vec3(0.0); }
 }
 
 void light() {

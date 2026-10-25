@@ -5,6 +5,7 @@ shader_type spatial;
 render_mode ambient_light_disabled, specular_disabled;
 #include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/veg.gdshaderinc"
+#include "res://shaders/underwater.gdshaderinc"
 
 uniform sampler2D bark_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform bool use_tex = true;
@@ -39,6 +40,12 @@ void fragment() {
 		c = mix(c, mc, mm * 0.85);
 	}
 	ALBEDO = c;
+	float uwd = uw_depth(VERTEX, INV_VIEW_MATRIX);
+	if (uwd > 0.0) {
+		vec3 uw_base = color * (use_vc ? COLOR.rgb : vec3(1.0)) * (use_tex ? textureLod(bark_tex, UV, 7.0).rgb : vec3(1.0));
+		EMISSION = uw_colour(uw_base, uwd);
+		ALBEDO = vec3(0.0);
+	}
 }
 
 void light() {

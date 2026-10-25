@@ -1,6 +1,7 @@
 // The cel shader's body, shared by toon.gdshader and toon_ds.gdshader
 // (double-sided: the web's side DoubleSide materials, e.g. leaf cards, cloth, thin panels).
 #include "res://shaders/aces.gdshaderinc"
+#include "res://shaders/underwater.gdshaderinc"
 
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -26,6 +27,12 @@ void fragment() {
 	if (use_tex) c *= texture(albedo_tex, UV);
 	if (alpha_scissor > 0.0 && c.a < alpha_scissor) discard;
 	ALBEDO = c.rgb;
+	float uwd = uw_depth(VERTEX, INV_VIEW_MATRIX);
+	if (uwd > 0.0) {
+		vec3 uw_base = albedo.rgb * (use_vc ? COLOR.rgb : vec3(1.0)) * (use_tex ? textureLod(albedo_tex, UV, 7.0).rgb : vec3(1.0));
+		EMISSION = uw_colour(uw_base, uwd);
+		ALBEDO = vec3(0.0);
+	}
 }
 
 void light() {
