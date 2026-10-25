@@ -1,0 +1,4 @@
+{
+ "_doc": "Character edits from the world editor's Characters tab (actor.gd applies them over cast.json): looks.<look>.mats.<material src> {albedo '#rrggbb', cel {bands, deep, shade, lit, litAdd}}, meta.<clip> {stride, lead}, sim.chains.<index> {ks, drag, damp, vmax, flut, cone}, clips.<clip>.tracks.<bone> {t: [seconds], q: [[x, y, z, w]]}.",
+ "looks": {}
+}

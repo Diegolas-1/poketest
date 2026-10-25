@@ -88,7 +88,59 @@ func _exit_tree() -> void:
 static func data() -> Dictionary:
 	if _data.is_empty():
 		_data = JSON.parse_string(FileAccess.get_file_as_string("res://cast/cast.json"))
+		_overrides(_data)
 	return _data
+
+# The world editor's character edits (res://tunables/cast.json, looks.<look>):
+# mats.<src> {albedo, cel {...}} over the material of that name, meta.<clip>
+# {stride, lead}, sim.chains.<i> {ks, drag, damp, vmax, flut, cone, ...} over
+# that cloth chain, clips.<clip>.tracks.<bone> {t: [...], q: [[x, y, z, w]...]}
+# (keyframes that replace the bone's rotation track; applied in _build)
+static func _overrides(d: Dictionary) -> void:
+	var o = preload("res://tunables.gd").file("cast").get("looks")
+	if not o is Dictionary: return
+	for lk in o:
+		if not d.looks.has(lk) or not o[lk] is Dictionary: continue
+		var L: Dictionary = d.looks[lk]
+		var e: Dictionary = o[lk]
+		if e.get("mats") is Dictionary:
+			for m in L.mats:
+				var me = e.mats.get(m.src)
+				if not me is Dictionary: continue
+				if me.has("albedo"): m.albedo = me.albedo
+				if me.get("cel") is Dictionary:
+					if not m.get("cel") is Dictionary: m.cel = {}
+					for ck in me.cel: m.cel[ck] = me.cel[ck]
+		if e.get("meta") is Dictionary:
+			for cn in e.meta: if L.meta.has(cn) and e.meta[cn] is Dictionary: for mk in e.meta[cn]: L.meta[cn][mk] = e.meta[cn][mk]
+		if e.get("sim") is Dictionary and e.sim.get("chains") is Dictionary and L.get("sim") is Dictionary:
+			for ci in e.sim.chains:
+				var i := int(ci)
+				if i >= 0 and i < L.sim.chains.size(): for pk in e.sim.chains[ci]: L.sim.chains[i][pk] = e.sim.chains[ci][pk]
+		if e.get("clips") is Dictionary: L["clips_override"] = e.clips
+
+# keyframes from the editor replace a clip's rotation track for a bone (once per look)
+static var _clips_done := {}
+func _clip_overrides(d: Dictionary) -> void:
+	var co = d.get("clips_override")
+	if not co is Dictionary or _clips_done.has(look): return
+	_clips_done[look] = true
+	for cn in co:
+		if not anims.has(cn) or not co[cn] is Dictionary or not co[cn].get("tracks") is Dictionary: continue
+		var A: Animation = anims[cn]
+		for bn in co[cn].tracks:
+			var tr = co[cn].tracks[bn]
+			if not tr is Dictionary or not tr.get("t") is Array or not tr.get("q") is Array: continue
+			var ti := -1
+			for t in A.get_track_count():
+				if A.track_get_type(t) == Animation.TYPE_ROTATION_3D and String(A.track_get_path(t).get_concatenated_subnames()) == bn: ti = t
+			if ti < 0:
+				ti = A.add_track(Animation.TYPE_ROTATION_3D)
+				A.track_set_path(ti, NodePath(String(A.track_get_path(0).get_concatenated_names()) + ":" + bn))
+			while A.track_get_key_count(ti) > 0: A.track_remove_key(ti, 0)
+			for k in mini(tr.t.size(), tr.q.size()):
+				var v: Array = tr.q[k]
+				A.rotation_track_insert_key(ti, float(tr.t[k]), Quaternion(v[0], v[1], v[2], v[3]))
 
 static func make(look_name: String) -> CastActor:
 	var a := CastActor.new()
@@ -114,6 +166,7 @@ func _build(look_name: String) -> void:
 	# the clips are sampled by hand; the player itself is not needed
 	ap.get_parent().remove_child(ap)
 	ap.free()
+	_clip_overrides(d)
 	for i in skel.get_bone_count():
 		bones[skel.get_bone_name(i)] = i
 		rest_q.append(skel.get_bone_rest(i).basis.get_rotation_quaternion())
@@ -177,7 +230,7 @@ func _materials(root: Node, mats: Array) -> void:
 			var m := ShaderMaterial.new()
 			m.shader = SHADER_DS if info.get("ds", false) else SHADER
 			if src is BaseMaterial3D:
-				m.set_shader_parameter("albedo", src.albedo_color)
+				m.set_shader_parameter("albedo", Color(info.albedo) if info.get("albedo") is String else src.albedo_color)   # (the world editor's tint)
 				if src.albedo_texture:
 					m.set_shader_parameter("albedo_tex", src.albedo_texture)
 					m.set_shader_parameter("use_tex", true)
