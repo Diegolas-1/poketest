@@ -446,14 +446,50 @@ function roofHip(G, W, D, y0, { over = 1, rise = 1.6, col = '#46566a', trim = '#
   box(rl * 2 + 0.3, 0.2, 0.34, shade(col, 0.72), 0, y0 + rise + 0.2, 0, G);
   return R;
 }
-// a low bench with a red felt cloth (shogi), L long
-export function shogiBench({ L = 1.9, felt = '#c8312e', wood = '#8a5b38' } = {}) {
-  const G = new THREE.Group();
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.08, 0.42, 0.08, wood, sx * (L / 2 - 0.12), 0.21, sz * 0.24, G);
-  box(L, 0.07, 0.62, texm(planks(wood)), 0, 0.45, 0, G);
-  // the felt drapes over the front and back edges
-  box(L + 0.04, 0.03, 0.66, felt, 0, 0.5, 0, G);
-  for (const sz of [-1, 1]) box(L + 0.04, 0.16, 0.025, felt, 0, 0.43, sz * 0.34, G);
+// a low tea-house bench (shogi): a slatted seat on a frame of chamfered
+// legs joined by through-rails (nuki) with wedged tenons, a red felt runner
+// (mōsen) whose ends hang over the edges in soft folds, a flat cushion and
+// a tray with a teapot and two cups on one end; L long
+export function shogiBench({ L = 1.9, felt = '#c8312e', wood = '#8a5b38', tray = true } = {}) {
+  const G = new THREE.Group(), pw = texm(planks(wood)), dk = shade(wood, 0.78), h = 0.44, D = 0.62;
+  // legs (splayed a touch outward) and the rails through them
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const lg = bev(0.075, h - 0.02, 0.075, dk, sx * (L / 2 - 0.16), (h - 0.02) / 2, sz * (D / 2 - 0.08), G, 0.012);
+    lg.rotation.z = -sx * 0.04; lg.rotation.x = sz * 0.03;
+  }
+  for (const sx of [-1, 1]) {
+    bev(0.05, 0.06, D - 0.06, dk, sx * (L / 2 - 0.16), 0.13, 0, G, 0.01);   // low end rail
+    for (const sz of [-1, 1]) bev(0.035, 0.03, 0.03, shade(wood, 0.6), sx * (L / 2 - 0.16), 0.13, sz * (D / 2 - 0.02), G, 0.006);   // wedges
+  }
+  for (const sz of [-1, 1]) bev(L - 0.28, 0.07, 0.04, dk, 0, h - 0.07, sz * (D / 2 - 0.08), G, 0.01);   // apron rails
+  bev(L - 0.28, 0.05, 0.05, dk, 0, 0.13, 0, G, 0.01);   // stretcher
+  // the seat: four boards with hairline gaps, end battens
+  for (let i = 0; i < 4; i++) bev(L, 0.045, D / 4 - 0.012, pw, 0, h, -D / 2 + D / 8 + i * D / 4, G, 0.01);
+  for (const sx of [-1, 1]) bev(0.06, 0.03, D, dk, sx * (L / 2 - 0.05), h - 0.035, 0, G, 0.008);
+  // the felt runner: a thin sheet over the seat, its long edges hanging in folds
+  const fl = L * 0.82;
+  bev(fl, 0.012, D + 0.02, felt, 0, h + 0.03, 0, G, 0.004);
+  for (const sz of [-1, 1]) {
+    const g = new THREE.PlaneGeometry(fl, 0.17, 24, 3), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), t = (0.085 - y) / 0.17; p.setZ(i, (0.012 + 0.018 * t) + Math.sin(x * 22) * 0.012 * t); }
+    g.computeVertexNormals(); if (sz < 0) g.rotateY(Math.PI);
+    put(new THREE.Mesh(g, flat(felt, THREE.DoubleSide)), G, 0, h - 0.05, sz * (D / 2 + 0.005), { line: false });
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, fl, 6).rotateZ(Math.PI / 2), flat(shade(felt, 0.75))), G, 0, h + 0.032, sz * (D / 2 + 0.008), { line: false });
+  }
+  // a flat cushion (zabuton) with a tuft, and the tea tray
+  const cu = bev(0.46, 0.05, 0.46, '#3f5f8a', -L * 0.22, h + 0.06, 0, G, 0.022); cu.rotation.y = 0.12;
+  cyl(0.02, 0.02, 0.012, '#e8d6a8', -L * 0.22, h + 0.09, 0, G, 8, { line: false });
+  if (tray) {
+    const T = new THREE.Group(); T.position.set(L * 0.24, h + 0.045, 0.02); T.rotation.y = -0.2; G.add(T);
+    bev(0.42, 0.02, 0.28, '#5a2e1c', 0, 0.01, 0, T, 0.01);
+    for (const [w, d, z] of [[0.42, 0.02, 0.13], [0.42, 0.02, -0.13]]) bev(w, 0.035, d, '#5a2e1c', 0, 0.03, z, T, 0.006);
+    put(new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0], [0.06, 0], [0.075, 0.03], [0.072, 0.07], [0.05, 0.095], [0.02, 0.1], [0.022, 0.115], [0.001, 0.12]].map(([r, y]) => new THREE.Vector2(r, y)), 12), flat('#3a5a4a')), T, -0.08, 0.02, 0);
+    beam(V(-0.03, 0.06, 0), V(0.02, 0.09, 0.01), 0.012, '#3a5a4a', T, { line: false });   // the spout
+    for (const x of [0.07, 0.15]) {
+      put(new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0], [0.022, 0], [0.032, 0.02], [0.035, 0.055], [0.031, 0.055], [0.028, 0.022], [0.001, 0.016]].map(([r, y]) => new THREE.Vector2(r, y)), 10), flat('#efe6d0', THREE.DoubleSide)), T, x, 0.02, 0.04 - (x - 0.07));
+      cyl(0.029, 0.029, 0.004, '#8ab04a', x, 0.065, 0.04 - (x - 0.07), T, 10, { line: false });
+    }
+  }
   return G;
 }
 // a big paper parasol (nodate-gasa): ribs under a shallow red canopy

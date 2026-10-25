@@ -407,6 +407,24 @@ export function plantAt(group, kind, pts, { stage = 2, seeds = 3, wind, fade } =
   return out;
 }
 
+// ---------- a hanging berry (orchard trees) ----------
+// The fruit (no vertex colours: each instance is tinted by its kind) and its
+// cap (stalk, sepals and two leaves, vertex coloured green) as two
+// geometries to instance with one shared matrix buffer. Origin = where the
+// stalk meets the twig; the fruit hangs below it.
+export function berryParts({ r = 0.13 } = {}) {
+  const prof = [[0, -2.0], [0.42, -1.92], [0.78, -1.62], [0.98, -1.2], [1.0, -0.86], [0.86, -0.5], [0.6, -0.28], [0.3, -0.22], [0, -0.3]]
+    .map(([x, y]) => [x * r, y * r]);
+  const fruit = body(prof, { seg: 14, ribs: 6, ribK: 0.09 });
+  fruit.deleteAttribute('color');
+  const top = -0.26 * r, parts = [];
+  parts.push(tube([V(0, top - 0.01, 0), V(0.01, top + 0.06, 0.004), V(0.03, 0.02, 0)], [0.012, 0.009, 0.007], ['#6a8a3a', '#5a6a2c']));
+  for (let i = 0; i < 5; i++) parts.push(at(leaf(r * 0.55, r * 0.22, { arch: 0.1, droop: 0.5, curl: 0.2, base: '#4f8a34', tip: '#6aa844', nu: 4, nv: 2 }), 0, top + 0.004, 0, { ry: i / 5 * Math.PI * 2, rx: 0.5 }));
+  for (const [a, s] of [[0.4, 1], [2.9, 0.8]]) parts.push(at(leaf(r * 1.5, r * 0.6, { arch: 0.25, droop: 0.15, curl: 0.35, base: '#3f7a2e', tip: '#7cbc4a', nu: 6, nv: 3 }), 0.02, top + 0.05, 0, { ry: a, rx: -0.35, s }));
+  const cap = mergeGeometries(parts.map((g) => { const h = g.index ? g.toNonIndexed() : g; for (const n of Object.keys(h.attributes)) if (!['position', 'normal', 'color'].includes(n)) h.deleteAttribute(n); if (!h.attributes.normal) h.computeVertexNormals(); return h; }));
+  return { fruit, cap };
+}
+
 // ---------- furrowed soil ----------
 // Raised beds across a field: a w x d rectangle (local x across the rows,
 // z along them) centred on (cx, cz), turned rot, `rows` mounded beds with

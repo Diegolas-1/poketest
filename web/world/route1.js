@@ -22,6 +22,7 @@ import * as THREE from 'three';
 import { height, meshHeight, baseHeight, ROADS, TRAIL0, routeX, ROUTE1, onPath, pathSD, isWater, roadDist, rng, LEDGES, ledgeLineZ } from './terrain.js';
 import * as O from './props/outdoor.js';
 import * as FA from './props/farm.js';
+import * as CR from './crops.js';
 import './props/buildings.js';   // (the building kit: outdoor.js's cottages, tea house and shrine use it)
 import { routeSign, noticeBoard, welcomeSign, fingerpost } from './signs.js';
 import { wallMeshes, boulderGeometry, stoneMesh, STONE } from './stone.js';
@@ -197,8 +198,18 @@ export function route1Fill(world) {
         colOf.push(kc);
       }
     }
-    const bm = instanced(G, new THREE.SphereGeometry(0.13, 8, 6), O.flat('#ffffff'), berries, 0, 0, colOf);
-    if (bm) bm.userData.qa = { k: 'hung', why: 'berries hang in the orchard trees' };
+    // ribbed berries hanging from a stalk under sepals and two leaves: the
+    // fruit tinted per kind, the cap one green set on the same matrices
+    for (const b of berries) b[4] += 0.14 * b[3];
+    const BP = CR.berryParts({ r: 0.13 });
+    const bm = instanced(G, BP.fruit, O.flat('#ffffff'), berries, 0, 0, colOf);
+    if (bm) {
+      bm.userData.outline = false; bm.userData.qa = { k: 'hung', why: 'berries hang in the orchard trees' };
+      const cap = new THREE.InstancedMesh(BP.cap, O.vcFlat(), berries.length);
+      cap.instanceMatrix = bm.instanceMatrix; cap.castShadow = false; cap.receiveShadow = true;
+      cap.userData.outline = false; cap.userData.qa = bm.userData.qa; cap.name = 'berry_caps';
+      G.add(cap);
+    }
     const cx = (ORCHARD.x0 + ORCHARD.x1) / 2;
     sign(ORCHARD.x1 + 3, ORCHARD.z1 - 2, Math.PI / 2 - 0.2, () => noticeBoard('BERRY ORCHARD', ['ORAN  PECHA  CHERI  RAWST', 'Pick one a day, please!', 'Leave some for the PIDGEY.'], { style: 'chalk' }),
       ['BERRY ORCHARD', 'ORAN, PECHA, CHERI and RAWST BERRIES grow here.', 'Pick one a day, please! Leave some for the PIDGEY.'], 0.9);

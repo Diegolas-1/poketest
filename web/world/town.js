@@ -19,6 +19,7 @@ import { trackTown, applyTown } from './editlayer/objects.js';   // the world ed
 import * as BK from './props/buildings.js';   // the building kit
 import * as OD from './props/outdoor.js';
 import * as FA from './props/farm.js';
+import * as BO from './props/boats.js';   // rowing and fishing boats
 import * as CR from './crops.js';
 import { creekAt } from './route1land.js';
 const creekNear = (x, z, m) => { const q = creekAt(x, z); return !!q && q.d < q.c.w + m; };
@@ -1060,7 +1061,9 @@ function palletHouse(world) {
     const ts = BK.building({ W: 2.2, D: 1.4, floors: 1, floorH: 1.9, trim: '#5a3a24', seed: 4420,
       plinth: { h: 0.15, deep: 1.0, kind: 'stone', col: '#a8a290' }, wall: { kind: 'planks', col: '#7a4a2e' }, cornerBoards: true,
       roof: { type: 'shed', cover: 'shingle', col: '#8a6a4a', rise: 0.45, over: 0.3, gableOver: 0.2, trim: '#5a3a24' },
-      openings: [{ face: 'front', kind: 'door', x: -0.3, w: 0.9, h: 1.7, col: '#6a4028', glass: false, step: false }] });
+      openings: [{ face: 'front', kind: 'door', x: -0.3, w: 0.9, h: 1.7, col: '#6a4028', glass: false, step: false },
+        { face: 'back', kind: 'window', x: 0.35, w: 0.62, h: 0.5, y: 1.0, panes: [2, 1], curtains: null, frame: '#5a3a24' },
+        { face: 'left', kind: 'vent', x: 0, y: 1.45 }] });
     ts.userData.eid = 'pallethouse/toolshed'; sh.add(ts);
     for (const [tx2, tr, kind] of [[0.45, 0.1, 'rake'], [0.75, -0.05, 'spade'], [1.0, 0.12, 'broom']]) {
       const t = new THREE.Group(); t.position.set(tx2, 0, 0.82); t.rotation.z = tr; sh.add(t);
@@ -1216,29 +1219,17 @@ const HB = HARBOUR, HB_Y = SEA_Y + HB.y;
 // (the west pier as "the pier": the fisher stands on its head)
 export const PIER = { x: HB.arms[0].x, z0: HB.arms[0].z0, z1: HB.arms[0].z1, w: HB.w, y: HB_Y };
 function rowboat(g, x, z, rot, hullCol, trim, world, phase = 0) {
-  const boat = new THREE.Group(); boat.userData.keep = true; boat.position.set(x, SEA_Y + 0.2, z); boat.rotation.y = rot; g.add(boat);
-  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.6, 3.8, 14, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI), flat(hullCol));
-  hull.scale.set(1, 0.62, 1); add(hull, boat, 0, 0.3, 0);
-  box(1.85, 0.12, 3.82, trim, 0, 0.32, 0, boat, { line: false });
-  for (const zz of [-0.7, 0.5]) box(1.7, 0.08, 0.32, tex(planks('#c99a62')), 0, 0.18, zz, boat, { line: false });
-  for (const sd of [-1, 1]) { const oar = box(0.06, 0.06, 2.4, '#c9a876', sd * 0.55, 0.38, 0.1, boat, { line: false }); oar.rotation.y = sd * 0.15; }
-  world.anim.push((k, time) => { boat.position.y = SEA_Y + 0.17 + Math.sin(time * 1.1 + phase) * 0.06; boat.rotation.z = Math.sin(time * 0.9 + phase) * 0.035; boat.rotation.x = Math.sin(time * 0.7 + phase) * 0.02; });
+  // a clinker rowing boat (props/boats.js: one merged mesh), bobbing
+  const boat = new THREE.Group(); boat.userData.keep = true; boat.position.set(x, SEA_Y + 0.04, z); boat.rotation.y = rot; g.add(boat);
+  boat.add(BO.rowboat({ hull: hullCol, trim, seed: Math.round(phase * 10) + 1 }));
+  world.anim.push((k, time) => { boat.position.y = SEA_Y + 0.04 + Math.sin(time * 1.1 + phase) * 0.06; boat.rotation.z = Math.sin(time * 0.9 + phase) * 0.035; boat.rotation.x = Math.sin(time * 0.7 + phase) * 0.02; });
   return boat;
 }
-// a small wooden fishing boat with a wheelhouse and a mast
-function fishingBoat(g, x, z, rot, world) {
-  const b = new THREE.Group(); b.userData.keep = true; b.position.set(x, SEA_Y + 0.35, z); b.rotation.y = rot; g.add(b);
-  const hull = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.0, 7.2, 16, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI), flat('#2f6fa8'));
-  hull.scale.set(1, 0.7, 1); add(hull, b, 0, 0.55, 0);
-  box(3.15, 0.14, 7.25, '#f4f1e6', 0, 0.58, 0, b, { line: false });
-  box(2.9, 0.08, 6.6, tex(planks('#c99a62')), 0, 0.5, 0, b, { line: false });
-  box(1.7, 1.5, 1.8, tex(planks('#f4f1e6')), 0, 1.3, 0.9, b);
-  box(2.0, 0.14, 2.1, '#d8473a', 0, 2.1, 0.9, b);
-  windowAt(b, 0, 1.55, 1.82, 1.1, 0.5, 2, 1);
-  cyl(0.07, 0.09, 4.2, '#7d5536', 0, 2.6, -1.4, b, 8);
-  box(1.8, 0.06, 0.06, '#7d5536', 0, 3.6, -1.4, b, { line: false });
-  for (const zz of [-2.6, -2.0]) add(new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 5, 16).rotateX(Math.PI / 2), flat('#e8402e')), b, 0.9, 0.62, zz, { line: false });
-  world.anim.push((k, time) => { b.position.y = SEA_Y + 0.35 + Math.sin(time * 0.8 + 1.7) * 0.07; b.rotation.z = Math.sin(time * 0.6 + 0.4) * 0.03; });
+// a small wooden fishing boat with a wheelhouse and a mast (props/boats.js)
+function fishingBoat(g, x, z, rot, world, name = 'PALLET') {
+  const b = new THREE.Group(); b.userData.keep = true; b.position.set(x, SEA_Y + 0.08, z); b.rotation.y = rot; g.add(b);
+  b.add(BO.fishingBoat({ name }));
+  world.anim.push((k, time) => { b.position.y = SEA_Y + 0.08 + Math.sin(time * 0.8 + 1.7) * 0.07; b.rotation.z = Math.sin(time * 0.6 + 0.4) * 0.03; });
 }
 function dock(world) {
   const g = new THREE.Group(); world.group.add(g);
@@ -1324,7 +1315,7 @@ function dock(world) {
   rowboat(g, E.x + hw + 1.5, E.z0 + 52, 0.07, '#e8eef4', '#d84a3a', world, 2.7);
   fishingBoat(g, E.x + hw + 2.4, E.z0 + 38, 0.04, world);
   rowboat(g, bx1 - 1.6, E.z0 + 47, -0.08, '#f4e7c8', '#3d6fa8', world, 1.9);
-  fishingBoat(g, (bx0 + bx1) / 2 + 2, Q.z1 + 6.5, Math.PI / 2 + 0.05, world);
+  fishingBoat(g, (bx0 + bx1) / 2 + 2, Q.z1 + 6.5, Math.PI / 2 + 0.05, world, 'KINGLER');
   const rope = (ax, az, zx, zz) => { const len = Math.hypot(zx - ax, zz - az); const r = box(0.04, 0.04, len, '#d8c290', (ax + zx) / 2, y + 0.1, (az + zz) / 2, g, { line: false }); r.rotation.y = Math.atan2(zx - ax, zz - az); r.rotation.x = 0.08; };
   rope(outW, W.z0 + 44, W.x - hw - 1.5, W.z0 + 44.4); rope(outE, E.z0 + 55, E.x + hw + 1.5, E.z0 + 54);
   rope(inW, W.z0 + 6, bx0 + 1.4, W.z0 + 5.8); rope(inW, W.z0 + 15, bx0 + 1.5, W.z0 + 18.2); rope(inE, E.z0 + 8, bx1 - 1.5, E.z0 + 10.2);
@@ -1395,7 +1386,8 @@ function boathouse(world, x, z) {
   box(5.0, 2.6, 4.0, wall, 0, 1.4, 0, G);
   gableWall(G, 5.0, 1.6, 2.7, 2.0, wall); gableWall(G, 5.0, 1.6, 2.7, -2.0, wall, -1);
   gableRoof(G, 5.0, 4.0, 2.7, 1.6, roofMat, '#fbfaf4', 0.3, 0.3);
-  box(2.6, 2.1, 0.12, tex(planks('#f4f1e6')), 0, 1.15, 2.05, G);
+  // the boat doors: a framed double door, ledged and braced (the building kit)
+  { const DG = new THREE.Group(); DG.position.set(0, 0.1, 2.0); G.add(DG); BK.doorUnit(DG, { w: 2.4, h: 2.05, col: '#f4f1e6', frame: '#fbfaf4', double: true, glass: false, step: null, handle: '#3a3d46' }); }
   windowAt(G, 0, 3.15, 2.06, 0.7, 0.5, 2, 1);
   for (let k = 0; k < 3; k++) add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 6, 18), flat('#e8402e')), G, -2.6, 1.6, 0.8 - k * 0.0, { line: false }).rotation.y = Math.PI / 2;
   const sb = nameplate('BOATHOUSE', { w: 1.1, h: 0.3 }); sb.position.set(0, 2.5, 2.015); G.add(sb);   // signs.js, 1.5 cm off the wall

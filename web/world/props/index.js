@@ -8,6 +8,26 @@ import { CATALOG } from './catalog.js';
 import * as F from './furniture.js';
 import * as M from './machines.js';
 import * as D from './decor.js';
+import * as FA from './farm.js';
+import * as BK from './buildings.js';
+import * as CR from '../crops.js';
+
+// outdoor builders take their own option names; these adapt a placement's params
+const flatGround = () => 0;
+const cottage = ({ params: p }) => BK.building({ W: p.W, D: p.D, floors: p.floors, seed: p.seed,
+  wall: { kind: p.wall, col: p.wallCol }, roof: { type: p.roof, cover: p.cover, col: p.roofCol },
+  chimney: p.chimney ? { x: -p.W * 0.28, z: -p.D * 0.15 } : [],
+  openings: [{ face: 'front', kind: 'door', x: -p.W * 0.22, canopy: true, lamp: 'right' },
+    { face: 'front', kind: 'window', x: p.W * 0.22, w: 1.4, h: 1.3, panes: [3, 2], box: '#c99a62' },
+    { face: 'back', kind: 'window', x: 0 }, { face: 'left', kind: 'window', x: 0 }, { face: 'right', kind: 'window', x: 0, shutters: '#3f7a52' },
+    ...(p.floors > 1 ? [{ face: 'front', kind: 'window', x: -p.W * 0.22, floor: 1 }, { face: 'front', kind: 'window', x: p.W * 0.22, floor: 1 }] : [])] });
+const cropBed = ({ params: p, size }) => {
+  const G = new THREE.Group();
+  const one = p.crop && CR.CROPS.includes(p.crop) ? [[p.crop, p.spacing || 0.55, p.stage ?? 2]] : undefined;
+  FA.cropField(G, { x: 0, z: 0, w: size[0], d: size[1], rot: 0, kind: p.kind }, flatGround, { plan: one, seed: p.seed || 1 });
+  return G;
+};
+const cropPlant = ({ params: p }) => { const G = new THREE.Group(); CR.plantAt(G, p.crop, [[0, 0, 0, 0, 1]], { stage: p.stage, seeds: 1 }); return G; };
 
 export const PROPS = {
   desk: F.desk, swivel_chair: F.swivel_chair, sofa: F.sofa, drafting_table: F.drafting_table, bookshelf: F.bookshelf,
@@ -17,6 +37,11 @@ export const PROPS = {
   machinery_block: M.machinery_block, cylinder_machine: M.cylinder_machine, green_tank_machine: M.green_tank_machine, capsule_machine: M.capsule_machine,
   potted_plant: D.potted_plant, notice_board: D.notice_board, framed_picture: D.framed_picture, wall_vent: D.wall_vent, wall_clock: D.wall_clock,
   globe: D.globe, desk_lamp: D.desk_lamp, pendant_lamp: D.pendant_lamp, chain_hoist: D.chain_hoist, panel_light: D.panel_light, door: D.door,
+  kit_cottage: cottage, kit_shed: ({ params: p }) => FA.farmShed(p), gazebo: ({ params: p }) => BK.gazebo(p),
+  crop_bed: cropBed, crop_plant: cropPlant, scarecrow: ({ params: p }) => FA.scarecrow(p), hay_bale: ({ params: p }) => FA.haybale(p),
+  square_bale: () => FA.squareBale(), wheelbarrow: ({ params: p }) => FA.wheelbarrow(p), watering_can: ({ params: p }) => FA.wateringCan(p),
+  tool_rack: () => FA.toolRack(), water_trough: () => FA.trough(), produce_crates: ({ params: p }) => FA.crateStack(p),
+  grain_sack: ({ params: p }) => FA.sack(p), garden_trellis: () => FA.trellis(),
 };
 
 export function buildProp(p, cat = CATALOG) {

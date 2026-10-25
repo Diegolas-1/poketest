@@ -14,6 +14,9 @@ import * as CR from './crops.js';
 import * as O from './props/outdoor.js';
 import * as B from './props/buildings.js';
 import * as FA from './props/farm.js';
+import * as BO from './props/boats.js';
+import { buildProp } from './props/index.js';
+import { CATALOG } from './props/catalog.js';
 const q = new URLSearchParams(location.search);
 const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
 r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -46,7 +49,30 @@ const SCENES = {
   },
 };
 for (const k of CR.CROPS) SCENES['crop_' + k] = () => { for (let s = 0; s < 4; s++) CR.plantAt(G, k, [[s * 1.1 - 1.65, 0, 0, 0.6, 1]], { stage: s, seeds: 1 }); return '0,1.3,3.2,0,0.5,0'; };
+SCENES.bench_berries = () => {
+  put(O.shogiBench(), -1.2, 0, 0.3);
+  const BP = CR.berryParts({ r: 0.13 });
+  ['#3a6ad8', '#f26aa0', '#e8402e', '#f2a23a'].forEach((c, i) => {
+    put(new THREE.Mesh(BP.fruit, new THREE.MeshLambertMaterial({ color: c })), 1.0 + i * 0.4, 0, 0.3 * i, 1.0);
+    put(new THREE.Mesh(BP.cap, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })), 1.0 + i * 0.4, 0, 0.3 * i, 1.0);
+  });
+  return '0.4,1.4,2.6,0.3,0.6,0';
+};
+SCENES.catalog_lab = () => {
+  const types = Object.keys(CATALOG).filter((t) => !['kit_cottage', 'kit_shed', 'gazebo', 'crop_bed', 'crop_plant', 'scarecrow', 'hay_bale', 'square_bale', 'wheelbarrow', 'watering_can', 'tool_rack', 'water_trough', 'produce_crates', 'grain_sack', 'garden_trellis'].includes(t));
+  let x = 0, z = 0, row = 0;
+  for (const t of types) { const c = CATALOG[t], w = Math.max(1, c.size[0]); if (x + w > 14) { x = 0; z -= 3.6; } const o = buildProp({ id: t, type: t }); const y = c.mount === 'ceiling' ? 3.2 : c.mount === 'wall' ? c.size[2] / 2 + 0.6 : 0; put(o, x - 7 + w / 2, z, 0, y); x += w + 0.5; }
+  return '0,9,9,0,0.8,-4';
+};
+// every outdoor catalog type through the editor's own path (buildProp)
+SCENES.catalog_outdoor = () => {
+  const types = ['kit_cottage', 'kit_shed', 'gazebo', 'crop_bed', 'crop_plant', 'scarecrow', 'hay_bale', 'square_bale', 'wheelbarrow', 'watering_can', 'tool_rack', 'water_trough', 'produce_crates', 'grain_sack', 'garden_trellis'];
+  let x = -14;
+  for (const t of types) { const w = CATALOG[t].size[0]; put(buildProp({ id: t, type: t }), x + w / 2, 0, 0.2); x += w + 0.8; }
+  return '0,14,30,0,1,0';
+};
 for (const [k, f] of Object.entries(B.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
+for (const [k, f] of Object.entries(BO.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
 for (const [k, f] of Object.entries(FA.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
 for (const [k, f] of Object.entries(O.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
 const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 2000);
