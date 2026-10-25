@@ -317,7 +317,7 @@ export function route1Fill(world) {
     const out = [], R = rng(55);
     for (const r of runs) for (let k = 0; k + 1 < r.pts.length; k++) {
       const a = r.pts[k], b = r.pts[k + 1], hgt = 0.85 + R() * 0.12;
-      out.push({ a, b, t: 0.55, top: (u) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = u / L; return height(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t) + hgt; },
+      out.push({ a, b, hgt, t: 0.55, top: (u) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = u / L; return height(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t) + hgt; },
         faces: [{ side: 1, bottom: () => Math.min(height(...a), height(...b)) - 0.2 }, { side: -1, bottom: () => Math.min(height(...a), height(...b)) - 0.2 }], col: '#b9b6a0' });
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
       world.colliders.push({ box: true, x: mx, z: mz, hw: 0.3, hd: Math.hypot(b[0] - a[0], b[1] - a[1]) / 2 + 0.05, rot: Math.atan2(b[0] - a[0], b[1] - a[1]) });
@@ -326,10 +326,11 @@ export function route1Fill(world) {
     // ivy and moss along the walls' tops (a mat every few metres)
     const W = new THREE.Group(); G.add(W);
     for (let k = 0; k < out.length; k += 2) {
-      const { a, b } = out[k];
-      const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, ry = Math.atan2(b[0] - a[0], b[1] - a[1]);
-      O.mossTop(W, 0.5, Math.hypot(b[0] - a[0], b[1] - a[1]) + 0.2, mx, height(mx, mz) + 0.95, mz, ry, 900 + k);
-      if (k % 4 === 0) O.ivy(W, 1.6, 0.9, mx, height(mx, mz) - 0.1, mz, ry + Math.PI / 2, 950 + k, 10).position.add(V(Math.cos(ry) * 0.29, 0, -Math.sin(ry) * 0.29));
+      const { a, b, hgt } = out[k];
+      const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, ry = Math.atan2(b[0] - a[0], b[1] - a[1]), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      // on the segment's own top (its height varies), no longer than it
+      O.mossTop(W, 0.5, L, mx, height(mx, mz) + hgt, mz, ry, 900 + k);
+      if (k % 4 === 0) O.ivy(W, Math.min(1.6, L * 0.9), 0.9, mx, height(mx, mz) - 0.1, mz, ry + Math.PI / 2, 950 + k, 10).position.add(V(Math.cos(ry) * 0.29, 0, -Math.sin(ry) * 0.29));
     }
   }
   // street lamps every 17 m from z -384, alternating sides
@@ -384,8 +385,13 @@ export function route1Fill(world) {
     r1.amb.mill = P3([hub.x, hub.y, hub.z]); }
   // more roofs in the trees, nearer the city: cottages up the slopes
   for (const [x, z, rot, seed, roof] of [[-92, -444, 0.6, 411, '#3d7a6a'], [86, -436, -0.7, 412, '#c4553a'], [98, -392, -1.2, 413, '#5a6a8a'], [-104, -380, 1.1, 414, '#c4553a'], [72, -456, -0.3, 415, '#d08a3a']]) {
-    const y = footY(x, z, 4);
-    const H = O.cottage({ seed, roof, wall: seed % 2 ? '#efe2c8' : '#f2d9c0' }); H.position.set(x, y, z); H.rotation.y = rot; G.add(H);
+    const H = O.cottage({ seed, roof, wall: seed % 2 ? '#efe2c8' : '#f2d9c0' }), f = H.userData.foot;
+    // the lowest ground under its footprint (it floated on the slopes)
+    let y = Infinity;
+    for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const lx = i / 2 * f.hw, lz = j / 2 * f.hd; y = Math.min(y, height(x + lx * Math.cos(rot) + lz * Math.sin(rot), z - lx * Math.sin(rot) + lz * Math.cos(rot))); }
+    H.position.set(x, y, z); H.rotation.y = rot; G.add(H);
+    H.userData.eid = `route1/cottage/c${seed}`;
+    world.colliders.push({ box: true, x, z, hw: f.hw, hd: f.hd, rot });   // solid, and no trees grow inside it
   }
   // the welcome sign before the gate
   {
@@ -413,7 +419,7 @@ export function route1Fill(world) {
       for (let k = 0; k < 5; k++) {
         const t = (k + 0.5) / 5, x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t, y = height(x, gz);   // (the wall's height follows gz too)
         O.ivy(W, 4, 1.6, x + nx * 0.37, y - 0.2, z + nz * 0.37, face, 1200 + k * 2 + (s > 0 ? 1 : 0), 10);
-        O.mossTop(W, 0.6, L / 5 + 0.1, x, y + 1.6, z, along, 1300 + k + s);
+        O.mossTop(W, 0.6, L / 5 - 0.2, x, y + 1.6, z, along, 1300 + k + s);
       }
     }
     G.add(...wallMeshes(runs, 9200, { fade: WALL_FADE }));

@@ -561,7 +561,7 @@ export function busShelter({ col = '#4f8a6a', roof = '#c4553a' } = {}) {
   box(2.7, 1.6, 0.06, pw, 0, 1.2, -0.62, G);
   for (const sx of [-1, 1]) box(0.06, 1.2, 1.2, pw, sx * 1.33, 1.0, 0, G);
   const R = new THREE.Group(); R.position.y = 2.32; G.add(R);
-  const rg = new THREE.CylinderGeometry(1.0, 1.0, 3.0, 12, 1, true, -0.7, 1.4).rotateZ(Math.PI / 2).rotateX(0);
+  const rg = new THREE.CylinderGeometry(1.0, 1.0, 3.0, 12, 1, true, -0.7, 1.4).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2);   // the arc's crown up (it stood on end, a red wall at the front)
   rg.translate(0, -0.78, 0);
   put(new THREE.Mesh(rg, texm(clay(roof), '#ffffff', THREE.DoubleSide)), R, 0, 0, 0);
   box(2.4, 0.06, 0.4, pw, 0, 0.48, -0.36, G);
@@ -609,7 +609,7 @@ export function stoneBridge({ L = 8, w = 3.6, rise = 0.5, col = '#b4ad98' } = {}
   put(new THREE.Mesh(arch, st), G, 0, -0.42 - AR, 0);
   for (const sz of [-1, 1]) box(w + 0.4, 1.4, 1.2, st, 0, -0.7, sz * (L / 2 - 0.4), G);
   // ivy over the deck's edge and up the parapets (outer faces at x = +-w / 2)
-  for (const sx of [-1, 1]) { ivy(G, 2.4, 1.0, sx * (w / 2 + 0.02), -0.3, 0, sx * Math.PI / 2, 71 + sx, 9); mossTop(G, 0.3, L * 0.6, sx * (w / 2 - 0.15), rise + 0.55, 0, 0, 73 + sx); }
+  for (const sx of [-1, 1]) { ivy(G, 2.4, 1.0, sx * (w / 2 + 0.02), -0.12, 0, sx * Math.PI / 2, 71 + sx, 9); mossTop(G, 0.3, L * 0.6, sx * (w / 2 - 0.15), rise + 0.55, 0, 0, 73 + sx); }
   return G;
 }
 // a wooden footbridge (gently arched), deck along z
@@ -655,8 +655,11 @@ export function windmill({ h = 9, col = '#d9d0b8' } = {}) {
   const G = new THREE.Group();
   cyl(1.6, 2.4, h, texm(plaster(col)), 0, h / 2, 0, G, 14);
   const cap = cone(2.0, 2.4, texm(thatch('#9a7a4a')), 0, h + 1.1, 0, G, 14); void cap;
-  box(0.9, 1.6, 0.1, '#5a3a22', 0, 0.8, 2.25, G);
-  for (const y of [h * 0.45, h * 0.75]) box(0.6, 0.7, 0.1, '#f2e2b0', 0, y, 2.0 - y / h * 0.6, G);
+  // the door, the windows and the ivy sit on the tapered wall's face (it
+  // narrows from r 2.4 to 1.6): at its radius there, leaning back with it
+  const rAt = (y) => 2.4 - 0.8 * y / h, lean = -Math.atan2(0.8, h);
+  box(0.9, 1.6, 0.1, '#5a3a22', 0, 0.8, rAt(0.8) + 0.02, G).rotation.x = lean;
+  for (const y of [h * 0.45, h * 0.75]) box(0.6, 0.7, 0.1, '#f2e2b0', 0, y, rAt(y) + 0.02, G).rotation.x = lean;
   const S = new THREE.Group(); S.name = 'r1_sails'; S.position.set(0, h + 0.5, 2.2); S.userData.keep = true; G.add(S);
   cyl(0.2, 0.2, 0.6, '#5a3a22', 0, 0, 0, S, 8).rotation.x = Math.PI / 2;
   for (let i = 0; i < 4; i++) {
@@ -665,7 +668,7 @@ export function windmill({ h = 9, col = '#d9d0b8' } = {}) {
     for (let k = 0; k < 6; k++) box(1.1, 0.06, 0.04, '#8a6a4a', 0.55, 1.2 + k * 0.7, 0.22, A, { line: false });
     box(1.0, 4.0, 0.02, '#f2ead6', 0.55, 3.0, 0.25, A, { line: false });
   }
-  ivy(G, 2.4, 3.6, 0, 0, 2.15, 0, 85, 10);
+  ivy(G, 1.5, 3.0, 0, 1.65, rAt(1.65), 0, 85, 10).rotation.x = lean;   // over the door
   return G;
 }
 // a cottage on Viridian's edge: plaster and timber, a clay roof full of

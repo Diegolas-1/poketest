@@ -1200,8 +1200,9 @@ function dock(world) {
     for (const [px, pz] of [[-3.3, 0.2], [3.3, 0.2], [-3.3, 4.4], [3.3, 4.4], [0, 4.5], [-1.1, 4.5], [1.1, 4.5]]) piles.push([a.x + px, a.z1 + pz]);
   }
   for (let xx = Q.x0 + 1.2; xx <= Q.x1; xx += 2.6) piles.push([xx, Q.z1 + 0.05]);
-  const pg = new THREE.CylinderGeometry(0.17, 0.2, 4.4, 8), pm = new THREE.InstancedMesh(pg, flat(post), piles.length);
-  piles.forEach(([px, pz], i) => { m4.compose(V(px, y - 1.6, pz), q, V(1, 1, 1)); pm.setMatrixAt(i, m4); });
+  // each pile from its top (0.6 above the deck) down into the sea floor
+  const pg = new THREE.CylinderGeometry(0.17, 0.2, 1, 8), pm = new THREE.InstancedMesh(pg, flat(post), piles.length);
+  piles.forEach(([px, pz], i) => { const top = y + 0.6, bot = Math.min(y - 3.8, height(px, pz) - 0.4); m4.compose(V(px, (top + bot) / 2, pz), q, V(1, top - bot, 1)); pm.setMatrixAt(i, m4); });
   pm.castShadow = pm.receiveShadow = true; g.add(pm);
   harbourFront(world, g);
   // bollards along the basin's sides, iron ladders down to the water
@@ -1292,9 +1293,14 @@ function harbourFront(world, g) {
   const by = models.map(() => []); list.forEach((p, i) => by[i % 3].push(p));
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   models.forEach((mod, k) => {
+    const mh = Math.max(...mod.parts.map((p) => { p.geometry.computeBoundingBox(); return p.geometry.boundingBox.max.y; }));
     for (const p of mod.parts) {
       const im = new THREE.InstancedMesh(p.geometry, p.material, by[k].length);
-      by[k].forEach(([x, z, r, sc], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, SEA_Y - 0.12 * sc, z), q, V(sc, sc * 1.1, sc)); im.setMatrixAt(i, m4); });
+      // each boulder stands on the sea floor, its top out of the water as before
+      by[k].forEach(([x, z, r, sc], i) => {
+        const top = SEA_Y - 0.12 * sc + mh * sc * 1.1, base = Math.min(SEA_Y - 0.12 * sc, height(x, z) - 0.1);
+        q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, base, z), q, V(sc, (top - base) / mh, sc)); im.setMatrixAt(i, m4);
+      });
       im.castShadow = im.receiveShadow = true; world.group.add(im);
     }
   });
@@ -1528,7 +1534,7 @@ function mergeStatic(G) {
 // Flower beds [x0, z0, x1, z1]
 export const BEDS = [
   [-12.5, -9.5, -9.0, -6.5],
-  [3.6, 4.6, 7.0, 7.4],
+  [2.8, 4.6, 5.6, 7.4],   // (was 3.6-7.0: its east side stood in the stream, whose bank is at x 6)
 ];
 
 export function buildTown() {
@@ -1553,7 +1559,7 @@ export function buildTown() {
   // the square: the well, benches, the town sign, fingerposts
   well(1.8, 1.3, world);
   bench(-9.5, 5.5, 0.5, world);
-  bench(6.6, 1.0, -Math.PI / 2 - 0.2, world);
+  bench(5.0, 0.8, -Math.PI / 2 - 0.2, world);   // (at x 6.6 it hung over the stream's bank)
   sign(-10.5, -4.2, 0.9, () => welcomeSign(), ['PALLET TOWN', 'Shades of your journey await!'], world, 1.3);
   signpost(-9.5, -15.5, [['ROUTE 1', 0.15 + Math.PI], ['RED\'s house', -Math.PI / 2 + 0.1], ['TOWN SQUARE', 0.2]], world);
   signpost(2.6, 8.6, [['OAK LAB', Math.PI / 2 + 0.3], ['BEACH', 0], ['SQUARE', Math.PI + 0.4]], world);
