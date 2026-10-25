@@ -16,7 +16,7 @@
 //      (edit document, life data, and the game loading with the edits); any
 //      error and it stops, puts the files back and reports to the editor;
 //   6. commits and pushes the edits; if the world changed, bakes the native
-//      world, ink, cast and places (tools/native/bake*.mjs), commits and pushes;
+//      world, ink, places and cast.json's world data (bake_use.mjs), commits and pushes;
 //      life data only needs the code pack, so nothing is baked;
 //   7. publishes the patch (tools/native/publish_patch.mjs; packs whose sources
 //      did not change are reused) and marks the request done with the patch
@@ -113,9 +113,11 @@ async function handle(pending) {
     }
     if (world) {
       const env = { ...process.env, WEB_PORT: port };
-      for (const s of ['bake.mjs', 'bake_ink.mjs', 'bake_cast.mjs', 'bake_places.mjs']) {
+      // (not bake_cast.mjs: it needs the local model sources; bake_use.mjs refreshes
+      // the parts of cast.json that the world's edits change)
+      for (const s of ['native/bake.mjs', 'native/bake_ink.mjs', 'editor/bake_use.mjs', 'native/bake_places.mjs']) {
         await report('working', 'baking: ' + s);
-        const r = spawnSync('node', [path.join(ROOT, 'tools/native', s)], { cwd: ROOT, env, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 3 * 3600e3 });
+        const r = spawnSync('node', [path.join(ROOT, 'tools', s)], { cwd: ROOT, env, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 3 * 3600e3 });
         if (r.status !== 0) throw new Error(`${s} failed:\n` + (r.stdout + r.stderr).slice(-3000));
       }
       git('add', '-A', 'native');
