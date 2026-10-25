@@ -23,6 +23,15 @@ extends RefCounted
 # coat never cuts a knee mid-stride. Then each cloth bone is turned to point at
 # its particle.
 #
+# A jacket's panels (Ash's) also go round his legs at their current pose: tubes of the
+# jeans' own girth (measured from the trousers' mesh) from high on each thigh to the
+# knee and from the knee to the ankle. Each panel's particles, points along its links and
+# the points between neighbouring panels' hems are pushed out of them, and so is where a
+# panel hangs (so its spring agrees); the front panels go round the outside of the leg
+# (away from the opening) rather than being pushed up into the chest. As the thighs come
+# up in front (sit, crouch, a jump's tuck, a running stride) the front panels are freed
+# to part: wider cones, looser spacing, less smoothing towards the side panels.
+#
 # The sim runs at a fixed 60 steps a second (STEP_HZ, fewer for villagers further
 # off) whatever the frame rate, on a worker thread (threaded) while the frame is
 # drawn: each batch of steps works with the bones where they will be a frame later
@@ -101,6 +110,17 @@ var gsz := 0.0
 const GROUND_PAD := 0.012     # cloth stays this far above the ground (m)
 const GROUND_GRIP := 0.85     # of its sideways speed lost by a particle on the ground each step
 const GROUND_PROBE := 0.4
+# a jacket round the legs
+const LEG_PAD := 0.012        # cloth this far outside the jeans (m): the jacket's thickness and a little
+const LEG_TPAD := 0.03        # where a panel hangs, this far outside them (legs up; none standing)
+const LEG_TOP := 0.18         # the thigh's tube starts this far down the thigh (above, it is the hips)
+const LEG_SIDE := 1.4         # how strongly a front panel is sent round the leg's outside
+const LEG_CONE := 0.6         # radians more swing for a front panel, legs up
+const LEG_GAP := 0.3          # its spacing to its neighbours may stretch this much more, legs up
+var lift := 0.0               # how far the thighs are raised in front (0 standing, 1 sitting), eased down
+var lift_raw := 0.0
+var side := Vector3.RIGHT     # the body's left (world), for which way is outward
+var _lm := PackedInt64Array() # per particle: the legs' tubes near its link (bits)
 
 static func make(a: Node3D) -> ClothSim:
 	var sim = CastActor.data().looks[a.look].get("sim")
@@ -113,7 +133,7 @@ static func make(a: Node3D) -> ClothSim:
 func _init_for(a: Node3D, sim: Dictionary) -> void:
 	actor = a
 	skel = a.skel
-	if not _prep.has(a.look): _prep[a.look] = _prepare(skel, sim)
+	if not _prep.has(a.look): _prep[a.look] = _prepare(skel, sim, a)
 	D = _prep[a.look]
 	cap_out = D.cap_out; cap_inn = D.cap_inn; rings = D.rings; shells = D.shells
 	var ns: int = D.slot_bone.size()
@@ -131,7 +151,7 @@ func _init_for(a: Node3D, sim: Dictionary) -> void:
 		for k in int(D.c_n[g[0]]): var o := PackedVector3Array(); o.resize(g[1]); rows.append(o)
 		_offs.append(rows)
 
-static func _prepare(sk: Skeleton3D, sim: Dictionary) -> Dictionary:
+static func _prepare(sk: Skeleton3D, sim: Dictionary, a: Node3D = null) -> Dictionary:
 	# (built in locals: a packed array inside a Dictionary is copied when read)
 	var slot_bone := PackedInt32Array()
 	var slot_rinv: Array = []
@@ -264,12 +284,80 @@ static func _prepare(sk: Skeleton3D, sim: Dictionary) -> Dictionary:
 		links.append([c_p0[int(l[0])] + int(l[1]), c_p0[int(l[2])] + int(l[3]), float(l[4]), int(l[0])])
 	var groups: Array = []
 	for g in sim.groups: groups.append([int(g[0]), int(g[1]), bool(g[2])])
+	# a jacket's panels (cloth bones clJ*) round the legs: the legs' tubes, each panel's
+	# side and how much of a front panel it is (by where its hem hangs: in front of the hip)
+	var c_jk := PackedByteArray()
+	var c_side := PackedFloat32Array()
+	var c_fw := PackedFloat32Array()
+	var leg_caps := PackedInt32Array()
+	var leg_thigh := PackedInt32Array()     # per leg: its thigh's slot
+	for c in c_parent.size():
+		var jk := (c_bones[c] as PackedInt32Array).size() > 0 and String(sim.chains[c].bones[0]).begins_with("clJ")
+		var rest: PackedVector3Array = c_rest[c]
+		var hem := rest[rest.size() - 1]
+		c_jk.append(1 if jk else 0)
+		c_side.append(signf(hem.x) if jk and absf(hem.x) > 0.01 else 0.0)
+		c_fw.append(smoothstep(-0.02, 0.07, hem.z) if jk else 0.0)
+	if c_jk.has(1):
+		var R := _leg_radii(sk, a)
+		for L in ["L", "R"]:
+			var T := sk.get_bone_global_rest(sk.find_bone(L + "Thigh")).origin
+			var K := sk.get_bone_global_rest(sk.find_bone(L + "Leg")).origin
+			var F := sk.get_bone_global_rest(sk.find_bone(L + "Foot")).origin
+			for e in [[L + "Thigh", T.lerp(K, LEG_TOP), K, R[0], R[1]], [L + "Leg", K, F, R[2], R[3]]]:
+				leg_caps.append(cap_slot.size())
+				cap_slot.append(slot.call(e[0])); cap_a.append(e[1]); cap_b.append(e[2])
+				cap_r0.append(e[3] + LEG_PAD); cap_r1.append(e[4] + LEG_PAD); cap_out.append(0); cap_inn.append(0)
+			leg_thigh.append(slots[L + "Thigh"])
+	is_parent.resize(slot_bone.size())
+	# per link: how much of a front panel either end is (its spacing loosens with the legs up)
+	for li in links.size(): links[li].append(maxf(c_fw[int(sim.links[li][0])], c_fw[int(sim.links[li][2])]))
 	return {"slot_bone": slot_bone, "slot_rinv": slot_rinv, "slot_inv": slot_inv, "slot_rq": slot_rq, "hips": hips, "hip0": sk.get_bone_global_rest(sk.find_bone("Hips")).origin,
 		"cap_slot": cap_slot, "cap_a": cap_a, "cap_b": cap_b, "cap_r0": cap_r0, "cap_r1": cap_r1, "cap_out": cap_out, "cap_inn": cap_inn,
 		"rings": rings, "shells": shells, "c_parent": c_parent, "c_hang": c_hang, "c_p0": c_p0, "c_n": c_n,
 		"c_damp": c_damp, "c_vmax": c_vmax, "c_flut": c_flut, "c_quad": c_quad, "c_rest": c_rest, "c_hangw": c_hangw,
 		"c_bones": c_bones, "c_bq": c_bq, "c_dir": c_dir, "np": np, "p_ks": p_ks, "p_drag": p_drag, "p_ccos": p_ccos,
-		"p_csin": p_csin, "p_len": p_len, "p_ops": p_ops, "links": links, "is_parent": is_parent, "flat_bones": flat_bones, "c_caps": c_caps, "c_len": c_len, "groups": groups, "iter": int(sim.get("iter", 3))}
+		"p_csin": p_csin, "p_len": p_len, "p_ops": p_ops, "links": links, "is_parent": is_parent, "flat_bones": flat_bones, "c_caps": c_caps, "c_len": c_len, "groups": groups, "iter": int(sim.get("iter", 3)),
+		"c_jk": c_jk, "c_side": c_side, "c_fw": c_fw, "leg_caps": leg_caps, "leg_thigh": leg_thigh}
+
+# the jeans' girth round each leg (m): the thigh high up and at the knee, the shin at the
+# knee and the ankle; the median distance from the bone line of the trousers' vertices
+# nearest each stretch of it (their mesh at rest is in the skeleton's rest frame)
+static func _leg_radii(sk: Skeleton3D, a: Node3D) -> Array:
+	var R := [0.088, 0.08, 0.078, 0.07]
+	if a == null or not ("meshes" in a): return R
+	var mi: MeshInstance3D = null
+	for m in a.meshes:
+		var n := String(m.name).to_lower()
+		if n.contains("pants") or n.contains("jeans") or n.contains("trousers"): mi = m
+	if mi == null: return R
+	var V: PackedVector3Array = mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var segs := []
+	for L in ["L", "R"]:
+		var T := sk.get_bone_global_rest(sk.find_bone(L + "Thigh")).origin
+		var K := sk.get_bone_global_rest(sk.find_bone(L + "Leg")).origin
+		var F := sk.get_bone_global_rest(sk.find_bone(L + "Foot")).origin
+		segs.append([T, K, 0]); segs.append([K, F, 2])
+	var bins := [[], [], [], []]
+	for p in V:
+		var best := INF
+		var bs := 0
+		var bu := 0.0
+		for sg in segs:
+			var A: Vector3 = sg[0]
+			var B: Vector3 = sg[1]
+			var u := clampf((p - A).dot(B - A) / (B - A).length_squared(), 0.0, 1.0)
+			var d := p.distance_to(A.lerp(B, u))
+			if d < best: best = d; bs = sg[2]; bu = u
+		# high on the thigh (past where it joins the hips) / at the knee; the shin's top and its cuff
+		if bu > 0.2 and bu < 0.45: bins[bs].append(best)
+		elif bu > 0.7 and bu < 0.95: bins[bs + 1].append(best)
+	for i in 4:
+		var l: Array = bins[i]
+		if l.size() < 8: continue
+		l.sort()
+		R[i] = clampf(l[l.size() / 2], 0.04, 0.14)
+	return R
 
 # ---------- each frame ----------
 # the bones' frames for the sim (W, at the first time in hz) and for aiming (Wh: the
@@ -316,6 +404,17 @@ func _frames(hz: PackedFloat32Array, predict: bool) -> void:
 		var rr := cab[i].length() * 0.5 + maxf(cr0[i], cr1[i])
 		cR2[i] = rr * rr
 		cR[i] = rr
+	# the legs: how far a thigh is raised (its knee up to the hip's height: 1; a walking
+	# stride swings it well forward but still down: 0), the body's left
+	var lt: PackedInt32Array = D.leg_thigh
+	if not lt.is_empty():
+		var hb: Basis = W[D.hips].basis
+		var hy := hb.y.normalized()
+		side = hb.x.normalized()
+		var lc: PackedInt32Array = D.leg_caps
+		lift_raw = 0.0
+		for j in lt.size():
+			lift_raw = maxf(lift_raw, smoothstep(-0.45, -0.05, cab[lc[j * 2]].normalized().dot(hy)))
 
 # m moved on by f times the motion dm (rotation and translation, each eased)
 static func _ahead(dm: Transform3D, m: Transform3D, f: float) -> Transform3D:
@@ -326,15 +425,20 @@ func _follow() -> void:
 	var cp: PackedInt32Array = D.c_parent
 	var ch: PackedInt32Array = D.c_hang
 	var p0: PackedInt32Array = D.c_p0
+	var cjk: PackedByteArray = D.c_jk
+	var cfw: PackedFloat32Array = D.c_fw
+	var csd: PackedFloat32Array = D.c_side
 	for c in cp.size():
 		var M: Transform3D = W[cp[c]]
 		var rest: PackedVector3Array = D.c_rest[c]
 		var hw: PackedFloat32Array = D.c_hangw[c]
 		var hg := ch[c]
 		pin[c] = M * rest[0]
+		var jk := lift > 0.0 and cjk[c] == 1
 		for k in range(1, rest.size()):
 			var p := M * rest[k]
 			if hg >= 0 and hw[k] > 0.0: p = p.lerp(W[hg] * rest[k], hw[k])
+			if jk: p = _leg_push(p, cfw[c], csd[c], LEG_TPAD * lift)
 			tg[p0[c] + k - 1] = p
 
 # the cloth hangs as it rests (far off): the bones back to their rest turn, the sim reset
@@ -383,6 +487,7 @@ func update(dt: float, speed: float, rate := STEP_HZ) -> void:
 	var hz := PackedFloat32Array()
 	for j in nh: hz.append(dt * (j if inline else j + 1))
 	_frames(hz, not reset)
+	lift = lift_raw if reset or lift_raw > lift else move_toward(lift, lift_raw, dt * 2.5)
 	fwd = actor.global_basis.z.normalized()
 	_ground_plane(root)
 	if reset:
@@ -471,6 +576,18 @@ func _step(h: float, speed: float, t: float) -> void:
 	var plen: PackedFloat32Array = D.p_len
 	var cpar: PackedInt32Array = D.c_parent
 	var ops: Array = D.p_ops
+	var cfw: PackedFloat32Array = D.c_fw
+	var legs := lift > 0.001
+	var has_legs := not (D.leg_caps as PackedInt32Array).is_empty()
+	if legs:
+		# the legs up: a front panel may swing further from its hang, round them
+		ccos = ccos.duplicate(); csin = csin.duplicate()
+		for c in p0.size():
+			if cfw[c] <= 0.0: continue
+			for k in cn[c]:
+				var i := p0[c] + k
+				var a := atan2(csin[i], ccos[i]) + LEG_CONE * cfw[c] * lift
+				ccos[i] = cos(a); csin[i] = sin(a)
 	for it in int(D.iter):
 		for c in p0.size():
 			var prev := pin[c]
@@ -493,7 +610,8 @@ func _step(h: float, speed: float, t: float) -> void:
 			var L: float = l[2] * sc[cpar[l[3]]]
 			var d := x[ib] - x[ia]
 			var dl := maxf(d.length(), 1e-6)
-			var lim := clampf(dl, L * 0.92, L * 1.08)
+			var fl: float = l[4] * lift
+			var lim := clampf(dl, L * (0.92 - 0.5 * LEG_GAP * fl), L * (1.08 + LEG_GAP * fl))
 			if lim != dl:
 				var e := (dl - lim) / dl * 0.5
 				x[ia] += d * e; x[ib] -= d * e
@@ -513,6 +631,7 @@ func _step(h: float, speed: float, t: float) -> void:
 				var i := p0[c] + k
 				x[i] = _collide(x[i], ops[i], prev, m)
 				prev = x[i]
+	if has_legs: _legs_out()
 	_ground_out()
 
 # the ground plane under the actor, from its ground lookup (a few probes round it)
@@ -573,6 +692,7 @@ func _smooth(wgt: float) -> void:
 		var n: int = g[1]
 		var loop: bool = g[2]
 		var rows: Array = _offs[gi]
+		var cfw: PackedFloat32Array = D.c_fw
 		for k in rows.size():
 			var o: PackedVector3Array = rows[k]
 			for s in n:
@@ -582,7 +702,129 @@ func _smooth(wgt: float) -> void:
 				var l := o[(s - 1 + n) % n] if loop else o[maxi(0, s - 1)]
 				var r := o[(s + 1) % n] if loop else o[mini(n - 1, s + 1)]
 				var i := p0[from + s] + k
-				x[i] = tg[i] + o[s] * (1.0 - wgt) + (l + r) * (wgt * 0.5)
+				# (a jacket's front panels go their own way round the legs)
+				var ww := wgt * (1.0 - 0.8 * cfw[from + s] * lift)
+				x[i] = tg[i] + o[s] * (1.0 - ww) + (l + r) * (ww * 0.5)
+
+# a jacket round the legs: each panel's particles, the middle of each link (both pushed
+# as the particle moves) and the point between neighbouring panels (both moved) out of
+# the legs' tubes
+func _legs_out() -> void:
+	var lc: PackedInt32Array = D.leg_caps
+	var jk: PackedByteArray = D.c_jk
+	var cfw: PackedFloat32Array = D.c_fw
+	var csd: PackedFloat32Array = D.c_side
+	var p0: PackedInt32Array = D.c_p0
+	var cn: PackedInt32Array = D.c_n
+	var cpar: PackedInt32Array = D.c_parent
+	var plen: PackedFloat32Array = D.p_len
+	# per particle, the legs' tubes its link comes near (worked out inline: this runs every step)
+	var nl := lc.size()
+	var A := PackedVector3Array(); var AB := PackedVector3Array(); var IL := PackedFloat32Array(); var RM := PackedFloat32Array()
+	for j in nl:
+		var ci := lc[j]
+		A.append(ca[ci]); AB.append(cab[ci]); IL.append(1.0 / cl2[ci]); RM.append(maxf(cr0[ci], cr1[ci]))
+	if _lm.size() != x.size(): _lm.resize(x.size())
+	var near := false
+	for c in p0.size():
+		if jk[c] == 0: continue
+		var prev := pin[c]
+		var s: float = sc[cpar[c]]
+		for k in cn[c]:
+			var i := p0[c] + k
+			var lm := (prev + x[i]) * 0.5
+			var r0 := plen[i] * s * 0.5 + 0.01
+			var mk := 0
+			for j in nl:
+				var u := clampf((lm - A[j]).dot(AB[j]) * IL[j], 0.0, 1.0)
+				var rr := r0 + RM[j]
+				if lm.distance_squared_to(A[j] + AB[j] * u) < rr * rr: mk |= 1 << j
+			_lm[i] = mk
+			near = near or mk != 0
+			prev = x[i]
+	if not near: return
+	# between neighbouring panels (the mesh there is blended between them): both moved
+	for g in D.groups:
+		var from: int = g[0]
+		if jk[from] == 0: continue
+		var n: int = g[1]
+		for s in n - 1:
+			var fw := maxf(cfw[from + s], cfw[from + s + 1])
+			var sd := csd[from + s] if csd[from + s] != 0.0 else csd[from + s + 1]
+			for k in cn[from]:
+				var ia := p0[from + s] + k
+				var ib := p0[from + s + 1] + k
+				var m: int = _lm[ia] | _lm[ib]
+				if m == 0: continue
+				var q := (x[ia] + x[ib]) * 0.5
+				var q0 := q
+				for j in nl:
+					if (m >> j) & 1: q = _leg_out(q, lc[j], fw, sd, 0.0)
+				if q != q0:
+					x[ia] += q - q0; x[ib] += q - q0
+	# each panel's particles and the middle of each link (turning the link), keeping the
+	# links' lengths: a panel swings round a leg instead of being stretched over it
+	for c in p0.size():
+		if jk[c] == 0: continue
+		var prev := pin[c]
+		var s: float = sc[cpar[c]]
+		var fw := cfw[c]
+		var sd := csd[c]
+		for k in cn[c]:
+			var i := p0[c] + k
+			var mk: int = _lm[i]
+			if mk == 0:
+				prev = x[i]
+				continue
+			var L := plen[i] * s
+			var p := x[i]
+			for pass_ in 3:
+				var p_in := p
+				for j in nl:
+					if not (mk >> j) & 1: continue
+					var ci := lc[j]
+					var mp := (prev + p) * 0.5
+					var m2 := _leg_out(mp, ci, fw, sd, 0.0)
+					if m2 != mp: p += (m2 - mp) * 2.0
+					p = _leg_out(p, ci, fw, sd, 0.0)
+				if p == p_in: break
+				var d := p - prev
+				var dl := d.length()
+				if dl > 1e-6: p = prev + d * (L / dl)
+			x[i] = p
+			prev = p
+
+# p (a jacket panel's, or where it hangs) out of the legs' tubes, pad further out
+func _leg_push(p: Vector3, fw: float, sd: float, pad: float) -> Vector3:
+	for ci in (D.leg_caps as PackedInt32Array):
+		var r := cR[ci] + pad
+		if p.distance_squared_to(cc[ci]) < r * r: p = _leg_out(p, ci, fw, sd, pad)
+	return p
+
+# out of a leg's tube to its nearest side; a front panel's points (fw: how much of one; sd:
+# its side, +1 the body's left) are sent round the leg's outside, away from the opening
+func _leg_out(p: Vector3, ci: int, fw: float, sd: float, pad: float) -> Vector3:
+	var a := ca[ci]
+	var ab := cab[ci]
+	var u := clampf((p - a).dot(ab) / cl2[ci], 0.0, 1.0)
+	var o := a + ab * u
+	var b := p - o
+	var r := lerpf(cr0[ci], cr1[ci], u) + pad
+	var d2 := b.length_squared()
+	if d2 >= r * r: return p
+	var n := b / sqrt(d2) if d2 > 1e-12 else Vector3.ZERO
+	if fw > 0.0 and sd != 0.0:
+		var ax := ab / sqrt(cl2[ci])
+		var w := side * sd
+		w -= ax * w.dot(ax)
+		var wl := w.length()
+		if wl > 1e-3:
+			n += w * (fw * LEG_SIDE / wl)
+			if u > 0.0 and u < 1.0: n -= ax * n.dot(ax)
+	if n.length_squared() < 1e-8:
+		n = Vector3(p.x - hip.x, 0.0, p.z - hip.z)
+		if n.length_squared() < 1e-8: n = side
+	return o + n.normalized() * r
 
 func _collide(p: Vector3, o: Array, prev: Vector3, m: int) -> Vector3:
 	var sh: int = o[0]
