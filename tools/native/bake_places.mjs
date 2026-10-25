@@ -134,6 +134,17 @@ out.places.benches = { spots: benches.map((b) => P(b.x, b.z)) };
 // ---------- the lanes ----------
 out.roads = T.ROADS.map((r) => r.filter((_, i) => i % 2 === 0 || i === r.length - 1).map(([x, z]) => P(x, z)));
 
+// ---------- the world editor's moved spots (web/world/edits/world.json places: path -> value) ----------
+{
+  const ef = path.join(ROOT, 'web/world/edits/world.json');
+  const ed = fs.existsSync(ef) && process.env.PALLET_EDITS !== 'off' ? JSON.parse(fs.readFileSync(ef, 'utf8')).places || {} : {};
+  for (const [p, v] of Object.entries(ed)) {
+    const ks = p.split('/'), last = ks.pop();
+    const t = ks.reduce((a, k) => (a == null ? a : a[k]), out);
+    if (t && typeof t === 'object' && last in t) t[last] = v; else console.warn('editor place not found:', p);
+  }
+}
+
 fs.mkdirSync(path.join(ROOT, 'native/life'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'native/life/places.json'), JSON.stringify(out, null, 1));
 console.log('places:', Object.keys(out.places).join(' '), '| houses:', Object.keys(out.houses).join(' '), '| benches', benches.length);

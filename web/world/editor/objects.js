@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { E, vegKey } from '../editlayer/index.js';
 import { makeKind, find } from '../editlayer/objects.js';
 import { S, push, emit, touch } from './state.js';
+import { writeSpot } from './life.js';
 
 let V = null, W = null;
 export const SNAP = { move: 0, rot: 0, scale: 0, ground: true, surface: true };
@@ -43,6 +44,7 @@ function writeTransform(it) {
   const o = it.o;
   const pos = o.position.toArray().map((v) => +v.toFixed(4)), rot = [o.rotation.x, o.rotation.y, o.rotation.z].map((v) => +v.toFixed(5)), scl = o.scale.toArray().map((v) => +v.toFixed(4));
   if (it.kind === 'veg') return writeVeg(it);
+  if (it.kind === 'spot') return writeSpot(o);
   const a = addedOf(it.e);
   if (a && it.o === it.e.o) { a.pos = pos; a.rot = rot; a.scl = scl; return; }
   const d = docEdit(it.id);
@@ -132,6 +134,7 @@ function dragMove() {
     m.premultiply(new THREE.Matrix4().copy(par.matrixWorld).invert());
     m.decompose(it.o.position, it.o.quaternion, it.o.scale);
     if (SNAP.ground && S.tool === 'move' && it.o === it.e.o && par === W.town.group) it.o.position.y = E.fn.height(it.o.position.x, it.o.position.z) + (it.lift || 0);
+    if (it.kind === 'spot') { it.o.position.y = E.fn.height(it.o.position.x, it.o.position.z); it.o.rotation.set(0, it.o.rotation.y, 0); it.o.scale.set(1, 1, 1); }
     it.o.updateMatrixWorld(true);
   }
   emit('transform');
@@ -142,26 +145,28 @@ function dragEnd() {
   drag = null;
   const moved = items.filter(({ st, en }) => JSON.stringify(st) !== JSON.stringify(en));
   if (!moved.length) return;
-  const docBefore = JSON.stringify({ o: E.doc.objects, a: E.doc.added, v: E.doc.veg });
+  const docBefore = docJSON();
   for (const { it } of moved) writeTransform(it);
-  const docAfter = JSON.stringify({ o: E.doc.objects, a: E.doc.added, v: E.doc.veg });
+  const docAfter = docJSON();
   push({ label: 'transform', undo: () => { for (const { it, st } of moved) restore(it, st); setDoc(docBefore); syncGizmo(); emit('changed'); },
     redo: () => { for (const { it, en } of moved) restore(it, en); setDoc(docAfter); syncGizmo(); emit('changed'); } });
   emit('changed');
 }
-function setDoc(json) { const d = JSON.parse(json); E.doc.objects = d.o; E.doc.added = d.a; E.doc.veg = d.v; }
+// the parts of the document object edits touch (and places.json, for spots)
+const docJSON = () => JSON.stringify({ o: E.doc.objects, a: E.doc.added, v: E.doc.veg, p: E.doc.places, pl: S.life['places.json'] ? S.life['places.json'].data : null });
+function setDoc(json) { const d = JSON.parse(json); E.doc.objects = d.o; E.doc.added = d.a; E.doc.veg = d.v; E.doc.places = d.p; if (d.pl && S.life['places.json']) S.life['places.json'].data = d.pl; }
 // any change made by fn(), as one undo step (document + what fn did to the scene)
 export function change(label, fn, undoScene) {
-  const before = JSON.stringify({ o: E.doc.objects, a: E.doc.added, v: E.doc.veg });
+  const before = docJSON();
   const redoScene = fn();
-  const after = JSON.stringify({ o: E.doc.objects, a: E.doc.added, v: E.doc.veg });
+  const after = docJSON();
   push({ label, undo: () => { setDoc(before); undoScene && undoScene(); emit('changed'); }, redo: () => { setDoc(after); redoScene && redoScene(); emit('changed'); } });
   emit('changed');
 }
 
 // ---------- delete / hide / duplicate / ground ----------
 export function deleteSel() {
-  const items = S.sel.slice();
+  const items = S.sel.filter((it) => it.kind !== 'spot');
   if (!items.length) return;
   const vis = items.map((it) => (it.kind === 'veg' ? null : it.o.visible));
   const apply = () => {
@@ -214,6 +219,7 @@ let uid = 0;
 export const newId = (k) => `user/${k.replace(/[^a-z0-9]+/gi, '_')}_${Date.now().toString(36)}${(uid++).toString(36)}`;
 export function duplicateSel() {
   const items = S.sel.filter((it) => it.kind === 'obj');
+  if (S.sel.some((it) => it.kind === 'spot')) emit('toast', 'Places are moved, not copied');
   if (!items.length) return;
   const made = [];
   change('duplicate', () => {

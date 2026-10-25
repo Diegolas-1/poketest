@@ -19,6 +19,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { reformat } from './jsonfmt.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const API = process.env.PALLET_EDITOR_API || 'https://pallet-editor.jdohertybiochem.workers.dev';
@@ -93,7 +94,7 @@ export function writeBundle(b, { dry = false, log = console.log } = {}) {
     const c = [];
     const merged = base === undefined ? data : merge3(base, data, theirs, '', c);
     for (const x of c) conflicts.push(name + x);
-    put(f, JSON.stringify(merged, null, 1) + '\n');
+    put(f, fs.existsSync(f) ? reformat(fs.readFileSync(f, 'utf8'), merged) : JSON.stringify(merged, null, 1) + '\n');
   }
   for (const c of conflicts) log('both changed (the editor\'s value kept): ' + c);
   return { changed, conflicts };

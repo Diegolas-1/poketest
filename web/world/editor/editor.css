@@ -85,3 +85,28 @@ textarea { width: 100%; resize: vertical; }
 #play button { position: absolute; top: 10px; right: 10px; z-index: 2; }
 ::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: #3a4152; border-radius: 6px; } ::-webkit-scrollbar-track { background: transparent; }
 @media (max-width: 900px) { body { grid-template-columns: 0 1fr 0; } #left, #right { display: none; } body.docks #left, body.docks #right { display: flex; position: fixed; top: 40px; bottom: 24px; width: 82vw; z-index: 30; } body.docks #right { right: 0; } }
+/* bottom drawer (schedules, dialogue, quests) */
+#drawer { position: absolute; left: 0; right: 0; bottom: 0; height: 46%; background: rgba(28, 31, 38, .97); border-top: 1px solid var(--line); display: flex; flex-direction: column; z-index: 5; }
+#drawer.tall { height: 82%; }
+#drawer[hidden] { display: none; }
+#drawer .dhead { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+#drawer .dbody { flex: 1; overflow: auto; padding: 8px 10px; }
+table.sched { border-collapse: collapse; } table.sched th { text-align: left; color: var(--dim); font-weight: 600; font-size: 11px; padding: 2px 4px; } table.sched td { padding: 1px 3px; }
+/* the line editor (dialogue, quests) */
+.tobj { display: flex; flex-direction: column; gap: 3px; }
+.tsec { border-left: 2px solid var(--line); padding-left: 6px; }
+.thead { cursor: pointer; padding: 2px 0; display: flex; gap: 6px; align-items: center; } .thead .meta { color: var(--dim); font-size: 11px; }
+.tk { font-weight: 600; color: #cfe3ff; }
+.tbody { padding: 2px 0 6px 4px; }
+.tlines { display: flex; flex-direction: column; gap: 3px; }
+.tline { display: flex; gap: 4px; align-items: flex-start; } .tline textarea { flex: 1; min-height: 26px; }
+.tbtn { display: flex; gap: 2px; } .tbtn button { padding: 2px 6px; min-height: 24px; }
+.titem { border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; margin-bottom: 4px; }
+.tobj .row label { width: 110px; }
+#talkbox { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(720px, 90%); background: #fffdf6; color: #23284f; border: 4px solid #3c4a7a; border-radius: 14px;
+  padding: 14px 20px 18px; font: 600 20px/1.4 'Pixelify Sans', system-ui, sans-serif; z-index: 8; cursor: pointer; box-shadow: 0 8px 24px #0008; }
+#talkbox .tbwho { position: absolute; top: -16px; left: 16px; background: #3c4a7a; color: #fff; padding: 1px 10px; border-radius: 8px; font-size: 14px; }
+#talkbox .tbnext { position: absolute; right: 12px; bottom: 4px; font-size: 14px; animation: blink 1s infinite; } @keyframes blink { 50% { opacity: 0; } }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 10px; }
+.fcard { background: var(--bg3); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; max-width: 220px; } .fcard.giver { border-color: var(--acc2); }
+.farrow { color: var(--dim); }

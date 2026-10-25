@@ -57,7 +57,10 @@ export async function bundle() {
   const tiles = await encodeTiles();
   const doc = { ...E.doc, format: FORMAT, tiles: Object.keys(tiles).sort() };
   E.doc.tiles = doc.tiles;
-  return { doc, tiles, life: S.life, meta: { ...S.meta, at: Date.now(), editor: 1 } };
+  // life files: only those that differ from the base they were loaded from
+  const life = {};
+  for (const [f, v] of Object.entries(S.life)) if (JSON.stringify(v.base) !== JSON.stringify(v.data)) life[f] = v;
+  return { doc, tiles, life, meta: { ...S.meta, at: Date.now(), editor: 1 } };
 }
 // the edits for a game page (Play): tiles as PNG bytes
 export async function forGame() {

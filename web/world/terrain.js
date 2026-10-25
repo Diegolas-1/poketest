@@ -260,6 +260,8 @@ const ROAD_CTRL = ED.roads([
   [[147, 114.5], [150, 130], [152, 150], [153, 166], [155, 181], [156, 186]],
 ]);
 const ROAD_N0 = ROAD_CTRL.length - ((ED.doc && ED.doc.roads && ED.doc.roads.added) || []).filter((a) => a.ctrl && a.ctrl.length >= 2).length;   // the generated roads (edits may append more)
+export const ROAD_CTRL_LIST = ROAD_CTRL;   // (the world editor's Roads tool)
+export { ROAD_N0 };
 export const TRAILS = new Set([ROAD_N0 - 3, ROAD_N0 - 2, ROAD_N0 - 1]);
 // ROADS[TRAIL0 .. TRAIL0 + R1.TRAILS.length - 1]: Route 1's trails (route1land.js)
 export const TRAIL0 = ROAD_N0 - 3 - R1.TRAILS.length;

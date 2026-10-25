@@ -156,6 +156,7 @@ export function inspector(pane) {
     }
     const it = sel[0];
     if (it.kind === 'veg') return vegPanel(pane, it);
+    if (it.kind === 'spot') return spotPanel(pane, it);
     const e = it.e, o = it.o, top = o === e.o, ed = E.doc.objects[it.id] || {};
     const a = e.added ? E.doc.added.find((x) => x.id === e.added.id) : null;
     pane.append(h('div', { class: 'sect' }, h('h3', {}, top ? nameOf(e) : 'Part of ' + nameOf(e)),
@@ -194,6 +195,13 @@ export function inspector(pane) {
   draw();
   const re = () => { if (pane.isConnected) draw(); };
   on('select', re); on('changed', re); on('transform', () => { if (pane.isConnected && document.activeElement?.tagName !== 'INPUT') draw(); });
+}
+function spotPanel(pane, it) {
+  const o = it.o;
+  pane.append(h('div', { class: 'sect' }, h('h3', {}, 'Place spot'), h('div', { class: 'mono' }, o.userData.spot),
+    h('div', { class: 'note' }, `x ${o.position.x.toFixed(2)} · z ${o.position.z.toFixed(2)} · facing ${(o.rotation.y * 57.2958).toFixed(0)}°`),
+    h('div', { class: 'note' }, 'Move it with W, turn it with E (the red tip is the way a person there faces). Saved to native/life/places.json, and kept through rebakes.'),
+    h('div', { class: 'btns' }, h('button', { onclick: () => emit('focus') }, 'Focus'))));
 }
 function vegPanel(pane, it) {
   const p = it.p;

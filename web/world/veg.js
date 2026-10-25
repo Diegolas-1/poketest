@@ -271,6 +271,18 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   sow(rocks, rp, () => ({ chunk: 64, fade: [180, 186], shrink: 0.6, wind: 0 }));
   for (const p of rp) if (!p.off) colliders.push({ x: E.at(p).x, z: E.at(p).z, r: 0.8 * E.at(p).s });
 
+  // plants sown in the world editor (doc.vegAdd; editor/scatter.js picks the same models)
+  {
+    const add = E.vegAdded();
+    for (const [k, list] of add) {
+      const [a, b] = k.split(':');
+      const ms = a === 'tree' ? (models[b] || [makeTree(b, 11)]) : a === 'bush' ? bushes : a === 'rock' ? rocks : a === 'fern' ? ferns : flowers;
+      const pts = list.map((q) => ({ x: q.x, z: q.z, y: q.y - (a === 'rock' ? 0.15 : 0.05), rot: q.rot, s: q.s, _add: q.id, _e: 1 }));
+      if (a === 'tree' || a === 'bush') sow(ms, pts, (m) => { const imp = new Impostor(renderer, m, { size: lowQ ? 96 : 128, lights: L }); impostors.push(imp); return { chunk: 56, fade: [treeD - 4, treeD + 2], wind: 0, impostor: imp }; });
+      else sow(ms, pts, () => ({ chunk: 48, fade: a === 'rock' ? [180, 186] : [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: a === 'rock' }));
+      for (const p of pts) if (a === 'tree' || a === 'rock') colliders.push({ x: p.x, z: p.z, r: a === 'tree' ? Math.max(0.45, (ms[0].trunk || 0.4) * p.s + 0.1) : 0.8 * p.s, ed: 1 });
+    }
+  }
   window.__scatters = scatters;
   window.__billboards = { ms: Math.round(bakeMs), n: impostors.length, mb: +(impostors.reduce((a, i) => a + i.bytes, 0) / 1048576).toFixed(1) };
   // plants that cross their range fade over a fraction of a second (wall

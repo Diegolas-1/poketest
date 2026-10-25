@@ -33,7 +33,7 @@ export const GRID = { x0: -512, z0: -960, res: 0.5, n: 128, ntx: 16, ntz: 20 }; 
 export const TILE_M = GRID.n * GRID.res;
 export const LAYER_DEFAULT = { h: [128, 0, 128, 255], p: [0, 0, 0, 0], m: [128, 0, 0, 0] };
 export const FORMAT = 'pallet-edits v1';
-export const emptyDoc = () => ({ format: FORMAT, objects: {}, added: [], veg: {}, roads: { edit: {}, added: [] }, places: {}, tiles: [] });
+export const emptyDoc = () => ({ format: FORMAT, objects: {}, added: [], veg: {}, vegAdd: [], roads: { edit: {}, added: [] }, places: {}, tiles: [] });
 
 const NODE = typeof window === 'undefined' && typeof process !== 'undefined' && !!process.versions?.node;
 
@@ -234,6 +234,19 @@ function makeLayer() {
   // where a plant point stands after edits, and a scatter's points so
   L.at = (p) => p._mv || p;
   L.placed = (points) => (points.some((p) => p._mv) ? points.map((p) => (p._mv ? { ...p, ...p._mv, _src: p } : p)) : points);
+  // plants sown in the editor, by kind, standing on the edited ground
+  L.vegAdded = () => {
+    const by = new Map(), raw = L.raw;
+    L.raw = false;
+    try {
+      for (const q of L.doc.vegAdd || []) {
+        if (!q || !q.k || !Number.isFinite(q.x) || !Number.isFinite(q.z)) continue;
+        if (!by.has(q.k)) by.set(q.k, []);
+        by.get(q.k).push({ ...q, y: L.fn.height ? L.fn.height(q.x, q.z) : 0 });
+      }
+    } finally { L.raw = raw; }
+    return by;
+  };
   L.inEdColliders = (x, z, r = 0) => {
     for (const c of L.edColliders) {
       if (c.box) {
@@ -249,7 +262,7 @@ function makeLayer() {
   L.needRaw = () => L.has.h || L.has.p || L.has.m || L.roadsEdited();
   L.empty = () => {
     const d = L.doc;
-    return !L.has.h && !L.has.p && !L.has.m && !Object.keys(d.objects || {}).length && !(d.added || []).length && !Object.keys(d.veg || {}).length && !L.roadsEdited();
+    return !L.has.h && !L.has.p && !L.has.m && !Object.keys(d.objects || {}).length && !(d.added || []).length && !Object.keys(d.veg || {}).length && !(d.vegAdd || []).length && !L.roadsEdited();
   };
   return L;
 }
@@ -258,7 +271,7 @@ export const E = makeLayer();
 // the unedited copy's hooks: pass everything through
 export const NOEDIT = {
   raw: true, h: (x, z, h) => h, paint: (x, z, o) => o, pathSD: (x, z, d) => d, noWalk: (x, z, n) => n, ledge: (x, z, l) => l, grassK: () => 1,
-  roads: (c) => c, roadW: {}, veg() {}, at: (p) => p, placed: (p) => p, hDelta: () => 0, fn: {}, needRaw: () => false, edColliders: [],
+  roads: (c) => c, roadW: {}, veg() {}, at: (p) => p, placed: (p) => p, vegAdded: () => new Map(), hDelta: () => 0, fn: {}, needRaw: () => false, edColliders: [],
 };
 
 // read a bundle { doc, tiles } into E
