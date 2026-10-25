@@ -176,19 +176,17 @@ func nearest_water(p: Vector3, sea: bool) -> Vector2:
 
 # ---------- plants (bushes, ferns, flowers) from the baked plant list ----------
 func _plants() -> void:
-	var path := "res://world/veg.json"
-	if not FileAccess.file_exists(path): return
-	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
-	var f := FileAccess.open("res://world/veg.bin", FileAccess.READ)
-	if f == null: return
+	var vb: Array = WorldRegions.veg(false)   # (the copies' places only)
+	var meta: Dictionary = vb[0]
+	var bin: PackedByteArray = vb[1]
+	if meta.is_empty(): return
 	for s in meta.sets:
 		var m: Dictionary = meta.mats[int(s.parts[0].mat)]
 		if m.kind == "rock" or m.kind == "stone": continue
 		var r := float(s.radius)
 		if r > 2.5 and s.impostor != null: continue    # trees: you walk round them
 		if r < 0.3: continue
-		f.seek(int(s.ip[0]))
-		var ip := f.get_buffer(int(s.ip[1]) * 4).to_float32_array()
+		var ip := bin.slice(int(s.ip[0]), int(s.ip[0]) + int(s.ip[1]) * 4).to_float32_array()
 		for i in int(s.n):
 			var x := ip[i * 5]; var z := ip[i * 5 + 2]
 			var rr := r * ip[i * 5 + 4] * 0.75

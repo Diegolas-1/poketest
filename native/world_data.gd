@@ -2,9 +2,9 @@ class_name WorldData
 extends RefCounted
 # The baked world (tools/native/bake.mjs): walk grid with heights and flags,
 # colliders, path map, sea floor, grass map. Mirrors the web build's
-# groundAt / step / collide in main.js.
+# groundAt / step / collide in main.js. The world comes in regions
+# (world_regions.gd), joined here into whole-world grids.
 
-const DIR := "res://world/"
 # walk grid flags (tools/native/bake.mjs)
 const WATER := 1; const NO_WALK := 2; const DECK := 4; const SEA := 8; const SAND := 16; const LEDGE := 32
 var meta: Dictionary
@@ -12,6 +12,7 @@ var gx0: float; var gz0: float; var gres: float; var gnx: int; var gnz: int
 var heights: PackedByteArray   # uint16 cm + 2000, little endian
 var flags: PackedByteArray
 var colliders: Array = []      # [box?, x, z, hw|r, hd, rot]
+var inst_xf: PackedFloat32Array   # the town's repeated parts: 15 floats a copy (meta.inst says whose)
 var grass_tex: ImageTexture
 var grass_area: Vector4
 var path_tex: ImageTexture
@@ -20,29 +21,29 @@ var sea_y := -0.7
 var seabed: PackedFloat32Array   # terrain height every metre (seabed.bin)
 var bed_x0 := -210.0; var bed_z0 := -210.0; var bed_n := 420
 
-func _bytes(f: String) -> PackedByteArray:
-	return FileAccess.get_file_as_bytes(DIR + f)
-
 func load_all() -> void:
-	meta = JSON.parse_string(FileAccess.get_file_as_string(DIR + "world.json"))
+	meta = WorldRegions.meta().duplicate()
+	var ins: Array = WorldRegions.inst()
+	meta.inst = ins[0]
+	inst_xf = ins[1]
 	sea_y = meta.sea
 	var g: Dictionary = meta.ground
 	gx0 = g.x0; gz0 = g.z0; gres = g.res; gnx = int(g.nx); gnz = int(g.nz)
-	var gb := _bytes("ground.bin")
+	var gb := WorldRegions.grid("ground", gnx, gnz, [2, 1])
 	heights = gb.slice(0, gnx * gnz * 2)
 	flags = gb.slice(gnx * gnz * 2)
-	colliders = meta.colliders
+	colliders = WorldRegions.colliders()
 	# grass map: float pairs [height, density]
 	var gm: Dictionary = meta.grassmap
-	var gimg := Image.create_from_data(int(gm.nx), int(gm.nz), false, Image.FORMAT_RGF, _bytes("grassmap.bin"))
+	var gimg := Image.create_from_data(int(gm.nx), int(gm.nz), false, Image.FORMAT_RGF, WorldRegions.grid("grassmap", int(gm.nx), int(gm.nz), [8]))
 	grass_tex = ImageTexture.create_from_image(gimg)
 	grass_area = Vector4(gm.x0, gm.z0, gm.w, gm.d)
 	var pm: Dictionary = meta.pathmap
-	var pimg := Image.create_from_data(int(pm.nx), int(pm.nz), false, Image.FORMAT_RGBA8, _bytes("pathmap.rgba"))
+	var pimg := Image.create_from_data(int(pm.nx), int(pm.nz), false, Image.FORMAT_RGBA8, WorldRegions.grid("pathmap", int(pm.nx), int(pm.nz), [4]))
 	pimg.generate_mipmaps()
 	path_tex = ImageTexture.create_from_image(pimg)
 	var sb: Dictionary = meta.seabed
-	var sbytes := _bytes("seabed.bin")
+	var sbytes := WorldRegions.grid("seabed", int(sb.n), int(sb.n), [4])
 	seabed = sbytes.to_float32_array()
 	bed_x0 = sb.x0; bed_z0 = sb.z0; bed_n = int(sb.n)
 	var simg := Image.create_from_data(int(sb.n), int(sb.n), false, Image.FORMAT_RF, sbytes)

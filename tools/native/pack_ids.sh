@@ -8,14 +8,18 @@
 #             with another proj id is refused; that change needs a new .ipa
 #   src       one id per pack, from the git trees of its files (the working
 #             tree when dirty), so the same sources always give the same id
+#             (and a region whose files did not change keeps its id)
 # Packs, in load order (code last: its class list and uid cache win):
-#   world (native/world), cast (native/cast), interiors (native/interiors),
+#   base (native/world/base), plants (native/world/plants), r_<id> (one per
+#   region, native/world/r/<id>: tools/native/regions.mjs), cast
+#   (native/cast), interiors (native/interiors), audio (native/audio),
 #   code (everything else in native/).
+# A pack's folder: base and plants under world/, r_<id> = world/r/<id>, the
+# others their own name (publish_patch.mjs packDir).
 # Usage: tools/native/pack_ids.sh 4.7.2.stable
 set -euo pipefail
 ENGINE="${1:?engine version, e.g. 4.7.2.stable}"
 cd "$(git rev-parse --show-toplevel)"
-ASSETS="world cast interiors"
 
 # a tree of native/ as it is on disk (tracked + untracked, minus .gitignore)
 IDX=$(mktemp); trap 'rm -f "$IDX"' EXIT
@@ -31,13 +35,17 @@ PRESETS=$(git rev-parse "$TREE:export_presets.cfg")
 PROJECT=$(git rev-parse "$TREE:project.godot")
 PROJ=$( { echo "$PROJECT"; git rev-parse "$TREE:boot.gd"; } | h)
 SRC=""
-for d in $ASSETS; do
+pack() {   # name, folder (in native/)
+  git rev-parse -q --verify "$TREE:$2" >/dev/null || return 0
   # (export presets and project settings change how a pack is exported)
-  id=$( { git rev-parse "$TREE:$d"; echo "$PRESETS"; echo "$PROJECT"; } | h)
-  SRC="$SRC\"$d\":\"$id\","
-done
-pat=$(echo $ASSETS | sed 's/ /|/g')
-code=$(git ls-tree "$TREE" | awk -F'\t' -v p="^($pat)\$" '$2 !~ p' | h)
+  id=$( { git rev-parse "$TREE:$2"; echo "$PRESETS"; echo "$PROJECT"; } | h)
+  SRC="$SRC\"$1\":\"$id\","
+}
+pack base world/base
+pack plants world/plants
+for r in $(git ls-tree --name-only "$TREE:world/r" 2>/dev/null | LC_ALL=C sort); do pack "r_$r" "world/r/$r"; done
+for d in cast interiors audio; do pack "$d" "$d"; done
+code=$(git ls-tree "$TREE" | awk -F'\t' '$2 !~ /^(world|cast|interiors|audio)$/' | h)
 SRC="$SRC\"code\":\"$code\""
 
 SHA=$(git rev-parse --short=12 HEAD)

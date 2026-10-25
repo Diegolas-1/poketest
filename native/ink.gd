@@ -6,7 +6,7 @@ extends Node
 #  1. Vector ink for buildings and props (add_world_lines): the edges the web
 #     build computes (silhouettes, hard creases, open boundaries; overlapping
 #     parts already cut against each other so a whole shape is outlined once),
-#     baked by tools/native/bake_ink.mjs to world/ink.bin and drawn as thin
+#     baked by tools/native/bake_ink.mjs to each region's ink.bin and drawn as thin
 #     camera-facing quads by shaders/ink_lines.gdshader. A handful of draw
 #     calls (one per 64 m cell), transparent pass, depth-tested against
 #     everything already drawn, so grass and water never paint over a line.
@@ -32,7 +32,7 @@ extends Node
 #       (actor.gd) is outlined automatically; meta no_ink / ink_group on a
 #       MeshInstance3D leaves it out.
 #   Ink.set_focus(player_pos: Vector3)                             (call every frame)
-#   Ink.add_world_lines(parent: Node3D) -> Array                   (vector ink from ink.bin)
+#   Ink.add_world_lines(parent: Node3D, file) -> Array             (vector ink from an ink.bin)
 #   Ink.outline_mesh(mi: GeometryInstance3D, opts := {})           (characters: inverted hull)
 #       opts: width (pixels at 1080p, default 1.1), color (Color).
 #       For an animated character call it on every MeshInstance3D of the
@@ -47,7 +47,7 @@ extends Node
 #       uniforms, default "albedo_tex" / "alpha_scissor"), tex (Texture2D),
 #       cut (float), double_sided (default: as the leaf material). The leaf shader's wind sway must be copied into
 #       ink_leaf.gdshader (marked WIND) if the leaves move.
-#   Ink.outline_town(root)   the baked town's trunks and bushes (ink_meshes.json)
+#   Ink.outline_town(root, lists)   the baked town's trunks and bushes (WorldRegions.ink_meshes())
 # Both outline_* return the ink ShaderMaterial (set its uniforms to tune it).
 
 signal changed(on: bool)
@@ -171,9 +171,9 @@ func set_focus(p: Vector3) -> void:
 		for k in _cells_near.keys(): if not is_instance_valid(k): _cells_near.erase(k)
 
 # ---------- 1. vector ink for the baked town ----------
-# world/ink.bin holds ready-made vertex arrays per 64 m cell (see
-# tools/native/bake_ink.mjs), so loading is only slicing.
-func add_world_lines(parent: Node3D, file := "res://world/ink.bin") -> Array:
+# Each region's ink.bin (res://world/r/<id>/) holds ready-made vertex arrays
+# per 64 m cell (see tools/native/bake_ink.mjs), so loading is only slicing.
+func add_world_lines(parent: Node3D, file: String) -> Array:
 	var t0 := Time.get_ticks_usec()
 	var raw := FileAccess.get_file_as_bytes(file)
 	if raw.size() < 8 or raw.slice(0, 4).get_string_from_ascii() != "INK2":
@@ -257,10 +257,9 @@ func outline_plant(mi: GeometryInstance3D, center = null, opts := {}) -> ShaderM
 	return ink
 
 # The baked town's trunks (hull) and bushes / hedges (leaf ink): the meshes of
-# town.glb whose box centres the bake listed in world/ink_meshes.json.
-func outline_town(root: Node, file := "res://world/ink_meshes.json") -> void:
-	if not FileAccess.file_exists(file): return
-	var lists: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(file))
+# the town whose box centres the bake listed ({hull: [[x, y, z]...], leaf:
+# [...]}: the regions' ink_meshes, WorldRegions.ink_meshes()).
+func outline_town(root: Node, lists: Dictionary) -> void:
 	var keys := {}
 	for kind in ["hull", "leaf"]:
 		for c in lists.get(kind, []):

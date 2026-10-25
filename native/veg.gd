@@ -1,7 +1,8 @@
 extends Node3D
 # The plants (web veg.js, foliage.js, assets.js Scatter / Impostor): trees,
 # bushes, hedges, ferns, flowers and rocks, baked once each by
-# tools/native/bake.mjs (veg.json + veg.bin) with where every copy stands.
+# tools/native/bake.mjs (each region's veg.json + veg.bin, joined by
+# WorldRegions.veg()) with where every copy stands.
 # Copies are drawn as MultiMesh chunks; each plant fades on its own as a
 # screen-door dither by its distance from the camera (veg.gdshaderinc), and
 # far trees and bushes turn into billboards baked from the model. Whole
@@ -63,8 +64,10 @@ static func _rgb(hex: String) -> Color:
 	return Color(hex)
 
 func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
-	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DIR + "veg.json"))
-	var bin := FileAccess.get_file_as_bytes(DIR + "veg.bin")
+	var vb: Array = WorldRegions.veg()
+	var meta: Dictionary = vb[0]
+	var bin: PackedByteArray = vb[1]
+	if meta.is_empty(): return
 	var f32 := func(r: Array) -> PackedByteArray: return bin.slice(int(r[0]), int(r[0]) + int(r[1]) * 4)
 	# wood gets levels of detail (a tree's limbs are three quarters of its
 	# triangles and mostly hidden in the crown); leaf cards never (the
@@ -116,8 +119,9 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 		var bins := {}
 		var bbins := {}
 		for i in n:
-			if dens < 1.0 and _hash(si * 7919 + i) >= dens: continue
 			var p := Vector3(ip[i * 5], ip[i * 5 + 1], ip[i * 5 + 2])
+			# (by where it stands: the same plants at any density, whatever the order of the sets)
+			if dens < 1.0 and _hash(floori(p.x * 8.0) * 73856093 ^ floori(p.z * 8.0) * 19349663 ^ int(s.n)) >= dens: continue
 			var csz: float = KINDS[kind].get("chunk", CHUNK)
 			var k := Vector2i(floori(p.x / csz), floori(p.z / csz))
 			if not bins.has(k): bins[k] = []
@@ -194,7 +198,7 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 				for i in bbins[k]:
 					bills.append([Vector3(ip[i * 5], ip[i * 5 + 1], ip[i * 5 + 2]), ip[i * 5 + 3], ip[i * 5 + 4], int(s.impostor), fade.x,
 						float(imp.w) * 0.5, float(imp.bottom), float(imp.h), float(s.far[1])])
-	_billboards(meta, bills, tex.call("veg_bill.png"))
+	_billboards(meta, bills, tex.call("plants/bill.png"))
 	_index()
 
 func _index() -> void:

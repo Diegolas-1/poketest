@@ -17,7 +17,7 @@ const CLOUDS := preload("res://shaders/clouds.gdshader")
 const CINNABAR := preload("res://shaders/cinnabar.gdshader")
 const UW_OVERLAY := preload("res://shaders/underwater_overlay.gdshader")
 const CINNABAR_SMOKE := preload("res://shaders/cinnabar_smoke.gdshader")
-const DIR := "res://world/"
+const DIR := "res://world/base/"   # (WorldRegions.BASE)
 
 var main: Node3D
 var veg: Node3D
@@ -65,9 +65,13 @@ func _town_parts(root: Node) -> void:
 	_town_leaves(root)
 	var list: Array = main.world.meta.get("inst", [])
 	if list.is_empty(): return
-	var xf := FileAccess.get_file_as_bytes(DIR + "town_inst.bin").to_float32_array()
+	var xf: PackedFloat32Array = main.world.inst_xf
+	# every region that has copies of a part has its mesh (the same one):
+	# the first one draws them all, every one is hidden
 	var by_name := {}
-	for n in root.find_children("I*", "MeshInstance3D", true, false): by_name[String(n.name)] = n
+	for n in root.find_children("I_*", "MeshInstance3D", true, false):
+		if not by_name.has(String(n.name)): by_name[String(n.name)] = n
+		n.visible = false
 	const C := 48.0
 	for e in list:
 		var src: MeshInstance3D = by_name.get(e.node)

@@ -4,10 +4,17 @@
 // The installed app (boot.gd + updater.gd) reads
 //   https://pallet-patches.jdohertybiochem.workers.dev/manifest.json?ch=stable
 // and downloads the packs whose source changed since its own build. This
-// script exports the packs with Godot (export presets "pack-<name>", iOS
-// texture formats), uploads the new ones to the R2 bucket pallet-patches and
-// writes the manifest. Packs whose sources did not change since the live
-// manifest are reused as they are (no export, no upload).
+// script exports the packs with Godot (iOS texture formats), uploads the new
+// ones to the R2 bucket pallet-patches and writes the manifest. Packs whose
+// sources did not change since the live manifest are reused as they are (no
+// export, no upload).
+//
+// Packs (tools/native/pack_ids.sh), in load order: base, plants, one r_<id>
+// per world region (tools/native/regions.mjs), cast, interiors, audio, code.
+// A change in one area of the world is one region's pack (a few MB); a new
+// region needs no new app. Every pack but code is one folder of native/,
+// exported with a "pack-<name>" preset made from the template preset
+// "pack-dir" in export_presets.cfg (written for the export, then put back).
 //
 //   node tools/native/publish_patch.mjs                 publish the committed native/
 //   node tools/native/publish_patch.mjs --notes "..."   with a note for the phone
@@ -81,6 +88,29 @@ function godot() {
   return { bin: g, engine: v.split('\n').pop().split('.').slice(0, 4).join('.') };
 }
 
+// the folder of native/ a pack holds (pack_ids.sh)
+const packDir = (name) => (name === 'base' || name === 'plants' ? 'world/' + name : name.startsWith('r_') ? 'world/r/' + name.slice(2) : name);
+
+// export_presets.cfg with the template "pack-dir" replaced by one preset per
+// asset pack; returns a function that puts the committed file back
+function packPresets(names) {
+  const f = join(PROJECT, 'export_presets.cfg'), orig = readFileSync(f, 'utf8');
+  const blocks = orig.split(/^(?=\[preset\.\d+\]\s*$)/m);
+  const head = blocks[0].startsWith('[preset.') ? [] : [blocks.shift()];
+  const presets = blocks;
+  const tmpl = presets.find((b) => /^name="pack-dir"$/m.test(b));
+  if (!tmpl) die('export_presets.cfg has no "pack-dir" preset');
+  const keep = presets.filter((b) => b !== tmpl && !/^name="pack-(?!code")/m.test(b));
+  const made = names.map((n) => tmpl.replace(/^name="pack-dir"$/m, `name="pack-${n}"`).replaceAll('DIR', packDir(n)));
+  const all = [...keep, ...made].map((b, i) => b.replace(/^\[preset\.\d+(\.options)?\]/gm, (m, o) => `[preset.${i}${o || ''}]`).replace(/^;[^\n]*\n/gm, ''));
+  writeFileSync(f, head.join('') + all.join('\n'));
+  let done = false;
+  const restore = () => { if (!done) { writeFileSync(f, orig); done = true; } };
+  process.on('exit', restore);
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { restore(); process.exit(1); });
+  return restore;
+}
+
 const sha256 = (f) => createHash('sha256').update(readFileSync(f)).digest('hex');
 const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
 
@@ -89,7 +119,8 @@ async function status() {
   const idx = (await get(`/history.json?ch=${CH}`)) || [];
   if (!m) return console.log(`channel ${CH}: nothing published`);
   console.log(`channel ${CH}: live v${m.v} (${m.date}, ${m.git.slice(0, 12)}, engine ${m.engine})`);
-  for (const p of m.packs) console.log(`  ${p.name.padEnd(10)} ${p.file}  ${mb(p.size)}`);
+  for (const p of m.packs) console.log(`  ${p.name.padEnd(22)} ${p.file.padEnd(40)} ${mb(p.size).padStart(9)}`);
+  console.log(`  ${'(all)'.padEnd(22)} ${''.padEnd(40)} ${mb(m.packs.reduce((a, p) => a + p.size, 0)).padStart(9)}  format ${m.format || 1}`);
   console.log('history:');
   for (const e of idx) console.log(`  v${e.v} ${e.date} ${e.git.slice(0, 12)}${e.rolled_back ? '  (rolled back)' : ''}${e.v === m.v ? '  <- live' : ''}  ${(e.notes || [])[0] || ''}`);
 }
@@ -126,6 +157,8 @@ async function publish() {
   const dir = mkdtempSync(join(tmpdir(), 'patch-'));
   const packs = [];
   let imported = false;
+  let restore = null;
+  const assets = Object.keys(ids.src).filter((n) => n !== 'code');
   for (const name of Object.keys(ids.src)) {
     const old = cur?.engine === G.engine ? cur.packs.find((p) => p.name === name && p.src === ids.src[name]) : null;
     if (old && !flag('--force-export')) { packs.push(old); console.log(`${name}: unchanged, reusing ${old.file}`); continue; }
@@ -133,6 +166,7 @@ async function publish() {
       console.log('importing…');
       spawnSync(G.bin, ['--headless', '--path', PROJECT, '--import'], { stdio: 'ignore' });
       imported = true;
+      restore = packPresets(assets);
     }
     const out = join(dir, name + '.pck');
     const r = spawnSync(G.bin, ['--headless', '--path', PROJECT, '--export-pack', 'pack-' + name, out], { encoding: 'utf8', maxBuffer: 1 << 28 });
@@ -142,6 +176,10 @@ async function publish() {
     console.log(`${name}: exported ${p.file} (${mb(p.size)})`);
     packs.push(p);
   }
+  if (restore) restore();
+  // what a phone on the live version downloads
+  const fresh = packs.filter((p) => !cur?.packs?.some((q) => q.file === p.file));
+  console.log(`changed: ${fresh.map((p) => `${p.name} ${mb(p.size)}`).join(', ') || 'nothing'} (${mb(fresh.reduce((a, p) => a + p.size, 0))} to download from v${cur?.v ?? '-'})`);
   const v = Math.max(0, cur?.v || 0, ...idx.map((e) => e.v)) + 1;
   const git = run('git', ['rev-parse', 'HEAD']) + (ids.build.endsWith('+dirty') ? '+dirty' : '');
   let log = [];
@@ -153,7 +191,7 @@ async function publish() {
   const notes = [...(opt('--notes') ? [opt('--notes')] : []), ...log];
   const m = {
     v, channel: CH, date: new Date().toISOString(), git, built_at: ids.built_at,
-    engine: G.engine, proj: ids.proj, notes,
+    engine: G.engine, proj: ids.proj, format: 2, notes,
     packs: packs.map(({ name, file, sha256, size, src }) => ({ name, file, sha256, size, src })),
   };
   console.log(JSON.stringify(m, null, 1));

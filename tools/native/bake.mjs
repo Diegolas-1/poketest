@@ -1,6 +1,8 @@
 // Bakes the web build's Pallet Town into files for the native (Godot) game.
 // The world is made once by the web generator (web/world/*.js) in a headless
-// browser, then saved to native/world/:
+// browser and saved as the files below to a staging folder; regions.mjs
+// (splitWorld) then cuts them into native/world/'s regions (base, plants and
+// one folder per region, each its own over-the-air pack):
 //   terrain.glb   ground mesh (positions, normals, vertex colours, uv)
 //   town.glb      every static building and prop, as drawn (merged meshes)
 //   water.glb     sea and fresh water surfaces (mesh names sea_*, fresh0_* pond, fresh1_* stream)
@@ -19,15 +21,19 @@
 //                 the web's own Impostor; leaf atlas and barks as veg_*.png
 //   mountains.bin the distant ranges (main.js opening to the south included)
 //   clouds.png/.json the painted clouds as one atlas, and where each sprite is
-// Run: node tools/native/bake.mjs   (serves web/ on :8790 if nothing is there)
+// Run: node tools/native/bake.mjs   (serves web/ on :8790 if nothing is there;
+// with GODOT set, Godot imports the new files at the end: commit the .import
+// files with them)
 const { chromium } = await import(process.env.PLAYWRIGHT || '/opt/node-tools/node_modules/playwright/index.mjs');   // (tools/native/setup.sh sets PLAYWRIGHT on a fresh machine)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { splitWorld, godotImport, report } from './regions.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
-const OUT = path.join(ROOT, 'native/world');
-fs.mkdirSync(OUT, { recursive: true });
+const DEST = path.join(ROOT, 'native/world');
+const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'pallet-bake-'));   // the single files, split at the end
 
 const PORT = process.env.WEB_PORT || '8790';   // WEB_PORT: bake another checkout's web/
 const up = async () => { try { return (await fetch(`http://localhost:${PORT}/world/`)).ok; } catch { return false; } };
@@ -503,19 +509,12 @@ save('seabed.bin', res.seabed);
 save('grassmap.bin', res.grassmap);
 save('town_inst.bin', res.townInst);
 save('veg.bin', res.veg);
-// pictures no longer made are removed (their .import files kept otherwise, so uids stay)
-for (const f of fs.readdirSync(OUT)) { const m = /^(veg_.*\.png)(\.import)?$/.exec(f); if (m && !(m[1] in res.vegPngs)) fs.rmSync(path.join(OUT, f)); }
 for (const [f, d] of Object.entries(res.vegPngs)) save(f, d);
 fs.writeFileSync(path.join(OUT, 'veg.json'), JSON.stringify(res.vegJson));
 save('mountains.bin', res.mountains);
 save('cinnabar.bin', res.cinnabar);
 save('clouds.png', res.clouds);
-// the plant and cloud pictures are imported VRAM compressed (ASTC on the
-// phone): as plain images the billboards alone took 130 MB of GPU memory
-for (const f of [...Object.keys(res.vegPngs), 'clouds.png']) {
-  const imp = path.join(OUT, f + '.import');
-  if (!fs.existsSync(imp)) fs.writeFileSync(imp, '[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=2\nmipmaps/generate=true\nprocess/fix_alpha_border=true\ndetect_3d/compress_to=0\n');
-}
+// (how each picture is imported: regions.mjs)
 fs.writeFileSync(path.join(OUT, 'clouds.json'), JSON.stringify(res.cloudsJson));
 fs.copyFileSync(path.join(ROOT, 'web/world/tex/dirt_pack.webp'), path.join(OUT, 'dirt.webp'));
 // the stone paint, word for word from the web (stone.js STONE_GLSL)
@@ -527,3 +526,8 @@ const meta = { ...res.meta, ground: res.groundGrid, seabed: res.seabedGrid, gras
 fs.writeFileSync(path.join(OUT, 'world.json'), JSON.stringify(meta));
 console.log('town meshes', res.townMeshes, 'instanced', res.inst.length, 'colliders', meta.colliders.length, 'veg sets', res.vegJson.sets.length, 'models', res.vegJson.meshes.length, 'billboards', res.vegJson.impostors.length, 'leaf card area kept', res.cardArea.toFixed(2));
 await b.close();
+// ---------- into regions ----------
+const stats = splitWorld(OUT, DEST, ['world']);
+report(stats, DEST);
+fs.rmSync(OUT, { recursive: true, force: true });
+godotImport(path.join(ROOT, 'native'));

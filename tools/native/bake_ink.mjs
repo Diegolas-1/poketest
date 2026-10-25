@@ -1,7 +1,9 @@
 // Bakes the web build's vector ink (web/world/outline.js addEdgeLines) for the
 // native game: every edge line in the scene, in world space, with the normals
-// of the two faces it joins and its kind, to native/world/ink.bin. The native
-// game draws them with native/ink.gd + shaders/ink_lines.gdshader.
+// of the two faces it joins and its kind, to ink.bin (in a staging folder, then
+// cut into the world's regions by regions.mjs: each region's ink.bin holds the
+// edges whose middle is in it). The native game draws them with native/ink.gd
+// + shaders/ink_lines.gdshader.
 //   ink.bin: ready-made vertex arrays (the native game only slices them):
 //     'INK2', uint32 cell count, then per 64 m cell (edges binned by their
 //     middle, for culling): int32 cx, int32 cz, uint32 edges m, then
@@ -21,16 +23,19 @@
 // and leaf cards (bushes, hedges, canopies) to its leaf ink
 // (Ink.outline_plant): ink_meshes.json lists the world box centre of each
 // such town mesh ({hull: [[x,y,z]...], leaf: [...]}), which the native game
-// matches against the meshes of town.glb (Ink.outline_town).
+// matches against the meshes of the town (Ink.outline_town; each region keeps
+// its own in region.json ink_meshes).
 // Run: node tools/native/bake_ink.mjs   (serves web/ on :8790 if nothing is there)
 const { chromium } = await import(process.env.PLAYWRIGHT || '/opt/node-tools/node_modules/playwright/index.mjs');   // (tools/native/setup.sh sets PLAYWRIGHT on a fresh machine)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { splitWorld, report } from './regions.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
-const OUT = path.join(ROOT, 'native/world');
-fs.mkdirSync(OUT, { recursive: true });
+const DEST = path.join(ROOT, 'native/world');
+const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'pallet-ink-'));   // the single files, split at the end
 
 const PORT = process.env.WEB_PORT || '8790';   // WEB_PORT: bake another checkout's web/
 const up = async () => { try { return (await fetch(`http://localhost:${PORT}/world/`)).ok; } catch { return false; } };
@@ -180,3 +185,5 @@ fs.writeFileSync(path.join(OUT, 'ink_meshes.json'), JSON.stringify({ hull: res.h
 console.log('ink_meshes.json', res.hull.length, 'hull', res.leaf.length, 'leaf');
 console.log('ink.bin', res.n, 'edges from', res.objs, 'line objects +', res.solids, 'props (', res.meets, 'ground cuts),', bins.size, 'cells,', (fs.statSync(path.join(OUT, 'ink.bin')).size / 1048576).toFixed(2), 'MB');
 await b.close();
+report(splitWorld(OUT, DEST, ['ink']), DEST);
+fs.rmSync(OUT, { recursive: true, force: true });

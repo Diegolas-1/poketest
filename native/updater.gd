@@ -5,7 +5,8 @@ extends Node
 # Server: https://pallet-patches.jdohertybiochem.workers.dev (Cloudflare Worker
 # + R2, workers/pallet-patches/; published by tools/native/publish_patch.mjs).
 #   GET /manifest.json?ch=<channel>  -> {v, channel, date, git, built_at, engine,
-#       proj, notes, packs: [{name, file, sha256, size, src}]} (packs in load order)
+#       proj, format, notes, packs: [{name, file, sha256, size, src}]} (packs in
+#       load order: base, plants, r_<region>..., cast, interiors, audio, code)
 #   GET /packs/<file>                -> the pack (Range supported)
 #
 # Only the packs whose src id differs from the app's own (res://patch_base.json)
@@ -106,15 +107,23 @@ func _consider(m: Dictionary, manual: bool) -> void:
 	var base: Dictionary = boot.base
 	var state: Dictionary = boot.state
 	var v := int(m.v)
-	if str(m.get("engine")) != str(base.get("engine")) or str(m.get("proj")) != str(base.get("proj")):
+	# older than this app (e.g. the last manifest before this app's format, or
+	# a rollback to one): the app's own files are newer
+	if float(m.get("built_at", 0)) < float(base.get("built_at", 0)):
+		_set_status("Up to date (%s)" % version_text())
+		return
+	var fmt := int(boot.get("FORMAT")) if boot.get("FORMAT") != null else 1
+	# a manifest for the apps before this one's format (made with older tools):
+	# not for this app, and a reinstall would not help
+	if int(m.get("format", 1)) < fmt:
+		_set_status("Up to date (%s)" % version_text())
+		return
+	if str(m.get("engine")) != str(base.get("engine")) or str(m.get("proj")) != str(base.get("proj")) or int(m.get("format", 1)) != fmt:
 		_set_status("Version %d needs a new install of the app" % v)
 		if manual or state.get("told_install") != base.get("build"):
 			state.told_install = base.get("build")
 			boot.save_state()
 			toast("A new version of the app is out: install it again from SideStore")
-		return
-	if float(m.get("built_at", 0)) < float(base.get("built_at", 0)):
-		_set_status("Up to date (%s)" % version_text())
 		return
 	if state.get("bad", []).has(float(v)) or state.get("bad", []).has(v):
 		_set_status("Version %d was rolled back on this phone" % v)
@@ -132,21 +141,24 @@ func _consider(m: Dictionary, manual: bool) -> void:
 		_set_status("Up to date (%s)" % version_text())
 		return
 	var total := 0
+	var fetch := []   # the packs not already here (others may come from an earlier set)
 	for p in need:
-		if _len(DIR + "packs/" + str(p.file)) != int(p.size): total += int(p.size)
+		if _len(DIR + "packs/" + str(p.file)) != int(p.size):
+			total += int(p.size)
+			fetch.append(label(str(p.name)))
 	state.dl = {"v": v, "packs": need}   # kept by _cleanup while it downloads
 	boot.save_state()
 	for i in need.size():
 		var p: Dictionary = need[i]
-		var ok := await _fetch(p, "%d of %d" % [i + 1, need.size()])
+		var ok := await _fetch(p, "%d of %d (%s)" % [i + 1, need.size(), label(str(p.name))])
 		if not ok: return
-	state.next = {"v": v, "base": base.build, "built_at": m.get("built_at", 0), "git": m.get("git", ""),
+	state.next = {"v": v, "format": int(m.get("format", 1)), "base": base.build, "built_at": m.get("built_at", 0), "git": m.get("git", ""),
 		"date": m.get("date", ""), "notes": m.get("notes", []), "packs": need}
 	state.erase("dl")
 	boot.save_state()
 	_cleanup()
 	ready_v = v
-	_set_status("Update v%d ready (%s downloaded): restart to apply" % [v, _mb(total)])
+	_set_status("Update v%d ready (%s downloaded%s): restart to apply" % [v, _mb(total), (": " + ", ".join(fetch)) if fetch else ""])
 	toast("Update ready: restart the game to apply")
 
 # one pack: Range chunks into <file>.part, sha256, rename
@@ -219,6 +231,10 @@ func _cleanup(keep_parts := false) -> void:
 	for f in DirAccess.get_files_at(DIR + "packs"):
 		if keep_parts and f.ends_with(".part"): continue
 		if not keep.has(f.trim_suffix(".part")): DirAccess.remove_absolute(DIR + "packs/" + f)
+
+# a pack's name for people: "r_route1_north" -> "route1 north"
+static func label(name: String) -> String:
+	return name.trim_prefix("r_").replace("_", " ")
 
 func _len(path: String) -> int:
 	if not FileAccess.file_exists(path): return 0

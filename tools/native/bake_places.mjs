@@ -21,7 +21,7 @@ register('data:text/javascript,' + encodeURIComponent(
   `export async function resolve(s, c, n) { if (s === 'three') return { url: ${JSON.stringify(three)}, shortCircuit: true }; return n(s, c); }`));
 const T = await import(pathToFileURL(path.join(ROOT, 'web/world/terrain.js')).href);
 const cast = JSON.parse(fs.readFileSync(path.join(ROOT, 'native/cast/cast.json'), 'utf8'));
-const world = JSON.parse(fs.readFileSync(path.join(ROOT, 'native/world/world.json'), 'utf8'));
+const world = (await import('./regions.mjs')).readWorld(path.join(ROOT, 'native/world'));   // (colliders from every region)
 
 const r2 = (v) => Math.round(v * 100) / 100;
 const P = (x, z, yaw) => (yaw === undefined ? [r2(x), r2(z)] : [r2(x), r2(z), r2(yaw)]);

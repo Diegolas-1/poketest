@@ -78,8 +78,8 @@ func _ready() -> void:
 	scenery.add_child(route1)
 	route1.setup(self, town_root)
 	# ---- ink (worker 2): vector lines on the town; see ink.gd ----
-	outdoor_ink = Ink.add_world_lines(self)
-	Ink.outline_town(self)
+	for f in WorldRegions.files("ink.bin"): outdoor_ink.append_array(Ink.add_world_lines(self, f))
+	Ink.outline_town(self, WorldRegions.ink_meshes())
 	outdoor_world = world
 	grass = Grass.new()
 	add_child(grass)
@@ -136,11 +136,22 @@ func _environment() -> void:
 	sun.look_at_from_position(SUN_DIR.normalized() * 50.0, Vector3.ZERO)
 
 # ---------- the baked world ----------
-func _scene(f: String) -> Node:
-	var s: PackedScene = load("res://world/" + f)
+func _scene(path: String, parent: Node = self) -> Node:
+	var s: PackedScene = load(path)
 	var n := s.instantiate()
-	add_child(n)
+	parent.add_child(n)
 	return n
+
+# one root for a glb that every region may have (world_regions.gd), each
+# region's copy under it
+func _region_scenes(file: String, root_name: String) -> Node3D:
+	var root := Node3D.new()
+	root.name = root_name
+	add_child(root)
+	for p in WorldRegions.files(file):
+		var n := _scene(p, root)
+		n.name = p.get_base_dir().get_file()
+	return root
 
 func _meshes(n: Node, out: Array) -> Array:
 	if n is MeshInstance3D: out.append(n)
@@ -148,12 +159,12 @@ func _meshes(n: Node, out: Array) -> Array:
 	return out
 
 func _terrain() -> void:
-	var root := _scene("terrain.glb")
+	var root := _region_scenes("terrain.glb", "terrain")
 	terrain_root = root
 	var m := ShaderMaterial.new()
 	m.shader = TERRAIN
-	m.set_shader_parameter("grass_tex", load("res://world/grass.png"))
-	m.set_shader_parameter("dirt_tex", load("res://world/dirt.webp"))
+	m.set_shader_parameter("grass_tex", load(WorldRegions.BASE + "grass.png"))
+	m.set_shader_parameter("dirt_tex", load(WorldRegions.BASE + "dirt.webp"))
 	m.set_shader_parameter("path_map", world.path_tex)
 	var pm: Dictionary = world.meta.pathmap
 	m.set_shader_parameter("pm_origin", Vector2(pm.x0, pm.z0))
@@ -164,8 +175,13 @@ func _terrain() -> void:
 		mi.material_override = m
 
 # the town's materials become cel materials with the same colour and texture
+# (one per look: the regions' glbs each have their own copy of a material)
 func toon_for(src: Material) -> ShaderMaterial:
 	if mats.has(src): return mats[src]
+	var key := _look_of(src)
+	if mats.has(key):
+		mats[src] = mats[key]
+		return mats[key]
 	var m := ShaderMaterial.new()
 	m.shader = TOON
 	var nm := String(src.resource_name) if src else ""
@@ -180,17 +196,27 @@ func toon_for(src: Material) -> ShaderMaterial:
 	m.set_shader_parameter("use_vc", nm.contains("_vc"))
 	if nm.contains("_decal"): m.set_shader_parameter("lift", 0.004)
 	mats[src] = m
+	mats[key] = m
 	return m
+
+func _look_of(src: Material) -> String:
+	if not src is BaseMaterial3D: return "?" + str(src.get_instance_id() if src else 0)
+	var b: BaseMaterial3D = src
+	var tex := b.albedo_texture.resource_path if b.albedo_texture else ""
+	if b.albedo_texture and tex == "": tex = str(b.albedo_texture.get_instance_id())
+	return "%s|%s|%s|%d|%f|%d" % [b.resource_name, b.albedo_color.to_html(), tex, b.transparency, b.alpha_scissor_threshold, b.cull_mode]
 
 func _town() -> void:
 	# town.glb's pictures (town_N.png) loaded one by one first, from here: left
 	# to the scene's own load, the engine loaded its ~100 external textures on
 	# the worker pool, which ran out of threads and stalled for good on a
 	# 4-core machine (6 on the phone); cached now, the scene finds them ready
-	for d in ResourceLoader.get_dependencies("res://world/town.glb"):
-		var p := String(d).get_slice("::", 2) if String(d).contains("::") else String(d)
-		if p.ends_with(".png") or p.ends_with(".webp") or p.ends_with(".jpg"): load(p)
-	var root := _scene("town.glb")
+	var glbs := WorldRegions.files("town.glb")
+	for g in glbs:
+		for d in ResourceLoader.get_dependencies(g):
+			var p := String(d).get_slice("::", 2) if String(d).contains("::") else String(d)
+			if p.ends_with(".png") or p.ends_with(".webp") or p.ends_with(".jpg"): load(p)
+	var root := _region_scenes("town.glb", "town")
 	town_root = root
 	for mi in _meshes(root, []):
 		var mesh: Mesh = mi.mesh
@@ -198,7 +224,7 @@ func _town() -> void:
 			mi.set_surface_override_material(s, toon_for(mesh.surface_get_material(s)))
 
 func _water() -> void:
-	var root := _scene("water.glb")
+	var root := _scene(WorldRegions.BASE + "water.glb")
 	water_root = root
 	var sea := ShaderMaterial.new()
 	sea.shader = SEA

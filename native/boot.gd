@@ -8,10 +8,18 @@ extends Node
 # either needs a new .ipa (their hash is the "proj" id, and patches with
 # another one are refused).
 #
+# Packs (format 2, from this app on): the world comes in regions, one pack
+# each, so a change in one area downloads only that area. A manifest lists its
+# packs in load order: base, plants, r_<region>..., cast, interiors, audio,
+# code (last: its class list and uid cache win). Whatever names it lists are
+# loaded in that order, so new regions need no new app. Apps before format 2
+# (one "world" pack) refuse a format 2 manifest on its "proj" id and ask for
+# a reinstall; this one ignores the older manifests (built before it).
+#
 # Files in user://patches/:
 #   state.json  {cur, prev, next, bad, trial} where a set is
-#               {v, base, built_at, git, packs: [{name, file, sha256, size, src}]}
-#               (only the packs that differ from the app's own files)
+#               {v, format, base, built_at, git, packs: [{name, file, sha256, size, src}]}
+#               (only the packs that differ from the app's own files, in load order)
 #   packs/      verified packs; *.part = downloads in progress
 #   booting     written before a set is used, removed once the main scene has
 #               run for GOOD_AFTER seconds: still there at the next launch =
@@ -24,6 +32,7 @@ extends Node
 # scene twice in a row on a new set, it goes back to "prev" and the version is
 # marked bad so it is not downloaded again.
 
+const FORMAT := 2   # the manifest format this app reads (updater.gd checks it)
 const DIR := "user://patches/"
 const STATE := DIR + "state.json"
 const FLAG := DIR + "booting"
@@ -64,6 +73,7 @@ func _init() -> void:
 	if not state.cur.is_empty() and not has_files(state.cur):
 		rollback("its files are missing")
 	if not state.cur.is_empty():
+		# in the manifest's order (the set keeps it): base first, code last
 		for p in state.cur.packs:
 			if not ProjectSettings.load_resource_pack(DIR + "packs/" + str(p.file), true):
 				load_error = "could not load " + str(p.file)
@@ -112,9 +122,9 @@ func rollback(why: String) -> void:
 	state.prev = {}
 	state.trial = {}
 
-# a set made for this app build (same engine, project and base build)
+# a set made for this app build (same engine, project and base build) in this format
 func fits(s: Dictionary) -> bool:
-	return s.get("base") == base.get("build") and s.get("packs") is Array and s.has("v")
+	return s.get("base") == base.get("build") and int(s.get("format", 1)) == FORMAT and s.get("packs") is Array and s.has("v")
 
 func has_files(s: Dictionary) -> bool:
 	if not s.get("packs") is Array: return false
