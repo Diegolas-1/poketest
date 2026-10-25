@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { E } from './editlayer/index.js';
 
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map();
@@ -190,6 +191,7 @@ function chunkGeometry(g, fadeAttr) {
 // (maxDist alone = fade [maxDist - 4, maxDist].)
 export class Scatter {
   constructor(scene, model, points, { chunk = 24, maxDist = 90, fade = null, shrink = 1, wind: w = 0.06, shadows = true, impostor = null, far = [500, 600] } = {}) {
+    points = E.placed(points);   // plants the world editor moved (editlayer/index.js)
     this.chunks = [];
     this.fade = fade || [maxDist - 4, maxDist];
     this.impostor = impostor;

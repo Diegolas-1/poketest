@@ -10,6 +10,7 @@ import { STONE } from './stone.js';
 import { BEDS } from './town.js';
 import * as R1 from './route1land.js';
 import { meadowFlowers, handTrees } from './route1veg.js';
+import { E } from './editlayer/index.js';
 
 
 const TALL = TALL_GRASS;
@@ -21,6 +22,12 @@ const inPlaza = (x, z, m = 0) => x > PLAZA.x0 - m && x < PLAZA.x1 + m && z > PLA
 const onHill = (x, z) => { const u = labHillU(x, z); return u > 0.06 && u < 0.95 && !(Math.abs(z - STAIRS.z) < 10.5 && x < STAIRS.x1 + 3); };
 
 export async function buildVegetation(scene, renderer, blocked, colliders, quality, onProgress) {
+  // the world editor's edits never change where plants are seeded: decide on
+  // the unedited ground, then apply the edits to each list (keepOff: E.veg)
+  E.raw = true;
+  try { return await grow(scene, renderer, blocked, colliders, quality, onProgress); } finally { E.raw = false; }
+}
+async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   const R = rng(4242);
   const free = (x, z, r = 1) => !blocked(x, z, r) && roadDist(x, z) > 2.5 + r * 0.3 && !isWater(x, z) && height(x, z) > SEA_Y + 0.8
     && !fieldAt(x, z, 0.8) && !onStairs(x, z, 3) && !inYard(x, z, 0.4) && !inPlaza(x, z, 1) && streamAt(x, z).d > 3.4 && labHillU(x, z) > 0.04
@@ -29,7 +36,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   // how far a model's base (everything within 0.7 m of the ground) reaches out
   const baseR = (list) => { let r = 0; for (const m of list) for (const p of m.parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) < 0.7) r = Math.max(r, Math.hypot(a.getX(i), a.getZ(i))); } return r; };
   // nothing stands on the dirt: mark what would, and leave it out
-  const keepOff = (list, br) => { for (const p of list) if (onPath(p.x, p.z, br * p.s)) p.off = true; };
+  const keepOff = (list, br) => { E.veg(list); for (const p of list) if (!p.off && onPath(p.x, p.z, br * p.s)) p.off = true; };
   const pick = (w) => { let t = R() * w.reduce((a, b) => a + b[1], 0); for (const [k, p] of w) { t -= p; if (t <= 0) return k; } return w[0][0]; };
   // a few shapes of each kind, points shared out between them
   const sow = (models, pts, opts) => {
@@ -132,7 +139,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   }
   // nothing stands on the dirt: drop any tree whose trunk base is on a path
   for (const k of Object.keys(pts)) keepOff(pts[k], Math.max(0.6, baseR(models[k])));
-  for (const t of all) if (!t.off) colliders.push({ x: t.x, z: t.z, r: Math.max(0.45, t.trunk + 0.1) });
+  for (const t of all) if (!t.off) colliders.push({ x: E.at(t).x, z: E.at(t).z, r: Math.max(0.45, E.at(t).trunk + 0.1) });
   // each shape gets its own billboard, so the far tree has the near one's
   // outline; the model cross-fades into it when it passes its range
   const treeD = 75 * quality.lod, L = lights();
@@ -258,11 +265,11 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   const beachRocks = [makeRock(11, 1.0, { col: STONE.beach }), makeRock(12, 0.8, { col: STONE.beach, kind: 'slab' }), makeRock(13, 1.2, { col: STONE.beach }), makeRock(14, 0.7, { col: STONE.beach, kind: 'pebble' })];
   keepOff(brp, baseR(beachRocks));
   sow(beachRocks, brp, () => ({ chunk: 64, fade: [140, 146], shrink: 0.6, wind: 0 }));
-  for (const p of brp) if (!p.off) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
+  for (const p of brp) if (!p.off) colliders.push({ x: E.at(p).x, z: E.at(p).z, r: 0.8 * E.at(p).s });
   for (const [x, z] of [[-56, 33], [-43, 40], [-52, 47]]) rp.push({ x, z, y: height(x, z) - 0.1, rot: R() * 6, s: 1.0 });
   keepOff(rp, baseR(rocks));
   sow(rocks, rp, () => ({ chunk: 64, fade: [180, 186], shrink: 0.6, wind: 0 }));
-  for (const p of rp) if (!p.off) colliders.push({ x: p.x, z: p.z, r: 0.8 * p.s });
+  for (const p of rp) if (!p.off) colliders.push({ x: E.at(p).x, z: E.at(p).z, r: 0.8 * E.at(p).s });
 
   window.__scatters = scatters;
   window.__billboards = { ms: Math.round(bakeMs), n: impostors.length, mb: +(impostors.reduce((a, i) => a + i.bytes, 0) / 1048576).toFixed(1) };

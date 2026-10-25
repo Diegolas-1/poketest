@@ -10,6 +10,12 @@
 // fields lie at the western edge, and a wide beach with a pier in the south.
 import * as THREE from 'three';
 import * as R1 from './route1land.js';   // Route 1's pockets, trails and creeks (worker 12)
+// the world editor's hand edits (editlayer/index.js); terrain.js?raw is this
+// same module without them, for the generators' decisions (see there)
+import { E, NOEDIT } from './editlayer/index.js';
+const IS_RAW = import.meta.url.includes('?raw');
+const ED = IS_RAW ? NOEDIT : E;
+const RAWT = !IS_RAW && (E.needRaw() || globalThis.__PALLET_EDITOR) ? await import('./terrain.js?raw') : null;
 
 // ---------- noise ----------
 function hash(x, y) {
@@ -209,7 +215,7 @@ export const BOATHOUSE = { x: -59, z: 101 };
 
 // ---------- roads as control points; smoothed into dense polylines ----------
 // Each is a winding dirt lane; the ends of house lanes run to the house gates.
-const ROAD_CTRL = [
+const ROAD_CTRL = ED.roads([
   // Route 1: from the forest gate at the mainland end, down the valley,
   // weaving round the ledges' ends, and through the cutting in the rim
   [[-2, -446], [-5, -425], [-10, -400], [-16, -380], [-19, -363], [-12, -347], [6, -337], [26, -328], [29, -318], [20, -306],
@@ -252,10 +258,11 @@ const ROAD_CTRL = [
   [[15.5, 8.5], [17, -1], [19, -9.5]],
   [[24, -13.5], [36, -17.8], [50, -21.8], [66, -23.6], [82, -27], [96, -37], [111, -40], [125, -31], [136, -13], [143, 10], [147, 35], [148, 60], [146.5, 80.5]],
   [[147, 114.5], [150, 130], [152, 150], [153, 166], [155, 181], [156, 186]],
-];
-export const TRAILS = new Set([ROAD_CTRL.length - 3, ROAD_CTRL.length - 2, ROAD_CTRL.length - 1]);
+]);
+const ROAD_N0 = ROAD_CTRL.length - ((ED.doc && ED.doc.roads && ED.doc.roads.added) || []).filter((a) => a.ctrl && a.ctrl.length >= 2).length;   // the generated roads (edits may append more)
+export const TRAILS = new Set([ROAD_N0 - 3, ROAD_N0 - 2, ROAD_N0 - 1]);
 // ROADS[TRAIL0 .. TRAIL0 + R1.TRAILS.length - 1]: Route 1's trails (route1land.js)
-export const TRAIL0 = ROAD_CTRL.length - 3 - R1.TRAILS.length;
+export const TRAIL0 = ROAD_N0 - 3 - R1.TRAILS.length;
 export const R1_TRAIL1 = TRAIL0 + R1.TRAILS.length;   // one past Route 1's trails
 // the trails' ends: a clearing in the woods behind the lab, a viewpoint on the east headland
 export const CLEARINGS = [{ x: 156.5, z: 188, r: 7, name: 'viewpoint' }];
@@ -445,7 +452,7 @@ export function ledgeAt(x, z, m = 0.5) {
     if (x < L.x0 || x > L.x1 || Math.abs(L.z - z) > 3) continue;
     if (Math.abs(ledgeLine(L, x) - z) <= m) return L;
   }
-  return null;
+  return ED.ledge(x, z, null);
 }
 export const ledgeLineZ = ledgeLine;
 // Route 1's tall grass, between its ledges [x0, z0, x1, z1]
@@ -539,7 +546,7 @@ export function streamAt(x, z) {
 export const STREAM_LEVELS = SPROF;
 
 // ---------- roads ----------
-export function roadDist(x, z) { return RL.query(x, z).d; }
+export function roadDist(x, z) { if (ED.raw && RAWT) return RAWT.roadDist(x, z); return RL.query(x, z).d; }
 // 1 on the dirt (roads, the square, the plaza), 0 off it, with a ragged edge
 export function roadMask(x, z) {
   const d = pathSD(x, z) + (fbm(x * 0.6, z * 0.6, 2) - 0.5) * 0.5;
@@ -573,7 +580,7 @@ export function pathMap() {
   const R = 3.2, touched = [];
   ROADS.forEach((road, ri) => {
     touched.length = 0;
-    const w = ri <= 1 ? 1.62 : TRAILS.has(ri) ? 1.1 : 1.38;
+    const w = ED.roadW[ri] || (ri <= 1 ? 1.62 : TRAILS.has(ri) ? 1.1 : 1.38);
     for (let k = 0; k < road.length - 1; k++) {
       const [ax, az] = road[k], [bx, bz] = road[k + 1];
       const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - R - x0) / PM_RES)), i1 = Math.min(nx - 1, Math.ceil((Math.max(ax, bx) + R - x0) / PM_RES));
@@ -593,6 +600,7 @@ export function pathMap() {
     }
   });
   const sd = new Float32Array(N), data = new Uint8Array(N * 4);
+  const sd0 = globalThis.__PALLET_EDITOR ? new Float32Array(N) : null;   // the world editor repaints from these
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const id = j * nx + i, x = x0 + (i + 0.5) * PM_RES, z = z0 + (j + 0.5) * PM_RES;
     // roads: the two nearest, filleted together where they meet
@@ -611,6 +619,8 @@ export function pathMap() {
     const LB = BRIDGES[0], lb = Math.sqrt(segDist2(x, z, LB.x1 - 1, LB.z, PLAZA.x0 + 2.5, LB.z)[0]) - 1.45 * (0.9 + wob[id] * 0.24);
     const open = Math.min(sq, pl, lb);
     d = smin(d, open, 2.6);
+    if (sd0) sd0[id] = d;
+    d = ED.pathSD(x, z, d);
     sd[id] = d;
     const rut = smooth(0.6, 2.2, second[id] - best[id]) * smooth(-1, 2.5, open) * (1 - smooth(-0.2, 0.4, best[id]));
     const pale = 1 - smooth(-2.5, 1.5, open);
@@ -620,11 +630,12 @@ export function pathMap() {
     data[k + 2] = Math.round(rut * 255);
     data[k + 3] = Math.round(pale * 255);
   }
-  PM = { x0, z0, nx, nz, w: nx * PM_RES, d: nz * PM_RES, sd, data };
+  PM = { x0, z0, nx, nz, w: nx * PM_RES, d: nz * PM_RES, sd, data, sd0, res: PM_RES, clamp: PM_CLAMP };
   return PM;
 }
 // the signed distance to the dirt's edge (bilinear, like the shader sees it)
 export function pathSD(x, z) {
+  if (ED.raw && RAWT) return RAWT.pathSD(x, z);
   const M = pathMap();
   const fx = (x - M.x0) / PM_RES - 0.5, fz = (z - M.z0) / PM_RES - 0.5;
   if (fx < 0 || fz < 0 || fx >= M.nx - 1 || fz >= M.nz - 1) return PM_CLAMP;
@@ -721,12 +732,13 @@ export function outOfBounds(x, z) {
 }
 export function noWalk(x, z) {
   const u = hillU(x, z);
-  if (u > 0.002 && u <= 0.985 && !onStairs(x, z, -0.15)) return true;
-  return outOfBounds(x, z);
+  if (u > 0.002 && u <= 0.985 && !onStairs(x, z, -0.15)) return ED.noWalk(x, z, true);
+  return ED.noWalk(x, z, outOfBounds(x, z));
 }
 
 // ---------- the height ----------
 export function height(x, z) {
+  if (ED.raw && RAWT) return RAWT.height(x, z);
   let h = base(x, z);
   // roads: blend toward each nearby road's smoothed level
   const q = RL.query(x, z);
@@ -778,7 +790,7 @@ export function height(x, z) {
     }
     h = Math.max(h, hh);
   }
-  return R1.carve(x, z, h);
+  return ED.h(x, z, R1.carve(x, z, h));
 }
 
 // water level at a point (sea, pond or stream)
@@ -824,7 +836,7 @@ export function groundColor(x, z, h, slope, out) {
     const s = SAND.clone().lerp(SAND_DRY, smooth(0.6, 1.4, h - SEA_Y)).lerp(SAND_W, 1 - smooth(0.05, 0.35, h - SEA_Y));
     out.lerp(s, sandK);
   }
-  return R1.tint(x, z, out);
+  return ED.paint(x, z, R1.tint(x, z, out));
 }
 
 // ---------- meshes ----------
@@ -1180,6 +1192,7 @@ export function grassMap(x0, z0, w, d, res) {
     }
     // patchy: tufts and drifts, open lawn between
     g *= 0.12 + smooth(0.42, 0.68, fbm(x * 0.11 + 3, z * 0.11, 3)) * 0.88;
+    g = Math.min(1, g * ED.grassK(x, z));   // the editor's grass brush
     // Route 1's tall grass: density + 2 marks it (the grass shaders grow it
     // tall there), its edge a little ragged
     if (g > 0.02) {
@@ -1194,3 +1207,7 @@ export function grassMap(x0, z0, w, d, res) {
   t.needsUpdate = true;
   return t;
 }
+
+// the editor's hooks: the edited and the unedited ground (vegetation follows
+// the sculpted ground, keeps off painted paths)
+if (!IS_RAW) Object.assign(E.fn, { height, rawHeight: RAWT ? RAWT.height : height, onPath, pathSD, groundColor, meshY, rebuildPathMap: () => { PM = null; return pathMap(); }, pathMapNow: pathMap });

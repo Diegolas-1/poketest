@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Pallet Town · World Editor</title>
+  <script type="importmap">
+    { "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }
+  </script>
+  <script>globalThis.__PALLET_EDITOR = true;</script>
+  <link rel="stylesheet" href="editor/editor.css" />
+</head>
+<body>
+  <header id="bar">
+    <div class="brand">Pallet<span>Edit</span></div>
+    <div class="group" id="tools"></div>
+    <div class="group" id="snaps"></div>
+    <div class="spacer"></div>
+    <div class="group">
+      <button id="bUndo" title="Undo (Ctrl+Z)">↶</button>
+      <button id="bRedo" title="Redo (Ctrl+Shift+Z)">↷</button>
+      <button id="bSave" title="Save the draft (Ctrl+S)">Save</button>
+      <button id="bVersions" title="Versions, changes and publishing">Versions</button>
+      <button id="bPlay" class="accent" title="Walk the world from the camera (P)">▶ Play here</button>
+      <button id="bHelp" title="Keys and how it works">?</button>
+    </div>
+  </header>
+  <aside id="left">
+    <nav class="tabs" id="leftTabs"></nav>
+    <section class="pane" id="leftPane"></section>
+  </aside>
+  <main id="view">
+    <canvas id="c"></canvas>
+    <div id="toolOpts"></div>
+    <div id="viewHint"></div>
+  </main>
+  <aside id="right">
+    <nav class="tabs" id="rightTabs"></nav>
+    <section class="pane" id="rightPane"></section>
+  </aside>
+  <footer id="status">
+    <span id="stFps">–</span><span id="stSel">nothing selected</span><span id="stPos"></span><span class="spacer"></span><span id="stSave">loading</span>
+  </footer>
+  <div id="modal" hidden></div>
+  <div id="boot"><div class="card"><h1>Pallet<span>Edit</span></h1><p id="bootText">Starting</p><div id="bootForm"></div></div></div>
+  <script type="module" src="editor/main.js"></script>
+</body>
+</html>
