@@ -27,20 +27,26 @@ const BUILD = { deep: [0.56, 0.62, 0.82], shade: [0.74, 0.79, 0.94], lit: [1.06,
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const memo = new Map();
 const M = (k, f) => { if (!memo.has(k)) memo.set(k, f()); return memo.get(k); };
-const FLATS = new Set();
+const FLATS = new Set(), TEXMS = new Map();   // (TEXMS: textured material -> its picture)
 export const flat = (col, side) => M('c' + col + (side || ''), () => { const m = toon(col, { cel: BUILD, side }); FLATS.add(m); return m; });
 // Fold every plain-coloured part of a group into one vertex-colour material
 // (a building or prop then costs one draw for all its painted trim, posts,
 // buttons...). Parts marked userData.keep (moving parts) are left alone.
 export function foldFlat(G) {
   G.traverse((o) => {
-    if (!o.isMesh || o.isInstancedMesh || !FLATS.has(o.material)) return;
+    if (!o.isMesh || o.isInstancedMesh || o.geometry.attributes.color) return;
+    const tm = TEXMS.get(o.material);
+    if (!FLATS.has(o.material) && !tm) return;
+    if (tm && (o.material.polygonOffset || o.material.transparent || o.material.alphaTest > 0)) return;   // decals and see-through pictures keep their own
     for (let q = o; q && q !== G; q = q.parent) if (q.userData.keep) return;
     const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(), n = g.attributes.position.count, c = o.material.color, col = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n * 2), 2));
-    o.geometry = g; o.material = vcFlat(o.material.side === THREE.FrontSide ? undefined : o.material.side);
+    const side = o.material.side === THREE.FrontSide ? undefined : o.material.side;
+    // a tinted picture: its tint rides in the vertices too, so every colour of
+    // one picture shares one material (and merges into one draw per cell)
+    o.geometry = g; o.material = tm ? texm(tm, '#ffffff', side, true) : vcFlat(side);
   });
   return G;
 }
@@ -53,7 +59,7 @@ export function texm(t, col = '#ffffff', side, vc = false) {
     col = '#' + new THREE.Color(Math.min(1, c.r / n.r), Math.min(1, c.g / n.g), Math.min(1, c.b / n.b)).getHexString();
     t = t.t;
   }
-  return M('t' + t.uuid + col + (side || '') + (vc ? 'vc' : ''), () => toon(col, { map: t, cel: BUILD, side, vertexColors: vc }));
+  return M('t' + t.uuid + col + (side || '') + (vc ? 'vc' : ''), () => { const m = toon(col, { map: t, cel: BUILD, side, vertexColors: vc }); if (!vc) TEXMS.set(m, t); return m; });
 }
 function mergeNI(list) {
   const P = [], N = [], C = [];
