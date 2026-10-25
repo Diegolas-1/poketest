@@ -16,6 +16,7 @@ const WALL_FADE = [300, 310];   // native: walls stay drawn this far (m)
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 import { route1Fill } from './route1.js';   // Route 1's places (worker 12)
 import { trackTown, applyTown } from './editlayer/objects.js';   // the world editor's edits
+import { creekAt } from './route1land.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -579,7 +580,8 @@ function labStairs(world) {
   for (const o of [im, nose]) { o.castShadow = true; o.receiveShadow = true; world.group.add(o); }
   // white globe lamps on the cheek walls at the landing and the top
   const xl = S.x0 + S.n1 * S.run;
-  for (const [x, y] of [[xl + 0.3, PLAZA.y + S.n1 * STEP + 0.4], [xl + S.landing - 0.3, PLAZA.y + S.n1 * STEP + 0.4], [S.x1 + 0.4, PLAT_Y + 0.4]]) for (const s of [-1, 1]) globeLamp(world, x, y, S.z + s * (S.hw + 0.3), 0.9);
+  // (on the walls' coping: its top is noseY + 0.4)
+  for (const [x, y] of [[xl + 0.3, noseY(xl + 0.3) + 0.4], [xl + S.landing - 0.3, noseY(xl + S.landing - 0.3) + 0.4], [cx1 - 0.3, noseY(cx1 - 0.3) + 0.4]]) for (const s of [-1, 1]) globeLamp(world, x, y, S.z + s * (S.hw + 0.3), 0.9);
   world.solid.push(im);
   // rows of round trimmed bushes down both sides
   const R = rng(77), list = [];
@@ -649,7 +651,15 @@ function labGate(world) {
   wallSeg(LAB_HILL.z0 - 4, S.z - S.hw - 1.25);
   wallSeg(S.z + S.hw + 1.25, LAB_HILL.z1 + 4);
   for (const r of runs) world.group.add(...wallMeshes([r], 4100 + Math.round(r.a[1]), { fade: WALL_FADE }));
-  sign(PLAZA.x0 + 1.6, S.z - S.hw - 3.2, Math.PI / 2 + 0.35, () => labPlate('OAK POKéMON RESEARCH LAB', { mount: 'posts', w: 1.7, h: 0.56, line2: 'Up the stairs', height: 0.9 }), ['OAK POKéMON RESEARCH LAB'], world);
+  // the lab's plate on the retaining wall's face beside the stairs, facing the
+  // plaza (on posts it stood on the plaza, which moved it off the dirt to the
+  // stream's bank, edge-on to the water)
+  {
+    const px = wx - 0.52, pz = S.z - S.hw - 2.6;   // (the stones stand out to 0.49 from the wall line)
+    const g = labPlate('OAK POKéMON RESEARCH LAB', { mount: 'wall', w: 1.7, h: 0.56, line2: 'Up the stairs' });
+    g.position.set(px, y + 0.72, pz); g.rotation.y = -Math.PI / 2; g.userData.eid = 'town/lab/plate'; g.userData.qa = { k: 'hung', why: 'mounted on the retaining wall' }; world.group.add(g);
+    world.use.push({ x: px - 1.2, z: pz, r: 1.3, label: 'Read', lines: ['OAK POKéMON RESEARCH LAB'] });
+  }
   // plaza: two lamps, a bench, flower tubs
   lamp(PLAZA.x0 + 2.2, PLAZA.z1 - 1.0, world);
   lamp(PLAZA.x1 - 1.2, PLAZA.z0 + 1.2, world);
@@ -731,7 +741,11 @@ function bridge(world, b) {
       box(len, 0.12, 0.14, wood, 0, 1.05, s * (hw - 0.05), G);
       box(len, 0.08, 0.08, wood, 0, 0.55, s * (hw - 0.05), G, { line: false });
     }
-    for (let i = 1; i < n; i++) { const x = -len / 2 + 0.1 + (len - 0.2) * i / n; cyl(0.14, 0.16, 2.6, dark, x, -1.4, s * (hw - 0.3), G, 8, { line: false }); }
+    // (each down to the ground under it: over the ravine they hung in the air)
+    for (let i = 1; i < n; i++) {
+      const x = -len / 2 + 0.1 + (len - 0.2) * i / n, bot = Math.min(-2.7, height(G.position.x + x, b.z + s * (hw - 0.3)) - b.y - 0.4);
+      cyl(0.14, 0.16, -0.1 - bot, dark, x, (-0.1 + bot) / 2, s * (hw - 0.3), G, 8, { line: false });
+    }
     world.colliders.push({ box: true, x: G.position.x, z: b.z + s * (hw - 0.05), hw: len / 2, hd: 0.1 });
   }
   world.walk.push({ x0: b.x0 - 0.2, x1: b.x1 + 0.2, z0: b.z - hw + 0.1, z1: b.z + hw - 0.1, y: b.y + 0.1 });
@@ -762,7 +776,9 @@ function streamRocks(world) {
   models.forEach((mod, k) => {
     for (const p of mod.parts) {
       const im = new THREE.InstancedMesh(p.geometry, p.material, by[k].length);
-      by[k].forEach(([x, z, r, s], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, height(x, z) - 0.18 * s, z), q, V(s, s * 1.1, s * 0.9)); im.setMatrixAt(i, m4); });
+      // set on the lowest ground under it (on the steep banks one side floated)
+      const low = (x, z, r) => Math.min(height(x, z), ...[0, 1, 2, 3].map((a) => height(x + Math.cos(a * 1.571) * r, z + Math.sin(a * 1.571) * r)));
+      by[k].forEach(([x, z, r, s], i) => { q.setFromAxisAngle(V(0, 1, 0), r); m4.compose(V(x, low(x, z, 0.45 * s) - 0.18 * s, z), q, V(s, s * 1.1, s * 0.9)); im.setMatrixAt(i, m4); });
       im.castShadow = im.receiveShadow = true; world.group.add(im);
     }
   });
@@ -822,7 +838,7 @@ function laneFurniture(world) {
       for (let i = i0; i <= Math.min(i1, road.length - 2); i += 2) {
         const [x, z] = road[i], b = road[i + 1], dx = b[0] - x, dz = b[1] - z, l = Math.hypot(dx, dz) || 1;
         const px = x - dz / l * 3.3 * s, pz = z + dx / l * 3.3 * s;
-        const ok = roadDist(px, pz) > 2.9 && !onPath(px, pz, 0.12) && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5;
+        const ok = roadDist(px, pz) > 2.9 && !onPath(px, pz, 0.12) && !inYard(px, pz, 0.5) && !isWater(px, pz) && labHillU(px, pz) >= 1 && streamAt(px, pz).d > 3.5 && !(creekAt(px, pz)?.d < 4);   // (not down Route 1's creek banks either)
         if (!ok) { prev = null; continue; }
         const py = height(px, pz);
         P.push([px, py, pz]);
@@ -1095,7 +1111,7 @@ function signpost(x, z, arms, world) {
 }
 function lamp(x, z, world) {
   [x, z] = offPath(x, z, 0.25, world);
-  const g = new THREE.Group(); g.position.set(x, height(x, z), z); world.group.add(g);
+  const g = new THREE.Group(); g.position.set(x, Math.min(height(x, z), height(x - 0.2, z), height(x + 0.2, z), height(x, z - 0.2), height(x, z + 0.2)), z); world.group.add(g);   // (its foot's lowest ground)
   cyl(0.16, 0.2, 0.4, '#2f4a40', 0, 0.2, 0, g, 10);
   cyl(0.06, 0.08, 3.0, '#2f4a40', 0, 1.8, 0, g, 8);
   box(0.36, 0.08, 0.36, '#2f4a40', 0, 3.3, 0, g);
@@ -1134,7 +1150,7 @@ function bedBorder([x0, z0, x1, z1], world) {
   const m = tex(planks('#a97a4c'));
   const seg = (ax, az, bx, bz) => {
     const cx = (ax + bx) / 2, cz = (az + bz) / 2, len = Math.hypot(bx - ax, bz - az);
-    const b = box(len + 0.2, 0.3, 0.18, m, cx, height(cx, cz) + 0.1, cz, world.group);
+    const b = box(len + 0.2, 0.3, 0.18, m, cx, Math.min(height(ax, az), height(cx, cz), height(bx, bz)) + 0.04, cz, world.group);   // (its lowest ground: on a slope one end floated)
     b.rotation.y = -Math.atan2(bz - az, bx - ax);
   };
   seg(x0, z0, x1, z0); seg(x1, z0, x1, z1); seg(x1, z1, x0, z1); seg(x0, z1, x0, z0);
@@ -1422,7 +1438,11 @@ function lighthouse(world, x, z) {
   // a short jetty off the landing, a bollard
   const wood = tex(planks('#b98a5a'));
   box(1.6, 0.14, 3.2, wood, -0.6, 0.7, lz - 2.9, G);
-  for (const [px, pz] of [[-1.3, lz - 1.6], [0.1, lz - 1.6], [-1.3, lz - 4.3], [0.1, lz - 4.3]]) cyl(0.11, 0.13, 2.2, '#6d4a30', px, -0.3, pz, G, 8);
+  // its legs down to the sea floor (they stopped in the water)
+  for (const [px, pz] of [[-1.3, lz - 1.6], [0.1, lz - 1.6], [-1.3, lz - 4.3], [0.1, lz - 4.3]]) {
+    const bot = Math.min(-1.4, height(x + px, z + pz) - SEA_Y - 0.3);
+    cyl(0.11, 0.13, 0.8 - bot, '#6d4a30', px, (0.8 + bot) / 2, pz, G, 8);
+  }
   cyl(0.16, 0.2, 0.45, '#3a3d46', 1.6, 0.98, lz - 0.9, G, 10);
   // the tower: plinth of blocks, then four bands, red and white
   const plinth = [], np = 8, pr = 2.35;

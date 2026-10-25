@@ -96,7 +96,7 @@ export function route1Fill(world) {
   use(-36, -84.8, 'Look', ['A little birdhouse on a pole.', 'A PIDGEY peeks out, decides you\'re not food, and goes back to sleep.']);
   // the POKé MART clerk's sample cart, by the road where the route begins
   {
-    const r = roadAt(-92), side = 1, x = r.x - r.dz * 4.2 * side, z = r.z + r.dx * 4.2 * side;
+    const r = roadAt(-92), side = 1, x = r.x - r.dz * 2.5 * side, z = r.z + r.dx * 2.5 * side;   // on the verge, road side of the rail fence (3.3 m out; at 4.2 the fence cut it off)
     place(O.martCart(), x, z, yawTo(x, z, r.x, r.z), { hw: 0.8, hd: 0.45 });
     const cx = x - r.dx * 1.5, cz = z - r.dz * 1.5;
     r1.npcs.push({ id: 'clerk', name: 'POKé MART Clerk', look: 'fisher', x: +cx.toFixed(2), z: +cz.toFixed(2), yaw: +yawTo(cx, cz, r.x, r.z).toFixed(3),
@@ -110,7 +110,7 @@ export function route1Fill(world) {
     place(benchSeat(), TREE.x - 4.2, TREE.z + 3.2, by, 0.94);   // (0.95 would read as a town bench: bake_places.mjs)
     // a sturdy low bough to hang the swing from
     const bx = TREE.x + 1.2, bz = TREE.z + 0.4, y0 = height(TREE.x, TREE.z);
-    const bough = new THREE.Group(); bough.position.set(0, 0, 0); G.add(bough);
+    const bough = new THREE.Group(); bough.position.set(0, 0, 0); G.add(bough); bough.userData.qa = { k: 'hung', why: 'a bough growing out of the meadow tree' };
     O.beam(V(TREE.x + 0.4, y0 + 3.2, TREE.z), V(TREE.x + 4.6, y0 + 4.3, TREE.z + 1.2), 0.32, '#6a4a34', bough);
     const sw = O.swing({ h: 4.0 }); sw.position.set(TREE.x + 3.2, y0 + 3.95 + 0.1, TREE.z + 0.8); sw.rotation.y = 0.27; G.add(sw);
     world.anim.push((dt, t) => { sw.rotation.x = Math.sin(t * 1.3) * 0.12; });
@@ -122,7 +122,7 @@ export function route1Fill(world) {
   // the lookout: a little deck with a rail, the coin telescope, a sign
   {
     const L = LOOKOUT, y = footY(L.x, L.z, 3) + 0.25;
-    const D = new THREE.Group(); D.position.set(L.x, y, L.z); G.add(D);
+    const D = new THREE.Group(); D.position.set(L.x, y, L.z); G.add(D); D.userData.qa = { k: 'open', why: 'the lookout deck: open, with a rail' };
     O.box(6, 0.2, 4, O.texm(O.planks('#a87a4c')), 0, 0, 0, D);
     for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) O.box(0.2, 1.4, 0.2, '#7a5a3e', sx * 2.9, -0.6, sz * 1.9, D);
     // the rail on the south (view) side and the ends
@@ -158,7 +158,8 @@ export function route1Fill(world) {
         colOf.push(kc);
       }
     }
-    instanced(G, new THREE.SphereGeometry(0.13, 8, 6), O.flat('#ffffff'), berries, 0, 0, colOf);
+    const bm = instanced(G, new THREE.SphereGeometry(0.13, 8, 6), O.flat('#ffffff'), berries, 0, 0, colOf);
+    if (bm) bm.userData.qa = { k: 'hung', why: 'berries hang in the orchard trees' };
     const cx = (ORCHARD.x0 + ORCHARD.x1) / 2;
     sign(ORCHARD.x1 + 3, ORCHARD.z1 - 2, Math.PI / 2 - 0.2, () => noticeBoard('BERRY ORCHARD', ['ORAN  PECHA  CHERI  RAWST', 'Pick one a day, please!', 'Leave some for the PIDGEY.'], { style: 'chalk' }),
       ['BERRY ORCHARD', 'ORAN, PECHA, CHERI and RAWST BERRIES grow here.', 'Pick one a day, please! Leave some for the PIDGEY.'], 0.9);
@@ -256,10 +257,10 @@ export function route1Fill(world) {
   // the woods' odds and ends: a fallen tree, hollow logs, fairy rings, outcrops
   for (const [x, z, rot, k] of [[44, -334, 0.4, 'fall'], [-36, -142, 1.2, 'hollow'], [46, -214, -0.6, 'hollow'], [-44, -300, 2.2, 'fall']]) {
     if (onPath(x, z, 3)) continue;
-    place(O.fallenLog({ L: k === 'fall' ? 8 : 3.2, r: k === 'fall' ? 0.5 : 0.42, hollow: k === 'hollow', seed: Math.round(x * 7 + z) }), x, z, rot, { hw: (k === 'fall' ? 4 : 1.6), hd: 0.55 }, -0.15);
+    place(O.fallenLog({ L: k === 'fall' ? 8 : 3.2, r: k === 'fall' ? 0.5 : 0.42, hollow: k === 'hollow', seed: Math.round(x * 7 + z) }), x, z, rot, { hw: (k === 'fall' ? 4 : 1.6), hd: 0.55 }, -0.15).userData.eid = `route1/fallenLog/${k}${Math.round(x)}_${Math.round(z)}`;
     if (k === 'hollow') use(x + Math.sin(rot + 1.57) * 1.2, z + Math.cos(rot + 1.57) * 1.2, 'Look', ['A hollow log.', 'It\'s warm inside, and smells of RATTATA. Something squeaks and goes quiet.']);
   }
-  for (const [x, z, r] of [[-30, -196, 1.3], [62, -270, 1.6], [-50, -330, 1.2], [34, -160, 1.1]]) if (!onPath(x, z, r + 0.5)) place(O.mushroomRing({ r, seed: Math.round(x - z) }), x, z, 0);
+  for (const [x, z, r] of [[-30, -196, 1.3], [62, -270, 1.6], [-50, -330, 1.2], [34, -160, 1.1]]) if (!onPath(x, z, r + 0.5)) place(O.mushroomRing({ r, seed: Math.round(x - z), ground: (lx, lz) => height(x + lx, z + lz) - height(x, z) }), x, z, 0);
   {
     const geos = [], R = rng(707);
     for (const [x, z, s] of [[-40, -170, 2.4], [-43, -173, 1.4], [40, -238, 2.8], [44, -242, 1.6], [-42, -350, 2.6], [56, -320, 2.2], [-48, -228, 1.8]]) {
@@ -279,7 +280,7 @@ export function route1Fill(world) {
       let x = r.x - r.dz * 4.8, zz = r.z + r.dx * 4.8;
       if (r.dz > 0) { x = r.x + r.dz * 4.8; zz = r.z - r.dx * 4.8; }
       if (onPath(x, zz, 0.6) || isWater(x, zz) || creekAt(x, zz)?.d < 3) continue;
-      const P = O.telegraphPole(); place(P, x, zz, Math.atan2(r.dx, r.dz) + Math.PI / 2, 0.25);
+      const P = O.telegraphPole(); place(P, x, zz, Math.atan2(r.dx, r.dz), 0.25);   // crossarm (local x) across the road, the wires along it
       poles.push(P);
     }
     const wm = O.flat('#2a2a2a');
@@ -287,7 +288,7 @@ export function route1Fill(world) {
       const A = poles[i], B = poles[i + 1];
       A.updateMatrixWorld(true); B.updateMatrixWorld(true);
       const ends = A.userData.ends.map(([x, y]) => [V(x, y, 0).applyMatrix4(A.matrixWorld), V(x, y, 0).applyMatrix4(B.matrixWorld)]);
-      const W = new THREE.Group(); G.add(W);
+      const W = new THREE.Group(); G.add(W); W.userData.qa = { k: 'hung', why: 'telegraph wires, strung between the poles' };   // (tools/qa: held up by something else)
       for (const [a, b] of ends) O.rope(a, b, 0.6, 0.018, wm, W);
     }
   }
@@ -300,6 +301,9 @@ export function route1Fill(world) {
   // dry-stone walls in place of the rail fences, both sides of the road
   {
     const runs = [];
+    // a gap where the bus stop and the postbox stand (placed below), so the
+    // shelter opens onto the road, not onto the wall
+    const rb = roadAt(-400), BUS = [rb.x + rb.dz * 5.2 - rb.dx * 1.6, rb.z - rb.dx * 5.2 - rb.dz * 1.6];
     for (const s of [-1, 1]) {
       let run = null;
       for (let i = 0; i < R0.length - 2; i++) {
@@ -307,7 +311,7 @@ export function route1Fill(world) {
         if (z > -338 || z < ROUTE1.gateZ + 3) { run = null; continue; }
         const b = R0[i + 1], dx = b[0] - x, dz = b[1] - z, l = Math.hypot(dx, dz) || 1;
         const px = x - dz / l * 3.9 * s, pz = z + dx / l * 3.9 * s;
-        const free = !onPath(px, pz, 0.5) && !isWater(px, pz) && !(creekAt(px, pz)?.d < 4.5) && !hit(px, pz, 0.6) && roadDist(px, pz) > 3.3;
+        const free = !onPath(px, pz, 0.5) && !isWater(px, pz) && !(creekAt(px, pz)?.d < 4.5) && !hit(px, pz, 0.6) && roadDist(px, pz) > 3.3 && Math.hypot(px - BUS[0], pz - BUS[1]) > 4.2;
         if (!free || (i % 34 === 33)) { if (run && run.pts.length > 3) runs.push(run); run = null; continue; }
         if (!run) run = { pts: [] };
         run.pts.push([px, pz]);
@@ -329,7 +333,7 @@ export function route1Fill(world) {
       const { a, b, hgt } = out[k];
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, ry = Math.atan2(b[0] - a[0], b[1] - a[1]), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
       // on the segment's own top (its height varies), no longer than it
-      O.mossTop(W, 0.5, L, mx, height(mx, mz) + hgt, mz, ry, 900 + k);
+      O.mossTop(W, 0.5, L, mx, (height(...a) + height(...b)) / 2 + hgt, mz, ry, 900 + k).rotation.x = -Math.atan2(height(...b) - height(...a), L);   // tilted with the top
       if (k % 4 === 0) O.ivy(W, Math.min(1.6, L * 0.9), 0.9, mx, height(mx, mz) - 0.1, mz, ry + Math.PI / 2, 950 + k, 10).position.add(V(Math.cos(ry) * 0.29, 0, -Math.sin(ry) * 0.29));
     }
   }
@@ -366,7 +370,7 @@ export function route1Fill(world) {
     }
     // a washing line with sheets
     { const [ax, az] = W(-8.5, 2), [bx, bz] = W(-8.5, -4); for (const [x, z] of [[ax, az], [bx, bz]]) place(pole(2.1), x, z, 0, 0.1);
-      const ya = height(ax, az) + 2.0, yb = height(bx, bz) + 2.0, Wg = new THREE.Group(); G.add(Wg);
+      const ya = height(ax, az) + 2.0, yb = height(bx, bz) + 2.0, Wg = new THREE.Group(); G.add(Wg); Wg.userData.qa = { k: 'hung', why: 'the washing line, hung between two poles' };
       O.rope(V(ax, ya, az), V(bx, yb, bz), 0.2, 0.012, '#e8e2d2', Wg);
       for (const [k, col] of [[0.3, '#f6f2e8'], [0.55, '#9fc8e8'], [0.78, '#f2c9a8']]) {
         const x = ax + (bx - ax) * k, z = az + (bz - az) * k, y = ya + (yb - ya) * k - 0.2 - Math.sin(k * Math.PI) * 0.16;
@@ -376,7 +380,7 @@ export function route1Fill(world) {
     use(...W(0.9, 4.2), 'Look', ['A cottage wrapped in ivy, with a blue-green door.', 'A sign on the door: GONE TO THE MARKET IN VIRIDIAN. BACK SOON!']);
   }
   // the water tower on the east, the windmill on the west hill
-  { const T = TOWER, y = footY(T.x, T.z, 2.5); const g = O.waterTower(); g.position.set(T.x, y, T.z); g.rotation.y = -0.6; G.add(g); world.colliders.push({ x: T.x, z: T.z, r: 2.6 }); use(T.x - 2.8, T.z + 1.5, 'Look', ['VIRIDIAN WATER WORKS, painted in faded letters.', 'Ivy has climbed all the way to the top.']); }
+  { const T = TOWER, y = footY(T.x, T.z, 2.5); const g = O.waterTower(); g.userData.qa = { k: 'open', why: 'the water tower stands on four legs' }; g.position.set(T.x, y, T.z); g.rotation.y = -0.6; G.add(g); world.colliders.push({ x: T.x, z: T.z, r: 2.6 }); use(T.x - 2.8, T.z + 1.5, 'Look', ['VIRIDIAN WATER WORKS, painted in faded letters.', 'Ivy has climbed all the way to the top.']); }
   { const x = -104, z = -421, y = footY(x, z, 2.5); const g = O.windmill(); g.position.set(x, y, z); g.rotation.y = 0.5; G.add(g); world.colliders.push({ x, z, r: 2.6 });
     const S = g.getObjectByName('r1_sails'); world.anim.push((dt, t) => { S.rotation.z = t * 0.35; });
     S.traverse((o) => { if (o.isMesh) { o.name = 'r1_sails'; o.userData.outline = false; } });
@@ -419,7 +423,8 @@ export function route1Fill(world) {
       for (let k = 0; k < 5; k++) {
         const t = (k + 0.5) / 5, x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t, y = height(x, gz);   // (the wall's height follows gz too)
         O.ivy(W, 4, 1.6, x + nx * 0.37, y - 0.2, z + nz * 0.37, face, 1200 + k * 2 + (s > 0 ? 1 : 0), 10);
-        O.mossTop(W, 0.6, L / 5 - 0.2, x, y + 1.6, z, along, 1300 + k + s);
+        const hx = (tt) => height(a[0] + (b[0] - a[0]) * tt, gz);
+        O.mossTop(W, 0.6, L / 5 - 0.2, x, y + 1.6, z, along, 1300 + k + s).rotation.x = -Math.atan2(hx(t + 0.1) - hx(t - 0.1), L / 5);   // tilted with the top
       }
     }
     G.add(...wallMeshes(runs, 9200, { fade: WALL_FADE }));

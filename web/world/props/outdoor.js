@@ -716,9 +716,10 @@ export function cityBlock({ W = 6, D = 6, floors = 2, wall = '#efe2c8', roof = '
   }
   if (R() < 0.6) {
     const rise = 1.6 + R(), rm = texm(clay(roof));
-    roofSlab(G, W + 0.6, D / 2 + 0.4, rise, 0.14, rm, 0, H, D / 4 + 0.2, 0);
+    const RS = roofSlab(G, W + 0.6, D / 2 + 0.4, rise, 0.14, rm, 0, H, D / 4 + 0.2, 0);
     roofSlab(G, W + 0.6, D / 2 + 0.4, rise, 0.14, rm, 0, H, -D / 4 - 0.2, Math.PI);
-    if (garden) mossTop(G, W * 0.6, 1.2, 0, H + 0.6, D / 4, 0, seed + 3);
+    // the roof garden lies on the south slope (flat, it floated over it)
+    if (garden) { const MG = new THREE.Group(); MG.position.y = rise / 2; MG.rotation.x = Math.atan2(rise, D / 2 + 0.4); RS.add(MG); mossTop(MG, W * 0.6, 1.2, 0, 0.07, 0, 0, seed + 3); }
   } else {
     box(W + 0.3, 0.3, D + 0.3, '#c9bfa8', 0, H + 0.15, 0, G);
     if (garden) mossTop(G, W - 0.4, D - 0.4, 0, H + 0.3, 0, 0, seed + 3);
@@ -807,14 +808,16 @@ export function fallenLog({ L = 7, r = 0.45, seed = 1, hollow = false } = {}) {
   return G;
 }
 // a fairy ring of red-capped mushrooms (one mesh)
-export function mushroomRing({ r = 1.4, n = 14, seed = 1 } = {}) {
+// ground(x, z): the ground's height at a local point relative to the origin
+// (each mushroom stands on it, so a ring on a slope does not float)
+export function mushroomRing({ r = 1.4, n = 14, seed = 1, ground = () => 0 } = {}) {
   const G = new THREE.Group(), R = rng(seed);
   const stems = [], caps = [];
   for (let i = 0; i < n; i++) {
     const a = i / n * 6.28 + R() * 0.3, d = r + (R() - 0.5) * 0.3, s = 0.6 + R() * 0.7;
-    const x = Math.cos(a) * d, z = Math.sin(a) * d;
-    stems.push(new THREE.CylinderGeometry(0.04 * s, 0.05 * s, 0.18 * s, 6).translate(x, 0.09 * s, z));
-    const c = new THREE.SphereGeometry(0.12 * s, 8, 5, 0, 6.28, 0, Math.PI / 2).translate(x, 0.17 * s, z);
+    const x = Math.cos(a) * d, z = Math.sin(a) * d, gy = ground(x, z) - 0.02;
+    stems.push(new THREE.CylinderGeometry(0.04 * s, 0.05 * s, 0.18 * s, 6).translate(x, gy + 0.09 * s, z));
+    const c = new THREE.SphereGeometry(0.12 * s, 8, 5, 0, 6.28, 0, Math.PI / 2).translate(x, gy + 0.17 * s, z);
     caps.push(c);
   }
   const merge = (l) => { const g = new THREE.BufferGeometry(); const P = [], N = []; for (const gg of l) { const h = gg.toNonIndexed(); P.push(...h.attributes.position.array); N.push(...h.attributes.normal.array); } g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); return wuv(g); };
