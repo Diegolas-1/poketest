@@ -1,5 +1,5 @@
 {
- "_doc": "The townspeople's Pok\u00e9mon's bodies (creature_doduo.gd, creature_caterpie.gd). Doduo: duty = the part of a step cycle a foot is planted (walk / run), foot_w half the stance, ankle_h. Caterpie: step_w the part of a cycle a joint steps, delay between joints, settle (cycles/s to finish a wave), up_idle / up_crawl the front's lean (radians). Their speeds are in native/life/companions.json.",
+ "_doc": "The townspeople's Pok\u00e9mon's bodies (creature_doduo.gd, creature_caterpie.gd). Doduo: duty = the part of a step cycle a foot is planted (walk / run), foot_w half the stance, ankle_h. Caterpie: step_w the part of a cycle a joint steps, delay between joints, settle (cycles/s to finish a wave), up_idle / up_crawl the front's lean (radians). Mr. Mime (creature_mrmime.gd): duty, foot width, ankle, stride (cyc_*), step heights, run_from / run_at speeds, bob, hip sway / chest counter, arm swing, tiptoe, fade (s between acts), mood_len (s per mood act); mrmime_jobs (mime_life.gd): each job's length dur [min, max] s. Their speeds are in native/life/companions.json.",
  "doduo": {
   "walk_duty": 0.62,
   "run_duty": 0.36,
@@ -12,5 +12,95 @@
   "settle": 3.0,
   "up_idle": 1.36,
   "up_crawl": 1.05
+ },
+ "mrmime": {
+  "walk_duty": 0.6,
+  "run_duty": 0.38,
+  "foot_w": 0.118,
+  "ankle_h": 0.054,
+  "cyc_base": 0.32,
+  "cyc_per_v": 0.26,
+  "cyc_min": 0.42,
+  "cyc_max": 1.1,
+  "step_h_walk": 0.07,
+  "step_h_run": 0.12,
+  "run_from": 1.8,
+  "run_at": 3.2,
+  "bob_walk": 0.022,
+  "bob_run": 0.035,
+  "hip_sway": 0.12,
+  "chest_counter": 1.6,
+  "arm_swing": 0.16,
+  "tiptoe": 0.45,
+  "fade": 0.4,
+  "mood_len": {
+   "wall": 4.5,
+   "wave": 2.2,
+   "bow": 2.1,
+   "happy": 1.5,
+   "laugh": 2.4,
+   "shrug": 1.7,
+   "polish": 3.2,
+   "rope": 2.8,
+   "box": 3.0,
+   "clap": 1.6,
+   "talk": 4.0
+  }
+ },
+ "mrmime_jobs": {
+  "sweep": {
+   "dur": [
+    12.0,
+    22.0
+   ]
+  },
+  "tidy": {
+   "dur": [
+    7.0,
+    12.0
+   ]
+  },
+  "tray": {
+   "dur": [
+    2.8,
+    2.8
+   ]
+  },
+  "water": {
+   "dur": [
+    7.0,
+    11.0
+   ]
+  },
+  "practice": {
+   "dur": [
+    14.0,
+    24.0
+   ]
+  },
+  "bench": {
+   "dur": [
+    30.0,
+    60.0
+   ]
+  },
+  "sleep": {
+   "dur": [
+    120.0,
+    240.0
+   ]
+  },
+  "hang": {
+   "dur": [
+    9.0,
+    9.0
+   ]
+  },
+  "wait": {
+   "dur": [
+    4.0,
+    8.0
+   ]
+  }
  }
 }

@@ -15,7 +15,7 @@ export const TUNABLES = [
   ['music', 'Music', 'Tracks per part of the day, levels, fades'],
   ['clock', 'Clock', 'The hour a new game starts and the weekday of day 1'],
   ['settings', 'Settings defaults', 'Graphics presets and the other defaults a new player gets'],
-  ['creatures', 'Creatures', 'Doduo and Caterpie: speeds, gait, bounce (creature_*.gd)'],
+  ['creatures', 'Creatures', 'Doduo, Caterpie and Mr. Mime: gait, bounce, act timings, and Mr. Mime\'s job lengths (creature_*.gd, mime_life.gd)'],
 ];
 // ---------- sound effects: the catalog (tools/sfx/build.py), changed through native/tunables/sfx.json ----------
 let sfxQ = '';

@@ -23,7 +23,7 @@ extends RefCounted
 # Each job is picked deterministically from the day and time when the game
 # jumps (resync puts him straight at it, already working).
 
-const JOBS := {
+const JOBS0 := {
 	# task, how long (s), how close to its spot he stands, the table height
 	"sweep": {"task": "sweep", "dur": [12.0, 22.0], "carry": "broom"},
 	"tidy": {"task": "wipe", "dur": [7.0, 12.0], "th": 0.78},
@@ -36,6 +36,14 @@ const JOBS := {
 	"wait": {"task": "", "dur": [4.0, 8.0]},
 }
 
+# job lengths and the rest from the world editor (res://tunables/creatures.json "mrmime_jobs": <job> {dur [min, max] s, th})
+var JOBS := _jobs()
+static func _jobs() -> Dictionary:
+	var j := JOBS0.duplicate(true)
+	var o = preload("res://tunables.gd").file("creatures").get("mrmime_jobs")
+	if o is Dictionary:
+		for k in o: if j.has(k) and o[k] is Dictionary: for f in o[k]: j[k][f] = o[k][f]
+	return j
 var co
 var life
 var c: Dictionary

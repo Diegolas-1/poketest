@@ -50,27 +50,30 @@ extends Creature
 # Cost: no allocation per frame (the poses are three preallocated _P).
 
 # ---- tunables (the gait and the acts' timing; all in metres / seconds / radians) ----
-const WALK_DUTY := 0.6            # the part of a cycle a foot is down, walking
-const RUN_DUTY := 0.38            # and running
-const FOOT_W := 0.118             # half the stance width
-const ANKLE_H := 0.054            # ankle height over the sole
-const CYC_BASE := 0.32            # stride length of a cycle (two steps) = BASE + PER_V * speed, clamped
-const CYC_PER_V := 0.26
-const CYC_MIN := 0.42
-const CYC_MAX := 1.1
-const STEP_H_WALK := 0.07         # foot lift at a walk / a run
-const STEP_H_RUN := 0.12
-const RUN_FROM := 1.8             # speed where the walk starts to turn into a run, and is one
-const RUN_AT := 3.2
-const BOB_WALK := 0.022           # the body's vault over the stance leg
-const BOB_RUN := 0.035
-const HIP_SWAY := 0.12            # the hips turn with the legs; the chest turns back COUNTER times as far
-const CHEST_COUNTER := 1.6
-const ARM_SWING := 0.16           # how far the hands swing (m)
-const TIPTOE := 0.45              # the foot's push-off pitch as it leaves the ground
-const FADE := 0.4                 # seconds to blend from one act to the next
+# (the world editor's tunables: res://tunables/creatures.json "mrmime"; these are the defaults)
+const T := preload("res://tunables.gd")
+var WALK_DUTY := T.num2("creatures", "mrmime", "walk_duty", 0.6)            # the part of a cycle a foot is down, walking
+var RUN_DUTY := T.num2("creatures", "mrmime", "run_duty", 0.38)            # and running
+var FOOT_W := T.num2("creatures", "mrmime", "foot_w", 0.118)             # half the stance width
+var ANKLE_H := T.num2("creatures", "mrmime", "ankle_h", 0.054)            # ankle height over the sole
+var CYC_BASE := T.num2("creatures", "mrmime", "cyc_base", 0.32)            # stride length of a cycle (two steps) = BASE + PER_V * speed, clamped
+var CYC_PER_V := T.num2("creatures", "mrmime", "cyc_per_v", 0.26)
+var CYC_MIN := T.num2("creatures", "mrmime", "cyc_min", 0.42)
+var CYC_MAX := T.num2("creatures", "mrmime", "cyc_max", 1.1)
+var STEP_H_WALK := T.num2("creatures", "mrmime", "step_h_walk", 0.07)         # foot lift at a walk / a run
+var STEP_H_RUN := T.num2("creatures", "mrmime", "step_h_run", 0.12)
+var RUN_FROM := T.num2("creatures", "mrmime", "run_from", 1.8)             # speed where the walk starts to turn into a run, and is one
+var RUN_AT := T.num2("creatures", "mrmime", "run_at", 3.2)
+var BOB_WALK := T.num2("creatures", "mrmime", "bob_walk", 0.022)           # the body's vault over the stance leg
+var BOB_RUN := T.num2("creatures", "mrmime", "bob_run", 0.035)
+var HIP_SWAY := T.num2("creatures", "mrmime", "hip_sway", 0.12)            # the hips turn with the legs; the chest turns back COUNTER times as far
+var CHEST_COUNTER := T.num2("creatures", "mrmime", "chest_counter", 1.6)
+var ARM_SWING := T.num2("creatures", "mrmime", "arm_swing", 0.16)           # how far the hands swing (m)
+var TIPTOE := T.num2("creatures", "mrmime", "tiptoe", 0.45)              # the foot's push-off pitch as it leaves the ground
+var FADE := T.num2("creatures", "mrmime", "fade", 0.4)                 # seconds to blend from one act to the next
 const WALKABLE := ["", "tray", "listen"]
-const MOOD_LEN := {"wall": 4.5, "wave": 2.2, "bow": 2.1, "happy": 1.5, "laugh": 2.4, "shrug": 1.7, "polish": 3.2, "rope": 2.8, "box": 3.0, "clap": 1.6, "talk": 4.0}
+const MOOD_LEN0 := {"wall": 4.5, "wave": 2.2, "bow": 2.1, "happy": 1.5, "laugh": 2.4, "shrug": 1.7, "polish": 3.2, "rope": 2.8, "box": 3.0, "clap": 1.6, "talk": 4.0}
+var MOOD_LEN := T.dict2("creatures", "mrmime", "mood_len", MOOD_LEN0)   # seconds each mood act lasts
 
 const EYES := {"open": Vector2(0, 0), "firm": Vector2(0.5, 0), "half": Vector2(0, 0.25), "happy": Vector2(0.5, 0.25),
 	"closed": Vector2(0, 0.5), "smug": Vector2(0.5, 0.5), "squeeze": Vector2(0, 0.75)}

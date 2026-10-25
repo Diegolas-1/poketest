@@ -49,3 +49,11 @@ static func num2(f: String, sec: String, k: String, def: float) -> float:
 	if not s is Dictionary: return def
 	var v = s.get(k)
 	return float(v) if v is float or v is int else def
+
+# a table in a section, the default with the file's entries over it
+static func dict2(f: String, sec: String, k: String, def: Dictionary) -> Dictionary:
+	var s = file(f).get(sec)
+	if not s is Dictionary or not s.get(k) is Dictionary: return def
+	var out := def.duplicate(true)
+	for key in s[k]: out[key] = s[k][key]
+	return out

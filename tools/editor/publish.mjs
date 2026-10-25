@@ -94,6 +94,18 @@ async function handle(pending) {
     const life = changed.some((f) => f.startsWith('native/'));   // game data and tunables: the code pack
     const maps = [...new Set(changed.map((f) => /^web\/world\/maps\/([\w-]+)\.json$/.exec(f)).filter(Boolean).map((m) => m[1]))];   // interiors to rebake
     await report('working', changed.length ? 'changed: ' + changed.join(', ') : 'the version matches the repo already');
+    if (world) {
+      // a world edit rebakes the world from main as it is: every web/world change
+      // since the last published patch goes out with it (listed for the user)
+      try {
+        const live = await (await fetch('https://pallet-patches.jdohertybiochem.workers.dev/manifest.json?ch=stable', { headers: { 'cache-control': 'no-cache' } })).json();
+        const since = String(live.git || '').replace('+dirty', '');
+        if (since) {
+          const log = git('log', '--format=%h %s', `${since}..HEAD`, '--', 'web/world', ':!web/world/editor', ':!web/world/edits', ':!web/world/editor.html').split('\n').filter(Boolean);
+          await report('working', log.length ? [`also going out with this world edit (web/world changes since patch v${live.v}):`, ...log.slice(0, 30).map((l) => '  ' + l.slice(0, 160)), ...(log.length > 30 ? [`  … ${log.length - 30} more`] : [])] : `no other world changes since patch v${live.v}`);
+        }
+      } catch (e) { await report('working', 'could not list the other changes since the last patch: ' + e.message); }
+    }
     // ---------- 5. checks ----------
     const logs = [];
     const port = world ? await ownServer() : null;
@@ -111,12 +123,14 @@ async function handle(pending) {
       const key = (f) => `${f.check}|${f.object}|${String(f.at)}`;
       const withE = scan('edits');
       if (withE.length) {
+        // every error blocks; the report says which ones the edits brought in
         const ef = path.join(ROOT, 'web/world/edits/world.json'), keep = fs.readFileSync(ef);
         fs.writeFileSync(ef, JSON.stringify({ format: 'pallet-edits v1', objects: {}, added: [], veg: {}, vegAdd: [], roads: { edit: {}, added: [] }, places: {}, tiles: [] }));
         let base; try { base = new Set(scan('base').map(key)); } finally { fs.writeFileSync(ef, keep); }
-        const fresh = withE.filter((f) => !base.has(key(f)));
-        if (fresh.length) throw new Error('the QA scan found problems the edits made:\n' + fresh.slice(0, 20).map((f) => `${f.check}: ${f.object} at ${f.at} (${f.msg || ''}) ${f.fix ? '· fix: ' + f.fix : ''}`).join('\n'));
-        logs.push(`QA scan: no new errors (${withE.length} the world had already)`);
+        const fresh = withE.filter((f) => !base.has(key(f))), old = withE.filter((f) => base.has(key(f)));
+        const line = (f) => `${f.check}: ${f.object} at ${f.at} (${f.msg || ''})${f.fix ? ' · fix: ' + f.fix : ''}`;
+        throw new Error(`the QA scan found ${withE.length} error(s): ${fresh.length} made by these edits, ${old.length} already in the world on main` +
+          (fresh.length ? '\n\nMade by the edits:\n' + fresh.slice(0, 15).map(line).join('\n') : '') + (old.length ? '\n\nAlready on main (for the workers to fix):\n' + old.slice(0, 10).map(line).join('\n') : ''));
       } else logs.push('QA scan ok');
     }
     const c = await check({ game: world, port, log: (t) => logs.push(t) });
