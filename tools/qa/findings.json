@@ -10,13 +10,15 @@
   "facing": 7
  },
  "counts": {
-  "ground": 7,
+  "ground": 6,
   "shell": 1,
   "overlap": 14,
   "facing": 1,
   "splay": 12
  },
- "total": 35,
+ "total": 34,
+ "errors": 14,
+ "warnings": 20,
  "allowed": 50,
  "findings": [
   {
@@ -31,8 +33,8 @@
    "src": [
     "route1.js:53",
     "route1.js:260",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -42,7 +44,8 @@
    "msg": "floats 0.28 m above whatever is under it",
    "fix": "set its y from the ground under its footprint (lowest point, or sink it a little)",
    "owner": "worker14",
-   "id": "QA001"
+   "id": "QA001",
+   "level": "error"
   },
   {
    "check": "ground",
@@ -56,8 +59,8 @@
    "src": [
     "route1.js:53",
     "route1.js:260",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -67,7 +70,8 @@
    "msg": "floats 0.32 m above whatever is under it",
    "fix": "set its y from the ground under its footprint (lowest point, or sink it a little)",
    "owner": "worker14",
-   "id": "QA002"
+   "id": "QA002",
+   "level": "error"
   },
   {
    "check": "ground",
@@ -81,8 +85,8 @@
    "src": [
     "route1.js:53",
     "route1.js:260",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -92,7 +96,8 @@
    "msg": "floats 1.76 m above whatever is under it",
    "fix": "set its y from the ground under its footprint (lowest point, or sink it a little)",
    "owner": "worker14",
-   "id": "QA003"
+   "id": "QA003",
+   "level": "error"
   },
   {
    "check": "shell",
@@ -105,8 +110,8 @@
    "object": "teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -115,7 +120,8 @@
    "msg": "open side(s): rays straight through at 4 spots (right (+x), back (-z))",
    "fix": "close the wall (or whitelist it if the structure is open by design)",
    "owner": "worker14",
-   "id": "QA004"
+   "id": "QA004",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -125,12 +131,12 @@
     6.401931285858154,
     -37.60526657104492
    ],
-   "object": "veg.js plant in Group cottage() @town.js:362",
+   "object": "veg.js plant in Group cottage() @town.js:363",
    "src": [
-    "town.js:253",
-    "town.js:362",
-    "town.js:1562",
-    "main.js:211"
+    "town.js:254",
+    "town.js:363",
+    "town.js:1564",
+    "main.js:212"
    ],
    "fns": [
     "placer",
@@ -140,7 +146,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA005"
+   "id": "QA005",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -153,8 +160,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -163,7 +170,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA006"
+   "id": "QA006",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -176,8 +184,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -186,7 +194,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA007"
+   "id": "QA007",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -199,8 +208,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -209,7 +218,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA008"
+   "id": "QA008",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -222,8 +232,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -232,7 +242,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA009"
+   "id": "QA009",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -245,8 +256,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -255,7 +266,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA010"
+   "id": "QA010",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -268,8 +280,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -278,7 +290,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA011"
+   "id": "QA011",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -291,8 +304,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -301,7 +314,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA012"
+   "id": "QA012",
+   "level": "error"
   },
   {
    "check": "overlap",
@@ -314,8 +328,8 @@
    "object": "veg.js plant in teahouse @route1.js:215",
    "src": [
     "route1.js:215",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -324,7 +338,8 @@
    "msg": "a plant (veg.js) grows inside this building's footprint",
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker14",
-   "id": "QA013"
+   "id": "QA013",
+   "level": "error"
   },
   {
    "check": "facing",
@@ -339,8 +354,8 @@
     "route1.js:53",
     "route1.js:63",
     "route1.js:88",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -351,7 +366,8 @@
    "msg": "faces away from the path 168° off",
    "fix": "turn it to face the path (yaw = atan2(dx, dz) toward the path)",
    "owner": "worker14",
-   "id": "QA014"
+   "id": "QA014",
+   "level": "error"
   },
   {
    "check": "splay",
@@ -361,13 +377,13 @@
     17.73,
     89.84
    ],
-   "object": "Mesh palletHouse() @town.js:909",
+   "object": "Mesh palletHouse() @town.js:910",
    "src": [
-    "town.js:146",
-    "town.js:152",
-    "town.js:909",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:147",
+    "town.js:153",
+    "town.js:910",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "add",
@@ -379,7 +395,8 @@
    "msg": "a leg/post leans 34° with its foot 0.82 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA015"
+   "id": "QA015",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -389,13 +406,13 @@
     17.73,
     95.11
    ],
-   "object": "Mesh palletHouse() @town.js:909",
+   "object": "Mesh palletHouse() @town.js:910",
    "src": [
-    "town.js:146",
-    "town.js:152",
-    "town.js:909",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:147",
+    "town.js:153",
+    "town.js:910",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "add",
@@ -407,7 +424,8 @@
    "msg": "a leg/post leans 34° with its foot 1.13 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA016"
+   "id": "QA016",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -417,13 +435,13 @@
     17.73,
     97.59
    ],
-   "object": "Mesh palletHouse() @town.js:909",
+   "object": "Mesh palletHouse() @town.js:910",
    "src": [
-    "town.js:146",
-    "town.js:152",
-    "town.js:909",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:147",
+    "town.js:153",
+    "town.js:910",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "add",
@@ -435,7 +453,8 @@
    "msg": "a leg/post leans 34° with its foot 1.06 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA017"
+   "id": "QA017",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -445,13 +464,13 @@
     17.73,
     102.85
    ],
-   "object": "Mesh palletHouse() @town.js:909",
+   "object": "Mesh palletHouse() @town.js:910",
    "src": [
-    "town.js:146",
-    "town.js:152",
-    "town.js:909",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:147",
+    "town.js:153",
+    "town.js:910",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "add",
@@ -463,7 +482,8 @@
    "msg": "a leg/post leans 34° with its foot 1.30 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA018"
+   "id": "QA018",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -479,8 +499,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:248",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -493,7 +513,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA019"
+   "id": "QA019",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -509,8 +530,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:248",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -523,7 +544,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA020"
+   "id": "QA020",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -539,8 +561,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:248",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -553,7 +575,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA021"
+   "id": "QA021",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -569,8 +592,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:248",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -583,7 +606,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA022"
+   "id": "QA022",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -599,8 +623,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:249",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -613,7 +637,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA023"
+   "id": "QA023",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -629,8 +654,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:249",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -643,7 +668,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA024"
+   "id": "QA024",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -659,8 +685,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:249",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -673,7 +699,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA025"
+   "id": "QA025",
+   "level": "warn"
   },
   {
    "check": "splay",
@@ -689,8 +716,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:447",
     "route1.js:249",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -703,7 +730,8 @@
    "msg": "a leg/post leans 29° with its foot 0.22 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA026"
+   "id": "QA026",
+   "level": "warn"
   },
   {
    "check": "ground",
@@ -713,11 +741,11 @@
     17.23,
     96.81
    ],
-   "object": "Mesh palletHouse() @town.js:967",
+   "object": "Mesh palletHouse() @town.js:968",
    "src": [
-    "town.js:967",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:968",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "palletHouse",
@@ -727,7 +755,8 @@
    "msg": "29 of 33 instances float, up to 4.19 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA027"
+   "id": "QA027",
+   "level": "warn"
   },
   {
    "check": "ground",
@@ -737,12 +766,12 @@
     13.6,
     95.6
    ],
-   "object": "Mesh fenceMeshes() @town.js:880",
+   "object": "Mesh fenceMeshes() @town.js:881",
    "src": [
-    "town.js:880",
-    "town.js:1052",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:881",
+    "town.js:1053",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "fenceMeshes",
@@ -752,7 +781,8 @@
    "msg": "3 of 20 instances float, up to 0.46 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA028"
+   "id": "QA028",
+   "level": "warn"
   },
   {
    "check": "overlap",
@@ -762,23 +792,24 @@
     13.513622067338625,
     111.25716166706174
    ],
-   "object": "Group bench() @town.js:1123",
+   "object": "Group bench() @town.js:1124",
    "src": [
-    "town.js:1123",
-    "town.js:1041",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:1124",
+    "town.js:1042",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "bench",
     "palletHouse",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside Group palletHouse() @town.js:895",
+   "msg": "100% of its footprint is inside Group palletHouse() @town.js:896",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker14",
-   "other": "Group palletHouse() @town.js:895",
-   "id": "QA029"
+   "other": "Group palletHouse() @town.js:896",
+   "id": "QA029",
+   "level": "warn"
   },
   {
    "check": "overlap",
@@ -792,8 +823,8 @@
    "src": [
     "route1.js:53",
     "route1.js:227",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -804,7 +835,8 @@
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker14",
    "other": "teahouse @route1.js:215",
-   "id": "QA030"
+   "id": "QA030",
+   "level": "warn"
   },
   {
    "check": "overlap",
@@ -818,8 +850,8 @@
    "src": [
     "route1.js:53",
     "route1.js:232",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -830,7 +862,8 @@
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker14",
    "other": "teahouse @route1.js:215",
-   "id": "QA031"
+   "id": "QA031",
+   "level": "warn"
   },
   {
    "check": "overlap",
@@ -844,8 +877,8 @@
    "src": [
     "route1.js:53",
     "route1.js:232",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -856,7 +889,8 @@
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker14",
    "other": "teahouse @route1.js:215",
-   "id": "QA032"
+   "id": "QA032",
+   "level": "warn"
   },
   {
    "check": "overlap",
@@ -870,8 +904,8 @@
    "src": [
     "route1.js:53",
     "route1.js:232",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -882,36 +916,8 @@
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker14",
    "other": "teahouse @route1.js:215",
-   "id": "QA033"
-  },
-  {
-   "check": "ground",
-   "sev": "low",
-   "at": [
-    2.7,
-    1.38,
-    7.49
-   ],
-   "object": "Mesh seg() @town.js:1152",
-   "src": [
-    "town.js:146",
-    "town.js:152",
-    "town.js:1152",
-    "town.js:1155",
-    "town.js:1578",
-    "main.js:211"
-   ],
-   "fns": [
-    "add",
-    "box",
-    "seg",
-    "bedBorder",
-    "buildTown"
-   ],
-   "msg": "2 of 4 feet are up to 0.20 m off the ground (on a slope)",
-   "fix": "level it on the lowest point of its footprint, or tilt its legs to the slope",
-   "owner": "worker15",
-   "id": "QA034"
+   "id": "QA033",
+   "level": "warn"
   },
   {
    "check": "ground",
@@ -921,12 +927,12 @@
     13.51,
     111.03
    ],
-   "object": "Group bench() @town.js:1123",
+   "object": "Group bench() @town.js:1124",
    "src": [
-    "town.js:1123",
-    "town.js:1041",
-    "town.js:1600",
-    "main.js:211"
+    "town.js:1124",
+    "town.js:1042",
+    "town.js:1602",
+    "main.js:212"
    ],
    "fns": [
     "bench",
@@ -936,7 +942,8 @@
    "msg": "2 of 4 feet are up to 0.26 m off the ground (on a slope)",
    "fix": "level it on the lowest point of its footprint, or tilt its legs to the slope",
    "owner": "worker14",
-   "id": "QA035"
+   "id": "QA034",
+   "level": "warn"
   }
  ],
  "allowedFindings": [
@@ -948,11 +955,11 @@
     -1.68,
     85.25
    ],
-   "object": "Group dock() @town.js:1195",
+   "object": "Group dock() @town.js:1196",
    "src": [
-    "town.js:1195",
-    "town.js:1592",
-    "main.js:211"
+    "town.js:1196",
+    "town.js:1594",
+    "main.js:212"
    ],
    "fns": [
     "dock",
@@ -971,11 +978,11 @@
     -0.28,
     16.48
    ],
-   "object": "Group bridge() @town.js:719",
+   "object": "Group bridge() @town.js:720",
    "src": [
-    "town.js:719",
-    "town.js:1575",
-    "main.js:211"
+    "town.js:720",
+    "town.js:1577",
+    "main.js:212"
    ],
    "fns": [
     "bridge",
@@ -994,11 +1001,11 @@
     -0.02,
     -7.02
    ],
-   "object": "Group bridge() @town.js:719",
+   "object": "Group bridge() @town.js:720",
    "src": [
-    "town.js:719",
-    "town.js:1575",
-    "main.js:211"
+    "town.js:720",
+    "town.js:1577",
+    "main.js:212"
    ],
    "fns": [
     "bridge",
@@ -1017,11 +1024,11 @@
     -0.64,
     91.48
    ],
-   "object": "Group bridge() @town.js:719",
+   "object": "Group bridge() @town.js:720",
    "src": [
-    "town.js:719",
-    "town.js:1575",
-    "main.js:211"
+    "town.js:720",
+    "town.js:1577",
+    "main.js:212"
    ],
    "fns": [
     "bridge",
@@ -1040,11 +1047,11 @@
     3.62,
     2.14
    ],
-   "object": "Group well() @town.js:1133",
+   "object": "Group well() @town.js:1134",
    "src": [
-    "town.js:1133",
-    "town.js:1580",
-    "main.js:211"
+    "town.js:1134",
+    "town.js:1582",
+    "main.js:212"
    ],
    "fns": [
     "well",
@@ -1063,11 +1070,11 @@
     -2.7,
     109.6
    ],
-   "object": "Group dock() @town.js:1195",
+   "object": "Group dock() @town.js:1196",
    "src": [
-    "town.js:1195",
-    "town.js:1592",
-    "main.js:211"
+    "town.js:1196",
+    "town.js:1594",
+    "main.js:212"
    ],
    "fns": [
     "dock",
@@ -1086,12 +1093,12 @@
     -8.96,
     189.61
    ],
-   "object": "Group lighthouse() @town.js:1363",
+   "object": "Group lighthouse() @town.js:1364",
    "src": [
-    "town.js:1363",
-    "town.js:1292",
-    "town.js:1592",
-    "main.js:211"
+    "town.js:1364",
+    "town.js:1293",
+    "town.js:1594",
+    "main.js:212"
    ],
    "fns": [
     "lighthouse",
@@ -1115,8 +1122,8 @@
    "src": [
     "route1.js:485",
     "route1.js:209",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "deckBridge",
@@ -1140,8 +1147,8 @@
    "src": [
     "route1.js:53",
     "route1.js:260",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -1161,11 +1168,11 @@
     0.11469481140375137,
     105.27072143554688
    ],
-   "object": "veg.js plant in Group dock() @town.js:1195",
+   "object": "veg.js plant in Group dock() @town.js:1196",
    "src": [
-    "town.js:1195",
-    "town.js:1592",
-    "main.js:211"
+    "town.js:1196",
+    "town.js:1594",
+    "main.js:212"
    ],
    "fns": [
     "dock",
@@ -1184,11 +1191,11 @@
     0.16091887652873993,
     104.98333740234375
    ],
-   "object": "veg.js plant in Group dock() @town.js:1195",
+   "object": "veg.js plant in Group dock() @town.js:1196",
    "src": [
-    "town.js:1195",
-    "town.js:1592",
-    "main.js:211"
+    "town.js:1196",
+    "town.js:1594",
+    "main.js:212"
    ],
    "fns": [
     "dock",
@@ -1207,11 +1214,11 @@
     0.20000000298023224,
     106.23414611816406
    ],
-   "object": "veg.js plant in Group dock() @town.js:1195",
+   "object": "veg.js plant in Group dock() @town.js:1196",
    "src": [
-    "town.js:1195",
-    "town.js:1592",
-    "main.js:211"
+    "town.js:1196",
+    "town.js:1594",
+    "main.js:212"
    ],
    "fns": [
     "dock",
@@ -1234,8 +1241,8 @@
    "src": [
     "lab.js:138",
     "lab.js:423",
-    "town.js:1567",
-    "main.js:211"
+    "town.js:1569",
+    "main.js:212"
    ],
    "fns": [
     "add",
@@ -1260,8 +1267,8 @@
     "lab.js:138",
     "lab.js:144",
     "lab.js:424",
-    "town.js:1567",
-    "main.js:211"
+    "town.js:1569",
+    "main.js:212"
    ],
    "fns": [
     "add",
@@ -1287,8 +1294,8 @@
     "lab.js:138",
     "lab.js:147",
     "lab.js:373",
-    "town.js:1567",
-    "main.js:211"
+    "town.js:1569",
+    "main.js:212"
    ],
    "fns": [
     "add",
@@ -1315,8 +1322,8 @@
     "props/outdoor.js:156",
     "route1.js:567",
     "route1.js:167",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -1345,8 +1352,8 @@
     "props/outdoor.js:156",
     "route1.js:567",
     "route1.js:167",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -1375,8 +1382,8 @@
     "props/outdoor.js:156",
     "props/outdoor.js:667",
     "route1.js:384",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "put",
@@ -1398,11 +1405,11 @@
     0.57,
     16
    ],
-   "object": "Mesh labStairs() @town.js:579",
+   "object": "Mesh labStairs() @town.js:580",
    "src": [
-    "town.js:579",
-    "town.js:1573",
-    "main.js:211"
+    "town.js:580",
+    "town.js:1575",
+    "main.js:212"
    ],
    "fns": [
     "labStairs",
@@ -1421,11 +1428,11 @@
     1.91,
     16
    ],
-   "object": "Mesh labStairs() @town.js:579",
+   "object": "Mesh labStairs() @town.js:580",
    "src": [
-    "town.js:579",
-    "town.js:1573",
-    "main.js:211"
+    "town.js:580",
+    "town.js:1575",
+    "main.js:212"
    ],
    "fns": [
     "labStairs",
@@ -1444,11 +1451,11 @@
     1.71,
     16
    ],
-   "object": "Mesh bridge() @town.js:729",
+   "object": "Mesh bridge() @town.js:730",
    "src": [
-    "town.js:729",
-    "town.js:1575",
-    "main.js:211"
+    "town.js:730",
+    "town.js:1577",
+    "main.js:212"
    ],
    "fns": [
     "bridge",
@@ -1467,11 +1474,11 @@
     1.68,
     -7.5
    ],
-   "object": "Mesh bridge() @town.js:729",
+   "object": "Mesh bridge() @town.js:730",
    "src": [
-    "town.js:729",
-    "town.js:1575",
-    "main.js:211"
+    "town.js:730",
+    "town.js:1577",
+    "main.js:212"
    ],
    "fns": [
     "bridge",
@@ -1490,11 +1497,11 @@
     9.71,
     91
    ],
-   "object": "Mesh bridge() @town.js:729",
+   "object": "Mesh bridge() @town.js:730",
    "src": [
-    "town.js:729",
-    "town.js:1575",
-    "main.js:211"
+    "town.js:730",
+    "town.js:1577",
+    "main.js:212"
    ],
    "fns": [
     "bridge",
@@ -1518,8 +1525,8 @@
     "route1.js:53",
     "route1.js:63",
     "route1.js:164",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -1544,8 +1551,8 @@
    "src": [
     "route1.js:485",
     "route1.js:185",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "deckBridge",
@@ -1565,22 +1572,22 @@
     4.613166813955758,
     13.25
    ],
-   "object": "Group globeLamp() @town.js:595",
+   "object": "Group globeLamp() @town.js:596",
    "src": [
-    "town.js:595",
-    "town.js:629",
-    "town.js:1572",
-    "main.js:211"
+    "town.js:596",
+    "town.js:630",
+    "town.js:1574",
+    "main.js:212"
    ],
    "fns": [
     "globeLamp",
     "labGate",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside Group labGate() @town.js:625",
+   "msg": "100% of its footprint is inside Group labGate() @town.js:626",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "Group labGate() @town.js:625",
+   "other": "Group labGate() @town.js:626",
    "why": "globe lamps sit on the gate's pillars"
   },
   {
@@ -1591,22 +1598,22 @@
     4.613166813955758,
     18.75
    ],
-   "object": "Group globeLamp() @town.js:595",
+   "object": "Group globeLamp() @town.js:596",
    "src": [
-    "town.js:595",
-    "town.js:629",
-    "town.js:1572",
-    "main.js:211"
+    "town.js:596",
+    "town.js:630",
+    "town.js:1574",
+    "main.js:212"
    ],
    "fns": [
     "globeLamp",
     "labGate",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside Group labGate() @town.js:625",
+   "msg": "100% of its footprint is inside Group labGate() @town.js:626",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "Group labGate() @town.js:625",
+   "other": "Group labGate() @town.js:626",
    "why": "globe lamps sit on the gate's pillars"
   },
   {
@@ -1621,8 +1628,8 @@
    "src": [
     "route1.js:53",
     "route1.js:225",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "place",
@@ -1646,8 +1653,8 @@
    "object": "Group @route1.js:409",
    "src": [
     "route1.js:409",
-    "town.js:1603",
-    "main.js:211"
+    "town.js:1605",
+    "main.js:212"
    ],
    "fns": [
     "route1Fill",
@@ -1662,7 +1669,7 @@
  "taggedInCode": [
   {
    "check": "ground",
-   "object": "town/lab/plate labGate() @town.js:659",
+   "object": "town/lab/plate labGate() @town.js:660",
    "why": "mounted on the retaining wall"
   },
   {
@@ -1712,7 +1719,7 @@
   },
   {
    "check": "shell",
-   "object": "town/lab/plate labGate() @town.js:659",
+   "object": "town/lab/plate labGate() @town.js:660",
    "why": "mounted on the retaining wall"
   },
   {

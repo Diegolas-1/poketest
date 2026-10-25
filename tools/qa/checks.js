@@ -402,12 +402,12 @@
     // ===== 7. water and paths =====
     if (on('water')) {
       let n = 0;
-      const WET = /dock|boat|buoy|bridge|pier|lighthouse|harbour|stepping/i;
+      const WET = /dock|boat|buoy|bridge|pier|lighthouse|harbour|stepping|rowboat|fishingBoat/i;
       for (const p of pieces) {
         const b = bbox(p), c = V(); b.getCenter(c);
         const src = srcOf(p).join(' ');
         n++;
-        if (T.isWater(c.x, c.z) && !WET.test(nameOf(p)) && !/town\.js:(70\d|71\d|11[5-9]\d|12\d\d|13\d\d|14\d\d)/.test(src) && b.min.y < T.SEA_Y + 3) {
+        if (T.isWater(c.x, c.z) && !WET.test(nameOf(p) + ' ' + (p.userData.__fn || []).join(' ')) && b.min.y < T.SEA_Y + 3) {
           add('water', 'med', c, p, 'stands in water', 'move it onto land, or whitelist it if it belongs in the water');
         }
       }

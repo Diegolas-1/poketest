@@ -5,11 +5,14 @@
 //   python3 -m http.server 8800 -d web &        (or any static server on web/)
 //   node tools/qa/scan.mjs --port 8800 [--out tools/qa/findings.json] [--map map.png] [--only up,ground,...]
 //
-// Writes the findings JSON (id, check, severity, location, object, source,
-// fix, owner) and a top-down map of them. Whitelisted findings (whitelist.json:
-// intended tilts, open-sided structures...) are listed under "allowed" and do
-// not count. Exit code 1 when anything not whitelisted is severity "high".
-// Run it before publishing a world bake.
+// Writes the findings JSON (id, check, severity, level, location, object,
+// source, fix, owner) and a top-down map of them. Intended exceptions are
+// either whitelisted (whitelist.json, by fn / near / check, with a reason) or
+// tagged in the generator (userData.qa = {k: 'hung' | 'open', why}); both are
+// listed in the JSON and do not count. Levels: 'error' (severity high) blocks,
+// 'warn' (med, low) is reported only. Exit 0 = no errors, 1 = errors found,
+// 2 = the scan itself failed. Run it before publishing a world bake (the
+// editor's publish.mjs does).
 import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,6 +27,8 @@ const MAP = arg('map', null);
 const ONLY = arg('only', '');
 const BASE = `http://localhost:${PORT}`;
 
+process.on('uncaughtException', (e) => { console.error('scan failed:', e.message); process.exit(2); });
+process.on('unhandledRejection', (e) => { console.error('scan failed:', e && e.message); process.exit(2); });
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 320, height: 200 } });
 page.on('pageerror', (e) => console.error('page error:', e.message));
@@ -36,7 +41,7 @@ export * from './three.real.js';
 import { Object3D } from './three.real.js';
 const add = Object3D.prototype.add;
 Object3D.prototype.add = function (...objs) {
-  const fr = new Error().stack.split('\\n').slice(2).map((l) => l.match(/at (?:([\\w$.]+) \\()?\\S*\\/world\\/([\\w./-]+\\.js):(\\d+)/)).filter(Boolean);
+  const fr = new Error().stack.split('\\n').slice(2).map((l) => l.match(/at (?:([\\w$.]+) \\()?\\S*\\/world\\/([\\w./-]+\\.js):(\\d+)/)).filter((m) => m && !m[2].startsWith('editlayer/'));   // (the world editor's wrappers are not the generator)
   for (const o of objs) if (o && o.userData && !o.userData.__src) { o.userData.__src = fr.slice(0, 6).map((m) => m[2] + ':' + m[3]); o.userData.__fn = fr.slice(0, 6).map((m) => m[1] || ''); }
   return add.apply(this, objs);
 };` }));
@@ -61,10 +66,11 @@ const allowedBy = (f) => WL.find((w) => (!w.check || w.check === f.check)
   && (!w.near || Math.hypot(f.at[0] - w.near[0], f.at[2] - w.near[1]) < w.near[2]));
 const findings = [], allowed = [];
 for (const f of res.findings) { const w = allowedBy(f); if (w) allowed.push({ ...f, why: w.why }); else findings.push(f); }
-findings.forEach((f, i) => { f.id = 'QA' + String(i + 1).padStart(3, '0'); });
+// level: 'error' (sev high: blocks a publish) or 'warn' (med / low: reported only)
+findings.forEach((f, i) => { f.id = 'QA' + String(i + 1).padStart(3, '0'); f.level = f.sev === 'high' ? 'error' : 'warn'; });
 const counts = {};
 for (const f of findings) counts[f.check] = (counts[f.check] || 0) + 1;
-const out = { scanned: res.stats, counts, total: findings.length, allowed: allowed.length + res.tagged.length, findings, allowedFindings: allowed, taggedInCode: res.tagged };
+const out = { scanned: res.stats, counts, total: findings.length, errors: findings.filter((f) => f.level === 'error').length, warnings: findings.filter((f) => f.level === 'warn').length, allowed: allowed.length + res.tagged.length, findings, allowedFindings: allowed, taggedInCode: res.tagged };
 fs.writeFileSync(OUT, JSON.stringify(out, null, 1));
 console.log(`checked ${JSON.stringify(res.stats)}`);
 console.log(`${findings.length} findings (${allowed.length} whitelisted, ${res.tagged.length} tagged in code):`, JSON.stringify(counts));
@@ -77,4 +83,6 @@ if (MAP) {
   console.log('map:', MAP);
 }
 await browser.close();
-process.exit(findings.some((f) => f.sev === 'high') ? 1 : 0);
+const errors = findings.filter((f) => f.level === 'error').length;
+console.log(errors ? `${errors} error(s): not clean` : 'clean: no errors (warnings and whitelisted findings do not block)');
+process.exit(errors ? 1 : 0);
