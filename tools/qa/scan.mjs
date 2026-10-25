@@ -13,7 +13,7 @@
 // 'warn' (med, low) is reported only. Exit 0 = no errors, 1 = errors found,
 // 2 = the scan itself failed. Run it before publishing a world bake (the
 // editor's publish.mjs does).
-import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
+const { chromium } = await import(process.env.PLAYWRIGHT || '/opt/node-tools/node_modules/playwright/index.mjs');   // (tools/native/setup.sh sets PLAYWRIGHT on a fresh machine)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

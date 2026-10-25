@@ -95,13 +95,29 @@ async function handle(pending) {
     await report('working', changed.length ? 'changed: ' + changed.join(', ') : 'the version matches the repo already');
     // ---------- 5. checks ----------
     const logs = [];
+    const port = world ? await ownServer() : null;
     const qa = path.join(ROOT, 'tools/qa/scan.mjs');
     if (fs.existsSync(qa) && world) {
-      const r = spawnSync('node', [qa], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 3600e3 });
-      if (r.status !== 0) throw new Error('QA scan failed:\n' + (r.stdout + r.stderr).slice(-3000));
-      logs.push('QA scan ok');
+      // the scan with the edits; on errors, again without them: only errors the
+      // edits brought in stop the publish (the world's own are reported)
+      const scan = (tag) => {
+        const out = path.join(os.tmpdir(), `pallet-qa-${process.pid}-${tag}.json`);
+        const r = spawnSync('node', [qa, '--port', port, '--out', out], { cwd: ROOT, env: process.env, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 3600e3 });
+        if (r.status === 2 || !fs.existsSync(out)) throw new Error('the QA scan could not run:\n' + (r.stdout + r.stderr).slice(-2000));
+        const j = JSON.parse(fs.readFileSync(out, 'utf8')); fs.rmSync(out, { force: true });
+        return (j.findings || j).filter((f) => f.level === 'error');
+      };
+      const key = (f) => `${f.check}|${f.object}|${String(f.at)}`;
+      const withE = scan('edits');
+      if (withE.length) {
+        const ef = path.join(ROOT, 'web/world/edits/world.json'), keep = fs.readFileSync(ef);
+        fs.writeFileSync(ef, JSON.stringify({ format: 'pallet-edits v1', objects: {}, added: [], veg: {}, vegAdd: [], roads: { edit: {}, added: [] }, places: {}, tiles: [] }));
+        let base; try { base = new Set(scan('base').map(key)); } finally { fs.writeFileSync(ef, keep); }
+        const fresh = withE.filter((f) => !base.has(key(f)));
+        if (fresh.length) throw new Error('the QA scan found problems the edits made:\n' + fresh.slice(0, 20).map((f) => `${f.check}: ${f.object} at ${f.at} (${f.msg || ''}) ${f.fix ? '· fix: ' + f.fix : ''}`).join('\n'));
+        logs.push(`QA scan: no new errors (${withE.length} the world had already)`);
+      } else logs.push('QA scan ok');
     }
-    const port = world ? await ownServer() : null;
     const c = await check({ game: world, port, log: (t) => logs.push(t) });
     if (c.errors.length) throw new Error('checks failed:\n' + c.errors.join('\n'));
     await report('working', ['checks ok' + (c.warnings.length ? ` (${c.warnings.length} warnings)` : ''), ...logs.slice(-10)]);
