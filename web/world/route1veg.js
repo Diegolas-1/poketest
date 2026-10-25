@@ -25,7 +25,7 @@ function tuft(seed, tile, size) {
 export function meadowFlowers(free, quality) {
   const R = rng(1777), models = MEADOW_TILE.map((t, i) => [tuft(300 + i, t, 0.85), tuft(310 + i, t, 1.05)]);
   const pts = MEADOW_TILE.map(() => []);
-  const M = POCKET.meadow, budget = 5200 * quality.plants;
+  const M = POCKET.meadow, budget = 7500 * quality.plants;
   let n = 0;
   for (let i = 0; i < 60000 && n < budget; i++) {
     const x = M.cx + (R() * 2 - 1) * (M.rx + 6), z = M.cz + (R() * 2 - 1) * (M.rz + 6);

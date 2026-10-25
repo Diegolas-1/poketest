@@ -107,7 +107,7 @@ export function route1Fill(world) {
   // the meadow's lone tree: a bench under it, a swing from its low branch
   {
     const by = yawTo(TREE.x - 4, TREE.z + 3, LOOKOUT.x, LOOKOUT.z + 40);
-    place(benchSeat(), TREE.x - 4.2, TREE.z + 3.2, by, 0.95);
+    place(benchSeat(), TREE.x - 4.2, TREE.z + 3.2, by, 0.94);   // (0.95 would read as a town bench: bake_places.mjs)
     // a sturdy low bough to hang the swing from
     const bx = TREE.x + 1.2, bz = TREE.z + 0.4, y0 = height(TREE.x, TREE.z);
     const bough = new THREE.Group(); bough.position.set(0, 0, 0); G.add(bough);
@@ -148,6 +148,7 @@ export function route1Fill(world) {
     const kinds = ['#3a6ad8', '#f26aa0', '#e8402e', '#f2a23a'];   // ORAN, PECHA, CHERI, RAWST
     const colOf = [];
     for (const [x, z, k, s] of handTrees()) {
+      if (roadDist(x, z) < 3.4 || onPath(x, z, 1.2)) continue;   // veg.js leaves trees off the dirt
       if (k !== 'bushy' || x < ORCHARD.x0 - 2 || x > ORCHARD.x1 + 2 || z < ORCHARD.z0 - 2 || z > ORCHARD.z1 + 2) continue;
       const y0 = height(x, z), kc = kinds[Math.floor((x - ORCHARD.x0) / 8) % kinds.length];
       for (let i = 0; i < 26; i++) {
@@ -438,7 +439,9 @@ function instanced(G, geo, mat, list, dy = 0, _mask = 0, colours = null) {
     if (colours) im.setColorAt(i, col.set(colours[i]));
   });
   im.castShadow = true; im.receiveShadow = true;
-  im.userData.outline = 'solid';
+  // small round things (berries, cabbages) get no outline: a sphere's every
+  // edge is a silhouette candidate, and hundreds of them double the ink
+  im.userData.outline = geo.type === 'SphereGeometry' ? false : 'solid';
   G.add(im);
   return im;
 }

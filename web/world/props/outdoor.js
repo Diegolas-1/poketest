@@ -24,8 +24,21 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const memo = new Map();
 const M = (k, f) => { if (!memo.has(k)) memo.set(k, f()); return memo.get(k); };
 export const flat = (col, side) => M('c' + col + (side || ''), () => toon(col, { cel: BUILD, side }));
-export const texm = (t, col = '#ffffff', side) => M('t' + t.uuid + col + (side || ''), () => toon(col, { map: t, cel: BUILD, side }));
+export function texm(t, col = '#ffffff', side) {
+  if (t.tint) {
+    // the tint that turns the neutral picture into the wanted colour
+    const n = new THREE.Color(NEUTRAL), c = new THREE.Color(t.col).multiply(new THREE.Color(col));
+    col = '#' + new THREE.Color(Math.min(1, c.r / n.r), Math.min(1, c.g / n.g), Math.min(1, c.b / n.b)).getHexString();
+    t = t.t;
+  }
+  return M('t' + t.uuid + col + (side || ''), () => toon(col, { map: t, cel: BUILD, side }));
+}
 const asM = (m) => (typeof m === 'string' ? flat(m) : m);
+// Painted surfaces (wood, tiles, thatch, plaster, stone) are painted once in a
+// neutral colour and tinted by the material: one picture per kind, however
+// many colours use it (fewer textures to load on the phone).
+const NEUTRAL = '#e8e4dc';
+const tinted = (col, t) => ({ tint: true, t, col });
 export const shade = (hex, k) => '#' + new THREE.Color(hex).multiplyScalar(k).getHexString();
 
 // ---------- painted textures ----------
@@ -43,7 +56,7 @@ function paint(key, w, h, draw, repeat = true) {
   return t;
 }
 // wood boards (texture = 2 x 2 m)
-export const planks = (col) => paint('o_planks' + col, 256, 256, (x, w, h, R) => {
+export const planks = (col) => tinted(col, paint('o_planks', 256, 256, (x, w, h, R) => { const col = NEUTRAL;
   for (let k = 0; k < 8; k++) {
     x.fillStyle = shade(col, 0.9 + R() * 0.18); x.fillRect(0, k * 32, w, 32);
     x.fillStyle = shade(col, 0.68); x.fillRect(0, k * 32 + 30, w, 2);
@@ -51,9 +64,9 @@ export const planks = (col) => paint('o_planks' + col, 256, 256, (x, w, h, R) =>
     for (let j = 0; j < 4; j++) x.fillRect(R() * w, k * 32 + 6 + R() * 20, 40 + R() * 80, 1.5);
     x.globalAlpha = 1;
   }
-});
+}));
 // Japanese roof tiles (kawara): rounded ridges in rows (1.5 x 1.5 m)
-export const kawara = (col) => paint('o_kawara' + col, 256, 256, (x, w, h, R) => {
+export const kawara = (col) => tinted(col, paint('o_kawara', 256, 256, (x, w, h, R) => { const col = NEUTRAL;
   x.fillStyle = shade(col, 0.65); x.fillRect(0, 0, w, h);
   const cols = 8, cw = w / cols;
   for (let c = 0; c < cols; c++) {
@@ -62,17 +75,17 @@ export const kawara = (col) => paint('o_kawara' + col, 256, 256, (x, w, h, R) =>
     x.fillStyle = g; x.fillRect(c * cw + 2, 0, cw - 4, h);
   }
   for (let r = 0; r < 6; r++) { x.fillStyle = shade(col, 0.55); x.fillRect(0, r * h / 6 + h / 6 - 3, w, 3); }
-});
+}));
 // thatch: long straw strokes (2 x 2 m)
-export const thatch = (col) => paint('o_thatch' + col, 256, 256, (x, w, h, R) => {
+export const thatch = (col) => tinted(col, paint('o_thatch', 256, 256, (x, w, h, R) => { const col = NEUTRAL;
   x.fillStyle = col; x.fillRect(0, 0, w, h);
   for (let k = 0; k < 900; k++) {
     const px = R() * w, py = R() * h, L = 18 + R() * 30;
     x.strokeStyle = shade(col, 0.7 + R() * 0.5); x.lineWidth = 1.2 + R() * 1.5;
     x.beginPath(); x.moveTo(px, py); x.lineTo(px + (R() - 0.5) * 4, py + L); x.stroke();
   }
-});
-export const clay = (col) => paint('o_clay' + col, 256, 256, (x, w, h, R) => {
+}));
+export const clay = (col) => tinted(col, paint('o_clay', 256, 256, (x, w, h, R) => { const col = NEUTRAL;
   x.fillStyle = shade(col, 0.72); x.fillRect(0, 0, w, h);
   const rows = 7, cols = 9, rh = h / rows, cw = w / cols;
   for (let r = 0; r < rows; r++) for (let c = -1; c <= cols; c++) {
@@ -85,15 +98,15 @@ export const clay = (col) => paint('o_clay' + col, 256, 256, (x, w, h, R) => {
     // moss in the joints, here and there
     if (R() < 0.12) { x.fillStyle = 'rgba(92,140,60,.55)'; x.beginPath(); x.ellipse(cx + cw / 2, y + rh * 0.8, cw * 0.5, rh * 0.25, 0, 0, 6.28); x.fill(); }
   }
-});
-export const plaster = (col) => paint('o_plaster' + col, 256, 256, (x, w, h, R) => {
+}));
+export const plaster = (col) => tinted(col, paint('o_plaster', 256, 256, (x, w, h, R) => { const col = NEUTRAL;
   x.fillStyle = col; x.fillRect(0, 0, w, h);
   for (let k = 0; k < 50; k++) { x.globalAlpha = 0.07; x.fillStyle = R() < 0.5 ? '#ffffff' : shade(col, 0.78); x.beginPath(); x.arc(R() * w, R() * h, 10 + R() * 30, 0, 6.28); x.fill(); }
   // damp at the foot
   const g = x.createLinearGradient(0, h, 0, h * 0.75); g.addColorStop(0, 'rgba(70,90,60,.35)'); g.addColorStop(1, 'rgba(70,90,60,0)');
   x.globalAlpha = 1; x.fillStyle = g; x.fillRect(0, 0, w, h);
-});
-export const stonesTex = (col) => paint('o_stones' + col, 256, 256, (x, w, h, R) => {
+}));
+export const stonesTex = (col) => tinted(col, paint('o_stones', 256, 256, (x, w, h, R) => { const col = NEUTRAL;
   x.fillStyle = shade(col, 0.55); x.fillRect(0, 0, w, h);
   for (let k = 0; k < 44; k++) {
     const cx = R() * w, cy = R() * h, rx = 16 + R() * 22, ry = 11 + R() * 14;
@@ -103,7 +116,7 @@ export const stonesTex = (col) => paint('o_stones' + col, 256, 256, (x, w, h, R)
       if (R() < 0.15) { x.fillStyle = 'rgba(96,140,64,.5)'; x.beginPath(); x.ellipse(cx + ox, cy + oy + ry * 0.5, rx * 0.6, ry * 0.3, 0, 0, 6.28); x.fill(); }
     }
   }
-});
+}));
 // shoji: white paper in a wooden lattice (1 x 1 m)
 const shoji = () => paint('o_shoji', 128, 128, (x, w, h) => {
   x.fillStyle = '#f6f0de'; x.fillRect(0, 0, w, h);

@@ -121,7 +121,7 @@ export const TRAILS = [
   // to the farm gate
   [[4, -80], [-10, -83], [-26, -88], [-40, -94], [-50, -96]],
   // up onto the meadow, past the lone tree, to the lookout
-  [[20, -114], [32, -121], [46, -129], [60, -133], [74, -136], [86, -142], [93, -152], [96, -158]],
+  [[20, -114], [32, -121], [46, -129], [60, -133], [74, -136], [84, -142], [89, -149]],
   [[74, -136], [84, -128], [92, -120], [96, -116]],
   // into the orchard
   [[-29, -209], [-44, -201], [-60, -194], [-72, -191]],
@@ -209,7 +209,7 @@ export function carve(x, z, h) {
   const q = creekAt(x, z);
   if (!q) return h;
   const w = q.c.w, bed = q.y - 0.55 - (1 - sm(0, w, q.d)) * 0.25;
-  return Math.min(h, lerp(bed, Math.max(h, q.y + 0.4), sm(w + 0.2, w + 2.0, q.d)));
+  return Math.min(h, lerp(bed, Math.max(h, q.y + 0.4), sm(w + 0.3, w + 3.2, q.d)));
 }
 // the water level here (terrain.js waterLevel), or null
 export function creekLevel(x, z) {
