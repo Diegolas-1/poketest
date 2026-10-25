@@ -47,6 +47,8 @@ func setup(g: Node3D) -> void:
 	var d := CastActor.data()
 	player = CastActor.make("ash")
 	add_child(player)
+	# the ground under him (sitting, and his cloth): the world's, or the interior's when inside
+	player.ground = func(x: float, z: float) -> float: return game.world.height_at(x, z)
 	for n in d.npcs:
 		if n.name != "Prof. Oak": continue   # the old wandering villagers: life.gd has the town now
 		var a := CastActor.make(n.look)

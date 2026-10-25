@@ -104,7 +104,7 @@ static func _defs() -> Dictionary:
 	var BELT0 := {"at": H(-0.15, 0.09, 0.08), "pole": [-1, -0.3, -0.7], "wd": -0.2, "cu": 0.1}
 	var CR := {"dy": -0.45, "dz": -0.1, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.45, "hp": -0.2}
 	var CR2 := {"dy": -0.5, "dz": -0.09, "wp": 0.45, "lean": 0.4, "ko": 0.42, "heel": 0.6, "side": -0.1, "tw": -0.1, "hp": -0.18}
-	var SIT := {"dy": -0.63, "dz": -0.4, "wp": 0, "lean": 0.1, "ko": 0.35}
+	var SIT := {"dy": -0.63, "dz": -0.54, "wp": 0, "lean": 0.1, "ko": 0.35, "seat": 1, "gap": 0}
 	ACTIONS = {
 		"hip": {"dur": 9.0, "len": [7, 11], "stretch": [2, 7], "w": 1.2,
 			"armR": [[0, null], [0.9, HIP], [7.6, HIP], [8.6, null]],
@@ -167,11 +167,12 @@ static func _defs() -> Dictionary:
 			"armR": [[0, null], [1.6, ONKNEE.call("R", -1)], [2.6, ONKNEE.call("R", -1)], [3.4, {"at": GR(-0.21, 0.08, 0.3), "pole": [-0.6, 0, -1], "wf": -0.3, "cu": -0.1}],
 				[4.4, {"at": GR(-0.22, 0.08, 0.31), "pole": [-0.6, 0, -1], "wf": -0.3, "cu": 0.05}], [5.2, ONKNEE.call("R", -1)], [6.2, ONKNEE.call("R", -1)], [7.2, null]],
 			"gaze": [[0, {"y": 0, "p": 0}], [1.2, {"y": -0.1, "p": 0.1}], [3.6, {"y": -0.2, "p": 0.15}], [5, {"y": 0.2, "p": 0.0}], [6.4, {"y": 0, "p": 0.0}], [7.4, {"y": 0, "p": 0}], [8, {"y": 0, "p": 0}]]},
-		"sit": {"dur": 16.0, "len": [10, 25], "stretch": [4, 12], "w": 1.2, "legs": true, "need": 40, "player": true,
-			"body": [[0, {}], [0.5, {"dy": -0.03, "lean": 0.06, "hp": 0.08}], [1.6, {"dy": -0.45, "dz": -0.12, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.4, "hp": 0.1}],
-				[2.6, {"dy": -0.61, "dz": -0.38, "wp": 0.05, "lean": 0.12, "ko": 0.35, "heel": 0, "hp": 0}], [3.4, SIT],
-				[12, SIT], [13, {"dy": -0.6, "dz": -0.34, "wp": 0.3, "lean": 0.35, "ko": 0.38}],
-				[14, {"dy": -0.45, "dz": -0.12, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.35}], [15.2, {"dy": -0.03, "lean": 0.05}], [16, {}]],
+		"sit": {"dur": 16.0, "len": [10, 25], "stretch": [4, 12], "w": 1.2, "legs": true, "kup": 1.0, "need": 40, "player": true,
+			"body": [[0, {}], [0.5, {"dy": -0.03, "lean": 0.06, "hp": 0.08}], [1.6, {"dy": -0.45, "dz": -0.12, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.4, "hp": 0.1, "gap": 0.2}],
+				[2.4, {"dy": -0.58, "dz": -0.42, "wp": 0.1, "lean": 0.15, "ko": 0.36, "heel": 0.05, "hp": 0.02, "seat": 0.45, "gap": 0.05}], [3.4, SIT],
+				[12, SIT], [12.8, {"dy": -0.63, "dz": -0.52, "wp": 0.25, "lean": 0.3, "ko": 0.37, "seat": 1, "gap": 0}],
+				[13.5, {"dy": -0.56, "dz": -0.36, "wp": 0.32, "lean": 0.32, "ko": 0.39, "heel": 0.1, "seat": 0.4, "gap": 0.05}],
+				[14.2, {"dy": -0.45, "dz": -0.12, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.35, "gap": 0.2}], [15.2, {"dy": -0.03, "lean": 0.05}], [16, {}]],
 			"armL": [[0, null], [1.6, ONKNEE.call("L", 1)], [12.2, ONKNEE.call("L", 1)], [13.4, {"at": KN("L", 0, 0.02, 0.06), "pole": [0.6, -0.4, -0.6], "wf": 0.6, "cu": -0.1}], [14.2, ONKNEE.call("L", 1)], [15.4, null]],
 			"armR": [[0, null], [1.6, ONKNEE.call("R", -1)], [12.2, ONKNEE.call("R", -1)], [13.4, {"at": KN("R", 0, 0.02, 0.06), "pole": [-0.6, -0.4, -0.6], "wf": 0.6, "cu": -0.1}], [14.2, ONKNEE.call("R", -1)], [15.4, null]],
 			"gaze": [[0, {"y": 0, "p": 0}], [1.2, {"y": 0, "p": 0.35}], [3, {"y": 0, "p": 0.1, "f": 0}], [3.6, {"f": 1}], [11.6, {"f": 1}], [12, {"y": 0, "p": 0.15}], [14.5, {"y": 0, "p": 0.1}], [16, {"y": 0, "p": 0}]]},
@@ -307,6 +308,13 @@ func _ik(n1: String, n2: String, n3: String, T: Vector3, pole: Vector3, hinge: A
 	var d := clampf(T.distance_to(p1), absf(a - c) + 1e-4, (a + c) * 0.9995)
 	var bend := acos(clampf((d * d - a * a - c * c) / (2.0 * a * c), -1.0, 1.0))
 	A.pose(n2, [[hinge[0], hinge[1], hinge[2], hinge[3] * bend]])
+	# the limb is not quite straight at rest (a knee a few degrees bent): one Newton
+	# step on the reach, so the end lands on the target instead of a little short
+	var d0 := A.gxf(b3).origin.distance_to(p1)
+	var sb := sin(bend)
+	if sb > 0.05 and absf(d0 - d) > 1e-6:
+		bend = clampf(bend + (d0 - d) * d0 / (a * c * sb), 0.0, PI - 0.01)
+		A.pose(n2, [[hinge[0], hinge[1], hinge[2], hinge[3] * bend]])
 	var v3 := (A.gxf(b3).origin - p1).normalized()
 	var dir := (T - p1).normalized()
 	var q1 := Quaternion(v3, dir)
@@ -348,7 +356,11 @@ func post(_dt: float) -> void:
 			var pole := knee - hip
 			pole -= axis * pole.dot(axis)
 			if pole.length_squared() < 1e-8: pole = Vector3(0, 0, 1)
-			feet.append({"ank": ank, "toe": tp, "pole": pole.normalized(), "q": A.gxf(_bi(s + "Foot")).basis.get_rotation_quaternion()})
+			feet.append({"ank": ank, "toe": tp, "pole": pole.normalized(), "q": A.gxf(_bi(s + "Foot")).basis.get_rotation_quaternion(), "g": _ground_local(tp)})
+		# the soles as they stand: never lower than that (a little above the ground, as the clip has them)
+		for i in 2:
+			var S := _sole_sample("L" if i == 0 else "R")
+			if not S.is_empty(): feet[i].g = minf(feet[i].g, float(_seat_low(S)[0]))
 		a.feet = feet
 	var Bo: Dictionary = _sc(d, "body", t) if d.has("body") else {}
 	var k := env
@@ -461,7 +473,216 @@ func _arm(a: Dictionary, s: String, t: float, env: float) -> void:
 			for j in range(1, 4): A.bend("%sFinger%s%d" % [s, f, j], 0, 0, 1, -sg * tg.cu * w)
 
 # ---------- legs: feet kept where they stood ----------
+# With the feet planted the body's height is free, and for sitting it is solved
+# from the body itself: the lowest point of the seat (the skinned jeans round the
+# buttocks and the backs of the thighs, a sample of their vertices) is brought
+# onto the ground under it. The body track's "seat" (0..1) blends from its
+# scripted height to that contact, "gap" lifts the contact (metres, for the
+# touch-down and the push up); the pelvis rolls back ("pelvis tilt") by as much
+# as the thighs flex past a natural hip flexion, so it sits on its seat bones.
+# The seat never goes through the ground, whatever the track says.
+const SEAT_GAP := 0.003      # contact: this much above the ground (m)
+const FLEX_MAX := 2.0        # the hip's own flexion; past it the pelvis rolls back
+const TILT_MAX := 0.4
+const SEAT_BONES := ["Waist", "Hips", "LThigh", "RThigh"]
+const LEG_BONES := ["Hips", "LThigh", "LLeg", "LFoot", "LToe", "RThigh", "RLeg", "RFoot", "RToe"]
+
 func _legs(a: Dictionary, Bo: Dictionary, env: float) -> void:
+	var sw: float = _cl(Bo.get("seat", 0.0), 0.0, 1.0) * env
+	var hb := _bi("Hips")
+	# the seat is only looked at when it is anywhere near the ground
+	if sw <= 0.0 and (hb < 0 or A.holder.position.y + A.gxf(hb).origin.y * A.k - _ground_local(A.holder.position + A.gxf(hb).origin * A.k) > 0.3):
+		_legs_ik(a, Bo, env)
+		return
+	var S := _seat_sample()
+	if S.is_empty():
+		_legs_ik(a, Bo, env)
+		return
+	var saved: Array[Quaternion] = []
+	var ids := PackedInt32Array()
+	for n in LEG_BONES:
+		var bi := _bi(n)
+		ids.append(bi); saved.append(A.q[bi] if bi >= 0 else Quaternion.IDENTITY)
+	var y_s: float = A.holder.position.y
+	var want: float = maxf(0.0, Bo.get("gap", 0.0)) + SEAT_GAP
+	# (started from last frame's contact: one or two poses a frame once it is found)
+	var tilt: float = a.get("stilt", 0.0) * sw
+	var y: float = y_s + (a.get("sdy", 0.0) if sw > 0.0 else 0.0)
+	# the ground under the seat as a plane (root frame): heights are taken above it
+	_ground_plane(A.holder.position + A.gxf(hb).origin * A.k)
+	var r := _seat_pose(a, Bo, env, ids, saved, y, tilt, S)
+	var gap: float = r[0]
+	if sw > 0.0:
+		# the contact height: secant steps (the seat moves with the body, give or take
+		# the thighs turning about the planted feet)
+		var yp := y
+		var gp := gap
+		var flex := _flex()
+		for it in 4:
+			var tl := _cl(flex - FLEX_MAX, 0.0, TILT_MAX)
+			if absf(gap - want) < 5e-4 and absf(tl * sw - tilt) < 0.005: break
+			tilt = tl * sw
+			var ny := y + (want - gap)
+			if it > 0 and absf(gap - gp) > 1e-5 and absf(y - yp) > 1e-5:
+				ny = y + (want - gap) / clampf((gap - gp) / (y - yp), 0.5, 2.0)
+			yp = y; gp = gap; y = ny
+			r = _seat_pose(a, Bo, env, ids, saved, y, tilt, S)
+			gap = r[0]
+			flex = _flex()
+		var y_c := y + (want - gap)
+		a.sdy = y_c - y_s
+		a.stilt = tilt / sw
+		var y_f := lerpf(y_s, y_c, sw)
+		if absf(y_f - y) > 2e-4:
+			r = _seat_pose(a, Bo, env, ids, saved, y_f, tilt, S)
+			gap = r[0]
+	else:
+		a.sdy = 0.0; a.stilt = 0.0
+	# never through the ground
+	if gap < SEAT_GAP - 1e-4:
+		_seat_pose(a, Bo, env, ids, saved, A.holder.position.y + SEAT_GAP - gap, tilt, S)
+
+# the legs posed with the body at height y (root frame) and the pelvis tilted;
+# returns [the seat's lowest height above the ground plane, that point (root frame)]
+func _seat_pose(a: Dictionary, Bo: Dictionary, env: float, ids: PackedInt32Array, saved: Array[Quaternion], y: float, tilt: float, S: Dictionary) -> Array:
+	for j in ids.size():
+		if ids[j] >= 0: A.q[ids[j]] = saved[j]
+	A.holder.position.y = y
+	if tilt > 0.0: A.bend("Hips", 1, 0, 0, -tilt)
+	_legs_ik(a, Bo, env)
+	return _seat_low(S, _pn, _pc)
+
+# how far the thighs are swung forward from the trunk's down axis (radians, both legs' mean)
+func _flex() -> float:
+	var wb := _bi("Waist")
+	if wb < 0: return 0.0
+	var rw := (A.gxf(wb).basis.get_rotation_quaternion() * A.rest_w[wb]).inverse()
+	var f := 0.0
+	for s in ["L", "R"]:
+		var v := rw * (A.gxf(_bi(s + "Leg")).origin - A.gxf(_bi(s + "Thigh")).origin)
+		var a := atan2(v.z, -v.y)
+		f += (a + TAU if a < -PI * 0.5 else a) * 0.5   # (past straight up, not round to minus)
+	return f
+
+# the ground near a point (root frame) as a plane: heights above it are n.p - c
+var _pn := Vector3.UP
+var _pc := 0.0
+func _ground_plane(p: Vector3) -> void:
+	_pn = Vector3.UP; _pc = 0.0
+	if not A.ground.is_valid() or not A.is_inside_tree(): return
+	var d := 0.3
+	var sx := (_ground_local(p + Vector3(d, 0, 0)) - _ground_local(p - Vector3(d, 0, 0))) / (2.0 * d)
+	var sz := (_ground_local(p + Vector3(0, 0, d)) - _ground_local(p - Vector3(0, 0, d))) / (2.0 * d)
+	_pn = Vector3(-sx, 1.0, -sz)
+	_pc = _ground_local(p) - sx * p.x - sz * p.z
+
+# the ground's height (root frame) under a point given in the root frame
+func _ground_local(p: Vector3) -> float:
+	if not A.ground.is_valid() or not A.is_inside_tree(): return 0.0
+	var w := A.global_transform * p
+	return float(A.ground.call(w.x, w.z)) - A.global_position.y
+
+# a sample of the skinned body, made once per look: the vertices hung only from
+# the given bones that pass keep(rest point), thinned to one per cell (model units)
+static var _samples := {}
+func _sample(key: String, names: Array, keep: Callable, cell: float) -> Dictionary:
+	var kk: String = A.look + "/" + key
+	if _samples.has(kk): return _samples[kk]
+	var S := {}
+	var sb := PackedInt32Array()
+	for n in names: sb.append(_bi(n))
+	var nb := sb.size()
+	if not sb.has(-1):
+		var binds: Array[Transform3D] = []
+		binds.resize(nb)
+		var have := []
+		have.resize(nb); have.fill(false)
+		var pts := PackedVector3Array()
+		var wts := PackedFloat32Array()
+		var cells := {}
+		for mi in A.meshes:
+			var sk: Skin = mi.skin
+			if sk == null or mi.mesh.get_surface_count() == 0: continue
+			var arr := mi.mesh.surface_get_arrays(0)
+			var B = arr[Mesh.ARRAY_BONES]
+			var Wt = arr[Mesh.ARRAY_WEIGHTS]
+			var V = arr[Mesh.ARRAY_VERTEX]
+			if B == null or Wt == null or V == null or B.size() != V.size() * 4: continue
+			var slot := PackedInt32Array()
+			for i in sk.get_bind_count():
+				var bi := sk.get_bind_bone(i)
+				if bi < 0: bi = A.skel.find_bone(sk.get_bind_name(i))
+				var j := sb.find(bi)
+				slot.append(j)
+				if j >= 0 and not have[j]: binds[j] = sk.get_bind_pose(i); have[j] = true
+			for i in V.size():
+				var v: Vector3 = V[i]
+				if not keep.call(v): continue
+				var wv := PackedFloat32Array()
+				wv.resize(nb)
+				var ok := true
+				for j in 4:
+					var w: float = Wt[i * 4 + j]
+					if w <= 0.0: continue
+					var sj := slot[B[i * 4 + j]]
+					if sj < 0: ok = false; break
+					wv[sj] += w
+				if not ok: continue
+				var c := Vector3i((v / cell).floor())
+				if cells.has(c): continue
+				cells[c] = true
+				pts.append(v)
+				wts.append_array(wv)
+		if pts.size() > 0 and not have.has(false):
+			S = {"bones": sb, "binds": binds, "v": pts, "w": wts}
+	_samples[kk] = S
+	return S
+
+# the seat: from mid-thigh up to the waist, the back and underside of the jeans
+func _seat_sample() -> Dictionary:
+	if _bi("LThigh") < 0 or _bi("LLeg") < 0 or _bi("Waist") < 0: return {}
+	var y_lo := (A.skel.get_bone_global_rest(_bi("LThigh")).origin.y + A.skel.get_bone_global_rest(_bi("LLeg")).origin.y) * 0.5
+	var y_hi := A.skel.get_bone_global_rest(_bi("Waist")).origin.y + 0.04
+	return _sample("seat", SEAT_BONES, func(v: Vector3) -> bool: return v.y >= y_lo and v.y <= y_hi and v.z <= 0.05, 0.02)
+
+# a sole: the bottom of what hangs from the foot and the toes on that side
+func _sole_sample(s: String) -> Dictionary:
+	var fb := _bi(s + "Foot")
+	if fb < 0 or _bi(s + "Toe") < 0: return {}
+	var sg := signf(A.skel.get_bone_global_rest(fb).origin.x)
+	var y_hi := A.skel.get_bone_global_rest(_bi(s + "Toe")).origin.y * 0.4
+	return _sample("sole" + s, [s + "Foot", s + "Toe"], func(v: Vector3) -> bool: return v.y <= y_hi and v.x * sg > 0.0, 0.012)
+
+# a sample's lowest point at the pose being built: [height (root frame; with a plane
+# n, c: above it, n.p - c), point (root frame)]
+func _seat_low(S: Dictionary, n := Vector3.UP, c := 0.0) -> Array:
+	var sb: PackedInt32Array = S.bones
+	var nb := sb.size()
+	var bd: Array[Transform3D] = S.binds
+	var m: Array[Transform3D] = []
+	var rx := PackedFloat32Array(); var ry := PackedFloat32Array(); var rz := PackedFloat32Array(); var ro := PackedFloat32Array()
+	for j in nb:
+		var t := A.gxf(sb[j]) * bd[j]
+		m.append(t)
+		rx.append(t.basis.x.dot(n)); ry.append(t.basis.y.dot(n)); rz.append(t.basis.z.dot(n)); ro.append(t.origin.dot(n))
+	var V: PackedVector3Array = S.v
+	var Wt: PackedFloat32Array = S.w
+	var lo := INF
+	var li := 0
+	for i in V.size():
+		var v := V[i]
+		var y := 0.0
+		for j in nb:
+			var w := Wt[i * nb + j]
+			if w > 0.0: y += w * (rx[j] * v.x + ry[j] * v.y + rz[j] * v.z + ro[j])
+		if y < lo: lo = y; li = i
+	var p := Vector3.ZERO
+	for j in nb:
+		var w := Wt[li * nb + j]
+		if w > 0.0: p += (m[j] * V[li]) * w
+	return [A.holder.position.dot(n) + lo * A.k - c, A.holder.position + p * A.k]
+
+func _legs_ik(a: Dictionary, Bo: Dictionary, env: float) -> void:
 	for i in 2:
 		var s := "L" if i == 0 else "R"
 		var F: Dictionary = a.feet[i]
@@ -471,10 +692,26 @@ func _legs(a: Dictionary, Bo: Dictionary, env: float) -> void:
 		var ank: Vector3 = qH * (F.ank - F.toe) + F.toe
 		var T := (ank - A.holder.position) / A.k
 		var ko: float = Bo.get("ko", 0.0) * sg
-		var PL: Vector3 = Quaternion(Vector3.UP, ko) * F.pole
+		# (sitting, the knees come up past the hips: the pole leans up too, or it would
+		# lie along the thigh-to-ankle line once the hips are down level with the feet)
+		var PL: Vector3 = Quaternion(Vector3.UP, ko) * (F.pole + Vector3.UP * float(a.def.get("kup", 0.0))).normalized()
+		var tb := _bi(s + "Toe")
+		var tq: Quaternion = A.q[tb] if tb >= 0 else Quaternion.IDENTITY
 		_ik(s + "Thigh", s + "Leg", s + "Foot", T, PL, [1, 0, 0, 1], env)
 		_orient(s + "Foot", qH * F.q, env)
-		if heel: A.bend(s + "Toe", 1, 0, 0, -heel)
+		if heel:
+			A.bend(s + "Toe", 1, 0, 0, -heel)
+			# the heel turns up about the ball's joint, a little above the sole: the
+			# sole round the ball would dip into the ground, so the foot is lifted by that
+			var S := _sole_sample(s)
+			if not S.is_empty():
+				var dip: float = F.g - float(_seat_low(S)[0])
+				if dip > 0.0:
+					T.y += dip / A.k
+					if tb >= 0: A.q[tb] = tq
+					_ik(s + "Thigh", s + "Leg", s + "Foot", T, PL, [1, 0, 0, 1], env)
+					_orient(s + "Foot", qH * F.q, env)
+					A.bend(s + "Toe", 1, 0, 0, -heel)
 
 # ---------- the ball: from the belt, small, grows in the hand, tossed, shrunk, put back ----------
 func _ball(a: Dictionary, t: float, env: float) -> void:

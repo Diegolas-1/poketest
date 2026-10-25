@@ -92,6 +92,15 @@ var cap_out := PackedByteArray()
 var cap_inn := PackedByteArray()
 var rings: Array = []
 var shells: Array = []
+# the ground under the actor, as a plane (world): height gy at gp, slopes gsx / gsz; read
+# once an update from the actor's ground lookup (or level at its feet)
+var gy := 0.0
+var gp := Vector3.ZERO
+var gsx := 0.0
+var gsz := 0.0
+const GROUND_PAD := 0.012     # cloth stays this far above the ground (m)
+const GROUND_GRIP := 0.85     # of its sideways speed lost by a particle on the ground each step
+const GROUND_PROBE := 0.4
 
 static func make(a: Node3D) -> ClothSim:
 	var sim = CastActor.data().looks[a.look].get("sim")
@@ -375,6 +384,7 @@ func update(dt: float, speed: float, rate := STEP_HZ) -> void:
 	for j in nh: hz.append(dt * (j if inline else j + 1))
 	_frames(hz, not reset)
 	fwd = actor.global_basis.z.normalized()
+	_ground_plane(root)
 	if reset:
 		_follow()
 		for i in x.size(): x[i] = tg[i]; xp[i] = tg[i]; vt[i] = Vector3.ZERO
@@ -503,6 +513,56 @@ func _step(h: float, speed: float, t: float) -> void:
 				var i := p0[c] + k
 				x[i] = _collide(x[i], ops[i], prev, m)
 				prev = x[i]
+	_ground_out()
+
+# the ground plane under the actor, from its ground lookup (a few probes round it)
+func _ground_plane(at: Vector3) -> void:
+	gp = at
+	var g = actor.get("ground")
+	if not (g is Callable) or not (g as Callable).is_valid():
+		gy = at.y; gsx = 0.0; gsz = 0.0
+		return
+	var f: Callable = g
+	var d := GROUND_PROBE
+	gy = float(f.call(at.x, at.z))
+	gsx = clampf((float(f.call(at.x + d, at.z)) - float(f.call(at.x - d, at.z))) / (2.0 * d), -1.0, 1.0)
+	gsz = clampf((float(f.call(at.x, at.z + d)) - float(f.call(at.x, at.z - d))) / (2.0 * d), -1.0, 1.0)
+
+# no cloth through the ground: a particle below it is put back on it at its link's
+# length from the one above (swung out the way it already leans, or away from the
+# hips), so a hem meeting the ground lies down and folds instead of standing on it
+# or being shortened (the bones keep their length: a shortened link would leave the
+# cloth's mesh below the particle); there it loses most of its sideways speed and
+# all of its speed into the ground, so it rests without sliding or jittering
+func _ground_out() -> void:
+	var p0: PackedInt32Array = D.c_p0
+	var cn: PackedInt32Array = D.c_n
+	var plen: PackedFloat32Array = D.p_len
+	var cpar: PackedInt32Array = D.c_parent
+	for c in p0.size():
+		var prev := pin[c]
+		var s: float = sc[cpar[c]]
+		for k in cn[c]:
+			var i := p0[c] + k
+			var p := x[i]
+			var fy := gy + gsx * (p.x - gp.x) + gsz * (p.z - gp.z) + GROUND_PAD
+			if p.y >= fy:
+				prev = p
+				continue
+			var L := plen[i] * s
+			var up := prev.y - fy
+			var q := Vector3(p.x, fy, p.z)
+			if up > -L and up < L:
+				var hz := Vector3(p.x - prev.x, 0.0, p.z - prev.z)
+				if hz.length_squared() < 1e-8: hz = Vector3(p.x - hip.x, 0.0, p.z - hip.z)
+				if hz.length_squared() < 1e-8: hz = -fwd
+				hz = hz.normalized() * sqrt(L * L - up * up)
+				q = Vector3(prev.x + hz.x, prev.y - up, prev.z + hz.z)
+				q.y = gy + gsx * (q.x - gp.x) + gsz * (q.z - gp.z) + GROUND_PAD
+			var o := xp[i]
+			xp[i] = Vector3(q.x - (q.x - o.x) * (1.0 - GROUND_GRIP), q.y, q.z - (q.z - o.z) * (1.0 - GROUND_GRIP))
+			x[i] = q
+			prev = q
 
 # panels bend together: each one's offset from its hang eased towards its neighbours'
 func _smooth(wgt: float) -> void:

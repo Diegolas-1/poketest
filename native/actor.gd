@@ -62,6 +62,9 @@ var cloth: ClothSim
 var cloth_far := false      # set by the owner: far off, the cloth just hangs
 var cloth_rate := 60.0      # sim steps a second (fewer further off: the bones then move only with them)
 var sim_cost_us := 0.0      # the last frame's sim time (dev)
+# the ground's height under a point (x, z, world): set by the owner (the player's: the
+# world's terrain); unset, the ground is level at the actor's own height
+var ground: Callable
 
 var phase := 0.0
 var steps := 0              # feet put down so far (sfx_world.gd: one footstep sound each)
