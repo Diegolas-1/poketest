@@ -94,7 +94,10 @@ func _ready() -> void:
 			var o: Dictionary = c.owner
 			var pr: Dictionary = pet[c.id]
 			if c.inside == "":
-				if not life.walkable(Vector2(c.pos.x, c.pos.z)): pr.bad += 1
+				# (Mr. Mime steps off the grid's margins onto his work spots: tables, the bench, his basket)
+				if not life.walkable(Vector2(c.pos.x, c.pos.z)) and not (c.has("mime") and c.mime.off_grid):
+					pr.bad += 1
+					if verbose and pr.bad % 200 == 1: print("  %s blocked at %s job %s phase %s at %s %s" % [c.id, c.pos, c.get("mime").job.get("kind") if c.has("mime") else "", c.get("mime").job.get("phase") if c.has("mime") else "", c.get("mime").job.get("at") if c.has("mime") else "", clock.time_text()])
 				if o.state == "act" and c.mode == "follow" and c.extra.is_empty():
 					pr.with += dt
 					if Vector2(c.pos.x - o.pos.x, c.pos.z - o.pos.z).length() > 8.0: pr.far += dt
@@ -108,7 +111,9 @@ func _ready() -> void:
 			for c in life.companions.pets:
 				var pr2: Dictionary = pet[c.id]
 				pr2.night[1] += 1
-				if c.sleep and c.inside == "" and Vector2(c.pos.x, c.pos.z).distance_to(c.night) < 0.8: pr2.night[0] += 1
+				var bed = c.night
+				if c.has("mime"): bed = MimeLife._p2(c.mime._spots("nook")[0])   # Mr. Mime: his basket at PALLET HOUSE
+				if c.sleep and c.inside == "" and Vector2(c.pos.x, c.pos.z).distance_to(bed) < 0.8: pr2.night[0] += 1
 				else: fails.append("day %d 03:00: %s not asleep in its bed (mode %s at %s)" % [clock.day(), c.id, c.mode, c.pos])
 			for p in life.people:
 				night_checks += 1

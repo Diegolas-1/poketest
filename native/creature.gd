@@ -53,6 +53,7 @@ static func make(sp: String) -> Creature:
 	match sp:
 		"caterpie": c = CreatureCaterpie.new()
 		"doduo": c = CreatureDoduo.new()
+		"mrmime": c = CreatureMrMime.new()
 		_: c = Creature.new()
 	c.name = "Creature_" + sp
 	c._build(sp)

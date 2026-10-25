@@ -65,10 +65,29 @@ func _ready() -> void:
 		target = Node3D.new()
 		add_child(target)
 	var act: String = A.get("act", "idle")
-	if act in ["crawl", "stopgo", "run"]: x = -float(A.get("from", "0.9"))
+	if act in ["crawl", "stopgo", "run", "walk"]: x = -float(A.get("from", "0.9"))
 	c.position = Vector3(x, 0, 0)
 	c.rotation.y = yaw
 	if act == "sleep": c.sleep = true
+	# Mr. Mime: --task=sweep|wipe|tray|serve|water|wall|sit|rest|listen [--th=0.72] [--carry=broom|can|tray]
+	# [--mood=wave|bow|...] (every 4 s) [--yaw=deg] [--table] (a table / bench at --th in front of / under him)
+	if A.has("yaw"): yaw = deg_to_rad(float(A.yaw)); c.rotation.y = yaw
+	if A.has("task"): c.set("task", A.task)
+	if A.has("th"): c.set("task_h", float(A.th))
+	if A.has("carry"): c.set("carry", A.carry)
+	if A.has("table"):
+		var tb := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		var th := float(A.get("th", "0.72"))
+		var sitting: bool = A.get("task", "") == "sit"
+		bm.size = Vector3(1.2, 0.05, 0.4) if sitting else Vector3(0.9, 0.04, 0.6)
+		tb.mesh = bm
+		var tm := StandardMaterial3D.new(); tm.albedo_color = Color(0.7, 0.5, 0.3)
+		tb.material_override = tm
+		tb.position = Vector3(0, th - 0.025, -0.1) if sitting else Vector3(0, th - 0.02, 0.62)
+		tb.rotation.y = yaw
+		tb.position = Basis(Vector3.UP, yaw) * tb.position
+		add_child(tb)
 	if A.has("soft") and "heads_solid" in c: c.heads_solid = false
 
 var _gap := 1e9
@@ -92,11 +111,14 @@ func _process(dt: float) -> void:
 		"hop": if int(t * 30) == 15: c.mood("hop")
 		"talk": if int(t * 30) % 30 == 10: c.mood("talk")
 		"peck", "call": if int(t * 30) == 15: c.mood(act)
+		"walk":
+			v = vmax * Creature.sm(0.0, 0.6, t)
 		"argue": if int(t * 30) % 90 == 15: c.mood("argue")
 		"glance":
 			for h in c.heads:
 				if h.act != "glance": h.act = "glance"; h.at = 0.0; h.dur = 1e9
-	if act in ["crawl", "stopgo", "run"]:
+	if A.has("mood") and int(t * 30) % 120 == 15: c.mood(A.mood)
+	if act in ["crawl", "stopgo", "run", "walk"]:
 		x += v * dt
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
 	if act == "circle":
@@ -108,8 +130,10 @@ func _process(dt: float) -> void:
 		target.position = Vector3(sin(t * 0.8) * 1.2, 1.2 + sin(t * 0.5) * 0.4, 1.5)
 		c.look_at_pos = target.position
 	var t0 := Time.get_ticks_usec()
-	c.animate(dt, v)
+	if not A.has("bind"): c.animate(dt, v)
 	_us += Time.get_ticks_usec() - t0; _n += 1
+	if A.has("dbg") and _n % 10 == 0 and "arms" in c: print("hands L %s R %s  S2o %s" % [c.G[c.arms[0].hand].origin, c.G[c.arms[1].hand].origin, c._S2o])
+	if A.has("dbg") and _n % 10 == 0: print("t %.2f hip %.3f  feet %s %s" % [t, c.get("hip_y"), c.legs[0].p, c.legs[1].p] if "legs" in c else "")
 	if A.has("cost") and _n % 60 == 0: print("animate %.3f ms avg" % (_us / 1000.0 / _n))
 	if A.has("slip"):
 		var cs := c.contacts()

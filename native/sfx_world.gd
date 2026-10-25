@@ -303,6 +303,16 @@ func _pet(c: Dictionary, cp: Vector3) -> void:
 		var first2: bool = not c.has("sfx_pecks")
 		c["sfx_pecks"] = cr.pecks
 		if not first2: Sfx.play("peck", at, {"vol": -8.0})
+	if c.species == "mrmime":
+		# his claps and the broom's strokes
+		if int(c.get("sfx_claps", -1)) != cr.claps:
+			var f4: bool = not c.has("sfx_claps")
+			c["sfx_claps"] = cr.claps
+			if not f4: Sfx.play("clap", at + Vector3(0, 1.0, 0), {"vol": -10.0, "dist": 14.0})
+		if int(c.get("sfx_sweeps", -1)) != cr.sweeps:
+			var f5: bool = not c.has("sfx_sweeps")
+			c["sfx_sweeps"] = cr.sweeps
+			if not f5: Sfx.play("garden_rake", at, {"vol": -16.0, "dist": 12.0, "pitch": 1.25})
 	if int(c.get("sfx_hops", -1)) != cr.hops:
 		var first3: bool = not c.has("sfx_hops")
 		c["sfx_hops"] = cr.hops
@@ -313,6 +323,9 @@ func _pet(c: Dictionary, cp: Vector3) -> void:
 # a companion speaks (companions.gd, its speech bubble)
 func pet_call(c: Dictionary) -> void:
 	if game.indoors: return
+	if c.species == "mrmime":
+		Sfx.play("critter_chirp", c.pos + Vector3(0, 1.0, 0), {"vol": -4.0, "pitch": 0.72})
+		return
 	var big: bool = c.species == "doduo"
 	Sfx.play("creature_honk" if big else "critter_chirp", c.pos + Vector3(0, 1.2 if big else 0.4, 0), {"vol": -3.0})
 

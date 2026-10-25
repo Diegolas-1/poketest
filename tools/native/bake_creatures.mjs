@@ -29,6 +29,12 @@ const SPECIES = {
     extra: [{ name: 'Horn', parent: 'Head', png: 'pm0010_00_Body1.png', pick: ([r, g, b]) => r > 200 && g < 160 && b < 110, ramp: 1.2 }] },
   // the heads at about 1.2 m with the necks up (about Ben's chest)
   doduo: { dir: 'Doduo', smd: 'DoduoM.SMD', scale: 0.0082, split: { 'pm0084_00_Eye1.png': ['LHead', 'RHead'] }, solo: ['LNeck1', 'RNeck1'] },
+  // Delia's Mr. Mime, about 1.3 m to the top of his head (a little under her shoulder).
+  // The rip draws the pupils as a separate see-through sheet over the eye whites (Iris1):
+  // the merged eye sheet (whites and pupils in one) is used instead and the iris dropped,
+  // so the eyes and the mouth are each one 2 x 4 expression atlas (uv_off).
+  mrmime: { dir: 'Mr. Mime', smd: 'MrMime.SMD', scale: 0.0101,
+    swap: { 'pm0122_00_Eye1.png': 'pm0122_00_Eye1_Merged.png' }, drop: ['pm0122_00_Iris1.png'] },
 };
 
 const args = process.argv.slice(2);
@@ -109,7 +115,8 @@ function parseSMD(text) {
 async function bake(id) {
   const sp = SPECIES[id];
   const dir = path.join(src, sp.dir);
-  const { nodes, tris } = parseSMD(fs.readFileSync(path.join(dir, sp.smd), 'utf8'));
+  const { nodes, tris: all } = parseSMD(fs.readFileSync(path.join(dir, sp.smd), 'utf8'));
+  const tris = all.filter((t) => !(sp.drop || []).includes(t.mat));
   const s = sp.scale;
   // world bind matrices in the rip's frame, then in the game's (rotation by M, translation scaled)
   const W = [];
@@ -173,7 +180,7 @@ async function bake(id) {
   const mats = {};
   const material = (key, png) => {
     if (mats[key]) return mats[key];
-    const img = fs.readFileSync(path.join(dir, 'images', png));
+    const img = fs.readFileSync(path.join(dir, 'images', (sp.swap && sp.swap[png]) || png));
     const nm = key.slice(id.length + 1);   // Godot names the extracted file <glb>_<texture>.png
     const tex = doc.createTexture(nm).setImage(img).setMimeType('image/png').setURI(nm + '.png');
     return (mats[key] = doc.createMaterial(key).setBaseColorTexture(tex).setRoughnessFactor(1).setMetallicFactor(0));

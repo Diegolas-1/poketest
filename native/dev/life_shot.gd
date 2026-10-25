@@ -78,7 +78,7 @@ func _process(dt: float) -> void:
 	var pet = life.companions.by_id.get(A.get("pet", ""))
 	if pet != null and A.has("pat") and phase == 1 and settle == int(A.get("settle", "40")) - 2:
 		pet.pat_cd = 0.0; pet.still_t = 5.0; life.companions.force_pat = true   # (dev) the owner's moment with it now
-	if pet != null and who != null:
+	if pet != null and (who != null or not A.has("follow")):
 		tp = pet.pos
 		who = {"pos": pet.pos, "yaw": pet.yaw}
 	if A.has("player") and who != null and A.player == "near":
