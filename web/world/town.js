@@ -5,7 +5,7 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, ROUTE1, routeX, LEDGES, ledgeLineZ } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, ROUTE1, routeX, LEDGES, ledgeLineZ, TRAIL0, R1_TRAIL1 } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
@@ -14,6 +14,7 @@ import { makeTree, makeBush, makeClump, makeRock, TILE } from './foliage.js';
 import { STONE, boulderGeometry, blockGeometry, mergeAll, wallGeometry, wallMeshes, stoneMesh, mergeStones } from './stone.js';
 const WALL_FADE = [300, 310];   // native: walls stay drawn this far (m)
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
+import { route1Fill } from './route1.js';   // Route 1's places (worker 12)
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -807,7 +808,7 @@ function laneFurniture(world) {
   const runs = [[0, r0n - 60, r0n - 6, [-1, 1]], [8, 2, 36, [1]], [1, 10, 46, [1]], [6, 8, 30, [-1]], [9, 3, 20, [-1]]];
   // rustic post-and-rail stretches along Route 1
   const brown = [];
-  for (const [za, zb, sd] of [[-96, -82, 1], [-134, -122, -1], [-176, -168, 1], [-212, -200, -1], [-250, -238, 1], [-300, -292, -1], [-332, -318, 1], [-372, -360, 1], [-420, -400, -1]]) brown.push([0, idxAt(za), idxAt(zb), [sd]]);
+  for (const [za, zb, sd] of [[-96, -82, 1], [-134, -122, -1], [-176, -168, 1], [-212, -200, -1], [-250, -238, 1], [-300, -292, -1], [-332, -318, 1]]) brown.push([0, idxAt(za), idxAt(zb), [sd]]);
   const nWhite = runs.length;
   runs.push(...brown);
   const posts = [], rails = [], bPosts = [], bRails = [];
@@ -834,7 +835,7 @@ function laneFurniture(world) {
 
   // lamps along the lanes in town
   ROADS.forEach((road, ri) => {
-    if (ri === 0) return;
+    if (ri === 0 || (ri >= TRAIL0 && ri < R1_TRAIL1)) return;   // (none on Route 1's trails)
     // (on the woodland trails only near town: they fade out into the woods)
     const iEnd = TRAILS.has(ri) ? Math.min(road.length - 4, ri === ROADS.length - 2 ? 40 : ri === ROADS.length - 1 ? 0 : road.length) : road.length - 4;
     for (let i = 8; i < iEnd; i += 18) {
@@ -1044,41 +1045,8 @@ function route1(world) {
   { const [x, z] = at(-104, 4.0); sign(x, z, -0.4, () => noticeBoard('TRAINER TIPS', ['Hop down a ledge to get', 'back to PALLET TOWN fast.', 'You can\'t climb back up!'], { style: 'chalk' }),
     ['TRAINER TIPS', 'Jump down a ledge for a shortcut back to PALLET TOWN.', 'Ledges only go one way: you can\'t climb back up!'], world, 0.9); }
   { const [x, z] = at(-262, -3.6); signpost(x, z, [['VIRIDIAN CITY', Math.PI], ['PALLET TOWN', 0]], world); }
-  // the gate: two stone-footed posts, a timber arch with the city's name, the
-  // gates shut, and rail fences off into the woods either side
-  const gz = ROUTE1.gateZ, gx = routeX(gz) + (at(gz, 0)[0] - routeX(gz));
-  const G = new THREE.Group(); G.position.set(gx, height(gx, gz) - 0.05, gz); world.group.add(G);
-  const wood = tex(planks('#9a6b42'));
-  for (const sx of [-3.2, 3.2]) {
-    box(0.9, 0.7, 0.9, tex(stones('#c9c0ae')), sx, 0.3, 0, G);
-    box(0.42, 4.6, 0.42, wood, sx, 2.6, 0, G);
-    add(new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.4, 4), flat('#6f4a30')), G, sx, 5.1, 0).rotation.y = Math.PI / 4;
-    world.colliders.push({ x: gx + sx, z: gz, r: 0.55 });
-  }
-  box(7.4, 0.3, 0.36, wood, 0, 4.35, 0, G);
-  box(7.0, 0.18, 0.3, wood, 0, 3.75, 0, G);
-  const np = nameplate('VIRIDIAN CITY', { w: 3.2, h: 0.5 }); np.position.set(0, 4.05, 0.2); G.add(np);
-  const np2 = np.clone(); np2.position.set(0, 4.05, -0.2); np2.rotation.y = Math.PI; G.add(np2);
-  for (const sx of [-1, 1]) {
-    const leaf = new THREE.Group(); leaf.position.set(sx * 2.95, 0, 0); leaf.rotation.y = sx * 0.05; G.add(leaf);
-    for (const yy of [0.5, 1.15, 1.8]) box(2.9, 0.16, 0.1, wood, -sx * 1.45, yy, 0, leaf);
-    for (const xx of [0.15, 1.45, 2.75]) box(0.12, 1.6, 0.12, wood, -sx * xx, 1.0, 0.05, leaf);
-    const br = box(3.2, 0.12, 0.1, wood, -sx * 1.45, 1.15, 0.08, leaf); br.rotation.z = sx * 0.42;
-  }
-  world.colliders.push({ box: true, x: gx, z: gz, hw: 3.2, hd: 0.25 });
-  // fences into the woods
-  const fp = [], fr = [];
-  for (const sd of [-1, 1]) {
-    let prev = null;
-    for (let k = 0; k <= 12; k++) {
-      const px = gx + sd * (4.2 + k * 2.4), pz = gz + Math.sin(k * 0.7) * 0.4, py = height(px, pz);
-      fp.push([px, py, pz]);
-      if (prev) fr.push([prev, [px, py, pz]]);
-      prev = [px, py, pz];
-    }
-  }
-  fenceMeshes(world, fp, fr, '#9a6b42');
-  world.use.push({ x: gx, z: gz + 1.6, r: 2.2, label: 'Look', lines: ['The gate to VIRIDIAN CITY is shut.', 'A note: ROAD WORKS AHEAD. Come back another day!'] });
+  // the gate itself (Viridian's stone gate, its walls and the city beyond): route1.js
+  const gz = ROUTE1.gateZ;
   { const [x, z] = at(gz + 9, -4.5); sign(x, z, 0.3, () => noticeBoard('VIRIDIAN CITY AHEAD', ['The road beyond the gate', 'is closed for repairs.', 'Sorry for the trouble!'], { style: 'pinned', frame: '#5f8fb0', roof: '#3d6fa8' }),
     ['VIRIDIAN CITY AHEAD', 'The road beyond the gate is closed for repairs. Sorry for the trouble!'], world, 0.9); }
 }
@@ -1606,6 +1574,7 @@ export function buildTown() {
   palletHouse(world);
   // where the new woodland trail forks off the lane to Blue's house
   signpost(26.6, -11.2, [["BLUE's house", 2.55], ['WOODLAND TRAIL', 2.0], ['TOWN SQUARE', -1.2], ['OAK LAB', -0.5]], world);
+  route1Fill(world);
   // the walls, foundations and the islet: one mesh per cell and kind
   world.stoneMeshes = mergeStones(world.group);
   // merge each static piece's meshes by material

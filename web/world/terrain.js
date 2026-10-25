@@ -9,6 +9,7 @@
 // wooden bridge, through a brick gate and up a long stone staircase; farm
 // fields lie at the western edge, and a wide beach with a pier in the south.
 import * as THREE from 'three';
+import * as R1 from './route1land.js';   // Route 1's pockets, trails and creeks (worker 12)
 
 // ---------- noise ----------
 function hash(x, y) {
@@ -241,6 +242,8 @@ const ROAD_CTRL = [
   [[BRIDGES[2].x1, 91], [123.5, 87.5]],
   // along the back of the beach to Marina's
   [[-7.6, 50], [-14, 55.5], [-22, 57.6], [-28, 57.4], ...approach(H.marina)],
+  // Route 1's trails into its pockets (route1land.js), before the woodland trails
+  ...R1.TRAILS,
   // woodland trails (TRAILS, narrower): from the plaza north along the stream
   // to the lane to Blue's; then, forking off that lane where it turns to
   // Blue's house, up through the woods behind Oak's hill and round back
@@ -251,6 +254,9 @@ const ROAD_CTRL = [
   [[147, 114.5], [150, 130], [152, 150], [153, 166], [155, 181], [156, 186]],
 ];
 export const TRAILS = new Set([ROAD_CTRL.length - 3, ROAD_CTRL.length - 2, ROAD_CTRL.length - 1]);
+// ROADS[TRAIL0 .. TRAIL0 + R1.TRAILS.length - 1]: Route 1's trails (route1land.js)
+export const TRAIL0 = ROAD_CTRL.length - 3 - R1.TRAILS.length;
+export const R1_TRAIL1 = TRAIL0 + R1.TRAILS.length;   // one past Route 1's trails
 // the trails' ends: a clearing in the woods behind the lab, a viewpoint on the east headland
 export const CLEARINGS = [{ x: 156.5, z: 188, r: 7, name: 'viewpoint' }];
 // PALLET HOUSE (Delia's restaurant, with rooms upstairs), on a level hilltop
@@ -376,6 +382,7 @@ function base(x, z) {
   return h;
 }
 export const baseHeight = base;
+R1.init(base);
 
 // ---------- Route 1 ----------
 // The route climbs the peninsula's spine from the town's northern rim to the
@@ -451,12 +458,13 @@ function routeLand(x, z) {
   const n = fbm(x * 0.035 + 2, z * 0.035 + 7, 3);
   // the floor: rising gently north, hummocky
   let h = 3.2 + 0.03 * Math.max(0, -62 - z) + (n - 0.5) * 2.4 + ledgeSum(x, z);
+  const floor = h;
   // the valley's sides: forested hills, then the higher ground of the spine
   h += smooth(fw - 6, fw + 26, d) * (6 + fbm(x * 0.02 + 5, z * 0.02 + 1, 4) * 18);
   h += smooth(fw + 30, fw + 140, d) * 7;
   // the mainland past the route's end: rolling, wooded, higher
   h += smooth(-430, -520, z) * (6 + fbm(x * 0.01, z * 0.01, 3) * 20) * smooth(fw, fw + 40, d);
-  return h;
+  return R1.land(x, z, h, floor);
 }
 
 // house pads: each house stands level at its knoll's height
@@ -661,6 +669,7 @@ export const FIELDS = [
   { x: -62, z: -32, w: 18, d: 13, rot: -0.2, kind: 'crop' },
   { x: -84, z: -34, w: 16, d: 14, rot: 0.1, kind: 'wheat' },
   { x: 40, z: -50, w: 20, d: 12, rot: -0.12, kind: 'till' },
+  R1.FARM_FIELD,
 ];
 export function fieldAt(x, z, m = 0) {
   for (const f of FIELDS) {
@@ -708,7 +717,7 @@ export function outOfBounds(x, z) {
   if (sd > -4 && sd < 4.5 && cliffiness(x, z) > 0.45 && base(x, z) > SEA_Y + 1.4) return true;
   if (z > -70) return false;
   if (z < ROUTE1.gateZ) return true;
-  return Math.abs(x - routeX(z)) > routeHalfWidth(z) + 8;
+  return Math.abs(x - routeX(z)) > routeHalfWidth(z) + 8 && !R1.walkable(x, z);
 }
 export function noWalk(x, z) {
   const u = hillU(x, z);
@@ -769,7 +778,7 @@ export function height(x, z) {
     }
     h = Math.max(h, hh);
   }
-  return h;
+  return R1.carve(x, z, h);
 }
 
 // water level at a point (sea, pond or stream)
@@ -777,6 +786,8 @@ export function waterLevel(x, z) {
   if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 2) return POND.y;
   const s = streamAt(x, z);
   if (s.d < 4) return Math.max(SEA_Y, s.y);
+  const cw = R1.creekLevel(x, z);
+  if (cw !== null) return cw;
   return SEA_Y;
 }
 export function isWater(x, z) { return height(x, z) < waterLevel(x, z) - 0.05; }
@@ -813,7 +824,7 @@ export function groundColor(x, z, h, slope, out) {
     const s = SAND.clone().lerp(SAND_DRY, smooth(0.6, 1.4, h - SEA_Y)).lerp(SAND_W, 1 - smooth(0.05, 0.35, h - SEA_Y));
     out.lerp(s, sandK);
   }
-  return out;
+  return R1.tint(x, z, out);
 }
 
 // ---------- meshes ----------
@@ -1142,6 +1153,8 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
     g.setIndex(idx);
     group.add(new THREE.Mesh(g, fresh(1)));
   }
+  // Route 1's creeks and their pools (route1land.js)
+  for (const { g, flow } of R1.creekGeometries()) group.add(new THREE.Mesh(g, fresh(flow)));
   return group;
 }
 

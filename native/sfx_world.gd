@@ -68,7 +68,8 @@ var _p_ground := true
 var _p_vy := 0.0
 var _rustle_t := 0.0
 # timers for scattered sounds
-var _next := {"bird": 2.0, "gull": 6.0, "frog": 3.0, "owl": 30.0, "dog": 40.0, "chime": 8.0, "hen": 5.0}
+var _next := {"bird": 2.0, "gull": 6.0, "frog": 3.0, "owl": 30.0, "dog": 40.0, "chime": 8.0, "hen": 5.0, "r1chime": 4.0}
+var _r1: Dictionary = {}   # Route 1 (cast.json route1.amb): the meadow, the tea house chime, the windmill
 var _space := ""
 var _last_hour := -1
 
@@ -84,6 +85,8 @@ func setup(g: Node) -> void:
 	tall = g.cast.tall if g.cast else []
 	_water_grid(W)
 	_plants()
+	var r1 = CastActor.data().get("route1")
+	if r1 != null: _r1 = r1.get("amb", {})
 
 # ---------- surfaces ----------
 
@@ -390,6 +393,7 @@ func _ambience(dt: float) -> void:
 	Sfx.bed("crickets", "amb_crickets", night * (1.0 - 0.5 * _sm(30.0, 5.0, ds)) * 0.9, null, 4.0)
 	# the windmill on the lab's tower
 	Sfx.bed("mill", "windmill_creak", 1.0 if pos.distance_to(WINDMILL) < 70.0 else 0.0, WINDMILL)
+	_route1(pos, day)
 	# the pier bell at six in the morning and six in the evening
 	var hr := int(h)
 	if hr != _last_hour:
@@ -440,3 +444,20 @@ func _interior_beds() -> void:
 		var y := float(pr.get("y", 0.0)) + float(D.level_y[int(pr.get("level", 0))]) + 1.0
 		Sfx.bed("prop_%d" % n, b[0], b[1], Vector3(float(pr.x), y, float(pr.z)))
 		n += 1
+
+# Route 1's places: birdsong over the flower meadow by day, the tea house's
+# glass wind chime, the windmill's creak near Viridian (the creeks come in as
+# fresh water with the stream above)
+func _route1(pos: Vector3, day: float) -> void:
+	if _r1.is_empty(): return
+	if _r1.has("meadow"):
+		var m: Dictionary = _r1.meadow
+		var dm := Vector2(pos.x, pos.z).distance_to(Vector2(float(m.x), float(m.z)))
+		Sfx.bed("r1_meadow", "amb_birds_day", day * (1.0 - _sm(float(m.r), float(m.r) + 40.0, dm)) * 0.8, null, 3.0)
+	if _r1.has("mill"):
+		var mp := Vector3(float(_r1.mill[0]), float(_r1.mill[1]), float(_r1.mill[2]))
+		Sfx.bed("r1_mill", "windmill_creak", 1.0 if pos.distance_to(mp) < 60.0 else 0.0, mp)
+	if _r1.has("chime") and _next.r1chime <= 0.0:
+		_next.r1chime = _rng.randf_range(3.0, 9.0)
+		var cp := Vector3(float(_r1.chime[0]), float(_r1.chime[1]), float(_r1.chime[2]))
+		if cp.distance_to(pos) < 30.0: Sfx.play("wind_chimes", cp, {"vol": -4.0, "dist": 30.0})

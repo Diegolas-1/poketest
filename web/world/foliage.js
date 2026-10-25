@@ -17,6 +17,9 @@ export const TILE = {
   ivy: 12, ivy2: 13,                            // heart-shaped climbing leaves
   flowersY: 14, flowersR: 15,                   // little flower heads among leaves
 };
+// the 'meadow' atlas's wildflower tufts (yellow, pink, lavender, white,
+// poppy, blue: route1land.js drift species 0-4, blue as the accent)
+export const MEADOW_TILE = [TILE.ivy, TILE.fern, TILE.needles, TILE.needles2, TILE.palm, TILE.ivy2];
 // variant 'autumn' paints the broadleaf and bush tiles in reds and oranges
 // (same layout and TILE indices; every other tile is the same)
 const atlases = new Map();
@@ -194,6 +197,43 @@ export function leafAtlas(variant = 'green') {
     }
   });
   flowers(TILE.flowersY, 48, 62); flowers(TILE.flowersR, 2, 60);
+  // variant 'meadow' (Route 1's flower meadow, route1veg.js): the conifer,
+  // palm, fern and ivy tiles become wildflower tufts, so every meadow flower
+  // is one material: MEADOW_TILE says which tile is which
+  if (variant === 'meadow') {
+    const tuft = (i, flower) => {
+      ctx.clearRect((i % 4) * S, Math.floor(i / 4) * S, S, S);
+      tile(i, () => {
+        // grass blades from the bottom middle
+        for (let k = 0; k < 34; k++) {
+          const x0 = S / 2 + (R() - 0.5) * 90, a = -Math.PI / 2 + (R() - 0.5) * 1.1, L = 90 + R() * 110;
+          ctx.strokeStyle = hsl(96 + (R() - 0.5) * 24, 52, 30 + R() * 18); ctx.lineWidth = 4 + R() * 3; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x0, S - 4); ctx.quadraticCurveTo(x0 + Math.cos(a) * L * 0.5, S - 4 + Math.sin(a) * L * 0.6, x0 + Math.cos(a) * L, S - 4 + Math.sin(a) * L); ctx.stroke();
+        }
+        for (let k = 0; k < 13; k++) {
+          const x = S / 2 + (R() - 0.5) * 170, y = 40 + R() * 120;
+          ctx.strokeStyle = hsl(100, 45, 32); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(S / 2 + (x - S / 2) * 0.4, S - 4); ctx.stroke();
+          flower(x, y, R);
+        }
+      });
+    };
+    const petals = (x, y, n, r, w, col, mid) => {
+      for (let p = 0; p < n; p++) { const a = p / n * 6.283 + R() * 0.2; ctx.fillStyle = col(); ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r, y + Math.sin(a) * r, r, w, a, 0, 6.28); ctx.fill(); }
+      if (mid) { ctx.fillStyle = mid; ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, 6.28); ctx.fill(); }
+    };
+    // lavender: spikes of little purple buds
+    tuft(TILE.needles, (x, y) => { for (let b = 0; b < 7; b++) { ctx.fillStyle = hsl(266 + (R() - 0.5) * 16, 55, 52 + R() * 14); ctx.beginPath(); ctx.ellipse(x + (R() - 0.5) * 6, y + b * 9, 6, 8, 0, 0, 6.28); ctx.fill(); } });
+    // daisies: white rays round a yellow eye
+    tuft(TILE.needles2, (x, y) => petals(x, y, 11, 9, 3.6, () => hsl(48, 30, 95 + R() * 4), hsl(44, 92, 55)));
+    // poppies: four broad scarlet petals and a dark heart
+    tuft(TILE.palm, (x, y) => petals(x, y, 4, 10, 9, () => hsl(8 + R() * 8, 88, 52 + R() * 8), hsl(330, 40, 18)));
+    // cosmos: eight pink petals
+    tuft(TILE.fern, (x, y) => petals(x, y, 8, 10, 4.5, () => hsl(330 + R() * 12, 72, 70 + R() * 8), hsl(48, 90, 58)));
+    // buttercups: five glossy yellow cups
+    tuft(TILE.ivy, (x, y) => petals(x, y, 5, 7, 5.5, () => hsl(50, 95, 56 + R() * 10), hsl(40, 90, 42)));
+    // cornflowers: ragged blue heads
+    tuft(TILE.ivy2, (x, y) => petals(x, y, 9, 8, 3.2, () => hsl(220 + R() * 14, 75, 60 + R() * 10), hsl(240, 50, 34)));
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
@@ -367,7 +407,7 @@ export function barkMaterial(color = '#7a5638', style = 'ridged', wind = 0.07) {
 
 // ---------- geometry helpers ----------
 // A card of size s at p facing n, using atlas tile i, rotated by r.
-function pushCard(out, p, n, s, tile, r, center, flutter) {
+export function pushCard(out, p, n, s, tile, r, center, flutter) {
   const up = Math.abs(n.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
   const u = new THREE.Vector3().crossVectors(up, n).normalize();
   const v = new THREE.Vector3().crossVectors(n, u).normalize();
@@ -390,7 +430,7 @@ function pushCard(out, p, n, s, tile, r, center, flutter) {
   }
   out.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
 }
-function toGeometry(out) {
+export function toGeometry(out) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(out.pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(out.nor, 3));
@@ -401,7 +441,7 @@ function toGeometry(out) {
   g.computeBoundingSphere();
   return g;
 }
-const cards = () => ({ pos: [], nor: [], uv: [], idx: [], fl: [], col: [] });
+export const cards = () => ({ pos: [], nor: [], uv: [], idx: [], fl: [], col: [] });
 
 // A puff of leaf cards round a centre (one lobe of a canopy).
 function puff(out, c, r, n, tiles, R, treeCenter) {

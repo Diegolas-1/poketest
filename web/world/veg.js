@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
 import { STONE } from './stone.js';
 import { BEDS } from './town.js';
+import * as R1 from './route1land.js';
+import { meadowFlowers, handTrees } from './route1veg.js';
 
 
 const TALL = TALL_GRASS;
@@ -88,6 +90,8 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     if (p && (p[0] !== x || p[1] !== z)) (window.__offPath ||= []).push([x, z, +p[0].toFixed(1), +p[1].toFixed(1), k]);   // test hook: what moved
     if (p && free(p[0], p[1], 1.5)) place(k, p[0], p[1], s);
   }
+  // Route 1's trees placed by hand (route1veg.js): the meadow's lone tree, the orchard
+  for (const [x, z, k, s] of handTrees()) if (free(x, z, 1)) place(k, x, z, s);
   const north = [['scotspine', 2.5], ['giant', 2], ['linden', 3], ['beech', 2], ['tiered', 3], ['shade', 2], ['cypress', 1.5], ['oldgrowth', 1], ['multistem', 1], ['birch', 1], ['bushy', 1], ['dead', 0.25]];
   const edge = [['tiered', 5], ['shade', 3], ['linden', 3], ['oak', 3], ['beech', 2], ['multistem', 2], ['bushy', 3], ['sapling', 2], ['birch', 2], ['lombardy', 1.5], ['cypress', 1.5], ['spreading', 1], ['oldgrowth', 0.7], ['giant', 0.7]];
   const hillK = [['tiered', 3], ['shade', 2], ['linden', 3], ['bushy', 3], ['cypress', 2.5], ['oak', 1]];
@@ -116,7 +120,9 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
       const e = Math.abs(x - routeX(z)) - routeHalfWidth(z);
       dens = e < -8 ? 0.1 + fbm(x * 0.05 + 3, z * 0.05, 2) * 0.25 : e < 24 ? 0.95 : e < 70 ? 0.22 : 0.03;
       if (e < -8 && TALL.some(([a, b, c2, d]) => x > a - 3 && x < c2 + 3 && z > b - 3 && z < d + 3)) dens = 0.02;
+      dens = R1.treeDensity(x, z, dens);
     }
+    if (R1.cleared(x, z, 3)) dens = 0;
     if (R() > dens || !free(x, z, 2.5)) continue;
     let k = beach ? 'palm' : pick(z < -64 ? north : ring || td < 10 ? edge : far);
     if (k === 'dead' && (ring || R() < 0.5)) k = 'tiered';   // snags only deep in the woods
@@ -154,6 +160,7 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
     const edge = all.some((t) => { const d = (t.x - x) ** 2 + (t.z - z) ** 2; return d < 60 && d > 6; });
     const rd = roadDist(x, z), lane = rd > 3 && rd < 4.5 && R() < 0.25;  // along roads
     if (!edge && !lane && R() > 0.04) continue;
+    if (R1.cleared(x, z, 1)) continue;
     bp.push({ x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s: 0.8 + R() * 0.7 });
   }
   // low hedges round the farm fields
@@ -222,6 +229,11 @@ export async function buildVegetation(scene, renderer, blocked, colliders, quali
   // small plants fade out and sink into the ground past their range
   sow(ferns, fp, () => ({ chunk: 36, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
   sow(flowers, fl, () => ({ chunk: 32, fade: [55 * quality.lod - 3, 55 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
+  // Route 1's flower meadow, in drifts (route1veg.js): one scatter per kind
+  {
+    const M = meadowFlowers(free, quality);
+    M.pts.forEach((list, i) => { keepOff(list, 0.3); sow(M.models[i], list, () => ({ chunk: 48, fade: [62 * quality.lod - 3, 62 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false })); });
+  }
 
   // ---------- rocks ----------
   const rocks = [makeRock(1, 1.0), makeRock(2, 1.4), makeRock(3, 0.8, { kind: 'slab' }), makeRock(4, 2.0), makeRock(5, 1.2)];

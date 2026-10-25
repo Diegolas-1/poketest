@@ -60,6 +60,7 @@ func setup(g: Node3D) -> void:
 		if n.name == "Prof. Oak":
 			oak = e
 			e.hidden = true; a.visible = false
+	_route_npcs(d)   # Route 1's people (web route1.js: the tea keeper, the POKé MART clerk)
 	uses = d.use
 	road = d.road
 	tall = d.tallGrass
@@ -538,3 +539,19 @@ class _TouchButtons extends Control:
 			var fs := 22 if k == "use" else 13
 			var sz := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 			draw_string(font, c[k] + Vector2(-sz.x / 2, sz.y * 0.32), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+
+# Route 1's people (cast.json route1.npcs, from web/world/route1.js): they keep
+# their spot (wander 0) and turn back to it after a talk; ylock = a floor
+func _route_npcs(d: Dictionary) -> void:
+	var r1 = d.get("route1")
+	if r1 == null: return
+	for n in r1.get("npcs", []):
+		var a := CastActor.make(String(n.look))
+		add_child(a)
+		var x: float = n.x
+		var z: float = n.z
+		var e := {"actor": a, "name": n.name, "home": Vector2(x, z), "pos": Vector3(x, game.world.height_at(x, z), z),
+			"yaw": float(n.yaw), "rot0": float(n.yaw), "target": null, "wait": 1.0, "wander": 0.0,
+			"lines": n.lines, "speed": 0.0, "face": NAN, "hidden": false}
+		if n.has("ylock"): e.ylock = float(n.ylock)
+		npcs.append(e)

@@ -255,6 +255,7 @@ const res = await p.evaluate(async () => {
   out.labDoor = w.town.labDoor;
   out.road = T.ROADS[0].map(([x, z]) => [+x.toFixed(3), +z.toFixed(3)]);
   out.tallGrass = N.TALL_GRASS;
+  out.route1 = w.town.r1 || null;   // Route 1's people, moving parts and ambient life (web/world/route1.js)
   return out;
 });
 

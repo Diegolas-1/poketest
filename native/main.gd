@@ -44,6 +44,7 @@ var fps_n := 0
 var fps_worst := 0.0
 var mats := {}
 var scenery: Node3D
+var route1: Node3D
 var town_root: Node
 var water_root: Node
 var terrain_root: Node
@@ -72,6 +73,9 @@ func _ready() -> void:
 	scenery = Scenery.new()   # plants, mountains, clouds, instanced town parts, sea split (scenery.gd)
 	add_child(scenery)
 	scenery.setup(self, town_root, water_root, terrain_mat)
+	route1 = preload("res://route1.gd").new()   # Route 1's sails, swing, butterflies, birds, steam (route1.gd)
+	scenery.add_child(route1)
+	route1.setup(self, town_root)
 	# ---- ink (worker 2): vector lines on the town; see ink.gd ----
 	outdoor_ink = Ink.add_world_lines(self)
 	Ink.outline_town(self)
@@ -306,6 +310,7 @@ func _process(dt: float) -> void:
 	if indoors: _camera_in(dt)
 	else: _camera(dt)
 	if not indoors: scenery.update(cam.global_position)
+	if not indoors and route1: route1.update(dt)
 	fps_acc += dt; fps_n += 1; fps_worst = maxf(fps_worst, dt)
 	if fps_acc >= 0.5:
 		hud.text = "%d fps · %d ms" % [roundi(fps_n / fps_acc), roundi(fps_worst * 1000.0)]
