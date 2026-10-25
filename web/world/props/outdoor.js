@@ -837,9 +837,9 @@ export function busShelter({ col = '#4f8a6a', roof = '#c4553a' } = {}) {
   // the back wall: boards below, a long window above
   bev(2.6, 1.0, 0.06, pw, 0, 0.62, -0.6, G, 0.01);
   bev(2.6, 0.12, 0.1, col, 0, 1.17, -0.6, G, 0.02);
-  put(new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.95), texm(glassTex())), G, 0, 1.7, -0.6, { line: false });
+  put(new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.95), texm(glassTex(), '#ffffff', THREE.DoubleSide)), G, 0, 1.7, -0.6, { line: false });
   for (let k = 1; k < 4; k++) bev(0.05, 0.95, 0.06, col, -1.25 + k * 0.625, 1.7, -0.59, G, 0.01, { line: false });
-  for (const sx of [-1, 1]) { bev(0.06, 1.0, 1.1, pw, sx * 1.33, 0.62, 0, G, 0.01); put(new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.9).rotateY(Math.PI / 2), texm(glassTex())), G, sx * 1.33, 1.65, 0, { line: false }); }
+  for (const sx of [-1, 1]) { bev(0.06, 1.0, 1.1, pw, sx * 1.33, 0.62, 0, G, 0.01); put(new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.9).rotateY(Math.PI / 2), texm(glassTex(), '#ffffff', THREE.DoubleSide)), G, sx * 1.33, 1.65, 0, { line: false }); }
   // the roof: a shallow curve of tile courses over a fascia
   {
     const R = 2.4, a0 = -0.42, a1 = 0.42, n = 7, L = 3.4;
@@ -870,6 +870,7 @@ export function busShelter({ col = '#4f8a6a', roof = '#c4553a' } = {}) {
   bev(0.36, 0.52, 0.03, col, -0.9, 0.85, -0.565, G, 0.01);
   put(new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.45), texm(tt)), G, -0.9, 0.85, -0.548, { line: false });
   vines(G, V(-1.4, 2.4, 0.62), V(-0.4, 2.4, 0.62), 4, 1.0, 64);
+  G.userData.qa = { k: 'open', why: 'a bus shelter: open at the front by design' };
   return G;
 }
 // a red pillar postbox with a rounded cap
@@ -1017,7 +1018,7 @@ export function windmill({ h = 9, col = '#d9d0b8' } = {}) {
     const cl = box(0.9, spread ? 3.9 : 3.9, 0.02, '#f2ead6', spread ? 0.65 : 0.32, 3.2, 0.27, A, { line: false });
     if (!spread) { cl.scale.x = 0.25; cyl(0.06, 0.06, 3.8, '#e8dcc0', 0.3, 3.2, 0.29, A, 6); }
   }
-  ivy(G, 2.4, 3.6, 0, 0, rb - 0.05, 0, 85, 10);
+  ivy(G, 1.0, 1.8, 0, 2.3, rAt(2.3) + 0.06, 0, 85, 10).rotation.x = -Math.atan2(rb - rt, h);   // over the door, on the tapered wall
   return G;
 }
 // a cottage on Viridian's edge (the building kit): plaster walls on a stone
@@ -1122,7 +1123,6 @@ export function viridianGate({ W = 6.2, name = 'VIRIDIAN CITY' } = {}) {
   const rm = texm(kawara('#3f7a5a'));
   BK().roof(G, W + 3.2, 0.9, AY + 0.45, { type: 'gable', cover: 'kawara', col: '#3f7a5a', rise: 0.6, over: 0.45, gableOver: 0.5, gutters: false, th: 0.1, trim: '#2f5a4a', wall: st }); void rm;
   box(W + 4.4, 0.2, 0.25, '#2f5a4a', 0, AY + 1.18, 0, G);
-  mossTop(G, W + 2, 0.8, 0, AY + 1.0, 0.3, 0, 137);
   vines(G, V(-W / 2 - 1.6, AY - 0.45, 0.5), V(W / 2 + 1.6, AY - 0.45, 0.5), 16, 1.6, 138);
   // the iron gates, shut
   for (const sx of [-1, 1]) {

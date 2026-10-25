@@ -465,7 +465,7 @@ function buildingIn(G, S, spec) {
         for (let i = 0; i < n; i += 2) {
           const xa = -fw / 2 + (fw - 0.16) * i / n + 0.08, xb = -fw / 2 + (fw - 0.16) * (i + 1) / n + 0.08;
           const br = mesh(F, wuvBox(0.12, Math.hypot(xb - xa, floorH - 0.4), 0.06), fr, { at: V((xa + xb) / 2, yb + floorH / 2, z), line: false });
-          br.rotation.z = Math.atan2(xb - xa, floorH - 0.4) * (i % 4 ? 1 : -1);
+          br.rotation.z = Math.atan2(xb - xa, floorH - 0.4) * ((xa + xb) / 2 < 0 ? -1 : 1);   // each foot toward its wall's end (the frame splays out)
         }
       }
     }
@@ -601,7 +601,7 @@ function buildingIn(G, S, spec) {
     const [fx, fz] = FACES[iv.face || 'front'];
     const half = fz ? D / 2 : W / 2, ry = fz ? (fz > 0 ? 0 : Math.PI) : (fx > 0 ? Math.PI / 2 : -Math.PI / 2);
     const c = Math.cos(ry), s = Math.sin(ry), lx = iv.x || 0;
-    O.ivy(G, iv.w || 2, iv.h || wallTop, fx * (half + 0.06) + lx * c, y0 - 0.2, fz * (half + 0.06) - lx * s, ry, (S.seed * 13 + (iv.x || 0) * 7) | 0, iv.dens || 12);
+    O.ivy(G, iv.w || 2, Math.min(iv.h || wallTop, wallTop - y0), fx * (half + 0.08) + lx * c, y0 + 0.02, fz * (half + 0.08) - lx * s, ry, (S.seed * 13 + (iv.x || 0) * 7) | 0, iv.dens || 12);
   }
   G.userData.foot = { hw: W / 2 + 0.2, hd: D / 2 + 0.2 };
   return G;

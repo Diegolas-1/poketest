@@ -42,6 +42,7 @@ export function cropField(G, f, heightAt, { rowW = 1.15, plan, skip = () => fals
   const spec = { cx: f.x, cz: f.z, w: f.w, d: f.d, rot: f.rot, rows, heightAt, mound: f.kind === 'wheat' ? 0.08 : 0.17, seed };
   const bed = new THREE.Mesh(CR.bedGeometry(spec), O.vcFlat());
   bed.receiveShadow = true; bed.castShadow = false; bed.userData.outline = false; bed.name = 'field_beds';
+  bed.userData.qa = { k: 'open', why: 'furrowed field beds: open ground, not a building' };
   G.add(bed);
   const P = plan || PLANS[f.kind] || PLANS.crop;
   // wheat is sown thick: several drills per bed
@@ -277,11 +278,6 @@ export function farmShed({ W = 3.4, D = 2.6, wood = '#9a6a42', roof = '#8a9a9a',
     openings: [{ face: 'front', kind: 'door', x: 0.55, w: 1.1, h: 1.95, col: shade(wood, 0.8), glass: false, step: '#b4ad98' }, { face: 'front', kind: 'window', x: -0.95, w: 0.7, h: 0.6, y: 0.95, panes: [2, 2], curtains: null },
       { face: 'right', kind: 'window', x: 0, w: 0.7, h: 0.6, y: 0.95, panes: [2, 2], curtains: null }],
     moss: true, ivy: [{ face: 'left', x: 0.2, w: 1.6, h: 2.0 }] });
-  // the door's ledges and Z brace
-  const DG = new THREE.Group(); DG.position.set(0.55, 0.22, D / 2 + 0.04); G.add(DG);
-  for (const y of [0.35, 1.0, 1.65]) add(DG, bev(1.0, 0.1, 0.04, 0.01), shade(wood, 0.7), 0, y, 0.0, { line: false });
-  add(DG, new THREE.BoxGeometry(0.09, 0.85, 0.035), shade(wood, 0.7), 0, 0.68, 0.0, { rz: -0.95, line: false });
-  add(DG, new THREE.BoxGeometry(0.09, 0.85, 0.035), shade(wood, 0.7), 0, 1.33, 0.0, { rz: -0.95, line: false });
   const tr = toolRack(); tr.position.set(-W / 2 - 0.12, 0, 0.1); tr.rotation.y = -Math.PI / 2; G.add(tr);
   const wb = new THREE.Group(); wb.position.set(W / 2 + 0.4, 0, -D / 2 + 0.5); G.add(wb);
   add(wb, new THREE.CylinderGeometry(0.38, 0.34, 0.9, 12), texm(O.planks('#8a5a36')), 0, 0.45, 0);

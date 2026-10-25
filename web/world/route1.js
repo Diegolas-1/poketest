@@ -72,6 +72,8 @@ export function route1Fill(world) {
     return g;
   };
   const yawTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
+  // the nearest point on a path or the road (a sign faces it)
+  const nearPath = (x, z) => { for (let r = 0.5; r < 20; r += 0.5) for (let k = 0; k < 32; k++) { const a = k / 32 * 6.283, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r; if (onPath(px, pz, 0)) return [px, pz]; } const r0 = roadAt(z); return [r0.x, r0.z]; };
 
   // ================= zone 1: Pallet's fields =================
   {
@@ -88,13 +90,13 @@ export function route1Fill(world) {
     { const [x, z] = fx(-F.w / 2 - 6, -4), sh = eid(FA.farmShed({ seed: 21 }), 'route1/farm/shed'); place(sh, x, z, F.rot + Math.PI / 2, null, footY(x, z, 2) + 0.02 - height(x, z));
       world.colliders.push({ box: true, x, z, hw: sh.userData.foot.hw, hd: sh.userData.foot.hd, rot: F.rot + Math.PI / 2 });
       const S = (u, v) => fx(-F.w / 2 - 6 + v, -4 - u);   // the shed's own frame: u right of its door, v out from it
-      for (const [mk, u, v, r, col] of [[() => FA.wheelbarrow(), -2.6, 2.4, 0.6, 0.6], [() => FA.wateringCan(), 1.9, 1.5, 1.2, 0.2], [() => FA.crateStack({ seed: 3 }), -2.4, -0.4, 0.1, 0.6], [() => FA.sack(), -2.0, 0.6, 0.4, 0.3], [() => FA.sack({ col: '#c8b48a' }), -1.75, 1.0, 1.9, 0.3], [() => FA.trough(), 2.6, 2.6, 0.0, { hw: 0.85, hd: 0.4 }]]) {
+      for (const [mk, u, v, r, col] of [[() => FA.wheelbarrow(), -2.9, 3.0, 0.6, 0.6], [() => FA.wateringCan(), 1.6, 2.0, 1.2, 0.2], [() => FA.crateStack({ seed: 3 }), -2.7, 0.9, 0.1, 0.6], [() => FA.sack(), -2.2, 2.0, 0.4, 0.3], [() => FA.sack({ col: '#c8b48a' }), -1.8, 2.3, 1.9, 0.3], [() => FA.trough(), 2.9, 2.9, 0.0, { hw: 0.85, hd: 0.4 }]]) {
         const [x2, z2] = S(u, v); place(mk(), x2, z2, F.rot + Math.PI / 2 + r, col);
       }
       use(...S(0.55, 2.0), 'Look', ['The farm shed. Rakes, hoes and a spade hang on a rack by the door.', 'Someone has left the watering can full. The cabbages will be happy.']); }
     { const [x, z] = fx(-F.w / 2 - 3, 6); place(FA.haybale({ seed: 1 }), x, z, 0.4, 0.8); const [x2, z2] = fx(-F.w / 2 - 4.5, 7.6); place(FA.haybale({ seed: 2 }), x2, z2, 1.2, 0.8);
       const [x3, z3] = fx(-F.w / 2 - 3.4, 8.4); place(FA.squareBale(), x3, z3, 0.2, 0.5); const [x4, z4] = fx(-F.w / 2 - 3.3, 8.45); place(FA.squareBale(), x4, z4, 0.25, null, 0.42); }
-    { const [x, z] = fx(F.w / 2 + 2, F.d / 2 + 1.5), rr = roadAt(z); sign(x, z, yawTo(x, z, rr.x, rr.z), () => noticeBoard('ROUTE 1 FARM', ['Cabbages and corn grow here.', 'Please keep to the path.', 'RATTATA, stay out!'], { style: 'pinned', frame: '#7a5a3a', roof: '#6a8a3a', accent: '#6aa84f' }),
+    { const [x, z] = fx(F.w / 2 + 2, F.d / 2 + 1.5), pp = nearPath(x, z); sign(x, z, yawTo(x, z, pp[0], pp[1]), () => noticeBoard('ROUTE 1 FARM', ['Cabbages and corn grow here.', 'Please keep to the path.', 'RATTATA, stay out!'], { style: 'pinned', frame: '#7a5a3a', roof: '#6a8a3a', accent: '#6aa84f' }),
       ['ROUTE 1 FARM', 'Cabbages and corn grow here. Please keep to the path.', 'Someone has added in pencil: RATTATA, stay out!'], 0.9); }
   }
   // birdhouses on poles along the first stretch (PIDGEY country)
@@ -150,8 +152,8 @@ export function route1Fill(world) {
     // the railing: posts, a top and a mid rail, balusters, on the south and the ends
     for (const [a, b] of [[[-3, 2], [3, 2]], [[-3, -0.7], [-3, 2]], [[3, -0.7], [3, 2]]]) {
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      O.beam(V(a[0], top + 0.98, a[1]), V(b[0], top + 0.98, b[1]), 0.1, rail, D, { over: 0.12 });
-      O.beam(V(a[0], top + 0.5, a[1]), V(b[0], top + 0.5, b[1]), 0.06, rail, D, { over: 0.06 });
+      O.beam(V(a[0], top + 0.98, a[1]), V(b[0], top + 0.98, b[1]), 0.1, rail, D);
+      O.beam(V(a[0], top + 0.5, a[1]), V(b[0], top + 0.5, b[1]), 0.06, rail, D);
       const n = Math.round(len / 1.5);
       for (let k = 0; k <= n; k++) { const t = k / n; O.box(0.12, 1.08, 0.12, post, a[0] + (b[0] - a[0]) * t, top + 0.54, a[1] + (b[1] - a[1]) * t, D); }
       const nb = Math.round(len / 0.2);
@@ -165,7 +167,7 @@ export function route1Fill(world) {
       O.box(1.8, Math.max(0.1, sy - below + 0.05), 0.34, wood, 0, (sy + below - 0.05) / 2, sz, D);
       world.walk.push({ x: L.x, z: L.z + sz, hw: 0.9, hd: 0.17, rot: 0, y: y + sy + 0.02 });
     }
-    for (const sx of [-1, 1]) { const zb = -2.02 - nSteps * 0.34; O.beam(V(sx * 0.95, top + 0.98, -2.0), V(sx * 0.95, top + 0.98 - (y + top - gN) * 0.9, zb + 0.15), 0.07, rail, D, { over: 0.1 });
+    for (const sx of [-1, 1]) { const zb = -2.02 - nSteps * 0.34; O.beam(V(sx * 0.95, top + 0.98, -2.0), V(sx * 0.95, top + 0.98 - (y + top - gN) * 0.9, zb + 0.15), 0.07, rail, D);
       O.box(0.1, 1.0, 0.1, post, sx * 0.95, (height(L.x + sx * 0.95, L.z + zb + 0.15) - y) + 0.5, zb + 0.15, D); }
     const T = O.coinTelescope(); T.position.set(0.8, top, 1.2); D.add(T);
     const T2 = benchSeat(); T2.position.set(-1.4, top, 0.6); T2.rotation.y = 0; D.add(T2);
@@ -216,10 +218,11 @@ export function route1Fill(world) {
     let best = null;
     for (let i = 0; i < C.line.length; i++) { const [x, z] = C.line[i], d = roadDist(x, z); if (!best || d < best.d) best = { d, i, x, z }; }
     const a = C.line[Math.max(0, best.i - 2)], b = C.line[Math.min(C.line.length - 1, best.i + 2)];
-    const ang = Math.atan2(b[0] - a[0], b[1] - a[1]) + Math.PI / 2;   // the bridge runs across the creek
-    const yA = height(best.x + Math.sin(ang) * 4.5, best.z + Math.cos(ang) * 4.5), yB = height(best.x - Math.sin(ang) * 4.5, best.z - Math.cos(ang) * 4.5);
+    // the bridge runs along the road where it crosses (so it carries the road, its ends on the road's line)
+    const rc = roadAt(best.z), ang = Math.atan2(rc.dx, rc.dz); void a; void b;
+    const yA = height(best.x + Math.sin(ang) * 4.0, best.z + Math.cos(ang) * 4.0), yB = height(best.x - Math.sin(ang) * 4.0, best.z - Math.cos(ang) * 4.0);
     const y = Math.max(yA, yB) + 0.05;
-    deckBridge(world, O.footbridge({ L: 7, w: 3.0, rise: 0.25 }), best.x, best.z, ang, y, 7, 3.0, 0.25);
+    deckBridge(world, O.footbridge({ L: 8, w: 3.4, rise: 0.25 }), best.x, best.z, ang, y, 8, 3.4, 0.25);
     // stepping stones where the tea trail crosses
     const T = ROADS[TRAIL0 + 4];
     let bs = null;

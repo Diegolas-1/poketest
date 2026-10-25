@@ -20,5 +20,10 @@
  {"check": "path", "fn": "labStairs", "why": "the lab stairs are the path"},
  {"check": "path", "fn": "bridge", "why": "footbridges carry the path"},
  {"check": "path", "near": [-3.1, -438, 2], "why": "the Viridian gate closes the road on purpose"},
- {"check": "facing", "near": [-61, -178, 2], "why": "the berry orchard sign faces the road (15 m east) where people see it; the orchard trail it is measured against runs behind it"}
+ {"check": "facing", "near": [-61, -178, 2], "why": "the berry orchard sign faces the road (15 m east) where people see it; the orchard trail it is measured against runs behind it"},
+ {"check": "up", "near": [-44, -300, 3], "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"},
+ {"check": "up", "near": [44, -334, 3], "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"},
+ {"check": "up", "near": [-36, -142, 3], "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"},
+ {"check": "up", "near": [46, -214, 3], "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"},
+ {"check": "overlap", "fn": "cropField", "why": "the hedges veg.js plants round each field stand just outside the turned field; the bed mesh's footprint box is axis-aligned, so it covers them"}
 ]

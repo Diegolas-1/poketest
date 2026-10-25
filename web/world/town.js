@@ -465,6 +465,8 @@ function cottage(hs, world) {
   for (let s = 0; s < 2; s++) box(1.8, 0.2, 0.5, tex(stones('#d6cfbd')), dx, deckY - 0.18 - s * 0.2, dz1 + 0.25 + s * 0.45, G);
   P.walk(0, (dz0 + dz1) / 2, W / 2 + 0.3, (dz1 - dz0) / 2, hs.y + deckY + 0.1);
   P.col(0, -0.05, W / 2 + 0.2, D / 2 + 0.2);
+  // no wild plants in the house's yard (it has its own garden)
+  { const [x, z] = P.W(0, 1.7); world.noVeg.push({ box: true, x, z, hw: 8.6, hd: 7.1, rot: hs.rot }); }
   { const a = -W / 2 - 0.25, b = dx - 0.95; P.col((a + b) / 2, dz1 - 0.1, Math.max(0.05, (b - a) / 2), 0.12); }
   { const a = dx + 0.95, b = W / 2 + 0.25; P.col((a + b) / 2, dz1 - 0.1, Math.max(0.05, (b - a) / 2), 0.12); }
   P.use(dx, D / 2 + 1.1, 1.0, 'Door', lines);
@@ -980,7 +982,7 @@ function palletHouse(world) {
   strand([tw / 2 - 0.2, ty + 2.75, tz1 - 0.2], [W / 2 - 0.3, y1 + 0.3, tz0], 8);
   strand([-tw / 2 + 0.2, ty + 2.75, tz1 - 0.2], [tw / 2 - 0.2, ty + 2.75, tz1 - 0.2], 14);
   { const im = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: '#fff1c4' }), bulbs.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-    bulbs.forEach(([bx, by, bz], i) => { m4.compose(V(bx, by, bz), q, V(1, 1, 1)); im.setMatrixAt(i, m4); }); G.add(im); }
+    bulbs.forEach(([bx, by, bz], i) => { m4.compose(V(bx, by, bz), q, V(1, 1, 1)); im.setMatrixAt(i, m4); }); im.userData.qa = { k: 'hung', why: 'string-light bulbs hang on their strands' }; G.add(im); }
   // a low rail round the terrace's sea edge
   for (const [ax, az, bx, bz] of [[-tw / 2, tz0, -tw / 2, tz1], [-tw / 2, tz1, -1.2, tz1], [1.2, tz1, tw / 2, tz1], [tw / 2, tz1, tw / 2, tz0]]) {
     const len = Math.hypot(bx - ax, bz - az), r = box(0.1, 0.1, len, wood, (ax + bx) / 2, ty + 0.9, (az + bz) / 2, G); r.rotation.y = Math.atan2(bx - ax, bz - az);
@@ -1001,7 +1003,7 @@ function palletHouse(world) {
     const f = { x: wx, z: wz, w: 5.0, d: 4.2, rot: hs.rot, kind: 'crop' };
     // (planted in world coordinates, in its own group of the town)
     const tmp = new THREE.Group(); FA.cropField(tmp, f, (x, z) => height(x, z) + 0.02, { seed: 4405, plan: [['cabbage', 0.6, 2], ['tomato', 0.7, 2], ['cabbage', 0.6, 2], ['corn', 0.5, 2]] });
-    world.group.add(tmp);
+    tmp.userData.qa = { k: 'open', why: 'the vegetable patch: furrowed beds, open ground' }; world.group.add(tmp);
   }
   P.col(-W / 2 - 3.2, zc - 4.5, 2.2, 1.6); P.col(-3.5, zc - 9.5, 2.8, 2.3);
   // the delivery bicycle by the door, a basket on the front
@@ -1653,7 +1655,8 @@ export function buildTown() {
   // the farm fields round the town: furrowed beds, planted (the Route 1
   // farm's field is planted by route1Fill)
   { const ground = (x, z) => Math.max(height(x, z), meshHeight(x, z)) + 0.02;
-    FIELDS.forEach((f, i) => { if (f.z > -60) FA.cropField(world.group, f, ground, { seed: 900 + i * 17, skip: (x, z) => onPath(x, z, 0.4) }); }); }
+    FIELDS.forEach((f, i) => { if (f.z > -60) FA.cropField(world.group, f, ground, { seed: 900 + i * 17, skip: (x, z) => onPath(x, z, 0.4) }); });
+    for (const f of FIELDS) world.noVeg.push({ box: true, x: f.x, z: f.z, hw: f.w / 2 + 0.3, hd: f.d / 2 + 0.3, rot: f.rot }); }
   route1Fill(world);
   applyTown(world);
   OD.foldFlat(world.group);
