@@ -26,7 +26,7 @@ extends Node
 # Orchestral samples: VSCO 2 Community Edition, Versilian Studios (Sam Gossner,
 # Simon Dalzell), free for any use; scores and mix: tools/music/.
 
-const TRACKS := {
+const TRACKS0 := {
 	"dawn": "res://audio/music/pallet_ost_dawn.ogg",
 	"morning": "res://audio/music/pallet_ost_morning.ogg",
 	"day": "res://audio/music/pallet_ost_day.ogg",
@@ -37,11 +37,16 @@ const TRACKS := {
 	"night_orch": "res://audio/music/pallet_town_night.ogg",
 }
 # the town's version for each part of the day (clock.gd periods)
-const PERIOD_TRACK := {"dawn": "dawn", "morning": "morning", "midday": "day", "afternoon": "day", "evening": "evening", "night": "night"}
-const TRACK_DB := {"lab": -0.5, "night_orch": -1.5}   # the town versions are levelled in the files
-const DOOR_FADE := 1.5
-const DAY_FADE := 6.0
-const DUCK_DB := -4.5
+const PERIOD_TRACK0 := {"dawn": "dawn", "morning": "morning", "midday": "day", "afternoon": "day", "evening": "evening", "night": "night"}
+const TRACK_DB0 := {"lab": -0.5, "night_orch": -1.5}   # the town versions are levelled in the files
+# the world editor's tunables (res://tunables/music.json) over these
+const T := preload("res://tunables.gd")
+var TRACKS := T.dict("music", "tracks", TRACKS0)
+var PERIOD_TRACK := T.dict("music", "period_track", PERIOD_TRACK0)
+var TRACK_DB := T.dict("music", "track_db", TRACK_DB0)
+var DOOR_FADE := T.num("music", "door_fade", 1.5)
+var DAY_FADE := T.num("music", "day_fade", 6.0)
+var DUCK_DB := T.num("music", "duck_db", -4.5)
 const BUS := "Music"
 
 var game: Node                 # main.gd

@@ -1,0 +1,16 @@
+{
+ "_doc": "The townspeople's Pok\u00e9mon's bodies (creature_doduo.gd, creature_caterpie.gd). Doduo: duty = the part of a step cycle a foot is planted (walk / run), foot_w half the stance, ankle_h. Caterpie: step_w the part of a cycle a joint steps, delay between joints, settle (cycles/s to finish a wave), up_idle / up_crawl the front's lean (radians). Their speeds are in native/life/companions.json.",
+ "doduo": {
+  "walk_duty": 0.62,
+  "run_duty": 0.36,
+  "foot_w": 0.072,
+  "ankle_h": 0.062
+ },
+ "caterpie": {
+  "step_w": 0.5,
+  "delay": 0.07,
+  "settle": 3.0,
+  "up_idle": 1.36,
+  "up_crawl": 1.05
+ }
+}

@@ -29,7 +29,7 @@ signal changed(key: String, value)
 const PATH := "user://settings.cfg"
 
 # graphics presets; "high" is the default, tuned for an iPhone 17 at 120 Hz
-const PRESETS := {
+const PRESETS0 := {
 	"battery": {"scale": 0.6, "upscale": "auto", "auto_res": 1, "fps_cap": 60, "aa": "msaa2", "outlines": 1, "outline_q": 1.0,
 		"shadow": 1024, "shadow_dist": 45, "shadow_soft": 0, "grass": 60000, "grass_size": 40, "lod": 0.7, "trees": 0.6, "plants": 0.5, "fog": 1.0, "exposure": 1.0},
 	"low": {"scale": 0.5, "upscale": "auto", "auto_res": 1, "fps_cap": 120, "aa": "off", "outlines": 1, "outline_q": 1.0,
@@ -43,12 +43,21 @@ const PRESETS := {
 }
 const PRESET_NAMES := ["battery", "low", "medium", "high", "ultra"]
 const PRESET_LABEL := {"battery": "Battery", "low": "Low", "medium": "Medium", "high": "High", "ultra": "Ultra"}
-const DEFAULT_PRESET := "high"
+# the world editor's tunables (res://tunables/settings.json) over these
+const T := preload("res://tunables.gd")
+var PRESETS := _presets()
+var DEFAULT_PRESET := T.text("settings", "default_preset", "high")
+static func _presets() -> Dictionary:
+	var p := PRESETS0.duplicate(true)
+	var o := T.dict("settings", "presets", {})
+	for k in o: if p.has(k) and o[k] is Dictionary: for r in o[k]: p[k][r] = o[k][r]
+	return p
 
 # settings that are not part of a preset
-const EXTRA := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
+const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
 	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1}
+var EXTRA := T.dict("settings", "extra", EXTRA0)
 
 # rows of the menu, by tab: key, label, values, hint (format in fmt())
 const ROWS := {

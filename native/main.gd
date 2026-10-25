@@ -13,8 +13,9 @@ const SKY := preload("res://shaders/sky.gdshader")
 const Grass := preload("res://grass.gd")
 const Scenery := preload("res://scenery.gd")
 
-const SUN_DIR := Vector3(-0.55, 0.75, 0.45)
-const FOG := Color("c4e2f0")
+const T := preload("res://tunables.gd")   # values the world editor can change (res://tunables/*.json)
+var SUN_DIR := T.vec3("render", "sun_dir", Vector3(-0.55, 0.75, 0.45))
+var FOG := T.col("render", "fog", Color("c4e2f0"))
 
 var world = WorldData.new()   # or an InteriorData while inside (same calls)
 var grass: Node3D
@@ -24,8 +25,8 @@ var pos := Vector3.ZERO
 var yaw := 0.0
 var speed := 0.0
 var cam_yaw := 0.35
-var cam_pitch := 0.32
-var cam_dist := 7.5
+var cam_pitch := T.num("camera", "pitch", 0.32)
+var cam_dist := T.num("camera", "dist", 7.5)
 var cam_idle := 0.0
 var cam_ty := 0.0
 var cam_floor := 0.0
@@ -276,24 +277,25 @@ func _process(dt: float) -> void:
 	if Settings.get_value("invert_y") == 1: look.y = -look.y
 	if look != Vector2.ZERO:
 		look *= look.length()   # gentle near the centre, full speed at the edge
-		cam_yaw -= look.x * dt * 3.6 * cs; cam_pitch = clampf(cam_pitch + look.y * dt * 2.0 * cs, -0.15, 1.2); cam_idle = 0.0; cam_recenter = 0.0
+		cam_yaw -= look.x * dt * T.num("camera", "look_yaw_speed", 3.6) * cs; cam_pitch = clampf(cam_pitch + look.y * dt * T.num("camera", "look_pitch_speed", 2.0) * cs, T.num("camera", "pitch_min", -0.15), T.num("camera", "pitch_max", 1.2)); cam_idle = 0.0; cam_recenter = 0.0
 	elif look_id == -1:
 		cam_idle += dt
-	if Input.is_action_just_pressed("recenter"): cam_recenter = 0.35
+	if Input.is_action_just_pressed("recenter"): cam_recenter = T.num("camera", "recenter_time", 0.35)
 	var pad := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var mv := (pad + stick_vec).limit_length(1.0)
-	var run := Input.is_action_pressed("run") or stick_vec.length() > 0.85 or pad.length() > 0.85
+	var rs := T.num("player", "run_stick", 0.85)
+	var run := Input.is_action_pressed("run") or stick_vec.length() > rs or pad.length() > rs
 	if cast.busy() or trans_busy: mv = Vector2.ZERO
 	# move relative to the camera (as in Legends: Arceus)
 	var f := Vector2(-sin(cam_yaw), -cos(cam_yaw))
 	var r := Vector2(cos(cam_yaw), -sin(cam_yaw))
 	var dir := r * mv.x - f * mv.y
 	var m := minf(1.0, dir.length())
-	var want := (8.5 if run else 4.5) * m if m > 0.05 else 0.0
-	if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * 10.0))
+	var want := (T.num("player", "run_speed", 8.5) if run else T.num("player", "walk_speed", 4.5)) * m if m > 0.05 else 0.0
+	if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * T.num("player", "accel", 10.0)))
 	if m > 0.05:
 		var ty := atan2(dir.x, dir.y)
-		yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
+		yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * T.num("player", "turn", 12.0)))
 	if speed > 0.05 and not cast.busy() and not trans_busy:
 		pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt)
 	cast.update(dt)
@@ -322,22 +324,23 @@ func _camera(dt: float) -> void:
 	if cam_recenter > 0.0:   # L / ZL / C: swing in behind the player
 		cam_recenter -= dt
 		cam_yaw += wrapf(yaw + PI - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
-	elif cam_idle > 1.0 and speed > 0.5:
+	elif cam_idle > T.num("camera", "follow_idle", 1.0) and speed > 0.5:
 		var behind := wrapf(yaw + PI - cam_yaw, -PI, PI)
-		cam_yaw += behind * (1.0 - exp(-dt * 0.9 * minf(1.0, speed / 6.0)))
+		cam_yaw += behind * (1.0 - exp(-dt * T.num("camera", "follow_rate", 0.9) * minf(1.0, speed / 6.0)))
 	var dy := pos.y - cam_ty
-	cam_ty += dy * (1.0 - exp(-dt * (8.0 if absf(dy) > 1.5 else 3.5)))
-	var k := 1.0 - exp(-dt * 10.0)
+	cam_ty += dy * (1.0 - exp(-dt * (T.num("camera", "height_follow_fast", 8.0) if absf(dy) > 1.5 else T.num("camera", "height_follow", 3.5))))
+	var k := 1.0 - exp(-dt * T.num("camera", "target_follow", 10.0))
 	cam_target.x += (pos.x - cam_target.x) * k
 	cam_target.z += (pos.z - cam_target.z) * k
-	cam_target.y = cam_ty + 1.45
+	cam_target.y = cam_ty + T.num("camera", "eye_height", 1.45)
 	var cp := cos(cam_pitch)
 	var want := cam_target + Vector3(sin(cam_yaw) * cp, sin(cam_pitch), cos(cam_yaw) * cp) * cam_dist
-	var fl := maxf(world.height_at(want.x, want.z) + 0.4, world.sea_y + 0.4)
-	cam_floor += (fl - cam_floor) * (1.0 - exp(-dt * (9.0 if fl > cam_floor else 3.0)))
+	var gc := T.num("camera", "ground_clear", 0.4)
+	var fl := maxf(world.height_at(want.x, want.z) + gc, world.sea_y + gc)
+	cam_floor += (fl - cam_floor) * (1.0 - exp(-dt * (T.num("camera", "floor_up", 9.0) if fl > cam_floor else T.num("camera", "floor_down", 3.0))))
 	want.y = maxf(want.y, cam_floor)
 	if cam.position == Vector3.ZERO: cam.position = want
-	cam.position = cam.position.lerp(want, 1.0 - exp(-dt * 14.0))
+	cam.position = cam.position.lerp(want, 1.0 - exp(-dt * T.num("camera", "smooth", 14.0)))
 	cam.look_at(cam_target)
 
 # ---------- spaces: going through a door ----------

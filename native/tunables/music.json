@@ -1,0 +1,9 @@
+{
+ "_doc": "Music (music.gd): which file plays for each track, which track for each part of the day, levels (dB) and fades (s).",
+ "tracks": {},
+ "period_track": {},
+ "track_db": {},
+ "door_fade": 1.5,
+ "day_fade": 6.0,
+ "duck_db": -4.5
+}

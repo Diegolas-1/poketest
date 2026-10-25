@@ -1,0 +1,6 @@
+{
+ "_doc": "Defaults for the settings window (settings.gd): presets (graphics rows per preset; only keys given change), the preset a new player gets, and the other defaults.",
+ "presets": {},
+ "default_preset": "high",
+ "extra": {}
+}

@@ -1,0 +1,9 @@
+{
+ "_doc": "The look (main.gd, scenery.gd): sun direction (toward the sun) and the haze colour.",
+ "sun_dir": [
+  -0.55,
+  0.75,
+  0.45
+ ],
+ "fog": "c4e2f0"
+}

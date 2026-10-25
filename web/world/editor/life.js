@@ -25,6 +25,24 @@ export async function life(name) {
   return S.life[f].data;
 }
 export async function allLife() { const out = {}; for (const n of LIFE_FILES) { try { out[n] = await life(n); } catch (e) { console.warn(e); } } return out; }
+// any other game file by its repo path (native/tunables/player.json, ...),
+// edited the same way and kept in the same place (S.life, by path)
+export const REPO_URL = localStorage.getItem('pallet-editor-repo') || 'https://raw.githubusercontent.com/Diegolas-1/poketest/main/';
+export async function repoFile(path) {
+  if (S.life[path]) return S.life[path].data;
+  if (!cache[path]) cache[path] = fetch(REPO_URL + path, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); });
+  const base = await cache[path];
+  if (!S.life[path]) S.life[path] = { base, data: JSON.parse(JSON.stringify(base)) };
+  return S.life[path].data;
+}
+export function fileChange(path, label, fn) {
+  const rec = S.life[path], before = JSON.stringify(rec.data);
+  fn(rec.data);
+  const after = JSON.stringify(rec.data);
+  if (before === after) return;
+  push({ label, undo: () => { rec.data = JSON.parse(before); emit('life', path); }, redo: () => { rec.data = JSON.parse(after); emit('life', path); } });
+  emit('life', path);
+}
 // the bundle keeps only files that changed
 export function lifeForSave() {
   const out = {};

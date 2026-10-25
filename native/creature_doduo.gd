@@ -31,10 +31,11 @@ extends Creature
 # "argue" (the heads face each other and bicker), "peck", "stamp".
 # Asleep it settles down on its folded legs, heads tucked onto its back.
 
-const WALK_DUTY := 0.62
-const RUN_DUTY := 0.36
-const FOOT_W := 0.072             # half the stance width
-const ANKLE_H := 0.062
+# (the world editor's tunables: res://tunables/creatures.json "doduo")
+var WALK_DUTY := preload("res://tunables.gd").num2("creatures", "doduo", "walk_duty", 0.62)
+var RUN_DUTY := preload("res://tunables.gd").num2("creatures", "doduo", "run_duty", 0.36)
+var FOOT_W := preload("res://tunables.gd").num2("creatures", "doduo", "foot_w", 0.072)             # half the stance width
+var ANKLE_H := preload("res://tunables.gd").num2("creatures", "doduo", "ankle_h", 0.062)
 
 var legs := []                    # per side: {thigh, leg, foot, toes, sg, p (world), yaw, u (-1 planted), from, to, toyaw, dur}
 var phase := 0.0

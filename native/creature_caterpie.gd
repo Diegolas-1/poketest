@@ -32,11 +32,12 @@ extends Creature
 # "^ ^"), "hop" (a little jump), "talk" (the mouth chatters); sleep curls the
 # body round into a C with the head down on the ground, eyes shut.
 
-const STEP_W := 0.5        # the part of a cycle a joint spends stepping
-const DELAY := 0.07        # cycle delay from one joint to the next (tail to head)
-const SETTLE := 3.0        # cycles a second to finish a wave when stopping
-const UP_IDLE := 1.36      # the front's lean from the ground (radians), standing
-const UP_CRAWL := 1.05     # and at a crawl
+# (the world editor's tunables: res://tunables/creatures.json "caterpie")
+var STEP_W := preload("res://tunables.gd").num2("creatures", "caterpie", "step_w", 0.5)        # the part of a cycle a joint spends stepping
+var DELAY := preload("res://tunables.gd").num2("creatures", "caterpie", "delay", 0.07)        # cycle delay from one joint to the next (tail to head)
+var SETTLE := preload("res://tunables.gd").num2("creatures", "caterpie", "settle", 3.0)        # cycles a second to finish a wave when stopping
+var UP_IDLE := preload("res://tunables.gd").num2("creatures", "caterpie", "up_idle", 1.36)      # the front's lean from the ground (radians), standing
+var UP_CRAWL := preload("res://tunables.gd").num2("creatures", "caterpie", "up_crawl", 1.05)     # and at a crawl
 
 var J: PackedInt32Array = []           # ground joints' bones, tail -> front
 var jl := PackedFloat32Array()         # bone length from joint k to k+1

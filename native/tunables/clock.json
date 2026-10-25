@@ -1,0 +1,5 @@
+{
+ "_doc": "The town clock (clock.gd): the hour a new game starts and the weekday of day 1 (0 = Monday).",
+ "start_hour": 8.0,
+ "first_weekday": 4
+}

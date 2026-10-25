@@ -89,7 +89,7 @@ func step(pos: Vector3, dx: float, dz: float) -> Vector3:
 	if (f & LEDGE) and (dz < -1e-4 if (here != 255 and (here & LEDGE)) else dz <= 1e-4): return pos
 	if (f & 2) and not (here & 2): return pos
 	var p := Vector3(nx, pos.y, nz)
-	p = collide(p)
+	p = collide(p, preload("res://tunables.gd").num("player", "collide_r", 0.35))   # (world editor tunables)
 	if (flag(p.x, p.z) & 2) and not (here & 2): return pos
 	return p
 

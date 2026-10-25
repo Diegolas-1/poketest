@@ -19,10 +19,10 @@ signal hour_changed(h: int)
 signal day_changed(d: int)
 signal jumped(minutes: float)
 
-const START_MIN := 8.0 * 60.0
+var START_MIN := preload("res://tunables.gd").num("clock", "start_hour", 8.0) * 60.0   # (world editor tunables)
 const WEEK := ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 const WEEK_LABEL := {"mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"}
-const FIRST_WEEKDAY := 4     # day 1 is a Friday
+static var FIRST_WEEKDAY := int(preload("res://tunables.gd").num("clock", "first_weekday", 4))     # day 1 is a Friday (world editor tunables)
 
 var minutes := START_MIN     # game minutes since 00:00 of day 0 (day 1 starts at 1440)
 var ff := 1.0

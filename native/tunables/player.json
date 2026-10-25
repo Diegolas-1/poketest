@@ -1,0 +1,9 @@
+{
+ "_doc": "Ash in the native game (main.gd, world_data.gd). Speeds in m/s; accel and turn are how fast speed and facing catch up (higher = snappier).",
+ "walk_speed": 4.5,
+ "run_speed": 8.5,
+ "accel": 10.0,
+ "turn": 12.0,
+ "collide_r": 0.35,
+ "run_stick": 0.85
+}

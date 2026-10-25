@@ -158,7 +158,7 @@ on('armed', hint); hint();
 
 // ---------- the docks ----------
 const thumbs = TH.createThumbs();
-const left = UI.tabs('leftTabs', 'leftPane', [['scene', 'Scene', UI.outliner], ['assets', 'Assets', (p) => UI.assets(p, thumbs)], ['life', 'Town life', LU.lifePanel]]);
+const left = UI.tabs('leftTabs', 'leftPane', [['scene', 'Scene', UI.outliner], ['assets', 'Assets', (p) => UI.assets(p, thumbs)], ['life', 'Town life', LU.lifePanel], ['game', 'Game', (p) => import('./gameui.js').then((G) => G.gamePanel(p))], ['chars', 'Characters', (p) => import('./chars.js').then((C) => C.charsPanel(p, { V, world }))]]);
 on('pickSpot', (path) => { const o = L.placesGroup.children.find((c) => c.userData.spot === path); if (o) { OB.select([L.spotItem(o)]); emit('focus'); } });
 on('focusPlace', async (s, home) => { const p = L.placeAt(await L.life('places'), s, home); if (p) V.focus(new THREE.Vector3(p[0], E.fn.height(p[0], p[1]), p[1]), 40); else UI.toast('No such place: ' + s); });
 const right = UI.tabs('rightTabs', 'rightPane', [['insp', 'Inspector', UI.inspector], ['changes', 'Changes', UI.changes]]);

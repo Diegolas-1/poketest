@@ -91,7 +91,7 @@ async function handle(pending) {
     const { changed, conflicts } = writeBundle(b, { log: say });
     if (conflicts.length) await report('working', 'merged with changes made in the repo meanwhile (the editor\'s values kept): ' + conflicts.join(', '));
     const world = changed.some((f) => f.startsWith('web/world/edits/'));
-    const life = changed.some((f) => f.startsWith('native/life/'));
+    const life = changed.some((f) => f.startsWith('native/'));   // game data and tunables: the code pack
     await report('working', changed.length ? 'changed: ' + changed.join(', ') : 'the version matches the repo already');
     // ---------- 5. checks ----------
     const logs = [];
@@ -105,10 +105,10 @@ async function handle(pending) {
     const c = await check({ game: world, port, log: (t) => logs.push(t) });
     if (c.errors.length) throw new Error('checks failed:\n' + c.errors.join('\n'));
     await report('working', ['checks ok' + (c.warnings.length ? ` (${c.warnings.length} warnings)` : ''), ...logs.slice(-10)]);
-    if (DRY) { say('dry run: stopping before commit'); git('checkout', '--', 'web/world/edits', 'native/life'); git('clean', '-fdq', 'web/world/edits'); await report('pending', 'dry run done (nothing pushed)'); return; }
+    if (DRY) { say('dry run: stopping before commit'); git('checkout', '--', 'web/world/edits', 'native/life', 'native/tunables'); git('clean', '-fdq', 'web/world/edits'); await report('pending', 'dry run done (nothing pushed)'); return; }
     // ---------- 6. commit, bake, push ----------
     if (changed.length) {
-      git('add', '-A', 'web/world/edits', 'native/life');
+      git('add', '-A', 'web/world/edits', 'native/life', 'native/tunables');
       git('commit', '-q', '-m', `Editor: version ${req.version} (${req.message || 'edits'})\n\nPublished from the world editor (request #${req.id}).`);
     }
     if (world) {
@@ -135,7 +135,7 @@ async function handle(pending) {
   } catch (e) {
     say('failed: ' + e.message);
     // put back anything not pushed
-    try { if (!pushed) git('reset', '-q', '--hard', headR); git('checkout', '--', 'web/world/edits', 'native/life'); git('clean', '-fdq', 'web/world/edits'); } catch { /* */ }
+    try { if (!pushed) git('reset', '-q', '--hard', headR); git('checkout', '--', 'web/world/edits', 'native/life', 'native/tunables'); git('clean', '-fdq', 'web/world/edits'); } catch { /* */ }
     await report('failed', String(e.message).slice(0, 3800));
     process.exitCode = 1;
   }
