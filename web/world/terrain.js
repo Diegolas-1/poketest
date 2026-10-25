@@ -1160,6 +1160,11 @@ export function grassMap(x0, z0, w, d, res) {
     if (streamAt(x, z).d < 3.2) g = 0;
     // no grass on a ledge's edge (the clumps would float off its face)
     if (z < -90 && z > -380 && ledgeAt(x, z, 1.7)) g = 0;
+    // none under PALLET HOUSE and its terrace deck
+    if (Math.abs(x - PALLET_HOUSE.x) < 20 && Math.abs(z - PALLET_HOUSE.z) < 20) {
+      const [lx, lz] = toLocal(PALLET_HOUSE, x, z);
+      if (Math.abs(lx) < 8.2 && lz > -7.2 && lz < 10.4) g = 0;
+    }
     // patchy: tufts and drifts, open lawn between
     g *= 0.12 + smooth(0.42, 0.68, fbm(x * 0.11 + 3, z * 0.11, 3)) * 0.88;
     // Route 1's tall grass: density + 2 marks it (the grass shaders grow it

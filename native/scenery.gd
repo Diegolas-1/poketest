@@ -15,6 +15,7 @@ const SEA_DEEP := preload("res://shaders/sea_deep.gdshader")
 const MOUNTAINS := preload("res://shaders/mountains.gdshader")
 const CLOUDS := preload("res://shaders/clouds.gdshader")
 const CINNABAR := preload("res://shaders/cinnabar.gdshader")
+const UW_OVERLAY := preload("res://shaders/underwater_overlay.gdshader")
 const CINNABAR_SMOKE := preload("res://shaders/cinnabar_smoke.gdshader")
 const DIR := "res://world/"
 
@@ -31,6 +32,8 @@ func setup(m: Node3D, town_root: Node, water_root: Node, terrain_mat: ShaderMate
 	_cinnabar()
 	_clouds()
 	_plants()
+	_underwater(self)
+	_underwater(town_root)
 	var S = get_node_or_null("/root/Settings")
 	if S: S.changed.connect(_on_setting)
 
@@ -54,6 +57,7 @@ func update(cam_pos: Vector3) -> void:
 	if plants_dirty:
 		plants_dirty = false
 		_plants()
+		_underwater(veg)
 	if veg: veg.update(cam_pos)
 
 # ---------- the town's repeated parts ----------
@@ -95,10 +99,21 @@ func _town_parts(root: Node) -> void:
 			var mi := MultiMeshInstance3D.new()
 			mi.multimesh = mm
 			mi.material_override = mat
+			# its box from the copies' places (for _underwater: the server's
+			# box is not ready yet)
+			var mb: AABB = src.mesh.get_aabb()
+			var bb := AABB()
+			for j in ids.size():
+				var o2: int = ids[j]
+				var ib: AABB = Transform3D(Basis(Vector3(xf[o2], xf[o2 + 4], xf[o2 + 8]), Vector3(xf[o2 + 1], xf[o2 + 5], xf[o2 + 9]), Vector3(xf[o2 + 2], xf[o2 + 6], xf[o2 + 10])), Vector3(xf[o2 + 3], xf[o2 + 7], xf[o2 + 11])) * mb
+				bb = ib if j == 0 else bb.merge(ib)
+			mi.set_meta("box", bb)
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if e.get("shadow", true) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(mi)
 
 # ---------- the sea: deep part opaque, shallows see-through ----------
+# (the "shallows" reach 7 m: the underwater copies of rocks and piles
+# (_underwater) are drawn after them, which the opaque deep water would hide)
 func _sea(root: Node, terrain_mat: ShaderMaterial) -> void:
 	var w = main.world
 	var sea_y: float = w.sea_y
@@ -123,7 +138,7 @@ func _sea(root: Node, terrain_mat: ShaderMaterial) -> void:
 		for t in range(0, idx.size(), 3):
 			var a := depth[idx[t]]; var b := depth[idx[t + 1]]; var c := depth[idx[t + 2]]
 			if maxf(a, maxf(b, c)) < -1.0: continue          # under the land
-			if minf(a, minf(b, c)) > 2.4: deep.append_array([idx[t], idx[t + 1], idx[t + 2]])
+			if minf(a, minf(b, c)) > 7.0: deep.append_array([idx[t], idx[t + 1], idx[t + 2]])
 			else: shal.append_array([idx[t], idx[t + 1], idx[t + 2]])
 		var mk := func(ids: PackedInt32Array, mat: Material) -> void:
 			if ids.is_empty(): return
@@ -177,6 +192,90 @@ func _mountains() -> void:
 	mts.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mts.custom_aabb = AABB(Vector3(-1450, -60, -1650), Vector3(2900, 520, 2900))
 	add_child(mts)
+
+# ---------- under the sea: a flat dark copy of what dips below the waterline ----------
+# The sea is drawn after the solid world and hides what is under it; each
+# rock, pile, boat or wall that reaches below the waterline gets a copy (same
+# mesh, a child of it, so it moves and hides with it) drawn after the sea with
+# shaders/underwater_overlay.gdshader: the underwater part as a flat, darker
+# version of its own colour. Only things within a few metres of the surface.
+var _uw_mats := {}
+func _uw_mat(src: Material) -> ShaderMaterial:
+	if src == null or not (src is ShaderMaterial): return null
+	if _uw_mats.has(src): return _uw_mats[src]
+	var sm: ShaderMaterial = src
+	var path := String(sm.shader.resource_path) if sm.shader else ""
+	var m: ShaderMaterial = null
+	if path.contains("toon") or path.contains("veg_stone") or path.contains("veg_solid"):
+		m = ShaderMaterial.new()
+		m.shader = UW_OVERLAY
+		m.render_priority = 10
+		var col := Color.WHITE
+		var vc := false
+		if path.contains("toon"):
+			var a = sm.get_shader_parameter("albedo")
+			if a is Color: col = a
+			vc = sm.get_shader_parameter("use_vc") == true
+			if sm.get_shader_parameter("use_tex") == true: col = col * 0.7
+		elif path.contains("veg_stone"):
+			vc = true
+		else:
+			var c = sm.get_shader_parameter("color")
+			if c is Color: col = c
+			elif c is Vector3: col = Color(c.x, c.y, c.z)
+			vc = sm.get_shader_parameter("use_vc") == true
+			if sm.get_shader_parameter("use_tex") == true: col = col * 0.55
+		m.set_shader_parameter("base_col", Vector3(col.r, col.g, col.b))
+		m.set_shader_parameter("use_vc", vc)
+	_uw_mats[src] = m
+	return m
+
+func _underwater(root: Node) -> void:
+	if root == null: return
+	var sea: float = main.world.sea_y
+	for n in root.find_children("*", "GeometryInstance3D", true, false):
+		if String(n.name).ends_with("_uw") or not (n is MeshInstance3D or n is MultiMeshInstance3D): continue
+		var gi: GeometryInstance3D = n
+		var lb: AABB = gi.get_aabb()
+		if gi.has_meta("box"): lb = gi.get_meta("box")
+		elif gi is MultiMeshInstance3D and (gi as MultiMeshInstance3D).multimesh:
+			var mm: MultiMesh = (gi as MultiMeshInstance3D).multimesh
+			lb = mm.get_aabb()
+			if lb.size == Vector3.ZERO and mm.mesh:
+				# (not computed yet: from the copies' places and the mesh's box)
+				var mb: AABB = mm.mesh.get_aabb()
+				for i in mm.instance_count:
+					var ib: AABB = mm.get_instance_transform(i) * mb
+					lb = ib if i == 0 else lb.merge(ib)
+		var box: AABB = gi.global_transform * lb
+		if box.position.y > sea - 0.05 or box.end.y < sea - 4.0: continue
+		var copy: GeometryInstance3D
+		if gi is MeshInstance3D:
+			var mi: MeshInstance3D = gi
+			if mi.mesh == null: continue
+			var c := MeshInstance3D.new()
+			c.mesh = mi.mesh
+			var any := false
+			for s in mi.mesh.get_surface_count():
+				var src: Material = mi.material_override if mi.material_override else (mi.get_surface_override_material(s) if mi.get_surface_override_material(s) else mi.mesh.surface_get_material(s))
+				var um := _uw_mat(src)
+				c.set_surface_override_material(s, um)
+				if um: any = true
+			if not any: c.free(); continue
+			copy = c
+		else:
+			var mmi: MultiMeshInstance3D = gi
+			var um := _uw_mat(mmi.material_override)
+			if um == null or mmi.multimesh == null: continue
+			var c2 := MultiMeshInstance3D.new()
+			c2.multimesh = mmi.multimesh
+			c2.material_override = um
+			copy = c2
+		copy.name = String(gi.name) + "_uw"
+		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		copy.visibility_range_end = gi.visibility_range_end
+		copy.extra_cull_margin = gi.extra_cull_margin
+		gi.add_child(copy)
 
 # ---------- Cinnabar Island: far scenery on the southern horizon ----------
 func _cinnabar() -> void:
