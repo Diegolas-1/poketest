@@ -2,23 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bedgspbk7urw0"
-path="res://.godot/imported/town_123.png-e988cdc5c11c618f19ba0f040b4c917c.ctex"
+uid="uid://bl8sb4p676c40"
+path.s3tc="res://.godot/imported/veg_leaf_crop_22.png-b8c25d4f05a411053f4cd240496df0db.s3tc.ctex"
+path.etc2="res://.godot/imported/veg_leaf_crop_22.png-b8c25d4f05a411053f4cd240496df0db.etc2.ctex"
 metadata={
-"vram_texture": false
-}
-generator_parameters={
-"md5": "8cb87b6b846d56b7b4a9c9cbc89321e1"
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
-source_file="res://world/town_123.png"
-dest_files=["res://.godot/imported/town_123.png-e988cdc5c11c618f19ba0f040b4c917c.ctex"]
+source_file="res://world/veg_leaf_crop_22.png"
+dest_files=["res://.godot/imported/veg_leaf_crop_22.png-b8c25d4f05a411053f4cd240496df0db.s3tc.ctex", "res://.godot/imported/veg_leaf_crop_22.png-b8c25d4f05a411053f4cd240496df0db.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +39,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
