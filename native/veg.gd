@@ -41,6 +41,22 @@ const KINDS := {
 }
 var last_pos := Vector3(INF, INF, INF)
 var last_ink := false
+var _synced := false
+# the chunks that cast shadows or carry leaf ink, in a coarse grid by where they
+# stand, so a camera move looks only at the ones in reach (and those switched
+# on last time) instead of walking every chunk; their numbers in packed arrays
+# (x, z, radius, shadow factor, ink distance; state: 1 ink on, 2 shadow on)
+const GRID := 32.0
+var _grid := {}          # Vector2i -> PackedInt32Array of chunk indices
+var _on := PackedInt32Array()   # chunks with shadows or ink switched on
+var _px := PackedFloat32Array(); var _pz := PackedFloat32Array(); var _pr := PackedFloat32Array()
+var _pk := PackedFloat32Array(); var _pi := PackedFloat32Array()
+var _st := PackedByteArray()
+var _mark := PackedInt32Array()
+var _stamp := 0
+var _reach_r := 0.0      # the largest chunk radius in the grid
+var _reach_k := 0.0      # the largest shadow factor
+var _reach_ink := 0.0    # the largest ink distance
 var stats := {"chunks": 0, "bill": 0, "copies": 0}
 
 static func _rgb(hex: String) -> Color:
@@ -179,6 +195,26 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 					bills.append([Vector3(ip[i * 5], ip[i * 5 + 1], ip[i * 5 + 2]), ip[i * 5 + 3], ip[i * 5 + 4], int(s.impostor), fade.x,
 						float(imp.w) * 0.5, float(imp.bottom), float(imp.h), float(s.far[1])])
 	_billboards(meta, bills, tex.call("veg_bill.png"))
+	_index()
+
+func _index() -> void:
+	_grid = {}
+	var n := chunks.size()
+	for a in [_px, _pz, _pr, _pk, _pi]: a.resize(n)
+	_st.resize(n); _st.fill(0)
+	_mark.resize(n); _mark.fill(0)
+	for i in n:
+		var ch: Dictionary = chunks[i]
+		var c: Vector3 = ch.c
+		_px[i] = c.x; _pz[i] = c.z; _pr[i] = float(ch.r); _pk[i] = float(ch.shadow)
+		_pi[i] = float(ch.ink_d) if ch.ink != null else -1.0
+		if ch.shadow <= 0.0 and ch.ink == null: continue
+		var k := Vector2i(floori(c.x / GRID), floori(c.z / GRID))
+		if not _grid.has(k): _grid[k] = PackedInt32Array()
+		_grid[k].append(i)
+		_reach_r = maxf(_reach_r, float(ch.r))
+		_reach_k = maxf(_reach_k, float(ch.shadow))
+		if ch.ink != null: _reach_ink = maxf(_reach_ink, float(ch.ink_d))
 
 # every far plant as a billboard: one MultiMesh per chunk for all kinds
 func _billboards(meta: Dictionary, bills: Array, atlas: Texture2D) -> void:
@@ -342,19 +378,53 @@ func update(cam_pos: Vector3) -> void:
 	var ink_on: bool = ink != null and ink.enabled and ink.quality >= 0.75
 	# the chunk switches only change every metre or so: skip the walk otherwise
 	if cam_pos.distance_squared_to(last_pos) < 0.25 and ink_on == last_ink: return
+	if ink_on != last_ink or not _synced: _resync(); _synced = true
 	last_pos = cam_pos; last_ink = ink_on
-	for ch in chunks:
-		var c: Vector3 = ch.c
-		var d: float = Vector2(c.x - cam_pos.x, c.z - cam_pos.z).length() - float(ch.r)
+	# the chunks that may need a switch: those in reach now, and those on before
+	var reach := maxf(shadow_far * _reach_k, _reach_ink) + _reach_r + GRID
+	var lo := Vector2i(floori((cam_pos.x - reach) / GRID), floori((cam_pos.z - reach) / GRID))
+	var hi := Vector2i(floori((cam_pos.x + reach) / GRID), floori((cam_pos.z + reach) / GRID))
+	_stamp += 1
+	_next = PackedInt32Array()
+	_switch(_on, cam_pos, ink_on)
+	for gx in range(lo.x, hi.x + 1):
+		for gz in range(lo.y, hi.y + 1):
+			var cell = _grid.get(Vector2i(gx, gz))
+			if cell != null: _switch(cell, cam_pos, ink_on)
+	_on = _next
+
+# what each chunk has switched on, read back from the nodes (at the start, and
+# when the Ink setting changes: Ink switches every plant's ink itself then)
+func _resync() -> void:
+	_on = PackedInt32Array()
+	for i in chunks.size():
+		var ch: Dictionary = chunks[i]
+		var st := 0
+		if ch.ink != null and ch.node.material_overlay != null: st = 1
+		if ch.sh != null: st |= 2 if ch.sh.visible else 0
+		elif ch.node.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF: st |= 2
+		_st[i] = st
+		if st != 0: _on.append(i)
+
+var _next := PackedInt32Array()
+func _switch(list: PackedInt32Array, cam_pos: Vector3, ink_on: bool) -> void:
+	var sf := shadow_far
+	for idx in list:
+		if _mark[idx] == _stamp: continue
+		_mark[idx] = _stamp
+		var dx := _px[idx] - cam_pos.x; var dz := _pz[idx] - cam_pos.z
+		var d := sqrt(dx * dx + dz * dz) - _pr[idx]
 		# leaf ink only on chunks near the camera (the ink pass draws every
 		# card again, and far off it has thinned to nothing anyway)
-		if ch.ink != null:
-			var want_ink: Material = ch.ink if ink_on and d < float(ch.ink_d) else null
-			if ch.node.material_overlay != want_ink: ch.node.material_overlay = want_ink
-		if ch.shadow <= 0.0: continue
-		var on: bool = d < shadow_far * float(ch.shadow)
-		if ch.sh != null:
-			if ch.sh.visible != on: ch.sh.visible = on
-			continue
-		var want := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if on else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		if ch.node.cast_shadow != want: ch.node.cast_shadow = want
+		var want := 0
+		if _pi[idx] >= 0.0 and ink_on and d < _pi[idx]: want = 1
+		if _pk[idx] > 0.0 and d < sf * _pk[idx]: want |= 2
+		if want != 0: _next.append(idx)
+		var was := _st[idx]
+		if want == was: continue
+		_st[idx] = want
+		var ch: Dictionary = chunks[idx]
+		if (want & 1) != (was & 1): ch.node.material_overlay = ch.ink if want & 1 else null
+		if (want & 2) != (was & 2):
+			if ch.sh != null: ch.sh.visible = want & 2 != 0
+			else: ch.node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if want & 2 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

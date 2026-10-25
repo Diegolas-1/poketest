@@ -63,7 +63,16 @@ var hull_mat: ShaderMaterial    # shared by the characters
 var scan_t := 0.0
 var line_mat: ShaderMaterial
 var line_nodes: Array = []
-var overlays: Array = []   # [GeometryInstance3D, ink material]
+var overlays: Array = []   # [GeometryInstance3D, ink material, near (bool)]
+# The world's ink never shows past FOCUS_FAR metres from the player (the
+# shaders thin it to nothing there), so the line cells and the town's ink
+# overlays that lie wholly past it are switched off instead of drawn as
+# collapsed quads: [node, ink (null for a line cell), what to measure (0: the
+# box, 1: the origin, 2: a point), box or point]
+const FOCUS_FAR := 55.0
+var _static: Array = []
+var _cells_near := {}     # line cell -> near
+var _last_focus := Vector3(INF, INF, INF)
 
 func _ready() -> void:
 	line_mat = ShaderMaterial.new()
@@ -102,9 +111,9 @@ func set_enabled(on: bool) -> void:
 	if on == enabled: return
 	enabled = on
 	for n in line_nodes:
-		if is_instance_valid(n): n.visible = on
+		if is_instance_valid(n): n.visible = on and _cells_near.get(n, true)
 	for p in overlays:
-		if is_instance_valid(p[0]): _chain(p[0], p[1], on and (quality >= 0.75 or p[1].shader != LEAF))
+		if is_instance_valid(p[0]): _chain(p[0], p[1], on and p[2] and (quality >= 0.75 or p[1].shader != LEAF))
 	changed.emit(on)
 
 func is_enabled() -> bool:
@@ -116,7 +125,7 @@ func set_quality(q: float) -> void:
 	quality = q
 	var leaf_on := q >= 0.75
 	for p in overlays:
-		if is_instance_valid(p[0]) and p[1].shader == LEAF: _chain(p[0], p[1], enabled and leaf_on)
+		if is_instance_valid(p[0]) and p[1].shader == LEAF: _chain(p[0], p[1], enabled and leaf_on and p[2])
 
 func toggle() -> void:
 	set_enabled(not enabled)
@@ -130,6 +139,36 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func set_focus(p: Vector3) -> void:
 	RenderingServer.global_shader_parameter_set("ink_focus", p)
+	if p.distance_squared_to(_last_focus) < 0.25: return
+	_last_focus = p
+	var lim := FOCUS_FAR + 0.5
+	var gone := false
+	for e in _static:
+		if not is_instance_valid(e[0]):
+			gone = true
+			continue
+		var n: GeometryInstance3D = e[0]
+		if not n.is_inside_tree(): continue
+		var d: float
+		if e[2] == 0:
+			var b: AABB = n.global_transform * (e[3] as AABB)
+			d = (p.clamp(b.position, b.end) - p).length()
+		else:
+			d = p.distance_to(n.global_transform * (e[3] as Vector3))
+		var near := d < lim
+		if e[1] == null:
+			_cells_near[n] = near
+			# (a cell out of line_nodes is hidden by its owner: the town's while indoors)
+			var show := enabled and near and line_nodes.has(n)
+			if n.visible != show: n.visible = show
+			continue
+		var q: Array = e[4]
+		if q[2] != near:
+			q[2] = near
+			_chain(n, e[1], enabled and near and (quality >= 0.75 or e[1].shader != LEAF))
+	if gone:   # (an interior's lines, freed on the way out)
+		_static = _static.filter(func(e): return is_instance_valid(e[0]))
+		for k in _cells_near.keys(): if not is_instance_valid(k): _cells_near.erase(k)
 
 # ---------- 1. vector ink for the baked town ----------
 # world/ink.bin holds ready-made vertex arrays per 64 m cell (see
@@ -169,6 +208,7 @@ func add_world_lines(parent: Node3D, file := "res://world/ink.bin") -> Array:
 		mi.visible = enabled
 		parent.add_child(mi)
 		line_nodes.append(mi)
+		_static.append([mi, null, 0, mesh.get_aabb()])
 		out.append(mi)
 		edges += m
 	print("ink: %d edges in %d cells, %d ms" % [edges, cells, (Time.get_ticks_usec() - t0) / 1000])
@@ -234,12 +274,18 @@ func outline_town(root: Node, file := "res://world/ink_meshes.json") -> void:
 				for dz in [0, -1, 1]:
 					var k := Vector3i(roundi(c.x * 20.0) + dx, roundi(c.y * 20.0) + dy, roundi(c.z * 20.0) + dz)
 					if kind == null and keys.has(k): kind = keys[k]
-		if kind == "hull": outline_mesh(mi)
+		# (switched off past FOCUS_FAR from the player, measured as the shader does:
+		# a hull from the mesh's origin, one plant from its middle, merged plants
+		# per vertex, so from their box)
+		if kind == "hull":
+			_static.append([mi, outline_mesh(mi), 1, Vector3.ZERO, overlays.back()])
 		elif kind == "leaf":
 			# one plant: grow away from its middle; merged plants (many in one
 			# mesh): along the cards' puff normals
 			var box: AABB = mi.get_aabb()
-			outline_plant(mi, box.get_center() if box.size.length() < 8.0 else null)
+			var one := box.size.length() < 8.0
+			var im := outline_plant(mi, box.get_center() if one else null)
+			_static.append([mi, im, 2 if one else 0, box.get_center() if one else box, overlays.back()])
 		if kind != null: found[kind] += 1
 	print("ink: town hull %d, leaf %d" % [found.hull, found.leaf])
 
@@ -270,8 +316,9 @@ func _attach(mi: GeometryInstance3D, ink: ShaderMaterial) -> void:
 		overlays = overlays.filter(func(p): return is_instance_valid(p[0]))   # freed villagers
 	for p in overlays:
 		if p[0] == mi and p[1] == ink: return
-	overlays.append([mi, ink])
+	overlays.append([mi, ink, true])
 	if enabled and (quality >= 0.75 or ink.shader != LEAF): _chain(mi, ink, true)
+	_last_focus = Vector3(INF, INF, INF)
 
 # put the ink at the end of the instance's overlay chain, or take it out
 func _chain(mi: GeometryInstance3D, ink: Material, on: bool) -> void:

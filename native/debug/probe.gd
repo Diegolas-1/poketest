@@ -14,7 +14,7 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else ""
-	for k in ["lod", "trees", "plants", "shadow_dist", "grass", "scale"]:
+	for k in ["lod", "trees", "plants", "shadow_dist", "grass", "grass_size", "scale"]:
 		if args.has(k): Settings.set_value(k, float(args[k]))
 	main = load("res://main.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(main)
@@ -83,6 +83,9 @@ func _process(_dt: float) -> void:
 		acc["min"] = minf(acc.get("min", 1e9), g)
 		acc.n += 1
 	if frame == warm and args.has("vegstat"): _vegstat()
+	if frame == warm and args.has("grassstat"): _grassstat()
+	if frame == warm and args.has("shadowstat"): _shadowstat()
+	if frame == warm and args.has("townstat"): _townstat()
 	if frame == warm + int(args.get("n", "6")):
 		var n: float = acc.n
 		print("PROBE draw=%d prim=%d obj=%d cpu=%.2fms gpu=%.2fms min=%.1fms" % [acc.dc / n, acc.pr / n, acc.ob / n, acc.cpu / n, acc.gpu / n, acc.min])
@@ -113,3 +116,67 @@ func _vegstat() -> void:
 		for i in mm.instance_count:
 			if (mi.global_transform * mm.get_instance_transform(i)).origin.distance_to(cp) < fade.y: tot.live_tris += tris
 	print("VEGSTAT ", tot)
+
+# the grass sent from here: per level of detail, clumps and triangles in tiles
+# the camera sees (by the tile's box)
+func _grassstat() -> void:
+	var g = main.grass
+	var out := {}
+	for t in g.tiles:
+		var mi: MultiMeshInstance3D = t.node
+		if not mi.visible: continue
+		var box: AABB = mi.global_transform * mi.custom_aabb
+		var pl: Array = main.cam.get_frustum()
+		var inside := true
+		for p in pl:
+			var c := box.get_center(); var e := box.size * 0.5
+			if p.distance_to(c) > absf(p.normal.x) * e.x + absf(p.normal.y) * e.y + absf(p.normal.z) * e.z: inside = false; break
+		if not inside: continue
+		var li: int = t.mm.find(mi.multimesh)
+		var mm: MultiMesh = mi.multimesh
+		var n: int = mm.instance_count if mm.visible_instance_count < 0 else mm.visible_instance_count
+		var k := "lod%d" % li
+		if not out.has(k): out[k] = [0, 0, 0]
+		out[k][0] += 1; out[k][1] += n; out[k][2] += n * mm.mesh.get_faces().size() / 3
+	print("GRASSSTAT ", out)
+
+# shadow casters within the sun's shadow distance of the camera (roughly what
+# the two cascades draw), triangles by what they are
+func _shadowstat() -> void:
+	var cp: Vector3 = main.cam.global_position
+	var far: float = main.sun.directional_shadow_max_distance
+	var out := {}
+	for gi in main.find_children("*", "GeometryInstance3D", true, false):
+		if not gi.is_visible_in_tree() or gi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF: continue
+		var box: AABB = gi.global_transform * gi.get_aabb()
+		if (cp.clamp(box.position, box.end) - cp).length() > far: continue
+		var tris := 0
+		if gi is MeshInstance3D and gi.mesh: tris = gi.mesh.get_faces().size() / 3
+		elif gi is MultiMeshInstance3D and gi.multimesh and gi.multimesh.mesh: tris = gi.multimesh.instance_count * gi.multimesh.mesh.get_faces().size() / 3
+		var k := String(gi.get_parent().name).get_slice("_", 0) + "/" + gi.get_class()
+		if gi.get_parent() == main.town_root or gi.get_parent().get_parent() == main.town_root: k = "town"
+		if not out.has(k): out[k] = [0, 0]
+		out[k][0] += 1; out[k][1] += tris
+	print("SHADOWSTAT ", out)
+
+# the town's meshes in view: how many by distance and by size (the angle they fill)
+func _townstat() -> void:
+	var cp: Vector3 = main.cam.global_position
+	var pl: Array = main.cam.get_frustum()
+	var rows := {}
+	for gi in main.town_root.find_children("*", "GeometryInstance3D", true, false):
+		if not gi.is_visible_in_tree(): continue
+		var box: AABB = gi.global_transform * gi.get_aabb()
+		var c := box.get_center(); var e := box.size * 0.5
+		var inside := true
+		for p in pl:
+			if p.distance_to(c) > absf(p.normal.x) * e.x + absf(p.normal.y) * e.y + absf(p.normal.z) * e.z: inside = false; break
+		if not inside: continue
+		var d := cp.distance_to(c)
+		var ang := box.size.length() / maxf(d, 1.0)
+		var k := "d%03d_%s" % [mini(int(d / 50.0) * 50, 400), "tiny" if ang < 0.01 else ("small" if ang < 0.03 else "big")]
+		rows[k] = rows.get(k, 0) + 1
+	var ks := rows.keys(); ks.sort()
+	var o := ""
+	for k in ks: o += "%s=%d " % [k, rows[k]]
+	print("TOWNSTAT ", o)

@@ -79,7 +79,7 @@ const ROWS := {
 		["shadow_dist", "Shadow distance", [30, 45, 60, 80, 100], ""],
 		["shadow_soft", "Shadow edges", [0, 1, 2, 3], ""],
 		["grass", "Grass density", [0, 20000, 40000, 60000, 90000, 120000, 150000, 180000, 220000, 260000], ""],
-		["grass_size", "Grass distance", [30, 40, 50, 64, 76, 90, 110, 130, 160, 200, 250, 300], "far grass thins out"],
+		["grass_size", "Grass distance", [30, 40, 50, 64, 76, 90, 110, 130, 160, 200, 250, 300], "how far the grass reaches"],
 		["lod", "View distance", [0.5, 0.7, 0.85, 1.0, 1.2, 1.35, 1.6, 2.0], ""],
 		["trees", "Trees", [0.3, 0.45, 0.6, 0.8, 1.0, 1.25, 1.5], ""],
 		["plants", "Bushes and flowers", [0.25, 0.5, 0.75, 1.0, 1.25, 1.5], ""],
@@ -118,7 +118,8 @@ var overlay: Node
 var _cfg := ConfigFile.new()
 
 # auto resolution (web main.js autoResTick)
-var _ar := {"acc": 0.0, "n": 0, "gpu": 0.0, "good": 0, "need": 4, "hold": 0.0, "up_at": -100.0, "t": 0.0}
+var _ar := {"acc": 0.0, "n": 0, "gpu": 0.0, "good": 0, "need": 4, "hold": 0.0, "up_at": -100.0, "t": 0.0,
+	"was": -1.0, "was_gpu": 0.0, "quiet": 0.0}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -301,8 +302,22 @@ func _process(dt: float) -> void:
 	_ar.acc = 0.0; _ar.n = 0; _ar.gpu = 0.0
 	if now < _ar.hold: return
 	var sc := auto_scale
+	# a step down that did not make the GPU any faster (the frame is held up by
+	# its triangles or the CPU, not by its pixels): back up, and leave the scale
+	# alone for a while instead of blurring the picture for nothing
+	if _ar.was > 0.0:
+		var back: bool = gpu > 0.0 and _ar.was_gpu > 0.0 and gpu > _ar.was_gpu * 0.93
+		if back:
+			sc = _ar.was; _ar.quiet = now + 20.0
+		_ar.was = -1.0
+		if back:
+			auto_scale = sc
+			_apply_scale()
+			_ar.hold = now + 1.5
+			return
 	# late frames lower the scale, unless the GPU clearly is not the bottleneck
-	if ms > target * 1.12 and (gpu <= 0.0 or gpu > target * 0.6):
+	if ms > target * 1.12 and (gpu <= 0.0 or gpu > target * 0.6) and now >= _ar.quiet and sc > 0.5:
+		_ar.was = sc; _ar.was_gpu = gpu
 		sc = maxf(0.5, sc - (0.15 if ms > target * 1.8 else 0.08)); _ar.good = 0
 		if now - _ar.up_at < 4.0: _ar.need = mini(30, _ar.need * 2)
 	elif ms < target * 1.05 and sc < 1.0:

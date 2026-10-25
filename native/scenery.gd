@@ -254,21 +254,25 @@ func _underwater(root: Node) -> void:
 			var mi: MeshInstance3D = gi
 			if mi.mesh == null: continue
 			var c := MeshInstance3D.new()
-			c.mesh = mi.mesh
+			var mats_uw: Array = []
 			var any := false
 			for s in mi.mesh.get_surface_count():
 				var src: Material = mi.material_override if mi.material_override else (mi.get_surface_override_material(s) if mi.get_surface_override_material(s) else mi.mesh.surface_get_material(s))
 				var um := _uw_mat(src)
-				c.set_surface_override_material(s, um)
+				mats_uw.append(um)
 				if um: any = true
 			if not any: c.free(); continue
+			c.mesh = _below(mi.mesh, mats_uw, gi.global_transform, sea)
+			if c.mesh == null: c.free(); continue
+			for s in c.mesh.get_surface_count(): c.set_surface_override_material(s, c.mesh.surface_get_material(s))
 			copy = c
 		else:
 			var mmi: MultiMeshInstance3D = gi
 			var um := _uw_mat(mmi.material_override)
 			if um == null or mmi.multimesh == null: continue
 			var c2 := MultiMeshInstance3D.new()
-			c2.multimesh = mmi.multimesh
+			c2.multimesh = _below_mm(mmi.multimesh, gi.global_transform, sea)
+			if c2.multimesh == null: c2.free(); continue
 			c2.material_override = um
 			copy = c2
 		copy.name = String(gi.name) + "_uw"
@@ -276,6 +280,53 @@ func _underwater(root: Node) -> void:
 		copy.visibility_range_end = gi.visibility_range_end
 		copy.extra_cull_margin = gi.extra_cull_margin
 		gi.add_child(copy)
+
+# Only the part of a thing that reaches below the waterline is drawn again (the
+# overlay draws nothing above it): the triangles with a corner under the water,
+# per surface with an overlay material (the copy's materials ride on the mesh)
+func _below(src: Mesh, mats_uw: Array, xf: Transform3D, sea: float) -> ArrayMesh:
+	var out := ArrayMesh.new()
+	for s in src.get_surface_count():
+		if mats_uw[s] == null: continue
+		var a: Array = src.surface_get_arrays(s)
+		var v: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = a[Mesh.ARRAY_INDEX]
+		if idx.is_empty():
+			idx.resize(v.size())
+			for i in v.size(): idx[i] = i
+		var low := PackedByteArray()
+		low.resize(v.size())
+		for i in v.size(): low[i] = 1 if (xf * v[i]).y < sea + 0.05 else 0
+		var keep := PackedInt32Array()
+		for t in range(0, idx.size() - 2, 3):
+			if low[idx[t]] == 1 or low[idx[t + 1]] == 1 or low[idx[t + 2]] == 1: keep.append_array([idx[t], idx[t + 1], idx[t + 2]])
+		if keep.is_empty(): continue
+		a[Mesh.ARRAY_INDEX] = keep
+		for k in [Mesh.ARRAY_BONES, Mesh.ARRAY_WEIGHTS]: a[k] = null
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+		out.surface_set_material(out.get_surface_count() - 1, mats_uw[s])
+	return out if out.get_surface_count() > 0 else null
+
+# the copies of a MultiMesh that reach below the waterline
+func _below_mm(src: MultiMesh, xf: Transform3D, sea: float) -> MultiMesh:
+	if src.mesh == null: return null
+	var mb: AABB = src.mesh.get_aabb()
+	var ids := PackedInt32Array()
+	for i in src.instance_count:
+		if (xf * src.get_instance_transform(i) * mb).position.y < sea + 0.05: ids.append(i)
+	if ids.is_empty(): return null
+	if ids.size() == src.instance_count: return src
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = src.use_colors
+	mm.use_custom_data = src.use_custom_data
+	mm.mesh = src.mesh
+	mm.instance_count = ids.size()
+	for j in ids.size():
+		mm.set_instance_transform(j, src.get_instance_transform(ids[j]))
+		if src.use_colors: mm.set_instance_color(j, src.get_instance_color(ids[j]))
+		if src.use_custom_data: mm.set_instance_custom_data(j, src.get_instance_custom_data(ids[j]))
+	return mm
 
 # ---------- Cinnabar Island: far scenery on the southern horizon ----------
 func _cinnabar() -> void:
