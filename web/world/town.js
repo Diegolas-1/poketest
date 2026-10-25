@@ -189,7 +189,7 @@ function foundation(grp, w, d, top, cx, cz, deep, seed) {
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]), dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L;
     const side = -dz * ox + dx * oz > 0 ? 1 : -1;
     runs.push({ a, b, t: 0.34, cap: false, top: () => top + 0.02, col: STONE.wall,
-      faces: [{ side, bottom: (u) => ground(a[0] + dx * u + ox * 0.4, a[1] + dz * u + oz * 0.4) - 0.2 }] });
+      faces: [{ side, bottom: (u) => ground(a[0] + dx * u + ox * 0.4, a[1] + dz * u + oz * 0.4) - 0.2 }], back: () => top + 0.02 });
   }
   grp.add(...wallMeshes(runs, seed * 31 + 7, { fade: WALL_FADE, shadow: false }));
 }
@@ -669,7 +669,7 @@ function labGate(world) {
   const wx = gx - 0.1, runs = [];
   const wallSeg = (z0, z1) => {
     // built stone by stone, its face to the plaza (-x)
-    runs.push({ a: [wx, z0], b: [wx, z1], t: 0.9, top: () => y + 1.28, faces: [{ side: 1, bottom: (u) => height(wx - 0.6, z0 + u) - 0.25 }] });
+    runs.push({ a: [wx, z0], b: [wx, z1], t: 0.9, top: () => y + 1.28, faces: [{ side: 1, bottom: (u) => height(wx - 0.6, z0 + u) - 0.25 }], back: (u) => height(wx + 0.6, z0 + u) - 0.25 });
     world.colliders.push({ box: true, x: wx, z: (z0 + z1) / 2, hw: 0.5, hd: (z1 - z0) / 2 });
   };
   wallSeg(LAB_HILL.z0 - 4, S.z - S.hw - 1.25);
@@ -773,6 +773,15 @@ function bridge(world, b) {
     world.colliders.push({ box: true, x: G.position.x, z: b.z + s * (hw - 0.05), hw: len / 2, hd: 0.1 });
   }
   world.walk.push({ x0: b.x0 - 0.2, x1: b.x1 + 0.2, z0: b.z - hw + 0.1, z1: b.z + hw - 0.1, y: b.y + 0.1 });
+  // where a bank sits lower than the deck, a short plank ramp down to it
+  // (and walk steps along it: no step up onto the bridge)
+  for (const [ex, sg] of [[b.x0 - 0.2, -1], [b.x1 + 0.2, 1]]) {
+    const RL = 1.4, gy = Math.min(...[-1, 0, 1].flatMap((o) => [height(ex + sg * RL, b.z + o * (hw - 0.3)), height(ex + sg * 0.3, b.z + o * (hw - 0.3))])), dy = b.y + 0.1 - gy;
+    if (dy < 0.12) continue;
+    const rp = box(RL + 0.1, 0.08, b.w - 0.5, wood, ex + sg * RL / 2 - G.position.x, (gy + b.y + 0.1) / 2 - b.y - 0.03, 0, G);
+    rp.rotation.z = -sg * Math.atan2(dy, RL);
+    for (let k = 0; k < 6; k++) { const t = (k + 0.5) / 6; world.walk.push({ x0: Math.min(ex, ex + sg * RL * (k + 1) / 6), x1: Math.max(ex, ex + sg * RL * (k + 1) / 6) , z0: b.z - hw + 0.3, z1: b.z + hw - 0.3, y: b.y + 0.1 - dy * t }); }
+  }
   world.solid.push(G);
 }
 
@@ -837,7 +846,7 @@ function laneFurniture(world) {
     const dx = Math.sin(ang), dz = Math.cos(ang), L = l + 0.3, y = height(x, z);
     const a = [x - dx * L / 2, z - dz * L / 2], b = [x + dx * L / 2, z + dz * L / 2];
     const nx = -dz * side, nz = dx * side;   // toward the lane
-    const run = { a, b, t: 0.7, top: () => y + h + 0.04, faces: [{ side, bottom: (u) => height(a[0] + dx * u + nx * 0.6, a[1] + dz * u + nz * 0.6) - 0.2 }] };
+    const run = { a, b, t: 0.7, top: () => y + h + 0.04, faces: [{ side, bottom: (u) => height(a[0] + dx * u + nx * 0.6, a[1] + dz * u + nz * 0.6) - 0.2 }], back: (u) => height(a[0] + dx * u - nx * 0.6, a[1] + dz * u - nz * 0.6) - 0.2 };
     const k = Math.floor(x / 40) + ',' + Math.floor(z / 40);
     if (!cells.has(k)) cells.set(k, []);
     cells.get(k).push(run);
@@ -1220,14 +1229,14 @@ const HB = HARBOUR, HB_Y = SEA_Y + HB.y;
 export const PIER = { x: HB.arms[0].x, z0: HB.arms[0].z0, z1: HB.arms[0].z1, w: HB.w, y: HB_Y };
 function rowboat(g, x, z, rot, hullCol, trim, world, phase = 0) {
   // a clinker rowing boat (props/boats.js: one merged mesh), bobbing
-  const boat = new THREE.Group(); boat.userData.keep = true; boat.position.set(x, SEA_Y + 0.04, z); boat.rotation.y = rot; g.add(boat);
+  const boat = new THREE.Group(); boat.userData.keep = true; boat.userData.boat = { L: 3.8, B: 1.55, draft: 0.3 }; boat.userData.eid = 'harbour/rowboat/' + Math.round(phase * 10); boat.position.set(x, SEA_Y + 0.04, z); boat.rotation.y = rot; g.add(boat);
   boat.add(BO.rowboat({ hull: hullCol, trim, seed: Math.round(phase * 10) + 1 }));
   world.anim.push((k, time) => { boat.position.y = SEA_Y + 0.04 + Math.sin(time * 1.1 + phase) * 0.06; boat.rotation.z = Math.sin(time * 0.9 + phase) * 0.035; boat.rotation.x = Math.sin(time * 0.7 + phase) * 0.02; });
   return boat;
 }
 // a small wooden fishing boat with a wheelhouse and a mast (props/boats.js)
 function fishingBoat(g, x, z, rot, world, name = 'PALLET') {
-  const b = new THREE.Group(); b.userData.keep = true; b.position.set(x, SEA_Y + 0.08, z); b.rotation.y = rot; g.add(b);
+  const b = new THREE.Group(); b.userData.keep = true; b.userData.boat = { L: 7.2, B: 3.0, draft: 0.6 }; b.userData.eid = 'harbour/boat/' + name.toLowerCase(); b.position.set(x, SEA_Y + 0.08, z); b.rotation.y = rot; g.add(b);
   b.add(BO.fishingBoat({ name }));
   world.anim.push((k, time) => { b.position.y = SEA_Y + 0.08 + Math.sin(time * 0.8 + 1.7) * 0.07; b.rotation.z = Math.sin(time * 0.6 + 0.4) * 0.03; });
 }
@@ -1312,12 +1321,13 @@ function dock(world) {
   rowboat(g, bx1 - 1.5, E.z0 + 12, 0.1, '#e8f0ec', '#3f9a6a', world, 2.1);
   // boats moored along the piers' outer stretches, and one in the basin's mouth
   rowboat(g, W.x - hw - 1.5, W.z0 + 46, -0.05, '#f4f1e6', '#e8a33a', world, 0.6);
-  rowboat(g, E.x + hw + 1.5, E.z0 + 52, 0.07, '#e8eef4', '#d84a3a', world, 2.7);
-  fishingBoat(g, E.x + hw + 2.4, E.z0 + 38, 0.04, world);
+  rowboat(g, E.x + hw + 1.5, E.z0 + 57, 0.07, '#e8eef4', '#d84a3a', world, 2.7);
+  // (out past the beach's edge, in 1.7 m of water: at E.z0 + 38 its hull sat on the sand and the quay wall)
+  fishingBoat(g, E.x + hw + 2.4, E.z0 + 46, 0.04, world);
   rowboat(g, bx1 - 1.6, E.z0 + 47, -0.08, '#f4e7c8', '#3d6fa8', world, 1.9);
   fishingBoat(g, (bx0 + bx1) / 2 + 2, Q.z1 + 6.5, Math.PI / 2 + 0.05, world, 'KINGLER');
   const rope = (ax, az, zx, zz) => { const len = Math.hypot(zx - ax, zz - az); const r = box(0.04, 0.04, len, '#d8c290', (ax + zx) / 2, y + 0.1, (az + zz) / 2, g, { line: false }); r.rotation.y = Math.atan2(zx - ax, zz - az); r.rotation.x = 0.08; };
-  rope(outW, W.z0 + 44, W.x - hw - 1.5, W.z0 + 44.4); rope(outE, E.z0 + 55, E.x + hw + 1.5, E.z0 + 54);
+  rope(outW, W.z0 + 44, W.x - hw - 1.5, W.z0 + 44.4); rope(outE, E.z0 + 59, E.x + hw + 1.5, E.z0 + 58.4); rope(outE, E.z0 + 47, E.x + hw + 1.0, E.z0 + 46.6);
   rope(inW, W.z0 + 6, bx0 + 1.4, W.z0 + 5.8); rope(inW, W.z0 + 15, bx0 + 1.5, W.z0 + 18.2); rope(inE, E.z0 + 8, bx1 - 1.5, E.z0 + 10.2);
   // walking on it
   world.walk.push({ x0: Q.x0, x1: Q.x1, z0: Q.z0, z1: Q.z1 + 0.05, y: y + 0.08 });
@@ -1339,7 +1349,7 @@ function harbourFront(world, g) {
   const A = HARBOUR.apron, B = HARBOUR.basin, zf = A.z1 + 0.3;
   const runs = [];
   for (const [xa, xb] of [[A.x0 - 8, B.x0 - 1.6], [B.x1 + 1.6, A.x1 + 6]]) {
-    runs.push({ a: [xa, zf], b: [xb, zf], t: 0.9, top: (u) => Math.max(height(xa + u, zf - 0.6), SEA_Y + 0.25) + 0.04, faces: [{ side: -1, bottom: () => SEA_Y - 1.6 }] });
+    runs.push({ a: [xa, zf], b: [xb, zf], t: 0.9, top: (u) => Math.max(height(xa + u, zf - 0.6), SEA_Y + 0.25) + 0.04, faces: [{ side: -1, bottom: () => SEA_Y - 1.6 }], back: (u) => height(xa + u, zf - 0.6) - 0.2 });
   }
   world.group.add(...wallMeshes(runs, 7711, { fade: WALL_FADE }));
   // boulders at its foot
@@ -1430,9 +1440,9 @@ function lighthouse(world, x, z) {
   for (let i = 0; i < 9; i++) { const a = R() * 6.28, rr = 7.2 + R() * 2.2; rock(9400 + i, Math.cos(a) * rr, -0.9 - R() * 0.3, Math.sin(a) * rr, 0.8 + R() * 1.4, 0.9 + R() * 0.9, 0.8 + R() * 1.2, R() * 6, R() < 0.5 ? 'pebble' : 'boulder'); }
   // the landing: a block quay at the water, steps up to the top
   const lz = -6.6, landing = wallGeometry([
-    { a: [-2.2, lz + 1.4], b: [-2.2, lz - 1.3], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }] },
-    { a: [2.2, lz - 1.3], b: [2.2, lz + 1.4], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }] },
-    { a: [-2.2, lz - 1.3], b: [2.2, lz - 1.3], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }] },
+    { a: [-2.2, lz + 1.4], b: [-2.2, lz - 1.3], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }], back: () => 0.75 },
+    { a: [2.2, lz - 1.3], b: [2.2, lz + 1.4], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }], back: () => 0.75 },
+    { a: [-2.2, lz - 1.3], b: [2.2, lz - 1.3], t: 0.6, top: () => 0.75, col: STONE.wall, faces: [{ side: -1, bottom: () => -1.5 }], back: () => 0.75 },
   ], 9501);
   parts.push(landing);
   const deck = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.6, 2.8), flat('#8d8a80')); deck.position.set(0, 0.45, lz + 0.05); deck.userData.outline = false; G.add(deck);
@@ -1488,7 +1498,7 @@ function lighthouse(world, x, z) {
   const plinth = [], np = 8, pr = 2.35;
   for (let i = 0; i < np; i++) {
     const a0 = i / np * Math.PI * 2, a1 = (i + 1) / np * Math.PI * 2;
-    plinth.push({ a: [Math.cos(a0) * pr, Math.sin(a0) * pr], b: [Math.cos(a1) * pr, Math.sin(a1) * pr], t: 0.5, top: () => y0 + 0.95, col: STONE.wall, faces: [{ side: -1, bottom: () => y0 - 0.3 }] });
+    plinth.push({ a: [Math.cos(a0) * pr, Math.sin(a0) * pr], b: [Math.cos(a1) * pr, Math.sin(a1) * pr], t: 0.5, top: () => y0 + 0.95, col: STONE.wall, faces: [{ side: -1, bottom: () => y0 - 0.3 }], back: () => y0 + 0.95 });
   }
   G.add(...wallMeshes(plinth, 9701, { fade: [700, 720], key: 'isle' }));
   cyl(2.15, 2.15, 1.2, '#5c584f', 0, y0 + 0.35, 0, G, 16, { line: false });

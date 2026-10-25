@@ -218,47 +218,48 @@ export function route1Fill(world) {
     use(cx, ORCHARD.z1 + 1.5, 'Look', ['The little trees are heavy with BERRIES: blue ORAN, pink PECHA, red CHERI.', 'Wild POKéMON love them too. Something has nibbled the low ones.']);
   }
 
+  const R0 = road();
+  world.r1Bridges = [];   // (tools/qa/checks.js: every bridge and crossing, its ends and deck)
   r1.amb.meadow = { x: 72, z: -150, r: 46 };   // butterflies over the flowers
   r1.amb.birds = [[0, -120, 30], [-10, -260, 34], [20, -380, 30]];   // PIDGEY flocks circling [x, z, radius]
 
   // ================= zone 3: the dells =================
-  // the creeks: the road's footbridge, the tea trail's stepping stones
+  // the creeks: the road's footbridge, the tea trail's stepping stones, the
+  // brook's stone bridge. Each sits exactly where its path crosses the water
+  // (crossing(): the path's own line and direction there, the dry banks on
+  // both sides), its deck level with the path's ends.
   {
     const C = CREEKS.find((c) => c.id === 'tea');
-    // where the road crosses: the creek point nearest the road
-    let best = null;
-    for (let i = 0; i < C.line.length; i++) { const [x, z] = C.line[i], d = roadDist(x, z); if (!best || d < best.d) best = { d, i, x, z }; }
-    const a = C.line[Math.max(0, best.i - 2)], b = C.line[Math.min(C.line.length - 1, best.i + 2)];
-    // the bridge runs along the road where it crosses (so it carries the road, its ends on the road's line)
-    const rc = roadAt(best.z), ang = Math.atan2(rc.dx, rc.dz); void a; void b;
-    const yA = height(best.x + Math.sin(ang) * 4.0, best.z + Math.cos(ang) * 4.0), yB = height(best.x - Math.sin(ang) * 4.0, best.z - Math.cos(ang) * 4.0);
-    const y = Math.max(yA, yB) + 0.05;
-    deckBridge(world, O.footbridge({ L: 8, w: 3.4, rise: 0.25 }), best.x, best.z, ang, y, 8, 3.4, 0.25);
-    // stepping stones where the tea trail crosses
-    const T = ROADS[TRAIL0 + 4];
-    let bs = null;
-    for (const [x, z] of T) { const q = creekAt(x, z); if (q && (!bs || q.d < bs.d)) bs = { d: q.d, x, z, y: q.y }; }
-    if (bs) {
-      const q = creekAt(bs.x, bs.z), t = Math.round(q.t), p0 = C.line[Math.max(0, t - 1)], p1 = C.line[Math.min(C.line.length - 1, t + 1)];
-      const ca = Math.atan2(p1[0] - p0[0], p1[1] - p0[1]) + Math.PI / 2, sx = Math.sin(ca), sz = Math.cos(ca);
-      const geos = [];
-      for (let k = -3; k <= 3; k++) {
-        const x = bs.x + sx * k * 0.85, z = bs.z + sz * k * 0.85, top = bs.y + 0.18;
-        const g = boulderGeometry(500 + k, { w: 0.8, h: 0.5, d: 0.7, kind: 'slab', col: new THREE.Color(STONE.bank), flatTop: true });
-        g.rotateY(k * 0.7).translate(x, top - 0.25, z);
+    const X = crossing(R0, C, C.w + 3.0);
+    const fb = bridgeAt(world, X, 3.4, 0.25, 'route1/creek/road_footbridge', (L) => O.footbridge({ L, w: 3.4, rise: 0.25 }));
+    world.r1Bridges.push(fb);
+    // stepping stones where the tea trail crosses: flat slabs on the trail's
+    // own line, bank to bank, evenly spaced, their tops just above the water
+    const T = ROADS[TRAIL0 + 4], S = crossing(T, C, C.w + 1.2, (x, z) => { const q = creekAt(x, z); return q && height(x, z) < q.y + 0.06; });
+    if (S) {
+      const geos = [], n = Math.max(4, Math.ceil(S.L / 0.78)), step = S.L / n, ang = Math.atan2(S.dx, S.dz);
+      const stones = [];
+      for (let k = 0; k <= n; k++) {
+        const u = -S.L / 2 + k * step, x = S.x + S.dx * u, z = S.z + S.dz * u, q = creekAt(x, z);
+        const top = Math.max(q ? q.y : S.y, height(x, z) - 0.02) + 0.13;
+        const g = boulderGeometry(500 + k, { w: 0.72, h: 0.42, d: 0.62, kind: 'slab', col: new THREE.Color(STONE.bank), flatTop: true });
+        g.computeBoundingBox(); const gy = g.boundingBox.max.y;
+        g.rotateY(ang + (k % 2 ? 0.18 : -0.12)).translate(x + S.dz * (k % 2 ? 0.06 : -0.06), top - gy, z - S.dx * (k % 2 ? 0.06 : -0.06));
         geos.push(g);
-        world.walk.push({ x, z, hw: 0.55, hd: 0.55, rot: ca, y: top });
+        world.walk.push({ x, z, hw: 0.42, hd: step / 2 + 0.04, rot: ang, y: top });
+        stones.push([+x.toFixed(2), +top.toFixed(3), +z.toFixed(2)]);
       }
-      G.add(stoneMesh(mergeGeos(geos), { fade: [140, 146] }));
+      const m = eid(stoneMesh(mergeGeos(geos), { fade: [140, 146] }), 'route1/creek/stepping_stones');
+      G.add(m);
+      world.r1Bridges.push({ id: 'route1/creek/stepping_stones', kind: 'stones', a: S.a, b: S.b, y: [stones[0][1], stones[stones.length - 1][1]], w: 0.84, stones });
     }
-    // the brook's little stone bridge on the road near Viridian
+    // the brook's little stone bridge on the cobbled road near Viridian
     const B = CREEKS.find((c) => c.id === 'brook');
-    let bb = null;
-    for (let i = 0; i < B.line.length; i++) { const [x, z] = B.line[i], d = roadDist(x, z); if (!bb || d < bb.d) bb = { d, i, x, z }; }
-    const ra = roadAt(bb.z), rang = Math.atan2(ra.dx, ra.dz);
-    const yb = Math.max(height(bb.x + ra.dx * 4.5, bb.z + ra.dz * 4.5), height(bb.x - ra.dx * 4.5, bb.z - ra.dz * 4.5)) + 0.04;
-    deckBridge(world, O.stoneBridge({ L: 8, w: 4.0, rise: 0.3 }), bb.x, bb.z, rang, yb, 8, 4.0, 0.3);
-    use(bb.x + Math.sin(rang + Math.PI / 2) * 1.6, bb.z + Math.cos(rang + Math.PI / 2) * 1.6, 'Look', ['An old stone bridge, soft with moss.', 'Down in the brook, a little POLIWAG swims against the current and gets nowhere.']);
+    const XB = crossing(R0, B, B.w + 3.0);
+    const sb = bridgeAt(world, XB, 4.6, 0.3, 'route1/brook/stone_bridge', (L) => O.stoneBridge({ L, w: 4.6, rise: 0.3 }));
+    world.r1Bridges.push(sb);
+    const rang = sb.ang;
+    use(XB.x + Math.sin(rang + Math.PI / 2) * 1.6, XB.z + Math.cos(rang + Math.PI / 2) * 1.6, 'Look', ['An old stone bridge, soft with moss.', 'Down in the brook, a little POLIWAG swims against the current and gets nowhere.']);
   }
   // the tea house
   {
@@ -351,10 +352,10 @@ export function route1Fill(world) {
   }
 
   // ================= zone 4: Viridian's edge =================
-  const R0 = road();
   // the road's surface: gravel from z -335, cobbles from -386 (with kerbs)
-  pave(G, R0, -335, -386, 'gravel');
-  pave(G, R0, -386, ROUTE1.gateZ + 1, 'cobble');
+  const underDeck = (x, z) => world.r1Bridges.some((b) => b.kind !== 'stones' && Math.abs((x - b.x) * b.dx + (z - b.z) * b.dz) < b.L / 2 - 0.3 && Math.abs((x - b.x) * b.dz - (z - b.z) * b.dx) < b.w);
+  pave(G, R0, -335, -386, 'gravel', underDeck);
+  pave(G, R0, -386, ROUTE1.gateZ + 1, 'cobble', underDeck);
   // dry-stone walls in place of the rail fences, both sides of the road
   {
     const runs = [];
@@ -376,8 +377,8 @@ export function route1Fill(world) {
       if (run && run.pts.length > 3) runs.push(run);
     }
     const out = [], R = rng(55);
-    for (const r of runs) for (let k = 0; k + 1 < r.pts.length; k++) {
-      const a = r.pts[k], b = r.pts[k + 1], hgt = 0.85 + R() * 0.12;
+    for (const r of runs) for (let k = 0, hr = 0.85 + R() * 0.12; k + 1 < r.pts.length; k++) {
+      const a = r.pts[k], b = r.pts[k + 1], hgt = hr;   // (one height per stretch: no steps between its pieces)
       out.push({ a, b, hgt, t: 0.55, top: (u) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = u / L; return height(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t) + hgt; },
         faces: [{ side: 1, bottom: () => Math.min(height(...a), height(...b)) - 0.2 }, { side: -1, bottom: () => Math.min(height(...a), height(...b)) - 0.2 }], col: '#b9b6a0' });
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
@@ -536,21 +537,84 @@ function mergeGeos(list) {
   if (U.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
   return g;
 }
-// a bridge prop laid across water at (x, z) along `ang`, its deck at y, and
-// walk decks in short steps following its arch
-function deckBridge(world, g, x, z, ang, y, L, w, rise) {
-  g.position.set(x, y, z); g.rotation.y = ang; world.group.add(g);
-  const n = 9, s = Math.sin(ang), c = Math.cos(ang);
+// Where a path (a dense polyline, 1 m steps) crosses a creek: the crossing
+// point on the path's own line, the path's direction there, and the span
+// along the path from dry ground to dry ground (`bank`: the creek distance
+// where the bank is back up at full height; `wet(x, z)`: or a test of its
+// own). Returns {x, z (the span's middle), dx, dz, L, a, b (the span's ends),
+// y (the water level at the crossing)} or null.
+function crossing(P, C, bank, wet = null) {
+  let hit = null;
+  const Lc = C.line;
+  for (let i = 0; i + 1 < P.length; i++) {
+    const [ax, az] = P[i], [bx, bz] = P[i + 1];
+    for (let j = 0; j + 1 < Lc.length; j++) {
+      const [cx, cz] = Lc[j], [ex, ez] = Lc[j + 1];
+      const rx = bx - ax, rz = bz - az, sx = ex - cx, sz = ez - cz, den = rx * sz - rz * sx;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((cx - ax) * sz - (cz - az) * sx) / den, u = ((cx - ax) * rz - (cz - az) * rx) / den;
+      if (t >= 0 && t <= 1 && u >= 0 && u <= 1) { hit = { i, x: ax + rx * t, z: az + rz * t }; break; }
+    }
+    if (hit) break;
+  }
+  if (!hit) {
+    // (no true crossing: the closest approach)
+    for (let i = 0; i < P.length; i++) { const q = creekAt(P[i][0], P[i][1]); if (q && q.c === C && (!hit || q.d < hit.d)) hit = { i, x: P[i][0], z: P[i][1], d: q.d }; }
+    if (!hit) return null;
+  }
+  const p0 = P[Math.max(0, hit.i - 1)], p1 = P[Math.min(P.length - 1, hit.i + 2)];
+  let dx = p1[0] - p0[0], dz = p1[1] - p0[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+  const isWet = wet || ((x, z) => { const q = creekAt(x, z); return !!q && q.c === C && q.d < bank; });
+  const reach = (sg) => { let u = 0; while (u < 16 && isWet(hit.x + dx * u * sg, hit.z + dz * u * sg)) u += 0.1; return u; };
+  const up = reach(1) + 0.3, un = reach(-1) + 0.3, L = up + un;
+  const mx = hit.x + dx * (up - un) / 2, mz = hit.z + dz * (up - un) / 2;
+  const q = creekAt(hit.x, hit.z);
+  return { x: mx, z: mz, dx, dz, L, a: [mx - dx * L / 2, mz - dz * L / 2], b: [mx + dx * L / 2, mz + dz * L / 2], y: q ? q.y : height(hit.x, hit.z), cross: [hit.x, hit.z] };
+}
+// a bridge prop (made by make(L), deck along its z, the deck's top at y 0 at
+// its ends) laid on a crossing: its ends on the path's ends, level with them
+function bridgeAt(world, X, w, rise, id, make) {
+  const ang = Math.atan2(X.dx, X.dz);
+  const yA = height(...X.a) + 0.03, yB = height(...X.b) + 0.03;
+  const g = make(X.L); g.userData.eid = id;
+  deckBridge(world, g, X.x, X.z, ang, yA, yB, X.L, w, rise);
+  return { id, kind: 'deck', x: X.x, z: X.z, dx: X.dx, dz: X.dz, ang, L: X.L, w, a: X.a, b: X.b, y: [yA, yB], rise };
+}
+// a bridge prop across water at (x, z) along `ang`, its deck's ends at yA
+// (the -z end) and yB (tilted to meet both), and walk decks in short steps
+// following its arch
+function deckBridge(world, g, x, z, ang, yA, yB, L, w, rise) {
+  const tilt = -Math.atan2(yB - yA, L);
+  g.position.set(x, (yA + yB) / 2, z); g.rotation.set(tilt, ang, 0, 'YXZ'); world.group.add(g);
+  const n = Math.max(9, Math.ceil(L / 0.9)), s = Math.sin(ang), c = Math.cos(ang);
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) / n, u = -L / 2 + t * L;
-    world.walk.push({ x: x + s * u, z: z + c * u, hw: w / 2 - 0.2, hd: L / n / 2 + 0.06, rot: ang, y: y + Math.sin(t * Math.PI) * rise + 0.02 });
+    world.walk.push({ x: x + s * u, z: z + c * u, hw: w / 2 - 0.35, hd: L / n / 2 + 0.06, rot: ang, y: yA + (yB - yA) * t + Math.sin(t * Math.PI) * rise + 0.02 });
   }
   // the rails / parapets
   for (const sd of [-1, 1]) world.colliders.push({ box: true, x: x + c * sd * (w / 2 - 0.1), z: z - s * sd * (w / 2 - 0.1), hw: 0.12, hd: L / 2 - 0.5, rot: ang });
 }
 // the road surface from z0 to z1: a ribbon over the dirt, gravel or cobbles
-function pave(G, R, z0, z1, kind) {
-  const pts = R.filter(([, z]) => z <= z0 && z >= z1);
+function pave(G, R, z0, z1, kind, skip = null) {
+  // (broken where a bridge's deck carries the road: one strip each side; each
+  // strip ends exactly at its z0 / z1 and at the deck's ends, so the gravel
+  // meets the cobbles and both meet the bridges with no bare dirt between)
+  const inside = (p) => p[1] <= z0 && p[1] >= z1 && !(skip && skip(p[0], p[1]));
+  const runs = [[]];
+  let prev = null, prevIn = false;
+  for (const p of R) {
+    const ins = inside(p);
+    if (prev && ins !== prevIn) {
+      let a = prev, b = p;
+      for (let k = 0; k < 14; k++) { const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; if (inside(m) === prevIn) a = m; else b = m; }
+      if (prevIn) { runs[runs.length - 1].push(a); runs.push([]); } else runs[runs.length - 1].push(b);
+    }
+    if (ins) runs[runs.length - 1].push(p);
+    prev = p; prevIn = ins;
+  }
+  for (const pts of runs) paveStrip(G, pts, kind);
+}
+function paveStrip(G, pts, kind) {
   if (pts.length < 3) return;
   const HW = kind === 'cobble' ? 2.05 : 1.85, pos = [], uv = [], idx = [];
   let s = 0;

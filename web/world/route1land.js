@@ -141,8 +141,10 @@ export const TRAILS = [
 export const CREEKS = [
   // off the west hill above the tea house, a little fall, past the tea house,
   // under the road's footbridge and out to a lily pool in the east nook
+  // (it keeps well clear of the road until it crosses it square on, under
+  // the footbridge: it used to run down the road for 20 m and drown it)
   { id: 'tea', w: 1.5, pool: 6.5, ctrl: [[-112, -232], [-102, -236], [-92, -241], [-80, -244], [-66, -244], [-52, -242], [-38, -241],
-    [-22, -240], [-8, -238], [4, -240], [16, -245], [26, -250], [33, -252]] },
+    [-22, -241], [-10, -244], [0, -248.5], [8.5, -252.6], [14.6, -253.2], [20.8, -248.3], [27, -247.4], [33, -252]] },
   // a brook under the little stone bridge near Viridian
   { id: 'brook', w: 1.1, pool: 4.5, ctrl: [[64, -366], [52, -369], [40, -372], [26, -374], [12, -376], [-2, -379], [-14, -381],
     [-28, -383], [-40, -388], [-48, -392]] },

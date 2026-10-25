@@ -351,19 +351,53 @@ const pick = (R, a, back) => {
 // (the mortar seen in the joints). runs: [{ a: [x, z], b: [x, z],
 //   top(u) -> y of the wall's top at u metres from a (cap included),
 //   faces: [{ side: +1 | -1, bottom(u) -> lowest y worth building }],
+//   back(u) -> the lowest y on the side with no face listed (default: the
+//   listed face's bottom; a retaining wall passes the ground behind it),
 //   t: thickness, cap: true, col }]  side +1 = the left of a -> b.
+// Every wall is solid: both sides are faced with stones (the side not listed
+// from back(u) up), the core is a closed box, and an end not joined to
+// another run is closed with end stones, so no cross-section shows a cap
+// over a hollow or a one-sided body (an upside-down L). The cap is centred
+// on the wall, overhanging both faces evenly.
 // Returns the merged geometry (same space as the points).
 export function wallGeometry(runs, seed = 1, split = false) {
   const R = rng(seed), out = [], caps = [];
-  for (const run of runs) {
-    const [ax, az] = run.a, [bx, bz] = run.b, L = Math.hypot(bx - ax, bz - az);
+  // run ends that meet another run's end (those stay open: the walls join)
+  // (or that end inside another run's body: lane walls overlap each other)
+  const joined = (p, self) => runs.some((r) => {
+    if (r === self) return false;
+    if (Math.hypot(r.a[0] - p[0], r.a[1] - p[1]) < 0.3 || Math.hypot(r.b[0] - p[0], r.b[1] - p[1]) < 0.3) return true;
+    const L = Math.hypot(r.b[0] - r.a[0], r.b[1] - r.a[1]) || 1, dx = (r.b[0] - r.a[0]) / L, dz = (r.b[1] - r.a[1]) / L;
+    const u = (p[0] - r.a[0]) * dx + (p[1] - r.a[1]) * dz, v = (p[0] - r.a[0]) * -dz + (p[1] - r.a[1]) * dx;
+    return u > 0.15 && u < L - 0.15 && Math.abs(v) < (r.t || 0.7) / 2;
+  });
+  for (const run0 of runs) {
+    const [ax, az] = run0.a, [bx, bz] = run0.b, L = Math.hypot(bx - ax, bz - az);
     if (L < 0.2) continue;
+    // both sides faced: the side not listed from back(u) (or the listed one's bottom)
+    const run = { ...run0, faces: [...run0.faces] };
+    for (const s of [1, -1]) if (!run.faces.some((f) => f.side === s)) {
+      const f0 = run0.faces[0];
+      run.faces.push({ side: s, bottom: run0.back || (f0 ? f0.bottom : () => run0.top(0) - 1), back: true });
+    }
     const dx = (bx - ax) / L, dz = (bz - az) / L, nx = -dz, nz = dx;   // left normal
     const t = run.t || 0.7, capH = run.cap === false ? 0 : 0.17, base = new THREE.Color(run.col || STONE.wall);
     const P = (u, off) => [ax + dx * u + nx * off, az + dz * u + nz * off];
     const slope = (u0, u1) => Math.atan2(run.top(u1) - run.top(u0), u1 - u0);
     let lo = Infinity, hi = -Infinity;
     for (let u = 0; u <= L + 0.01; u += 0.25) { hi = Math.max(hi, run.top(Math.min(u, L))); for (const f of run.faces) lo = Math.min(lo, f.bottom(Math.min(u, L))); }
+    // free ends: a column of stones across the wall's end, facing out
+    for (const [u, sg, pt] of [[0, -1, run0.a], [L, 1, run0.b]]) {
+      if (joined(pt, run0)) continue;
+      const B = Math.min(...run.faces.map((f) => f.bottom(u)));
+      let y0 = B, T = run.top(u) - capH;
+      while (y0 < T - 0.08) {
+        let h = 0.24 + R() * 0.18; if (T - (y0 + h) < 0.14) h = T - y0;
+        const [cx, cz] = P(u - sg * 0.11, (R() - 0.5) * 0.02);
+        putBlock(out, R, pick(R, (t + 0.04) / (h - 0.03), false), t + 0.04, h - 0.03, 0.28, cx, y0 + h / 2, cz, [dx * sg, 0, dz * sg], 0, 0.84 + R() * 0.24);
+        y0 += h;
+      }
+    }
     // faces: courses of blocks
     for (const f of run.faces) {
       const s = f.side, n = [nx * s, 0, nz * s], dep = 0.3;
@@ -406,12 +440,13 @@ export function wallGeometry(runs, seed = 1, split = false) {
         const um = (u0 + u1) / 2, [cx, cz] = P(um, 0);
         const b = pick(R, (u1 - u0) / capH, true);
         const ty = (run.top(u0) + run.top(u1)) / 2;
-        putBlock(caps, R, b, u1 - u0 - 0.03, capH, t + 0.12, cx, ty - capH / 2, cz, [nx, 0, nz], slope(u0, u1), 1.04 + R() * 0.08);
+        putBlock(caps, R, b, u1 - u0 - 0.03, capH, t + 0.06, cx, ty - capH / 2, cz, [nx, 0, nz], slope(u0, u1), 1.04 + R() * 0.08);
       }
     }
-    // the core: a dark strip seen through the joints
+    // the core: a closed dark box seen through the joints (both sides, the
+    // top under the caps, the ends)
     const ins = t / 2 - 0.12, mc = base.clone().multiplyScalar(0.42);
-    const sides = run.faces.map((f) => f.side);
+    const sides = [1, -1];
     const step = 0.5, us = [];
     for (let u = 0; u < L; u += step) us.push(u); us.push(L);
     const pos = [], nrm = [];
@@ -428,6 +463,15 @@ export function wallGeometry(runs, seed = 1, split = false) {
         const A = [x0, lo - 0.3, z0], B = [x1, lo - 0.3, z1], C = [x1, t1, z1], D = [x0, t0, z0];
         if (s > 0) pushQ(A, B, C, D); else pushQ(B, A, D, C);
       }
+      // its top
+      const [p0x, p0z] = P(u0, ins), [p1x, p1z] = P(u1, ins), [q0x, q0z] = P(u0, -ins), [q1x, q1z] = P(u1, -ins);
+      pushQ([p0x, t0, p0z], [p1x, t1, p1z], [q1x, t1, q1z], [q0x, t0, q0z]);
+    }
+    // its ends
+    for (const [u, sg] of [[0, -1], [L, 1]]) {
+      const tt = run.top(u) - capH + 0.02, [px, pz] = P(u, ins), [qx, qz] = P(u, -ins);
+      const A = [px, lo - 0.3, pz], B = [qx, lo - 0.3, qz], C = [qx, tt, qz], D = [px, tt, pz];
+      if (sg > 0) pushQ(A, B, C, D); else pushQ(B, A, D, C);
     }
     if (pos.length) {
       const g = new THREE.BufferGeometry();
@@ -451,6 +495,8 @@ export function wallMeshes(runs, seed, o = {}) {
   const { faces, caps } = wallGeometry(runs, seed, true), out = [];
   if (faces) { const m = stoneMesh(faces, o); m.userData.outline = 'ground'; out.push(m); }
   if (caps) out.push(stoneMesh(caps, o));
+  // (tools/qa/checks.js 'wallx' cuts the wall across at each run: in the parent's space)
+  if (out.length) out[0].userData.wallRuns = runs.map((r) => ({ a: r.a, b: r.b, t: r.t || 0.7, cap: r.cap !== false, top: r.top }));
   return out;
 }
 

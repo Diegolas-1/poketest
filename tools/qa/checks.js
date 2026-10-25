@@ -446,6 +446,167 @@
       }
       stats.facing = n;
     }
+    // the walk grid as tools/native/bake.mjs makes it (ground.bin): a cell is
+    // blocked by water unless a walk deck covers it, and by no-walk ground
+    const walks = Wd.town.walk || [];
+    const onDeck = (d, x, z) => {
+      if (d.x0 !== undefined) return x > d.x0 && x < d.x1 && z > d.z0 && z < d.z1;
+      const dx = x - d.x, dz = z - d.z, c = Math.cos(d.rot || 0), s = Math.sin(d.rot || 0);
+      return Math.abs(dx * c - dz * s) < d.hw && Math.abs(dx * s + dz * c) < d.hd;
+    };
+    const cell = (x, z) => {
+      const h0 = T.height(x, z); let y = h0, deck = false;
+      for (const d of walks) if (onDeck(d, x, z)) { if (d.y > y) y = d.y; deck = true; }
+      const wet = h0 < T.waterLevel(x, z) - 0.05, no = T.noWalk(x, z);
+      return { y, h0, wet, deck, blocked: (wet && !deck) || no };
+    };
+    // every bridge and crossing: Route 1's (route1.js world.r1Bridges) and the town's (terrain.js BRIDGES)
+    const bridges = [...(Wd.town.r1Bridges || []).map((b) => ({ ...b, road: true })),
+      ...T.BRIDGES.map((b, i) => ({ id: 'town/bridge/' + i, kind: 'deck', a: [b.x0, b.z], b: [b.x1, b.z], w: b.w, road: false }))];
+
+    // ===== 9. bridges: the deck spans its water, its ends on the path, level with it =====
+    if (on('bridge')) {
+      let n = 0;
+      for (const B of bridges) {
+        n++;
+        const [ax, az] = B.a, [bx, bz] = B.b, L = Math.hypot(bx - ax, bz - az), dx = (bx - ax) / L, dz = (bz - az) / L;
+        const at = V((ax + bx) / 2, T.height((ax + bx) / 2, (az + bz) / 2), (az + bz) / 2);
+        const obj = { object: B.id };
+        // the water it crosses lies inside the span: past each end, along its line, dry ground
+        let wetOut = 0;
+        for (const sg of [-1, 1]) for (let u = 0.3; u <= 3; u += 0.25) { const e = sg < 0 ? B.a : B.b, x = e[0] + dx * u * sg, z = e[1] + dz * u * sg; if (cell(x, z).wet) wetOut++; }
+        if (wetOut) add('bridge', 'high', at, null, `water past the end of the ${B.kind === 'stones' ? 'stepping stones' : 'deck'} (${wetOut} samples within 3 m along its line)`, 'lengthen the span or move it to where its path crosses the water square on (route1.js crossing())', obj);
+        let wetIn = 0;
+        for (let u = 0; u <= L; u += 0.25) if (cell(ax + dx * u, az + dz * u).wet) wetIn++;
+        if (!wetIn) add('bridge', 'med', at, null, 'the span crosses no water', 'move it onto the crossing', obj);
+        // its ends meet the path (Route 1's: on a road or trail, along its direction) and the ground, level
+        for (const e of [B.a, B.b]) {
+          const c = cell(e[0], e[1]);
+          if (c.wet) add('bridge', 'high', V(e[0], c.h0, e[1]), null, 'an end of the span stands in the water', 'extend it to the dry bank', obj);
+          if (B.road && !T.onPath(e[0], e[1], 0.4)) add('bridge', 'high', V(e[0], c.h0, e[1]), null, 'an end of the span is off its path', 'lay the span on the path\'s own line (crossing())', obj);
+          if (B.road) {
+            // the path's direction at the end vs the span's
+            let best = null;
+            for (const R of T.ROADS) for (let i = 0; i + 1 < R.length; i++) { const d = Math.hypot(R[i][0] - e[0], R[i][1] - e[1]); if (!best || d < best.d) best = { d, R, i }; }
+            if (best && best.d < 3) {
+              const p0 = best.R[Math.max(0, best.i - 1)], p1 = best.R[Math.min(best.R.length - 1, best.i + 1)], l = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
+              const cosA = Math.abs(((p1[0] - p0[0]) * dx + (p1[1] - p0[1]) * dz) / l), ang = Math.acos(Math.min(1, cosA)) * 180 / Math.PI;
+              if (ang > 20) add('bridge', 'high', V(e[0], c.h0, e[1]), null, `the span turns ${ang.toFixed(0)}° off its path at this end`, 'lay the span along the path\'s direction (crossing())', obj);
+            }
+          }
+          const ey = B.y ? B.y[e === B.a ? 0 : 1] : null;
+          if (ey != null && Math.abs(ey - c.h0) > 0.2) add('bridge', 'high', V(e[0], c.h0, e[1]), null, `the deck's end is ${(ey - c.h0).toFixed(2)} m off the path's ground`, 'set the deck\'s end heights from the path\'s ends (bridgeAt)', obj);
+        }
+      }
+      stats.bridge = n;
+    }
+
+    // ===== 10. walk: the walk grid is continuous across every bridge and crossing =====
+    if (on('walk')) {
+      let n = 0;
+      for (const B of bridges) {
+        const [ax, az] = B.a, [bx, bz] = B.b, L = Math.hypot(bx - ax, bz - az), dx = (bx - ax) / L, dz = (bz - az) / L;
+        const lanes = B.kind === 'stones' ? [0] : [-(B.w / 2 - 0.6), 0, B.w / 2 - 0.6];
+        for (const off of lanes) {
+          n++;
+          let prev = null, bad = null;
+          for (let u = -1.5; u <= L + 1.5 && !bad; u += 0.125) {
+            const x = ax + dx * u - dz * off, z = az + dz * u + dx * off, c = cell(x, z);
+            if (c.blocked) bad = [x, c.y, z, c.wet ? 'water with no deck' : 'no-walk ground'];
+            else if (prev && Math.abs(c.y - prev.y) > 0.3) bad = [x, c.y, z, `a ${(c.y - prev.y).toFixed(2)} m step`];
+            prev = c;
+          }
+          if (bad) add('walk', 'high', V(bad[0], bad[1], bad[2]), null, `the walk grid breaks crossing ${B.kind === 'stones' ? 'the stepping stones' : 'the bridge'}: ${bad[3]}`, 'cover the water with walk decks end to end and match the deck to the ground at its ends', { object: B.id });
+        }
+      }
+      stats.walk = n;
+    }
+
+    // ===== 11. boats float in water deep enough for their hulls, clear of the quay and the decks =====
+    if (on('boat')) {
+      let n = 0;
+      root.traverse((o) => {
+        const bt = o.userData.boat; if (!bt) return;
+        n++;
+        const p = V().setFromMatrixPosition(o.matrixWorld), yaw = Math.atan2(o.matrixWorld.elements[8], o.matrixWorld.elements[10]);
+        const fx = Math.sin(yaw), fz = Math.cos(yaw);
+        let shallow = 0, deck = 0, solid = 0, minD = Infinity;
+        for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) {
+          const u = i / 2 * bt.L * 0.45, v = j * bt.B * 0.38, x = p.x + fx * u + fz * v, z = p.z + fz * u - fx * v;
+          const depth = T.SEA_Y - T.height(x, z); minD = Math.min(minD, depth);
+          if (depth < bt.draft + 0.1) shallow++;
+          if (walks.some((d) => onDeck(d, x, z))) deck++;
+          const hits = cast(V(x, T.SEA_Y + 0.05, z), V(0, -1, 0), bt.draft + 0.3, (q) => !inside(o, q), false);
+          if (hits.length) solid++;
+        }
+        const id = o.userData.eid || nameOf(o);
+        if (shallow) add('boat', 'high', p, o, `aground: ${shallow} of 15 hull points in water shallower than its draft (${minD.toFixed(2)} m at the shallowest, needs ${(bt.draft + 0.1).toFixed(2)})`, 'moor it in deeper water beside a pier or in the basin', { object: id });
+        if (deck) add('boat', 'high', p, o, `its hull overlaps a deck or the quay (${deck} points)`, 'move it clear of the decks', { object: id });
+        if (solid) add('boat', 'high', p, o, `its hull runs into something solid at the waterline (${solid} points: the quay wall, rocks)`, 'move it clear', { object: id });
+      });
+      stats.boat = n;
+    }
+
+    // ===== 12. wallx: every stone wall solid in cross-section, its cap centred =====
+    if (on('wallx')) {
+      let n = 0;
+      const walls = [];
+      root.traverse((o) => { if (o.userData.wallRuns) walls.push(o); });
+      const isWall = (q) => q.userData.stone;
+      for (const w of walls) {
+        const M = w.parent.matrixWorld;
+        for (const r of w.userData.wallRuns) {
+          const L = Math.hypot(r.b[0] - r.a[0], r.b[1] - r.a[1]);
+          if (L < 0.6) continue;
+          n++;
+          const dx = (r.b[0] - r.a[0]) / L, dz = (r.b[1] - r.a[1]) / L;
+          const capH = r.cap ? 0.17 : 0, oy = V(0, 0, 0).applyMatrix4(M).y;   // (local y = world y - oy: walls are only moved, never tilted)
+          const N = V(-dz, 0, dx).transformDirection(M);
+          let hollow = null, capOk = !r.cap, capAt = null, capSeen = false, capTested = false;
+          for (const f of [0.3, 0.5, 0.7]) {
+            const u = L * f, top = r.top(u);
+            const P = (v, y) => V(r.a[0] + dx * u - dz * v, y, r.a[1] + dz * u + dx * v).applyMatrix4(M);
+            // across the wall at the course height: from each side, the first stone is at the face (not under a hollow)
+            const gy = (v) => { const q = P(v, 0); return T.height(q.x, q.z) - oy; };
+            const yy = Math.max(Math.max(gy(r.t / 2 + 0.5), gy(-r.t / 2 - 0.5)) + 0.2, top - capH - 0.3);
+            if (yy < top - capH - 0.1) for (const sg of [1, -1]) {
+              const h = cast(P(sg * (r.t / 2 + 1.0), yy), N.clone().multiplyScalar(-sg), 2.0, isWall, false)[0];
+              const vh = h ? 1.0 + r.t / 2 - h.distance : null;   // where it hit, from the wall's middle
+              if (!h || vh < r.t / 2 - 0.16) hollow = hollow || [sg, h ? r.t / 2 - vh : null, P(0, yy)];
+            }
+            // the cap: centred on the body, an even overhang each side (the widest cut of the three)
+            // (not where another run of the same wall crosses this cut: lane walls overlap at their bends)
+            const mx = r.a[0] + dx * u, mz = r.a[1] + dz * u;
+            const crossed = w.userData.wallRuns.some((o) => {
+              if (o === r) return false;
+              const ol = Math.hypot(o.b[0] - o.a[0], o.b[1] - o.a[1]) || 1, ox = (o.b[0] - o.a[0]) / ol, oz = (o.b[1] - o.a[1]) / ol;
+              const ou = Math.max(0, Math.min(ol, (mx - o.a[0]) * ox + (mz - o.a[1]) * oz));
+              return Math.hypot(o.a[0] + ox * ou - mx, o.a[1] + oz * ou - mz) < (o.t + r.t) / 2 + 0.3;
+            });
+            if (r.cap && !capOk && !crossed) {
+              capTested = true;
+              let v0 = null, v1 = null;
+              for (let v = -(r.t / 2 + 0.25); v <= r.t / 2 + 0.25; v += 0.02) {
+                const h = cast(P(v, top + 0.5), V(0, -1, 0), 0.62, isWall, false)[0];
+                if (h && h.point.y - oy > top - capH + 0.03) { if (v0 === null) v0 = v; v1 = v; }
+              }
+              if (v0 !== null) {
+                capSeen = true;
+                if (Math.abs((v0 + v1) / 2) <= 0.06 && v1 - v0 <= r.t + 0.25 && v1 - v0 >= r.t - 0.1) capOk = true;
+                else if (!capAt || v1 - v0 > capAt[1] - capAt[0]) capAt = [v0, v1, P(0, top)];
+              }
+            }
+          }
+          const id = { object: nameOf(w) + ' run ' + r.a.map((k) => k.toFixed(1)).join(',') };
+          if (hollow) add('wallx', 'high', hollow[2], w, `a hollow side: across the wall ${hollow[1] == null ? 'nothing' : 'the first stone ' + hollow[1].toFixed(2) + ' m in from the face'} under the cap (an upside-down L)`, 'face both sides of the wall (stone.js wallGeometry: back(u))', id);
+          if (!capTested) capOk = true;
+          if (!capOk && !capSeen) add('wallx', 'med', V(0, 0, 0).applyMatrix4(M).add(V((r.a[0] + r.b[0]) / 2, 0, (r.a[1] + r.b[1]) / 2)), w, 'no cap stone found on the wall\'s top', 'cap it', id);
+          else if (!capOk) add('wallx', 'high', capAt[2], w, `the cap is off centre or the wrong width: from ${capAt[0].toFixed(2)} to ${capAt[1].toFixed(2)} across a ${r.t.toFixed(2)} m wall`, 'centre the cap stones on the wall, an even overhang both sides', id);
+        }
+      }
+      stats.wallx = n;
+    }
+
     findings.sort((a, b) => SEV[b.sev] - SEV[a.sev]);
     return { findings, stats, tagged: allowed };
   };
