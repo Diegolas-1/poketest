@@ -31,8 +31,8 @@ const add = (P, g, m, x = 0, y = 0, z = 0, o = {}) => put(new THREE.Mesh(g, type
 const PLANS = {
   // (each kind is one set of instances, so a draw or two: a field grows a
   // handful of kinds, repeated in rows, not one of everything)
-  crop: [['cabbage', 0.62, 2], ['cabbage', 0.62, 2], ['lettuce', 0.42, 2], ['carrot', 0.3, 2], ['corn', 0.5, 2], ['corn', 0.5, 2], ['corn', 0.5, 2],
-    ['tomato', 0.75, 2], ['beans', 1.6, 2], ['pumpkin', 1.5, 2], ['sunflower', 0.7, 2]],
+  crop: [['cabbage', 0.62, 2], ['cabbage', 0.62, 2], ['lettuce', 0.42, 2], ['corn', 0.5, 2], ['corn', 0.5, 2], ['corn', 0.5, 2],
+    ['tomato', 0.75, 2], ['lettuce', 0.42, 2], ['pumpkin', 1.5, 2], ['sunflower', 0.7, 2]],
   wheat: [['wheat', 0.3, 3]],
   till: [['cabbage', 0.7, 0], ['lettuce', 0.5, 0], [null], ['carrot', 0.35, 0], [null]],
 };

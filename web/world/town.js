@@ -994,13 +994,13 @@ function palletHouse(world) {
     box(4.2, 0.7, 3.0, tex(planks('#a97a4c')), hx, hy - 0.05, hz, G); box(3.9, 0.06, 2.7, '#6a4632', hx, hy + 0.31, hz, G, { line: false });
     const herbs = [], R2 = rng(4404);
     for (let a = 0; a < 5; a++) for (let b = 0; b < 3; b++) herbs.push([hx - 1.55 + a * 0.78, hy + 0.34, hz - 0.9 + b * 0.9, R2() * 6, 0.8 + R2() * 0.3]);
-    CR.plantAt(G, 'carrot', herbs.filter((_, i) => i % 3 === 0), { stage: 2, seeds: 1 });
-    CR.plantAt(G, 'lettuce', herbs.filter((_, i) => i % 3 === 1), { stage: 1, seeds: 1 });
-    CR.plantAt(G, 'radish', herbs.filter((_, i) => i % 3 === 2), { stage: 2, seeds: 1 });
+    // (into the town's shared garden lists: one set of instances per kind for the whole town)
+    const GC = world.gardenCrops ||= {}, toW = ([x, y, z, r, sc]) => { const [wx, wz] = P.W(x, z); return [wx, y + hs.y, wz, r, sc]; };
+    (GC.lettuce ||= []).push(...herbs.filter((_, i) => i % 2 === 0).map(toW)); (GC.carrot ||= []).push(...herbs.filter((_, i) => i % 2 === 1).map(toW));
     const [wx, wz] = P.W(-3.5, zc - 9.5);
     const f = { x: wx, z: wz, w: 5.0, d: 4.2, rot: hs.rot, kind: 'crop' };
     // (planted in world coordinates, in its own group of the town)
-    const tmp = new THREE.Group(); FA.cropField(tmp, f, (x, z) => height(x, z) + 0.02, { seed: 4405, plan: [['cabbage', 0.6, 2], ['tomato', 0.7, 2], ['lettuce', 0.42, 2], ['corn', 0.5, 2]] });
+    const tmp = new THREE.Group(); FA.cropField(tmp, f, (x, z) => height(x, z) + 0.02, { seed: 4405, plan: [['cabbage', 0.6, 2], ['tomato', 0.7, 2], ['cabbage', 0.6, 2], ['corn', 0.5, 2]] });
     world.group.add(tmp);
   }
   P.col(-W / 2 - 3.2, zc - 4.5, 2.2, 1.6); P.col(-3.5, zc - 9.5, 2.8, 2.3);
@@ -1608,7 +1608,6 @@ export function buildTown() {
   const world = { colliders: [], use: [], solid: [], walk: [], anim: [], noVeg: [], group: new THREE.Group() };
   trackTown(world);
   for (const hs of HOUSES) cottage(hs, world);
-  for (const [k, l] of Object.entries(world.gardenCrops || {})) CR.plantAt(world.group, k, l, { stage: 2, seeds: 1 });
   // the lab on its hill, facing west down the stairs
   const facing = -Math.PI / 2;
   const lx = LAB_HILL.x0 + 9 + 9.05, lz = STAIRS.z + 4;
@@ -1647,6 +1646,8 @@ export function buildTown() {
     signpost(c.x - 2.6, c.z + (c.z > 0 ? -1.5 : 1.5), c.z > 0 ? [['PALLET TOWN', -3.0], ['CINNABAR ISLAND', 0.05]] : [['PALLET TOWN', -0.45], ['OAK LAB', -0.9]], world);
   }
   palletHouse(world);
+  // every garden's crops (the cottages', PALLET HOUSE's herb bed): one set of instances per kind
+  for (const [k, l] of Object.entries(world.gardenCrops || {})) CR.plantAt(world.group, k, l, { stage: 2, seeds: 1 });
   // where the new woodland trail forks off the lane to Blue's house
   signpost(26.6, -11.2, [["BLUE's house", 2.55], ['WOODLAND TRAIL', 2.0], ['TOWN SQUARE', -1.2], ['OAK LAB', -0.5]], world);
   // the farm fields round the town: furrowed beds, planted (the Route 1
