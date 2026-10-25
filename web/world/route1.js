@@ -405,7 +405,16 @@ export function route1Fill(world) {
       runs.push({ a, b, t: 0.7, top: (u) => { const t = u / 25.4; return height(a[0] + (b[0] - a[0]) * t, gz) + 1.6; }, faces: [{ side: 1, bottom: (u) => height(a[0] + (b[0] - a[0]) * u / 25.4, gz) - 0.3 }, { side: -1, bottom: (u) => height(a[0] + (b[0] - a[0]) * u / 25.4, gz) - 0.3 }] });
       world.colliders.push({ box: true, x: (a[0] + b[0]) / 2, z: gz - 1, hw: 12.8, hd: 0.5 });
       const W = new THREE.Group(); G.add(W);
-      for (let k = 0; k < 5; k++) { const x = a[0] + (b[0] - a[0]) * (k + 0.5) / 5; O.ivy(W, 4, 1.6, x, height(x, gz) - 0.2, gz + 0.38, 0, 1200 + k * 2 + (s > 0 ? 1 : 0), 10); O.mossTop(W, 5, 0.6, x, height(x, gz) + 1.6, gz, Math.PI / 2, 1300 + k + s); }
+      // ivy on the wall's south (road) face, moss along its top: both from
+      // the wall's own line (it runs from the pier back 2 m into the woods)
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]), dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L;
+      const fl = dx >= 0 ? 1 : -1, nx = -dz * fl, nz = dx * fl;   // the outward normal toward +z
+      const along = Math.atan2(dx, dz), face = Math.atan2(nx, nz);
+      for (let k = 0; k < 5; k++) {
+        const t = (k + 0.5) / 5, x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t, y = height(x, gz);   // (the wall's height follows gz too)
+        O.ivy(W, 4, 1.6, x + nx * 0.37, y - 0.2, z + nz * 0.37, face, 1200 + k * 2 + (s > 0 ? 1 : 0), 10);
+        O.mossTop(W, 0.6, L / 5 + 0.1, x, y + 1.6, z, along, 1300 + k + s);
+      }
     }
     G.add(...wallMeshes(runs, 9200, { fade: WALL_FADE }));
   }

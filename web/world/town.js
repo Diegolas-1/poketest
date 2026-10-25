@@ -1575,6 +1575,8 @@ export function buildTown() {
   // where the new woodland trail forks off the lane to Blue's house
   signpost(26.6, -11.2, [["BLUE's house", 2.55], ['WOODLAND TRAIL', 2.0], ['TOWN SQUARE', -1.2], ['OAK LAB', -0.5]], world);
   route1Fill(world);
+  // tools/qa/scan.mjs (?qa): keep every placed piece as its own group, unmerged
+  if (globalThis.location && /[?&]qa\b/.test(location.search)) return world;
   // the walls, foundations and the islet: one mesh per cell and kind
   world.stoneMeshes = mergeStones(world.group);
   // merge each static piece's meshes by material

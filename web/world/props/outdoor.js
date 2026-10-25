@@ -186,6 +186,7 @@ function roofSlab(P, w, d, rise, th, m, cx, y0, cz, ry, o = {}) {
 // turned ry), vines hanging from an edge, moss on a top
 export function ivy(P, w, h, x, y, z, ry, seed, dens = 12) {
   const m = new THREE.Mesh(ivyGeometry(w, h, seed, dens), leafMaterial('#ffffff', 0.02));
+  m.userData.qa = { k: 'face', w, h };   // tools/qa/scan.mjs: must lie on a wall's face
   return put(m, P, x, y, z, { ry, line: false, shadow: false });
 }
 export function vines(P, a, b, n, len, seed) {
@@ -194,6 +195,7 @@ export function vines(P, a, b, n, len, seed) {
 }
 export function mossTop(P, w, d, x, y, z, ry, seed) {
   const m = new THREE.Mesh(greenRoofGeometry(w, d, seed), leafMaterial('#ffffff', 0.02));
+  m.userData.qa = { k: 'top', w, d };   // tools/qa/scan.mjs: must lie on a top
   return put(m, P, x, y, z, { ry, line: false, shadow: false });
 }
 
@@ -601,10 +603,13 @@ export function stoneBridge({ L = 8, w = 3.6, rise = 0.5, col = '#b4ad98' } = {}
     for (const sx of [-1, 1]) { const p = box(0.3, 0.55, Math.hypot(z1 - z0, y1 - y0) + 0.05, st, sx * (w / 2 - 0.15), (y0 + y1) / 2 + 0.27, (z0 + z1) / 2, G); p.rotation.x = seg.rotation.x; }
   }
   // the arch underneath (a half ring) and the abutments
-  const arch = new THREE.TorusGeometry(L * 0.28, 0.35, 6, 16, Math.PI).rotateY(Math.PI / 2);
-  put(new THREE.Mesh(arch, st), G, 0, -0.55, 0);
+  // (its crown just under the deck, its feet down in the banks)
+  const AR = L * 0.28;
+  const arch = new THREE.TorusGeometry(AR, 0.35, 6, 16, Math.PI).rotateY(Math.PI / 2);
+  put(new THREE.Mesh(arch, st), G, 0, -0.42 - AR, 0);
   for (const sz of [-1, 1]) box(w + 0.4, 1.4, 1.2, st, 0, -0.7, sz * (L / 2 - 0.4), G);
-  for (const sx of [-1, 1]) { ivy(G, 2.4, 1.2, sx * (w / 2 + 0.02), -1.1, 0, sx * Math.PI / 2, 71 + sx, 9); mossTop(G, 0.3, L * 0.6, sx * (w / 2 - 0.15), rise + 0.55, 0, 0, 73 + sx); }
+  // ivy over the deck's edge and up the parapets (outer faces at x = +-w / 2)
+  for (const sx of [-1, 1]) { ivy(G, 2.4, 1.0, sx * (w / 2 + 0.02), -0.3, 0, sx * Math.PI / 2, 71 + sx, 9); mossTop(G, 0.3, L * 0.6, sx * (w / 2 - 0.15), rise + 0.55, 0, 0, 73 + sx); }
   return G;
 }
 // a wooden footbridge (gently arched), deck along z
