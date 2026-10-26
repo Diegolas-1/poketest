@@ -1669,7 +1669,7 @@ export function buildTown() {
   // edgeRuns): cliffs rising from the grass, lips dropping to the sea
   const cliffs = buildCliffs(edgeRuns(), { heightAt: height, wet: fallWet, notch: fallNotch });
   for (const m of cliffs) world.group.add(m);
-  fallPlants(world, cliffs.faces);
+  fallPlants(world, cliffs.faces, cliffs);
   applyTown(world);
   OD.foldFlat(world.group);
   // tools/qa/scan.mjs (?qa): keep every placed piece as its own group, unmerged
@@ -1690,7 +1690,7 @@ export function buildTown() {
 
 // Round each waterfall (terrain.js FALLS): ivy climbing the wet rock beside the
 // water, vines hanging over the lip, as in a fern-hung gorge
-function fallPlants(world, faces) {
+function fallPlants(world, faces, rock) {
   const R = rng(2077);
   for (const F of FALLS) {
     const tx = F.nz, tz = -F.nx;
@@ -1710,6 +1710,15 @@ function fallPlants(world, faces) {
     const gy = Math.max(f.y0, height(f.x - f.nx * 0.3, f.z - f.nz * 0.3)) + 0.12;
     // (only where the ground before the face is level: on the pool's banks it climbs up the rock)
     if (Math.max(height(f.x - f.nx * 0.9, f.z - f.nz * 0.9), height(f.x - f.nx * 1.6, f.z - f.nz * 1.6)) > gy + 0.05) return;
+    // (and only where the face is clear: nothing of the rock juts in front of it)
+    const rc = new THREE.Raycaster(), dir = V(f.nx, 0, f.nz);
+    for (const m of rock) m.updateMatrixWorld(true);
+    for (const a of [-0.2, 0, 0.2]) for (const k of [0.15, 0.5, 0.85]) {
+      const p = V(f.x - f.nx * 1.0 + f.nz * a * f.w, gy + k * h, f.z - f.nz * 1.0 - f.nx * a * f.w);
+      rc.set(p, dir); rc.far = 1.4;
+      const hit = rc.intersectObjects(rock, false)[0];
+      if (!hit || hit.distance < 0.93 || hit.distance > 1.25) return;
+    }
     OD.ivy(G, f.w * 0.5, h, f.x - f.nx * 0.1, gy, f.z - f.nz * 0.1, Math.atan2(-f.nx, -f.nz), 3100 + i * 7, 12);
   });
 }
