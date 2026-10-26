@@ -39,7 +39,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdtempSync, existsSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, statSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -148,6 +148,30 @@ async function rollback() {
   console.log(`channel ${CH}: live is now v${to} (was v${m.v}). Phones switch at their next check and launch.`);
 }
 
+// the packs as the phone loads them (tools/native/check_pack.gd: the world
+// found and loaded through the game's own loaders, no desktop-only texture
+// formats); reused packs come from the server (cached). Refuses on failure.
+async function fetchPack(p, dir) {
+  const f = join(tmpdir(), 'pallet-packs', p.file);
+  if (existsSync(f) && statSync(f).size === p.size) return f;
+  const r = await fetch(`${URL}/packs/${p.file}`);
+  if (!r.ok) die(`download ${p.file}: ${r.status}`);
+  mkdirSync(dirname(f), { recursive: true });
+  writeFileSync(f, Buffer.from(await r.arrayBuffer()));
+  if (sha256(f) !== p.sha256) die(`${p.file}: wrong sha256`);
+  return f;
+}
+function checkPacks(G, packs, dir) {
+  const files = packs.map((p) => p.path || p.cached);
+  const main = files[files.length - 1];   // code: the scripts and settings
+  console.log('checking the packs…');
+  const r = spawnSync(G.bin, ['--headless', '--main-pack', main, '--script', join(ROOT, 'tools/native/check_pack.gd'), '--', '--packs', files.join(',')],
+    { cwd: dir, encoding: 'utf8', maxBuffer: 1 << 28 });
+  const out = ((r.stdout || '') + (r.stderr || '')).split('\n').filter((l) => l.startsWith('check_pack')).join('\n');
+  console.log(out);
+  if (r.status !== 0) die('the packs failed the check (tools/native/check_pack.gd): nothing uploaded');
+}
+
 async function publish() {
   const G = godot();
   const ids = JSON.parse(run('bash', [join(ROOT, 'tools/native/pack_ids.sh'), G.engine], { cwd: PROJECT }));
@@ -161,7 +185,7 @@ async function publish() {
   const assets = Object.keys(ids.src).filter((n) => n !== 'code');
   for (const name of Object.keys(ids.src)) {
     const old = cur?.engine === G.engine ? cur.packs.find((p) => p.name === name && p.src === ids.src[name]) : null;
-    if (old && !flag('--force-export')) { packs.push(old); console.log(`${name}: unchanged, reusing ${old.file}`); continue; }
+    if (old && !flag('--force-export')) { packs.push({ ...old, cached: await fetchPack(old, dir) }); console.log(`${name}: unchanged, reusing ${old.file}`); continue; }
     if (!imported) {
       console.log('importing…');
       spawnSync(G.bin, ['--headless', '--path', PROJECT, '--import'], { stdio: 'ignore' });
@@ -177,6 +201,7 @@ async function publish() {
     packs.push(p);
   }
   if (restore) restore();
+  checkPacks(G, packs, dir);
   // what a phone on the live version downloads
   const fresh = packs.filter((p) => !cur?.packs?.some((q) => q.file === p.file));
   console.log(`changed: ${fresh.map((p) => `${p.name} ${mb(p.size)}`).join(', ') || 'nothing'} (${mb(fresh.reduce((a, p) => a + p.size, 0))} to download from v${cur?.v ?? '-'})`);

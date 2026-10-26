@@ -72,6 +72,11 @@ jobs:
           # project only: signing happens on the phone (SideStore)
           $G --headless --path . --export-release "iOS" build/ios/PalletTown.ipa 2>&1 | tee export.log
           test -d build/ios/PalletTown.xcodeproj
+          # the app's own pack as the phone sees it: the world found and loaded
+          # through the game's loaders, no desktop-only texture formats
+          PCK=$(find build/ios -name '*.pck' -not -path '*/dd/*' | head -1)
+          echo "pack: $PCK"; test -n "$PCK"
+          $G --headless --main-pack "$PCK" --script "$PWD/../tools/native/check_pack.gd" 2>&1 | grep '^check_pack'
 
       - name: Build the app (unsigned)
         working-directory: native/build/ios
