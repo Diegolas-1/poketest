@@ -125,6 +125,20 @@ func surface_at(p: Vector3) -> String:
 	if in_tall_grass(p.x, p.z): return "tallgrass"
 	return "grass"
 
+# ---------- the waterfalls: where each one lands (its mist, main.gd falls) ----------
+var _falls: Array = []
+func _nearest_fall(p: Vector3) -> Vector3:
+	if _falls.is_empty() and game.get("falls") != null:
+		for mi in game.falls:
+			if String(mi.name).begins_with("fresh4"):
+				var b: AABB = mi.global_transform * mi.get_aabb()
+				_falls.append(b.get_center())
+		if _falls.is_empty(): _falls.append(Vector3.INF)
+	var best := Vector3.INF
+	for f in _falls:
+		if f != Vector3.INF and (best == Vector3.INF or p.distance_squared_to(f) < p.distance_squared_to(best)): best = f
+	return best
+
 # ---------- water: nearest sea / fresh point on a 2 m grid ----------
 func _water_grid(W: WorldData) -> void:
 	w_x0 = W.gx0; w_z0 = W.gz0
@@ -400,6 +414,18 @@ func _ambience(dt: float) -> void:
 	var pond := fp.distance_to(POND) < 11.0
 	Sfx.bed("stream", "amb_stream", 0.0 if pond or df > 70.0 else 1.0, Vector3(fp.x, fy, fp.y))
 	Sfx.bed("pond", "amb_pond", 1.0 if pond and df < 50.0 else 0.0, Vector3(fp.x, fy, fp.y))
+	# the waterfalls: their own bed where the water lands, twice over close by
+	# (louder than any stream; main.gd falls: the mist at each foot)
+	var fl := _nearest_fall(pos)
+	var dfl := pos.distance_to(fl) if fl != Vector3.INF else 1e9
+	if dfl < 90.0:
+		Sfx.bed("fall", "amb_stream", 1.0, fl, 1.2)
+		# (a second voice of the same water, out of step with the first: a
+		# denser roar within a few tens of metres)
+		Sfx.bed("fall_rush", "amb_stream", 1.0 - _sm(10.0, 40.0, dfl), fl + Vector3(0, 1.5, 0), 1.2)
+	else:
+		Sfx.bed("fall", "amb_stream", 0.0)
+		Sfx.bed("fall_rush", "amb_stream", 0.0)
 	# night: crickets everywhere, frogs by fresh water, an owl now and then
 	Sfx.bed("crickets", "amb_crickets", night * (1.0 - 0.5 * _sm(30.0, 5.0, ds)) * 0.9, null, 4.0)
 	# the windmill on the lab's tower

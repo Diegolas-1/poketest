@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ftoqlcap5pia"
-path="res://.godot/imported/fd517897f076748d.png-8d6b475f6381104940c216804d84655b.ctex"
+uid="uid://b53cgw30ecodl"
+path="res://.godot/imported/d23ed200b17be676.png-47a2989940e5aab2660c7204992adedb.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://world/base/tex/fd517897f076748d.png"
-dest_files=["res://.godot/imported/fd517897f076748d.png-8d6b475f6381104940c216804d84655b.ctex"]
+source_file="res://world/r/viridian_outskirts/d23ed200b17be676.png"
+dest_files=["res://.godot/imported/d23ed200b17be676.png-47a2989940e5aab2660c7204992adedb.ctex"]
 
 [params]
 

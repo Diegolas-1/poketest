@@ -10,6 +10,7 @@
 // fields lie at the western edge, and a wide beach with a pier in the south.
 import * as THREE from 'three';
 import * as R1 from './route1land.js';   // Route 1's pockets, trails and creeks (worker 12)
+import { traceEdges, finishLine, EdgeIndex, lineAt } from './edges.js';   // the world's edges (cliffs, worker 20)
 // the world editor's hand edits (editlayer/index.js); terrain.js?raw is this
 // same module without them, for the generators' decisions (see there)
 import { E, NOEDIT } from './editlayer/index.js';
@@ -295,7 +296,9 @@ function dense(ctrl, step = 1) {
   return curve.getSpacedPoints(n).map((p) => [p.x, p.z]);
 }
 export const ROADS = ROAD_CTRL.map((c) => dense(c));
-export const STREAM = dense([[17, -62], [15, -48], [12.6, -33], [10.4, -19], [9.5, -7.5], [9.2, 4], [8.2, 16], [7.4, 28], [8.8, 40], [13, 52.5], [24, 61.5], [42, 66.5], [62, 68], [82, 69.5], [97, 75], [107.5, 84], [111.5, 94], [113, 104], [114, 113], [115, 124]]);
+// (it starts in a plunge pool at the foot of Route 1's east cliff, where a
+// spring drops over it: FALLS; then down a run of little cascades to the rim)
+export const STREAM = dense([[43.2, -80.7], [37.5, -77.2], [31, -72], [24, -66.4], [17, -62], [15, -48], [12.6, -33], [10.4, -19], [9.5, -7.5], [9.2, 4], [8.2, 16], [7.4, 28], [8.8, 40], [13, 52.5], [24, 61.5], [42, 66.5], [62, 68], [82, 69.5], [97, 75], [107.5, 84], [111.5, 94], [113, 104], [114, 113], [115, 124]]);
 // (it runs south past the town, under the two bridges, then bends east round
 // the foot of Oak's hill, with a path between it and the hill, and out to sea
 // at the bay's east side; a footbridge over its last bend joins the beach
@@ -530,13 +533,28 @@ for (const b of BRIDGES) {
 }
 
 // the stream's water level along its course: always falling toward the sea
+// (a level plunge pool at its source; then it falls in pools and little
+// cascades; it never reaches the sea's level before its mouth, so the fresh
+// water runs on, gently, all the way to the beach)
+export const STREAM_POOL = 2.6;
+let STREAM_STEPS = [];
+export const STREAM_MOUTH = STREAM.findIndex(([x, z]) => shoreSD(x, z) < 0.5);
 const SPROF = (() => {
   const raw = STREAM.map(([x, z]) => base(x, z));
   const p = raw.map((_, i) => { let s = 0, w = 0; for (let k = -8; k <= 8; k++) { const j = Math.min(raw.length - 1, Math.max(0, i + k)); s += raw[j]; w++; } return s / w - 1.0; });
+  for (let i = 0; i <= STREAM_POOL + 1; i++) p[i] = raw[0] - 0.75;
   for (let i = 1; i < p.length; i++) p[i] = Math.min(p[i], p[i - 1] - 0.01);
-  for (let i = 0; i < p.length; i++) p[i] = Math.max(p[i], SEA_Y);
-  return p;
+  const iM = STREAM_MOUTH < 0 ? p.length - 1 : STREAM_MOUTH;
+  for (let i = 0; i < p.length; i++) p[i] = Math.max(p[i], SEA_Y + 0.006 * Math.max(0, iM - i), SEA_Y);
+  const st = R1.stepProfile(p, 0.6);
+  // (no step in the last stretch: there it slides gently down to the sea)
+  const iS = Math.max(1, iM - 30);
+  STREAM_STEPS = st.steps.filter((k) => k.i < iS);
+  const q0 = st.q[iS - 1];
+  for (let i = iS; i < p.length; i++) st.q[i] = Math.max(SEA_Y, q0 + (SEA_Y - q0) * Math.min(1, (i - iS + 1) / (iM - iS + 1)));
+  return st.q;
 })();
+export const streamSteps = () => STREAM_STEPS;
 const profAt = (prof, s) => { const i = Math.max(0, Math.min(prof.length - 2, Math.floor(s))), t = Math.min(1, Math.max(0, s - i)); return prof[i] + (prof[i + 1] - prof[i]) * t; };
 // the line arc length is ~1 m per sample, so s indexes the profiles directly
 const sIdx = (lines, li, s) => s / (lines.cum[li][lines.cum[li].length - 1] / (lines.lines[li].length - 1));
@@ -724,14 +742,43 @@ export function onStairs(x, z, m = 0) { return x > STAIRS.x0 - 0.4 && x < STAIRS
 // past the town's hills, and the hillsides either side of Route 1 up to its
 // gate in the forest at the mainland end
 export const WALK = { x0: -186, x1: 186, z0: -452, z1: 230 };
-export function outOfBounds(x, z) {
-  if (x < WALK.x0 || x > WALK.x1 || z < WALK.z0 || z > WALK.z1) return true;
-  const sd = shoreSD(x, z);
-  if (sd > -4 && sd < 4.5 && cliffiness(x, z) > 0.45 && base(x, z) > SEA_Y + 1.4) return true;
-  if (z > -70) return false;
-  if (z < ROUTE1.gateZ) return true;
-  return Math.abs(x - routeX(z)) > routeHalfWidth(z) + 8 && !R1.walkable(x, z);
+// Where the player may go, as a signed field: > 0 blocked. The town's bowl is
+// ringed by the hills (a wobbly line well inside the walk box, its corners
+// rounded, joining Route 1's valley sides in the north), Route 1 is its
+// valley plus the pockets off it, up to the gate; the rocky coast is a strip
+// along the cliff tops. Every line where this changes sign is drawn as a
+// cliff face (edges.js, props/cliffs.js): no invisible walls.
+const smax = (a, b, k) => { const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / k)); return a + (b - a) * h + k * h * (1 - h); };
+function townRingF(x, z) {
+  const xc = -8 + 6 * Math.sin(z * 0.011);
+  const half = 166 + (fbm(z * 0.018 + 41, 3.7, 2) - 0.5) * 22;
+  // the north edge bends south toward the sides, with a wobble
+  const zt = -72 + 24 * smooth(70, 175, Math.abs(x + 8)) + (fbm(x * 0.022 + 9, 1.3, 2) - 0.5) * 12;
+  return smax(Math.abs(x - xc) - half, zt - z, 14);
 }
+function routeF(x, z) {
+  if (z > -45) return 60;
+  let f = Math.abs(x - routeX(z)) - (routeHalfWidth(z) + 8);
+  if (z < -55 && z > -470) { let m = 0; for (const p of R1.POCKETS) m = Math.max(m, R1.pocketMask(p, x, z)); f = Math.min(f, (0.3 - m) * 22); }
+  return f;
+}
+function coastF(x, z) {
+  const sd = shoreSD(x, z);
+  if (sd < -6 || sd > 7) return -1;
+  const cl = cliffiness(x, z);
+  if (cl < 0.3) return -1;
+  // (the highest ground within 1.5 m: the strip covers the whole lip and the
+  // drop below it, never a sliver one cell wide)
+  let b = base(x, z);
+  for (const [dx, dz] of [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) b = Math.max(b, base(x + dx, z + dz));
+  return Math.min(sd + 4, 4.5 - sd, (cl - 0.45) * 30, b - SEA_Y - 1.4);
+}
+export function boundsF(x, z) {
+  let f = Math.min(townRingF(x, z), routeF(x, z));
+  f = Math.max(f, coastF(x, z), ROUTE1.gateZ - z, WALK.x0 - x, x - WALK.x1, WALK.z0 - z, z - WALK.z1);
+  return f;
+}
+export function outOfBounds(x, z) { return boundsF(x, z) > 0; }
 export function noWalk(x, z) {
   const u = hillU(x, z);
   if (u > 0.002 && u <= 0.985 && !onStairs(x, z, -0.15)) return ED.noWalk(x, z, true);
@@ -772,11 +819,17 @@ export function height(x, z) {
   const pd = Math.hypot(x - POND.x, z - POND.z);
   if (pd < POND.r + 4) h = Math.min(h, lerp(POND.y - 1.4, h, smooth(POND.r - 3.5, POND.r + 1.5, pd)));
   // the stream: a channel with steep rocky banks
+  // (a level shelf for the stream's source pool, at the cliff's foot)
+  { const d0 = Math.hypot(x - STREAM[0][0], z - STREAM[0][1]); if (d0 < STREAM_POOL + 7) h = lerp(SPROF[0] + 0.35, h, smooth(STREAM_POOL + 1.8, STREAM_POOL + 7, d0)); }
   const st = SL.query(x, z);
   if (st.i >= 0 && st.d < 6) {
     const wl = profAt(SPROF, sIdx(SL, 0, SL.bestS[0]));
-    const bed = wl - 0.7 - (1 - smooth(0, 1.6, st.d)) * 0.3;
-    h = Math.min(h, lerp(bed, Math.max(h, wl + 0.45), smooth(1.7, 3.4, st.d)));
+    // (its source: a round plunge pool, a little wider and deeper)
+    const ex = 1.3 * (1 - smooth(1, 5, SL.bestS[0])), dd = st.d - ex;
+    const bed = wl - 0.7 - (1 - smooth(0, 1.6, dd)) * 0.3 - ex * 0.35;
+    h = Math.min(h, lerp(bed, Math.max(h, wl + 0.45), smooth(1.7, 3.4, dd)));
+    // (its banks never lower than its water: none stands in the air)
+    if (dd > 2.9 && wl > SEA_Y + 0.3) h = Math.max(h, wl + 0.2 - Math.max(0, dd - 4.6) * 0.25);
   }
   // Oak's hill: steep and wooded, with a level top for the lab
   const u = hillU(x, z);
@@ -792,7 +845,7 @@ export function height(x, z) {
     }
     h = Math.max(h, hh);
   }
-  return ED.h(x, z, R1.carve(x, z, h));
+  return ED.h(x, z, edgeLift(x, z, R1.carve(x, z, h)));
 }
 
 // water level at a point (sea, pond or stream)
@@ -1156,8 +1209,9 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
       const a = STREAM[Math.max(0, i - 1)], b = STREAM[Math.min(STREAM.length - 1, i + 1)];
       const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
       const nx = -dz / l, nz = dx / l;
-      const y = SPROF[i];
-      if (y <= SEA_Y + 0.02 && i > 0 && SPROF[i - 1] <= SEA_Y + 0.02) break;
+      // (on to the beach: it ends just past the waterline, under the foam of its mouth)
+      if (STREAM_MOUTH > 0 && i > STREAM_MOUTH + 2) break;
+      const y = Math.max(SPROF[i], SEA_Y + 0.015);
       for (const s of [-1, 1]) { pos.push(STREAM[i][0] + nx * HW * s, y, STREAM[i][1] + nz * HW * s); uv.push((s + 1) / 2, i); }
       if (i > 0) { const p = (i - 1) * 2; idx.push(p, p + 2, p + 1, p + 1, p + 2, p + 3); }
     }
@@ -1169,7 +1223,152 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
   }
   // Route 1's creeks and their pools (route1land.js)
   for (const { g, flow } of R1.creekGeometries()) group.add(new THREE.Mesh(g, fresh(flow)));
+  // the stream's plunge pool at its source
+  { const g = new THREE.CircleGeometry(STREAM_POOL + 1.6, 28).rotateX(-Math.PI / 2); g.translate(STREAM[0][0], SPROF[0] + 0.03, STREAM[0][1]); group.add(new THREE.Mesh(g, fresh(0))); }
+  // the falls, the cascades, their foam and spray
+  for (const { g, mode } of fallGeometries()) {
+    const m = new THREE.Mesh(g, mode < 2 ? fresh(mode) : fallMat(uTime, mode, fog));
+    if (mode >= 2) m.renderOrder = 1 + mode;
+    group.add(m);
+  }
   return group;
+}
+
+// ---------- falling water (shared with native shaders/fresh_fall.gdshader) ----------
+// mode 2 a falling sheet (uv: across 0..1, down 0..1), 3 foam rings (a disk),
+// 4 mist (soft puffs on crossed quads)
+const fallFrag = `uniform float uTime; uniform float uFlow; uniform vec3 fogColor; uniform float fogNear, fogFar;
+  varying vec3 vW; varying vec2 vUv;
+  float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
+  float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+    return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
+  void main(){
+    vec3 c; float a;
+    if (uFlow < 2.5) {
+      float u = vUv.x, t = vUv.y, e = abs(u - 0.5) * 2.0;
+      c = mix(vec3(0.36, 0.72, 0.84), vec3(0.66, 0.9, 0.94), smoothstep(0.1, 0.9, e) * 0.6 + t * 0.4);
+      float s1 = n(vec2(u * 9.0, vW.y * 0.55 + uTime * 2.6));
+      float s2 = n(vec2(u * 17.0 + 3.1, vW.y * 1.1 + uTime * 3.9));
+      float w = max(step(0.6, s1), step(0.68, s2) * 0.85);
+      c = mix(c, vec3(0.97, 1.0, 1.0), w);
+      float brk = n(vec2(u * 14.0, vW.y * 2.0 + uTime * 5.0));
+      c = mix(c, vec3(0.96, 0.99, 1.0), smoothstep(0.55, 0.95, t));
+      a = mix(0.82, 0.55, t) * (1.0 - smoothstep(0.78, 1.0, e + (brk - 0.5) * 0.5));
+      a *= 1.0 - smoothstep(0.82, 1.0, t) * step(brk, 0.55 + (1.0 - t) * 2.0);
+      a = max(a, w * (1.0 - t * 0.6) * (1.0 - smoothstep(0.85, 1.0, e)));
+    } else if (uFlow < 3.5) {
+      vec2 q = vUv - 0.5; float r = length(q) * 2.0;
+      float ring = fract(r * 2.6 - uTime * 0.55);
+      float brk = n(q * 14.0 + vec2(uTime * 0.3, 0.0));
+      float f = step(0.72, ring) * step(0.35, brk) * (1.0 - smoothstep(0.55, 1.0, r));
+      f = max(f, (1.0 - smoothstep(0.12, 0.42, r + (brk - 0.5) * 0.25)) * 0.95);
+      c = vec3(0.96, 0.99, 1.0); a = f * 0.9;
+    } else {
+      vec2 q = vUv - 0.5; float r = length(q * vec2(1.0, 0.8)) * 2.0;
+      float p = n(vUv * 4.0 + vec2(0.0, -uTime * 0.5)) * 0.6 + n(vUv * 9.0 + vec2(uTime * 0.2, -uTime * 0.9)) * 0.4;
+      c = vec3(0.95, 0.98, 1.0);
+      a = (1.0 - smoothstep(0.15, 1.0, r)) * smoothstep(0.35, 0.75, p) * 0.42 * smoothstep(0.0, 0.25, vUv.y);
+    }
+    float d = length(vW - cameraPosition);
+    c = mix(c, fogColor, smoothstep(fogNear, fogFar, d));
+    gl_FragColor = vec4(c, clamp(a, 0.0, 1.0));
+    #include <colorspace_fragment>
+  }`;
+function fallMat(uTime, mode, fog) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime, uFlow: { value: mode }, fogColor: { value: new THREE.Color(fog.color) }, fogNear: { value: 120 }, fogFar: { value: 420 } },
+    vertexShader: `uniform float uTime; varying vec3 vW; varying vec2 vUv;
+      void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: fallFrag, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  });
+}
+// The falling water as meshes, grouped by mode and by 120 m cell (a few draws)
+export function fallGeometries() {
+  const bins = new Map();
+  let site = null;   // (each waterfall's own meshes: native sfx_world.gd finds the falls by their mist)
+  const put = (mode, x, z, pos, uv, idx) => {
+    const k = mode + ':' + (site || Math.floor(x / 120) + ',' + Math.floor(z / 120));
+    if (!bins.has(k)) bins.set(k, { mode, pos: [], uv: [], idx: [] });
+    const B = bins.get(k), o = B.pos.length / 3;
+    B.pos.push(...pos); B.uv.push(...uv); for (const i of idx) B.idx.push(i + o);
+  };
+  // a sheet between a path of rows: rows = [[x, y, z, half width, tx, tz]...] top to bottom
+  const sheet = (rows, cols = 4, flip = false) => {
+    const pos = [], uv = [], idx = [];
+    rows.forEach(([x, y, z, hw, tx, tz], r) => {
+      for (let c = 0; c <= cols; c++) { const u = c / cols; pos.push(x + tx * hw * (u * 2 - 1), y, z + tz * hw * (u * 2 - 1)); uv.push(flip ? 1 - u : u, r / (rows.length - 1)); }
+      if (r) for (let c = 0; c < cols; c++) { const a = (r - 1) * (cols + 1) + c, b = a + cols + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    });
+    put(2, rows[0][0], rows[0][2], pos, uv, idx);
+  };
+  const disk = (mode, x, y, z, r, seg = 20) => {
+    const pos = [x, y, z], uv = [0.5, 0.5], idx = [];
+    for (let k = 0; k <= seg; k++) { const a = k / seg * Math.PI * 2; pos.push(x + Math.cos(a) * r, y, z + Math.sin(a) * r); uv.push(0.5 + Math.cos(a) * 0.5, 0.5 + Math.sin(a) * 0.5); if (k) idx.push(0, k + 1, k); }
+    put(mode, x, z, pos, uv, idx);
+  };
+  const quad = (mode, x, y, z, w, hgt, ang) => {
+    const c = Math.cos(ang) * w / 2, s = Math.sin(ang) * w / 2;
+    put(mode, x, z, [x - c, y, z - s, x + c, y, z + s, x + c, y + hgt, z + s, x - c, y + hgt, z - s], [0, 0, 1, 0, 1, 1, 0, 1], [0, 1, 2, 0, 2, 3]);
+  };
+  for (const F of FALLS) {
+    site = 'fall_' + F.id;
+    const tx = F.nz, tz = -F.nx, lv = F.top - 0.1, drop = lv - F.poolY;
+    const at = (s) => [F.x + F.nx * s, F.z + F.nz * s];
+    // the falling sheet, in two layers (the back one narrower, a little behind)
+    for (const [ds, wk, flip] of [[0, 1, false], [0.16, 0.78, true]]) {
+      const rows = [];
+      for (let r = 0; r <= 16; r++) {
+        const v = r / 16, sAl = F.lip + ds - 0.95 * Math.sqrt(v) - 0.85 * v, [x, z] = at(sAl);
+        rows.push([x, lv + 0.04 - drop * v * (0.15 + 0.85 * v) - 0.0 * v, z, F.w * 0.5 * wk * (1 + 0.38 * v), tx, tz]);
+      }
+      // (the curve: off the lip, then straight down)
+      for (let r = 0; r <= 16; r++) { const v = r / 16; rows[r][1] = lv + 0.04 - drop * (v < 0.12 ? v * v / 0.24 : v - 0.06) / 0.94; }
+      sheet(rows, 5, flip);
+    }
+    // the water on top, from the spring to the lip, and the spring's pool
+    {
+      const rows = [];
+      for (let r = 0; r <= 6; r++) { const sAl = F.spring - (F.spring - F.lip - 0.1) * r / 6, [x, z] = at(sAl); rows.push([x, lv + 0.02, z, F.w * 0.5 * (0.55 + 0.45 * r / 6), tx, tz]); }
+      const pos = [], uv = [], idx = [];
+      rows.forEach(([x, y, z, hw], r) => { for (const sg of [-1, 1]) { pos.push(x + tx * hw * sg, y, z + tz * hw * sg); uv.push((sg + 1) / 2, r); } if (r) { const p = (r - 1) * 2; idx.push(p, p + 2, p + 1, p + 1, p + 2, p + 3); } });
+      const k = 'top:' + F.id;
+      bins.set(k, { mode: 1, pos, uv, idx });
+      const [sx, sz] = at(F.spring + 0.2);
+      disk(3, sx, lv + 0.03, sz, 0.9, 14);
+    }
+    // foam where it lands, and its mist
+    const [lx, lz] = at(-0.7);
+    disk(3, lx, F.poolY + 0.05, lz, F.w * 0.55 + 0.9, 24);
+    for (let k = 0; k < 5; k++) quad(4, lx - F.nx * 0.4, F.poolY - 0.25, lz - F.nz * 0.4, 3.2 + F.w * 0.5 + (k % 2) * 0.8, 2.6 + drop * 0.18 + (k % 3) * 0.4, k / 5 * Math.PI + 0.3);
+    // a veil of spray over the lower half of the fall
+    { const [vx, vz] = at(-0.55); quad(4, vx, F.poolY + drop * 0.12, vz, F.w * 1.7 + 0.8, drop * 0.55, Math.atan2(tz, tx)); }
+  }
+  site = null;
+  // the cascades: where a stream drops from one pool to the next
+  const cascade = (line, i, hi, lo, w) => {
+    const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i)];
+    let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+    const tx = -dz, tz = dx, rows = [];
+    for (let r = 0; r <= 5; r++) {
+      const v = r / 5, sAl = -0.85 + 1.15 * Math.pow(v, 0.6);
+      rows.push([b[0] + dx * sAl, hi + 0.045 - (hi - lo) * Math.pow(v, 1.6), b[1] + dz * sAl, w * 0.5, tx, tz]);
+    }
+    sheet(rows, 4);
+    disk(3, b[0] + dx * 0.7, lo + 0.04, b[1] + dz * 0.7, w * 0.62, 16);
+  };
+  for (const c of R1.CREEKS) { const P = R1.creekProfile(c); for (const st of c.steps || []) cascade(c.line, st.i, st.hi, st.lo, (c.w + 0.7) * 2 * 0.92); void P; }
+  for (const st of STREAM_STEPS) cascade(STREAM, st.i, st.hi, st.lo, 2.9 * 2 * 0.9);
+  // the stream's mouth: foam where the fresh water meets the sea
+  if (STREAM_MOUTH > 0) { const m = STREAM[Math.min(STREAM.length - 1, STREAM_MOUTH + 1)]; disk(3, m[0], SEA_Y + 0.03, m[1], 3.4, 22); }
+  const out = [];
+  for (const B of bins.values()) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(B.pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(B.uv, 2));
+    g.setIndex(B.idx); g.computeVertexNormals();
+    out.push({ g, mode: B.mode });
+  }
+  return out;
 }
 
 // Height and grass density over an area, as a float texture for the grass:
@@ -1185,6 +1384,8 @@ export function grassMap(x0, z0, w, d, res) {
     if (isWater(x, z) || h < SEA_Y + 1.6 && shoreSD(x, z) < 16) g = 0;
     if (onStairs(x, z, 0.4) || fieldAt(x, z, 0.3)) g = 0;
     if (streamAt(x, z).d < 3.2) g = 0;
+    // none inside the rock of the edges' cliffs
+    if (inCliff(x, z, -0.45)) g = 0;
     // no grass on a ledge's edge (the clumps would float off its face)
     if (z < -90 && z > -380 && ledgeAt(x, z, 1.7)) g = 0;
     // none under PALLET HOUSE and its terrace deck
@@ -1208,6 +1409,187 @@ export function grassMap(x0, z0, w, d, res) {
   t.magFilter = t.minFilter = THREE.NearestFilter;
   t.needsUpdate = true;
   return t;
+}
+
+// ---------- the edges: cliffs where the walkable land ends ----------
+// Traced once from boundsF (and the foot of Oak's hill) into runs (edges.js).
+// Each run is one kind: 'up' (the land beyond rises: a cliff face stands at
+// the line, the ground behind it lifted to its top) or 'down' (the land
+// beyond drops away: a rocky lip and a face down to the sea or the slope).
+// props/cliffs.js draws them; height() lifts and cuts the ground to agree.
+let EDGES = null, EIDX = null, LIFT = false;
+const rawH = (x, z) => { const o = LIFT; LIFT = false; try { return height(x, z); } finally { LIFT = o; } };
+function buildEdges() {
+  const runs = [];
+  const S = STAIRS, LH = LAB_HILL;
+  // the main boundary
+  const box = { x0: WALK.x0 - 2, x1: WALK.x1 + 2, z0: WALK.z0 - 2, z1: WALK.z1 + 2, res: 1 };
+  const main = traceEdges(boundsF, box).map((L) => finishLine(L, boundsF)).filter(Boolean).map((L) => ({ ...L, src: 'bounds' }));
+  // the foot of Oak's hill (the stairs and the retaining wall at their foot
+  // are its way up and its wall: no cliff there; the hedge rings the top)
+  const hillF = (x, z) => 0.985 - hillU(x, z);
+  const hb = { x0: LH.x0 - LH.wW - 4, x1: LH.x1 + LH.wE + 4, z0: LH.z0 - LH.wN - 4, z1: LH.z1 + LH.wS + 4, res: 0.5 };
+  const hill = traceEdges(hillF, hb).map((L) => finishLine(L, hillF)).filter(Boolean).map((L) => ({ ...L, src: 'hill' }));
+  const gz = ROUTE1.gateZ, gx = routeX(gz);
+  for (const L of [...main, ...hill]) {
+    if (L.len < 2) continue;
+    const N = L.pts.length;
+    const keep = new Uint8Array(N), down = new Uint8Array(N);
+    const foot = new Float32Array(N), far = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const [x, z] = L.pts[i], [nx, nz] = L.n[i];
+      const wx = x - nx * 1.0, wz = z - nz * 1.0;
+      let k = 1;
+      // the sea, the pond and the harbour need no cliff in front of them
+      const wl = waterLevel(wx, wz);
+      if (rawH(wx, wz) < wl - 0.05 && (wl === SEA_Y || Math.hypot(wx - POND.x, wz - POND.z) < POND.r + 3)) k = 0;
+      if (L.src === 'hill') {
+        if (Math.abs(z - S.z) < S.hw + 2.6 && x < S.x1 + 1) k = 0;            // the stairs
+        if (x < S.x0 + 1.6 && z > LH.z0 - 5 && z < LH.z1 + 5) k = 0;         // the retaining wall
+      }
+      // Viridian's gate and the walls off it into the woods
+      if (Math.abs(x - gx) < 31 && z < gz + 1.6 && z > gz - 4) k = 0;
+      keep[i] = k;
+      foot[i] = rawH(x - nx * 0.4, z - nz * 0.4);
+      far[i] = Math.min(rawH(x + nx * 5, z + nz * 5), rawH(x + nx * 8, z + nz * 8));
+      down[i] = far[i] < foot[i] - 2.5 ? 1 : 0;
+    }
+    // the kind smoothed along the line (no flicker between up and down)
+    const dn = new Uint8Array(N);
+    for (let i = 0; i < N; i++) { let c = 0, n = 0; for (let k = -7; k <= 7; k++) { const j = i + k; if (j < 0 || j >= N) continue; c += down[j]; n++; } dn[i] = c * 2 > n ? 1 : 0; }
+    // cut into runs of one kind
+    let a = -1, aOpen = !L.closed;
+    // (open: the run's end is the line's end or a gap (water, a wall): the
+    // rock tapers down there; a change of kind joins straight on)
+    const flush = (e, eOpen) => {
+      if (a < 0) return;
+      const i0 = a, i1 = e, o0 = aOpen; a = -1;
+      if (L.cum[i1] - L.cum[i0] < 1.5) return;
+      const pts = L.pts.slice(i0, i1 + 1), n = L.n.slice(i0, i1 + 1), cum = L.cum.slice(i0, i1 + 1).map((c) => c - L.cum[i0]);
+      const kind = dn[i0] ? 'down' : 'up', hillRun = L.src === 'hill';
+      const ft = Array.from(foot.slice(i0, i1 + 1)), fr = Array.from(far.slice(i0, i1 + 1));
+      // its height: a cliff of 4-8 m (2.5-4 m round Oak's hill), wobbling along
+      // it; where the land behind is already higher, the rock reaches it
+      const H = cum.map((u, j) => {
+        const [x, z] = pts[j];
+        const w = fbm(x * 0.045 + 3.1, z * 0.045 - 7.7, 3);
+        return hillRun ? 2.4 + w * 2.2 : 3.6 + w * 6.0;
+      });
+      for (let pass = 0; pass < 2; pass++) for (let j = 1; j < H.length - 1; j++) H[j] = (H[j - 1] + H[j] * 2 + H[j + 1]) / 4;
+      const len = cum[cum.length - 1];
+      const taper = (u) => (o0 ? smooth(0, 5, u) : 1) * (eOpen ? smooth(0, 5, len - u) : 1);
+      for (let j = 0; j < H.length; j++) H[j] = 0.3 + (H[j] - 0.3) * taper(cum[j]);
+      const top = ft.map((f, j) => (kind === 'up' ? f + H[j] : f + 0.35));
+      const bottom = fr.map((f, j) => (kind === 'down' ? Math.max(Math.min(f, ft[j] - 2.5) - 0.4, SEA_Y - 1.6) : ft[j] - 0.6));
+      runs.push({ id: runs.length, kind, src: L.src, pts, n, cum, len: cum[cum.length - 1], foot: ft, top, bottom, H });
+    };
+    for (let i = 0; i < N; i++) {
+      if (!keep[i]) { flush(i - 1, true); aOpen = true; continue; }
+      if (a >= 0 && dn[i] !== dn[a]) { flush(i - 1, false); aOpen = false; }
+      if (a < 0) a = i;
+    }
+    flush(N - 1, !L.closed);
+  }
+  EDGES = runs;
+  EIDX = new EdgeIndex(runs, 14);
+  LIFT = true;
+}
+// the nearest edge run: {d, s (+ beyond the line, the blocked side), L, i, t, u}
+export function edgeNear(x, z) { return EIDX ? EIDX.near(x, z) : null; }
+export function edgeRuns() { return EDGES || []; }
+// a spot for a prop of radius r clear of the cliffs: moved off the rock and
+// its foot, to whichever side it stood on (props off the walkable land go
+// up onto the top, well back from the edge)
+export function clearOfCliff(x, z, r = 1) {
+  const q = EIDX ? EIDX.near(x, z) : null;
+  if (!q || !(q.s > -(r + 0.8) && q.s < (q.L.kind === 'up' ? 4.4 : 8) + r)) return [x, z];
+  const nx = q.L.n[q.i][0], nz = q.L.n[q.i][1];
+  const to = q.s < 0.3 ? -(r + 0.9) : (q.L.kind === 'up' ? 4.8 : 8.5) + r;
+  return [x + nx * (to - q.s), z + nz * (to - q.s)];
+}
+// inside a cliff's rock or its foot (plants keep off): r = the plant's radius
+export function inCliff(x, z, r = 0) {
+  const q = EIDX ? EIDX.near(x, z) : null;
+  if (!q) return false;
+  return q.s > -(0.5 + r) && q.s < (q.L.kind === 'up' ? 4.2 : 8) + r;
+}
+// the ground agrees with the rock: behind an 'up' line it climbs to the
+// cliff's top within 2 m (the step hidden inside the rock), keeps it a few
+// metres, then eases back down into the natural slope; past a 'down' lip the
+// ground falls sheer to the foot of the face
+function edgeLift(x, z, h) {
+  if (!LIFT) return h;
+  const q = EIDX.near(x, z);
+  // (not past a run's ends: beside them stand walls, the water, the gate)
+  const past = q && ((q.i === 0 && q.t === 0) || (q.i === q.L.pts.length - 2 && q.t === 1));
+  if (q && q.s > 0.6 && !past) {
+    const L = q.L, s = q.s;
+    if (L.kind === 'up') {
+      const foot = lineAt(L.foot, q.i, q.t), top = lineAt(L.top, q.i, q.t);
+      let keepW = 4.6 + fbm(x * 0.07, z * 0.07, 2) * 5;
+      if (FALLS.length && fallNotch(x, z, 3)) keepW = Math.max(keepW, 8.5);   // (room on top for the spring)
+      // (the step stands behind the deepest face of the rock: no grass ramp
+      // shows between its columns)
+      const hl = foot + (top - foot) * smooth(2.1, 3.1, s) - Math.max(0, s - keepW) * 0.55;
+      h = Math.max(h, hl);
+    } else if (s >= 1.3) {
+      const bot = lineAt(L.bottom, q.i, q.t);
+      h = Math.min(h, lerp(bot, h, smooth(4.5, 10, s)));
+    }
+  }
+  return FALLS.length ? fallCarve(x, z, h) : h;
+}
+
+buildEdges();
+
+// ---------- the falls: where the water comes over the edges' cliffs ----------
+// Each stream and creek that starts at a cliff starts as a waterfall: a spring
+// in a cleft on the cliff top (a short run of water to the lip), the fall, a
+// plunge pool at its foot (the stream's own first pool). Each: the edge point
+// under the lip (x, z), n (unit, into the cliff), the cliff's top and foot,
+// the pool's level and centre, the water's width. buildWater draws the water,
+// props/cliffs.js notches the rock for it and wets it, height() cuts the
+// channel on top.
+export const FALLS = [];
+function buildFalls() {
+  const srcs = [...R1.CREEKS.filter((c) => c.fall).map((c) => ({ id: c.id, at: c.line[0], w: c.w * 2 + 0.6, y: R1.creekProfile(c)[0], pr: c.pool0 })),
+    { id: 'stream', at: STREAM[0], w: 3.0, y: SPROF[0], pr: STREAM_POOL }];
+  for (const f of srcs) {
+    const q = EIDX.near(f.at[0], f.at[1]);
+    if (!q || q.L.kind !== 'up') continue;
+    const L = q.L, n0 = L.n[q.i], n1 = L.n[Math.min(L.n.length - 1, q.i + 1)];
+    let nx = n0[0] + (n1[0] - n0[0]) * q.t, nz = n0[1] + (n1[1] - n0[1]) * q.t; const nl = Math.hypot(nx, nz); nx /= nl; nz /= nl;
+    // the lip stands where the pool's centre lines up with the cliff
+    FALLS.push({ id: f.id, x: q.x, z: q.z, nx, nz, top: lineAt(L.top, q.i, q.t), foot: lineAt(L.foot, q.i, q.t), poolY: f.y, pool: f.at, pr: f.pr, w: f.w, run: L.id, lip: 1.45, spring: 5.4 });
+  }
+}
+buildFalls();
+// (x, z) in a fall's frame: s along n (into the cliff), t across
+function fallLocal(F, x, z) { const dx = x - F.x, dz = z - F.z; return [dx * F.nx + dz * F.nz, dx * F.nz - dz * F.nx]; }
+// how wet the rock is here (props/cliffs.js), 0..1
+export function fallWet(x, z) {
+  let k = 0;
+  for (const F of FALLS) { const [s, t] = fallLocal(F, x, z); if (s > -6 && s < 8) k = Math.max(k, 1 - smooth(F.w * 0.5 + 0.4, F.w * 0.5 + 4.5, Math.abs(t))); }
+  return k;
+}
+// the fall whose notch this is (the rock under the water is cut lower and set back), or null
+export function fallNotch(x, z, m = 0) {
+  for (const F of FALLS) { const [s, t] = fallLocal(F, x, z); if (s > -3 && s < 7 && Math.abs(t) < F.w * 0.5 + 0.35 + m) return F; }
+  return null;
+}
+// the channel on top of the cliff, from the spring to the lip
+function fallCarve(x, z, h) {
+  for (const F of FALLS) {
+    const [s, t] = fallLocal(F, x, z);
+    if (s < 0.6 || s > F.spring + 3 || Math.abs(t) > F.w + 3) continue;
+    const lv = F.top - 0.1;
+    const half = F.w * 0.5 * (1 - 0.45 * smooth(F.spring - 1.5, F.spring, s));
+    const ds = Math.max(Math.abs(t) - half, s - F.spring, 0);
+    h = Math.min(h, lerp(lv - 0.45, Math.max(h, lv + 0.3), smooth(0.05, 1.3, ds)));
+    // (the lip itself: the water slides over the rock's edge)
+    if (s < 1.6 && Math.abs(t) < half + 0.4) h = Math.min(h, lv - 0.3);
+  }
+  return h;
 }
 
 // the editor's hooks: the edited and the unedited ground (vegetation follows

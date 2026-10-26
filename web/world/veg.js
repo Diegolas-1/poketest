@@ -2,7 +2,7 @@
 // birches, poplars and cypresses, willows by the pond, Scots pines and giants
 // on the hills, palms on the beach, bushes and hedges, fern beds in the shade,
 // flower clumps and mossy rocks. Seeded, so the town always looks the same.
-import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS, BOATHOUSE, CLEARINGS, PALLET_HOUSE } from './terrain.js';
+import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS, BOATHOUSE, CLEARINGS, PALLET_HOUSE, inCliff, edgeRuns, FALLS } from './terrain.js';
 import { Scatter, Impostor } from './assets.js';
 import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
@@ -31,7 +31,7 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   const R = rng(4242);
   const free = (x, z, r = 1) => !blocked(x, z, r) && roadDist(x, z) > 2.5 + r * 0.3 && !isWater(x, z) && height(x, z) > SEA_Y + 0.8
     && !fieldAt(x, z, 0.8) && !onStairs(x, z, 3) && !inYard(x, z, 0.4) && !inPlaza(x, z, 1) && streamAt(x, z).d > 3.4 && labHillU(x, z) > 0.04
-    && !(z < -90 && ledgeAt(x, z, 2.2 + r)) && !inHarbour(x, z, r) && !CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + r) && Math.hypot(x - PALLET_HOUSE.x, z - PALLET_HOUSE.z) > PALLET_HOUSE.r + 1 + r;
+    && !(z < -90 && ledgeAt(x, z, 2.2 + r)) && !inHarbour(x, z, r) && !CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + r) && Math.hypot(x - PALLET_HOUSE.x, z - PALLET_HOUSE.z) > PALLET_HOUSE.r + 1 + r && !inCliff(x, z, r);
   const scatters = [], impostors = [];
   // how far a model's base (everything within 0.7 m of the ground) reaches out
   const baseR = (list) => { let r = 0; for (const m of list) for (const p of m.parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) < 0.7) r = Math.max(r, Math.hypot(a.getX(i), a.getZ(i))); } return r; };
@@ -231,6 +231,29 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
     if (roadDist(x, z) < 2.5 || isWater(x, z) || blocked(x, z, 0.5) || labHillU(x, z) < 1 || streamAt(x, z).d < 4) continue;
     if (fbm(x * 0.1, z * 0.1, 2) < 0.45) continue;
     fp.push({ x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s: 0.7 + R() * 0.5 });
+  }
+  // (their own random numbers: every other plant stays where it was)
+  const Q = rng(9090);
+  // ferns along the cliffs: at their feet and over their tops, thick round the
+  // falls (the rock itself keeps plants off: inCliff)
+  for (const run of edgeRuns()) {
+    if (run.kind !== 'up') continue;
+    for (let i = 1; i < run.pts.length - 1; i += 2) {
+      const [x0, z0] = run.pts[i], [nx, nz] = run.n[i];
+      const wetK = FALLS.reduce((k, F) => Math.max(k, 1 - Math.min(1, Math.hypot(x0 - F.x, z0 - F.z) / 9)), 0);
+      for (const [s0, s1, pr] of [[-1.1, -0.55, 0.42 + wetK * 0.55], [2.3, 3.4, 0.3 + wetK * 0.5]]) {
+        if (Q() > pr) continue;
+        const sOff = s0 + Q() * (s1 - s0), x = x0 + nx * sOff, z = z0 + nz * sOff;
+        if (roadDist(x, z) < 2.6 || isWater(x, z) || onPath(x, z, 0.6) || streamAt(x, z).d < 2.5 || blocked(x, z, 2.2)) continue;
+        fp.push({ x, z, y: height(x, z) - 0.04, rot: Q() * 6.28, s: 0.75 + Q() * 0.55 + wetK * 0.35 });
+      }
+    }
+  }
+  // and round each plunge pool
+  for (const F of FALLS) for (let k = 0; k < 16; k++) {
+    const a = k / 16 * 6.283 + Q() * 0.3, r = F.pr + 1.4 + Q() * 1.6, x = F.pool[0] + Math.cos(a) * r, z = F.pool[1] + Math.sin(a) * r;
+    if (isWater(x, z) || inCliff(x, z, 0.2) || roadDist(x, z) < 2.6 || blocked(x, z, 2.2)) continue;
+    fp.push({ x, z, y: height(x, z) - 0.04, rot: Q() * 6.28, s: 0.9 + Q() * 0.6 });
   }
   keepOff(fp, baseR(ferns)); keepOff(fl, baseR(flowers));
   // small plants fade out and sink into the ground past their range

@@ -9,6 +9,8 @@ const TOON_DS := preload("res://shaders/toon_ds.gdshader")
 const TERRAIN := preload("res://shaders/terrain.gdshader")
 const SEA := preload("res://shaders/sea.gdshader")
 const FRESH := preload("res://shaders/fresh.gdshader")
+const FRESH_FALL := preload("res://shaders/fresh_fall.gdshader")
+var falls: Array = []   # the falling water's meshes (sfx_world.gd: where the falls roar)
 const SKY := preload("res://shaders/sky.gdshader")
 const Grass := preload("res://grass.gd")
 const Scenery := preload("res://scenery.gd")
@@ -237,9 +239,18 @@ func _water() -> void:
 		var nm := String(mi.name)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if nm.begins_with("fresh"):
+			# fresh0 still (the pond, pools), fresh1 flowing (streams), fresh2-4
+			# falling water, its foam and its mist (shaders/fresh_fall.gdshader)
+			var kind := int(nm.substr(5, 1))
 			var f := ShaderMaterial.new()
-			f.shader = FRESH
-			f.set_shader_parameter("flow", 1.0 if nm.begins_with("fresh1") else 0.0)
+			if kind >= 2:
+				f.shader = FRESH_FALL
+				f.set_shader_parameter("mode", float(kind))
+				f.render_priority = kind   # (foam over the pool, mist over the sheet)
+				falls.append(mi)
+			else:
+				f.shader = FRESH
+				f.set_shader_parameter("flow", 1.0 if kind == 1 else 0.0)
 			mi.material_override = f
 		else:
 			mi.material_override = sea
