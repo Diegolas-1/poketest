@@ -357,10 +357,29 @@ func talk(id: String, ctx: Dictionary = {}) -> Array:
 	var out := _quest_talk(id, c)
 	if out.is_empty(): out = _ambient(id, c)
 	if out.is_empty(): out = ["..."]
+	out = _condition_remarks(id, c) + out
 	st.met[id] = c.day
 	st.talks[id] = int(st.talks.get(id, 0)) + 1
 	if autosave: save()
 	return fit_lines(_prefix(id, out))
+
+# a comment on how Ash is (wet, worn out: conditions.gd decides when, once per
+# episode and person; the words are the person's own, people.<id>.remarks.<key>,
+# else fallback.remarks.<key>), said before their usual lines
+func _condition_remarks(id: String, c: Dictionary) -> Array:
+	var C: Conditions = Conditions.I
+	if C == null or _act_keys(c.activity).has("sleep"): return []
+	var out := []
+	var own: Dictionary = person(id).get("remarks", {})
+	var fb: Dictionary = D.get("fallback", {}).get("remarks", {})
+	for r in C.remarks_for(id):
+		for k in r.keys:
+			var pool: Array = _pool(own, [k])
+			if pool.is_empty(): pool = _pool(fb, [k])
+			if pool.is_empty(): continue
+			out += _as_lines(_pick(id, pool))
+			break
+	return out
 
 func _ambient(id: String, c: Dictionary) -> Array:
 	var P := person(id)

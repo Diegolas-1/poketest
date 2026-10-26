@@ -21,6 +21,7 @@ func _ready() -> void:
 				var p := ln.strip_edges().split(" ", false)
 				if p.size() >= 2: shots.append(p)
 		elif a == "--stats": stats = true
+		elif a == "--noink": Ink.set_enabled(false)
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
 

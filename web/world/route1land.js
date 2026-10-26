@@ -143,10 +143,13 @@ export const CREEKS = [
   // under the road's footbridge and out to a lily pool in the east nook
   // (it keeps well clear of the road until it crosses it square on, under
   // the footbridge: it used to run down the road for 20 m and drown it)
-  { id: 'tea', w: 1.5, pool: 6.5, ctrl: [[-112, -232], [-102, -236], [-92, -241], [-80, -244], [-66, -244], [-52, -242], [-38, -241],
+  // (it starts in a plunge pool at the foot of the west cliff: the spring on
+  // the hill drops over the cliff as a waterfall, terrain.js FALLS)
+  { id: 'tea', w: 1.5, pool: 6.5, pool0: 2.7, fall: true, ctrl: [[-114.3, -230.0], [-108, -233.6], [-102, -236], [-92, -241], [-80, -244], [-66, -244], [-52, -242], [-38, -241],
     [-22, -241], [-10, -244], [0, -248.5], [8.5, -252.6], [14.6, -253.2], [20.8, -248.3], [27, -247.4], [33, -252]] },
   // a brook under the little stone bridge near Viridian
-  { id: 'brook', w: 1.1, pool: 4.5, ctrl: [[64, -366], [52, -369], [40, -372], [26, -374], [12, -376], [-2, -379], [-14, -381],
+  // (it falls from the east cliff into a pool first)
+  { id: 'brook', w: 1.1, pool: 4.5, pool0: 2.3, fall: true, ctrl: [[63.7, -368.3], [58, -368.6], [52, -369], [40, -372], [26, -374], [12, -376], [-2, -379], [-14, -381],
     [-28, -383], [-40, -388], [-48, -392]] },
 ];
 for (const c of CREEKS) {
@@ -182,11 +185,30 @@ function prof(c) {
   if (c.prof) return c.prof;
   const raw = c.line.map(([x, z]) => baseH(x, z));
   const p = raw.map((_, i) => { let s = 0, n = 0; for (let k = -5; k <= 5; k++) { const j = Math.min(raw.length - 1, Math.max(0, i + k)); s += Math.min(raw[j], raw[i] + 0.4); n++; } return s / n - 0.9; });
+  // a plunge pool at the start: level, a little under the ground at its rim
+  if (c.pool0) { const y0 = raw[0] - 0.75; for (let i = 0; i < p.length && i <= c.pool0 + 1; i++) p[i] = y0; }
   for (let i = 1; i < p.length; i++) p[i] = Math.min(p[i], p[i - 1] - 0.012);
-  c.prof = p;
-  c.poolY = p[p.length - 1];
-  return p;
+  // the water stands in pools and drops between them in little cascades
+  const st = stepProfile(p, 0.7);
+  c.prof = st.q; c.steps = st.steps;
+  c.poolY = c.prof[c.prof.length - 1];
+  return c.prof;
 }
+// A falling profile as level pools and steps: a step wherever the water has
+// fallen `h` below the pool it is in (bigger where it drops faster).
+// Returns {q (levels), steps: [{i: the first index of the lower pool, hi, lo}]}.
+export function stepProfile(p, h = 0.5) {
+  const q = p.slice(), steps = [];
+  let L = p[0];
+  for (let i = 0; i < p.length; i++) {
+    if (p[i] < L - h) { steps.push({ i, hi: L, lo: p[i] }); L = p[i]; }
+    q[i] = L;
+  }
+  // the last pool runs on gently to the end (no step right at the mouth)
+  return { q, steps };
+}
+// a creek's own start pool and steps (terrain.js: its falls and cascades)
+export function creekProfile(c) { return prof(c); }
 const profAt = (p, t) => { const i = Math.max(0, Math.min(p.length - 2, Math.floor(t))), k = Math.min(1, Math.max(0, t - i)); return p[i] + (p[i + 1] - p[i]) * k; };
 // the creek (or its pool) at (x, z): {d: distance from the water's middle,
 // y: the water level, c: the creek} or null when none is within 7 m
@@ -202,16 +224,26 @@ export function creekAt(x, z) {
     const q = near(c, x, z);
     let d = q.d, y = profAt(P, q.t);
     if (pd < d) { d = pd; y = c.poolY; }
+    if (c.pool0) { const p0 = Math.hypot(x - c.line[0][0], z - c.line[0][1]) - (c.pool0 - c.w); if (p0 < d) { d = p0; y = P[0]; } }
     if (d < 7 && (!best || d < best.d)) best = { d, y, c, t: q.t };
   }
   return best;
 }
 // the bed cut into the land (terrain.js height, after the roads)
 export function carve(x, z, h) {
+  // a level shelf at the foot of a fall for its plunge pool
+  for (const c of CREEKS) {
+    if (!c.pool0) continue;
+    const [px, pz] = c.line[0], d = Math.hypot(x - px, z - pz);
+    if (d < c.pool0 + 7) { const y = prof(c)[0]; h = lerp(y + 0.35, h, sm(c.pool0 + 1.8, c.pool0 + 7, d)); }
+  }
   const q = creekAt(x, z);
   if (!q) return h;
   const w = q.c.w, bed = q.y - 0.55 - (1 - sm(0, w, q.d)) * 0.25;
-  return Math.min(h, lerp(bed, Math.max(h, q.y + 0.4), sm(w + 0.3, w + 3.2, q.d)));
+  h = Math.min(h, lerp(bed, Math.max(h, q.y + 0.4), sm(w + 0.3, w + 3.2, q.d)));
+  // and never a bank lower than the water beside it (no water standing in the air)
+  if (q.d > w + 0.25) h = Math.max(h, q.y + 0.2 - Math.max(0, q.d - w - 2.2) * 0.25);
+  return h;
 }
 // the water level here (terrain.js waterLevel), or null
 export function creekLevel(x, z) {
@@ -237,6 +269,8 @@ export function creekGeometries() {
     g.setIndex(idx);
     g.computeVertexNormals();
     out.push({ g, flow: 1 });
+    // the plunge pool at its start
+    if (c.pool0) { const sg = new THREE.CircleGeometry(c.pool0 + 0.8, 28).rotateX(-Math.PI / 2); sg.translate(L[0][0], P[0] + 0.03, L[0][1]); out.push({ g: sg, flow: 0 }); }
     // the pool at its end: still water
     const pg = new THREE.CircleGeometry(c.pool + 0.8, 32).rotateX(-Math.PI / 2);
     pg.translate(c.end[0], c.poolY + 0.03, c.end[1]);

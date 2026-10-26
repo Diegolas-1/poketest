@@ -45,11 +45,15 @@ static func regions() -> Array:
 			_regions.append(r)
 	return _regions
 
-# a file every region may have, for those that have it
+# a file every region may have, for those that have it. An imported file
+# (town.glb, terrain.glb) is not in an exported pack as itself, only as its
+# .import remap and the imported scene: look for the remap too (the plain
+# files, ink.bin..., are there as they are).
 static func files(name: String) -> PackedStringArray:
 	var out := PackedStringArray()
 	for r in regions():
-		if FileAccess.file_exists(r.dir + name): out.append(r.dir + name)
+		var p: String = r.dir + name
+		if FileAccess.file_exists(p) or FileAccess.file_exists(p + ".import"): out.append(p)
 	return out
 
 # a whole-world grid from the regions' tiles; planes = bytes per cell of each

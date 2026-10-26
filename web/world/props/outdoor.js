@@ -926,8 +926,12 @@ export function postbox({ col = '#c8312e' } = {}) {
   return G;
 }
 // a little arched stone bridge over a brook, deck along z, L long, w wide;
-// y0 = the deck's top above the origin at its ends, arch rise `rise`
-export function stoneBridge({ L = 8, w = 3.6, rise = 0.5, col = '#b4ad98' } = {}) {
+// y0 = the deck's top above the origin at its ends, arch rise `rise`; `drop`
+// = how far below the deck the water lies. The bridge's body is solid stone
+// down into the bed, pierced by one arch whose springing stands at the water
+// (the arch used to be a ring of stones hung under the deck: a floating
+// half-donut over the water), its ring stones proud of both faces.
+export function stoneBridge({ L = 8, w = 3.6, rise = 0.5, col = '#b4ad98', drop = 1.8 } = {}) {
   const G = new THREE.Group(), st = texm(stonesTex(col));
   const n = 10;
   for (let i = 0; i < n; i++) {
@@ -937,11 +941,37 @@ export function stoneBridge({ L = 8, w = 3.6, rise = 0.5, col = '#b4ad98' } = {}
     seg.rotation.x = -Math.atan2(y1 - y0, z1 - z0);
     for (const sx of [-1, 1]) { const p = box(0.3, 0.55, Math.hypot(z1 - z0, y1 - y0) + 0.05, st, sx * (w / 2 - 0.15), (y0 + y1) / 2 + 0.27, (z0 + z1) / 2, G); p.rotation.x = seg.rotation.x; }
   }
-  // the arch underneath (a half ring) and the abutments
-  // the arch's ring stones on both faces, under the deck (its crown just below it)
-  const AR = Math.min(2.0, L * 0.24);
-  for (const sx of [-1, 1]) { const arch = new THREE.TorusGeometry(AR, 0.28, 6, 16, Math.PI).rotateY(Math.PI / 2); put(new THREE.Mesh(arch, st), G, sx * (w / 2 - 0.2), -0.62 - AR, 0); }
-  for (const sz of [-1, 1]) box(w + 0.4, 1.4, 1.2, st, 0, -0.7, sz * (L / 2 - 0.4), G);
+  // the body: its outline in (z, y), the arch cut out of its foot (a segment
+  // of a circle springing at the water), extruded across the bridge's width
+  const half = Math.min(L * 0.3, 2.4), spring = -drop + 0.05, crown = Math.min(-0.42, spring + Math.max(0.9, half * 0.8));
+  const hA = crown - spring, Rr = (hA * hA + half * half) / (2 * hA), cy = crown - Rr, bot = -drop - 1.0;
+  const arc = (r, k) => { const a0 = Math.asin(Math.min(1, half / Rr)), a = -a0 + (2 * a0) * k; return [Math.sin(a) * r, cy + Math.cos(a) * r]; };
+  const body = new THREE.Shape();
+  const topY = (zz) => Math.sin((zz / L + 0.5) * Math.PI) * rise - 0.3;
+  body.moveTo(-L / 2 + 0.15, bot);
+  for (let k = 0; k <= 10; k++) { const zz = -L / 2 + 0.15 + (L - 0.3) * k / 10; body.lineTo(zz, topY(zz)); }
+  body.lineTo(L / 2 - 0.15, bot);
+  body.lineTo(half, bot); body.lineTo(half, spring);
+  for (let k = 1; k < 16; k++) { const [zz, yy] = arc(Rr, 1 - k / 16); body.lineTo(zz, yy); }
+  body.lineTo(-half, spring); body.lineTo(-half, bot);
+  body.lineTo(-L / 2 + 0.15, bot);
+  const bg = new THREE.ExtrudeGeometry(body, { depth: w - 0.1, bevelEnabled: false, curveSegments: 4 });
+  bg.translate(0, 0, -(w - 0.1) / 2).rotateY(Math.PI / 2);
+  // (uv in metres scaled to the stone texture)
+  { const uv = bg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.5, uv.getY(i) * 0.5); }
+  put(new THREE.Mesh(bg, st), G, 0, 0, 0);
+  // the ring stones: a band round the arch, proud of each face
+  const ring = new THREE.Shape(), Ro = Rr + 0.32;
+  const ao = (r, k) => { const a0 = Math.asin(Math.min(1, half / Rr)), a = -a0 + 2 * a0 * k; return [Math.sin(a) * r, cy + Math.cos(a) * r]; };
+  { const [z0, y0] = ao(Ro, 0); ring.moveTo(z0, Math.max(y0, spring)); }
+  for (let k = 1; k <= 16; k++) { const [zz, yy] = ao(Ro, k / 16); ring.lineTo(zz, Math.max(yy, spring)); }
+  for (let k = 16; k >= 0; k--) { const [zz, yy] = ao(Rr, k / 16); ring.lineTo(zz, yy); }
+  const rg = new THREE.ExtrudeGeometry(ring, { depth: 0.12, bevelEnabled: false, curveSegments: 4 });
+  { const uv = rg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.5, uv.getY(i) * 0.5); }
+  const ringM = texm(stonesTex(shade(col, 0.9)));
+  for (const sx of [-1, 1]) { const g2 = rg.clone().translate(0, 0, -0.06).rotateY(Math.PI / 2); put(new THREE.Mesh(g2, ringM), G, sx * ((w - 0.1) / 2 + 0.03), 0, 0); }
+  // a keystone at the crown on each face
+  for (const sx of [-1, 1]) box(0.2, 0.42, 0.34, shade(col, 0.85), sx * ((w - 0.1) / 2 + 0.06), crown + 0.16, 0, G);
   // ivy over the deck's edge and up the parapets (outer faces at x = +-w / 2)
   for (const sx of [-1, 1]) { ivy(G, 2.4, 1.0, sx * (w / 2 + 0.02), -0.12, 0, sx * Math.PI / 2, 71 + sx, 9); mossTop(G, 0.3, L * 0.6, sx * (w / 2 - 0.15), rise + 0.55, 0, 0, 73 + sx); }
   return G;
