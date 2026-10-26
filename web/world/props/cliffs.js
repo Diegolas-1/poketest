@@ -107,14 +107,14 @@ export function buildCliffRun(run, { seed = 1, heightAt, col = CLIFF.rock, wet =
       // no further forward, so none juts across the ivy)
       const calm = !F && notch && notch(c.x, c.z, 8);
       if (calm && !side) f = Math.max(f, 0.5);
-      const lean = side ? 0.0 : 0.03 + R() * 0.09, yaw = side || calm ? 0 : (R() - 0.5) * 0.5, diag = !side && R() < 0.55;
+      const lean = side ? 0.0 : 0.03 + R() * 0.09, yaw = side || calm ? 0 : (R() - 0.5) * 0.3, diag = !side && R() < 0.55;
       while (y < y1 - 0.3) {
         const h = Math.min(y1 - y, (k === 0 ? 1.6 : 1.8) + R() * 2.2);
         const top = y + h < y1 - 0.5 ? y + h : y1;
         const yb = k === 0 ? y : y - 0.05;
         tone.copy(base).multiplyScalar(bandK((yb + top) / 2) * (0.96 + R() * 0.08));
         if (wetK > 0) tone.lerp(new THREE.Color(CLIFF.wet), wetK);
-        const g = slab(R, { w: w + 0.3, y0: yb - c.foot, y1: top - c.foot, f, back: 4.4 + R() * 0.8, lean: side ? 0 : lean + (R() - 0.5) * 0.06, dir: 1, col: tone, seed: Math.floor(R() * 1e6), yaw: side || calm ? 0 : yaw + (R() - 0.5) * 0.15, diag: diag && R() < 0.7, facets: !side });
+        const g = slab(R, { w: w + 0.55, y0: yb - c.foot, y1: top - c.foot, f, back: 4.4 + R() * 0.8, lean: side ? 0 : lean + (R() - 0.5) * 0.06, dir: 1, col: tone, seed: Math.floor(R() * 1e6), yaw: side || calm ? 0 : yaw + (R() - 0.5) * 0.15, diag: diag && R() < 0.7, facets: !side });
         frame(c.x, c.foot, c.z, tx, tz, c.nx, c.nz);
         g.applyMatrix4(_m); geos.push(g);
         // the next tier steps back (a ledge) or now and then out a little
