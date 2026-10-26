@@ -20,9 +20,15 @@ var stick := PackedFloat64Array()
 var enterlab := false
 var press: Array = []     # --press=f1,f2: press A on these frames
 var ipos_once := false   # --ipos0: place once, then let the player walk
+var quest := ""          # --quest=q_bread: start that quest (the island compass then points the way)
+var snaps: Array = []     # --snap=f,f --snapdir=dir: save the window's picture on those frames (full size)
+var snapdir := ""
+var island_open := -1
+var island_pick := PackedInt32Array()   # --islandpick=f,row: tap that menu row on frame f    # --islandopen=f: tap beside the Dynamic Island on that frame (PALLET_ISLAND=left)
 
 func _ready() -> void:
 	process_priority = 100
+	process_mode = Node.PROCESS_MODE_ALWAYS   # (keeps counting frames and taking snaps while a menu pauses the game)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--cam="): cam_v = PackedFloat64Array(Array(a.substr(6).split(",")).map(func(x): return float(x)))
 		elif a.begins_with("--pos="): pos_v = PackedFloat64Array(Array(a.substr(6).split(",")).map(func(x): return float(x)))
@@ -35,8 +41,17 @@ func _ready() -> void:
 		elif a.begins_with("--stick="): stick = PackedFloat64Array(Array(a.substr(8).split(",")).map(func(x): return float(x)))
 		elif a == "--enterlab": enterlab = true
 		elif a.begins_with("--press="): press = Array(a.substr(8).split(",")).map(func(x): return int(x))
+		elif a.begins_with("--quest="): quest = a.substr(8)
+		elif a.begins_with("--snap="): snaps = Array(a.substr(7).split(",")).map(func(x): return int(x))
+		elif a.begins_with("--snapdir="): snapdir = a.substr(10)
+		elif a.begins_with("--set="):   # --set=key=value: a Settings value for this run (numbers as numbers)
+			var kv := a.substr(6).split("=")
+			Settings.set_value(kv[0], int(kv[1]) if kv[1].is_valid_int() else kv[1])
+		elif a.begins_with("--islandopen="): island_open = int(a.substr(13))
+		elif a.begins_with("--islandpick="): island_pick = PackedInt32Array(Array(a.substr(13).split(",")).map(func(x): return int(x)))
 		elif a.begins_with("--ipos0="): ipos = PackedFloat64Array(Array(a.substr(8).split(",")).map(func(x): return float(x))); ipos_once = true
 	main = load("res://main.tscn").instantiate()
+	main.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(main)
 
 func _process(_dt: float) -> void:
@@ -68,6 +83,21 @@ func _process(_dt: float) -> void:
 		main.cam_yaw = main.yaw + PI; main.cam_ty = main.pos.y
 	if enterlab and frame == 12: main.cast._btn_a = true
 	if frame in press: main.cast._btn_a = true
+	if frame in snaps and snapdir != "":
+		var at := frame
+		RenderingServer.frame_post_draw.connect(func(): get_viewport().get_texture().get_image().save_png("%s/s%03d.png" % [snapdir, at]), CONNECT_ONE_SHOT)
+	if quest != "" and frame == 4: main.cast.life.quests.start(quest)
+	if island_pick.size() == 2 and frame == island_pick[0] and main.island:
+		var ev2 := InputEventScreenTouch.new()
+		ev2.pressed = true
+		ev2.position = main.island._row_rect(island_pick[1]).get_center() * Vector2(DisplayServer.window_get_size()) / get_viewport().get_visible_rect().size
+		Input.parse_input_event(ev2)
+	if frame == island_open and main.island:
+		var ev := InputEventScreenTouch.new()
+		ev.pressed = true
+		var vp := get_viewport()
+		ev.position = (main.island._tap_zone().get_center() + Vector2(20, 0)) * Vector2(DisplayServer.window_get_size()) / vp.get_visible_rect().size
+		Input.parse_input_event(ev)
 	if not is_nan(camyaw): main.cam_yaw = camyaw; main.cam_idle = 0.0
 	if not is_nan(campitch): main.cam_pitch = campitch
 	if stick.size() >= 2 and frame >= (int(stick[2]) if stick.size() >= 3 else 0): main.stick_vec = Vector2(stick[0], stick[1])

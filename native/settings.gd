@@ -56,7 +56,8 @@ static func _presets() -> Dictionary:
 # settings that are not part of a preset
 const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
 	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
-	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1}
+	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
+	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
 # rows of the menu, by tab: key, label, values, hint (format in fmt())
@@ -71,6 +72,13 @@ const ROWS := {
 		["exposure", "Brightness", [0.8, 0.9, 1.0, 1.1, 1.2, 1.3], ""],
 		["fps", "FPS counter", [0, 1], ""],
 		["perf", "Performance overlay", [0, 1], "frame times, draw calls"],
+		["island", "Dynamic Island HUD", [0, 1], "compass round the island, tap beside it for the menu"],
+		["island_side", "Island side", ["left", "right"], "which edge the island is on, the phone turned"],
+		["island_outline", "Show island outline", [0, 1], "a red outline where the game thinks the island is"],
+		["island_dx", "Island: move across", [-24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], "points, + = toward the middle of the screen"],
+		["island_dy", "Island: move along", [-40, -38, -36, -34, -32, -30, -28, -26, -24, -22, -20, -18, -16, -14, -12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40], "points, + = down"],
+		["island_w", "Island: width", [28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48], "points"],
+		["island_h", "Island: height", [100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150], "points"],
 	],
 	"World": [
 		["outlines", "Outlines", [0, 1], ""],
@@ -184,7 +192,7 @@ func step(key: String, values: Array, d: int) -> void:
 			for k in values.size():
 				if absf(float(values[k]) - float(v)) < absf(float(values[i]) - float(v)): i = k
 	var n := values.size()
-	if key in ["preset", "face", "upscale", "aa", "clock"] or values == [0, 1]:
+	if key in ["preset", "face", "upscale", "aa", "clock", "island_side"] or values == [0, 1]:
 		i = (i + d + n) % n                      # choices wrap round
 	else:
 		i = clampi(i + d, 0, n - 1)
@@ -211,6 +219,8 @@ func fmt(key: String, v) -> String:
 		"deadzone": return "%d%%" % roundi(float(v) * 100.0)
 		"clock": return "Real time" if v == "real" else "Game time"
 		"day_len": return "%d min" % int(v)
+		"island_side": return "Left" if v == "left" else "Right"
+		"island_dx", "island_dy", "island_w", "island_h": return "%d pt" % int(v)
 	if typeof(v) == TYPE_INT and (v == 0 or v == 1): return "On" if v == 1 else "Off"
 	return str(v)
 

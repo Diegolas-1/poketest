@@ -691,6 +691,20 @@ func wants(id: String) -> String:
 			return "New: " + String(q.get("title", q.id))
 	return ""
 
+# who the first active quest wants Ash to see next (island.gd's compass):
+# [quest title, [person ids]] or [] when no quest is active
+func goal_people() -> Array:
+	_ensure()
+	for q in quest_list:
+		if state(q.id) != "active": continue
+		var step := _step(q)
+		if step.is_empty(): continue
+		var left := []
+		for w in _who(q, step):
+			if step.get("mode", "any") != "all" or not _done_who(q).has(w): left.append(w)
+		if not left.is_empty(): return [String(q.get("title", q.id)), left]
+	return []
+
 # what the quest log shows
 func step_hint(qid: String) -> String:
 	var q := quest(qid)

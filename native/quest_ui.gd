@@ -41,6 +41,15 @@ var toaster: Control
 var _toasts: Array = []      # [kind, text]
 var _toast_t := 0.0
 var _last_size := Vector2.ZERO
+var btn_rect := Rect2()   # island.gd: the button as a satellite above the Dynamic Island
+
+# island.gd puts the button above the island (black pill), or back (empty rect)
+func place_btn(r: Rect2) -> void:
+	btn_rect = r
+	if btn == null: return
+	for st in ["normal", "hover", "pressed", "focus"]:
+		btn.add_theme_stylebox_override(st, _sb(Color(0, 0, 0, 1) if r.size != Vector2.ZERO else Color(0.08, 0.12, 0.16, 0.62 if st == "pressed" else 0.45), int(minf(r.size.x, r.size.y) * 0.5) if r.size != Vector2.ZERO else 14))
+	if root: _layout()
 
 func _ready() -> void:
 	layer = 90
@@ -176,7 +185,8 @@ func _layout() -> void:
 	var vs := root.get_viewport_rect().size
 	_last_size = vs
 	var sr := safe_rect()
-	btn.position = Vector2(sr.end.x - 16.0 - BTN.x, sr.position.y + 16.0)
+	btn.size = btn_rect.size if btn_rect.size != Vector2.ZERO else BTN
+	btn.position = btn_rect.position if btn_rect.size != Vector2.ZERO else Vector2(sr.end.x - 16.0 - BTN.x, sr.position.y + 16.0)
 	var w := minf(660.0, sr.size.x - 32.0)
 	var h := minf(sr.size.y - 32.0, 720.0)
 	frame.position = Vector2(sr.position.x + (sr.size.x - w) * 0.5, sr.position.y + (sr.size.y - h) * 0.5)
@@ -342,7 +352,7 @@ func _process(dt: float) -> void:
 # ---------- drawing ----------
 func _draw_btn() -> void:
 	# a little scroll with writing on it
-	var c := BTN * 0.5
+	var c := btn.size * 0.5
 	var w := 26.0
 	var h := 30.0
 	var r := Rect2(c.x - w * 0.5, c.y - h * 0.5, w, h)
@@ -355,8 +365,8 @@ func _draw_btn() -> void:
 		var y := r.position.y + 9 + k * 6
 		btn.draw_line(Vector2(r.position.x + 6, y), Vector2(r.end.x - (6 if k < 2 else 11), y), Color(INK, 0.75), 2.0)
 	if unread:
-		btn.draw_circle(Vector2(BTN.x - 9, 9), 7.0, RED, true, -1.0, true)
-		btn.draw_circle(Vector2(BTN.x - 9, 9), 7.0, Color.WHITE, false, 2.0, true)
+		btn.draw_circle(Vector2(btn.size.x - 9, 9), 7.0, RED, true, -1.0, true)
+		btn.draw_circle(Vector2(btn.size.x - 9, 9), 7.0, Color.WHITE, false, 2.0, true)
 
 func _draw_frame() -> void:
 	var w := frame.size.x

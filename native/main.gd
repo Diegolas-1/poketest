@@ -65,6 +65,7 @@ var fader: ColorRect
 var music: Node          # music.gd
 var sfx: Sfx             # sfx.gd: the sound effects library and players
 var sfx_world: Node      # sfx_world.gd: the town's footsteps, ambience, doors
+var island: CanvasLayer  # island.gd
 var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
 
 func _ready() -> void:
@@ -100,6 +101,10 @@ func _ready() -> void:
 	sfx_world.name = "SfxWorld"
 	add_child(sfx_world)
 	sfx_world.setup(self)
+	island = preload("res://island.gd").new()   # the Dynamic Island's compass, menu and satellites (island.gd)
+	island.name = "Island"
+	island.main = self
+	add_child(island)
 
 # ---------- sky, sun, haze ----------
 func _environment() -> void:
@@ -278,6 +283,7 @@ func _player() -> void:
 func _input(e: InputEvent) -> void:
 	var half := get_viewport().get_visible_rect().size.x * 0.5
 	if e is InputEventScreenTouch:
+		if e.pressed and island and island.blocks(e.position): return   # the Dynamic Island's menu and its tap zone
 		if e.pressed and Settings.blocks_touch(e.position): return   # the settings cog
 		if e.pressed and cast and cast.life and cast.life.quests.blocks_touch(e.position): return   # the quest log button
 		if e.pressed and cast and cast.cond_ui and cast.cond_ui.blocks(e.position): return   # the condition badges

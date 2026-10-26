@@ -20,6 +20,7 @@ var tab_btns: Array = []
 var tab := "Display"
 var rows: Array = []        # [row control, key, values, value label]
 var was_paused := false
+var cog_rect := COG   # moved under the Dynamic Island by island.gd (place_cog)
 
 func _ready() -> void:
 	layer = 100
@@ -36,7 +37,19 @@ func _ready() -> void:
 	_build()
 
 func blocks(pos: Vector2) -> bool:
-	return root.visible or Rect2(COG.position - Vector2(8, 8), COG.size + Vector2(16, 16)).has_point(pos)
+	return root.visible or cog.visible and Rect2(cog_rect.position - Vector2(8, 8), cog_rect.size + Vector2(16, 16)).has_point(pos)
+
+# island.gd: the cog as one of the island's black satellites (r), or back at
+# the top left (r empty); left = where the panel starts (clear of the island)
+func place_cog(r: Rect2, left := 16.0) -> void:
+	cog_rect = r if r.size != Vector2.ZERO else COG
+	cog.position = cog_rect.position
+	cog.size = cog_rect.size
+	if r.size != Vector2.ZERO: _style_btn(cog, Color.BLACK, int(minf(r.size.x, r.size.y) * 0.5))
+	else: _style_btn(cog, Color(0.08, 0.12, 0.16, 0.45), 14)
+	panel.offset_left = left
+	panel.offset_right = left + 790
+	cog.queue_redraw()
 
 # ---------- open / close ----------
 func open(pad := false) -> void:
@@ -379,7 +392,7 @@ func _style_scrollbar(s: ScrollContainer) -> void:
 
 # the cog, drawn (the default font has no ⚙)
 func _draw_cog() -> void:
-	var c := COG.size * 0.5
+	var c := cog.size * 0.5
 	var col := Color(1, 1, 1, 0.95)
 	for i in 8:
 		var a := i * TAU / 8.0
