@@ -122,6 +122,14 @@ function shapeGeometry(P, nMain, R, o = {}) {
   return g;
 }
 
+// A cut shape from any half-spaces (cliff slabs, props/cliffs.js): the main
+// planes, then rounded rims on the edges `only` picks (default all)
+export function cutGeometry(planes, { seed = 1, col, bevel = 0.08, only, ao } = {}) {
+  const R = rng(seed * 11 + 7), P = planes.slice(), nMain = P.length;
+  for (const q of bevelPlanes(P, bevel, only)) P.push(q);
+  return shapeGeometry(P, nMain, R, { col, ao });
+}
+
 // ---------- shapes ----------
 // A boulder: w x h x d (metres) standing on y = 0, its foot sunk below.
 // kind 'boulder' (chunky, big flat faces), 'pebble' (rounder, small),
@@ -530,7 +538,7 @@ export function mergeStones(root, cell = 40) {
     o.getMatrixAt(0, im);
     const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld).multiply(im);
     c.setFromMatrixPosition(m);
-    const key = [Math.floor(c.x / cell), Math.floor(c.z / cell), o.material.uuid, o.userData.outline, String(o.userData.fade), o.castShadow].join('|');
+    const key = [Math.floor(c.x / cell), Math.floor(c.z / cell), o.material.uuid, o.userData.outline, String(o.userData.fade), o.castShadow, o.userData.barrier || ''].join('|');
     if (!groups.has(key)) groups.set(key, { o, geos: [] });
     groups.get(key).geos.push(o.geometry.clone().applyMatrix4(m));
     o.parent.remove(o);
@@ -539,6 +547,7 @@ export function mergeStones(root, cell = 40) {
     const n = stoneMesh(mergeAll(geos), { fade: o.userData.fade, shadow: o.castShadow });
     n.material = o.material;
     if (o.userData.outline !== undefined) n.userData.outline = o.userData.outline;
+    if (o.userData.barrier) n.userData.barrier = o.userData.barrier;   // (tools/qa/checks.js: a barrier you can see)
     root.add(n);
   }
   return groups.size;

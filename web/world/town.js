@@ -5,7 +5,7 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, FIELDS, meshHeight, ROUTE1, routeX, LEDGES, ledgeLineZ, TRAIL0, R1_TRAIL1 } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, FIELDS, meshHeight, ROUTE1, routeX, LEDGES, ledgeLineZ, TRAIL0, R1_TRAIL1, edgeRuns, inCliff, fallWet, fallNotch, FALLS } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
@@ -21,6 +21,7 @@ import * as OD from './props/outdoor.js';
 import * as FA from './props/farm.js';
 import * as BO from './props/boats.js';   // rowing and fishing boats
 import * as CR from './crops.js';
+import { buildCliffs } from './props/cliffs.js';   // the world's edges as rock (worker 20)
 import { creekAt } from './route1land.js';
 const creekNear = (x, z, m) => { const q = creekAt(x, z); return !!q && q.d < q.c.w + m; };
 
@@ -593,7 +594,7 @@ function labStairs(world) {
     return { a: [cx0, zc], b: [cx1, zc], t: 0.55, col: '#c4bdac', top: (u) => noseY(cx0 + u) + 0.4,
       faces: [{ side: s, bottom: (u) => height(cx0 + u, zc + s * 0.5) - 0.25 }, { side: -s, bottom: (u) => stairY(Math.min(cx0 + u + 0.01, S.x1)) - 0.06 }] };
   });
-  for (const c of cheeks) world.group.add(...wallMeshes([c], 4300 + c.a[1] * 10, { fade: WALL_FADE }));
+  for (const c of cheeks) world.group.add(...wallMeshes([c], 4300 + c.a[1] * 10, { fade: WALL_FADE }).map(asBarrier('wall')));
   // each tread's worn front edge in a darker stone, so the steps read
   const nose = new THREE.InstancedMesh(g, flat('#a99f8e'), treads.length);
   treads.forEach(([a, b, y], i) => {
@@ -616,6 +617,8 @@ function labStairs(world) {
   }
   instBushes(world, list, [makeBush(921, { size: 1.15 }), makeBush(922, { size: 1.25 }), makeBush(923, { size: 1.1, flowers: TILE.flowersR })], false);
 }
+// a wall or hedge that marks where you cannot walk (tools/qa/checks.js 'barrier')
+const asBarrier = (k) => (m) => { m.userData.barrier = k; return m; };
 function globeLamp(world, x, y, z, s = 1) {
   const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); world.group.add(g);
   cyl(0.12, 0.16, 0.25, '#2c2d33', 0, 0.12, 0, g, 10);
@@ -674,7 +677,7 @@ function labGate(world) {
   };
   wallSeg(LAB_HILL.z0 - 4, S.z - S.hw - 1.25);
   wallSeg(S.z + S.hw + 1.25, LAB_HILL.z1 + 4);
-  for (const r of runs) world.group.add(...wallMeshes([r], 4100 + Math.round(r.a[1]), { fade: WALL_FADE }));
+  for (const r of runs) world.group.add(...wallMeshes([r], 4100 + Math.round(r.a[1]), { fade: WALL_FADE }).map(asBarrier('wall')));
   // the lab's plate on the retaining wall's face beside the stairs, facing the
   // plaza (on posts it stood on the plaza, which moved it off the dirt to the
   // stream's bank, edge-on to the water)
@@ -706,7 +709,7 @@ function hillPlants(world, door) {
     const u = labHillU(x, z);
     if (u <= 0.03 || u > 0.97) continue;
     if (Math.abs(z - STAIRS.z) < STAIRS.hw + 3.4 && x < STAIRS.x1 + 1) continue;
-    if (isWater(x, z) || height(x, z) < SEA_Y + 0.4) continue;
+    if (isWater(x, z) || height(x, z) < SEA_Y + 0.4 || inCliff(x, z, 0.8)) continue;
     const k = key(x, z); if (occ.has(k)) continue; occ.add(k);
     list.push([x, z, R() * 6.28, 0.9 + R() * 0.7]);
   }
@@ -722,7 +725,9 @@ function hillPlants(world, door) {
     }
   }
   instBushes(world, list, [makeBush(901, { size: 1.3 }), makeBush(902, { size: 1.6 }), makeBush(903, { size: 1.1, flowers: TILE.flowersR }), makeBush(904, { size: 1.8 }), makeBush(905, { size: 1.2, flowers: TILE.flowersY })], false, 0.25);
+  const nHedge = world.group.children.length;
   instBushes(world, rim, [makeBush(911, { size: 1.0 }), makeBush(912, { size: 1.1 })], true);
+  for (const o of world.group.children.slice(nHedge)) o.userData.barrier = 'hedge';   // (tools/qa/checks.js: the plateau's edge you can see)
   // the courtyard path from the top of the stairs to the lab's front steps
   const a = [STAIRS.x1 + 0.2, STAIRS.z], b = door, pts = [];
   for (let k = 0; k <= 16; k++) {
@@ -1660,6 +1665,11 @@ export function buildTown() {
     FIELDS.forEach((f, i) => { if (f.z > -60) FA.cropField(world.group, f, ground, { seed: 900 + i * 17, skip: (x, z) => onPath(x, z, 0.4) }); });
     for (const f of FIELDS) world.noVeg.push({ box: true, x: f.x, z: f.z, hw: f.w / 2 + 0.3, hd: f.d / 2 + 0.3, rot: f.rot }); }
   route1Fill(world);
+  // every line where the walkable land ends is rock you can see (terrain.js
+  // edgeRuns): cliffs rising from the grass, lips dropping to the sea
+  const cliffs = buildCliffs(edgeRuns(), { heightAt: height, wet: fallWet, notch: fallNotch });
+  for (const m of cliffs) world.group.add(m);
+  fallPlants(world, cliffs.faces);
   applyTown(world);
   OD.foldFlat(world.group);
   // tools/qa/scan.mjs (?qa): keep every placed piece as its own group, unmerged
@@ -1676,6 +1686,32 @@ export function buildTown() {
   world.edges = addEdgeLines(world.group);
   cellMerge(world);
   return world;
+}
+
+// Round each waterfall (terrain.js FALLS): ivy climbing the wet rock beside the
+// water, vines hanging over the lip, as in a fern-hung gorge
+function fallPlants(world, faces) {
+  const R = rng(2077);
+  for (const F of FALLS) {
+    const tx = F.nz, tz = -F.nx;
+    const G = new THREE.Group(); G.userData.eid = `edges/fall/${F.id}/plants`; world.group.add(G);
+    // vines hanging over the lip either side of the water
+    for (const side of [-1, 1]) for (let k = 0; k < 2; k++) {
+      const tc = side * (F.w / 2 + 1.0 + k * 1.55), x = F.x + F.nx * 0.39 + tx * tc, z = F.z + F.nz * 0.39 + tz * tc;
+      const a = new THREE.Vector3(x - tx * 0.6, F.top + 0.08, z - tz * 0.6), b = new THREE.Vector3(x + tx * 0.6, F.top + 0.08, z + tz * 0.6);
+      OD.vines(G, a, b, 3 + Math.floor(R() * 3), 1.4 + R() * 1.8 + (F.top - F.foot) * 0.12, 3200 + k * 5 + (side > 0 ? 2 : 0) + F.run * 17);
+    }
+  }
+  // ivy climbing the plain wet faces beside each fall (props/cliffs.js faces)
+  const G = new THREE.Group(); G.userData.eid = 'edges/fall/ivy'; world.group.add(G);
+  faces.forEach((f, i) => {
+    const h = Math.min(3.2, (f.y1 - f.y0) * 0.65);
+    if (h < 0.8) return;
+    const gy = Math.max(f.y0, height(f.x - f.nx * 0.3, f.z - f.nz * 0.3)) + 0.12;
+    // (only where the ground before the face is level: on the pool's banks it climbs up the rock)
+    if (Math.max(height(f.x - f.nx * 0.9, f.z - f.nz * 0.9), height(f.x - f.nx * 1.6, f.z - f.nz * 1.6)) > gy + 0.05) return;
+    OD.ivy(G, f.w * 0.5, h, f.x - f.nx * 0.1, gy, f.z - f.nz * 0.1, Math.atan2(-f.nx, -f.nz), 3100 + i * 7, 12);
+  });
 }
 
 // Fewer draw calls (they cost a phone far more than triangles): every static

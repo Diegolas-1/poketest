@@ -607,6 +607,109 @@
       stats.wallx = n;
     }
 
+    // ===== 13. barrier: no invisible walls. Every edge of the walk grid where
+    // walkable ground meets no-walk ground (not water, not a deck) must show
+    // what stops you: a barrier mesh (userData.barrier: cliff, thicket, wall,
+    // fence, hedge, water) within 0.75 m, or a solid building / wall collider
+    if (on('barrier')) {
+      const RES = 0.5, W = T.WALK, gx0 = W.x0 - 2, gz0 = W.z0 - 2, nx = Math.round((W.x1 - W.x0 + 4) / RES), nz = Math.round((W.z1 - W.z0 + 4) / RES);
+      // the barrier meshes, their triangles' footprints rasterized
+      const bar = new Uint8Array(nx * nz), kinds = {};
+      const va = V(0, 0, 0), vb = V(0, 0, 0), vc = V(0, 0, 0), m4 = new THREE.Matrix4(), mi = new THREE.Matrix4();
+      scene.traverse((o) => {
+        if (!o.isMesh) return;
+        let tag = null; for (let q = o; q; q = q.parent) if (q.userData && q.userData.barrier) { tag = q.userData.barrier; break; }
+        if (!tag) return;
+        kinds[tag] = (kinds[tag] || 0) + 1;
+        const P = o.geometry.attributes.position, idx = o.geometry.index ? o.geometry.index.array : null, n = idx ? idx.length : P.count;
+        const copies = o.isInstancedMesh ? o.count : 1;
+        for (let c = 0; c < copies; c++) {
+          if (o.isInstancedMesh) { o.getMatrixAt(c, mi); m4.multiplyMatrices(o.matrixWorld, mi); } else m4.copy(o.matrixWorld);
+          for (let t = 0; t + 2 < n; t += 3) {
+            va.fromBufferAttribute(P, idx ? idx[t] : t).applyMatrix4(m4); vb.fromBufferAttribute(P, idx ? idx[t + 1] : t + 1).applyMatrix4(m4); vc.fromBufferAttribute(P, idx ? idx[t + 2] : t + 2).applyMatrix4(m4);
+            const i0 = Math.floor((Math.min(va.x, vb.x, vc.x) - gx0) / RES), i1 = Math.floor((Math.max(va.x, vb.x, vc.x) - gx0) / RES);
+            const j0 = Math.floor((Math.min(va.z, vb.z, vc.z) - gz0) / RES), j1 = Math.floor((Math.max(va.z, vb.z, vc.z) - gz0) / RES);
+            for (let j = Math.max(0, j0); j <= Math.min(nz - 1, j1); j++) for (let i = Math.max(0, i0); i <= Math.min(nx - 1, i1); i++) bar[j * nx + i] = 1;
+          }
+        }
+      });
+      // the grid: 0 walk, 1 no-walk, 2 water, 3 deck (decks bucketed by 8 m cell)
+      const dk = new Map(), dkey = (i, j) => i * 4096 + j;
+      for (const d of walks) {
+        const cx = d.x0 !== undefined ? (d.x0 + d.x1) / 2 : d.x, cz = d.x0 !== undefined ? (d.z0 + d.z1) / 2 : d.z;
+        const r = d.x0 !== undefined ? Math.max(d.x1 - d.x0, d.z1 - d.z0) / 2 + 1 : Math.hypot(d.hw, d.hd) + 1;
+        for (let a = Math.floor((cx - r) / 8); a <= Math.floor((cx + r) / 8); a++) for (let b = Math.floor((cz - r) / 8); b <= Math.floor((cz + r) / 8); b++) { const k = dkey(a, b); if (!dk.has(k)) dk.set(k, []); dk.get(k).push(d); }
+      }
+      const st = new Uint8Array(nx * nz);
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        const x = gx0 + (i + 0.5) * RES, z = gz0 + (j + 0.5) * RES;
+        if (T.noWalk(x, z)) { st[j * nx + i] = 1; continue; }
+        const deck = (dk.get(dkey(Math.floor(x / 8), Math.floor(z / 8))) || []).some((d) => onDeck(d, x, z));
+        st[j * nx + i] = deck ? 3 : T.isWater(x, z) ? 2 : 0;
+      }
+      const boxCols = (Wd.town.colliders || []).filter((c) => c.box && !c.off);
+      const nearBox = (x, z) => boxCols.some((c) => { if (Math.abs(c.x - x) > 30 || Math.abs(c.z - z) > 30) return false; const dx = x - c.x, dz = z - c.z, cs = Math.cos(c.rot || 0), sn = Math.sin(c.rot || 0); return Math.abs(dx * cs - dz * sn) < c.hw + 0.75 && Math.abs(dx * sn + dz * cs) < c.hd + 0.75; });
+      const R2 = Math.ceil(0.75 / RES);
+      let edges = 0, ok = 0;
+      const bad = [];
+      for (let j = 1; j < nz - 1; j++) for (let i = 1; i < nx - 1; i++) {
+        const k = j * nx + i;
+        if (st[k] !== 1 || ![k - 1, k + 1, k - nx, k + nx].some((q) => st[q] === 0)) continue;
+        edges++;
+        let good = false;
+        for (let dj = -R2; dj <= R2 && !good; dj++) for (let di = -R2; di <= R2 && !good; di++) { const q = (j + dj) * nx + i + di; if (q >= 0 && q < nx * nz && (bar[q] || st[q] === 2)) good = true; }
+        const x = gx0 + (i + 0.5) * RES, z = gz0 + (j + 0.5) * RES;
+        if (!good && nearBox(x, z)) good = true;
+        if (good) ok++; else bad.push([x, z]);
+      }
+      // one finding per stretch (8 m clusters)
+      const seen = new Map();
+      for (const [x, z] of bad) { const key = Math.floor(x / 8) + ',' + Math.floor(z / 8); if (!seen.has(key)) seen.set(key, [x, z, 0]); seen.get(key)[2]++; }
+      for (const [x, z, n] of seen.values()) add('barrier', 'high', V(x, T.height(x, z), z), null, `an invisible wall: ${n} cells of no-walk ground meet open ground here with nothing to see (no cliff, thicket, wall, fence, hedge or water within 0.75 m)`, 'make the edge visible (props/cliffs.js along terrain.js edgeRuns, or a wall / hedge tagged userData.barrier), or let the player walk there', { object: 'walk grid edge' });
+      stats.barrier = { edges, ok, bad: bad.length, stretches: seen.size, meshes: kinds };
+    }
+
+    // ===== 14. streams: each starts at a source and ends in a sink, its water continuous =====
+    if (on('stream')) {
+      const R1m = await import('/world/route1land.js');
+      const lines = [{ id: 'stream', line: T.STREAM, level: (x, z) => T.streamAt(x, z).y, start: 'fall', end: 'sea' },
+        ...R1m.CREEKS.map((c) => ({ id: c.id, line: c.line, c, level: (x, z) => { const q = R1m.creekAt(x, z); return q ? q.y : null; }, start: c.fall ? 'fall' : null, end: c.pool ? 'pool' : null }))];
+      const falls = T.FALLS || [];
+      // falling-water meshes (terrain.js fallGeometries: uFlow 2)
+      const sheets = [];
+      scene.traverse((o) => { const u = o.material && o.material.uniforms; if (o.isMesh && u && u.uFlow && u.uFlow.value === 2) { const P = o.geometry.attributes.position; for (let i = 0; i < P.count; i += 3) sheets.push(V(P.getX(i), P.getY(i), P.getZ(i)).applyMatrix4(o.matrixWorld)); } });
+      const sheetNear = (x, y, z, r) => sheets.some((p) => Math.abs(p.x - x) < r && Math.abs(p.z - z) < r && Math.abs(p.y - y) < 1.5);
+      let n = 0;
+      for (const S of lines) {
+        n++;
+        const L = S.line, a = L[0], b = L[L.length - 1];
+        // the source
+        const F = falls.find((f) => f.id === S.id);
+        if (S.start === 'fall') {
+          if (!F) add('stream', 'high', V(a[0], T.height(a[0], a[1]), a[1]), null, `${S.id}: starts with no source (no waterfall found at its head)`, 'start it at a spring, a pool or a fall from a cliff (terrain.js FALLS)', { object: S.id });
+          else {
+            if (Math.hypot(F.pool[0] - a[0], F.pool[1] - a[1]) > 0.5) add('stream', 'high', V(a[0], 0, a[1]), null, `${S.id}: its head is not the fall's plunge pool`, 'start the line at the pool', { object: S.id });
+            if (!sheetNear(F.x, (F.top + F.poolY) / 2, F.z, 3)) add('stream', 'high', V(F.x, F.top, F.z), null, `${S.id}: no falling water drawn at its waterfall`, 'terrain.js fallGeometries', { object: S.id });
+            if (!T.isWater(a[0], a[1])) add('stream', 'high', V(a[0], 0, a[1]), null, `${S.id}: its plunge pool holds no water`, 'carve the pool below its level', { object: S.id });
+          }
+        } else add('stream', 'high', V(a[0], 0, a[1]), null, `${S.id}: no source declared`, 'give it a fall or a pool', { object: S.id });
+        // the mouth
+        if (S.end === 'sea') { const k = T.STREAM_MOUTH; if (!(k > 0) || T.shoreSD(L[k][0], L[k][1]) > 1) add('stream', 'high', V(b[0], 0, b[1]), null, `${S.id}: does not reach the sea`, 'run it on to the beach', { object: S.id }); }
+        else if (S.end === 'pool') { if (!T.isWater(b[0], b[1])) add('stream', 'high', V(b[0], 0, b[1]), null, `${S.id}: its end pool holds no water`, 'carve the pool', { object: S.id }); }
+        else add('stream', 'high', V(b[0], 0, b[1]), null, `${S.id}: ends nowhere (no pool, lake, sea or other stream)`, 'end it in a pool, the sea or another stream', { object: S.id });
+        // continuity: water all along (no dry gap), and every drop in level drawn as falling water
+        const stop = S.end === 'sea' ? T.STREAM_MOUTH + 1 : L.length;
+        let dry = 0, prevY = null;
+        for (let i = 0; i < stop; i++) {
+          const [x, z] = L[i], y = S.level(x, z);
+          if (y == null || !T.isWater(x, z)) { dry++; if (dry === 3) add('stream', 'high', V(x, T.height(x, z), z), null, `${S.id}: a dry gap in its water`, 'carve the bed under the water level', { object: S.id }); } else dry = 0;
+          if (prevY != null && y != null && prevY - y > 0.12 && !sheetNear(x, y, z, 2.2)) add('stream', 'high', V(x, y, z), null, `${S.id}: its water steps down ${(prevY - y).toFixed(2)} m with no cascade drawn`, 'step the profile (route1land.js stepProfile) so fallGeometries draws the cascade', { object: S.id });
+          prevY = y;
+        }
+      }
+      stats.stream = n;
+    }
+
     findings.sort((a, b) => SEV[b.sev] - SEV[a.sev]);
     return { findings, stats, tagged: allowed };
   };

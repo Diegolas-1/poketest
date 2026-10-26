@@ -19,7 +19,7 @@
 // Everything is overgrown more the nearer Viridian is (Ghibli green, lived in).
 // town.js buildTown calls route1Fill(world) after its own Route 1 signs.
 import * as THREE from 'three';
-import { height, meshHeight, baseHeight, ROADS, TRAIL0, routeX, ROUTE1, onPath, pathSD, isWater, roadDist, rng, LEDGES, ledgeLineZ } from './terrain.js';
+import { height, meshHeight, baseHeight, ROADS, TRAIL0, routeX, ROUTE1, onPath, pathSD, isWater, roadDist, rng, LEDGES, ledgeLineZ, clearOfCliff } from './terrain.js';
 import * as O from './props/outdoor.js';
 import * as FA from './props/farm.js';
 import * as CR from './crops.js';
@@ -256,7 +256,9 @@ export function route1Fill(world) {
     // the brook's little stone bridge on the cobbled road near Viridian
     const B = CREEKS.find((c) => c.id === 'brook');
     const XB = crossing(R0, B, B.w + 3.0);
-    const sb = bridgeAt(world, XB, 4.6, 0.3, 'route1/brook/stone_bridge', (L) => O.stoneBridge({ L, w: 4.6, rise: 0.3 }));
+    // (its arch springs from the water: drop = the deck above the brook's level)
+    const bq = creekAt(XB.x, XB.z), drop = (height(...XB.a) + height(...XB.b)) / 2 + 0.03 - (bq ? bq.y : height(XB.x, XB.z));
+    const sb = bridgeAt(world, XB, 4.6, 0.3, 'route1/brook/stone_bridge', (L) => O.stoneBridge({ L, w: 4.6, rise: 0.3, drop }));
     world.r1Bridges.push(sb);
     const rang = sb.ang;
     use(XB.x + Math.sin(rang + Math.PI / 2) * 1.6, XB.z + Math.cos(rang + Math.PI / 2) * 1.6, 'Look', ['An old stone bridge, soft with moss.', 'Down in the brook, a little POLIWAG swims against the current and gets nowhere.']);
@@ -310,12 +312,13 @@ export function route1Fill(world) {
       ['REST AREA', 'Tables, water and shade. Please take your rubbish home.', 'VIRIDIAN CITY: about an hour on foot.'], 0.9);
   }
   // the woods' odds and ends: a fallen tree, hollow logs, fairy rings, outcrops
-  for (const [x, z, rot, k] of [[44, -334, 0.4, 'fall'], [-36, -142, 1.2, 'hollow'], [46, -214, -0.6, 'hollow'], [-44, -300, 2.2, 'fall']]) {
+  for (let [x, z, rot, k] of [[44, -334, 0.4, 'fall'], [-36, -142, 1.2, 'hollow'], [46, -214, -0.6, 'hollow'], [-44, -300, 2.2, 'fall']]) {
+    [x, z] = clearOfCliff(x, z, k === 'fall' ? 4.4 : 2);
     if (onPath(x, z, 3)) continue;
     // laid along the slope: the ground under each end sets its tilt, and it sits a little sunk in
     { const L = k === 'fall' ? 8 : 3.2, ca = Math.cos(rot), sa = Math.sin(rot), ha = height(x - ca * L * 0.45, z + sa * L * 0.45), hb = height(x + ca * L * 0.45, z - sa * L * 0.45);
       const g = place(O.fallenLog({ L, r: k === 'fall' ? 0.5 : 0.42, hollow: k === 'hollow', seed: Math.round(x * 7 + z) }), x, z, rot, { hw: L / 2, hd: 0.55 }, 0);
-      g.position.y = Math.min(height(x, z), (ha + hb) / 2) - 0.12; g.rotation.set(0, rot, Math.atan2(hb - ha, L * 0.9), 'YXZ'); g.userData.eid = `route1/fallenLog/${k}${Math.round(x)}_${Math.round(z)}`; }
+      g.position.y = Math.min(height(x, z), (ha + hb) / 2) - 0.12; g.rotation.set(0, rot, Math.max(-0.24, Math.min(0.24, Math.atan2(hb - ha, L * 0.9))), 'YXZ'); g.userData.eid = `route1/fallenLog/${k}${Math.round(x)}_${Math.round(z)}`; }
     if (k === 'hollow') use(x + Math.sin(rot + 1.57) * 1.2, z + Math.cos(rot + 1.57) * 1.2, 'Look', ['A hollow log.', 'It\'s warm inside, and smells of RATTATA. Something squeaks and goes quiet.']);
   }
   for (const [x, z, r] of [[-30, -196, 1.3], [62, -270, 1.6], [-50, -330, 1.2], [34, -160, 1.1]]) if (!onPath(x, z, r + 0.5)) place(O.mushroomRing({ r, seed: Math.round(x - z), ground: (lx, lz) => height(x + lx, z + lz) - height(x, z) }), x, z, 0);
@@ -439,14 +442,15 @@ export function route1Fill(world) {
   }
   // the water tower on the east, the windmill on the west hill
   { const T = TOWER, y = footY(T.x, T.z, 2.5); const g = O.waterTower(); g.userData.qa = { k: 'open', why: 'the water tower stands on four legs' }; g.position.set(T.x, y, T.z); g.rotation.y = -0.6; G.add(g); world.colliders.push({ x: T.x, z: T.z, r: 2.6 }); use(T.x - 2.8, T.z + 1.5, 'Look', ['VIRIDIAN WATER WORKS, painted in faded letters.', 'Ivy has climbed all the way to the top.']); }
-  { const x = -104, z = -421, y = footY(x, z, 2.5); const g = O.windmill(); g.position.set(x, y, z); g.rotation.y = 0.5; G.add(g); world.colliders.push({ x, z, r: 2.6 });
+  { const [x, z] = clearOfCliff(-104, -421, 3.5), y = footY(x, z, 2.5); const g = O.windmill(); g.position.set(x, y, z); g.rotation.y = 0.5; G.add(g); world.colliders.push({ x, z, r: 2.6 });
     const S = g.getObjectByName('r1_sails'); world.anim.push((dt, t) => { S.rotation.z = t * 0.35; });
     S.traverse((o) => { if (o.isMesh) { o.name = 'r1_sails'; o.userData.outline = false; } });
     g.updateMatrixWorld(true); const hub = S.getWorldPosition(V(0, 0, 0));
     r1.anim.sails = { p: P3([hub.x, hub.y, hub.z]), axis: P3([Math.sin(0.5), 0, Math.cos(0.5)]), speed: 0.35 };
     r1.amb.mill = P3([hub.x, hub.y, hub.z]); }
   // more roofs in the trees, nearer the city: cottages up the slopes
-  for (const [x, z, rot, seed, roof] of [[-92, -444, 0.6, 411, '#3d7a6a'], [86, -436, -0.7, 412, '#c4553a'], [98, -392, -1.2, 413, '#5a6a8a'], [-104, -380, 1.1, 414, '#c4553a'], [72, -456, -0.3, 415, '#d08a3a']]) {
+  for (let [x, z, rot, seed, roof] of [[-92, -444, 0.6, 411, '#3d7a6a'], [86, -436, -0.7, 412, '#c4553a'], [98, -392, -1.2, 413, '#5a6a8a'], [-104, -380, 1.1, 414, '#c4553a'], [72, -456, -0.3, 415, '#d08a3a']]) {
+    [x, z] = clearOfCliff(x, z, 6.5);   // (on the slopes above the edges' cliffs, back from the rock)
     const H = O.cottage({ seed, roof, wall: seed % 2 ? '#efe2c8' : '#f2d9c0' }), f = H.userData.foot;
     // the lowest ground under its footprint (it floated on the slopes)
     let y = Infinity;
@@ -485,7 +489,7 @@ export function route1Fill(world) {
         O.mossTop(W, 0.6, L / 5 - 0.2, x, y + 1.6, z, along, 1300 + k + s).rotation.x = -Math.atan2(hx(t + 0.1) - hx(t - 0.1), L / 5);   // tilted with the top
       }
     }
-    G.add(...wallMeshes(runs, 9200, { fade: WALL_FADE }));
+    G.add(...wallMeshes(runs, 9200, { fade: WALL_FADE }).map((m) => { m.userData.barrier = 'wall'; return m; }));
   }
   // the city beyond, in the haze: terraces of houses with gardens up both
   // slopes, a clock tower in the middle
