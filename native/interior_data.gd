@@ -72,7 +72,7 @@ func bed_at(_x: float, _z: float) -> float:
 
 # try to move; blocked by walls, the edge of the floor, a step too high, and
 # the level's colliders (sliding along them). Updates the level on stairs.
-func step(pos: Vector3, dx: float, dz: float) -> Vector3:
+func step(pos: Vector3, dx: float, dz: float, _wade := false) -> Vector3:
 	var nx := pos.x + dx
 	var nz := pos.z + dz
 	if not _ok(nx, nz, pos): return pos
@@ -183,3 +183,8 @@ func boom(t: Vector3, dir: Vector3, want: float) -> float:
 		if not inside(t + dir * nd, m): return d
 		d = nd
 	return want
+
+# (the same calls as WorldData's wading: no water indoors)
+func ash_ground(x: float, z: float) -> float: return height_at(x, z)
+func water_surface(_x: float, _z: float) -> float: return NAN
+func water_depth(_x: float, _z: float) -> float: return 0.0

@@ -57,6 +57,9 @@ var rest_pos: Array[Vector3] = []
 var idles: IdleActions
 var eyes: ShaderMaterial
 var meshes: Array[MeshInstance3D] = []
+var mat_src := {}           # ShaderMaterial -> its cast.json material name (body.gd: the wet look per material)
+# worn out (body.gd, fatigue): 0..1, a hunched, panting posture on top of the clips
+var tired := 0.0
 # cloth and hair: the garments' cloth bones and the hair chains, simulated (cloth.gd)
 var cloth: ClothSim
 var cloth_far := false      # set by the owner: far off, the cloth just hangs
@@ -245,6 +248,7 @@ func _materials(root: Node, mats: Array) -> void:
 						var v: Array = cel[key[0]]
 						m.set_shader_parameter(key[1], Vector3(v[0], v[1], v[2]))
 			if info.get("eyes", false): eyes = m
+			mat_src[m] = String(info.get("src", nm)) + ("|eyes" if info.get("eyes", false) else "")
 			if not info.get("shadow", true): shadow = false
 			# ink lines: the web leaves the logo out (outline: false); the eye patch draws with the face
 			if not info.get("ink", true): m3.set_meta("no_ink", true)
@@ -369,6 +373,7 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var wa: float = (w.walk * 0.06 + w.run * 0.08) * (1.0 - air_w)
 	if wa > 0.001:
 		for s in [["L", 1.0], ["R", -1.0]]: bend(s[0] + "ArmA", 0, 0, 1, s[1] * wa)
+	if tired > 0.001: _tired(speed)
 	_jump(dt, speed, air)
 	idles.post(dt)
 
@@ -432,6 +437,26 @@ func _idle_life(dt: float, wI: float, wP: float) -> void:
 	var pt: float = L.pitch * wI
 	bend("Spine3", 0, 1, 0, yw * 0.15); bend("Neck", 0, 1, 0, yw * 0.35); bend("Head", 0, 1, 0, yw * 0.5)
 	bend("Neck", 1, 0, 0, pt * 0.4); bend("Head", 1, 0, 0, pt * 0.6)
+
+# ---------- worn out: hunched, panting (body.gd sets tired) ----------
+func _tired(_speed: float) -> void:
+	var tk := tired * (1.0 - air_w)
+	var st: float = w.idle   # standing: bent over further, hands toward the knees
+	var pant := sin(L.t * 9.0)
+	bend("Spine1", 1, 0, 0, (0.04 + 0.06 * st) * tk)
+	bend("Spine2", 1, 0, 0, (0.08 + 0.12 * st) * tk + pant * 0.035 * tk)
+	bend("Spine3", 1, 0, 0, (0.04 + 0.06 * st) * tk + pant * 0.02 * tk)
+	bend("Neck", 1, 0, 0, -(0.10 + 0.12 * st) * tk)
+	bend("Head", 1, 0, 0, -(0.06 + 0.08 * st) * tk - pant * 0.02 * tk)
+	for s in [["L", 1.0], ["R", -1.0]]:
+		bend(s[0] + "Shoulder", 0, 0, 1, -s[1] * (0.06 + pant * 0.025) * tk)
+		# standing: the arms hang forward, the hands near the knees
+		bend(s[0] + "ArmA", 1, 0, 0, -0.30 * st * tk)
+		bend(s[0] + "ArmA", 0, 0, 1, s[1] * 0.10 * st * tk)
+		bend(s[0] + "ForeArm", 0, 1, 0, -s[1] * 0.25 * st * tk)
+		bend(s[0] + "Thigh", 1, 0, 0, -0.14 * st * tk)
+		bend(s[0] + "Leg", 1, 0, 0, 0.24 * st * tk)
+		bend(s[0] + "Foot", 1, 0, 0, -0.10 * st * tk)
 
 # ---------- jumps and landings ----------
 const J := {

@@ -1,0 +1,54 @@
+{
+ "_doc": "Ash's conditions (conditions.gd). conditions.<id>: name, levels [[from strength, name, description]], desc, icon (a drawn glyph: drop, sweat, bolt, heart, sun, snow, dot, or a res:// picture), color, order (badge order), stack (max | add | replace: how a new apply combines), duration {kind: decay (full_minutes: game minutes a full strength lasts) | timer (minutes, refresh) | manual (until: the badge's line)}, left / held (the badge's time line), by_strength (effects scale with strength), effects {speed, stamina_drain, stamina_regen, no_run, blocks_entry}, remark {key, strong_key, strong_at, min, cooldown (game minutes)}: the townspeople's lines are in dialogue.json people.<id>.remarks.<key>. entry.<place>: speaker, voice, open, refuse.<condition> {above, lines, never}; 'default' covers places without their own entry. remarks_per_talk: how many conditions one talk may comment on.",
+ "remarks_per_talk": 1,
+ "conditions": {
+  "wet": {
+   "name": "Wet",
+   "levels": [
+    [0.0, "Damp", "Your shoes and socks are wet from the water. They squelch."],
+    [0.35, "Wet", "Wet from the water up past the knees. Drying in the air, from the top down."],
+    [0.65, "Soaked", "Soaked through, dripping everywhere. Some places won't let you in like this."]
+   ],
+   "icon": "drop",
+   "color": "#2f86c9",
+   "order": 10,
+   "stack": "max",
+   "by_strength": true,
+   "duration": {"kind": "decay", "full_minutes": 60, "left": "Dry in %s", "held": "Still in the water"},
+   "effects": {"speed": 0.97, "stamina_drain": 1.1, "blocks_entry": 0.5},
+   "remark": {"key": "wet", "strong_key": "soaked", "strong_at": 0.6, "min": 0.12, "cooldown": 90}
+  },
+  "fatigue": {
+   "name": "Fatigued",
+   "levels": [[0.0, "Fatigued", "Out of breath. No running until your stamina is full again."]],
+   "icon": "sweat",
+   "color": "#d0702a",
+   "order": 20,
+   "stack": "max",
+   "duration": {"kind": "manual", "until": "Rest until stamina is full"},
+   "effects": {"no_run": true, "speed": 0.88, "stamina_regen": 0.85},
+   "remark": {"key": "tired", "min": 0.0, "cooldown": 30}
+  }
+ },
+ "entry": {
+  "oak_lab": {
+   "speaker": "LAB AIDE",
+   "voice": "mid",
+   "refuse": {
+    "wet": {"above": 0.5, "lines": [
+     "Whoa, whoa! Ash, you're dripping wet!",
+     "The professor has research notes spread all over the floor in here.",
+     "Wait outside until you dry off, OK? The sun will sort you out."
+    ]}
+   }
+  },
+  "red": {"speaker": "MOM", "voice": "high", "refuse": {"wet": {"above": 0.55, "lines": ["Ash Ketchum, you are NOT walking that water through my clean house!", "Stand on the porch and drip dry first, sweetie. Then come in and I'll make cocoa."]}}},
+  "mae": {"speaker": "GRANNY MAE", "voice": "high", "refuse": {"wet": {"above": 0.5, "lines": ["Oh, dearie, look at you! Not on my good rug.", "Wait out on the step till you've dried a bit. I'll put the kettle on."]}}},
+  "hollis": {"speaker": "ADA", "voice": "high", "refuse": {"wet": {"above": 0.6, "lines": ["Flour and puddles make paste, Ash!", "Dry off outside first, would you?"]}}},
+  "default": {
+   "speaker": "",
+   "voice": "mid",
+   "refuse": {"wet": {"above": 0.65, "lines": ["You're dripping wet! Wait outside until you dry off."]}}
+  }
+ }
+}

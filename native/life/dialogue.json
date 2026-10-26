@@ -1,9 +1,14 @@
 {
-  "_doc": "Townspeople's voices for native/quests.gd. Each person: greet[period] (first talk of the day), period, activity, place (house ids, 'home' = their own house), ash (said to Ash's face), town, about[other id], after[flag] (unlocked by quest flags), sleep, bark (overheard one-liners by activity/period/any), chat (NPC-to-NPC: open[topic] / reply[topic] / close; {b} = the partner's short name). An entry is a line or a list of lines shown together. Unknown keys are fine: quests.gd falls back period -> any.",
+  "_doc": "remarks.<key> (comments on Ash's conditions, said first: wet, soaked, tired; conditions.gd / conditions.json pick when). Townspeople's voices for native/quests.gd. Each person: greet[period] (first talk of the day), period, activity, place (house ids, 'home' = their own house), ash (said to Ash's face), town, about[other id], after[flag] (unlocked by quest flags), sleep, bark (overheard one-liners by activity/period/any), chat (NPC-to-NPC: open[topic] / reply[topic] / close; {b} = the partner's short name). An entry is a line or a list of lines shown together. Unknown keys are fine: quests.gd falls back period -> any.",
   "people": {
     "delia": {
       "name": "Delia Ketchum", "tag": "MOM", "short": "Delia", "label": "Mom", "home": "red",
       "voice": "Warm, a little anxious, quietly proud; worries out loud and then talks herself into being brave for him.",
+      "remarks": {
+        "wet": [["Ash! Look at you, you're all wet!", "Don't you dare catch a cold before your big journey. Go stand in the sun."], ["Were you splashing in the stream again? Your poor shoes..."]],
+        "soaked": [["ASH KETCHUM. You are soaked to the bone!", "You'll catch your death of cold! Dry off this minute, young man."]],
+        "tired": [["Sweetie, you're all out of breath. Slow down a little, the world will wait."]]
+      },
       "greet": {
         "dawn": ["Ash? You're up before the sun? Are you feeling all right, sweetie?", "Oh! You startled me. I thought you were still sound asleep."],
         "morning": ["Good morning, sleepyhead! Did you eat? There's toast on the table.", "There you are! I called you three times, Ash. Three!", "Morning, honey. Careful, I just watered that bed."],
@@ -120,6 +125,11 @@
     "lily": {
       "name": "Lily", "tag": "LILY", "short": "Lily", "label": "Lily", "home": "lily",
       "voice": "Eleven, earnest and breathless; Butterfree-mad, a little competitive with Ash, very serious about her Caterpie, Nibbles.",
+      "remarks": {
+        "wet": [["Hee hee! Did you fall in?", "You look like a Psyduck after a bath!"]],
+        "soaked": [["AHAHA! You're dripping everywhere! Squish, squish!", "A real POKéMON Master would've used the bridge."]],
+        "tired": [["You're all puffed out! I could beat you in a race right now."]]
+      },
       "greet": {
         "dawn": ["Shh! Caterpie wake up at dawn. I'm taking notes!", "You're up early! Did you come to see the Caterpie?"],
         "morning": ["Ash! Guess what Nibbles ate today. A whole leaf! A WHOLE one!", "Morning! I'm raising POKéMON too, you know!"],
@@ -195,6 +205,11 @@
     "rose": {
       "name": "Rose", "tag": "ROSE", "short": "Rose", "label": "Rose", "home": "lily",
       "voice": "A gentle, unhurried florist with a dry sense of humour; speaks in flowers and seasons; Delia's best friend and Lily's patient mum.",
+      "remarks": {
+        "wet": [["Been wading, Ash? Mind you don't track the stream through my flower beds."]],
+        "soaked": [["Goodness, you're wetter than my watering can!", "Stand in the sun a while. Flowers dry off quickest there too."]],
+        "tired": [["Breathe, Ash. Even the bees stop now and then."]]
+      },
       "greet": {
         "dawn": ["Good dawn, Ash. Flowers drink best before the sun gets greedy.", "Up with the bees? I approve."],
         "morning": ["Morning, Ash. Mind the seedlings, they're shy.", "Hello, dear. Your mother was just here, looking for her trowel. Again."],
@@ -268,6 +283,11 @@
     "bram": {
       "name": "Bram Hollis", "tag": "BRAM", "short": "Bram", "label": "Bram", "home": "hollis",
       "voice": "Big, jolly, booming baker; laughs at his own bread puns, up at four, floured to the elbows, soft as dough underneath.",
+      "remarks": {
+        "wet": [["HO HO! Somebody went for a swim!", "Stand by my oven a minute, lad, you'll be toast by noon!"]],
+        "soaked": [["Ha! Dripping like a fresh-washed Seel!", "If you came for bread, I'll have to sell you a sponge cake."]],
+        "tired": [["Huffing like my old bellows! Sit down before you fall down, lad."]]
+      },
       "greet": {
         "dawn": ["HO HO! Ash! Up before the loaves? That's a first!", "Dawn's the best hour, lad. Ovens hot, town asleep, me singing."],
         "morning": ["Morning, Ash! Smell that? That's a rye that's rising to the occasion!", "Ash, my boy! You look hungry. You always look hungry!"],
@@ -348,6 +368,11 @@
     "ada": {
       "name": "Ada Hollis", "tag": "ADA", "short": "Ada", "label": "Ada", "home": "hollis",
       "voice": "Fast-talking, warm-hearted gossip who runs the bread stall and round; passes every story along, usually slightly wrong.",
+      "remarks": {
+        "wet": [["Oh dear, you're all damp! Did Timmy push you in?"]],
+        "soaked": [["Ash, you're soaking! Not near the flour, dear, please!", "Wet hands and flour make glue, and I've no time for glue today."]],
+        "tired": [["You look worn out, dear. Have a rest before you run off again."]]
+      },
       "greet": {
         "dawn": ["Ash! You're never up this early. Did something happen? Tell me everything!", "Morning, early bird! I'm loading the cart. Have you heard anything new?"],
         "morning": ["Ash, dear! Your mum's seed loaf is in the basket. Did you hear about the Pidgey?", "There you are! I was just telling Marina about you. Good things! Mostly!"],
@@ -425,6 +450,11 @@
     "timmy": {
       "name": "Timmy Hollis", "tag": "TIMMY", "short": "Timmy", "label": "Timmy", "home": "hollis",
       "voice": "Eight years old, idolises Ash, exaggerates everything to legendary size, mixes up big words.",
+      "remarks": {
+        "wet": [["HAHA! You're all wet! Did you see a Magikarp?", "Did you catch it? Did you? DID YOU?"]],
+        "soaked": [["Whoa! You're SO wet! Like, sea-wet! Can I squeeze your jacket?"]],
+        "tired": [["Ha! You're puffing like a Snorlax going up stairs!"]]
+      },
       "greet": {
         "dawn": ["ASH! You're up! Are you going on your journey RIGHT NOW?", "Whoa, Ash! It's so early it's still night time!"],
         "morning": ["ASH! Hi! Hi! Have you got a POKéMON yet? Have you? Have you?", "Ash! I saw a Pidgeotto! It was THIS big! Bigger!"],
@@ -504,6 +534,11 @@
     "mae": {
       "name": "Granny Mae", "tag": "GRANNY MAE", "short": "Mae", "label": "Granny Mae", "home": "mae",
       "voice": "Slow, kind, wise and a little wry; knits, feeds the wild Pidgey, speaks in old sayings, has known Ash since he was a baby.",
+      "remarks": {
+        "wet": [["Oh, dearie, your feet are wet through! Wet feet make sniffles, you know."]],
+        "soaked": [["Good heavens, child, you're drenched! Out of those wet things this instant!", "Come here, let me wring out that jacket... tsk, tsk. Straight into the sun with you."]],
+        "tired": [["Sit, sit, dearie, you're all out of puff. Young legs aren't made of iron."]]
+      },
       "greet": {
         "dawn": ["Ah, dearie. Come watch the Pidgey breakfast with me.", "Up with the birds, are we? Good for the soul."],
         "morning": ["Morning, Ash dear. Come here, let me fix that collar.", "There's my boy. You've grown again. Stop it at once."],
@@ -584,6 +619,11 @@
     "kai": {
       "name": "Kai", "tag": "KAI", "short": "Kai", "label": "Kai", "home": "marina",
       "voice": "Cheerful, chatty fisherman in love with gadgets ('Technology is incredible!'); weather-radio nerd; still a bit sore about his rod.",
+      "remarks": {
+        "wet": [["Ha! Wading in after the fish now? Use a rod, Ash, it's drier."]],
+        "soaked": [["Now that's what I call getting your feet wet! Go on, wring yourself out."]],
+        "tired": [["Easy there. A tired angler drops the rod."]]
+      },
       "greet": {
         "dawn": ["Ash! Dawn's when the fish are dumb and the fishermen are smart!", "Morning, kiddo! Checking my weather radio. Seventy percent chance of fish!"],
         "morning": ["Hey Ash! Technology is incredible! My new reel counts the turns!", "Ahoy, Ash! You're not here for my rod again, are you? Ha!"],
@@ -664,6 +704,11 @@
     "marina": {
       "name": "Marina", "tag": "MARINA", "short": "Marina", "label": "Marina", "home": "marina",
       "voice": "Practical, salty, quick-witted net-mender and fish-seller; teases Kai mercilessly; protective of the town's kids in a gruff way.",
+      "remarks": {
+        "wet": [["You smell like the stream, Ash. Don't sit on my nets like that."]],
+        "soaked": [["Reckless AND wet. Your mother is going to love this.", "Go dry off before she sees you."]],
+        "tired": [["Catch your breath, kid. You're red as a Krabby."]]
+      },
       "greet": {
         "dawn": ["Ash. You're up. Wonders never cease.", "Morning. Mind the hooks, they're out to dry."],
         "morning": ["Ash! Want to buy a fish? No? Then hold this net.", "Morning, Ketchum. Kai's rod is locked away. Just so you know."],
@@ -741,6 +786,11 @@
     "ben": {
       "name": "Farmer Ben", "tag": "FARMER BEN", "short": "Ben", "label": "Farmer Ben", "home": "farmer",
       "voice": "Laconic, earthy farmer; up before the sun, muddy boots, reads weather by his bad knee, says more with 'Mm.' than most do with speeches.",
+      "remarks": {
+        "wet": [["Mm. Wet boots. Walked through the stream, did you?", "Doduo do that too. They regret it as well."]],
+        "soaked": [["Soaked, eh. Stand in the field a spell, the sun'll do the rest."]],
+        "tired": [["Breathe, son. Even the plough horse rests at noon."]]
+      },
       "greet": {
         "dawn": ["Mornin'. Been up two hours. Cows don't milk themselves.", "Ash. Early. Good."],
         "morning": ["Mornin', Ash. Mind the furrows.", "Mm. Ash. Bit late, isn't it? It's seven."],
@@ -817,6 +867,11 @@
     "tom": {
       "name": "Old Tom", "tag": "OLD TOM", "short": "Tom", "label": "Old Tom", "home": "oldman",
       "voice": "Retired sailor and grandpa, spins tall tales from his porch on the hill with a spyglass trained on Cinnabar; half the tales are true, he won't say which half.",
+      "remarks": {
+        "wet": [["Wet to the knees, lad? Reminds me of my sailing days.", "We were never dry for a week. Mind you get warm."]],
+        "soaked": [["Heh! Look at you, like you went overboard off the old ferry!", "Get some sun on you, lad, before the sea breeze chills you."]],
+        "tired": [["Winded, lad? Pace yourself. The long road rewards the steady walker."]]
+      },
       "greet": {
         "dawn": ["Ahoy, young Ash! Watch the horizon with me. See that smudge? Cinnabar.", "Up at the dawn watch? Good lad. Sailor's hours."],
         "morning": ["Morning, Ash! Fair winds and fat Magikarp to you.", "Ahoy! Come up, come up. Mind the third step, it's older than me."],
@@ -893,6 +948,11 @@
     "gus": {
       "name": "Gus", "tag": "GUS", "short": "Gus", "label": "Gus", "home": "lighthouse",
       "voice": "Quiet, precise lighthouse keeper; keeps a logbook of every ship and storm, speaks softly and a little poetically, night owl who naps mornings.",
+      "remarks": {
+        "wet": [["Log entry: Ketchum boy, damp. Weather: fine. Ha!"]],
+        "soaked": [["Log entry: Ketchum boy, thoroughly soaked. Cause: unknown. Probably the stream.", "Dry off, Ash, or I'll have to write it in the storm column."]],
+        "tired": [["You're puffing like the foghorn. Take a breather."]]
+      },
       "greet": {
         "dawn": ["Ash. Dawn. Logged: lamp out, sea calm, one boy.", "Morning, lad. I'm just off watch. Speak softly."],
         "morning": ["Mm? Ash. I was asleep. It's all right. I'm up now.", "Morning. Yawn. Excuse me. Long night."],
@@ -1108,6 +1168,11 @@
   },
 
   "fallback": {
+    "remarks": {
+      "wet": [["You're all wet! Did you fall in the stream?"]],
+      "soaked": [["You're soaking wet! Dry off before you catch a cold."]],
+      "tired": [["You look worn out. Take a breather."]]
+    },
     "talk": ["Lovely day in Pallet Town, isn't it?", "Hello there, Ash!", "The sea's calm today."],
     "chat_open": ["Morning!", "Lovely weather, isn't it?", "How's the family?"],
     "chat_reply": ["Isn't it just.", "Can't complain.", "Fine, fine, thank you."],

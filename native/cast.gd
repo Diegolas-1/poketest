@@ -19,6 +19,9 @@ var npcs: Array = []     # Prof. Oak (the townspeople are life.gd's)
 var oak: Dictionary
 var clock: GameClock
 var life: TownLife
+var conditions: Conditions   # Ash's conditions (conditions.gd): wet, fatigued
+var body: AshBody            # his body: wading, wetness, stamina (body.gd)
+var cond_ui: ConditionsUI    # their badges and the stamina bar (conditions_ui.gd)
 var uses: Array = []
 var road: Array = []
 var tall: Array = []
@@ -48,7 +51,7 @@ func setup(g: Node3D) -> void:
 	player = CastActor.make("ash")
 	add_child(player)
 	# the ground under him (sitting, and his cloth): the world's, or the interior's when inside
-	player.ground = func(x: float, z: float) -> float: return game.world.height_at(x, z)
+	player.ground = func(x: float, z: float) -> float: return game.world.ash_ground(x, z)
 	for n in d.npcs:
 		if n.name != "Prof. Oak": continue   # the old wandering villagers: life.gd has the town now
 		var a := CastActor.make(n.look)
@@ -79,6 +82,17 @@ func setup(g: Node3D) -> void:
 	_air_y = game.pos.y
 	clock = GameClock.new()
 	add_child(clock)
+	# before the town: its talk (Quests) asks the conditions what people notice
+	conditions = Conditions.new()
+	add_child(conditions)
+	conditions.setup(clock)
+	body = AshBody.new()
+	add_child(body)
+	body.setup(game, self, player, conditions)
+	cond_ui = ConditionsUI.new()
+	cond_ui.conditions = conditions
+	cond_ui.body = body
+	add_child(cond_ui)
 	life = TownLife.new()
 	add_child(life)
 	life.setup(game, self, clock)
@@ -107,6 +121,7 @@ var indoors := false
 var _out := {}           # the outdoor npcs and uses while inside
 func enter_space(it) -> void:
 	indoors = true
+	body.clear_fx()
 	_out = {"npcs": npcs, "uses": uses}
 	for n in npcs: n.actor.visible = false
 	life.away = true
@@ -129,6 +144,7 @@ func land(y: float) -> void:
 	_air_y = y; vy = 0.0; ground = true
 
 func leave_space() -> void:
+	body.clear_fx()
 	for n in npcs: n.actor.queue_free()
 	npcs = _out.npcs
 	uses = _out.uses
@@ -217,7 +233,16 @@ func update(dt: float) -> void:
 			var n := nearby()
 			# the lab's door opens: inside you go (main.gd enter_space)
 			if not indoors and n.has("u") and String(n.u.label) == "Door" and Vector2(n.u.x, n.u.z).distance_to(lab_door) < 1.5:
-				game.enter_space("oak_lab", "from_town")
+				# dripping wet: the one at the door won't have him in (conditions.json entry)
+				var no := conditions.entry_refusal("oak_lab")
+				if no.is_empty():
+					game.enter_space("oak_lab", "from_town")
+				else:
+					game.speed = 0.0
+					face = atan2(n.at.x - game.pos.x, n.at.z - game.pos.z)
+					dialog.voice = String(no.voice); dialog.voice_pitch = 1.0
+					Sfx.play("door_knock", null, {"vol": -6.0})
+					dialog.say(no.lines)
 				n = {}
 			if not n.is_empty():
 				var me: Vector3 = game.pos
@@ -248,7 +273,7 @@ func update(dt: float) -> void:
 	if not dialog.open: face = NAN
 	if script_phase >= 0: _oak_scene(dt)
 	# gravity (pos.y was set to the ground by main; keep the height while in the air)
-	var g: float = game.world.height_at(game.pos.x, game.pos.z)
+	var g: float = game.world.ash_ground(game.pos.x, game.pos.z)   # in the water: the raised bed (world_data.gd)
 	vy -= 16.0 * dt
 	_air_y += vy * dt
 	if _air_y <= g:
@@ -261,6 +286,7 @@ func update(dt: float) -> void:
 	var rel := wrapf(game.cam_yaw + PI - game.yaw, -PI, PI)
 	player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
 	player.animate(dt, absf(game.speed), not ground)
+	body.update(dt)
 	_villagers(dt)
 	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
 	if indoors:

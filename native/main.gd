@@ -226,6 +226,7 @@ func _town() -> void:
 func _water() -> void:
 	var root := _scene(WorldRegions.BASE + "water.glb")
 	water_root = root
+	world.build_surface(root)   # the fresh water's surface, for wading (world_data.gd)
 	var sea := ShaderMaterial.new()
 	sea.shader = SEA
 	sea.set_shader_parameter("seabed", world.seabed_tex)
@@ -268,6 +269,7 @@ func _input(e: InputEvent) -> void:
 	if e is InputEventScreenTouch:
 		if e.pressed and Settings.blocks_touch(e.position): return   # the settings cog
 		if e.pressed and cast and cast.life and cast.life.quests.blocks_touch(e.position): return   # the quest log button
+		if e.pressed and cast and cast.cond_ui and cast.cond_ui.blocks(e.position): return   # the condition badges
 		if e.pressed:
 			if e.position.x < half and stick_id == -1:
 				stick_id = e.index; stick_origin = e.position; stick_vec = Vector2.ZERO
@@ -311,6 +313,7 @@ func _process(dt: float) -> void:
 	var mv := (pad + stick_vec).limit_length(1.0)
 	var rs := T.num("player", "run_stick", 0.85)
 	var run := Input.is_action_pressed("run") or stick_vec.length() > rs or pad.length() > rs
+	run = run and cast.body.can_run()   # worn out: walking only (body.gd, the fatigue condition)
 	if cast.busy() or trans_busy: mv = Vector2.ZERO
 	# move relative to the camera (as in Legends: Arceus)
 	var f := Vector2(-sin(cam_yaw), -cos(cam_yaw))
@@ -318,12 +321,14 @@ func _process(dt: float) -> void:
 	var dir := r * mv.x - f * mv.y
 	var m := minf(1.0, dir.length())
 	var want := (T.num("player", "run_speed", 8.5) if run else T.num("player", "walk_speed", 4.5)) * m if m > 0.05 else 0.0
+	want *= cast.body.speed_mult(run)   # slower in the water (deeper, slower), and by his conditions
+	cast.body.running = run and m > 0.05 and not cast.busy() and not trans_busy
 	if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * T.num("player", "accel", 10.0)))
 	if m > 0.05:
 		var ty := atan2(dir.x, dir.y)
 		yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * T.num("player", "turn", 12.0)))
 	if speed > 0.05 and not cast.busy() and not trans_busy:
-		pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt)
+		pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt, true)   # (Ash wades: world_data.gd can_wade)
 	cast.update(dt)
 	if sfx_world: sfx_world.update(dt)
 	_trans_step(dt)
