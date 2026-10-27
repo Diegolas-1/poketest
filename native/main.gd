@@ -387,7 +387,9 @@ func _camera(dt: float) -> void:
 		cam_yaw += wrapf(yaw + PI - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
 	elif cam_idle > (0.5 if bk else T.num("camera", "follow_idle", 1.0)) and speed > 0.5:
 		var behind := wrapf(yaw + PI - cam_yaw, -PI, PI)
-		cam_yaw += behind * (1.0 - exp(-dt * T.num("camera", "follow_rate", 0.9) * (bk.CAM_FOLLOW if bk else 1.0) * minf(1.0, speed / 6.0)))
+		var swing := behind * (1.0 - exp(-dt * T.num("camera", "follow_rate", 0.9) * (bk.CAM_FOLLOW if bk else 1.0) * minf(1.0, speed / 6.0)))
+		if bk: swing = clampf(swing, -bk.CAM_SWING * dt, bk.CAM_SWING * dt)   # (a tight turn: no whip)
+		cam_yaw += swing
 	var dy := pos.y - cam_ty
 	cam_ty += dy * (1.0 - exp(-dt * (T.num("camera", "height_follow_fast", 8.0) if absf(dy) > 1.5 else T.num("camera", "height_follow", 3.5))))
 	var k := 1.0 - exp(-dt * (bk.CAM_LAG if bk else T.num("camera", "target_follow", 10.0)))

@@ -8,7 +8,9 @@ extends Node
 #   turn       riding a circle (--at), a side camera to see the lean
 #   ledge      Route 1: riding south off a ledge
 #   test       the scripted ride test: town -> Route 1 -> the gate and back, ledges down,
-#              the shoreline stop, stairs blocked, a door (Oak's lab) dismounts; prints PASS / FAIL
+#              the shoreline stop, stairs blocked, a door (Oak's lab) dismounts, the turn radius,
+#              a u-turn, pinned against a wall; prints PASS / FAIL (--phase=N starts at that part,
+#              --trace prints the bike every frame in the ledge and turning parts)
 #   cyclists   a townsperson's bike ride in view (--who=ben|ada|timmy)
 #   paths      QA: the road assist's graph (bike/paths.json) against the walk grid: every
 #              point of every edge rideable, the junctions joined; prints PASS / FAIL
@@ -70,6 +72,7 @@ func _ride_at(x: float, z: float, y: float) -> void:
 	var b := B()
 	b.at = Vector3(x, main.world.height_at(x, z), z)
 	b.yaw = y
+	b.v = 0.0; b.om = 0.0; b._away_t = 0.0; b._blocked_t = 0.0; b._bumping = false
 	b._pose_parked()
 	b.state = "ride"
 	b.rider.on = 1.0
@@ -261,6 +264,10 @@ func _test(dt: float) -> void:
 	ph_t += dt
 	ph_f += 1
 	var W = main.world
+	# --phase=N: start the test at that phase (dev: one part at a time)
+	if frame == 4 and _arg("phase", "") != "": phase = int(_arg("phase", "0")); ph_t = 0.0; ph_f = 1
+	if OS.get_cmdline_user_args().has("--trace") and (phase in [10, 11, 12] or phase >= 20 or (phase == 2 and frame % 10 == 0)):
+		print("tr %d t %.2f at (%.2f %.2f %.2f) v %.2f yaw %.2f om %.2f fl %d stick %s bl %.2f" % [phase, ph_t, b.at.x, b.at.z, b.at.y, b.v, b.yaw, b.om, W.flag(b.at.x, b.at.z), str(main.stick_vec), b._blocked_t])
 	match phase:
 		0:
 			# start: walk up to the parked bike and get on
@@ -332,11 +339,35 @@ func _test(dt: float) -> void:
 				res.l_back = b.at
 				phase = 11; ph_t = 0.0; ph_f = 0
 		11:
+			# turned round (as tight as he can) and back at it: never up through a ledge
+			# cell (round the ledge's open end, where the slope is gentle, is fine)
+			if ph_f == 1:
+				res.l_up = 0; res.l_prev = b.at
+				# (the check itself: a step north across the ledge counts)
+				if not _ledge_cross(res.ledge + Vector3(0, 0, 0.6), res.ledge - Vector3(0, 0, 0.6)): _check(false, "the ledge crossing check sees a step through the ledge")
 			main.stick_vec = _toward(Vector3(res.ledge.x, 0, res.ledge.z - 8.0), 1.0)
-			# straight back up through the ledge (round its end is fine)
-			if b.at.z < res.ledge.z - 0.3 and absf(b.at.x - res.ledge.x) < 1.2: res.l_up = true
+			if _ledge_cross(res.l_prev, b.at): res.l_up += 1
+			res.l_prev = b.at
 			if ph_t > 4.0:
-				_check(not res.get("l_up", false), "could not ride back up through the ledge (now at %.1f, %.1f; ledge %.1f, %.1f)" % [b.at.x, b.at.z, res.ledge.x, res.ledge.z])
+				_check(res.l_up == 0, "turned back: never rode north through a ledge cell (%d crossings; now at %.1f, %.1f; ledge %.1f, %.1f)" % [res.l_up, b.at.x, b.at.z, res.ledge.x, res.ledge.z])
+				phase = 12; ph_t = 0.0; ph_f = 0
+		12:
+			# head on at full speed from just below it, weaving hard (every turn rate): stays below
+			if ph_f == 1:
+				_ride_at(res.ledge.x - 1.5, res.ledge.z + 3.5, PI)   # (its open end is to the east)
+				b.v = 8.0
+				res.l_up = 0; res.l_prev = b.at; res.l_near = 0
+			var wv := Vector3(sin(1.1 * sin(ph_t * 7.0)), 0, -cos(1.1 * sin(ph_t * 7.0)))
+			main.stick_vec = _toward(b.at + wv * 5.0, 1.0)
+			if _ledge_cross(res.l_prev, b.at): res.l_up += 1
+			res.l_prev = b.at
+			if not (W.flag(b.at.x, b.at.z) & 32):
+				for k in range(1, 6):
+					var nf: int = W.flag(b.at.x, b.at.z - 0.25 * k)
+					if nf != 255 and (nf & 32): res.l_near += 1; break
+			if ph_t > 4.0:
+				# (round the ledge's open end, where the slope is gentle, is fine)
+				_check(res.l_up == 0 and res.l_near > 5, "head on at the ledge, weaving: never through a ledge cell (%d crossings; %d frames right below it; now at %.1f, %.1f)" % [res.l_up, res.l_near, b.at.x, b.at.z])
 				phase = 3; ph_t = 0.0; ph_f = 0
 		3:
 			# the shoreline: from the beach, ride south into the sea
@@ -383,12 +414,158 @@ func _test(dt: float) -> void:
 			if ph_t > 2.0:
 				_check(b.state == "parked" and b.at.distance_to(Vector3(-10.0, b.at.y, -6.0)) < 0.2, "got off: parked where he stopped (%s)" % str(b.at))
 				var sv := b._load()
-				_next()
+				phase = 20; ph_t = 0.0; ph_f = 0
+		20:
+			# the turn radius at 9 m/s, full lock (the stick held just past full lock, short of a carve)
+			if ph_f == 1:
+				res.open = _open_spot(9.0)
+				_ride_at(res.open.x, res.open.z, 0.0)
+				b.v = 9.0
+				res.r_arc = 0.0; res.r_dy = 0.0; res.r_v = 0.0; res.r_n = 0; res.r_prev = b.at; res.r_yaw = b.yaw
+			var lock: float = minf(b.CARVE_E - 0.05, b.OM_MAX / b.TURN_GAIN + 0.05)
+			main.stick_vec = _toward(b.at + Vector3(sin(b.yaw + lock), 0, cos(b.yaw + lock)) * 5.0, 1.0)
+			if ph_t > 0.6 and ph_t < 1.6:
+				res.r_arc += Vector2(b.at.x - res.r_prev.x, b.at.z - res.r_prev.z).length()
+				res.r_dy += absf(wrapf(b.yaw - res.r_yaw, -PI, PI))
+				res.r_v += b.v; res.r_n += 1
+			res.r_prev = b.at; res.r_yaw = b.yaw
+			if ph_t > 1.7:
+				var vv: float = res.r_v / maxf(1.0, res.r_n)
+				var r: float = res.r_arc / maxf(1e-3, res.r_dy)
+				var tgt := maxf(b.R_MIN + b.R_K * vv * vv, vv / b.OM_MAX)
+				var old := 1.3 + 0.045 * vv * vv
+				_check(vv > 8.3 and r <= tgt * 1.08 and r <= old * 0.55, "turn radius at %.1f m/s, full lock: %.2f m (target %.2f, was %.2f)" % [vv, r, tgt, old])
+				phase = 21; ph_t = 0.0; ph_f = 0
+		21:
+			# a u-turn from 9 m/s, the stick pulled right back: the carve scrubs speed, the turn stays tight
+			if ph_f == 1:
+				_ride_at(res.open.x, res.open.z - 4.0, 0.0)
+				b.v = 9.0
+				res.u_side = 0.0; res.u_fwd = 0.0; res.u_dy = 0.0; res.u_yaw = b.yaw; res.u_p0 = b.at; res.u_vmin = 99.0; res.u_t = -1.0
+			if res.u_dy < PI - 0.3:
+				main.stick_vec = _toward(b.at + Vector3(sin(res.u_yaw + PI - 0.15), 0, cos(res.u_yaw + PI - 0.15)) * 5.0, 1.0)
+				res.u_dy += absf(wrapf(b.yaw - res.get("u_last", b.yaw), -PI, PI))
+				var d: Vector3 = b.at - res.u_p0
+				res.u_side = maxf(res.u_side, absf(d.x))
+				res.u_fwd = maxf(res.u_fwd, d.z)
+				res.u_vmin = minf(res.u_vmin, b.v)
+				if res.u_dy >= PI - 0.3: res.u_t = ph_t
+			else:
+				main.stick_vec = Vector2.ZERO
+			res.u_last = b.yaw
+			if ph_t > 3.0:
+				_check(res.u_t > 0.0 and res.u_side < 4.5 and res.u_fwd < 3.5, "u-turn from 9 m/s: turned round in %.2f s, %.1f m wide, %.1f m on (slowed to %.1f m/s)" % [res.u_t, res.u_side, res.u_fwd, res.u_vmin])
+				phase = 22; ph_t = 0.0; ph_f = 0
+		22:
+			# pinned against a wall, the stick still into it: he walks it round and rides off along it
+			if ph_f == 1:
+				res.wall = _wall_spot()
+				_ride_at(res.wall.x, res.wall.z, res.wall.y)
+				res.p_tgt = b.at + Vector3(sin(res.wall.y), 0, cos(res.wall.y)) * 6.0
+				res.p0 = b.at; res.p_blk = 0
+			main.stick_vec = _toward(res.p_tgt, 1.0)
+			if b._blocked_t > 0.0: res.p_blk += 1
+			if ph_t > 4.0:
+				var gone := Vector2(b.at.x - res.p0.x, b.at.z - res.p0.z).length()
+				_check(res.p_blk > 0 and gone > 1.5, "pinned against a wall, stick into it: got himself off it (blocked %d frames, %.1f m away)" % [res.p_blk, gone])
+				phase = 23; ph_t = 0.0; ph_f = 0
+		23:
+			# up against the wall, stopped, then the stick turned away from it: he walks the
+			# bike round on the spot at the full pivot rate
+			if ph_f == 1:
+				if not res.has("wall"): res.wall = _wall_spot()
+				var tip: float = b.model.WB * 0.5 + b.model.R * 0.6
+				_ride_at(res.wall.x + sin(res.wall.y) * (1.6 - tip - 0.12), res.wall.z + cos(res.wall.y) * (1.6 - tip - 0.12), res.wall.y)
+				res.p_om = 0.0; res.p_y0 = b.yaw; res.p_dy = 0.0; res.p0 = b.at
+			var ay: float = res.wall.y + PI - 0.5
+			main.stick_vec = _toward(b.at + Vector3(sin(ay), 0, cos(ay)) * 6.0, 1.0)
+			if ph_t < 1.2:
+				res.p_om = maxf(res.p_om, absf(b.om))
+				res.p_dy = maxf(res.p_dy, absf(wrapf(b.yaw - res.p_y0, -PI, PI)))
+				res.p_mv = Vector2(b.at.x - res.p0.x, b.at.z - res.p0.z).length()
+			if ph_t > 1.5:
+				var front: Vector3 = res.p0 + Vector3(sin(res.wall.y), 0, cos(res.wall.y)) * (b.model.WB * 0.5 + b.model.R * 0.6 + 0.12)
+				var fc: Vector3 = main.world.collide(front, 0.2)
+				var touching := Vector2(fc.x - front.x, fc.z - front.z).length() > 0.01
+				_check(touching and res.p_om > b.PIVOT * 0.9 and res.p_dy > 1.5 and res.p_mv < 0.3, "against a wall, stick turned away: %.2f rad/s (pivot %.1f), turned %.2f rad in 1.2 s, moved %.2f m" % [res.p_om, b.PIVOT, res.p_dy, res.p_mv])
+				phase = 24; ph_t = 0.0; ph_f = 0
+		24:
+			# where the ride back once stuck for good (Route 1 by the gate, on a slope by the
+			# roadside wall, the stick at the next road point past the wall): never stuck there
+			if ph_f == 1:
+				_ride_at(PIN.x, PIN.z, PIN_YAW)
+				res.p_len = 0.0; res.p_prev = b.at
+			main.stick_vec = _toward(PIN_GO, 1.0)
+			res.p_len += Vector2(b.at.x - res.p_prev.x, b.at.z - res.p_prev.z).length()
+			res.p_prev = b.at
+			if ph_t > 5.0:
+				_check(res.p_len > 4.0, "the old stuck spot by the gate: not stuck (rode %.1f m in 5 s)" % res.p_len)
+				phase = 8; ph_t = 0.0; ph_f = 0
 		8:
 			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
 			for n in notes: print("  " + n)
 			get_tree().quit(0 if fails.is_empty() else 1)
 			phase = 99
+
+# Route 1 by the gate: where the bike was once pinned against the roadside wall
+const PIN := Vector3(-11.34, 0, -415.4)
+const PIN_YAW := 1.52
+const PIN_GO := Vector3(-5.6, 0, -421.3)
+
+# 1.2 m in front of a building's wall, facing it square on: [x, yaw, z]
+func _wall_spot() -> Vector3:
+	var W = main.world
+	var best := Vector3(PIN.x, PIN_YAW, PIN.z)
+	var bd := 1e9
+	for c in W.colliders:
+		if int(c[0]) != 1 or float(c[3]) < 2.5 or float(c[4]) < 2.5: continue
+		var cs := cos(float(c[5])); var sn := sin(float(c[5]))
+		for ax in [[Vector2(cs, -sn), float(c[3])], [Vector2(-cs, sn), float(c[3])], [Vector2(sn, cs), float(c[4])], [Vector2(-sn, -cs), float(c[4])]]:
+			var n: Vector2 = ax[0]
+			var p := Vector2(float(c[1]), float(c[2])) + n * (float(ax[1]) + 1.6)
+			var d := p.length()
+			if d > bd: continue
+			var ok := true
+			for k in range(0, 5):
+				var q := p + n * (k * 0.8)
+				var fl: int = W.flag(q.x, q.y)
+				if fl == 255 or (fl & 3) or (fl & 32) or absf(W.height_at(q.x, q.y) - W.height_at(p.x, p.y)) > 0.15: ok = false; break
+				var cp: Vector3 = W.collide(Vector3(q.x, 0, q.y), 0.5)
+				if Vector2(cp.x - q.x, cp.z - q.y).length() > 0.01: ok = false; break
+			if ok: bd = d; best = Vector3(p.x, atan2(-n.x, -n.y), p.y)
+	return best
+
+# a step north (z down) into a ledge cell other than the one he started in: climbing a ledge
+func _ledge_cross(p0: Vector3, p1: Vector3) -> bool:
+	if p1.z >= p0.z - 1e-4: return false
+	var W = main.world
+	var c0: int = W._cell(p0.x, p0.z)
+	for i in range(1, 9):
+		var q := p0.lerp(p1, i / 8.0)
+		var fl: int = W.flag(q.x, q.z)
+		if fl != 255 and (fl & 32) and W._cell(q.x, q.z) != c0: return true
+	return false
+
+# flat open ground (nothing in the way within r m) near the town, for the turning checks
+func _open_spot(r: float) -> Vector3:
+	var W = main.world
+	for ring in range(0, 30):
+		for k in range(maxi(1, ring * 8)):
+			var a := TAU * k / maxf(1.0, ring * 8.0)
+			var c := Vector2(cos(a), sin(a)) * ring * 3.0 + Vector2(-5.0, 5.0)
+			var h0: float = W.height_at(c.x, c.y)
+			var ok := true
+			for j in range(-6, 7):
+				for i in range(-6, 7):
+					var q := c + Vector2(i, j) * (r / 6.0)
+					var fl: int = W.flag(q.x, q.y)
+					if fl == 255 or (fl & 1) or (fl & 2) or (fl & 32) or absf(W.height_at(q.x, q.y) - h0) > 0.5:
+						ok = false; break
+					var cp: Vector3 = W.collide(Vector3(q.x, h0, q.y), 0.6)
+					if Vector2(cp.x - q.x, cp.z - q.y).length() > 0.01: ok = false; break
+				if not ok: break
+			if ok: return Vector3(c.x, 0, c.y)
+	return Vector3(-5.0, 0, 5.0)
 
 # a ledge cell (flag 32) near Route 1's road with open ground 3 m north of it
 func _find_ledge() -> Vector3:
@@ -427,6 +604,10 @@ func _follow(dt: float) -> void:
 	if wi >= waypoints.size(): return
 	var tgt: Vector3 = waypoints[wi]
 	main.stick_vec = _toward(tgt, 1.0)
+	# like a rider: ease off for a sharp turn at speed (a U-turn), then pedal again
+	var tdir := Vector2(tgt.x - b.at.x, tgt.z - b.at.z)
+	if b.v > 4.0 and tdir.length() > 0.01 and absf(wrapf(atan2(tdir.x, tdir.y) - b.yaw, -PI, PI)) > 1.2:
+		main.stick_vec = main.stick_vec.normalized() * 0.35
 	# someone standing in the way (the player would steer round them): swerve a moment
 	_stuck = _stuck + dt if absf(b.v) < 0.3 and absf(b.om) < 0.2 else 0.0
 	if _stuck > 1.2: _dodge = 1.0; _stuck = 0.0

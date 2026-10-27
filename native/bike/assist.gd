@@ -408,6 +408,7 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 				if kap > 1e-3:
 					var vc := sqrt(LAT / kap)
 					var vm := sqrt(maxf(0.0, (1.0 / kap - _r_min) / _r_k)) if _r_k > 0.0 else vc
+					vm = minf(vm, _om_max / kap)
 					vc = minf(vc, vm)
 					v_limit = minf(v_limit, sqrt(vc * vc + 2.0 * BRAKE * maxf(0.0, dist - 1.5)))
 			prevd = dd
@@ -421,9 +422,10 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 
 var _r_min := 1.3
 var _r_k := 0.045
+var _om_max := 99.0
 var _goal_dirty := false
-func set_turn(rmin: float, rk: float) -> void:
-	_r_min = rmin; _r_k = rk
+func set_turn(rmin: float, rk: float, om_max := 99.0) -> void:
+	_r_min = rmin; _r_k = rk; _om_max = om_max
 
 func set_goal(g: Vector3, on: bool) -> void:
 	if (g == Vector3.INF) != (goal == Vector3.INF) or (g != Vector3.INF and g.distance_to(goal) > 3.0) or on != goal_on: _goal_dirty = true
