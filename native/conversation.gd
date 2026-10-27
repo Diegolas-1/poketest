@@ -578,7 +578,7 @@ func _answer(e: Dictionary) -> void:
 	rounds += 1
 	match String(e.kind):
 		"bye":
-			_goodbye(); return
+			_goodbye(String(e.label)); return
 		"clue":
 			var al := _ash_bit("ask_clue")
 			_push_lines([{"who": "ash", "text": al[0] if not al.is_empty() else "Do you know anything about it?"}])
@@ -615,8 +615,8 @@ func _answer(e: Dictionary) -> void:
 	_dirty()
 	queue.append({"t": "topics"})
 
-func _goodbye() -> void:
-	var a := _ash_bit("bye")
+func _goodbye(said := "") -> void:
+	var a := [said] if said != "" else _ash_bit("bye")
 	if not a.is_empty(): _push_lines([{"who": "ash", "text": a[0]}])
 	var fb: Dictionary = C.get("farewell", {})
 	var pool: Array = fb.get(who, fb.get("_any", []))
@@ -750,7 +750,7 @@ func begin_person(p: Dictionary, life: TownLife) -> void:
 			pc.face = atan2(game.pos.x - pc.pos.x, game.pos.z - pc.pos.z)
 	partner = {"kind": "person", "d": p}
 	_blk0 = int(p.blk)
-	open(String(p.id), "person", c)
+	open(String(p.id), "person", c, _forced())
 	_start_scene()
 
 func begin_pet(pc: Dictionary, comp: Companions) -> void:
@@ -764,9 +764,18 @@ func begin_npc(n: Dictionary, o: Dictionary = {}) -> void:
 	partner = {"kind": "npc", "d": n}
 	var id := npc_id(n)
 	var oo := o.duplicate()
+	oo.merge(_forced())
 	if not oo.has("lines"): oo.lines = n.get("lines", [])
 	open(id, "npc", {}, oo)
 	_start_scene()
+
+# (render checks) the next talk runs this tree
+var force_tree := ""
+func _forced() -> Dictionary:
+	if force_tree == "" or not trees.has(force_tree): return {}
+	var o := {"tree": force_tree}
+	force_tree = ""
+	return o
 
 static func npc_id(n: Dictionary) -> String:
 	var nm := String(n.get("name", "someone"))
@@ -810,7 +819,10 @@ func back() -> void:
 		return
 	press()
 
+var _log_lines := OS.get_cmdline_user_args().has("--cast-test=convo") or OS.get_cmdline_user_args().has("--convo-log")
 func _present(it: Dictionary) -> void:
+	if _log_lines:
+		print("convo: ", it.get("who", ""), ": ", it.get("text", "")) if it.get("t", "") == "line" else print("convo: [", it.get("t", ""), "] ", str(it.get("list", []).map(func(c): return c.get("label", ""))))
 	match String(it.get("t", "")):
 		"line":
 			var w := String(it.who)
@@ -1045,7 +1057,22 @@ func _blocked_side(s: float) -> float:
 		var dir: Vector3 = p - look
 		var l := dir.length()
 		bad += l - _free(look, dir / l, l)
+		bad += 2.5 * _bodies_between(p, look)
 	return bad
+
+# other people and Pokémon standing between a camera spot and what it looks at
+func _bodies_between(a: Vector3, b: Vector3) -> int:
+	if cast == null or cast.life == null or game.get("indoors"): return 0
+	var n := 0
+	var others: Array = cast.life.people + cast.life.companions.pets
+	for o in others:
+		if o == partner.get("d") or o.get("state", "") == "inside" or String(o.get("inside", "")) != "": continue
+		var p := Vector2(o.pos.x, o.pos.z)
+		var s := Vector2(a.x, a.z); var e := Vector2(b.x, b.z)
+		var se := e - s
+		var u := clampf((p - s).dot(se) / maxf(se.length_squared(), 1e-4), 0.0, 1.0)
+		if u > 0.02 and u < 0.98 and (s + se * u).distance_to(p) < 0.6: n += 1
+	return n
 
 # ---------- where they are ----------
 func _ash_actor() -> CastActor:

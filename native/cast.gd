@@ -563,6 +563,103 @@ func _test_step(dt: float) -> void:
 			game.stick_vec = Vector2.ZERO
 			if talking() and fmod(t, 0.6) < dt: _btn_a = true
 			game.cam_dist = 6.0
+		"convo":
+			_convo_test(dt, t)
+
+# ---------- conversation filmstrips: --cast-test=convo -- --convo-who=delia|oak|ada...
+# --convo-hour=7.6 --convo-picks=0,2,1 (choices in order; then the goodbye)
+# --convo-tree=<id> (force that tree) --convo-reset (fresh quests / conversations)
+# --convo-bike (ride up on the bike). Ash walks up, presses A, lines advance on their own.
+var _ct := {}
+func _convo_test(dt: float, t: float) -> void:
+	if _ct.is_empty():
+		_ct = {"who": "delia", "hour": 7.6, "picks": [], "tree": "", "phase": 0, "wait": 0.0, "pi": 0, "bike": false}
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--convo-who="): _ct.who = a.substr(12)
+			elif a.begins_with("--convo-hour="): _ct.hour = float(a.substr(13))
+			elif a.begins_with("--convo-picks="): _ct.picks = Array(a.substr(14).split(",")).map(func(x): return int(x))
+			elif a.begins_with("--convo-tree="): _ct.tree = a.substr(13)
+			elif a == "--convo-reset": life.quests.reset(); convo.reset()
+			elif a == "--convo-bike": _ct.bike = true
+		clock.real = false; clock.ff = 1.0
+		clock.set_time(float(_ct.hour))
+		if _ct.who == "oak": game.enter_space("oak_lab", "from_town", true)
+	var ph: int = _ct.phase
+	if clock.real:   # (the real-time clock setting would put the time back)
+		clock.real = false; clock.set_time(float(_ct.hour))
+	if ph == 0 and t > 0.5:
+		# stand a few metres in front of them, facing them
+		var target := {}
+		if _ct.who == "oak":
+			for n in npcs:
+				if n.name == "Prof. Oak": target = n
+		else:
+			var p = life.by_id.get(_ct.who)
+			if p and not (p.state in ["inside", "door_in", "door_out"]): target = p
+		if target.is_empty(): return
+		_ct.target = target
+		# a spot a few metres off, in front of them if possible, with a clear walk in
+		var ty: float = target.yaw
+		var from: Vector3 = target.pos
+		var dist := 3.0 if _ct.who == "oak" else 4.0
+		for k in 16:
+			var ang := ty + (k / 2) * 0.4 * (1 if k % 2 == 0 else -1)
+			var c: Vector3 = target.pos + Vector3(sin(ang), 0, cos(ang)) * dist
+			var p := c
+			var clear := true
+			for s in 40:
+				var dd := Vector2(target.pos.x - p.x, target.pos.z - p.z)
+				if dd.length() < 1.5: break
+				var np: Vector3 = game.world.step(p, dd.normalized().x * 0.1, dd.normalized().y * 0.1)
+				if Vector2(np.x - p.x, np.z - p.z).length() < 0.07: clear = false; break
+				p = np
+			if clear and absf(game.world.height_at(c.x, c.z) - target.pos.y) < 1.0:
+				from = c; break
+		from.y = game.world.height_at(from.x, from.z)
+		game.pos = from; _air_y = from.y
+		game.yaw = atan2(target.pos.x - from.x, target.pos.z - from.z)
+		game.cam_yaw = game.yaw + PI + 0.35; game.cam_pitch = 0.28
+		if indoors: game.cam_boom = 3.0
+		convo.force_tree = String(_ct.tree)
+		_ct.phase = 1; _ct.t0 = t
+		print("convo-test: at %s, %s is %s at %s" % [str(game.pos), _ct.who, String(target.get("state", "npc")), str(target.pos)])
+	elif ph == 1:
+		# walk up to them, then A
+		var tg: Dictionary = _ct.target
+		var d := Vector2(tg.pos.x - game.pos.x, tg.pos.z - game.pos.z).length()
+		# the stick that walks him straight at them (main.gd moves relative to the camera)
+		var cy: float = game.cam_yaw
+		var f := Vector2(-sin(cy), -cos(cy))
+		var r := Vector2(cos(cy), -sin(cy))
+		var dir := Vector2(tg.pos.x - game.pos.x, tg.pos.z - game.pos.z).normalized()
+		game.stick_vec = Vector2(dir.dot(r), -dir.dot(f)) * 0.55 if d > 1.7 and t - float(_ct.t0) < 3.0 else Vector2.ZERO
+		if d <= 1.7 or t - float(_ct.t0) > 3.0:
+			game.stick_vec = Vector2.ZERO
+			_ct.phase = 2; _ct.t1 = t
+	elif ph == 2:
+		if t - float(_ct.t1) > 0.4 and not convo.active:
+			_ct.phase = 3; _ct.wait = 0.0
+			# (A would pick whoever is nearest: Mr. Mime stands by Delia)
+			if _ct.who == "oak" or not life.by_id.has(_ct.who): convo.begin_npc(_ct.target)
+			else: convo.begin_person(_ct.target, life)
+			print("convo-test: A at %.1fs, %s %s, %.2f m" % [t, str(game.pos), str(_ct.target.pos), Vector2(_ct.target.pos.x - game.pos.x, _ct.target.pos.z - game.pos.z).length()])
+	elif ph == 3:
+		if not convo.active: return
+		_ct.wait += dt
+		if convo.ui.choosing():
+			if _ct.wait > 1.3:
+				var picks: Array = _ct.picks
+				var k: int = picks[_ct.pi] if _ct.pi < picks.size() else convo.ui.choices.size() - 1
+				_ct.pi += 1
+				convo.ui.sel = clampi(k, 0, convo.ui.choices.size() - 1)
+				convo.ui.confirm()
+				_ct.wait = 0.0
+		elif not convo.ui.typing() and _ct.wait > 0.0:
+			if _ct.get("done_t", -1.0) < 0.0: _ct.done_t = t
+			if t - float(_ct.done_t) > 0.6:
+				_btn_a = true; _ct.done_t = -1.0
+		else:
+			_ct.done_t = -1.0
 
 # ---------- touch buttons: A and Jump ----------
 func _input(e: InputEvent) -> void:

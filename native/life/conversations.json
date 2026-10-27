@@ -2043,7 +2043,7 @@
             {
               "label": "I can handle it!",
               "tone": "firm",
-              "ash": "I can handle it, Professor! I'm almost ten!",
+              "ash": "I can handle it, Professor! I'm ten now!",
               "next": "brave"
             },
             {
@@ -2067,7 +2067,7 @@
         },
         "brave": {
           "lines": [
-            "Almost isn't quite, my boy. Bravado and bravery are different things. You'll learn which is which."
+            "Ten is old enough to start, my boy, not to start alone. Bravado and bravery are different things."
           ],
           "next": "end"
         },
@@ -2127,7 +2127,7 @@
         },
         "when": {
           "lines": [
-            "Soon, Ash. On your tenth birthday, like every Trainer in Kanto. Not a minute before."
+            "Soon, Ash. Very soon. When your POKéMON is ready, and so are you. Patience!"
           ],
           "next": "after"
         },
