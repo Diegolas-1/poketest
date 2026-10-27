@@ -207,12 +207,12 @@ func _tokens() -> void:
 	var cols := [["RED", UITheme.RED], ["RED_DEEP", UITheme.RED_DEEP], ["WHITE", UITheme.WHITE], ["PAPER", UITheme.PAPER], ["INK", UITheme.INK], ["PLATE", UITheme.PLATE],
 		["YELLOW", UITheme.YELLOW], ["SKY", UITheme.SKY], ["BLUE", UITheme.BLUE], ["GREEN", UITheme.GREEN], ["ORANGE", UITheme.ORANGE], ["PURPLE", UITheme.PURPLE]]
 	for i in cols.size():
-		var r := Rect2(760 + (i % 3) * 165, 40 + (i / 3) * 90, 150, 70)
+		var r := Rect2(760 + (i % 3) * 165, 40 + (i / 3) * 96, 150, 56)
 		UITheme.para(self, r, cols[i][1])
-		UITheme.text(self, r.position + Vector2(12, 92), String(cols[i][0]), "label", 16, UITheme.TEXT, 0, -1.0, 4, Color(0, 0, 0, 0.5))
-	UITheme.panel(self, Rect2(760, 420, 470, 120), UITheme.RED)
-	UITheme.text(self, Vector2(784, 470), "SKEW %.2f · CUT %d · BAR %d" % [UITheme.SKEW, UITheme.CUT, UITheme.BAR], "heading", 26, UITheme.INK)
-	UITheme.text(self, Vector2(784, 508), "motion: fast %.2f s · base %.2f s · slow %.2f s · pop %.2f s" % [UITheme.FAST, UITheme.BASE, UITheme.SLOW, UITheme.POP], "body", 18, UITheme.INK_SOFT)
+		UITheme.text(self, r.position + Vector2(4, 80), String(cols[i][0]), "label", 16, UITheme.TEXT, 0, -1.0, 4, Color(0, 0, 0, 0.5))
+	UITheme.panel(self, Rect2(760, 440, 470, 120), UITheme.RED)
+	UITheme.text(self, Vector2(784, 490), "SKEW %.2f · CUT %d · BAR %d" % [UITheme.SKEW, UITheme.CUT, UITheme.BAR], "heading", 26, UITheme.INK)
+	UITheme.text(self, Vector2(784, 528), "motion: fast %.2f s · base %.2f s · slow %.2f s · pop %.2f s" % [UITheme.FAST, UITheme.BASE, UITheme.SLOW, UITheme.POP], "body", 18, UITheme.INK_SOFT)
 
 func _process(dt: float) -> void:
 	_t += dt

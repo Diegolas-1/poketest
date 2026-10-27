@@ -206,9 +206,6 @@ static func draw_box(ci: CanvasItem, r: Rect2, who: String, who_role: String, co
 	var skew := 0.0 + skew_in * 0.25
 	# panel body
 	UITheme.panel(ci, r, accent_c, a, skew, 20.0, 9.0)
-	# the Poké Ball watermark, right side
-	var wm := Vector2(r.end.x - 58.0, r.position.y + 52.0)
-	_ball_mark(ci, wm, 70.0, Color(UITheme.INK, 0.045 * a))
 	# a thin rule under the top edge
 	ci.draw_line(Vector2(r.position.x + 24.0, r.position.y + 7.0), Vector2(r.end.x - 34.0, r.position.y + 7.0), Color(UITheme.INK, 0.08 * a), 1.0)
 	# nameplate

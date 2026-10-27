@@ -326,11 +326,10 @@ func _draw_frame() -> void:
 	var h := frame.size.y
 	var r := Rect2(0, 0, w, h)
 	UITheme.panel(frame, r, UITheme.RED, 1.0, 0.0, 26.0, 8.0)
-	# the header: chevrons after the title, a rule under the tabs, the ball watermark
+	# the header: chevrons after the title, a rule under the tabs
 	var tw := UITheme.text_w("QUEST LOG", "display", UITheme.fs("title"))
 	UITheme.chevrons(frame, Vector2(30.0 + tw + 18.0, 42.0), 22.0, UITheme.RED, 3)
 	frame.draw_line(Vector2(30, 138), Vector2(w - 30, 138), Color(UITheme.INK, 0.12), 1.5)
-	UIDialogPanel._ball_mark(frame, Vector2(w - 150.0, 46.0), 64.0, Color(UITheme.INK, 0.06))
 
 func _draw_toast() -> void:
 	if _toasts.is_empty(): return
