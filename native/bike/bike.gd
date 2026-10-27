@@ -118,7 +118,12 @@ var SKID_T := T.num("bike", "skid_time", 0.38)
 var R_MIN := T.num("bike", "turn_r_min", 1.3)
 var R_K := T.num("bike", "turn_r_k", 0.045)
 var OM_MAX := T.num("bike", "turn_rate_max", 2.6)
+var TURN_GAIN := T.num("bike", "turn_gain", 2.6)
+var TURN_RESP := T.num("bike", "turn_resp", 7.0)
 var PIVOT := T.num("bike", "pivot_rate", 1.7)
+var CARVE := T.num("bike", "carve_decel", 0.0)
+var CARVE_V := T.num("bike", "carve_from", 5.0)
+var CARVE_E := T.num("bike", "carve_angle", 1.2)
 var LEAN_GAIN := T.num("bike", "lean_gain", 0.85)
 var LEAN_MAX := T.num("bike", "lean_max", 0.6)
 var SLOPE := T.num("bike", "slope_gain", 0.75)
@@ -135,6 +140,7 @@ var CAM_PULL := T.num("bike", "cam_pull", 1.5)
 var CAM_DROP := T.num("bike", "cam_drop", 0.05)
 var CAM_FOLLOW := T.num("bike", "cam_follow", 1.6)
 var CAM_LAG := T.num("bike", "cam_lag", 7.0)
+var CAM_SWING := T.num("bike", "cam_swing_max", 99.0)
 var BELL_GAP := T.num("bike", "bell_gap", 0.35)
 var FL := T.dict("bike", "flow", {})
 var FLOW_GAIN := float(FL.get("gain", 0.18))
@@ -186,7 +192,7 @@ func setup(g: Node3D, c: Node) -> void:
 	parked_steer = float(sv.get("steer", 0.32))
 	at.y = _ground(at)
 	assist = BikeAssist.new()
-	assist.set_turn(R_MIN, R_K)
+	assist.set_turn(R_MIN, R_K, OM_MAX)
 	_hud()
 	_pose_parked()
 
@@ -437,7 +443,20 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	if m > 0.05: e = wrapf(atan2(dir.x, dir.y) - yaw, -PI, PI)
 	var thr := m
 	var pivot := false
-	if absf(v) < 0.7 and m > 0.3 and absf(e) > (0.25 if _blocked_t > 0.0 else 0.4):
+	# pinned against something with the stick into it: walk the bike round toward the
+	# nearest way out (the side the stick leans to first), whatever the stick's angle
+	if _away_t > 0.0:
+		_away_t -= dt
+		var ea := wrapf(_away_yaw - yaw, -PI, PI)
+		if m < 0.3 or absf(ea) < 0.2: _away_t = 0.0
+		else: e = ea
+	elif _blocked_t > 0.0 and absf(v) < 0.7 and m > 0.3 and absf(e) <= 0.25 and not busy:
+		var ang := _way_out(e)
+		if ang != 0.0:
+			_away_yaw = wrapf(yaw + ang, -PI, PI)
+			_away_t = 1.2
+			e = ang
+	if absf(v) < 0.7 and m > 0.3 and absf(e) > (0.25 if (_blocked_t > 0.0 or _away_t > 0.0) else 0.4):
 		pivot = true      # walking the bike round, stopped: no pedalling yet
 		thr = 0.0
 	elif absf(e) > 2.2 and v > 2.0:
@@ -460,6 +479,11 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		assist.active = false
 	if assisting:
 		target = minf(target, assist.v_limit)
+	# a carve: a very sharp turn at speed scrubs speed (no pedalling) so the turn stays tight
+	var carve := 0.0
+	if not assisting and v > CARVE_V and absf(e) > CARVE_E and not pivot:
+		carve = clampf((absf(e) - CARVE_E) / 0.5, 0.0, 1.0) * clampf((v - CARVE_V) / 2.0, 0.0, 1.0)
+		target = minf(target, v * (1.0 - 0.5 * carve))
 	# people ahead: brake for them
 	target = minf(target, _people_limit(f))
 	# the stepping stones are for walking
@@ -503,14 +527,15 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	# rolling resistance on soft ground, gravity on slopes (only on the ground)
 	if ground:
 		a -= (COAST * (0.0 if pedalling else 1.0) + sdrag + DRAG * v * v) * signf(v) if absf(v) > 0.05 else 0.0
-		a -= 9.8 * sin(atan(slope)) * SLOPE
+		if not pivot: a -= 9.8 * sin(atan(slope)) * SLOPE   # (walking it round, he holds it)
+		a -= CARVE * carve
 	if not ground: a = 0.0
 	var v0 := v
 	v += a * dt
 	# braking never reverses (only a bump rolls him back), and stopped with the brakes on he stays
 	if not _bumping:
 		if v0 >= 0.0 and v < 0.0: v = 0.0
-		if (released or brake_btn) and absf(v) < 0.3: v = 0.0
+		if (released or brake_btn or pivot) and absf(v) < 0.3: v = 0.0
 	if _bumping:
 		v = move_toward(v, 0.0, dt * 4.0)
 		if absf(v) < 0.05: _bumping = false; v = 0.0
@@ -526,10 +551,10 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	elif absf(v) > 0.3:
 		var rmin := R_MIN + R_K * v * v
 		var om_max := minf(absf(v) / rmin, OM_MAX)
-		om_t = clampf(e * 2.6, -om_max, om_max) * signf(v)
+		om_t = clampf(e * TURN_GAIN, -om_max, om_max) * signf(v)
 		if assisting and v > 0.0: om_t = clampf(assist.om_target, -om_max, om_max)
 		if skid_t > 0.0: om_t *= 0.4
-	om += (om_t - om) * (1.0 - exp(-dt * (10.0 if pivot else 7.0)))
+	om += (om_t - om) * (1.0 - exp(-dt * (10.0 if pivot else TURN_RESP)))
 	yaw = wrapf(yaw + om * dt, -PI, PI)
 	f = Vector3(sin(yaw), 0, cos(yaw))
 	# a ledge under the front wheel, going down it: the hop off (cast.gd lands him)
@@ -545,7 +570,7 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	var want := f * v * dt
 	if want.length() > 1e-5: _move(want, f)
 	# lean into the turn (speed x turn rate), the pedals' rocking standing, a foot down stopped
-	var lt := -clampf(atan(v * om / 9.8) * LEAN_GAIN, -LEAN_MAX, LEAN_MAX)
+	var lt := -LEAN_MAX * tanh(atan(v * om / 9.8) * LEAN_GAIN / LEAN_MAX)   # (eases into its cap)
 	var stopped := absf(v) < 0.45 and (released or pivot or busy)
 	foot_k = move_toward(foot_k, 1.0 if stopped else 0.0, dt * (3.5 if stopped else 6.0))
 	var stand_want := 1.0 if (pedalling and (sprint and v < SPRINT - 1.0 or slope > 0.09 and v < CRUISE * 0.8)) else 0.0
@@ -632,7 +657,7 @@ func _move(want: Vector3, f: Vector3) -> void:
 		var steep: bool = absf(h1 - h0) > STEP_MAX * maxf(moved / 0.1, 0.3) and not (ledge and h1 < h0)
 		if tip_hit or steep or moved < full * 0.35:
 			# a glancing touch: slide along it (turned a little away), else stop or bounce
-			if v > 0.5 and _slide(stp, f): continue
+			if v > 0.05 and _slide(stp, f): continue
 			_blocked(steep)
 			return
 		# slid along a wall: lose the speed into it
@@ -663,6 +688,7 @@ func _slide(stp: Vector3, f: Vector3) -> bool:
 
 var _blocked_t := 0.0
 func _blocked(steep: bool) -> void:
+	var hit := absf(v)
 	_blocked_t = 0.4
 	stats.blocks += 1
 	if steep:
@@ -676,7 +702,33 @@ func _blocked(steep: bool) -> void:
 		game.cam_shake = 0.18
 	else:
 		v = 0.0
-	om *= 0.3
+	if hit > 2.0: om *= 0.3   # (a real knock; a nudge at walking pace keeps the turn going)
+
+# pinned: the free direction nearest the stick (relative to the heading), 0 if none
+var _away_t := 0.0
+var _away_yaw := 0.0
+func _way_out(e: float) -> float:
+	var angs: Array = []
+	for k in range(1, 11):
+		angs.append(0.3 * k); angs.append(-0.3 * k)
+	angs.sort_custom(func(a, b): return absf(a - e) < absf(b - e))
+	for ang in angs:
+		if _dir_free(yaw + ang): return ang
+	return 0.0
+
+func _dir_free(y: float) -> bool:
+	var W = game.world
+	var d := Vector3(sin(y), 0, cos(y))
+	var np: Vector3 = W.step(at, d.x * 0.3, d.z * 0.3, false)
+	if Vector2(np.x - at.x, np.z - at.z).length() < 0.2: return false
+	var tip := at + d * (model.WB * 0.5 + model.R * 0.6 + 0.3)
+	var tc: Vector3 = W.collide(tip, 0.1)
+	if Vector2(tc.x - tip.x, tc.z - tip.z).length() > 0.02: return false
+	var tf: int = W.flag(tip.x, tip.z)
+	if tf == 255 or (tf & 1 and not tf & 4) or (tf & 2 and not W.flag(at.x, at.z) & 2): return false
+	if tf & 32 and d.z < 0.0: return false
+	if absf(W.height_at(tip.x, tip.z) - W.height_at(at.x, at.z)) > STEP_MAX * 2.5: return false
+	return true
 
 func _skid() -> void:
 	skid_t = SKID_T
