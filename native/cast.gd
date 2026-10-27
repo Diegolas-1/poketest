@@ -647,14 +647,17 @@ func _convo_test(dt: float, t: float) -> void:
 		if not convo.active: return
 		_ct.wait += dt
 		if convo.ui.choosing():
-			if _ct.wait > 1.3:
-				var picks: Array = _ct.picks
-				var k: int = picks[_ct.pi] if _ct.pi < picks.size() else convo.ui.choices.size() - 1
+			# the choices up for a moment, the cursor moves to the pick, then A
+			var picks: Array = _ct.picks
+			var k: int = picks[_ct.pi] if _ct.pi < picks.size() else convo.ui.choices.size() - 1
+			k = clampi(k, 0, convo.ui.choices.size() - 1)
+			if _ct.wait > 1.2 and convo.ui.sel != k: convo.ui.sel = k
+			if _ct.wait > 2.2:
 				_ct.pi += 1
-				convo.ui.sel = clampi(k, 0, convo.ui.choices.size() - 1)
 				convo.ui.confirm()
 				_ct.wait = 0.0
-		elif not convo.ui.typing() and _ct.wait > 0.0:
+		elif not convo.ui.typing():
+			_ct.wait = 0.0
 			if _ct.get("done_t", -1.0) < 0.0: _ct.done_t = t
 			if t - float(_ct.done_t) > 0.6:
 				_btn_a = true; _ct.done_t = -1.0

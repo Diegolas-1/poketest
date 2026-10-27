@@ -40,7 +40,11 @@ var _vig: GradientTexture2D
 
 var sel: int:
 	get: return dp.choices.selected if dp else 0
-	set(v): if dp: dp.choices.selected = v
+	set(v):
+		if dp == null or dp.choices.count() == 0: return
+		var n := 0
+		while dp.choices.selected != v and n < dp.choices.count():
+			dp.choices.move(1 if v > dp.choices.selected else -1); n += 1
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
