@@ -127,9 +127,13 @@ func setup(g: Node3D, c: Node) -> void:
 	var gear = T.file("bike").get("gear")
 	if gear is Array and gear.size() == 2: model.teeth = [int(gear[0]), int(gear[1])]
 	rider = BikeRider.new(cast.player, model)
+	rider.fit_bike()
 	audio = BikeAudio.new()
 	add_child(audio)
-	var pk: Array = sv.get("at", T.file("bike").get("parked", [-18.6, -19.05, 1.45]))
+	var home: Array = T.file("bike").get("parked", [-18.0, -18.45, -1.69])
+	var pk: Array = sv.get("at", home)
+	# the game ended with him riding: he rode it home (he starts the day at home)
+	if bool(sv.get("riding", false)): pk = home
 	at = Vector3(float(pk[0]), 0.0, float(pk[1]))
 	yaw = float(pk[2])
 	crank = float(sv.get("crank", 0.9))
@@ -150,7 +154,7 @@ func save() -> void:
 	if f == null: return
 	var lk := look.duplicate()
 	f.store_string(JSON.stringify({"v": 1, "at": [snappedf(at.x, 0.01), snappedf(at.z, 0.01), snappedf(yaw, 0.001)],
-		"crank": snappedf(crank, 0.01), "steer": snappedf(parked_steer, 0.01), "look": lk}))
+		"crank": snappedf(crank, 0.01), "steer": snappedf(parked_steer, 0.01), "riding": riding(), "look": lk}))
 
 # ---------- what others ask ----------
 func riding() -> bool: return state in ["mount", "ride", "dismount"]
@@ -346,8 +350,13 @@ func control(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		"ride": _ride(dt, dir, m, run)
 	stats.us = Time.get_ticks_usec() - t0
 
+var _save_t := 0.0
 func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	var W = game.world
+	_save_t += dt
+	if _save_t > 10.0:
+		_save_t = 0.0
+		save()   # (riding: if the game ends now, the bike goes home with him)
 	var busy: bool = cast.busy()
 	if busy: m = 0.0
 	var brake_btn := Input.is_action_pressed("back") and not busy
@@ -487,6 +496,9 @@ func _move(want: Vector3, f: Vector3) -> void:
 		var tip_hit := Vector2(tipc.x - tip.x, tipc.z - tip.z).length() > 0.02
 		var tfl: int = W.flag(tip.x, tip.z)
 		if tfl == 255 or (tfl & 2 and not W.flag(p.x, p.z) & 2): tip_hit = true
+		# a townsperson's parked bike
+		var cy = cast.life.cyclists if cast.life else null
+		if cy and (cy.blocks(tip) or cy.blocks(np)): tip_hit = true
 		# a step up or down (stairs, a kerb) that is not a ledge going down
 		var h0: float = W.height_at(p.x, p.z)
 		var h1: float = W.height_at(np.x, np.z)
@@ -575,8 +587,69 @@ func _surface(p: Vector3) -> String:
 	if sw and sw.has_method("surface_at"): return String(sw.surface_at(p))
 	return "dirt"
 
+# skid marks: the locked back tyre's streak on the ground (a few kept, fading out)
+var _marks: Array = []        # [[Vector3 points], age]
+var _mark_mesh: MeshInstance3D
+var _mark_im: ImmediateMesh
+var _mark_last := Vector3.INF
+func _skid_marks(dt: float) -> void:
+	if _mark_mesh == null:
+		_mark_im = ImmediateMesh.new()
+		_mark_mesh = MeshInstance3D.new()
+		_mark_mesh.mesh = _mark_im
+		_mark_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.vertex_color_use_as_albedo = true
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_mark_mesh.material_override = m
+		add_child(_mark_mesh)
+		_mark_mesh.top_level = true
+	var W = game.world
+	var on: bool = skid_t > 0.0 and cast.ground and v > 0.4 and state == "ride" and surface != "water"
+	if on:
+		var f := Vector3(sin(yaw), 0, cos(yaw))
+		var rp := at - f * model.WB * 0.5
+		rp.y = W.height_at(rp.x, rp.z) + 0.012
+		if _mark_last == Vector3.INF or _marks.is_empty() or _marks[-1][1] > 0.0:
+			_marks.append([[rp], 0.0])
+			if _marks.size() > 4: _marks.pop_front()
+		elif rp.distance_to(_mark_last) > 0.08:
+			_marks[-1][0].append(rp)
+		_mark_last = rp
+	else:
+		_mark_last = Vector3.INF
+	var any := false
+	for mk in _marks:
+		if not (on and mk == _marks[-1]): mk[1] += dt
+		any = any or mk[1] < 9.0
+	if not any:
+		if not _marks.is_empty(): _marks.clear(); _mark_im.clear_surfaces()
+		return
+	_mark_im.clear_surfaces()
+	var col := Color(0.16, 0.12, 0.1) if surface != "sand" else Color(0.45, 0.36, 0.25)
+	for mk in _marks:
+		var pts: Array = mk[0]
+		if pts.size() < 2: continue
+		var a: float = clampf(1.0 - (mk[1] - 5.0) / 4.0, 0.0, 1.0) * 0.55
+		if a <= 0.0: continue
+		_mark_im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+		for i in pts.size():
+			var p: Vector3 = pts[i]
+			var d: Vector3 = (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)])
+			var side := Vector3(d.z, 0, -d.x).normalized() * 0.022
+			var e := a * minf(1.0, float(i) / 2.0) * minf(1.0, float(pts.size() - 1 - i) / 2.0 + 0.4)
+			_mark_im.surface_set_color(Color(col, e)); _mark_im.surface_add_vertex(p + side)
+			_mark_im.surface_set_color(Color(col, e)); _mark_im.surface_add_vertex(p - side)
+		_mark_im.surface_end()
+
+func _process(dt: float) -> void:
+	if state != "ride" and not _marks.is_empty(): _skid_marks(dt)   # (they fade while he is off)
+
 # dust and gravel kicked up, plank thumps, the recorded freewheel now and then
 func _surface_fx(dt: float) -> void:
+	_skid_marks(dt)
 	if surface == "wood" and cast.ground:
 		_plank += absf(v) * dt
 		if _plank > 0.42:

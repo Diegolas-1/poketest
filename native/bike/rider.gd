@@ -51,6 +51,25 @@ func _init(a: CastActor, b: BikeModel) -> void:
 
 func _bi(n: String) -> int: return _bones.get(n, -1)
 
+# the seatpost set for this rider's legs: at the bottom of the stroke the knee keeps
+# a little bend (hip to ankle = 0.93 of the leg), as a bike shop would set it
+func fit_bike() -> void:
+	var sk0: Skeleton3D = A.skel
+	var hip := sk0.get_bone_global_rest(_bi("LThigh")).origin
+	var knee := sk0.get_bone_global_rest(_bi("LLeg")).origin
+	var ank := sk0.get_bone_global_rest(_bi("LFoot")).origin
+	var leg := (hip.distance_to(knee) + knee.distance_to(ank)) * A.k
+	var want := leg * 0.93
+	var post := B.post
+	for i in 6:
+		B.fit_post(post)
+		var h := B.saddle() + Vector3(0, 0.082, -0.03) * B.s
+		var pd := B.BB + Vector3(0, -B.CRANK, 0) + Vector3(0.0, 0.012 * B.s, 0.0)
+		var an := pd + Vector3(0, (0.03 + 0.053) * A.k, -0.0935 * A.k)
+		var d := h.distance_to(an)
+		post += (want - d) * 0.95
+	B.fit_post(post)
+
 # bike-local -> skeleton space (the actor stands at the bike's transform; the model's
 # holder only moves and scales)
 func sk(p: Vector3) -> Vector3:

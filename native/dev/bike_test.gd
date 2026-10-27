@@ -83,21 +83,50 @@ func _process(dt: float) -> void:
 	frame += 1
 	T += dt
 	if frame < 3: return
+	if OS.get_cmdline_user_args().has("--nobanner"): main.cast.dialog._ban_t = 9.0
 	match case:
 		"parked": pass
 		"mount": _mount(dt)
-		"ride", "turn":
+		"ride", "turn", "coast":
 			if frame == 4 and at.size() == 3: _ride_at(at[0], at[1], at[2])
 			if frame > 6:
 				main.stick_vec = stick
-				if case == "turn": main.stick_vec = Vector2(sin(T * 0.0 + 1.2), -cos(1.2)) * stick.length()
+				var b := B()
+				var f := Vector3(sin(b.yaw), 0, cos(b.yaw))
+				# turn: the stick held at an angle to the way he goes (once up to speed)
+				if case == "turn" and T > float(_arg("turn_at", "2.0")): main.stick_vec = _toward(b.at + f.rotated(Vector3.UP, float(_arg("ang", "0.8"))) * 5.0, stick.length())
+				# coast: up to speed, then a light touch on the stick (the pedals still)
+				if case == "coast" and T > float(_arg("turn_at", "2.5")): main.stick_vec = _toward(b.at + f * 5.0, 0.2)
 		"ledge":
 			if frame == 4: _ride_at(at[0] if at.size() >= 2 else -14.0, at[1] if at.size() >= 2 else -150.0, 0.0)
 			if frame > 6: main.stick_vec = Vector2(0, 1) * 0.0 + _toward(Vector3(main.pos.x, 0, main.pos.z + 10.0))
 		"test": _test(dt)
+		"stats": _stats(dt)
+		"road":
+			# Route 1's road north from --at (its nearest point), the stick at --tilt
+			if frame == 4 and at.size() == 3: _ride_at(at[0], at[1], at[2])
+			if frame == 5:
+				var road: Array = main.cast.road
+				var bi := 0
+				for i in road.size():
+					if Vector2(road[i][0], road[i][1]).distance_to(Vector2(at[0], at[1])) < Vector2(road[bi][0], road[bi][1]).distance_to(Vector2(at[0], at[1])): bi = i
+				var i2 := bi - 3
+				while i2 >= 0:
+					waypoints.append(Vector3(road[i2][0], 0, road[i2][1])); i2 -= 3
+			if frame > 6:
+				_follow(dt)
+				main.stick_vec *= float(_arg("tilt", "0.85"))
 		"cyclists": _cyclists()
 	if cam_v.size() == 6:
 		main.cam.look_at_from_position(Vector3(cam_v[0], cam_v[1], cam_v[2]), Vector3(cam_v[3], cam_v[4], cam_v[5]))
+	elif _arg("chase", "") != "" and B().riding():
+		# behind and a little to the side, low: a chase camera
+		var cv := _nums("chase")
+		var b := B()
+		var f := Vector3(sin(b.yaw), 0, cos(b.yaw))
+		var l := Vector3(cos(b.yaw), 0, -sin(b.yaw))
+		var p := b.at - f * cv[0] + l * (cv[2] if cv.size() > 2 else 1.0) + Vector3(0, cv[1], 0)
+		main.cam.look_at_from_position(p, b.at + Vector3(0, 0.95, 0) + f * 1.0)
 	elif side != 0.0 and B().riding():
 		var b := B()
 		var l := Vector3(cos(b.yaw), 0, -sin(b.yaw))
@@ -145,12 +174,71 @@ func _cyclists() -> void:
 	if frame == 5: life.cyclists.debug_start(who)
 	var p: Dictionary = life.by_id.get(who, {})
 	if p.is_empty(): return
+	if OS.get_cmdline_user_args().has("--log") and frame % 15 == 0:
+		var e: Dictionary = life.cyclists.bikes[who]
+		print("cyc t %.1f state %s cyc %s pos %s v %.2f bike %s kick %.1f lean %.2f" % [T, p.state, str(p.get("cyc", {}).get("phase", "-")), str(p.pos), float(p.v), str(e.at), e.kick, e.lean])
 	var c := Vector3(p.pos)
 	var f := Vector3(sin(p.yaw), 0, cos(p.yaw))
 	var l := Vector3(cos(p.yaw), 0, -sin(p.yaw))
-	main.pos = c + l * 6.0 + Vector3(0, 0, 0)
 	main.cast.player.visible = false
-	main.cam.look_at_from_position(c + l * 4.2 + f * 2.5 + Vector3(0, 1.6, 0), c + Vector3(0, 0.9, 0))
+	var cv := _nums("chase")
+	if cv.size() >= 2:
+		var cp := c - f * cv[0] + l * (cv[2] if cv.size() > 2 else 1.0) + Vector3(0, cv[1], 0)
+		if not has_meta("ncam"): set_meta("ncam", cp)
+		var sm: Vector3 = get_meta("ncam")
+		sm = sm.lerp(cp, 0.12)
+		set_meta("ncam", sm)
+		main.cam.look_at_from_position(sm, c + Vector3(0, 0.85, 0) + f * 0.8)
+		main.pos = c + l * 30.0
+	else:
+		main.pos = c + l * 6.0
+		main.cam.look_at_from_position(c + l * 4.2 + f * 2.5 + Vector3(0, 1.6, 0), c + Vector3(0, 0.9, 0))
+
+# ---------- --stats: the cost with Ash's bike and three townspeople riding near ----------
+var _st := {"n": 0, "proc": 0.0, "bike": 0.0, "life": 0.0, "anim": 0.0, "cloth": 0.0}
+func _stats(dt: float) -> void:
+	var life = main.cast.life
+	var C = life.cyclists
+	if frame == 4:
+		_ride_at(-8.0, 10.0, PI * 0.5)
+		var spots := [Vector3(-14.0, 0, 6.0), Vector3(-12.0, 0, 12.0), Vector3(4.0, 0, 8.0)]
+		var i := 0
+		for id in C.bikes:
+			var e: Dictionary = C.bikes[id]
+			var sp: Vector3 = spots[i % spots.size()]
+			e.at = Vector3(sp.x, main.world.height_at(sp.x, sp.z), sp.z)
+			e.yaw = 0.0
+			C._pose(e, 0.0)
+			C.debug_start(id)
+			i += 1
+	if frame > 6:
+		main.stick_vec = _toward(Vector3(-8.0 + 30.0 * sin(T * 0.25), 0, 10.0 + 20.0 * cos(T * 0.25)), 0.45)
+	if frame > 60 and frame <= 300:
+		_st.n += 1
+		_st.proc += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		_st.bike += B().stats.us
+		_st.life += life.stats.us_avg
+		_st.anim += life.stats.anim_avg
+		var ccost := 0.0
+		for id in C.bikes:
+			var p: Dictionary = life.by_id[id]
+			if p.actor and p.actor.cloth: ccost += p.actor.sim_cost_us
+		_st.cloth += ccost
+	var R := RenderingServer
+	if frame in [302, 304]:
+		var riding := 0
+		for id in C.bikes: if C.riding(life.by_id[id]): riding += 1
+		print("stats frame %d bikes %s: draws %d objects %d primitives %d (townspeople riding now %d)" % [frame, "shown" if frame == 302 else "hidden", R.get_rendering_info(R.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+			R.get_rendering_info(R.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME), R.get_rendering_info(R.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME), riding])
+	if frame == 302:
+		for id in C.bikes: C.bikes[id].model.visible = false
+		B().model.visible = false
+	if frame == 303:
+		var n: float = maxf(1.0, _st.n)
+		print("stats per frame (avg of %d): process %.2f ms, Ash's bike control %.0f us, town life sim %.0f us, townspeople animation %.0f us (riders' IK and cloth included), their cloth %.0f us; bike model %d triangles" % [_st.n, _st.proc / n, _st.bike / n, _st.life / n, _st.anim / n, _st.cloth / n, B().model.tris])
+		var cs := ""
+		for id in C.bikes: cs += "%s %s; " % [id, str(life.by_id[id].get("cyc", {}).get("phase", "-"))]
+		print("stats cyclists: " + cs)
 
 # ---------- the ride test ----------
 func _check(ok: bool, what: String) -> void:

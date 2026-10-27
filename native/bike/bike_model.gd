@@ -207,8 +207,11 @@ static func _near_poly(p: Vector2, poly: Array, w: float) -> bool:
 	return false
 
 # ---------- build ----------
-func build(look_d: Dictionary) -> void:
+var detail := 1.0      # 1 = the full model (Ash's); the townspeople's bikes have fewer segments round
+
+func build(look_d: Dictionary, det := 1.0) -> void:
 	L = look_d
+	detail = det
 	s = float(L.get("size", 1.0))
 	for c in get_children(): c.queue_free()
 	meshes.clear()
@@ -217,6 +220,8 @@ func build(look_d: Dictionary) -> void:
 	var parts := {}
 	for k in ["body", "seat", "steer", "wheel_f", "wheel_r", "cog", "crank", "pedal_l", "pedal_r", "kick"]:
 		parts[k] = [BikeMesh.new(), BikeMesh.new()]   # [inked, fine (no ink)]
+		parts[k][0].q = detail
+		parts[k][1].q = detail
 	_frame(parts.body)
 	_seat(parts.seat)
 	_steer(parts.steer)
@@ -610,6 +615,8 @@ var _saddle_top := Vector3.ZERO
 func _steer(P: Array) -> void:
 	var m := BikeMesh.new()
 	var f := BikeMesh.new()
+	m.q = detail
+	f.q = detail
 	var fw := Vector3(0, -U.z, U.y).normalized()     # forward, perpendicular to the axis
 	# headset cups at both ends of the head tube; the steerer above
 	for e in [[HB, -1.0], [HT, 1.0]]:
@@ -893,6 +900,10 @@ func fit(saddle_y: float) -> void:
 	var d := (saddle_y - _saddle_top.y) / SDIR.y
 	post = clampf(post0 + d, 0.05 * s, 0.26 * s)
 	seat.position = ST + SDIR * (post - post0)
+
+func fit_post(p: float) -> void:
+	post = clampf(p, 0.0, 0.28 * s)
+	if seat: seat.position = ST + SDIR * (post - post0)
 
 func grip(sd: float) -> Vector3:
 	return HB + Basis(U, steer_a) * (GRIP[0] if sd > 0.0 else GRIP[1])

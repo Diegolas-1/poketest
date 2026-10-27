@@ -26,7 +26,7 @@
   },
   "step": {
    "frame_kind": "step",
-   "size": 0.97,
+   "size": 0.95,
    "metal": "chrome",
    "tyre": "#2b2a30",
    "wall": "#e8dcbc",
@@ -49,7 +49,7 @@
   },
   "kid": {
    "frame_kind": "diamond",
-   "size": 0.78,
+   "size": 0.72,
    "metal": "chrome",
    "tyre": "#2b2a30",
    "wall": "#2b2a30",

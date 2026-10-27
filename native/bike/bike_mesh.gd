@@ -18,6 +18,9 @@ extends RefCounted
 const SIDES := 10
 
 var surf := {}     # material key -> {v: PackedVector3Array, n, uv: PackedVector2Array, i: PackedInt32Array}
+var q := 1.0       # detail: segments round are scaled by this (the townspeople's bikes: fewer)
+
+func _n(k: int, lo := 4) -> int: return maxi(lo, int(round(k * q)))
 
 func _s(mat: String) -> Dictionary:
 	if not surf.has(mat): surf[mat] = {"v": PackedVector3Array(), "n": PackedVector3Array(), "uv": PackedVector2Array(), "i": PackedInt32Array()}
@@ -44,6 +47,7 @@ static func _grid(S: Dictionary, base: int, rows: int, cols: int, wrap: bool) ->
 
 # ---------- tubes ----------
 func tube(a: Vector3, b: Vector3, r0: float, r1: float, mat: String, sides := SIDES, u0 := 0.0, u1 := 1.0) -> void:
+	sides = _n(sides)
 	var d := b - a
 	if d.length() < 1e-5: return
 	var x := perp(d)
@@ -64,6 +68,7 @@ func tube(a: Vector3, b: Vector3, r0: float, r1: float, mat: String, sides := SI
 
 # a round tube along a polyline, frames carried along without twist; caps: 0 none, 1 start, 2 end, 3 both (domed)
 func sweep(pts: Array, r, mat: String, sides := SIDES, caps := 0, closed := false) -> void:
+	sides = _n(sides)
 	var n := pts.size()
 	if n < 2: return
 	var S := _s(mat)
@@ -125,6 +130,7 @@ func helix(a: Vector3, b: Vector3, R: float, r: float, turns: float, mat: String
 # profile: Vector2(radius, distance along the axis) from one end to the other;
 # the normals follow the profile's slope (smooth). seg: segments round.
 func lathe(o: Vector3, axis: Vector3, prof: Array, mat: String, seg := 24, a0 := 0.0, a1 := TAU, flat := false) -> void:
+	seg = _n(seg, 6)
 	var ax := axis.normalized()
 	var x := perp(ax)
 	var y := ax.cross(x)
@@ -152,6 +158,7 @@ func lathe(o: Vector3, axis: Vector3, prof: Array, mat: String, seg := 24, a0 :=
 
 # a torus (a tyre, a ring): major radius R in the plane normal to axis, tube radius r
 func torus(o: Vector3, axis: Vector3, R: float, r: float, mat: String, seg := 48, sides := 10, from := 0.0, to := TAU) -> void:
+	sides = _n(sides, 3)
 	var prof: Array = []
 	for k in sides + 1:
 		var a := from + (to - from) * k / sides

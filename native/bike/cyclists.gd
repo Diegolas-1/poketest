@@ -27,7 +27,7 @@ var life: Node
 var bikes := {}           # person id -> {model, rider, at, yaw, lean, steer, wf, wr, crank, kick, look, home}
 var MIN_LEG := 26.0
 var SHARE := 0.78
-var FETCH := 9.0
+var FETCH := 14.0
 var PARK := 4.0
 var BELL_D := 9.0
 var SLOW := 1.8
@@ -42,7 +42,7 @@ func setup(l: Node) -> void:
 	var cfg := T.dict("bike", "npc", {})
 	MIN_LEG = float(cfg.get("min_leg", 26.0))
 	SHARE = float(cfg.get("road_share", 0.78))
-	FETCH = float(cfg.get("fetch", 9.0))
+	FETCH = float(cfg.get("fetch", 14.0))
 	PARK = float(cfg.get("park_before", 4.0))
 	BELL_D = float(cfg.get("bell_dist", 9.0))
 	SLOW = float(cfg.get("slow_speed", 1.8))
@@ -54,28 +54,35 @@ func setup(l: Node) -> void:
 		var m := BikeModel.new()
 		m.name = "Bike_" + id
 		add_child(m)
-		m.build(BikeModel.look(String(riders[id])))
+		m.build(BikeModel.look(String(riders[id])), float(cfg.get("detail", 0.6)))
 		for mi in m.meshes:
 			if not mi.has_meta("no_ink"): mi.visibility_range_end = 90.0
 		var e := {"model": m, "rider": null, "at": Vector3.ZERO, "yaw": 0.0, "lean": -0.11, "steer": 0.3, "wf": 0.0, "wr": 0.0,
 			"crank": _rng.randf() * TAU, "kick": 1.0, "look": 0.0, "bell_t": 9.0, "home": _home_spot(String(p.home)), "v": 0.0, "om": 0.0}
 		if p.actor:
 			e.rider = BikeRider.new(p.actor, m)
+			e.rider.fit_bike()
 		bikes[id] = e
 		_park_home(e)
 
-# beside the gate of their house, along the fence, out of the way of the lane
+# by the lane outside their gate, along it, with room all round (so it rides off clear)
 func _home_spot(h: String) -> Vector3:
 	if not life.houses.has(h): return Vector3(-2.0, 0.0, 2.0)
 	var hs: Dictionary = life.houses[h]
 	var g: Vector3 = hs.gate
+	var ln: Vector3 = hs.lane
 	var n: Vector2 = hs.normal
 	var along := Vector2(n.y, -n.x)
-	for k: float in [1.6, -1.6, 2.4, -2.4, 3.2]:
-		var p := Vector2(g.x, g.y) + along * k + n * 0.55
-		if life.walkable(p) and life.walkable(p + along * 0.6) and life.walkable(p - along * 0.6):
-			return Vector3(p.x, atan2(along.x, along.y), p.y)   # (y holds the yaw)
-	return Vector3(g.x + along.x * 1.6, atan2(along.x, along.y), g.y + along.y * 1.6)
+	for base in [Vector2(ln.x, ln.y), Vector2(g.x, g.y) + n * 1.2]:
+		for k: float in [1.8, -1.8, 2.6, -2.6, 3.4, -3.4]:
+			var p: Vector2 = base + along * k
+			var ok := true
+			for o in [Vector2.ZERO, along * 0.7, -along * 0.7, n * 0.6, -n * 0.6, along * 0.7 + n * 0.5, -along * 0.7 + n * 0.5]:
+				if not life.walkable(p + o): ok = false; break
+			for other in bikes.values():
+				if Vector2(other.home.x, other.home.z).distance_to(p) < 1.4: ok = false   # (two riders in one house: two spots)
+			if ok: return Vector3(p.x, atan2(along.x, along.y), p.y)   # (y holds the yaw)
+	return Vector3(g.x + n.x * 1.5, atan2(along.x, along.y), g.y + n.y * 1.5)
 
 func _park_home(e: Dictionary) -> void:
 	var h: Vector3 = e.home
@@ -146,13 +153,27 @@ func move(p: Dictionary, dt: float, full: bool) -> bool:
 	var e: Dictionary = bikes[p.id]
 	match c.phase:
 		"to_bike":
-			if p.pi >= 1:
-				# at the bike: face its way and get on
+			var side: Vector3 = Transform3D(Basis(Vector3.UP, e.yaw), e.at) * Vector3(0.48, 0, -0.12)
+			var to := Vector2(side.x - p.pos.x, side.z - p.pos.z)
+			if p.pi >= 1 or to.length() < 0.9:
+				# at the bike: the last steps to its left side, face its way, then on
+				if to.length() > 0.04 and full:
+					p.v = 1.0
+					life._turn(p, atan2(to.x, to.y), dt, 10.0)
+					var st := to.normalized() * minf(to.length(), 1.1 * dt)
+					p.pos.x += st.x; p.pos.z += st.y
+					p.pos.y = life.world.height_at(p.pos.x, p.pos.z)
+					return true
+				p.v = 0.0
+				life._turn(p, e.yaw, dt, 14.0)
+				if full and absf(wrapf(e.yaw - p.yaw, -PI, PI)) > 0.15: return true
+				p.yaw = e.yaw
+				if p.pi < 1: p.pi = 1
 				c.phase = "mount"
 				c.t = 0.0
-				p.v = 0.0
 				if e.rider and p.actor: p.actor.rider = e.rider; e.rider.on = 1.0; e.rider.mounting = true; e.rider.mount = 0.0
 				if not full: c.t = 1.0
+				return true
 			return false
 		"mount":
 			c.t += dt
@@ -193,6 +214,12 @@ func _ride(p: Dictionary, c: Dictionary, e: Dictionary, dt: float, full: bool) -
 			return true
 		tgt = path[p.pi]
 	var f := Vector2(sin(e.yaw), cos(e.yaw))
+	# nearly there: keep to the side of the way, so the bike is parked off the walk line
+	if left < PARK + 3.5:
+		var seg := (tgt - here).normalized()
+		var right := Vector2(-seg.y, seg.x)   # (the rider's right)
+		var off := tgt + right * 0.9
+		if life.walkable(off): tgt = off
 	var to := (tgt - here).normalized()
 	var turn := wrapf(atan2(to.x, to.y) - e.yaw, -PI, PI)
 	vmax *= clampf(1.15 - absf(turn) * 0.6, 0.4, 1.0)
@@ -202,7 +229,6 @@ func _ride(p: Dictionary, c: Dictionary, e: Dictionary, dt: float, full: bool) -
 	var dm := me - here
 	if full and dm.length() < BELL_D and dm.dot(f) > 0.0 and absf(dm.cross(f)) < 2.2:
 		vmax = minf(vmax, SLOW if dm.length() > 3.0 else 0.6)
-		e.bell_t += 0.0
 		if e.bell_t > 3.5:
 			e.bell_t = 0.0
 			stats.bells += 1
@@ -227,6 +253,10 @@ func _ride(p: Dictionary, c: Dictionary, e: Dictionary, dt: float, full: bool) -
 		e.at = Vector3(here.x, life.world.height_at(here.x, here.y), here.y)
 		e.lean = 0.0; e.steer = 0.0
 	else:
+		# far off the way on, nearly stopped: walk the bike round first (no turning on the spot)
+		if e.v < 0.8 and absf(turn) > 0.6:
+			e.yaw = wrapf(e.yaw + signf(turn) * 1.5 * dt, -PI, PI)
+			vmax = minf(vmax, 0.3)
 		e.v += (vmax - e.v) * (1.0 - exp(-dt * (1.6 if vmax > e.v else 4.0)))
 		var rmin: float = 1.6 + 0.05 * e.v * e.v
 		var omx: float = e.v / rmin if e.v > 0.2 else 0.0
@@ -235,10 +265,18 @@ func _ride(p: Dictionary, c: Dictionary, e: Dictionary, dt: float, full: bool) -
 		e.yaw = wrapf(e.yaw + e.om * dt, -PI, PI)
 		var mv: Vector3 = Vector3(sin(e.yaw), 0, cos(e.yaw)) * float(e.v) * dt
 		var np: Vector3 = life.world.step(e.at, mv.x, mv.z)
-		if Vector2(np.x - e.at.x, np.z - e.at.z).length() < mv.length() * 0.3 and e.v > 0.5:
-			# something in the way: walk the last bit instead
-			_start_dismount(p, c, e)
+		if Vector2(np.x - e.at.x, np.z - e.at.z).length() < mv.length() * 0.3 and mv.length() > 1e-4:
+			# something in the way: stop and walk the bike round toward the way on; still stuck: off, and walk
+			c.blk = float(c.get("blk", 0.0)) + dt
+			e.v = 0.0
+			e.yaw = wrapf(e.yaw + clampf(turn, -1.0, 1.0) * dt * 1.6, -PI, PI)
+			if c.blk > 1.6: _start_dismount(p, c, e)
+			p.pos = Vector3(e.at.x, e.at.y, e.at.z)
+			p.yaw = e.yaw
+			p.v = 0.0
+			p.prog_t = 0.0
 			return true
+		c.blk = 0.0
 		np.y = life.world.height_at(np.x, np.z)
 		e.at = np
 		var lt := -clampf(atan(e.v * e.om / 9.8) * 0.85, -0.45, 0.45)
@@ -344,6 +382,23 @@ func obstacles() -> Array:
 		out.append([Vector2(e.at.x, e.at.z), 0.75, id])
 	return out
 
+# a point pushed out of the parked bikes (Ash walking round them)
+func push_out(q: Vector3, r := 0.32) -> Vector3:
+	for ob in obstacles():
+		var c: Vector2 = ob[0]
+		var d := Vector2(q.x, q.z) - c
+		var m: float = 0.55 + r
+		if d.length() < m and d.length() > 1e-4:
+			var n := c + d.normalized() * m
+			q = Vector3(n.x, q.y, n.y)
+	return q
+
+# a parked bike right there (Ash's bike's front wheel)
+func blocks(q: Vector3) -> bool:
+	for ob in obstacles():
+		if Vector2(q.x, q.z).distance_to(ob[0]) < 0.5: return true
+	return false
+
 func riding(p: Dictionary) -> bool:
 	var c = p.get("cyc")
 	return c is Dictionary and c.phase in ["mount", "ride", "dismount"]
@@ -353,7 +408,13 @@ func resync() -> void:
 	for id in bikes:
 		var p: Dictionary = life.by_id[id]
 		var e: Dictionary = bikes[id]
-		if p.get("cyc") is Dictionary: _finish_dismount(p, e)
+		if p.get("cyc") is Dictionary:
+			# (the schedule has placed them already: just off the bike, where they are)
+			if e.rider:
+				e.rider.on = 0.0
+				if p.actor and p.actor.rider == e.rider: p.actor.rider = null
+				if p.actor and p.actor.cloth: p.actor.cloth.obstacles = []
+			p.erase("cyc")
 		_park_home(e)
 
 # overnight (or out of sight a long way from home while they are in): back by the gate

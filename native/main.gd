@@ -352,7 +352,9 @@ func _process(dt: float) -> void:
 			yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * T.num("player", "turn", 12.0)))
 		if speed > 0.05 and not cast.busy() and not trans_busy:
 			pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt, true)   # (Ash wades: world_data.gd can_wade)
-			if cast.bike and not indoors: pos = cast.bike.push_out(pos)   # (round his parked bike)
+			if cast.bike and not indoors:
+				pos = cast.bike.push_out(pos)   # (round his parked bike, and the townspeople's)
+				if cast.life and cast.life.cyclists: pos = cast.life.cyclists.push_out(pos)
 	cast.update(dt)
 	if sfx_world: sfx_world.update(dt)
 	_trans_step(dt)
@@ -649,6 +651,11 @@ func _rebuild_grass() -> void:
 # townspeople out and about, their Pokémon; [id, position, radius]
 func _walkers() -> Array:
 	var out := [["ash", pos, 0.5]]
+	# on the bike: its wheels part the grass too
+	if cast and cast.bike and cast.bike.riding() and not indoors:
+		var f := Vector3(sin(yaw), 0, cos(yaw)) * cast.bike.model.WB * 0.5
+		out.append(["bike_f", pos + f, 0.32])
+		out.append(["bike_r", pos - f, 0.32])
 	if indoors or cast == null or cast.life == null: return out
 	for p in cast.life.people:
 		if p.state == "inside" or not p.seen or absf(p.pos.x - pos.x) + absf(p.pos.z - pos.z) > 20.0: continue
