@@ -29,6 +29,7 @@ var coasting := false
 var skid := 0.0          # 0..1
 var wheel_rps := 0.0     # wheel turns a second
 var active := false      # riding (else everything fades out)
+var flow := 0.0          # 0..1 the steady-riding speed-up (bike.gd): more air, a little higher
 var _lvl := {}
 var _quiet := false
 
@@ -203,7 +204,7 @@ func _process(dt: float) -> void:
 	want.free = (on * clampf(wheel_rps / 1.0, 0.0, 1.0) * 0.6) if coasting and active and skid < 0.1 else 0.0
 	want.squeal = skid * clampf(v / 3.0, 0.0, 1.0)
 	want.scrub = skid * clampf(v / 2.0, 0.0, 1.0) * 0.9
-	want.wind = clampf((v - 3.0) / 8.0, 0.0, 1.0) * 0.8 if active else 0.0
+	want.wind = minf(1.0, clampf((v - 3.0) / 8.0, 0.0, 1.0) * 0.8 + flow * 0.3) if active else 0.0
 	var base_db := {"roll_dirt": -15.0, "roll_grass": -17.0, "roll_sand": -14.0, "roll_hard": -19.0, "chain": -21.0, "free": -20.0, "squeal": -15.0, "scrub": -14.0, "wind": -20.0}
 	_quiet = true
 	for n in LOOPS:
@@ -221,7 +222,7 @@ func _process(dt: float) -> void:
 		match n:
 			"chain": p.pitch_scale = clampf(maxf(cadence, 0.2), 0.3, 3.0)
 			"free": p.pitch_scale = clampf(wheel_rps * 24.0 / 60.0, 0.5, 2.5)
-			"wind": p.pitch_scale = 0.8 + vk * 0.4
+			"wind": p.pitch_scale = 0.8 + vk * 0.4 + flow * 0.12
 			"squeal": p.pitch_scale = 0.96 + v * 0.01
 			_: if n.begins_with("roll"): p.pitch_scale = 0.75 + vk * 0.45
 

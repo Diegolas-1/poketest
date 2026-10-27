@@ -25,6 +25,20 @@ extends Node3D
 # ledge is ridden off with a hop and a landing on the springs. A wall bounces him back
 # a little; people in the way make him brake (they step aside).
 #
+# Flow: riding steady (mostly straight, pedalling on good ground, no braking, not
+# climbing) builds a "flow" over flow.build seconds that raises his speed by up to
+# flow.gain (eased in); sharp turns, braking, slow ground, a climb or a knock drain
+# it, stopping resets it. It shows as a lower tuck, more wind, the camera pulled a
+# little further back and, at full flow, faint speed lines at the screen's edges.
+#
+# Road assist (bike/assist.gd, the setting "Road assist"): on a road, lane or trail,
+# holding the stick forward along it, the bike follows the path by itself (bends,
+# forks, slowing for tight turns); steering past a small angle takes over, centring
+# the stick re-engages. Cruise (the setting "Bike cruise"): a double tap forward
+# keeps him riding at cruise speed with the stick let go; brake or pull back stops it.
+# A faint glow under the front wheel shows the assist is steering; near a fork a
+# chevron on the ground (and the island's compass) shows the branch it will take.
+#
 #   controls()       true while the bike has the player's controls (getting on, riding, off)
 #   control(dt, dir, m, run)    main.gd: the move stick (world direction and tilt)
 #   place(dt)        cast.gd: the bike and Ash posed for this frame
@@ -75,8 +89,19 @@ var _approach_from := Vector3.ZERO
 var _block_said := 0.0
 var _fresh := false
 var toast: Label
-var stats := {"us": 0.0}
+var stats := {"us": 0.0, "blocks": 0}
 var hud_layer: CanvasLayer
+var assist: BikeAssist
+var flow := 0.0            # 0..1 eased (what the speed and the looks use)
+var flow_raw := 0.0        # 0..1 linear (what builds and drains)
+var cruise := false
+var assisting := false
+var goal_override := Vector3.INF   # (tests: a goal for the assist's routing)
+var _test_brake := false
+var _clock := 0.0
+var _fwd_was := false
+var _fwd_at := -9.0
+var _cruise_said := false
 
 # tunables
 var CRUISE := T.num("bike", "cruise_speed", 9.0)
@@ -111,6 +136,27 @@ var CAM_DROP := T.num("bike", "cam_drop", 0.05)
 var CAM_FOLLOW := T.num("bike", "cam_follow", 1.6)
 var CAM_LAG := T.num("bike", "cam_lag", 7.0)
 var BELL_GAP := T.num("bike", "bell_gap", 0.35)
+var FL := T.dict("bike", "flow", {})
+var FLOW_GAIN := float(FL.get("gain", 0.18))
+var FLOW_VMAX := float(FL.get("max_speed", 13.0))
+var FLOW_BUILD := float(FL.get("build", 5.5))
+var FLOW_YAW := float(FL.get("yaw_ok", 0.22))
+var FLOW_YAW_DRAIN := float(FL.get("yaw_drain", 0.55))
+var FLOW_SLOPE := float(FL.get("slope_max", 0.06))
+var FLOW_SURF := float(FL.get("surface_min", 0.97))
+var FLOW_D_TURN := float(FL.get("drain_turn", 0.9))
+var FLOW_D_BRAKE := float(FL.get("drain_brake", 1.6))
+var FLOW_D_SURF := float(FL.get("drain_surface", 0.7))
+var FLOW_D_UP := float(FL.get("drain_uphill", 0.5))
+var FLOW_D_EASE := float(FL.get("drain_ease", 0.15))
+var FLOW_RESET_V := float(FL.get("reset_speed", 2.0))
+var FLOW_TUCK := float(FL.get("tuck", 0.08))
+var FLOW_CAM := float(FL.get("cam_pull", 0.6))
+var FLOW_LINES := float(FL.get("lines_from", 0.85))
+var AS := T.dict("bike", "assist", {})
+var CRUISE_TILT := float(AS.get("cruise_tilt", 0.9))
+var DBL_TAP := float(AS.get("double_tap", 0.4))
+var ASSIST_BRAKE := float(AS.get("brake", 4.5))
 var surface := "dirt"
 
 func setup(g: Node3D, c: Node) -> void:
@@ -139,6 +185,8 @@ func setup(g: Node3D, c: Node) -> void:
 	crank = float(sv.get("crank", 0.9))
 	parked_steer = float(sv.get("steer", 0.32))
 	at.y = _ground(at)
+	assist = BikeAssist.new()
+	assist.set_turn(R_MIN, R_K)
 	_hud()
 	_pose_parked()
 
@@ -163,7 +211,7 @@ func places_player() -> bool: return riding()
 func can_ride() -> bool: return state == "ride"
 
 # the camera's share (main.gd): how far back it pulls and how it follows
-func cam_pull() -> float: return pull * CAM_PULL
+func cam_pull() -> float: return pull * CAM_PULL + flow * FLOW_CAM
 func cam_drop() -> float: return pull * CAM_DROP
 
 # the parked bike's capsule, for walkers (main.gd: Ash; life.gd: the townspeople)
@@ -250,6 +298,7 @@ func _start_dismount() -> void:
 	dismount_want = false
 	rider.mounting = false
 	v = 0.0
+	_calm()
 
 func _end_dismount() -> void:
 	state = "parked"
@@ -275,6 +324,7 @@ func _end_dismount() -> void:
 # put away at once (a door, the menu): he stands beside it, it stays here on its stand
 func park_now() -> void:
 	if not riding(): return
+	_calm()
 	v = 0.0
 	kick = 1.0
 	lean = parked_lean
@@ -359,8 +409,25 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		save()   # (riding: if the game ends now, the bike goes home with him)
 	var busy: bool = cast.busy()
 	if busy: m = 0.0
-	var brake_btn := Input.is_action_pressed("back") and not busy
+	var brake_btn := (Input.is_action_pressed("back") or _test_brake) and not busy
 	var f := Vector3(sin(yaw), 0, cos(yaw))
+	_clock += dt
+	# the stick relative to the camera: 0 straight ahead, + to the left
+	var cy: float = game.cam_yaw
+	var stick_rel := wrapf(atan2(dir.x, dir.y) - (cy + PI), -PI, PI) if m > 0.05 else 0.0
+	# cruise: a double tap forward rides on at cruise with the stick let go
+	var fwd := m > 0.6 and absf(stick_rel) < 0.6
+	if fwd and not _fwd_was:
+		if _clock - _fwd_at < DBL_TAP and int(Settings.get_value("bike_cruise")) == 1 and not busy:
+			cruise = true
+			if not _cruise_said: _cruise_said = true; say("Cruising: brake or pull back to stop")
+		_fwd_at = _clock
+	_fwd_was = fwd
+	if cruise and (brake_btn or busy or dismount_want or (m > 0.5 and absf(stick_rel) > 2.2)): cruise = false
+	var stick_held := m > 0.08
+	if cruise and not stick_held:
+		dir = Vector2(f.x, f.z)
+		m = CRUISE_TILT
 	var ground: bool = cast.ground
 	surface = _surface(at)
 	var smul: float = float(SURF_MULT.get(surface, 1.0))
@@ -377,8 +444,30 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		thr = 0.0         # pulling right back: coast and turn (no u-turn on the spot)
 	var sprint := run and thr > 0.5
 	var target := (SPRINT if sprint else CRUISE) * smul * thr
+	# flow: riding steady lifts the speed a little (eased in over seconds)
+	target *= 1.0 + FLOW_GAIN * flow
+	# the road assist: following the path he is on (bike/assist.gd)
+	assisting = false
+	if int(Settings.get_value("bike_assist")) == 1 and assist.ok() and ground and not pivot:
+		var gp: Vector3 = Vector3.INF
+		var isl = game.get("island")
+		if isl and isl.has_goal: gp = isl._goal_pos
+		if goal_override != Vector3.INF: gp = goal_override
+		assist.set_goal(gp, int(Settings.get_value("bike_goal")) == 1)
+		var sw := Vector2(dir.x, dir.y).normalized() if m > 0.05 else Vector2.ZERO
+		assisting = assist.update(dt, at, yaw, v, sw, 0.0 if (cruise and not stick_held) else stick_rel, m if stick_held else 0.0, cruise)
+	elif assist.active:
+		assist.active = false
+	if assisting:
+		target = minf(target, assist.v_limit)
 	# people ahead: brake for them
 	target = minf(target, _people_limit(f))
+	# the stepping stones are for walking
+	var probe := at + f * (0.9 + absf(v) * 0.32)
+	if assist.walk_only(Vector2(probe.x, probe.z), 1.1):
+		target = 0.0
+		cruise = false
+		if v > 0.3 and _toast_t <= 0.0: say("The bike stays out of the water")
 	# water, stairs or a wall right ahead: ease off before it
 	var look_d := 0.75 + absf(v) * 0.32
 	var ahead: Vector3 = at + f * look_d
@@ -393,6 +482,7 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	var a := 0.0
 	var released := m < 0.08
 	pedalling = false
+	var bend_brake := assisting and v > assist.v_limit + 0.3 and not brake_btn
 	if brake_btn:
 		a = -BRAKE_HARD * signf(v)
 		if v > SKID_V * 0.75 and skid_t <= 0.0: _skid()
@@ -403,6 +493,8 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		pedalling = true
 		var acc := SPRINT_ACCEL if sprint else ACCEL
 		a = acc * clampf((target - v) / 2.5 + 0.25, 0.25, 1.0)
+	elif bend_brake:
+		a = -ASSIST_BRAKE * clampf((v - assist.v_limit) / 1.5, 0.3, 1.0)   # the assist slowing for a bend
 	elif v > target + 0.4:
 		a = -0.5 if thr < 0.5 else 0.0   # easing off: coast down to it (a downhill may still run him on)
 	else:
@@ -422,7 +514,8 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	if _bumping:
 		v = move_toward(v, 0.0, dt * 4.0)
 		if absf(v) < 0.05: _bumping = false; v = 0.0
-	v = clampf(v, -2.0, VMAX)
+	v = clampf(v, -2.0, lerpf(VMAX, FLOW_VMAX, flow))
+	_flow_step(dt, ground, thr, brake_btn or (released and not cruise) or bend_brake, smul, slope)
 	coasting = not pedalling and v > 0.5 and not brake_btn
 	if skid_t > 0.0: skid_t -= dt
 	if _blocked_t > 0.0: _blocked_t -= dt
@@ -434,6 +527,7 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		var rmin := R_MIN + R_K * v * v
 		var om_max := minf(absf(v) / rmin, OM_MAX)
 		om_t = clampf(e * 2.6, -om_max, om_max) * signf(v)
+		if assisting and v > 0.0: om_t = clampf(assist.om_target, -om_max, om_max)
 		if skid_t > 0.0: om_t *= 0.4
 	om += (om_t - om) * (1.0 - exp(-dt * (10.0 if pivot else 7.0)))
 	yaw = wrapf(yaw + om * dt, -PI, PI)
@@ -481,6 +575,37 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 var _bumping := false
 var _ledged := false
 
+# off the bike (or put away): no flow, no cruise, no assist
+func _calm() -> void:
+	cruise = false
+	flow = 0.0
+	flow_raw = 0.0
+	assisting = false
+	if assist: assist.active = false
+
+# flow: builds while riding steady, drains on bends, brakes, slow ground and climbs
+func _flow_step(dt: float, ground: bool, thr: float, braking: bool, smul: float, slope: float) -> void:
+	if v < FLOW_RESET_V or _bumping or skid_t > 0.0:
+		flow_raw = 0.0 if v < FLOW_RESET_V or _bumping else maxf(0.0, flow_raw - FLOW_D_BRAKE * dt)
+	elif not ground:
+		pass   # (a hop keeps it)
+	else:
+		var drain := 0.0
+		if braking: drain = FLOW_D_BRAKE
+		if absf(om) > FLOW_YAW_DRAIN: drain = maxf(drain, FLOW_D_TURN * minf(2.0, absf(om) / FLOW_YAW_DRAIN))
+		if smul < FLOW_SURF: drain = maxf(drain, FLOW_D_SURF)
+		if slope > FLOW_SLOPE: drain = maxf(drain, FLOW_D_UP)
+		if thr < 0.5: drain = maxf(drain, FLOW_D_EASE)
+		if drain > 0.0: flow_raw = maxf(0.0, flow_raw - drain * dt)
+		elif absf(om) < FLOW_YAW and pedalling or (absf(om) < FLOW_YAW and v > CRUISE * 0.9): flow_raw = minf(1.0, flow_raw + dt / FLOW_BUILD)
+		# (a gentle bend between yaw_ok and yaw_drain holds it)
+	flow = flow_raw * flow_raw * (3.0 - 2.0 * flow_raw)
+
+# where the island's compass should point while the assist has a fork coming up
+func route_hint() -> Variant:
+	if not assisting or state != "ride": return null
+	return assist.hint()
+
 func _move(want: Vector3, f: Vector3) -> void:
 	var W = game.world
 	var n := maxi(1, ceili(want.length() / 0.1))
@@ -499,6 +624,7 @@ func _move(want: Vector3, f: Vector3) -> void:
 		# a townsperson's parked bike
 		var cy = cast.life.cyclists if cast.life else null
 		if cy and (cy.blocks(tip) or cy.blocks(np)): tip_hit = true
+		if assist.walk_only(Vector2(tip.x, tip.z), 0.6): tip_hit = true
 		# a step up or down (stairs, a kerb) that is not a ledge going down
 		var h0: float = W.height_at(p.x, p.z)
 		var h1: float = W.height_at(np.x, np.z)
@@ -538,8 +664,11 @@ func _slide(stp: Vector3, f: Vector3) -> bool:
 var _blocked_t := 0.0
 func _blocked(steep: bool) -> void:
 	_blocked_t = 0.4
+	stats.blocks += 1
 	if steep:
 		if _block_said <= 0.0: say("Too steep for the bike: get off and walk"); _block_said = 3.0
+	cruise = false
+	flow_raw = 0.0
 	if absf(v) > 2.0 and not steep:
 		Sfx.play("hit_soft", at + Vector3(0, 0.5, 0), {"vol": -6.0 - (6.0 - minf(absf(v), 6.0)), "pitch": 1.2})
 		v = -absf(v) * BUMP * signf(v)
@@ -646,6 +775,103 @@ func _skid_marks(dt: float) -> void:
 
 func _process(dt: float) -> void:
 	if state != "ride" and not _marks.is_empty(): _skid_marks(dt)   # (they fade while he is off)
+	if state != "ride" and (_glow_a > 0.0 or _chev_a > 0.0 or _lines_a > 0.0): _assist_fx(dt)
+
+# the assist's marks: a faint glow under the front wheel while it steers, a chevron on
+# the ground at a fork showing the branch it will take; at full flow, speed lines
+var _glow: MeshInstance3D
+var _chev: MeshInstance3D
+var _glow_a := 0.0
+var _chev_a := 0.0
+var _lines: Control
+var _lines_a := 0.0
+const PATH_COL := Color(1.0, 0.78, 0.3)
+func _fx_make() -> void:
+	# the glow: a soft oval, bright in the middle and fading to nothing at its rim
+	var gm := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, cull_disabled, depth_draw_never, shadows_disabled;\nuniform vec4 col : source_color;\nvoid fragment() { float r = length(UV * 2.0 - 1.0); ALBEDO = col.rgb; ALPHA = col.a * (1.0 - smoothstep(0.05, 1.0, r)); }\n"
+	gm.shader = sh
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(1.25, 1.9)
+	_glow = MeshInstance3D.new()
+	_glow.mesh = pm
+	_glow.material_override = gm
+	_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_glow.top_level = true
+	_glow.visible = false
+	add_child(_glow)
+	# the chevron: two strokes pointing along +z, on the ground
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for sd in [-1.0, 1.0]:
+		var a := Vector3(0, 0, 0.8); var b := Vector3(sd * 1.05, 0, -0.3)
+		var nrm := Vector3(-(b - a).z, 0, (b - a).x).normalized() * 0.2
+		for q in [a + nrm, a - nrm, b + nrm, a - nrm, b - nrm, b + nrm]: st.add_vertex(q)
+	var cm := StandardMaterial3D.new()
+	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	cm.albedo_color = Color(PATH_COL, 0.0)
+	_chev = MeshInstance3D.new()
+	_chev.mesh = st.commit()
+	_chev.material_override = cm
+	_chev.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_chev.top_level = true
+	_chev.visible = false
+	add_child(_chev)
+	_lines = Control.new()
+	_lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lines.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_lines.draw.connect(_draw_lines)
+	hud_layer.add_child(_lines)
+
+func _assist_fx(dt: float) -> void:
+	if _glow == null: _fx_make()
+	var W = game.world
+	var f := Vector3(sin(yaw), 0, cos(yaw))
+	var on := assisting and state == "ride" and visible
+	_glow_a = move_toward(_glow_a, 1.0 if on else 0.0, dt * (3.0 if on else 2.0))
+	if _glow_a > 0.0:
+		var fp := at + f * (model.WB * 0.5 + 0.15)
+		fp.y = W.height_at(fp.x, fp.z) + 0.12
+		_glow.global_transform = Transform3D(Basis(Vector3.UP, yaw), fp)
+		(_glow.material_override as ShaderMaterial).set_shader_parameter("col", Color(PATH_COL, 0.8 * _glow_a * (0.85 + 0.15 * sin(_clock * 4.0))))
+	_glow.visible = _glow_a > 0.0
+	var h = route_hint() if on else null
+	var nd := Vector2.INF
+	if h != null and not assist.choice.is_empty():
+		nd = assist.nodes[assist.choice[0]]
+	var show := h != null and Vector2(at.x, at.z).distance_to(nd) < 30.0
+	_chev_a = move_toward(_chev_a, 1.0 if show else 0.0, dt * (2.5 if show else 3.0))
+	if show:
+		var hv: Vector3 = h
+		var d2 := Vector2(hv.x - nd.x, hv.z - nd.y).normalized()
+		var cp := Vector2(nd.x, nd.y) + d2 * 3.2
+		var y: float = W.height_at(cp.x, cp.y) + 0.12
+		_chev.global_transform = Transform3D(Basis(Vector3.UP, atan2(d2.x, d2.y)), Vector3(cp.x, y, cp.y))
+	if _chev_a > 0.0:
+		(_chev.material_override as StandardMaterial3D).albedo_color = Color(PATH_COL, 0.7 * _chev_a)
+	_chev.visible = _chev_a > 0.0
+	# speed lines at full flow
+	var la := clampf((flow - FLOW_LINES) / maxf(0.01, 1.0 - FLOW_LINES), 0.0, 1.0) if state == "ride" else 0.0
+	var was := _lines_a
+	_lines_a = move_toward(_lines_a, la, dt * 1.5)
+	if _lines_a > 0.0 or was > 0.0: _lines.queue_redraw()
+
+func _draw_lines() -> void:
+	if _lines_a <= 0.0: return
+	var vs := _lines.get_viewport_rect().size
+	var c := vs * 0.5
+	var t := _clock
+	for i in 14:
+		var ang := float(i) / 14.0 * TAU + 0.2 * sin(i * 7.3)
+		var d := Vector2(cos(ang), sin(ang))
+		var ph := fposmod(t * 1.7 + i * 0.37, 1.0)
+		var r0 := vs.length() * (0.36 + 0.1 * ph)
+		var r1 := r0 + vs.length() * 0.07
+		var a := _lines_a * 0.14 * sin(ph * PI)
+		_lines.draw_line(c + d * Vector2(r0, r0 * 0.75), c + d * Vector2(r1, r1 * 0.75), Color(1, 1, 1, a), 2.0, true)
 
 # dust and gravel kicked up, plank thumps, the recorded freewheel now and then
 func _surface_fx(dt: float) -> void:
@@ -717,7 +943,7 @@ func place(dt: float) -> void:
 	a.global_transform = ax
 	rider.rel = ax.affine_inverse() * bx
 	rider.speed = absf(v)
-	rider.lean_fwd = 0.04 + 0.14 * clampf(v / CRUISE, 0.0, 1.2)
+	rider.lean_fwd = 0.04 + 0.14 * clampf(v / CRUISE, 0.0, 1.2) + FLOW_TUCK * flow
 	rider.stand = stand_k
 	rider.foot_down = foot_k * (1.0 if state == "ride" else 0.0)
 	rider.bell = clampf(1.0 - bell_t / 0.3, 0.0, 1.0) if bell_t < 0.3 else 0.0
@@ -733,6 +959,8 @@ func place(dt: float) -> void:
 	audio.coasting = coasting
 	audio.skid = clampf(skid_t / SKID_T, 0.0, 1.0) if skid_t > 0.0 else 0.0
 	audio.wheel_rps = absf(v) / model.R / TAU
+	audio.flow = flow
+	_assist_fx(dt)
 	if _toast_t > 0.0: _toast_t -= dt
 	if _block_said > 0.0: _block_said -= dt
 	_toast_fade(dt)

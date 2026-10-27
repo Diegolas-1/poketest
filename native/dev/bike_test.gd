@@ -10,6 +10,11 @@ extends Node
 #   test       the scripted ride test: town -> Route 1 -> the gate and back, ledges down,
 #              the shoreline stop, stairs blocked, a door (Oak's lab) dismounts; prints PASS / FAIL
 #   cyclists   a townsperson's bike ride in view (--who=ben|ada|timmy)
+#   paths      QA: the road assist's graph (bike/paths.json) against the walk grid: every
+#              point of every edge rideable, the junctions joined; prints PASS / FAIL
+#   assist     the road assist and flow test: town -> the Route 1 gate holding forward only,
+#              the forks (straight, a nudge each way, the goal), steering over and back,
+#              cruise, the stepping stones, flow building and draining, the cost; PASS / FAIL
 # --cam=px,py,pz,tx,ty,tz  a fixed camera   --side=d  a camera d m off the bike's left, following
 
 var main: Node
@@ -83,6 +88,7 @@ func _ride_at(x: float, z: float, y: float) -> void:
 func _process(dt: float) -> void:
 	frame += 1
 	T += dt
+	if frame == int(_arg("quit", "0")): get_tree().quit(0)
 	if frame < 3: return
 	if OS.get_cmdline_user_args().has("--nobanner"): main.cast.dialog._ban_t = 9.0
 	match case:
@@ -103,6 +109,8 @@ func _process(dt: float) -> void:
 			if frame > 6: main.stick_vec = _toward(Vector3(at[0], 0, at[1] + 14.0), float(_arg("tilt", "0.8")))
 			if OS.get_cmdline_user_args().has("--log") and frame > 6: print("f %d z %.2f y %.2f ground %s v %.2f" % [frame, B().at.z, B().at.y, main.cast.ground, B().v])
 		"test": _test(dt)
+		"paths": _paths()
+		"assist": _assist_test(dt)
 		"stats": _stats(dt)
 		"road":
 			# Route 1's road north from --at (its nearest point), the stick at --tilt
@@ -436,3 +444,255 @@ func _clip_check() -> void:
 		var pd: Vector3 = b.model.global_transform * b.model.pedal(1.0 if s == "L" else -1.0)
 		var gp: Vector3 = b.model.global_transform * b.model.grip(1.0 if s == "L" else -1.0)
 		if foot.distance_to(pd) > 0.3 or hand.distance_to(gp) > 0.2: res.clip += 1
+
+# ---------- the road assist's graph against the walk grid ----------
+func _paths() -> void:
+	if frame != 5: return
+	var A: BikeAssist = B().assist
+	var W = main.world
+	var bad := 0
+	var n := 0
+	var worst := []
+	for k in A.E.size():
+		var ed: Dictionary = A.E[k]
+		var L: float = ed.len
+		var t := 0.0
+		var eb := 0
+		var hp := NAN
+		while t <= L:
+			var q := A.at(k, t)
+			n += 1
+			var why := ""
+			if A.walk_only(q, 0.8): t += 0.5; hp = NAN; continue
+			var fl: int = W.flag(q.x, q.y)
+			if fl == 255: why = "off the grid"
+			elif (fl & 1) and not (fl & 4): why = "water"
+			elif fl & 2: why = "no-walk"
+			else:
+				var c: Vector3 = W.collide(Vector3(q.x, 0, q.y), 0.2)
+				if Vector2(c.x - q.x, c.z - q.y).length() > 0.02: why = "collider"
+				var h: float = W.height_at(q.x, q.y)
+				# (the bike's own limit: step_max in each 0.1 m it moves)
+				if not is_nan(hp) and absf(h - hp) > B().STEP_MAX * 5.0 and not (fl & 32): why = "step %.2f" % absf(h - hp)
+				hp = h
+			if why != "":
+				bad += 1; eb += 1
+				if worst.size() < 400: worst.append("edge %d (%d-%d) at (%.1f, %.1f): %s" % [k, ed.a, ed.b, q.x, q.y, why])
+			t += 0.5
+	# the junctions: one connected graph from the square (every node reachable)
+	var seen := {0: true}
+	var sq := 0
+	for i in A.nodes.size():
+		if A.nodes[i].distance_to(Vector2(-3, -2)) < A.nodes[sq].distance_to(Vector2(-3, -2)): sq = i
+	seen = {sq: true}
+	var todo := [sq]
+	while not todo.is_empty():
+		var nd: int = todo.pop_back()
+		for o in A.adj[nd]:
+			var m: int = A._end_node(o[0], o[1])
+			if not seen.has(m): seen[m] = true; todo.append(m)
+	var lone := []
+	for i in A.nodes.size(): if not seen.has(i): lone.append("%d (%.0f, %.0f)" % [i, A.nodes[i].x, A.nodes[i].y])
+	# a missed junction: a dead end with another edge within 3 m that it does not join
+	var missed := []
+	for i in A.nodes.size():
+		if A.adj[i].size() != 1: continue
+		var own: int = A.adj[i][0][0]
+		for k in A.E.size():
+			if k == own: continue
+			var q := A._proj(k, A.nodes[i], 0, A.E[k].p.size())
+			if q[0] < 3.0: missed.append("node %d (%.1f, %.1f) by edge %d (%.1f m)" % [i, A.nodes[i].x, A.nodes[i].y, k, q[0]])
+	_check(missed.is_empty(), "every junction is joined (dead ends near another edge: %s)" % ", ".join(missed))
+	for w in worst: print("  " + w)
+	print("paths: %d nodes, %d edges, %d points checked, %d not rideable; %d nodes not joined to the square: %s" % [A.nodes.size(), A.E.size(), n, bad, lone.size(), ", ".join(lone)])
+	_check(bad == 0, "every point of the path graph is rideable (%d of %d not)" % [bad, n])
+	# (the rest area's and the far headland's trails do not touch the roads: their own networks)
+	print("paths: separate from the square's network: %s" % ", ".join(lone))
+	print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
+	get_tree().quit(0 if fails.is_empty() else 1)
+
+# ---------- the road assist and flow ----------
+var _as := {}
+func _graph_dev(p: Vector3) -> Array:
+	var A: BikeAssist = B().assist
+	var nr := A.nearest(Vector2(p.x, p.z), 12.0)
+	if nr.is_empty(): return [99.0, 0.0]
+	return [nr[1], A.E[nr[0]].w]
+
+func _start_on(x: float, z: float, toward: Vector2) -> void:
+	# on the graph's centre line nearest (x, z), facing along it toward `toward`
+	var A: BikeAssist = B().assist
+	var nr := A.nearest(Vector2(x, z), 20.0)
+	if not nr.is_empty():
+		var q := A.at(nr[0], nr[2])
+		var tg := A.tangent(nr[0], nr[2], 1)
+		if tg.dot(toward - q) < 0.0: tg = -tg
+		x = q.x; z = q.y
+		toward = q + tg * 5.0
+	var y := atan2(toward.x - x, toward.y - z)
+	_ride_at(x, z, y)
+	B().v = 0.0
+	B().flow_raw = 0.0
+	B().cruise = false
+	B().stats.blocks = 0
+
+# the edge leaving node n toward point q
+func _edge_toward(n: int, q: Vector2) -> int:
+	var A: BikeAssist = B().assist
+	var best := -1; var bd := 1e9
+	for o in A.adj[n]:
+		var far := A.nodes[A._end_node(o[0], o[1])]
+		var d := far.distance_to(q)
+		if d < bd: bd = d; best = o[0]
+	return best
+
+func _node_near(q: Vector2) -> int:
+	var A: BikeAssist = B().assist
+	var bi := 0
+	for i in A.nodes.size(): if A.nodes[i].distance_to(q) < A.nodes[bi].distance_to(q): bi = i
+	return bi
+
+func _assist_test(dt: float) -> void:
+	var b := B()
+	var A: BikeAssist = b.assist
+	if frame < 5: return
+	ph_t += dt
+	ph_f += 1
+	var p2 := Vector2(b.at.x, b.at.z)
+	match phase:
+		0:
+			# town -> the Route 1 gate: Red's lane by Ash's house, the stick held forward only
+			if ph_f == 1:
+				Settings.set_value("bike_goal", 1)
+				_start_on(-12.0, -15.5, Vector2(-5.6, -18.0))
+				b.goal_override = Vector3(-2.0, 0.0, -446.0)
+				_as = {"dev": 0.0, "over": -99.0, "flow_pk": 0.0, "drop": 0.0, "lost": 0, "fr": 0, "us": 0.0, "us_max": 0.0, "vmax": 0.0, "fmax": 0.0, "drain": false, "hi_t": -1.0, "onf": 0, "turn_max": 0.0}
+			main.stick_vec = Vector2(0, -0.85)
+			if b.v > 2.0:
+				var dv := _graph_dev(b.at)
+				_as.fr += 1
+				_as.dev = maxf(_as.dev, dv[0])
+				_as.over = maxf(_as.over, dv[0] - dv[1])
+				if b.assisting: _as.onf += 1
+				else: _as.lost += 1
+				_as.us += A.stats.us
+				_as.us_max = maxf(_as.us_max, A.stats.us)
+			_as.vmax = maxf(_as.vmax, b.v)
+			_as.fmax = maxf(_as.fmax, b.flow)
+			if b.flow > 0.9 and _as.hi_t < 0.0: _as.hi_t = ph_t
+			# a drop in flow through a bend (from the peak since the last straight)
+			if absf(b.om) < b.FLOW_YAW: _as.flow_pk = b.flow
+			elif absf(b.om) > b.FLOW_YAW_DRAIN: _as.drop = maxf(_as.drop, _as.flow_pk - b.flow)
+			if _as.drop > 0.3: _as.drain = true
+			if OS.get_cmdline_user_args().has("--log") and ph_f % 30 == 0:
+				print("t %.1f at (%.1f %.1f) v %.2f flow %.2f om %.2f assist %s e %d lat %.2f lim %.1f why %s" % [ph_t, b.at.x, b.at.z, b.v, b.flow, b.om, b.assisting, A.e, A.lat, A.v_limit, A.why])
+			if b.at.z < -425.0 or ph_t > 150.0:
+				var n: float = maxf(1.0, _as.fr)
+				_check(b.at.z < -425.0, "held forward only: rode Red's lane, the lanes and Route 1 to the gate (z %.0f in %.0f s)" % [b.at.z, ph_t])
+				_check(_as.over < 0.0, "stayed on the path: at most %.2f m from the centre line, %.2f m inside the edge" % [_as.dev, -_as.over])
+				_check(_as.lost < n * 0.02, "the assist steered all the way (%d of %d frames off)" % [_as.lost, _as.fr])
+				_check(b.stats.blocks == 0, "hit nothing (%d knocks)" % b.stats.blocks)
+				var base_v: float = b.CRUISE * 0.85   # (the stick at 0.85)
+				_check(_as.fmax > 0.9 and _as.vmax > base_v * 1.12, "flow built on the straights (flow %.2f, top speed %.1f m/s against %.1f without it)" % [_as.fmax, _as.vmax, base_v])
+				_check(_as.drain, "flow drained in a bend (fell by %.2f)" % _as.drop)
+				print("cost: assist %.1f us a frame on average, %.0f us at most" % [_as.us / n, _as.us_max])
+				# and in a tight loop at a few points of the ride (no frame noise): the median
+				var samp := []
+				for k in 7:
+					var q := A.at(2, A.E[2].len * (k + 0.5) / 7.0)
+					var tg := A.tangent(2, A.E[2].len * (k + 0.5) / 7.0, -1)
+					var y := atan2(tg.x, tg.y)
+					A.active = false; A.e = -1
+					A.update(dt, Vector3(q.x, 0, q.y), y, 9.0, tg, 0.0, 0.85, false)
+					for i in 300:
+						var t0 := Time.get_ticks_usec()
+						A.update(dt, Vector3(q.x, 0, q.y), y, 9.0, tg, 0.0, 0.85, false)
+						samp.append(Time.get_ticks_usec() - t0)
+				samp.sort()
+				print("cost in a loop: median %d us, 90th %d us (%d calls)" % [samp[samp.size() / 2], samp[int(samp.size() * 0.9)], samp.size()])
+				_next()
+		1, 2, 3, 4:
+			# the meadow fork on Route 1's trail to the lookout: straight / nudge left / nudge right / the goal
+			var fork := _node_near(Vector2(74, -136))
+			var e1 := _edge_toward(fork, Vector2(89, -149))
+			var e2 := _edge_toward(fork, Vector2(96, -116))
+			if ph_f == 1:
+				_start_on(40.0, -126.5, Vector2(52.0, -130.5))
+				b.goal_override = Vector3.INF
+				Settings.set_value("bike_goal", 1 if phase == 4 else 0)
+				if phase == 4: b.goal_override = Vector3(96.0, 0.0, -116.0)
+				_as = {"picked": -1, "why": ""}
+			var sv := Vector2(0, -0.85)
+			if phase == 2: sv = Vector2(-0.22, -0.85)
+			if phase == 3: sv = Vector2(0.22, -0.85)
+			main.stick_vec = sv
+			if not A.choice.is_empty() and A.nodes[A.choice[0]].distance_to(A.nodes[fork]) < 4.0: _as.picked = A.choice[1]; _as.why = A.why
+			if OS.get_cmdline_user_args().has("--log") and ph_f % 30 == 0: print("fork %d t %.1f at %s e %d dir %d choice %s why %s active %s fork %d end %.1f" % [phase, ph_t, str(p2), A.e, A.dir, str(A.choice), A.why, A.active, fork, A.to_end() if A.e >= 0 else -1.0])
+			if ph_f > 5 and (p2.distance_to(A.nodes[fork]) > 9.0 and p2.x > A.nodes[fork].x + 4.0 or ph_t > 20.0):
+				var on: int = A.e
+				var ein := -1
+				for o in A.adj[fork]: if o[0] != e1 and o[0] != e2: ein = o[0]
+				var tin := -A._out_dir(fork, ein, 1 if A.E[ein].a == fork else -1)
+				var left := Vector2(tin.y, -tin.x)
+				var o1 := A._out_dir(fork, e1, 1 if A.E[e1].a == fork else -1)
+				var o2 := A._out_dir(fork, e2, 1 if A.E[e2].a == fork else -1)
+				var want := -1
+				var label: String = ["", "straight on", "a nudge left", "a nudge right", "toward the goal"][phase]
+				match phase:
+					1: want = e1 if o1.dot(tin) > o2.dot(tin) else e2
+					2: want = e1 if o1.dot(left) > o2.dot(left) else e2
+					3: want = e1 if o1.dot(left) < o2.dot(left) else e2
+					4: want = e2
+				_check(on == want and _as.picked == want, "at the fork, %s: took edge %d (picked %d by %s, expected %d; branches %d toward the tree, %d toward the lookout)" % [label, on, _as.picked, _as.why, want, e1, e2])
+				_next()
+		5:
+			# steering over: off the assist at once; centred again: back on it
+			if ph_f == 1:
+				Settings.set_value("bike_goal", 1)
+				b.goal_override = Vector3(-2.0, 0.0, -446.0)
+				_start_on(-5.0, -58.0, Vector2(-4.0, -46.0))
+				_as = {"t_on": -1.0, "off": false, "back": -1.0}
+			main.stick_vec = Vector2(0, -0.85)
+			if b.assisting and _as.t_on < 0.0 and b.v > 5.0: _as.t_on = ph_t
+			if _as.t_on > 0.0 and ph_t > _as.t_on + 1.0 and ph_t < _as.t_on + 1.3:
+				main.stick_vec = Vector2(0.75, -0.6)    # a firm push right (about 50 degrees)
+				if ph_t > _as.t_on + 1.05 and not b.assisting: _as.off = true
+			if _as.t_on > 0.0 and ph_t > _as.t_on + 1.3 and _as.back < 0.0 and b.assisting: _as.back = ph_t - (_as.t_on + 1.3)
+			if ph_t > 8.0:
+				_check(_as.off, "steering the stick over took the steering back at once")
+				_check(_as.back >= 0.0 and _as.back < 1.5, "centring the stick re-engaged the assist (after %.2f s)" % _as.back)
+				_next()
+		6:
+			# cruise: a double tap forward, then the stick let go; pulling back stops it
+			if ph_f == 1:
+				Settings.set_value("bike_cruise", 1)
+				_start_on(-5.0, -58.0, Vector2(-4.0, -46.0))
+				_as = {"v": 0.0, "on": 0, "n": 0}
+			var tt := ph_t
+			main.stick_vec = Vector2(0, -0.9) if (tt > 0.2 and tt < 0.35) or (tt > 0.5 and tt < 0.65) else Vector2.ZERO
+			if tt > 4.0 and tt < 7.0:
+				_as.n += 1
+				if b.assisting: _as.on += 1
+				_as.v = maxf(_as.v, b.v)
+			if tt > 7.0 and tt < 7.4: main.stick_vec = Vector2(0, 0.9)   # pulled back
+			if tt > 9.5:
+				_check(_as.v > 7.0 and _as.on > _as.n * 0.9, "cruise: rode on at %.1f m/s with the stick let go, the assist steering (%d of %d frames)" % [_as.v, _as.on, _as.n])
+				_check(not b.cruise and b.v < 0.5, "pulling back ended cruise and stopped (v %.2f)" % b.v)
+				_next()
+		7:
+			# the stepping stones on the tea house trail: the bike stops before them
+			if ph_f == 1:
+				_start_on(-38.0, -233.0, Vector2(-48.0, -242.0))
+				_as = {"min": 99.0}
+			main.stick_vec = Vector2(0, -0.85)
+			for q in A.walk_pts: _as.min = minf(_as.min, q.distance_to(p2))
+			if ph_t > 8.0:
+				_check(_as.min > 0.4 and b.v < 0.5, "stopped before the stepping stones (%.2f m from the nearest, v %.2f)" % [_as.min, b.v])
+				_next()
+		8:
+			Settings.set_value("bike_goal", 1)
+			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
+			for nn in notes: print("  " + nn)
+			get_tree().quit(0 if fails.is_empty() else 1)
+			phase = 99
+

@@ -1,5 +1,5 @@
 {
- "_doc": "Ash's bicycle (bike/bike.gd) and the townspeople's (bike/cyclists.gd). Speeds m/s, accelerations m/s2, times s, angles radians. cruise_speed: the stick pushed nearly out, on the flat; sprint_speed: the stick right out (standing on the pedals to get there); max_speed: the most a slope can take him to; accel: pedalling's pull (fades toward the target); coast_decel + drag x v2: rolling with the pedals still; brake_decel: letting go of the stick; brake_hard: the brake button; skid_speed: a hard stop above this skids. turn_r_min + turn_r_k x v2: the tightest turn at a speed (no turning on the spot: pivot_rate is walking the bike round, stopped). lean_gain: the lean into a turn (1 = a real bicycle's). slope_gain: how much a slope speeds or slows. surface_mult / surface_drag: by ground (path dirt and stone 1). hop_vy: the jump button's bunny hop; ledge_vy: riding off a ledge. step_max: the biggest step up or down in one 0.25 m cell he rides (stairs are higher). bump_back: the speed bounced back from a wall (times the speed). npc_brake: start braking this far (m) from someone in the way. cam_pull / cam_drop / cam_lag: the camera at top speed (further back, a little lower, following a little later). gear: chainring and cog teeth (the cadence follows the wheel). bell_gap: the soonest a bell rings again. parked: where the bike starts (beside Ash's house) [x, z, yaw]. npc: the townspeople who ride (riders: person -> bike look), their speeds (3.5..5 m/s), slow_speed with Ash in the way, the shortest leg worth riding (min_leg, m), how much of it must be path (road_share), how far (fetch, m) a bike may be to go and get it, where they get off before a stop (park_before, m), how far they ring the bell at Ash (bell_dist), and their bikes' detail (fewer segments round: 0.6). looks: bike looks over bike/looks.json (the same fields).",
+ "_doc": "Ash's bicycle (bike/bike.gd) and the townspeople's (bike/cyclists.gd). Speeds m/s, accelerations m/s2, times s, angles radians. cruise_speed: the stick pushed nearly out, on the flat; sprint_speed: the stick right out (standing on the pedals to get there); max_speed: the most a slope can take him to; accel: pedalling's pull (fades toward the target); coast_decel + drag x v2: rolling with the pedals still; brake_decel: letting go of the stick; brake_hard: the brake button; skid_speed: a hard stop above this skids. turn_r_min + turn_r_k x v2: the tightest turn at a speed (no turning on the spot: pivot_rate is walking the bike round, stopped). lean_gain: the lean into a turn (1 = a real bicycle's). slope_gain: how much a slope speeds or slows. surface_mult / surface_drag: by ground (path dirt and stone 1). hop_vy: the jump button's bunny hop; ledge_vy: riding off a ledge. step_max: the biggest step up or down in one 0.25 m cell he rides (stairs are higher). bump_back: the speed bounced back from a wall (times the speed). npc_brake: start braking this far (m) from someone in the way. cam_pull / cam_drop / cam_lag: the camera at top speed (further back, a little lower, following a little later). gear: chainring and cog teeth (the cadence follows the wheel). bell_gap: the soonest a bell rings again. parked: where the bike starts (beside Ash's house) [x, z, yaw]. npc: the townspeople who ride (riders: person -> bike look), their speeds (3.5..5 m/s), slow_speed with Ash in the way, the shortest leg worth riding (min_leg, m), how much of it must be path (road_share), how far (fetch, m) a bike may be to go and get it, where they get off before a stop (park_before, m), how far they ring the bell at Ash (bell_dist), and their bikes' detail (fewer segments round: 0.6). looks: bike looks over bike/looks.json (the same fields). flow: riding steady builds a speed-up (bike.gd _flow_step): gain = the most it adds (x the target speed: 0.18 = 18%), max_speed the cap at full flow, build = seconds from none to full (eased), yaw_ok the turn rate (rad/s) it still builds under, yaw_drain the turn rate it drains over (between: holds), slope_max the climb (rise per metre) it builds under, surface_min the slowest ground (surface_mult) it builds on; drains a second: drain_turn (sharp turns, up to x2), drain_brake, drain_surface, drain_uphill, drain_ease (stick eased off); reset_speed: below this it is gone; tuck (rider lean forward), cam_pull (m), lines_from (speed lines from this flow up). assist: the road assist (bike/assist.gd, graph bike/paths.json): lookahead_min + lookahead_k x speed = the pursuit point ahead (m), gain the pursuit's steering, engage_ang (rad) heading and stick within this of the path to take over, override (rad) the stick this far off straight ahead (camera relative) steers by hand, nudge (rad) a smaller push picks the branch at a fork, edge_margin (m) past the path's half width it lets go, lat_acc (m/s2) the sideways pull it allows in bends, brake (m/s2) its braking for them, signal_t (s) / signal_min (m) how early a fork is picked and shown, min_speed below this it does not steer, cruise_tilt the pedalling while cruising, double_tap (s) the gap for the double tap that starts cruise.",
  "cruise_speed": 9.0,
  "sprint_speed": 10.6,
  "max_speed": 12.0,
@@ -76,5 +76,39 @@
   "bell_dist": 9.0,
   "detail": 0.6
  },
- "looks": {}
+ "looks": {},
+ "flow": {
+  "gain": 0.18,
+  "max_speed": 13.0,
+  "build": 5.5,
+  "yaw_ok": 0.22,
+  "yaw_drain": 0.55,
+  "slope_max": 0.06,
+  "surface_min": 0.97,
+  "drain_turn": 0.9,
+  "drain_brake": 1.6,
+  "drain_surface": 0.7,
+  "drain_uphill": 0.5,
+  "drain_ease": 0.15,
+  "reset_speed": 2.0,
+  "tuck": 0.08,
+  "cam_pull": 0.6,
+  "lines_from": 0.85
+ },
+ "assist": {
+  "lookahead_min": 2.4,
+  "lookahead_k": 0.42,
+  "gain": 1.0,
+  "engage_ang": 0.8,
+  "override": 0.42,
+  "nudge": 0.1,
+  "edge_margin": 0.6,
+  "lat_acc": 3.6,
+  "brake": 4.5,
+  "signal_t": 2.2,
+  "signal_min": 12.0,
+  "min_speed": 0.8,
+  "cruise_tilt": 0.9,
+  "double_tap": 0.4
+ }
 }

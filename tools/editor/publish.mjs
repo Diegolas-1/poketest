@@ -149,7 +149,7 @@ async function handle(pending) {
       const env = { ...process.env, WEB_PORT: port };
       // (not bake_cast.mjs: it needs the local model sources; bake_use.mjs refreshes
       // the parts of cast.json that the world's edits change)
-      for (const s of ['native/bake.mjs', 'native/bake_ink.mjs', 'editor/bake_use.mjs', 'native/bake_places.mjs']) {
+      for (const s of ['native/bake.mjs', 'native/bake_ink.mjs', 'editor/bake_use.mjs', 'native/bake_places.mjs', 'native/bake_paths.mjs']) {
         await report('working', 'baking: ' + s);
         const r = spawnSync('node', [path.join(ROOT, 'tools', s)], { cwd: ROOT, env, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 3 * 3600e3 });
         if (r.status !== 0) throw new Error(`${s} failed:\n` + (r.stdout + r.stderr).slice(-3000));

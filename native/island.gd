@@ -58,6 +58,7 @@ var goal_name := ""
 var goal_dist := 0.0
 var _goal_t := 0.0
 var _drawn := Vector4(-9, -9, -9, -9)
+var assist_on := false     # the bike's road assist is steering (a small road mark by the name)
 # menu
 var open := false
 var p := 0.0
@@ -255,7 +256,16 @@ func _process(dt: float) -> void:
 	var r := Vector2(cos(cy), -sin(cy))
 	north = atan2(Vector2(0, -1).dot(r), Vector2(0, -1).dot(f))
 	var want := goal_ang
-	if has_goal and main:
+	# the bike's road assist with a fork coming up: the arrow points down the branch it takes
+	var road = main.cast.bike.route_hint() if main and main.cast and main.cast.bike else null
+	var road_on: bool = main != null and main.cast != null and main.cast.bike != null and main.cast.bike.assisting
+	if road_on != assist_on: assist_on = road_on; _drawn.x = -9.0
+	if road != null:
+		var rp: Vector3 = road
+		var rd := Vector2(rp.x - main.pos.x, rp.z - main.pos.z)
+		want = atan2(rd.dot(r), rd.dot(f))
+		if has_goal: goal_dist = Vector2(_goal_pos.x - main.pos.x, _goal_pos.z - main.pos.z).length()
+	elif has_goal and main:
 		var gp: Vector3 = _goal_pos
 		var d := Vector2(gp.x - main.pos.x, gp.z - main.pos.z)
 		goal_dist = d.length()
@@ -359,6 +369,14 @@ func _draw_hud() -> void:
 	var l1 := goal_name if has_goal else "North"
 	var l2 := ("%d m" % roundi(goal_dist)) if has_goal else ""
 	_text_at(l1, Vector2(tx, c.y - 4.0), 20, Color(1, 1, 1, a), true, al)
+	if assist_on:
+		# a little road (two edges closing toward the horizon, a dashed middle) under the name
+		var rc := Vector2(tx + (9.0 if side < 0 else -9.0), c.y + 46.0)
+		var col := Color(GOLD, 0.9 * a)
+		hud.draw_line(rc + Vector2(-8, 9), rc + Vector2(-2.5, -9), col, 2.5, true)
+		hud.draw_line(rc + Vector2(8, 9), rc + Vector2(2.5, -9), col, 2.5, true)
+		hud.draw_line(rc + Vector2(0, 7), rc + Vector2(0, 2), col, 2.0, true)
+		hud.draw_line(rc + Vector2(0, -2), rc + Vector2(0, -6), col, 1.5, true)
 	if l2 != "": _text_at(l2, Vector2(tx, c.y + 20.0), 17, Color(GOLD, a), false, al)
 
 func _text_at(s: String, at: Vector2, size: int, col: Color, bold: bool, al: int) -> void:
