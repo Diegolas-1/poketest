@@ -68,6 +68,9 @@ var sim_cost_us := 0.0      # the last frame's sim time (dev)
 # the ground's height under a point (x, z, world): set by the owner (the player's: the
 # world's terrain); unset, the ground is level at the actor's own height
 var ground: Callable
+# on a bicycle (bike/rider.gd): the riding pose goes on top of the idle clip; the
+# speed given to animate() then moves only the cloth's air
+var rider: BikeRider = null
 
 var phase := 0.0
 var steps := 0              # feet put down so far (sfx_world.gd: one footstep sound each)
@@ -282,7 +285,9 @@ func pose(n: String, turns: Array) -> void:
 
 # ---------- the frame ----------
 func animate(dt: float, speed: float, air: bool) -> void:
-	_clips(dt, speed, air)
+	var riding := rider != null and rider.on > 0.001
+	_clips(dt, 0.0 if riding else speed, air and not riding)
+	if riding: rider.apply(dt)
 	_head_look(dt)
 	for bi in used: skel.set_bone_pose_rotation(bi, q[bi])
 	if cloth:

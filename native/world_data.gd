@@ -97,8 +97,26 @@ func step(pos: Vector3, dx: float, dz: float, wade := false) -> Vector3:
 	if (flag(p.x, p.z) & 2) and not (here & 2): return pos
 	return p
 
-func collide(p: Vector3, r := 0.35) -> Vector3:
+# the colliders by 8 m cell (each in every cell its extent touches, a metre to spare), so a
+# test looks at a handful of them instead of all of them (the bike tests several a frame)
+const BUCKET := 8.0
+var _bk := {}
+func _buckets() -> void:
+	_bk = {}
 	for c in colliders:
+		var ext: float = (sqrt(float(c[3]) * float(c[3]) + float(c[4]) * float(c[4])) if c[0] == 1 else float(c[3])) + 1.0
+		var i0 := floori((float(c[1]) - ext) / BUCKET); var i1 := floori((float(c[1]) + ext) / BUCKET)
+		var j0 := floori((float(c[2]) - ext) / BUCKET); var j1 := floori((float(c[2]) + ext) / BUCKET)
+		for j in range(j0, j1 + 1):
+			for i in range(i0, i1 + 1):
+				var k := Vector2i(i, j)
+				if not _bk.has(k): _bk[k] = []
+				_bk[k].append(c)
+
+func collide(p: Vector3, r := 0.35) -> Vector3:
+	if _bk.is_empty() and not colliders.is_empty(): _buckets()
+	var list: Array = _bk.get(Vector2i(floori(p.x / BUCKET), floori(p.z / BUCKET)), [])
+	for c in list:
 		var cx: float = c[1]; var cz: float = c[2]
 		if absf(p.x - cx) > 12.0 or absf(p.z - cz) > 12.0: continue
 		if c[0] == 1:

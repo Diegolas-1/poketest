@@ -27,6 +27,16 @@ const EDGE_PT := 11.0          # island's distance from the screen edge, points
 const ENTRIES := [["quests", "Quest log", true], ["settings", "Settings", true],
 	["dex", "Pokédex", false], ["bag", "Bag", false], ["map", "Map", false]]
 
+# the menu's rows: with the setting "Call the bike" on, a Bike row (bike/bike.gd menu_toggle)
+# brings his bike to him outdoors, or puts it away when he is on it
+func _entries() -> Array:
+	if int(Settings.get_value("bike_call")) != 1: return ENTRIES
+	var e := ENTRIES.duplicate()
+	var on: bool = main != null and not main.indoors and main.cast != null and main.cast.bike != null
+	var riding: bool = on and main.cast.bike.riding()
+	e.insert(1, ["bike", "Get off" if riding else "Bike", on])
+	return e
+
 var main: Node
 var side := 0              # -1 island on the left, 1 on the right, 0 none
 var isle := Rect2()        # the island in viewport units
@@ -168,7 +178,7 @@ func _input(e: InputEvent) -> void:
 			var r := _panel_rect()
 			if not r.has_point(pos): close()
 			else:
-				for i in ENTRIES.size():
+				for i in _entries().size():
 					if _row_rect(i).has_point(pos): _choose(i)
 		get_viewport().set_input_as_handled()
 		return
@@ -195,7 +205,7 @@ func close() -> void:
 	Sfx.ui("ui_menu_close")
 
 func _choose(i: int) -> void:
-	var e: Array = ENTRIES[i]
+	var e: Array = _entries()[i]
 	if not e[2]:
 		Sfx.ui("ui_toggle_off")
 		return
@@ -232,6 +242,7 @@ func _process(dt: float) -> void:
 				var q = _quest_ui()
 				if q: q.open()
 			elif _pick == "settings": Settings.open_menu()
+			elif _pick == "bike" and main and main.cast and main.cast.bike: main.cast.bike.menu_toggle()
 			_pick = ""
 		hud.queue_redraw()
 	# the compass
@@ -393,7 +404,7 @@ func _content_x() -> Vector2:
 func _row_rect(i: int) -> Rect2:
 	var r := _panel_full()
 	var cx := _content_x()
-	var row_h := minf(86.0, (r.size.y - 100.0) / ENTRIES.size())
+	var row_h := minf(86.0, (r.size.y - 100.0) / _entries().size())
 	return Rect2(cx.x, r.position.y + 76.0 + i * row_h, cx.y - cx.x, row_h - 8.0)
 
 func _draw_menu() -> void:
@@ -412,8 +423,9 @@ func _draw_menu() -> void:
 	var full := _panel_full()
 	_text_at("MENU", Vector2(cx.x + 4.0, full.position.y + 50.0), 18, Color(1, 1, 1, 0.5 * ca), true, HORIZONTAL_ALIGNMENT_LEFT)
 	hud.draw_line(Vector2(cx.x, full.position.y + 64.0), Vector2(cx.y, full.position.y + 64.0), Color(1, 1, 1, 0.12 * ca), 2.0)
-	for i in ENTRIES.size():
-		var e: Array = ENTRIES[i]
+	var ents := _entries()
+	for i in ents.size():
+		var e: Array = ents[i]
 		var rr := _row_rect(i)
 		rr.position.x += (1.0 - ca) * (-24.0 if side < 0 else 24.0) * (1.0 + i * 0.4)
 		var on: bool = e[2]
@@ -430,7 +442,7 @@ func _draw_menu() -> void:
 			if q and q.unread: hud.draw_circle(Vector2(rr.end.x - 26.0, rr.get_center().y), 8.0, Color(RED, ca), true, -1.0, true)
 
 func _icon_col(id: String) -> Color:
-	return {"quests": Color("f2e9d6"), "settings": Color("3a4a63"), "dex": RED, "bag": Color("d08a1f"), "map": Color("4c9a5b")}.get(id, Color.GRAY)
+	return {"quests": Color("f2e9d6"), "settings": Color("3a4a63"), "dex": RED, "bag": Color("d08a1f"), "map": Color("4c9a5b"), "bike": Color("d83a31")}.get(id, Color.GRAY)
 
 func _icon(id: String, c: Vector2, a: float) -> void:
 	var ink := Color(0.137, 0.157, 0.31, a)
@@ -457,6 +469,14 @@ func _icon(id: String, c: Vector2, a: float) -> void:
 		"bag":
 			hud.draw_style_box(_sb(Color(1, 1, 1, a), 5), Rect2(c.x - 12, c.y - 6, 24, 18))
 			hud.draw_arc(c + Vector2(0, -6), 6.0, PI, TAU, 10, w, 3.0, true)
+		"bike":
+			# two wheels, the frame between, the bars
+			hud.draw_arc(c + Vector2(-8, 5), 7.0, 0.0, TAU, 18, w, 2.5, true)
+			hud.draw_arc(c + Vector2(8, 5), 7.0, 0.0, TAU, 18, w, 2.5, true)
+			hud.draw_polyline(PackedVector2Array([c + Vector2(-8, 5), c + Vector2(-2, -4), c + Vector2(6, -4), c + Vector2(8, 5)]), w, 2.5, true)
+			hud.draw_line(c + Vector2(-2, -4), c + Vector2(0, 5), w, 2.5, true)
+			hud.draw_line(c + Vector2(5, -8), c + Vector2(9, -8), w, 2.5, true)
+			hud.draw_line(c + Vector2(-5, -7), c + Vector2(0, -7), w, 3.0, true)
 		"map":
 			hud.draw_colored_polygon(PackedVector2Array([c + Vector2(-13, -9), c + Vector2(-4, -12), c + Vector2(4, -9), c + Vector2(13, -12),
 				c + Vector2(13, 9), c + Vector2(4, 12), c + Vector2(-4, 9), c + Vector2(-13, 12)]), w)

@@ -120,6 +120,10 @@ const LEG_GAP := 0.3          # its spacing to its neighbours may stretch this m
 var lift := 0.0               # how far the thighs are raised in front (0 standing, 1 sitting), eased down
 var lift_raw := 0.0
 var side := Vector3.RIGHT     # the body's left (world), for which way is outward
+# things the cloth rests on that are not the body (a bicycle's saddle: bike/rider.gd):
+# world capsules [a, b, radius], set by the owner before update (a new array each time)
+var obstacles: Array = []
+var _obs: Array = []
 var _lm := PackedInt64Array() # per particle: the legs' tubes near its link (bits)
 
 static func make(a: Node3D) -> ClothSim:
@@ -505,6 +509,7 @@ func update(dt: float, speed: float, rate := STEP_HZ) -> void:
 	since = 0.0
 	ready = true
 	_set_i = 0
+	_obs = obstacles
 	if inline:
 		_run(n, H, speed, hz)
 		_apply(_sets[0]); _set_i = 1
@@ -633,6 +638,41 @@ func _step(h: float, speed: float, t: float) -> void:
 				prev = x[i]
 	if has_legs: _legs_out()
 	_ground_out()
+	if not _obs.is_empty(): _obstacles_out()
+
+# out of the owner's capsules (a saddle under a jacket's tails), keeping each link's length
+func _obstacles_out() -> void:
+	var p0: PackedInt32Array = D.c_p0
+	var cn: PackedInt32Array = D.c_n
+	var plen: PackedFloat32Array = D.p_len
+	var cpar: PackedInt32Array = D.c_parent
+	for o in _obs:
+		var a: Vector3 = o[0]
+		var ab: Vector3 = o[1] - a
+		var l2 := maxf(ab.length_squared(), 1e-9)
+		var r: float = o[2]
+		var mid := a + ab * 0.5
+		var reach := ab.length() * 0.5 + r + 0.5
+		for c in p0.size():
+			if pin[c].distance_squared_to(mid) > reach * reach * 4.0: continue
+			var prev := pin[c]
+			var s: float = sc[cpar[c]]
+			for k in cn[c]:
+				var i := p0[c] + k
+				var p := x[i]
+				var u := clampf((p - a).dot(ab) / l2, 0.0, 1.0)
+				var q := a + ab * u
+				var d := p - q
+				var dl := d.length()
+				if dl < r:
+					var n := d / dl if dl > 1e-6 else Vector3.UP
+					p = q + n * r
+					var L := plen[i] * s
+					var dd := p - prev
+					if dd.length() > 1e-6: p = prev + dd * (L / dd.length())
+					xp[i] = xp[i].lerp(p, 0.5)
+					x[i] = p
+				prev = x[i]
 
 # the ground plane under the actor, from its ground lookup (a few probes round it)
 func _ground_plane(at: Vector3) -> void:

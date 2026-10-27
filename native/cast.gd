@@ -22,6 +22,7 @@ var life: TownLife
 var conditions: Conditions   # Ash's conditions (conditions.gd): wet, fatigued
 var body: AshBody            # his body: wading, wetness, stamina (body.gd)
 var cond_ui: ConditionsUI    # their badges and the stamina bar (conditions_ui.gd)
+var bike: AshBike            # his bicycle (bike/bike.gd)
 var uses: Array = []
 var road: Array = []
 var tall: Array = []
@@ -40,7 +41,8 @@ var _rng := RandomNumberGenerator.new()
 var btn_ui: Control
 var _btn_a := false
 var _btn_jump := false
-var _touch_btn := {}     # touch index -> "use" | "jump"
+var _btn_bell := false
+var _touch_btn := {}     # touch index -> "use" | "jump" | "bell"
 
 func setup(g: Node3D) -> void:
 	game = g
@@ -93,13 +95,16 @@ func setup(g: Node3D) -> void:
 	cond_ui.conditions = conditions
 	cond_ui.body = body
 	add_child(cond_ui)
+	bike = AshBike.new()
+	add_child(bike)
+	bike.setup(game, self)
 	life = TownLife.new()
 	add_child(life)
 	life.setup(game, self, clock)
 
 # the actions worker settings define in project.godot; added here only when missing
 func _actions() -> void:
-	var keys := {"use": [KEY_E, KEY_ENTER, KEY_X], "jump": [KEY_SPACE], "run": [KEY_SHIFT], "back": [KEY_ESCAPE, KEY_Z, KEY_BACKSPACE]}
+	var keys := {"use": [KEY_E, KEY_ENTER, KEY_X], "jump": [KEY_SPACE], "run": [KEY_SHIFT], "back": [KEY_ESCAPE, KEY_Z, KEY_BACKSPACE], "bike_bell": [KEY_B]}
 	var pads := {"use": JOY_BUTTON_A, "jump": JOY_BUTTON_X, "back": JOY_BUTTON_B}
 	for a in keys:
 		if InputMap.has_action(a): continue
@@ -160,7 +165,20 @@ func _pressed(a: String) -> bool:
 	var p := Input.is_action_just_pressed(a)
 	if a == "use" and _btn_a: p = true
 	if a == "jump" and _btn_jump: p = true
+	if a == "bike_bell" and _btn_bell: p = true
 	return p
+
+# a pad's X / Y (the jump action's buttons) is down: on the bike they ring the bell
+static func _pad_xy() -> bool:
+	for d in Input.get_connected_joypads():
+		if Input.is_joy_button_pressed(d, JOY_BUTTON_X) or Input.is_joy_button_pressed(d, JOY_BUTTON_Y): return true
+	return false
+
+# a pad's R / ZR (the run action's): on the bike, the hop
+static func _pad_r() -> bool:
+	for d in Input.get_connected_joypads():
+		if Input.is_joy_button_pressed(d, JOY_BUTTON_RIGHT_SHOULDER) or Input.get_joy_axis(d, JOY_AXIS_TRIGGER_RIGHT) > 0.5: return true
+	return false
 
 # ---------- the closest thing to talk to or read ----------
 func nearby() -> Dictionary:
@@ -194,7 +212,13 @@ func nearby() -> Dictionary:
 	# the townspeople's Pokémon (companions.gd)
 	var c := life.companions.nearest_talk(me, fx, fz, minf(2.2, bd)) if not indoors else {}
 	if not c.is_empty():
-		best = {"label": "Talk", "pet": c, "at": life.companions.talk_at(c)}
+		best = {"label": "Talk", "pet": c, "at": life.companions.talk_at(c)}; bd = Vector2(c.pos.x - me.x, c.pos.z - me.z).length()
+	# his bike, parked
+	if bike and not indoors:
+		var bp: Dictionary = bike.near_prompt(me)
+		if not bp.is_empty() and (best.is_empty() or float(bp.d) < bd * 0.8): best = bp
+		elif bike.can_ride() and absf(bike.v) < 0.5 and best.is_empty():
+			best = {"label": "Get off", "at": me + Vector3(0, 2.1, 0)}
 	return best
 
 # the text box's typing blips for whoever speaks (dialog.gd voice): the
@@ -222,15 +246,34 @@ func update(dt: float) -> void:
 	var use := _pressed("use")
 	var jmp := _pressed("jump")
 	var back := _pressed("back")
-	_btn_a = false; _btn_jump = false
+	var bell := _pressed("bike_bell")
+	var rjust := Input.is_action_just_pressed("run")
+	_btn_a = false; _btn_jump = false; _btn_bell = false
 	if dialog.open:
 		if use or jmp or back: dialog.next()
 		use = false; jmp = false
 	elif script_phase < 0:
-		if jmp and ground:
+		if bike.riding():
+			# on the bike: the jump hops (a pad's X / Y ring the bell, its R hops)
+			if jmp and _pad_xy(): bell = true
+			elif jmp or (rjust and _pad_r()): bike.hop()
+			if bell: bike.ring()
+		elif jmp and ground:
 			vy = 5.2; ground = false
 		if use:
 			var n := nearby()
+			if bike.riding():
+				# A on the bike: a door parks it outside; someone or something to talk to
+				# or read, stopped: that; else off (braking to a stop first)
+				var talk_ok: bool = absf(bike.v) < 1.0 and (n.has("person") or n.has("pet") or n.has("npc") or (n.has("u") and String(n.u.label) != "Door"))
+				if not indoors and n.has("u") and String(n.u.label) == "Door" and Vector2(n.u.x, n.u.z).distance_to(lab_door) < 1.5:
+					bike.park_now()
+				elif not talk_ok:
+					bike.request_dismount()
+					n = {}
+			elif n.has("bike"):
+				bike.start_mount()
+				n = {}
 			# the lab's door opens: inside you go (main.gd enter_space)
 			if not indoors and n.has("u") and String(n.u.label) == "Door" and Vector2(n.u.x, n.u.z).distance_to(lab_door) < 1.5:
 				# dripping wet: the one at the door won't have him in (conditions.json entry)
@@ -280,12 +323,16 @@ func update(dt: float) -> void:
 		_air_y = g; vy = 0.0; ground = true
 	if ground and _air_y - g < 0.3: _air_y = g
 	game.pos.y = _air_y
-	player.position = game.pos
-	player.rotation.y = game.yaw
-	# the head turns toward where the camera looks, within a comfortable range
-	var rel := wrapf(game.cam_yaw + PI - game.yaw, -PI, PI)
-	player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
-	player.animate(dt, absf(game.speed), not ground)
+	if bike.places_player():
+		bike.place(dt)   # Ash in the bike's frame (its lean), the bike posed
+		player.look_yaw = NAN
+	else:
+		player.position = game.pos
+		player.rotation.y = game.yaw
+		# the head turns toward where the camera looks, within a comfortable range
+		var rel := wrapf(game.cam_yaw + PI - game.yaw, -PI, PI)
+		player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
+	player.animate(dt, absf(game.speed), not ground and not bike.riding())
 	body.update(dt)
 	_villagers(dt)
 	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
@@ -313,7 +360,7 @@ func update(dt: float) -> void:
 	var _grass := in_grass
 	# hopping down a ledge on Route 1: a little jump as you go over its edge
 	var fl: int = game.world.flag(me2.x, me2.z)
-	if fl != 255 and (fl & 32) and ground and not _on_ledge:
+	if fl != 255 and (fl & 32) and ground and not _on_ledge and not bike.riding():
 		vy = 3.2; ground = false
 	_on_ledge = fl != 255 and (fl & 32) != 0
 	# the prompt over whatever is in reach
@@ -508,6 +555,7 @@ func _input(e: InputEvent) -> void:
 			if b != "":
 				_touch_btn[e.index] = b
 				if b == "use": _btn_a = true
+				elif b == "bell": _btn_bell = true
 				else: _btn_jump = true
 				btn_ui.down[b] = true
 				btn_ui.queue_redraw()
@@ -522,7 +570,8 @@ func _input(e: InputEvent) -> void:
 
 class _TouchButtons extends Control:
 	var cast
-	var down := {"use": false, "jump": false}
+	var down := {"use": false, "jump": false, "bell": false}
+	var _bell_on := false
 	var font: FontVariation
 	var shown := false
 	func _ready() -> void:
@@ -549,21 +598,43 @@ class _TouchButtons extends Control:
 		if safe.size.x > 0 and win.x > 0:
 			var k := s.x / float(win.x)
 			s -= Vector2(maxf(0.0, win.x - safe.end.x), maxf(0.0, win.y - safe.end.y)) * k
-		return {"use": Vector2(s.x - 12 - 10 - 32, s.y - 86 - 10 - 32), "jump": Vector2(s.x - 86 - 10 - 32, s.y - 30 - 10 - 32)}
+		var c := {"use": Vector2(s.x - 12 - 10 - 32, s.y - 86 - 10 - 32), "jump": Vector2(s.x - 86 - 10 - 32, s.y - 30 - 10 - 32)}
+		# on the bike: a small bell button beside the two
+		if cast and cast.bike and cast.bike.riding(): c["bell"] = Vector2(s.x - 160 - 10 - 24, s.y - 30 - 10 - 24)
+		return c
 	func hit(p: Vector2) -> String:
 		if not shown: return ""
 		var c := centres()
 		for k in c:
-			if p.distance_to(c[k]) < 40.0: return k
+			if p.distance_to(c[k]) < (30.0 if k == "bell" else 40.0): return k
 		return ""
+	func _process(_dt: float) -> void:
+		var on: bool = cast != null and cast.bike != null and cast.bike.riding()
+		if on != _bell_on:
+			_bell_on = on
+			queue_redraw()
 	func _draw() -> void:
 		var c := centres()
 		for k in c:
 			var col := Color(0.91, 0.27, 0.235, 0.8) if k == "use" else Color(0.137, 0.157, 0.31, 0.6)
 			if down[k]: col = col.lightened(0.25)
+			if k == "bell":
+				# a little bicycle bell: a dome on a stem, the lever beside it
+				var bc: Vector2 = c[k]
+				draw_circle(bc, 24.0, Color(0.85, 0.66, 0.2, 0.75) if not down[k] else Color(0.95, 0.8, 0.35, 0.9), true, -1.0, true)
+				draw_circle(bc, 23.0, Color(1, 1, 1, 0.7), false, 2.0, true)
+				var dome := PackedVector2Array()
+				for i in 13:
+					var a := PI + PI * i / 12.0
+					dome.append(bc + Vector2(cos(a) * 11.0, 3.0 + sin(a) * 11.0))
+				draw_colored_polygon(dome, Color.WHITE)
+				draw_line(bc + Vector2(-13, 4), bc + Vector2(13, 4), Color.WHITE, 3.0, true)
+				draw_circle(bc + Vector2(0, -9), 2.5, Color.WHITE, true, -1.0, true)
+				draw_line(bc + Vector2(6, 8), bc + Vector2(12, 13), Color.WHITE, 3.0, true)
+				continue
 			draw_circle(c[k], 32.0, col, true, -1.0, true)
 			draw_circle(c[k], 31.0, Color(1, 1, 1, 0.7), false, 2.0, true)
-			var label := "A" if k == "use" else "Jump"
+			var label := "A" if k == "use" else ("Hop" if _bell_on else "Jump")
 			var fs := 22 if k == "use" else 13
 			var sz := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 			draw_string(font, c[k] + Vector2(-sz.x / 2, sz.y * 0.32), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)

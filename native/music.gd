@@ -44,6 +44,9 @@ const T := preload("res://tunables.gd")
 var TRACKS := T.dict("music", "tracks", TRACKS0)
 var PERIOD_TRACK := T.dict("music", "period_track", PERIOD_TRACK0)
 var TRACK_DB := T.dict("music", "track_db", TRACK_DB0)
+# riding Ash's bike: a track of its own when music.json names one (bike_track: a
+# res:// path, empty = the town's music goes on)
+var BIKE_TRACK := T.text("music", "bike_track", "")
 var DOOR_FADE := T.num("music", "door_fade", 1.5)
 var DAY_FADE := T.num("music", "day_fade", 6.0)
 var DUCK_DB := T.num("music", "duck_db", -4.5)
@@ -65,6 +68,7 @@ var vol := 0.7
 
 func setup(g: Node) -> void:
 	game = g
+	if BIKE_TRACK != "": TRACKS["bike"] = BIKE_TRACK
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	bus_idx = AudioServer.get_bus_index(BUS)
 	if bus_idx == -1:
@@ -114,8 +118,9 @@ func _wanted() -> String:
 	var inside: bool = bool(game.get("indoors"))
 	var it = game.get("interior")
 	if inside and it != null and String(it.name).contains("oak_lab"): return "lab"
-	var h := 12.0
 	var c = game.get("cast")
+	if not inside and TRACKS.has("bike") and c != null and c.get("bike") != null and c.bike.riding() and _stream("bike") != null: return "bike"
+	var h := 12.0
 	if c != null and c.get("clock") != null: h = c.clock.hour()
 	return PERIOD_TRACK[GameClock.period_of(h)]
 

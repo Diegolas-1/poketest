@@ -82,6 +82,7 @@ var world: WorldData
 var clock: GameClock
 var quests: Node
 var companions: Companions
+var cyclists: Cyclists           # the townspeople's bicycles (bike/cyclists.gd)
 var interiors = null
 var headless := false            # logic test: no actors, everyone simulated in full
 var nav := AStarGrid2D.new()
@@ -161,6 +162,10 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 	companions.name = "Companions"
 	add_child(companions)
 	companions.setup(self)
+	if not headless:
+		cyclists = Cyclists.new()
+		add_child(cyclists)
+		cyclists.setup(self)
 	if not headless:
 		var layer := CanvasLayer.new()
 		layer.layer = 1
@@ -753,6 +758,7 @@ func resync() -> void:
 		_jumped = false
 		_place_now(p)
 	if companions: companions.resync()
+	if cyclists: cyclists.resync()
 
 func _place_now(p: Dictionary) -> void:
 	var g: Dictionary = p.goal
@@ -822,6 +828,7 @@ func update(dt: float) -> void:
 					_tick(p, p.lod_acc, false); p.lod_acc = 0.0
 		if not headless: _show(p, dt)
 	companions.update(sim, dt, cam, planes, cp)
+	if cyclists: cyclists.update(dt, cp)
 	_doors(sim)
 	_social_acc += sim
 	if _social_acc >= 0.25:
@@ -846,6 +853,7 @@ func _show(p: Dictionary, dt: float) -> void:
 	if not vis: return
 	a.position = p.pos
 	a.rotation.y = p.yaw
+	if cyclists: cyclists.place(p, dt)   # on a bike: in its frame
 	p.acc += dt
 	var far: bool = p.cam_d > 25.0
 	a.cloth_far = p.cam_d > 25.0
@@ -910,6 +918,7 @@ func _hop(p: Dictionary) -> void:
 	_walk(p, Vector2(s.x, s.y), "act")
 
 func _move(p: Dictionary, dt: float, full: bool) -> void:
+	if cyclists and cyclists.move(p, dt, full): return   # on a bike (bike/cyclists.gd)
 	var path: PackedVector2Array = p.path
 	if p.pi >= path.size(): _arrive(p); return
 	var here := _xz3(p.pos)
@@ -966,7 +975,26 @@ func _move(p: Dictionary, dt: float, full: bool) -> void:
 	if not headless and not away:
 		var me := Vector2(game.pos.x, game.pos.z)
 		var dm := here.distance_to(me)
-		if dm < 1.8 and dm > 1e-3: push += (here - me) / dm * (1.8 - dm) * 1.5
+		# Ash on his bike: a wider berth, and out of his way sooner
+		var ab = cast.get("bike") if cast != null else null
+		var rr := 1.8
+		if ab != null and ab.riding(): rr = 2.6 + minf(absf(ab.v), 9.0) * 0.12
+		if dm < rr and dm > 1e-3: push += (here - me) / dm * (rr - dm) * 1.5
+		# and round parked bikes (his and the townspeople's)
+		if ab != null and ab.state == "parked" and ab.visible:
+			var bc: Array = ab.capsule()
+			var a3: Vector3 = bc[0]; var b3: Vector3 = bc[1]
+			var ab2 := Vector2(b3.x - a3.x, b3.z - a3.z)
+			var u := clampf((here - Vector2(a3.x, a3.z)).dot(ab2) / ab2.length_squared(), 0.0, 1.0)
+			var q := Vector2(a3.x, a3.z) + ab2 * u
+			var dq := here - q
+			if dq.length() < 0.75 and dq.length() > 1e-3: push += dq / dq.length() * (0.75 - dq.length()) * 2.0
+	if cyclists:
+		for ob in cyclists.obstacles():
+			if ob[2] == p.id: continue
+			var dq2: Vector2 = here - (ob[0] as Vector2)
+			var rr2: float = ob[1]
+			if dq2.length() < rr2 and dq2.length() > 1e-3: push += dq2 / dq2.length() * (rr2 - dq2.length()) * 2.0
 	var want := (dir + push * (clampf((d - 0.5) / 3.0, 0.15, 1.0) if last else 1.0)).normalized()
 	_turn(p, atan2(want.x, want.y), dt, 8.0)
 	var fwd := Vector2(sin(p.yaw), cos(p.yaw))
@@ -1053,6 +1081,7 @@ func _got_path(p: Dictionary, req: int, path: PackedVector2Array) -> void:
 	if path.size() > 1 and _xz3(p.pos).distance_to(path[0]) < 0.6: p.pi = 1
 	p.best_d = INF; p.prog_t = 0.0
 	p.state = "walk"
+	if cyclists: cyclists.plan(p)   # a long leg on the lanes: by bike
 
 func _exit_tree() -> void:
 	if _job >= 0: WorkerThreadPool.wait_for_task_completion(_job); _job = -1
@@ -1139,7 +1168,7 @@ func say(p: Dictionary, text: String, secs := 3.0, delay := 0.0) -> void:
 	if delay > 0.0: p.bubble.delay = delay
 
 func _free_for_chat(p: Dictionary) -> bool:
-	return p.state in ["walk", "act", "wait_path"] and p.inside == "" and _talking != p
+	return p.state in ["walk", "act", "wait_path"] and p.inside == "" and _talking != p and not (cyclists and cyclists.riding(p))
 
 func _pair(a: String, b: String) -> String:
 	return a + "|" + b if a < b else b + "|" + a

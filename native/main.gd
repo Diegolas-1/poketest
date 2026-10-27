@@ -67,6 +67,7 @@ var sfx: Sfx             # sfx.gd: the sound effects library and players
 var sfx_world: Node      # sfx_world.gd: the town's footsteps, ambience, doors
 var island: CanvasLayer  # island.gd
 var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
+var cam_shake := 0.0     # a knock (the bike into a wall): eases out
 
 func _ready() -> void:
 	world.load_all()
@@ -337,15 +338,21 @@ func _process(dt: float) -> void:
 	var r := Vector2(cos(cam_yaw), -sin(cam_yaw))
 	var dir := r * mv.x - f * mv.y
 	var m := minf(1.0, dir.length())
-	var want := (T.num("player", "run_speed", 8.5) if run else T.num("player", "walk_speed", 4.5)) * m if m > 0.05 else 0.0
-	want *= cast.body.speed_mult(run)   # slower in the water (deeper, slower), and by his conditions
-	cast.body.running = run and m > 0.05 and not cast.busy() and not trans_busy
-	if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * T.num("player", "accel", 10.0)))
-	if m > 0.05:
-		var ty := atan2(dir.x, dir.y)
-		yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * T.num("player", "turn", 12.0)))
-	if speed > 0.05 and not cast.busy() and not trans_busy:
-		pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt, true)   # (Ash wades: world_data.gd can_wade)
+	if cast.bike and cast.bike.controls():
+		# on his bike (bike/bike.gd): the stick's tilt pedals, its way steers; right out = sprint
+		cast.bike.control(dt, dir, m, mv.length() >= 0.95)
+		cast.body.running = false
+	else:
+		var want := (T.num("player", "run_speed", 8.5) if run else T.num("player", "walk_speed", 4.5)) * m if m > 0.05 else 0.0
+		want *= cast.body.speed_mult(run)   # slower in the water (deeper, slower), and by his conditions
+		cast.body.running = run and m > 0.05 and not cast.busy() and not trans_busy
+		if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * T.num("player", "accel", 10.0)))
+		if m > 0.05:
+			var ty := atan2(dir.x, dir.y)
+			yaw += wrapf(ty - yaw, -PI, PI) * (1.0 - exp(-dt * T.num("player", "turn", 12.0)))
+		if speed > 0.05 and not cast.busy() and not trans_busy:
+			pos = world.step(pos, sin(yaw) * speed * dt, cos(yaw) * speed * dt, true)   # (Ash wades: world_data.gd can_wade)
+			if cast.bike and not indoors: pos = cast.bike.push_out(pos)   # (round his parked bike)
 	cast.update(dt)
 	if sfx_world: sfx_world.update(dt)
 	_trans_step(dt)
@@ -369,20 +376,24 @@ func _process(dt: float) -> void:
 # the camera (web main.js updateCamera): swings in behind while you walk and
 # leave it alone; its height follows slowly so stairs read as a ramp
 func _camera(dt: float) -> void:
+	# on the bike: further back and a little lower with speed, swinging in behind sooner
+	var bk = cast.bike if cast and cast.bike and cast.bike.riding() else null
+	var dist: float = cam_dist + (bk.cam_pull() if bk else 0.0)
+	var pitch_eff: float = cam_pitch - (bk.cam_drop() if bk else 0.0)
 	if cam_recenter > 0.0:   # L / ZL / C: swing in behind the player
 		cam_recenter -= dt
 		cam_yaw += wrapf(yaw + PI - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
-	elif cam_idle > T.num("camera", "follow_idle", 1.0) and speed > 0.5:
+	elif cam_idle > (0.5 if bk else T.num("camera", "follow_idle", 1.0)) and speed > 0.5:
 		var behind := wrapf(yaw + PI - cam_yaw, -PI, PI)
-		cam_yaw += behind * (1.0 - exp(-dt * T.num("camera", "follow_rate", 0.9) * minf(1.0, speed / 6.0)))
+		cam_yaw += behind * (1.0 - exp(-dt * T.num("camera", "follow_rate", 0.9) * (bk.CAM_FOLLOW if bk else 1.0) * minf(1.0, speed / 6.0)))
 	var dy := pos.y - cam_ty
 	cam_ty += dy * (1.0 - exp(-dt * (T.num("camera", "height_follow_fast", 8.0) if absf(dy) > 1.5 else T.num("camera", "height_follow", 3.5))))
-	var k := 1.0 - exp(-dt * T.num("camera", "target_follow", 10.0))
+	var k := 1.0 - exp(-dt * (bk.CAM_LAG if bk else T.num("camera", "target_follow", 10.0)))
 	cam_target.x += (pos.x - cam_target.x) * k
 	cam_target.z += (pos.z - cam_target.z) * k
 	cam_target.y = cam_ty + T.num("camera", "eye_height", 1.45)
-	var cp := cos(cam_pitch)
-	var want := cam_target + Vector3(sin(cam_yaw) * cp, sin(cam_pitch), cos(cam_yaw) * cp) * cam_dist
+	var cp := cos(pitch_eff)
+	var want := cam_target + Vector3(sin(cam_yaw) * cp, sin(pitch_eff), cos(cam_yaw) * cp) * dist
 	var gc := T.num("camera", "ground_clear", 0.4)
 	var fl := maxf(world.height_at(want.x, want.z) + gc, world.sea_y + gc)
 	cam_floor += (fl - cam_floor) * (1.0 - exp(-dt * (T.num("camera", "floor_up", 9.0) if fl > cam_floor else T.num("camera", "floor_down", 3.0))))
@@ -390,6 +401,9 @@ func _camera(dt: float) -> void:
 	if cam.position == Vector3.ZERO: cam.position = want
 	cam.position = cam.position.lerp(want, 1.0 - exp(-dt * T.num("camera", "smooth", 14.0)))
 	cam.look_at(cam_target)
+	if cam_shake > 0.001:
+		cam_shake = move_toward(cam_shake, 0.0, dt * 0.8)
+		cam.rotate_object_local(Vector3.RIGHT, sin(Time.get_ticks_msec() * 0.06) * cam_shake * 0.05)
 
 # ---------- spaces: going through a door ----------
 # Like the games: the screen fades to black, the outdoor world (terrain, town,
@@ -432,6 +446,7 @@ func _trans_step(dt: float) -> void:
 func _outdoor_shown(on: bool) -> void:
 	for n in [terrain_root, town_root, water_root, scenery, sun]:
 		if n: n.visible = on
+	if cast and cast.bike: cast.bike.set_shown(on)   # (it waits outside)
 	for n in outdoor_ink:
 		if not is_instance_valid(n): continue
 		n.visible = on and Ink.is_enabled()
