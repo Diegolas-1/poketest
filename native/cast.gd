@@ -23,6 +23,7 @@ var conditions: Conditions   # Ash's conditions (conditions.gd): wet, fatigued
 var body: AshBody            # his body: wading, wetness, stamina (body.gd)
 var cond_ui: ConditionsUI    # their badges and the stamina bar (conditions_ui.gd)
 var bike: AshBike            # his bicycle (bike/bike.gd)
+var convo: Conversation      # the conversation mode (conversation.gd)
 var uses: Array = []
 var road: Array = []
 var tall: Array = []
@@ -101,6 +102,12 @@ func setup(g: Node3D) -> void:
 	life = TownLife.new()
 	add_child(life)
 	life.setup(game, self, clock)
+	# talking: the conversation mode (conversation.gd), its panel over the text box's layer
+	convo = Conversation.new()
+	convo.name = "Conversation"
+	add_child(convo)
+	convo.setup(life.quests, clock)
+	convo.attach(game, self, layer)
 
 # the actions worker settings define in project.godot; added here only when missing
 func _actions() -> void:
@@ -117,7 +124,11 @@ func _actions() -> void:
 			InputMap.action_add_event(a, jb)
 
 func busy() -> bool:
-	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy"))
+	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy())
+
+# someone is being talked to (the text box or a conversation): people stand still
+func talking() -> bool:
+	return dialog.open or (convo != null and convo.active)
 
 # ---------- inside a building (main.gd enter_space / leave_space) ----------
 # The villagers outside are hidden and left alone; the interior's own people
@@ -249,10 +260,17 @@ func update(dt: float) -> void:
 	var bell := _pressed("bike_bell")
 	var rjust := Input.is_action_just_pressed("run")
 	_btn_a = false; _btn_jump = false; _btn_bell = false
-	if dialog.open:
+	if convo.active:
+		# the conversation has the controls: A / Jump next (or pick), B the goodbye, up / down choose
+		if back: convo.back()
+		elif use or jmp: convo.press()
+		if Input.is_action_just_pressed("move_up") or Input.is_action_just_pressed("ui_up"): convo.ui.move(-1)
+		if Input.is_action_just_pressed("move_down") or Input.is_action_just_pressed("ui_down"): convo.ui.move(1)
+		use = false; jmp = false
+	elif dialog.open:
 		if use or jmp or back: dialog.next()
 		use = false; jmp = false
-	elif script_phase < 0:
+	elif script_phase < 0 and not convo.busy():
 		if bike.riding():
 			# on the bike: the jump hops (a pad's X / Y ring the bell, its R hops)
 			if jmp and _pad_xy(): bell = true
@@ -291,30 +309,28 @@ func update(dt: float) -> void:
 				var me: Vector3 = game.pos
 				game.speed = 0.0
 				_voice(n)
+				# people and Pokémon: the conversation mode
 				if n.has("person"):
-					var pp: Dictionary = n.person
-					face = atan2(pp.pos.x - me.x, pp.pos.z - me.z)
-					dialog.say(life.begin_talk(pp), func(): life.end_talk(pp))
+					convo.begin_person(n.person, life)
 				elif n.has("pet"):
-					var pc: Dictionary = n.pet
-					face = atan2(pc.pos.x - me.x, pc.pos.z - me.z)
-					dialog.say(life.companions.begin_talk(pc), func(): life.companions.end_talk(pc))
+					convo.begin_pet(n.pet, life.companions)
+				elif n.has("npc"):
+					var c: Dictionary = n.npc
+					c.target = null; c.wait = 3.0; c.speed = 0.0
+					c.face = atan2(me.x - c.pos.x, me.z - c.pos.z)
+					convo.begin_npc(c)
 				else:
-					if n.has("npc"):
-						var c: Dictionary = n.npc
-						c.target = null; c.wait = 3.0; c.speed = 0.0
-						c.face = atan2(me.x - c.pos.x, me.z - c.pos.z)
-						face = atan2(c.pos.x - me.x, c.pos.z - me.z)
-					else:
-						face = atan2(n.at.x - me.x, n.at.z - me.z)
-						var sw = game.get("sfx_world")
-						if sw and n.has("u"): sw.on_use(n.u)
+					# signs and things to read: the plain text box
+					face = atan2(n.at.x - me.x, n.at.z - me.z)
+					var sw = game.get("sfx_world")
+					if sw and n.has("u"): sw.on_use(n.u)
 					dialog.say(n.lines)
-	# turn smoothly to face whoever (or whatever) you're talking to
+	# turn smoothly to face whatever you're reading
 	if dialog.open and not is_nan(face):
 		game.yaw += wrapf(face - game.yaw, -PI, PI) * (1.0 - exp(-dt * 10.0))
 	if not dialog.open: face = NAN
 	if script_phase >= 0: _oak_scene(dt)
+	convo.update(dt)   # placing the two, their faces, the schedule's interruptions
 	# gravity (pos.y was set to the ground by main; keep the height while in the air)
 	var g: float = game.world.ash_ground(game.pos.x, game.pos.z)   # in the water: the raised bed (world_data.gd)
 	vy -= 16.0 * dt
@@ -331,13 +347,14 @@ func update(dt: float) -> void:
 		player.rotation.y = game.yaw
 		# the head turns toward where the camera looks, within a comfortable range
 		var rel := wrapf(game.cam_yaw + PI - game.yaw, -PI, PI)
-		player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
+		if not convo.active:   # (in a conversation he looks at whoever he's talking to)
+			player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
 	player.animate(dt, absf(game.speed), not ground and not bike.riding())
 	body.update(dt)
 	_villagers(dt)
 	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
 	if indoors:
-		var n3 := nearby() if not dialog.open else {}
+		var n3 := nearby() if not dialog.open and not convo.busy() else {}
 		var cam3: Camera3D = game.cam
 		dialog.prompt = {"pos": cam3.unproject_position(n3.at), "label": n3.label} if not n3.is_empty() and not cam3.is_position_behind(n3.at) else {}
 		return
@@ -364,7 +381,7 @@ func update(dt: float) -> void:
 		vy = 3.2; ground = false
 	_on_ledge = fl != 255 and (fl & 32) != 0
 	# the prompt over whatever is in reach
-	var n2 := nearby() if not dialog.open and script_phase < 0 else {}
+	var n2 := nearby() if not dialog.open and script_phase < 0 and not convo.busy() else {}
 	var cam: Camera3D = game.cam
 	if not n2.is_empty() and not cam.is_position_behind(n2.at):
 		dialog.prompt = {"pos": cam.unproject_position(n2.at), "label": n2.label}
@@ -379,12 +396,12 @@ func _villagers(dt: float) -> void:
 	for n in npcs:
 		if n.hidden: continue
 		var a: CastActor = n.actor
-		if dialog.open or (n == oak and script_phase < 0):
-			if dialog.open: n.speed = 0.0
+		if talking() or (n == oak and script_phase < 0):
+			if talking(): n.speed = 0.0
 			if not is_nan(n.face): n.yaw += wrapf(n.face - n.yaw, -PI, PI) * (1.0 - exp(-dt * 8.0))
 		else:
 			n.face = NAN
-		if n != oak and n.wander > 0.0 and not dialog.open:
+		if n != oak and n.wander > 0.0 and not talking():
 			if n.target == null:
 				n.wait -= dt; n.speed *= exp(-dt * 8.0)
 				if n.wait <= 0.0:
@@ -408,7 +425,7 @@ func _villagers(dt: float) -> void:
 					if got < want.length() * 0.5: n.target = null
 		n.pos.y = float(n.ylock) if n.has("ylock") else game.world.height_at(n.pos.x, n.pos.z)
 		# indoors people turn back to what they were doing after a talk
-		if n.has("rot0") and not dialog.open and is_nan(n.face): n.yaw += wrapf(float(n.rot0) - n.yaw, -PI, PI) * (1.0 - exp(-dt * 2.0))
+		if n.has("rot0") and not talking() and is_nan(n.face): n.yaw += wrapf(float(n.rot0) - n.yaw, -PI, PI) * (1.0 - exp(-dt * 2.0))
 		a.position = n.pos
 		a.rotation.y = n.yaw
 		# well outside the view (with room for their shadow): not drawn, not animated
@@ -453,9 +470,9 @@ func _oak_scene(dt: float) -> void:
 			oak.speed = 0.0; script_phase = 1
 			game.yaw = atan2(oak.pos.x - me.x, oak.pos.z - me.z)
 			oak.face = atan2(me.x - oak.pos.x, me.z - oak.pos.z)
-			dialog.voice = "low"; dialog.voice_pitch = 1.0
-			dialog.say(["OAK: Hey! Wait! Don't go out!", "It's unsafe! Wild POKéMON live in tall grass!",
-				"You need your own POKéMON for your protection.", "I know! Come see me at my lab, by the sea. Follow me!"], func(): script_phase = 2)
+			# a cutscene in the conversation mode (conversations.json oak_tall_grass)
+			convo.on_done = func(): script_phase = 2
+			convo.begin_npc(oak, {"tree": "oak_tall_grass", "cutscene": true, "lines": []})
 	elif script_phase == 1:
 		game.speed = 0.0
 	elif script_phase == 2:
@@ -544,7 +561,7 @@ func _test_step(dt: float) -> void:
 				_air_y = game.pos.y
 			if absf(t - 0.5) < dt * 0.6 and script_phase < 0: _oak_start()
 			game.stick_vec = Vector2.ZERO
-			if dialog.open and fmod(t, 0.6) < dt: _btn_a = true
+			if talking() and fmod(t, 0.6) < dt: _btn_a = true
 			game.cam_dist = 6.0
 
 # ---------- touch buttons: A and Jump ----------

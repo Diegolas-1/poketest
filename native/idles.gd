@@ -179,6 +179,15 @@ static func _defs() -> Dictionary:
 		"twist": {"dur": 2.8, "w": 0.6, "mirror": true, "fx": "twist",
 			"gaze": [[0, {"y": 0, "p": 0}], [0.5, {"y": 0.15, "p": 0.4}], [2.4, {"y": 0.15, "p": 0.4}], [2.8, {"y": 0, "p": 0}]]},
 		"shoulders": {"dur": 1.8, "w": 0.6, "fx": "shoulders"},
+		# talking gestures (conversation.gd forces them; never picked at random): an open
+		# hand out in front of the chest while making a point, and a little shrug
+		"explain": {"dur": 2.4, "talk": true,
+			"armR": [[0, null], [0.45, {"at": CH(-0.13, -0.14, 0.27), "pole": [-1, -0.6, -0.3], "wt": 1.1, "wf": -0.2, "cu": 0.05}],
+				[1.1, {"at": CH(-0.15, -0.1, 0.31), "pole": [-1, -0.6, -0.3], "wt": 1.2, "wf": -0.25, "cu": 0.0}],
+				[1.7, {"at": CH(-0.14, -0.13, 0.28), "pole": [-1, -0.6, -0.3], "wt": 1.1, "wf": -0.2, "cu": 0.05}], [2.4, null]],
+			"body": [[0, {}], [0.5, {"hp": 0.05, "tw": -0.04}], [1.1, {"hp": -0.03, "tw": -0.06}], [1.8, {"hp": 0.03}], [2.4, {}]]},
+		"shrug": {"dur": 1.6, "talk": true, "fx": "shoulders",
+			"body": [[0, {}], [0.4, {"hr": 0.06, "hp": -0.03}], [1.0, {"hr": 0.05}], [1.6, {}]]},
 	}
 	return ACTIONS
 
@@ -192,6 +201,7 @@ func _init(actor: CastActor, is_npc: bool, with_ball: bool) -> void:
 	for n in D:
 		if D[n].get("ball", false) and not with_ball: continue
 		if npc and D[n].get("player", false): continue
+		if D[n].get("talk", false): continue
 		names.append(n)
 	if with_ball: _make_ball()
 

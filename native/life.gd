@@ -1450,6 +1450,14 @@ func nearest_talk(me: Vector3, fx: float, fz: float, maxd := 2.2) -> Dictionary:
 	return best
 
 func begin_talk(p: Dictionary) -> Array:
+	var ctx := begin_talk_quiet(p)
+	var lines: Array = quests.talk(p.id, ctx)
+	if lines.is_empty(): lines = ["..."]
+	return lines.map(func(l): return String(l) if not (l is Dictionary) else String(l.get("text", "...")))
+
+# stop them for a talk (the conversation mode asks Quests itself): their state
+# becomes "talk" until end_talk; returns their context (ctx_of) from before
+func begin_talk_quiet(p: Dictionary) -> Dictionary:
 	if p.state == "chase": _end_chase()
 	if p.state == "chat":
 		var c: Dictionary = p.chat
@@ -1461,9 +1469,7 @@ func begin_talk(p: Dictionary) -> Array:
 	p.v = 0.0
 	p.bubble = {}
 	_talking = p
-	var lines: Array = quests.talk(p.id, ctx)
-	if lines.is_empty(): lines = ["..."]
-	return lines.map(func(l): return String(l) if not (l is Dictionary) else String(l.get("text", "...")))
+	return ctx
 
 func end_talk(p: Dictionary) -> void:
 	_talking = null

@@ -79,6 +79,14 @@ var idle_t := 0.0
 var w := {"idle": 1.0, "walk": 0.0, "run": 0.0}
 var blink := 2.0
 var look_yaw := NAN
+# talking (conversation.gd): mouth 0..1 opens the jaw (FJlipL) while a line types
+# out, nod adds a head pitch (radians, + = down), look_pitch tilts the head toward
+# whoever they're facing (+ = up)
+var mouth := 0.0
+var nod := 0.0
+var look_pitch := 0.0
+var _mouth := 0.0
+var _lpitch := 0.0
 var _look_y := 0.0
 var _rng := RandomNumberGenerator.new()
 # life (idleLife in actor.js)
@@ -289,6 +297,7 @@ func animate(dt: float, speed: float, air: bool) -> void:
 	_clips(dt, 0.0 if riding else speed, air and not riding)
 	if riding: rider.apply(dt)
 	_head_look(dt)
+	_talk_face(dt)
 	for bi in used: skel.set_bone_pose_rotation(bi, q[bi])
 	if cloth:
 		var t0 := Time.get_ticks_usec()
@@ -531,6 +540,16 @@ func _head_look(dt: float) -> void:
 	if is_nan(look_yaw): return
 	_look_y += (look_yaw - _look_y) * (1.0 - exp(-dt * 6.0))
 	bend("Spine3", 0, 1, 0, _look_y * 0.12); bend("Neck", 0, 1, 0, _look_y * 0.35); bend("Head", 0, 1, 0, _look_y * 0.5)
+
+func _talk_face(dt: float) -> void:
+	_mouth += (mouth - _mouth) * (1.0 - exp(-dt * 22.0))
+	_lpitch += (look_pitch - _lpitch) * (1.0 - exp(-dt * 5.0))
+	if _mouth > 0.002:
+		var jb: int = bones.get("FJlipL", -1)
+		if jb >= 0: q[jb] = q[jb] * Quaternion(Vector3.UP, _mouth * 0.3)
+	var p := nod - _lpitch
+	if absf(p) > 0.0005:
+		bend("Neck", 1, 0, 0, p * 0.4); bend("Head", 1, 0, 0, p * 0.6)
 
 # the eye atlas has the closed eyes half a texture to the right
 var _shut := false

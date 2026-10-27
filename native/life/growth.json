@@ -1,0 +1,18 @@
+{
+  "_doc": "Ash's growth threads (design/ash_arc.md section 3). Points come from how he answers in conversations (conversations.json choices' do.growth) and, later, from setbacks. Stage thresholds rise: a stage reached sets the Quests flag heart_<thread>_<stage> so everyone's `after` lines can read it. Saved in user://conversations.save.",
+  "threads": {
+    "heart": {"name": "Heart", "stages": [0, 2, 5, 9, 14], "about": "empathy for Pokémon: my Pokémon -> my partner"},
+    "humility": {"name": "Humility", "stages": [0, 2, 5, 9, 14], "about": "pride -> learning"},
+    "responsibility": {"name": "Responsibility", "stages": [0, 2, 5, 9, 14], "about": "careless -> dependable"},
+    "patience": {"name": "Patience", "stages": [0, 2, 5, 9, 14], "about": "rush -> wait"},
+    "courage": {"name": "Courage", "stages": [0, 2, 5, 9, 14], "about": "bravado -> bravery"},
+    "openness": {"name": "Openness", "stages": [0, 2, 5, 9, 14], "about": "I can do it myself -> can you help me?"}
+  },
+  "setbacks": {
+    "lost_battle": {"responses": {"try_another_way": {"humility": 1, "patience": 1}, "ask_for_help": {"openness": 1, "humility": 1}, "call_home": {"openness": 1}, "rest": {"heart": 1}}},
+    "pokemon_hurt": {"responses": {"rest": {"heart": 2}, "ask_for_help": {"openness": 1}, "push_on": {"courage": 1}}},
+    "public_embarrassment": {"responses": {"make_it_right": {"humility": 2}, "laugh_it_off": {"courage": 1}}},
+    "broke_something": {"responses": {"make_it_right": {"responsibility": 2}}},
+    "condition_cured_with_care": {"responses": {"_auto": {"openness": 1}}}
+  }
+}

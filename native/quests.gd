@@ -75,6 +75,7 @@ var st := {}           # saved state
 var _recent := {}      # per speaker: keys of lines said lately (no immediate repeats)
 var _last_ctx := {}
 var _loaded := false
+var _opts := {}        # this talk's options (conversation.gd): no_offer, no_clue, no_rumor
 
 func _ready() -> void:
 	_ensure()
@@ -354,10 +355,12 @@ func talk(id: String, ctx: Dictionary = {}) -> Array:
 	_ensure()
 	var c := _ctx(ctx)
 	_last_ctx = c
+	_opts = ctx
 	var out := _quest_talk(id, c)
 	if out.is_empty(): out = _ambient(id, c)
+	_opts = {}
 	if out.is_empty(): out = ["..."]
-	out = _condition_remarks(id, c) + out
+	out = (_condition_remarks(id, c) if not ctx.get("no_remarks", false) else []) + out
 	st.met[id] = c.day
 	st.talks[id] = int(st.talks.get(id, 0)) + 1
 	if autosave: save()
@@ -408,8 +411,8 @@ func _ambient(id: String, c: Dictionary) -> Array:
 	for f in P.get("after", {}):
 		if st.flags.has(f): aft += P.after[f]
 	if not aft.is_empty(): pools.append([2.5, aft, ""])
-	var fresh := _rumors_for(id, false)
-	var told := _rumors_for(id, true)
+	var fresh := _rumors_for(id, false) if not _opts.get("no_rumor", false) else []
+	var told := _rumors_for(id, true) if not _opts.get("no_rumor", false) else []
 	if not fresh.is_empty(): pools.append([2.4, fresh, "rumor"])
 	elif not told.is_empty(): pools.append([0.6, told, "rumor"])
 	if pools.is_empty():
@@ -601,6 +604,7 @@ func _quest_talk(id: String, c: Dictionary) -> Array:
 		return lines + _advance(q, step, id)
 	# 2. someone with a clue for a step
 	for q in quest_list:
+		if _opts.get("no_clue", false): break
 		if state(q.id) != "active": continue
 		var step := _step(q)
 		var clues: Dictionary = step.get("clues", {})
@@ -611,6 +615,7 @@ func _quest_talk(id: String, c: Dictionary) -> Array:
 		return _as_lines(clues[id])
 	# 3. a quest to hand over
 	for q in quest_list:
+		if _opts.get("no_offer", false): break
 		if String(q.get("giver", "")) == id and state(q.id, c) == "available":
 			return start(q.id)
 	# 4. a giver waiting on you (every other talk, so their own chat still comes through)
@@ -846,3 +851,121 @@ func _generic_chat(a: String, b: String, c: Dictionary, acts: Array) -> Array:
 	if not closes.is_empty() and rng.randf() < 0.45:
 		out.append(label(a) + ": " + String(_as_lines(_pick("chat:" + a, closes))[0]).replace("{b}", short_name(b)))
 	return out
+
+# ---------- for the conversation mode (conversation.gd) ----------
+# talk(id, ctx) also takes ctx options: no_offer (don't hand a quest over),
+# no_clue (clues are asked for as questions instead), no_rumor (rumours are
+# asked for too). What _quest_talk would do with `id` now, without doing it:
+#   {"kind": "step", "qid", "step"} a step that needs them (and can be done now),
+#   {"kind": "offer", "qid"} a quest they'd hand over, or {} (nothing, or only a
+#   not-now / missing / clue / reminder, which talk() still says as before)
+func beat(id: String, ctx: Dictionary = {}) -> Dictionary:
+	_ensure()
+	var c := _ctx(ctx)
+	for q in quest_list:
+		if state(q.id) != "active": continue
+		var step := _step(q)
+		if step.is_empty() or not _targets(q, step, id): continue
+		if not _when_ok(step, c) or (step.has("needs") and not has_item(step.needs)): return {}
+		return {"kind": "step", "qid": q.id, "step": step_index(q.id)}
+	for q in quest_list:
+		if String(q.get("giver", "")) == id and state(q.id, c) == "available":
+			return {"kind": "offer", "qid": q.id}
+	return {}
+
+# carry out the step beat() found (take / give / set, the next step, the reward):
+# returns the extra lines (progress, reward say) for the speaker
+func advance_beat(qid: String, id: String) -> Array:
+	var q := quest(qid)
+	if q.is_empty() or state(qid) != "active": return []
+	var step := _step(q)
+	if step.is_empty() or not _targets(q, step, id): return []
+	return _fill(_advance(q, step, id), {"name": short_name(id)})
+
+# a clue `id` could give for an active quest (not given yet): {qid, key, lines, title} or {}
+func clue_for(id: String) -> Dictionary:
+	_ensure()
+	for q in quest_list:
+		if state(q.id) != "active": continue
+		var step := _step(q)
+		var clues: Dictionary = step.get("clues", {})
+		if not clues.has(id): continue
+		var ck := "%s:%d:%s" % [q.id, step_index(q.id), id]
+		if st.clues.has(ck): continue
+		return {"qid": q.id, "key": ck, "lines": _as_lines(clues[id]), "title": String(q.get("title", q.id))}
+	return {}
+
+func claim_clue(key: String) -> void:
+	st.clues[key] = true
+	if autosave: save()
+
+# rumour ids `id` can tell that Ash hasn't heard yet (unlocked ones)
+func fresh_rumors(id: String) -> Array:
+	_ensure()
+	return _rumors_for(id, false)
+
+# one of `id`'s tellings of rumour rid (marks it heard)
+func tell_rumor(id: String, rid: String) -> Array:
+	_ensure()
+	var r: Dictionary = rumor_by_id.get(rid, {})
+	var pool: Array = r.get("tellers", {}).get(id, [])
+	if pool.is_empty(): return []
+	var out := _as_lines(_pick(id, pool))
+	_hear(rid)
+	return out
+
+func hear(rid: String) -> void:
+	_ensure()
+	_hear(rid)
+
+# what `id` says about what they're doing now (their activity, place or time pool)
+func activity_lines(id: String, ctx: Dictionary = {}) -> Array:
+	_ensure()
+	var c := _ctx(ctx)
+	var P := person(id)
+	if P.is_empty(): return []
+	var pool := _pool(P.get("activity", {}), _act_keys(c.activity))
+	if pool.is_empty(): pool = _pool(P.get("place", {}), _place_keys(id, c.place))
+	if pool.is_empty(): pool = _pool(P.get("period", {}), [c.period, "any"])
+	return _as_lines(_pick(id, pool)) if not pool.is_empty() else []
+
+# the condition remarks (wet, worn out) `id` would open with, as plain lines
+func condition_lines(id: String, ctx: Dictionary = {}) -> Array:
+	_ensure()
+	return _condition_remarks(id, _ctx(ctx))
+
+# a talk that didn't go through talk(): who Ash has met today, and how often
+func note_talk(id: String, ctx: Dictionary = {}) -> void:
+	_ensure()
+	var c := _ctx(ctx)
+	_last_ctx = c
+	st.met[id] = c.day
+	st.talks[id] = int(st.talks.get(id, 0)) + 1
+	if autosave: save()
+
+func met_today(id: String, ctx: Dictionary = {}) -> bool:
+	_ensure()
+	return int(st.met.get(id, -999)) == int(_ctx(ctx).day)
+
+func talks_with(id: String) -> int:
+	return int(st.talks.get(id, 0))
+
+func give_item(it: String) -> void:
+	_give(it); _changed()
+
+func take_item(it: String) -> void:
+	_take(it); _changed()
+
+func quest_title(qid: String) -> String:
+	return String(quest(qid).get("title", qid))
+
+func rumor_title(rid: String) -> String:
+	return String(rumor_by_id.get(rid, {}).get("title", rid))
+
+func rumor_ids() -> Array:
+	_ensure()
+	return rumor_by_id.keys()
+
+func tellers_of(rid: String) -> Array:
+	_ensure()
+	return rumor_by_id.get(rid, {}).get("tellers", {}).keys()

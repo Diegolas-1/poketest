@@ -1,0 +1,4116 @@
+{
+  "_doc": "Conversation trees for conversation.gd (see its header for the format). speakers: nameplates, colours, typing voices. ash: Ash's own little lines (by person in ash.by). farewell / wrap_up / interrupts: how the other ends a talk. trees: quest beats (on offer:<quest> / step:<quest>:<n>), everyday trees (on talk, with a person, chance, once / daily), scenes (on scene). Plain lines are the other person; 'A: ' is Ash, 'N: ' narration, '<id>: ' someone else.",
+  "speakers": {
+    "ash": {
+      "name": "ASH",
+      "colour": "#e8463c",
+      "voice": "kid",
+      "pitch": 1.14
+    },
+    "delia": {
+      "name": "MOM",
+      "colour": "#d9708f",
+      "voice": "high",
+      "pitch": 1.0
+    },
+    "lily": {
+      "name": "LILY",
+      "colour": "#e0a33c",
+      "voice": "kid",
+      "pitch": 1.08
+    },
+    "rose": {
+      "name": "ROSE",
+      "colour": "#b56fae",
+      "voice": "high",
+      "pitch": 0.96
+    },
+    "bram": {
+      "name": "BRAM",
+      "colour": "#c98a3c",
+      "voice": "mid",
+      "pitch": 0.9
+    },
+    "ada": {
+      "name": "ADA",
+      "colour": "#e07a4f",
+      "voice": "high",
+      "pitch": 1.05
+    },
+    "timmy": {
+      "name": "TIMMY",
+      "colour": "#4f95da",
+      "voice": "kid",
+      "pitch": 0.95
+    },
+    "mae": {
+      "name": "GRANNY MAE",
+      "colour": "#8b7fc7",
+      "voice": "high",
+      "pitch": 0.9
+    },
+    "kai": {
+      "name": "KAI",
+      "colour": "#2fa39b",
+      "voice": "mid",
+      "pitch": 1.04
+    },
+    "marina": {
+      "name": "MARINA",
+      "colour": "#2f7fb5",
+      "voice": "high",
+      "pitch": 0.95
+    },
+    "ben": {
+      "name": "FARMER BEN",
+      "colour": "#6f9136",
+      "voice": "mid",
+      "pitch": 0.86
+    },
+    "tom": {
+      "name": "OLD TOM",
+      "colour": "#5b6b8c",
+      "voice": "low",
+      "pitch": 0.9
+    },
+    "gus": {
+      "name": "GUS",
+      "colour": "#4e5fa8",
+      "voice": "mid",
+      "pitch": 0.92
+    },
+    "oak": {
+      "name": "PROF. OAK",
+      "colour": "#8a6d4b",
+      "voice": "low",
+      "pitch": 1.0
+    },
+    "mrmime": {
+      "name": "MR. MIME",
+      "colour": "#e86fa0",
+      "voice": "critter",
+      "pitch": 1.0
+    },
+    "nibbles": {
+      "name": "NIBBLES",
+      "colour": "#7fbf3f",
+      "voice": "critter",
+      "pitch": 1.2
+    },
+    "doduo": {
+      "name": "DODUO",
+      "colour": "#b08850",
+      "voice": "critter",
+      "pitch": 0.9
+    },
+    "tea_keeper": {
+      "name": "TEA KEEPER",
+      "colour": "#7a8f6a",
+      "voice": "mid",
+      "pitch": 1.0
+    },
+    "mart_clerk": {
+      "name": "CLERK",
+      "colour": "#3d78c4",
+      "voice": "mid",
+      "pitch": 1.0
+    }
+  },
+  "ash": {
+    "greet": [
+      "Hi!",
+      "Hey there!",
+      "Hiya!",
+      "Morning!",
+      "Hey! It's me!"
+    ],
+    "bye": [
+      "See you later!",
+      "Gotta go! Bye!",
+      "Thanks! See ya!",
+      "Okay, bye!"
+    ],
+    "bye_labels": [
+      "See you later!",
+      "Gotta go!",
+      "Bye for now!",
+      "Thanks! Bye!"
+    ],
+    "ask_clue": [
+      "Hey, do you know anything about this?",
+      "Can I ask you about something I'm doing?",
+      "I'm helping someone. Do you know anything?"
+    ],
+    "cond_wet": [
+      "Heh. I sort of fell in. Sort of on purpose.",
+      "It's just water! It'll dry. Probably.",
+      "I was checking how deep it was. Pretty deep!"
+    ],
+    "cond_fatigue": [
+      "I'm fine! I'm just... catching my breath.",
+      "I ran here! The whole way! Heh..."
+    ],
+    "pet": [
+      "Hey, buddy!",
+      "Hi there, little guy!",
+      "Hey! Remember me?"
+    ],
+    "interrupted": [
+      "Oh! Okay, see you!",
+      "Sure! Bye!",
+      "No problem! See you later!"
+    ],
+    "by": {
+      "delia": {
+        "greet": [
+          "Hi, Mom!",
+          "Mom! Morning!",
+          "Mom! Guess what!"
+        ],
+        "bye": [
+          "Bye, Mom!",
+          "Love you! Bye!",
+          "See you at supper, Mom!"
+        ],
+        "bye_labels": [
+          "Bye, Mom!",
+          "See you later, Mom!"
+        ]
+      },
+      "timmy": {
+        "greet": [
+          "Hey, Timmy!",
+          "Timmy! What's up?"
+        ]
+      },
+      "lily": {
+        "greet": [
+          "Hi, Lily!",
+          "Hey, Lily. How's Nibbles?"
+        ]
+      },
+      "mae": {
+        "greet": [
+          "Hi, Granny Mae!",
+          "Morning, Granny Mae!"
+        ]
+      },
+      "tom": {
+        "greet": [
+          "Ahoy, Old Tom!",
+          "Hi, Old Tom!"
+        ]
+      },
+      "ben": {
+        "greet": [
+          "Hi, Farmer Ben!"
+        ]
+      },
+      "oak": {
+        "greet": [
+          "Hello, Professor!",
+          "Professor Oak!"
+        ],
+        "bye": [
+          "See you, Professor!",
+          "Thanks, Professor!"
+        ]
+      }
+    }
+  },
+  "farewell": {
+    "_any": [
+      "See you, Ash.",
+      "Off you go, then.",
+      "Bye now, Ash!"
+    ],
+    "delia": [
+      "Be back for supper, sweetie!",
+      "Wear your cap!",
+      "Bye, honey. Be careful!",
+      "Don't go too far!"
+    ],
+    "lily": [
+      "Bye! Nibbles says bye too. Probably.",
+      "See you! Don't catch anything before me!"
+    ],
+    "rose": [
+      "Mind the borders on your way out, dear.",
+      "Come back when the sweet peas are out."
+    ],
+    "bram": [
+      "HO HO! Off you pop!",
+      "Mind how you go, lad!"
+    ],
+    "ada": [
+      "Bye, dear! I'll tell everyone you said hello!",
+      "Off you go! Tell your mother I said hi!"
+    ],
+    "timmy": [
+      "BYE ASH! You're the BEST!",
+      "See you! I'm gonna practise my throw!"
+    ],
+    "mae": [
+      "Mind how you go, dearie.",
+      "Off you trot. Come back for a biscuit."
+    ],
+    "kai": [
+      "Later, kiddo!",
+      "Catch you on the next tide!"
+    ],
+    "marina": [
+      "Go on with you.",
+      "See you around, Ash."
+    ],
+    "ben": [
+      "Mm.",
+      "Mm. See you.",
+      "Mind the furrows."
+    ],
+    "tom": [
+      "Fair winds, lad!",
+      "Off with you, then. Steady as she goes."
+    ],
+    "gus": [
+      "Logged. Goodbye, Ash.",
+      "Mind the stairs."
+    ],
+    "oak": [
+      "Run along, Ash. And no tall grass!",
+      "Come back any time, my boy."
+    ],
+    "tea_keeper": [
+      "Safe travels, young one."
+    ],
+    "mart_clerk": [
+      "Thank you, come again!"
+    ]
+  },
+  "wrap_up": {
+    "_any": [
+      "Well, I'd best get on. Come and find me later, Ash.",
+      "Goodness, look at us chatting! I've things to do, Ash."
+    ],
+    "delia": [
+      "Oh, listen to us! I'd better get back to it, sweetie. More later?"
+    ],
+    "timmy": [
+      "Okay I gotta go do a secret thing now! BYE!"
+    ],
+    "ben": [
+      "Mm. Enough talk. Wheat won't cut itself."
+    ],
+    "gus": [
+      "That's enough words for one day. Logged."
+    ],
+    "oak": [
+      "My boy, I could talk POKéMON all day. And I would! But my notes are waiting."
+    ]
+  },
+  "interrupts": {
+    "_any": [
+      "Oh! Is that the time? I have to run, Ash. We'll talk later!"
+    ],
+    "delia": [
+      "Oh! The terrace! I have to go, sweetie. Mr. Mime will be doing the dishes in mime again.",
+      "Oh, look at the time! Talk later, honey. Love you!"
+    ],
+    "lily": [
+      "Oh no, I'm late! Mom said be home! BYE!"
+    ],
+    "rose": [
+      "Ah, the flowers won't wait, Ash. Neither will I, I'm afraid."
+    ],
+    "bram": [
+      "The ovens! HO! Sorry, lad, I have to run!"
+    ],
+    "ada": [
+      "Oh! My round! Everyone will be waiting for their loaves! Bye, dear!"
+    ],
+    "timmy": [
+      "Uh oh. That's my mom's voice. I gotta go!"
+    ],
+    "mae": [
+      "Oh, the Pidgey will be wanting me, dearie. Another time."
+    ],
+    "kai": [
+      "Oops, that's my tide! Gotta go, kiddo!"
+    ],
+    "marina": [
+      "That's me. Work to do. Later, Ash."
+    ],
+    "ben": [
+      "Mm. Got to go."
+    ],
+    "tom": [
+      "Ah, that's my cue, lad. The porch is calling."
+    ],
+    "gus": [
+      "The lamp, Ash. I have to see to the lamp."
+    ],
+    "nibbles": [
+      "N: (Nibbles hears Lily calling and wriggles off after her.)"
+    ],
+    "doduo": [
+      "N: (Both heads turn to Farmer Ben at once. Doduo trots off after him.)"
+    ],
+    "mrmime": [
+      "N: (Mr. Mime checks an invisible watch, bows, and hurries after Delia.)"
+    ]
+  },
+  "clue_labels": {},
+  "pet_chimes": {
+    "nibbles": [["nibbles: Cater!", "N: (Nibbles wriggles up onto Lily's shoe to get a better look at you.)"], ["N: (At Lily's feet, Nibbles nods along as if he understands every word.)"], ["nibbles: Caaater...", "lily: He says hello. Probably."]],
+    "doduo": [["doduo: Do! Duo!", "N: (Doduo's left head pecks your cap. The right head looks embarrassed.)"], ["N: (Doduo leans both heads in to listen. They seem to be taking notes.)"], ["doduo: Dodo!", "ben: Mm. It likes you."]],
+    "mrmime": [["N: (Behind Mom, Mr. Mime mimes everything she says. Very accurately.)"], ["mrmime: Mime-mime!", "N: (Mr. Mime mimes handing you an invisible cup of tea. You take it, to be polite.)"]]
+  },
+  "trees": [
+    {"id": "kai_storm_radio", "on": "talk", "with": "kai", "once": true, "chance": 0.45, "if": {"talks_min": 2}, "start": "s",
+      "nodes": {
+        "s": {"lines": ["Kiddo! Settle something. Marina says I love this radio more than her. Is that true? Be honest."], "choices": [
+          {"label": "Yes. Definitely the radio.", "tone": "cheeky", "ash": "Yes. Definitely the radio.", "next": "radio"},
+          {"label": "You should tell her you don't.", "tone": "kind", "ash": "You should go tell her you don't. Like, right now.", "do": {"growth": {"heart": 1}}, "next": "tell"},
+          {"label": "Can I have the radio, then?", "tone": "eager", "ash": "If you love her more... can I have the radio?", "next": "have"}
+        ]},
+        "radio": {"lines": ["Ha! TRAITOR! ...Don't tell her you said that. She'll agree with you."], "end": true},
+        "tell": {"lines": ["Right now? ...You're right. You're right! I'm going to tell her! Right after the weather report."], "end": true},
+        "have": {"lines": ["Nice try! Technology is incredible, and it's MINE."], "end": true}
+      }},
+    {"id": "rose_wilt", "on": "talk", "with": "rose", "once": true, "chance": 0.45, "if": {"talks_min": 1}, "start": "s",
+      "nodes": {
+        "s": {"lines": ["Ash. This one's wilting. Look. Too much sun, not enough water. What would you do?"], "choices": [
+          {"label": "Water it! Lots!", "tone": "eager", "ash": "Water it! Lots and lots!", "next": "lots"},
+          {"label": "Move it to the shade?", "tone": "curious", "ash": "Move it into the shade? And a little water?", "do": {"growth": {"patience": 1}}, "next": "shade"},
+          {"label": "Ask it what it wants.", "tone": "cheeky", "ash": "Ask it what it wants?", "next": "ask"}
+        ]},
+        "lots": {"lines": ["Drown it, and it'll wilt the other way. A little, often. Things that are hurting can't take much at once."], "end": true},
+        "shade": {"lines": ["Exactly. A little shade, a little water, and time. That's most of looking after anything."], "end": true},
+        "ask": {"lines": ["Ha! You're more right than you know. You watch, and it tells you. Try that with your POKéMON."], "end": true}
+      }},
+    {"id": "ada_sign", "on": "talk", "with": "ada", "once": true, "chance": 0.45, "if": {"talks_min": 2}, "start": "s",
+      "nodes": {
+        "s": {"lines": ["When you're famous, dear, we'll put up a sign. 'Home of Ash Ketchum'. I'll paint it myself!"], "choices": [
+          {"label": "Can it be really big?", "tone": "eager", "ash": "Can it be really big? With a Charizard on it?", "next": "big"},
+          {"label": "Spell my name right!", "tone": "cheeky", "ash": "Just spell my name right, okay?", "next": "spell"},
+          {"label": "Put Mom's name on it too.", "tone": "kind", "ash": "Put Mom's name on it too. She did most of the work.", "do": {"growth": {"heart": 1}}, "next": "mom"}
+        ]},
+        "big": {"lines": ["As big as the bread stall! I'll need a ladder. Bram will need to hold the ladder. Bram will complain."], "end": true},
+        "spell": {"lines": ["Of course I will! A-S-H, K-E-T-C-H... U-P? No. Hm. I'll ask Mae."], "do": {"flag": "ada_sign_spelling"}, "end": true},
+        "mom": {"lines": ["Oh, you dear boy. 'Home of Ash Ketchum, and his mother Delia, who did most of the work'. It'll be a long sign."], "end": true}
+      }},
+    {"id": "ben_quiet", "on": "talk", "with": "ben", "once": true, "chance": 0.4, "if": {"talks_min": 3}, "start": "s",
+      "nodes": {
+        "s": {"lines": ["...", "N: (Farmer Ben just looks at the field. He seems happy to stand there.)"], "choices": [
+          {"label": "Stand there with him", "tone": "quiet", "ash": "", "do": {"growth": {"patience": 1}, "rel": 1}, "next": "stand"},
+          {"label": "Say something!", "tone": "eager", "ash": "So! Wheat! Pretty great, huh?", "next": "say"}
+        ]},
+        "stand": {"lines": ["N: (A Pidgey lands on the fence. The wheat moves in the wind. Neither of you says anything for a long time.)", "Mm. Good talk."], "end": true},
+        "say": {"lines": ["Mm. Pretty great."], "end": true}
+      }},
+    {
+      "id": "q_rumbles_offer",
+      "on": "offer:q_rumbles",
+      "with": "tom",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "branch": [
+            {
+              "if": {
+                "later": "q_rumbles"
+              },
+              "next": "again"
+            },
+            {
+              "next": "ask"
+            }
+          ]
+        },
+        "again": {
+          "lines": [
+            "Back again, lad? Still thinking about that shake? I know I am."
+          ],
+          "next": "choose"
+        },
+        "ask": {
+          "lines": [
+            "Ash, lad! Did you feel it? Ground shook in the night. My ship's bell rang on its own.",
+            "That's the old mountain on Cinnabar, I'd wager. South across the sea."
+          ],
+          "next": "favour"
+        },
+        "favour": {
+          "lines": [
+            "Do an old sailor a favour. Ask Gus up at the lighthouse what he saw last night.",
+            "And ask Kai or Marina what the sailors are saying. Then come tell me."
+          ],
+          "next": "choose"
+        },
+        "choose": {
+          "choices": [
+            {
+              "label": "I'll find out! Leave it to me!",
+              "tone": "eager",
+              "ash": "Leave it to me! I'll be back before you know it!",
+              "do": {
+                "start_quest": "q_rumbles"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Was it a giant POKéMON?",
+              "tone": "curious",
+              "ash": "Was it a giant POKéMON? Like, rolling over in its sleep?",
+              "next": "giant"
+            },
+            {
+              "label": "Maybe later, Old Tom.",
+              "tone": "quiet",
+              "ash": "Can it wait a bit? I've got stuff to do.",
+              "do": {
+                "later": "q_rumbles"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "giant": {
+          "lines": [
+            "Ha! That's what I told Timmy. He's been hiding under the table since breakfast.",
+            "No, lad. Mountains rumble. Mostly. Will you go and ask for me?"
+          ],
+          "choices": [
+            {
+              "label": "Okay! Gus, then Kai or Marina.",
+              "tone": "eager",
+              "ash": "Okay! Gus first, then Kai or Marina!",
+              "do": {
+                "start_quest": "q_rumbles"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Later, I promise.",
+              "tone": "quiet",
+              "ash": "Later, I promise.",
+              "do": {
+                "later": "q_rumbles"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "yes": {
+          "lines": [
+            "That's the spirit! Off you go. And don't let Gus bore you with his logbook."
+          ],
+          "do": {
+            "growth": {
+              "responsibility": 1
+            }
+          },
+          "end": true
+        },
+        "later": {
+          "lines": [
+            "A promise, eh? I'll hold you to it. The mountain isn't going anywhere."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_rumbles_gus",
+      "on": "step:q_rumbles:0",
+      "with": "gus",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "The shake? Logged it. One-oh-five in the morning. Eleven seconds."
+          ],
+          "choices": [
+            {
+              "label": "You were AWAKE at one?",
+              "tone": "curious",
+              "ash": "You were awake at one in the morning?",
+              "next": "awake"
+            },
+            {
+              "label": "What did you see?",
+              "tone": "eager",
+              "ash": "What did you see from up there?",
+              "next": "saw"
+            }
+          ]
+        },
+        "awake": {
+          "lines": [
+            "I'm always awake at one, Ash. That's the job. The town sleeps. I watch."
+          ],
+          "next": "saw"
+        },
+        "saw": {
+          "lines": [
+            "From the gallery I saw a red glow, low on the southern horizon. Cinnabar.",
+            "Smoke at dawn, too. Thin and white. Tell Tom it wasn't his imagination. This time."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_rumbles_kai",
+      "on": "step:q_rumbles:1",
+      "with": "kai",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "The rumbles? Ferry radio was buzzing about it! Technology is incredible!",
+            "The Cinnabar boats say the hot springs are bubbling extra hot. Tourists love it."
+          ],
+          "choices": [
+            {
+              "label": "Can I hear the radio?",
+              "tone": "eager",
+              "ash": "Can I listen to the radio? Please?",
+              "next": "radio"
+            },
+            {
+              "label": "Is anyone in danger?",
+              "tone": "kind",
+              "ash": "Is anyone in danger over there?",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "danger"
+            }
+          ]
+        },
+        "radio": {
+          "lines": [
+            "N: (Kai turns a dial. Static. A crackle. Someone far away says 'over'.)",
+            "Hear that? That's a boat off Seafoam! INCREDIBLE!"
+          ],
+          "next": "gym"
+        },
+        "danger": {
+          "lines": [
+            "Nah. Cinnabar folk are used to it. The old mountain grumbles, they make tea. Good of you to ask, though."
+          ],
+          "next": "gym"
+        },
+        "gym": {
+          "lines": [
+            "And the Gym's closed. Again. Blaine's a funny one, they say. Ask Tom about him."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_rumbles_marina",
+      "on": "step:q_rumbles:1",
+      "with": "marina",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "The sailors? Jumpy. Tentacool scattered off the point like someone kicked the sea.",
+            "Water's warm. Warm from the south. That's Cinnabar's mountain, sure as salt."
+          ],
+          "choices": [
+            {
+              "label": "Can POKéMON feel earthquakes?",
+              "tone": "curious",
+              "ash": "Can POKéMON feel it before it happens?",
+              "next": "feel"
+            },
+            {
+              "label": "Cool! A real volcano!",
+              "tone": "eager",
+              "ash": "Cool! A real live volcano!",
+              "next": "cool"
+            }
+          ]
+        },
+        "feel": {
+          "lines": [
+            "Better than we can. The Krabby were all out of the water an hour before. Watch the POKéMON, Ash. They know."
+          ],
+          "do": {
+            "know": "pokemon_sense_quakes"
+          },
+          "next": "gym"
+        },
+        "cool": {
+          "lines": [
+            "Cool till it's your boat, kid. Respect the sea. And anything that boils it."
+          ],
+          "next": "gym"
+        },
+        "gym": {
+          "lines": [
+            "Ferry men say Blaine's gym is shut up tight. Ask Old Tom about that one."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_rumbles_report",
+      "on": "step:q_rumbles:2",
+      "with": "tom",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Well, lad? Out with it! What did they say?"
+          ],
+          "choices": [
+            {
+              "label": "A red glow AND smoke!",
+              "tone": "eager",
+              "ash": "A red glow! And smoke at dawn! And the water's warm, and the Tentacool ran away!",
+              "next": "knew"
+            },
+            {
+              "label": "Gus says it's not your imagination.",
+              "tone": "cheeky",
+              "ash": "Gus says to tell you it wasn't your imagination. This time.",
+              "next": "gus"
+            },
+            {
+              "label": "Are you worried, Old Tom?",
+              "tone": "kind",
+              "ash": "Are you worried? About the mountain?",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "worried"
+            }
+          ]
+        },
+        "gus": {
+          "lines": [
+            "'This time'! HA! That old lamp-polisher. Fine. Fine! Score one for Gus."
+          ],
+          "next": "knew"
+        },
+        "worried": {
+          "lines": [
+            "Worried? ...A little, lad. I've friends on Cinnabar. Kind of you to ask an old man that."
+          ],
+          "next": "knew"
+        },
+        "knew": {
+          "lines": [
+            "A red glow, smoke at dawn, warm water and jumpy Tentacool. Ha! I knew it.",
+            "The old mountain's stirring, lad. Not angry, I'd say. Restless.",
+            "And the Gym's shut, eh? That'll be Blaine. Let me tell you about Blaine...",
+            "Fire POKéMON, a bald head, dark glasses, and a riddle for everyone who knocks.",
+            "They say his gym's hard to find. You'd need a clever head to get in. You'd do it, lad."
+          ],
+          "next": "done"
+        },
+        "done": {
+          "do": {
+            "advance": true,
+            "growth": {
+              "responsibility": 1
+            }
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_bread_offer",
+      "on": "offer:q_bread",
+      "with": "ada",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "branch": [
+            {
+              "if": {
+                "later": "q_bread"
+              },
+              "next": "again"
+            },
+            {
+              "next": "ask"
+            }
+          ]
+        },
+        "again": {
+          "lines": [
+            "Ash! Have you got a minute now, dear? The wheel's no better. Neither is Bram."
+          ],
+          "next": "choose"
+        },
+        "ask": {
+          "lines": [
+            "Ash! Oh, thank goodness. The cart's wheel's gone all wobbly. Bram's on it, but he's slow.",
+            "Be a dear and tell Granny Mae, Rose and Farmer Ben their bread will be late today?"
+          ],
+          "next": "choose"
+        },
+        "choose": {
+          "choices": [
+            {
+              "label": "Sure! I'm super fast!",
+              "tone": "eager",
+              "ash": "Sure! I'm the fastest runner in Pallet Town!",
+              "do": {
+                "start_quest": "q_bread"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "What's in it for me?",
+              "tone": "cheeky",
+              "ash": "Okay... but what's in it for me?",
+              "next": "cheek"
+            },
+            {
+              "label": "Not right now, sorry.",
+              "tone": "quiet",
+              "ash": "Not right now, sorry. Later?",
+              "do": {
+                "later": "q_bread"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "cheek": {
+          "lines": [
+            "Ha! Cheeky thing. A honey roll, warm from the oven. And my eternal gratitude. Mostly the roll."
+          ],
+          "choices": [
+            {
+              "label": "Deal!",
+              "tone": "eager",
+              "ash": "Deal! Mae, Rose and Ben!",
+              "do": {
+                "start_quest": "q_bread"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "I'd do it anyway. Sorry.",
+              "tone": "kind",
+              "ash": "I was joking. I'd do it anyway. Sorry, Ada.",
+              "do": {
+                "start_quest": "q_bread",
+                "growth": {
+                  "humility": 1
+                }
+              },
+              "next": "sweet"
+            }
+          ]
+        },
+        "sweet": {
+          "lines": [
+            "Oh, you sweet boy. Now you're getting TWO rolls. Don't tell Bram."
+          ],
+          "next": "yes"
+        },
+        "yes": {
+          "lines": [
+            "Mae will worry, Rose won't mind, and Ben will say 'Mm'. Then come back for a treat!"
+          ],
+          "end": true
+        },
+        "later": {
+          "lines": [
+            "Of course, dear. The bread will be late either way! Ha!"
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_bread_ben",
+      "on": "step:q_bread:0",
+      "with": "ben",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Mm."
+          ],
+          "choices": [
+            {
+              "label": "Your bread's going to be late!",
+              "tone": "eager",
+              "ash": "Ada says your bread's going to be late today!",
+              "next": "late"
+            },
+            {
+              "label": "Bet you'll say 'Mm'.",
+              "tone": "cheeky",
+              "ash": "Ada bet me you'd say 'Mm'. Your bread's late.",
+              "next": "bet"
+            }
+          ]
+        },
+        "late": {
+          "lines": [
+            "Mm. Late.",
+            "...Thanks for telling me. Tell Ada the wheat's good this year."
+          ],
+          "next": "done"
+        },
+        "bet": {
+          "lines": [
+            "...",
+            "Hm. Tell her I said 'Hm'. Ruins her bet. Wheat's good this year, too."
+          ],
+          "next": "done"
+        },
+        "done": {
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_bread_mae",
+      "on": "step:q_bread:0",
+      "with": "mae",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash, dearie. You've got your errand face on."
+          ],
+          "choices": [
+            {
+              "label": "Your bread will be late, sorry.",
+              "tone": "kind",
+              "ash": "Your bread's going to be late today. Sorry, Granny Mae.",
+              "next": "late"
+            },
+            {
+              "label": "Bread emergency!",
+              "tone": "eager",
+              "ash": "Bread emergency! Ada's wheel broke!",
+              "next": "late"
+            }
+          ]
+        },
+        "late": {
+          "lines": [
+            "Late, is it? That's all right, dearie. The Pidgey can wait for their crusts.",
+            "Tell Ada not to rush. Old ladies have time."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_bread_report",
+      "on": "step:q_bread:1",
+      "with": "ada",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Back already? Well? Did you tell them all?"
+          ],
+          "choices": [
+            {
+              "label": "All three! And Ben said 'Mm'.",
+              "tone": "eager",
+              "ash": "All three! Mae worried, Rose didn't mind, and Ben said...",
+              "next": "mm"
+            },
+            {
+              "label": "Ben says the wheat's good.",
+              "tone": "kind",
+              "ash": "Ben says the wheat's good this year. And Rose has sweet peas for you.",
+              "do": {
+                "growth": {
+                  "responsibility": 1
+                }
+              },
+              "next": "peas"
+            }
+          ]
+        },
+        "mm": {
+          "lines": [
+            "'Mm'? I KNEW it. You're a treasure, Ash!"
+          ],
+          "next": "done"
+        },
+        "peas": {
+          "lines": [
+            "Sweet peas! And he SPOKE? A whole sentence? You're a treasure and a miracle, Ash."
+          ],
+          "next": "done"
+        },
+        "done": {
+          "lines": [
+            "Here, a honey roll, still warm. Don't tell Bram."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_twine_offer",
+      "on": "offer:q_twine",
+      "with": "marina",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "branch": [
+            {
+              "if": {
+                "later": "q_twine"
+              },
+              "next": "again"
+            },
+            {
+              "next": "ask"
+            }
+          ]
+        },
+        "again": {
+          "lines": [
+            "Ash. My twine's still gone. You free now, or still 'busy'?"
+          ],
+          "next": "choose"
+        },
+        "ask": {
+          "lines": [
+            "Ash. My good waxed twine is gone. The whole spool. From the boathouse.",
+            "Kai swears it wasn't him. For once I believe him."
+          ],
+          "next": "choose"
+        },
+        "choose": {
+          "choices": [
+            {
+              "label": "I'll track it down!",
+              "tone": "eager",
+              "ash": "I'll track it down! Like a detective!",
+              "do": {
+                "start_quest": "q_twine"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Wasn't me! Honest!",
+              "tone": "cheeky",
+              "ash": "Wasn't me! Honest! ...I'll find it anyway.",
+              "do": {
+                "start_quest": "q_twine"
+              },
+              "next": "notme"
+            },
+            {
+              "label": "Later, okay?",
+              "tone": "quiet",
+              "ash": "Later, okay? I'll look later.",
+              "do": {
+                "later": "q_twine"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "notme": {
+          "lines": [
+            "Ha. I didn't say it was. But you said it first. Noted."
+          ],
+          "next": "yes"
+        },
+        "yes": {
+          "lines": [
+            "Ask around for me, would you? Somebody always sees something in this town."
+          ],
+          "end": true
+        },
+        "later": {
+          "lines": [
+            "Mm. Don't take too long. Nets don't mend themselves."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_twine_timmy",
+      "on": "step:q_twine:1",
+      "with": "timmy",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Wh-what twine? ...Oh. THAT twine.",
+            "It's for my POKéMON trap! I nearly caught something! A big cabbage. Well, a cabbage."
+          ],
+          "choices": [
+            {
+              "label": "Give it back, Timmy.",
+              "tone": "firm",
+              "ash": "Timmy. Marina needs it for her nets. Give it back.",
+              "next": "give"
+            },
+            {
+              "label": "A cabbage? Ha! Nice trap.",
+              "tone": "cheeky",
+              "ash": "A cabbage? Ha! Some trap!",
+              "next": "tease"
+            },
+            {
+              "label": "Want help with a better trap?",
+              "tone": "kind",
+              "ash": "Give it back, and I'll show you how to catch stuff without a trap. Deal?",
+              "do": {
+                "growth": {
+                  "heart": 1
+                },
+                "rel": 1
+              },
+              "next": "deal"
+            }
+          ]
+        },
+        "tease": {
+          "lines": [
+            "It's NOT funny! It was a really big cabbage!",
+            "...Fine. Here."
+          ],
+          "do": {
+            "rel": -1
+          },
+          "next": "give"
+        },
+        "deal": {
+          "lines": [
+            "REALLY?! You'll teach me?! DEAL!",
+            "Here. Take it. I'm gonna be the best catcher EVER."
+          ],
+          "next": "give2"
+        },
+        "give": {
+          "lines": [
+            "Here. You can have it. Will you tell Marina sorry? And not tell my mom?"
+          ],
+          "choices": [
+            {
+              "label": "I'll tell her you're sorry.",
+              "tone": "kind",
+              "ash": "I'll tell her you're sorry. But you say it too, okay?",
+              "do": {
+                "flag": "timmy_says_sorry",
+                "growth": {
+                  "responsibility": 1
+                }
+              },
+              "next": "thanks"
+            },
+            {
+              "label": "No promises!",
+              "tone": "cheeky",
+              "ash": "No promises!",
+              "next": "gulp"
+            }
+          ]
+        },
+        "give2": {
+          "lines": [
+            "Will you tell Marina sorry? From me?",
+            "A: Sure. But you say it too, okay?"
+          ],
+          "do": {
+            "flag": "timmy_says_sorry"
+          },
+          "next": "thanks"
+        },
+        "thanks": {
+          "lines": [
+            "Okay. I will. Thanks, Ash!"
+          ],
+          "next": "done"
+        },
+        "gulp": {
+          "lines": [
+            "N: (Timmy gulps.)",
+            "Ash! Pleeeeease!"
+          ],
+          "next": "done"
+        },
+        "done": {
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_twine_report",
+      "on": "step:q_twine:2",
+      "with": "marina",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "My twine! Smells of cabbage. Why does it smell of cabbage?"
+          ],
+          "choices": [
+            {
+              "label": "Timmy's sorry. Really.",
+              "tone": "kind",
+              "if": {
+                "flag": "timmy_says_sorry"
+              },
+              "ash": "Timmy borrowed it for a trap. He's sorry. Really sorry.",
+              "next": "sorry"
+            },
+            {
+              "label": "Timmy was trapping a cabbage.",
+              "tone": "cheeky",
+              "ash": "Timmy was trying to catch a cabbage with it.",
+              "next": "cabbage"
+            },
+            {
+              "label": "I'd rather not say.",
+              "tone": "quiet",
+              "ash": "I found it. I'd rather not say where.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "loyal"
+            }
+          ]
+        },
+        "sorry": {
+          "lines": [
+            "Sorry, is he? Hm. Then I'll let him help me mend the nets on Saturday. That's a sorry I can use."
+          ],
+          "next": "done"
+        },
+        "cabbage": {
+          "lines": [
+            "...Timmy. Of course. A cabbage. I don't even want to know."
+          ],
+          "next": "done"
+        },
+        "loyal": {
+          "lines": [
+            "Covering for someone. Hm. You and Kai both. Fine. I can guess."
+          ],
+          "next": "done"
+        },
+        "done": {
+          "lines": [
+            "Well, you found it. That's what matters.",
+            "You're a good one, Ash. Like I said. Reckless, but good."
+          ],
+          "do": {
+            "advance": true,
+            "growth": {
+              "responsibility": 1
+            }
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_pidgey_offer",
+      "on": "offer:q_pidgey",
+      "with": "mae",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "branch": [
+            {
+              "if": {
+                "later": "q_pidgey"
+              },
+              "next": "again"
+            },
+            {
+              "next": "ask"
+            }
+          ]
+        },
+        "again": {
+          "lines": [
+            "Still no Pidgey, dearie. Not a feather. Have you a moment for an old woman now?"
+          ],
+          "next": "choose"
+        },
+        "ask": {
+          "lines": [
+            "Ash, dearie. My Pidgey didn't come this morning. Twenty-two of them, and not one.",
+            "I'm sure it's nothing. Birds are birds. But my old heart worries."
+          ],
+          "next": "choose"
+        },
+        "choose": {
+          "choices": [
+            {
+              "label": "I'll find them, Granny Mae.",
+              "tone": "kind",
+              "ash": "Don't worry, Granny Mae. I'll find them.",
+              "do": {
+                "start_quest": "q_pidgey",
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Twenty-two? You count them?",
+              "tone": "curious",
+              "ash": "Twenty-two? You count them every morning?",
+              "next": "count"
+            },
+            {
+              "label": "I'll look later.",
+              "tone": "quiet",
+              "ash": "I'll look for them later, okay?",
+              "do": {
+                "later": "q_pidgey"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "count": {
+          "lines": [
+            "Every morning for forty years, dearie. Different birds, mostly. Same twenty-two.",
+            "Would you ask about them for me?"
+          ],
+          "choices": [
+            {
+              "label": "Of course!",
+              "tone": "eager",
+              "ash": "Of course! I'm on it!",
+              "do": {
+                "start_quest": "q_pidgey"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Later, I promise.",
+              "tone": "quiet",
+              "ash": "Later. I promise.",
+              "do": {
+                "later": "q_pidgey"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "yes": {
+          "lines": [
+            "Would you ask Farmer Ben, little Lily and Gus? Between them they see every wing in town."
+          ],
+          "end": true
+        },
+        "later": {
+          "lines": [
+            "Of course, dearie. They're birds. They'll keep. My heart will too, a little longer."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_pidgey_gus",
+      "on": "step:q_pidgey:0",
+      "with": "gus",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Pidgey? Twenty-two of them roosted on my gallery last night. Out of the wind."
+          ],
+          "choices": [
+            {
+              "label": "You let them stay?",
+              "tone": "curious",
+              "ash": "You let them stay up there?",
+              "next": "stay"
+            },
+            {
+              "label": "Mae will be SO happy!",
+              "tone": "eager",
+              "ash": "Mae will be so happy!",
+              "next": "safe"
+            }
+          ]
+        },
+        "stay": {
+          "lines": [
+            "I pretend I don't like birds, Ash. Don't tell Mae. She'd never let me hear the end of it."
+          ],
+          "next": "safe"
+        },
+        "safe": {
+          "lines": [
+            "Logged it. They're still there, preening. Tell Mae they're safe."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_pidgey_report",
+      "on": "step:q_pidgey:1",
+      "with": "mae",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash, dearie. You've news, I can see it on you."
+          ],
+          "choices": [
+            {
+              "label": "They're safe at the lighthouse!",
+              "tone": "eager",
+              "ash": "They're safe! A Spearow chased them, and they're at Gus's lighthouse!",
+              "next": "safe"
+            },
+            {
+              "label": "Gus is looking after them.",
+              "tone": "kind",
+              "ash": "Gus is looking after them. He likes birds really. Don't tell him I told.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "gus"
+            }
+          ]
+        },
+        "gus": {
+          "lines": [
+            "Ha! I knew it. Forty years he's pretended. Your secret's safe, dearie."
+          ],
+          "next": "safe"
+        },
+        "safe": {
+          "lines": [
+            "A Spearow chased them off Ben's fields, and they're sheltering at Gus's lighthouse?",
+            "Oh, clever little things. Thank you, dearie. You've always had a way with them, you know."
+          ],
+          "do": {
+            "advance": true,
+            "growth": {
+              "responsibility": 1
+            }
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_butterfree_offer",
+      "on": "offer:q_butterfree",
+      "with": "lily",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "branch": [
+            {
+              "if": {
+                "later": "q_butterfree"
+              },
+              "next": "again"
+            },
+            {
+              "next": "ask"
+            }
+          ]
+        },
+        "again": {
+          "lines": [
+            "Ash! You said later. It's later now! Nibbles counted."
+          ],
+          "next": "choose"
+        },
+        "ask": {
+          "lines": [
+            "Ash! Ash! I need help. It's about Nibbles. My Caterpie.",
+            "He's eating fine, but he's not happy. Well, I THINK he's not happy. How do you tell?"
+          ],
+          "next": "choose"
+        },
+        "choose": {
+          "choices": [
+            {
+              "label": "I'll find out for you!",
+              "tone": "kind",
+              "ash": "I'll find out for you! Nibbles deserves to be happy.",
+              "do": {
+                "start_quest": "q_butterfree",
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Easy. Ask a Master. Me!",
+              "tone": "cheeky",
+              "ash": "Easy! Ask a future POKéMON Master. Like me!",
+              "next": "brag"
+            },
+            {
+              "label": "Later, Lily.",
+              "tone": "quiet",
+              "ash": "Later, Lily. Promise.",
+              "do": {
+                "later": "q_butterfree"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "brag": {
+          "lines": [
+            "You? You don't even HAVE a POKéMON yet!",
+            "...Fine. You can help. But ask grown-ups. Real ones."
+          ],
+          "choices": [
+            {
+              "label": "Fair. Who should I ask?",
+              "tone": "kind",
+              "ash": "Fair. Who should I ask?",
+              "do": {
+                "start_quest": "q_butterfree",
+                "growth": {
+                  "humility": 1
+                }
+              },
+              "next": "yes"
+            },
+            {
+              "label": "I'll still be a Master first!",
+              "tone": "cheeky",
+              "ash": "Okay. But I'm still gonna be a Master first!",
+              "do": {
+                "start_quest": "q_butterfree"
+              },
+              "next": "rival"
+            }
+          ]
+        },
+        "rival": {
+          "lines": [
+            "NOT if I'm first! Now go!"
+          ],
+          "next": "yes"
+        },
+        "yes": {
+          "lines": [
+            "Can you ask my mom, and Farmer Ben, and Old Tom? Grandpa Tom knew real trainers!"
+          ],
+          "end": true
+        },
+        "later": {
+          "lines": [
+            "Fiiine. But Nibbles is watching you. He has six eyes. Probably."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_butterfree_tom",
+      "on": "step:q_butterfree:0",
+      "with": "tom",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Caterpie, eh? I sailed with a trainer once. Had a Butterfree he raised from a Caterpie."
+          ],
+          "choices": [
+            {
+              "label": "How did he do it?",
+              "tone": "curious",
+              "ash": "How did he do it? Was there a trick?",
+              "next": "how"
+            },
+            {
+              "label": "Is that one of your tall tales?",
+              "tone": "cheeky",
+              "ash": "Is this one of your tall tales, Old Tom?",
+              "next": "tale"
+            }
+          ]
+        },
+        "tale": {
+          "lines": [
+            "Ha! Not this one, lad. This one's true. Mostly all of it."
+          ],
+          "next": "how"
+        },
+        "how": {
+          "lines": [
+            "Every night he'd sit on deck and talk to it. Just talk. About his day, his home.",
+            "'POKéMON grow strong when they know they're loved,' he said. Never forgot it."
+          ],
+          "do": {
+            "advance": true,
+            "know": "pokemon_love"
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_butterfree_report",
+      "on": "step:q_butterfree:1",
+      "with": "lily",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Well? WELL? What did they say?"
+          ],
+          "choices": [
+            {
+              "label": "Soft leaves, shade, no poking!",
+              "tone": "eager",
+              "ash": "Soft leaves from the top, shade and morning dew, and no poking!",
+              "next": "tips"
+            },
+            {
+              "label": "And talk to him. Every night.",
+              "tone": "kind",
+              "ash": "And Old Tom says talk to him. Every night. So he knows he's loved.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "talk"
+            }
+          ]
+        },
+        "talk": {
+          "lines": [
+            "Talk to him? I can do that! I'm GREAT at talking! Mom says too great!"
+          ],
+          "next": "tips2"
+        },
+        "tips": {
+          "lines": [
+            "Soft leaves from the top. Shade and morning dew. Don't poke him. Is that all?",
+            "A: And talk to him. Old Tom says that's the big one."
+          ],
+          "next": "talk"
+        },
+        "tips2": {
+          "lines": [
+            "Nibbles, did you hear that? I'm going to tell you about my whole day. Every bit!"
+          ],
+          "do": {
+            "advance": true,
+            "growth": {
+              "responsibility": 1
+            }
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_fanclub_offer",
+      "on": "offer:q_fanclub",
+      "with": "timmy",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "branch": [
+            {
+              "if": {
+                "later": "q_fanclub"
+              },
+              "next": "again"
+            },
+            {
+              "next": "ask"
+            }
+          ]
+        },
+        "again": {
+          "lines": [
+            "ASH! Is it later yet? Is it? The club NEEDS you!"
+          ],
+          "next": "choose"
+        },
+        "ask": {
+          "lines": [
+            "Ash! I started a club! The Ash Ketchum Fan Club! I'm member number one!",
+            "But Mom says a club isn't real unless grown-ups sign it. So it's official."
+          ],
+          "next": "choose"
+        },
+        "choose": {
+          "choices": [
+            {
+              "label": "A fan club? For ME? Yes!",
+              "tone": "eager",
+              "ash": "A fan club? For ME? That's the coolest thing ever!",
+              "do": {
+                "start_quest": "q_fanclub"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Aw. Thanks, Timmy.",
+              "tone": "kind",
+              "ash": "Aw. Thanks, Timmy. That's really nice.",
+              "do": {
+                "start_quest": "q_fanclub",
+                "growth": {
+                  "humility": 1
+                },
+                "rel": 1
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Can it wait? I'm busy.",
+              "tone": "quiet",
+              "ash": "Can it wait a bit, Timmy?",
+              "do": {
+                "later": "q_fanclub",
+                "rel": -1
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "yes": {
+          "lines": [
+            "Can you get Grandpa Tom, Granny Mae and Kai to sign my card? Please please please?",
+            "It's okay that it's about you. That's what makes it a fan club!"
+          ],
+          "end": true
+        },
+        "later": {
+          "lines": [
+            "Okay... Real heroes are busy. I get it. I'll wait. I'm GOOD at waiting. Not really."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_fanclub_tom",
+      "on": "step:q_fanclub:0",
+      "with": "tom",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "A fan club for you, lad? Ha! Hand it here."
+          ],
+          "choices": [
+            {
+              "label": "It's kind of embarrassing...",
+              "tone": "quiet",
+              "ash": "It's kind of embarrassing, honestly.",
+              "next": "embar"
+            },
+            {
+              "label": "Make it a good one!",
+              "tone": "cheeky",
+              "ash": "Make it a good one! It's going in a museum someday.",
+              "next": "sign"
+            }
+          ]
+        },
+        "embar": {
+          "lines": [
+            "Embarrassing? Lad, a boy's grandson-in-all-but-name believes in you. That's a ship's wind. Don't waste it."
+          ],
+          "next": "sign"
+        },
+        "sign": {
+          "lines": [
+            "'To the future POKéMON Master. Fair winds and following seas. Old Tom.' There.",
+            "I meant that, you know. Every word."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_fanclub_report",
+      "on": "step:q_fanclub:1",
+      "with": "timmy",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "You got them ALL?! Grandpa! Granny Mae! KAI!",
+            "Now you sign it too! Right there! 'Ash Ketchum, POKéMON Master'!"
+          ],
+          "choices": [
+            {
+              "label": "Sign 'POKéMON Master'.",
+              "tone": "cheeky",
+              "ash": "Ash Ketchum... POKéMON... Master. There!",
+              "next": "master"
+            },
+            {
+              "label": "Sign 'future' Master.",
+              "tone": "kind",
+              "ash": "I'll put 'future'. I haven't done it yet. But I will.",
+              "do": {
+                "growth": {
+                  "humility": 1
+                }
+              },
+              "next": "future"
+            }
+          ]
+        },
+        "master": {
+          "lines": [
+            "Uh, Ash? Mom says you have to add 'future'. ...Okay, 'future'. But someday you can cross it out!"
+          ],
+          "next": "done"
+        },
+        "future": {
+          "lines": [
+            "'Future'. That's what Grandpa said too! And someday you can cross it out!"
+          ],
+          "next": "done"
+        },
+        "done": {
+          "lines": [
+            "The Ash Ketchum Fan Club is OFFICIAL! This is the best day EVER!"
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_lighthouse_offer",
+      "on": "offer:q_lighthouse",
+      "with": "gus",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "branch": [
+            {
+              "if": {
+                "later": "q_lighthouse"
+              },
+              "next": "again"
+            },
+            {
+              "next": "ask"
+            }
+          ]
+        },
+        "again": {
+          "lines": [
+            "Ash. The favour still stands. The nights are still long."
+          ],
+          "next": "choose"
+        },
+        "ask": {
+          "lines": [
+            "Ash. A favour. Since the rumbles, I've been watching every night. Long nights.",
+            "Bram's bread would make them shorter. He bakes in the mornings, before the ovens go cold."
+          ],
+          "next": "choose"
+        },
+        "choose": {
+          "choices": [
+            {
+              "label": "I'll bring you a loaf!",
+              "tone": "kind",
+              "ash": "I'll bring you a loaf! A warm one!",
+              "do": {
+                "start_quest": "q_lighthouse"
+              },
+              "next": "yes"
+            },
+            {
+              "label": "Can I see the lamp?",
+              "tone": "curious",
+              "ash": "Can I come up and see the lamp, too?",
+              "do": {
+                "start_quest": "q_lighthouse"
+              },
+              "next": "lamp"
+            },
+            {
+              "label": "Later, Gus.",
+              "tone": "quiet",
+              "ash": "Later, Gus. Okay?",
+              "do": {
+                "later": "q_lighthouse"
+              },
+              "next": "later"
+            }
+          ]
+        },
+        "lamp": {
+          "lines": [
+            "If you bring bread, you can see the lamp. Fair trade. Logged."
+          ],
+          "next": "yes"
+        },
+        "yes": {
+          "lines": [
+            "Fetch me a loaf, then bring it up after dark, when the lamp's lit. I'll be at the top."
+          ],
+          "end": true
+        },
+        "later": {
+          "lines": [
+            "Later. Logged."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_lighthouse_bram",
+      "on": "step:q_lighthouse:0",
+      "with": "bram",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "A loaf for Gus? HO HO! The keeper's finally eating properly!"
+          ],
+          "choices": [
+            {
+              "label": "Give him the burnt corner!",
+              "tone": "cheeky",
+              "ash": "Give him one with a burnt corner! He likes those.",
+              "next": "burnt"
+            },
+            {
+              "label": "Your best one, please.",
+              "tone": "kind",
+              "ash": "Your best one, please. He's been up every night.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "best"
+            }
+          ]
+        },
+        "burnt": {
+          "lines": [
+            "You know him well! A burnt corner it is. 'Character', lad. That's what it is."
+          ],
+          "next": "give"
+        },
+        "best": {
+          "lines": [
+            "Every night, eh? Then my best rye. And a little honey on the side. Don't tell Ada."
+          ],
+          "next": "give"
+        },
+        "give": {
+          "lines": [
+            "Here. Fresh rye, still warm. Keep it wrapped till dark. Bread's best by lamplight, he says."
+          ],
+          "do": {
+            "advance": true
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "q_lighthouse_report",
+      "on": "step:q_lighthouse:1",
+      "with": "gus",
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Bram's rye. At the top of the tower, with the lamp turning. Thank you, Ash.",
+            "Sit a moment. Listen. Hear that?"
+          ],
+          "choices": [
+            {
+              "label": "I don't hear anything...",
+              "tone": "quiet",
+              "ash": "I don't hear anything...",
+              "do": {
+                "growth": {
+                  "patience": 1
+                }
+              },
+              "next": "quiet"
+            },
+            {
+              "label": "Is it a ghost POKéMON?!",
+              "tone": "eager",
+              "ash": "Is it a ghost POKéMON?!",
+              "next": "ghost"
+            }
+          ]
+        },
+        "ghost": {
+          "lines": [
+            "Ha. No, Ash. It's nothing. That's the point. Sit. Listen to the nothing."
+          ],
+          "next": "quiet"
+        },
+        "quiet": {
+          "lines": [
+            "No? Neither do I. Not tonight.",
+            "Some still nights, far out on the sea lane, you can hear a Lapras singing.",
+            "I've heard it four times in forty years. Logged every one. Maybe you'll hear it too."
+          ],
+          "do": {
+            "advance": true,
+            "growth": {
+              "responsibility": 1
+            }
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "oak_tall_grass",
+      "on": "scene",
+      "with": "oak",
+      "topics": false,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Hey! Wait! Don't go out!",
+            "It's unsafe! Wild POKéMON live in tall grass!"
+          ],
+          "choices": [
+            {
+              "label": "I can handle it!",
+              "tone": "firm",
+              "ash": "I can handle it, Professor! I'm almost ten!",
+              "next": "brave"
+            },
+            {
+              "label": "Sorry, Professor.",
+              "tone": "quiet",
+              "ash": "Sorry, Professor. I just wanted to see.",
+              "do": {
+                "growth": {
+                  "humility": 1
+                }
+              },
+              "next": "sorry"
+            },
+            {
+              "label": "Then give me a POKéMON!",
+              "tone": "eager",
+              "ash": "Then give me a POKéMON! Right now!",
+              "next": "eager"
+            }
+          ]
+        },
+        "brave": {
+          "lines": [
+            "Almost isn't quite, my boy. Bravado and bravery are different things. You'll learn which is which."
+          ],
+          "next": "end"
+        },
+        "sorry": {
+          "lines": [
+            "Wanting to see is the start of every good Trainer, Ash. Just not alone, and not yet."
+          ],
+          "next": "end"
+        },
+        "eager": {
+          "lines": [
+            "Ha! That's the spirit. And that's the plan, very nearly."
+          ],
+          "next": "end"
+        },
+        "end": {
+          "lines": [
+            "You need your own POKéMON for your protection.",
+            "I know! Come see me at my lab, by the sea. Follow me!"
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "oak_lab_welcome",
+      "on": "talk",
+      "with": "oak",
+      "priority": 5,
+      "chance": 1.0,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "choices": [
+            {
+              "label": "When do I get my POKéMON?!",
+              "tone": "eager",
+              "ash": "When do I get my POKéMON? Is it today? It's today, right?",
+              "next": "when"
+            },
+            {
+              "label": "What are you studying?",
+              "tone": "curious",
+              "ash": "What are you studying in here?",
+              "do": {
+                "know": "oak_research"
+              },
+              "next": "study"
+            },
+            {
+              "label": "Gary says he gets the best one.",
+              "tone": "cheeky",
+              "ash": "Gary says he's getting the best POKéMON, because he's your grandson.",
+              "next": "gary"
+            }
+          ]
+        },
+        "when": {
+          "lines": [
+            "Soon, Ash. On your tenth birthday, like every Trainer in Kanto. Not a minute before."
+          ],
+          "next": "after"
+        },
+        "study": {
+          "lines": [
+            "How people and POKéMON live together, my boy. Not just battles. Friendship, homes, habits.",
+            "Every POKéMON has a story. A good Trainer listens to it."
+          ],
+          "next": "after"
+        },
+        "gary": {
+          "lines": [
+            "Ho! Does he now? My grandson thinks a great many things.",
+            "There's no 'best', Ash. Only the right one for you. And you for it."
+          ],
+          "do": {
+            "know": "no_best_pokemon"
+          },
+          "next": "after"
+        },
+        "after": {
+          "lines": [
+            "Now, have a look around. And no touching the POKé BALLS on the table. Yes, Ash, those."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "oak_good_trainer",
+      "on": "talk",
+      "with": "oak",
+      "once": true,
+      "chance": 0.6,
+      "if": {
+        "seen": "oak_lab_welcome"
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash, a question for you. What do you think makes a good Trainer?"
+          ],
+          "choices": [
+            {
+              "label": "Winning! Lots of winning!",
+              "tone": "eager",
+              "ash": "Winning! Beating everybody! Especially Gary!",
+              "next": "win"
+            },
+            {
+              "label": "Taking care of your POKéMON.",
+              "tone": "kind",
+              "ash": "Taking care of your POKéMON. Like, really taking care.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "care"
+            },
+            {
+              "label": "Never giving up!",
+              "tone": "firm",
+              "ash": "Never giving up. Not ever.",
+              "do": {
+                "growth": {
+                  "courage": 1
+                }
+              },
+              "next": "never"
+            }
+          ]
+        },
+        "win": {
+          "lines": [
+            "Ho ho. Winning is nice. But a Trainer who only wins has never learned anything.",
+            "Remember that the day you lose, Ash. Because you will. Everyone does."
+          ],
+          "next": "end"
+        },
+        "care": {
+          "lines": [
+            "Ah. That's the answer I hoped for. Battles come and go. Partners stay."
+          ],
+          "next": "end"
+        },
+        "never": {
+          "lines": [
+            "A fine stubbornness. Mind it doesn't become not listening. Knowing when to stop is a kind of strength too."
+          ],
+          "next": "end"
+        },
+        "end": {
+          "lines": [
+            "Hmm. I'll write that in my notes. 'Ketchum, A. Promising.'"
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "oak_pokedex",
+      "on": "talk",
+      "with": "oak",
+      "once": true,
+      "chance": 0.5,
+      "if": {
+        "seen": "oak_lab_welcome"
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Have I told you about my great project, Ash? A complete guide to every POKéMON in the world."
+          ],
+          "choices": [
+            {
+              "label": "Every single one?!",
+              "tone": "eager",
+              "ash": "Every single one? How many are there?",
+              "next": "many"
+            },
+            {
+              "label": "Can I help?",
+              "tone": "kind",
+              "ash": "Can I help? I'm good at finding things!",
+              "do": {
+                "flag": "offered_pokedex_help"
+              },
+              "next": "help"
+            }
+          ]
+        },
+        "many": {
+          "lines": [
+            "Over a hundred and fifty that I know of. And every year someone finds one more.",
+            "That's the wonderful thing. The world is never finished."
+          ],
+          "next": "help"
+        },
+        "help": {
+          "lines": [
+            "As a matter of fact, I'm building a little device to record them. A POKéDEX.",
+            "When you set off, you might carry one for me. Every POKéMON you meet, it remembers."
+          ],
+          "do": {
+            "know": "pokedex"
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_breakfast",
+      "on": "talk",
+      "with": "delia",
+      "once": false,
+      "daily": true,
+      "chance": 0.5,
+      "if": {
+        "first_today": true,
+        "period": [
+          "dawn",
+          "morning"
+        ]
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Morning, sweetie. Did you eat? Properly, I mean. Not just a spoonful of jam."
+          ],
+          "choices": [
+            {
+              "label": "Two pieces of toast!",
+              "tone": "eager",
+              "ash": "Two pieces of toast! And an egg! And the jam.",
+              "next": "ate"
+            },
+            {
+              "label": "...I forgot.",
+              "tone": "quiet",
+              "ash": "...I forgot. I was in a hurry.",
+              "do": {
+                "growth": {
+                  "openness": 1
+                }
+              },
+              "next": "forgot"
+            },
+            {
+              "label": "Masters don't need breakfast!",
+              "tone": "cheeky",
+              "ash": "POKéMON Masters don't need breakfast, Mom!",
+              "next": "masters"
+            }
+          ]
+        },
+        "ate": {
+          "lines": [
+            "And the jam. Of course the jam. Good boy."
+          ],
+          "end": true
+        },
+        "forgot": {
+          "lines": [
+            "Thank you for telling me, honey. There's a sandwich in your bag. I put it there an hour ago.",
+            "I always know, you know. Mothers always know."
+          ],
+          "end": true
+        },
+        "masters": {
+          "lines": [
+            "Is that so? Then I suppose POKéMON Masters don't need my pancakes either.",
+            "N: (She waits.)",
+            "A: ...There are pancakes?"
+          ],
+          "next": "pancakes"
+        },
+        "pancakes": {
+          "lines": [
+            "On the table. Go on. Even Masters have to eat, sweetie."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_journey",
+      "on": "talk",
+      "with": "delia",
+      "once": true,
+      "chance": 0.55,
+      "if": {
+        "talks_min": 1
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash, can I ask you something? Are you excited? About the journey?"
+          ],
+          "choices": [
+            {
+              "label": "SO excited! I'll catch them all!",
+              "tone": "eager",
+              "ash": "SO excited! I'm going to catch them all and win the League and everything!",
+              "next": "excited"
+            },
+            {
+              "label": "A little scared, actually.",
+              "tone": "quiet",
+              "ash": "A little scared, actually. Is that dumb?",
+              "do": {
+                "growth": {
+                  "openness": 1
+                },
+                "flag": "told_mom_scared"
+              },
+              "next": "scared"
+            },
+            {
+              "label": "Will you be okay without me?",
+              "tone": "kind",
+              "ash": "Will you be okay? Without me here?",
+              "do": {
+                "growth": {
+                  "heart": 1
+                },
+                "flag": "asked_mom_ok"
+              },
+              "next": "okay"
+            }
+          ]
+        },
+        "excited": {
+          "lines": [
+            "All of them! Goodness. You'll need a bigger backpack. I'll look into it.",
+            "Just... call me. When you can. Even if you're busy catching them all."
+          ],
+          "choices": [
+            {
+              "label": "I promise, Mom.",
+              "tone": "kind",
+              "ash": "I promise, Mom. Every week.",
+              "do": {
+                "flag": "promised_to_call",
+                "growth": {
+                  "responsibility": 1
+                }
+              },
+              "next": "promise"
+            },
+            {
+              "label": "If I remember!",
+              "tone": "cheeky",
+              "ash": "If I remember! Heh.",
+              "next": "remember"
+            }
+          ]
+        },
+        "promise": {
+          "lines": [
+            "Every week. I'm writing that down, mister. In pen."
+          ],
+          "end": true
+        },
+        "remember": {
+          "lines": [
+            "Then I'll tie a string round your finger. And your cap. And Mr. Mime will mime it at you."
+          ],
+          "end": true
+        },
+        "scared": {
+          "lines": [
+            "Dumb? Oh, honey, no. It's the bravest thing you've said all year.",
+            "Scared means you know it matters. Everybody brave you've ever heard of was scared first."
+          ],
+          "end": true
+        },
+        "okay": {
+          "lines": [
+            "Me? Oh, sweetie. I'll have Mr. Mime. And the terrace, and the roses, and Rose to talk to.",
+            "I'll be fine. I might even be... better than fine. Who knows?",
+            "N: (For a second, she looks out at the sea. Then she smiles at you.)"
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_wet",
+      "on": "talk",
+      "with": "delia",
+      "once": false,
+      "daily": true,
+      "priority": 8,
+      "chance": 0.9,
+      "if": {
+        "cond": "wet"
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash Ketchum. Why are you dripping on my clean step?"
+          ],
+          "choices": [
+            {
+              "label": "Sorry, Mom. Can I have a towel?",
+              "tone": "kind",
+              "ash": "Sorry, Mom. Can I have a towel?",
+              "do": {
+                "growth": {
+                  "openness": 1
+                }
+              },
+              "next": "towel"
+            },
+            {
+              "label": "It's just water!",
+              "tone": "cheeky",
+              "ash": "It's just water! It's basically a bath!",
+              "next": "bath"
+            },
+            {
+              "label": "I was saving a Magikarp!",
+              "tone": "eager",
+              "ash": "I was saving a Magikarp! It was stuck! Sort of!",
+              "next": "karp"
+            }
+          ]
+        },
+        "towel": {
+          "lines": [
+            "Here. Mr. Mime already had one ready. Of course he did.",
+            "Thank you for asking, sweetie. You don't always. Now go and stand in the sun."
+          ],
+          "end": true
+        },
+        "bath": {
+          "lines": [
+            "A bath has soap in it, mister. And it doesn't come with pond weed. Is that pond weed?"
+          ],
+          "end": true
+        },
+        "karp": {
+          "lines": [
+            "A Magikarp. Stuck. In the stream.",
+            "...Was it all right?",
+            "Then I suppose that's worth one pair of wet socks. Change them. Now."
+          ],
+          "do": {
+            "growth": {
+              "heart": 1
+            }
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_map",
+      "on": "talk",
+      "with": "delia",
+      "once": true,
+      "chance": 0.4,
+      "if": {
+        "talks_min": 3
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "I was tidying the hall closet. I found your old cap, the one with the ears.",
+            "And my old map. Goodness. It still has the pins in it."
+          ],
+          "choices": [
+            {
+              "label": "You had a map? Of where?",
+              "tone": "curious",
+              "ash": "You had a map? A map of where?",
+              "do": {
+                "flag": "mom_map_mentioned",
+                "growth": {
+                  "openness": 1
+                }
+              },
+              "next": "where"
+            },
+            {
+              "label": "Can I have it for my journey?",
+              "tone": "eager",
+              "ash": "Can I have it? For my journey?",
+              "next": "have"
+            },
+            {
+              "label": "Where's the cap with ears?!",
+              "tone": "cheeky",
+              "ash": "Wait. Where's the cap with the ears? Don't show anyone!",
+              "next": "cap"
+            }
+          ]
+        },
+        "where": {
+          "lines": [
+            "Oh, everywhere. Porta Vista was the first pin. Then Cinnabar, the hot springs. Seafoam.",
+            "It was a long time ago, sweetie. Before you. Silly, really.",
+            "N: (She doesn't sound like she thinks it's silly.)"
+          ],
+          "end": true
+        },
+        "have": {
+          "lines": [
+            "It's very old, honey. The roads have all moved. ...But maybe. We'll see.",
+            "Some pins are still waiting. Funny. I'd forgotten."
+          ],
+          "end": true
+        },
+        "cap": {
+          "lines": [
+            "It's in a box marked ASH: ADORABLE. And it's staying there. Forever."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_supper",
+      "on": "talk",
+      "with": "delia",
+      "once": false,
+      "daily": true,
+      "chance": 0.5,
+      "if": {
+        "period": [
+          "evening"
+        ]
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "There you are. Supper's nearly ready. Tell me about your day, sweetie. Every little bit."
+          ],
+          "choices": [
+            {
+              "label": "I helped people all day!",
+              "tone": "eager",
+              "if": {
+                "any": [
+                  {
+                    "flag": "bread_round_done"
+                  },
+                  {
+                    "flag": "twine_found"
+                  },
+                  {
+                    "flag": "pidgey_found"
+                  },
+                  {
+                    "flag": "rumbles_heard"
+                  }
+                ]
+              },
+              "ash": "I helped people all day! Everyone says thank you now!",
+              "next": "helped"
+            },
+            {
+              "label": "I asked a million questions!",
+              "tone": "curious",
+              "ash": "I asked a million questions. I know SO much stuff now.",
+              "next": "questions"
+            },
+            {
+              "label": "Nothing much...",
+              "tone": "quiet",
+              "ash": "Nothing much...",
+              "next": "nothing"
+            }
+          ]
+        },
+        "helped": {
+          "lines": [
+            "I know. Ada told me. Then Mae told me. Then Ada told me again, slightly wrong.",
+            "I'm proud of you, honey. Wash your hands."
+          ],
+          "end": true
+        },
+        "questions": {
+          "lines": [
+            "A million! Then you can answer one for me. Did you remember to drink water?",
+            "A: ...Mostly?"
+          ],
+          "next": "water"
+        },
+        "water": {
+          "lines": [
+            "Mostly. Sit. Drink. Then the million questions, one at a time."
+          ],
+          "end": true
+        },
+        "nothing": {
+          "lines": [
+            "Nothing much is allowed, sweetie. Some days are just for being ten.",
+            "Come and stir the pot for me. That's something."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_night",
+      "on": "talk",
+      "with": "delia",
+      "once": false,
+      "daily": true,
+      "chance": 0.6,
+      "if": {
+        "period": [
+          "night"
+        ]
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash. It's late. Bed, mister."
+          ],
+          "choices": [
+            {
+              "label": "Five more minutes?",
+              "tone": "cheeky",
+              "ash": "Five more minutes? Please?",
+              "next": "five"
+            },
+            {
+              "label": "Night, Mom. Love you.",
+              "tone": "kind",
+              "ash": "Night, Mom. Love you.",
+              "do": {
+                "growth": {
+                  "openness": 1
+                }
+              },
+              "next": "love"
+            },
+            {
+              "label": "I'm not even tired!",
+              "tone": "firm",
+              "ash": "I'm not even tired! I could stay up all night!",
+              "next": "tired"
+            }
+          ]
+        },
+        "five": {
+          "lines": [
+            "You said that at nine. You said that at ten. Bed."
+          ],
+          "end": true
+        },
+        "love": {
+          "lines": [
+            "Love you too, sweetie. Big dreams tonight. Just not too big to come home from.",
+            "I'll leave the hall light on."
+          ],
+          "end": true
+        },
+        "tired": {
+          "lines": [
+            "N: (You yawn. Enormously.)",
+            "Mm-hm. Bed."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_proud",
+      "on": "talk",
+      "with": "delia",
+      "once": true,
+      "chance": 0.7,
+      "if": {
+        "any": [
+          {
+            "flag": "fanclub_card"
+          },
+          {
+            "flag": "bread_round_done"
+          },
+          {
+            "flag": "pidgey_found"
+          }
+        ]
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Half the town stopped me today to say what a helpful boy I have.",
+            "Mae nearly cried. Ada did cry. Ben said 'Mm' in a very proud way."
+          ],
+          "choices": [
+            {
+              "label": "It was nothing!",
+              "tone": "quiet",
+              "ash": "It was nothing. Really.",
+              "next": "nothing"
+            },
+            {
+              "label": "I'm basically a hero now.",
+              "tone": "cheeky",
+              "ash": "I'm basically a hero now. You can tell people.",
+              "next": "hero"
+            },
+            {
+              "label": "I learned it from you.",
+              "tone": "kind",
+              "ash": "I learned it from you. You help everybody.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                },
+                "rel": 1
+              },
+              "next": "you"
+            }
+          ]
+        },
+        "nothing": {
+          "lines": [
+            "It wasn't nothing to them, honey. Remember that, out there. Little things are the big things."
+          ],
+          "end": true
+        },
+        "hero": {
+          "lines": [
+            "A hero who still hasn't made his bed. I'll tell people both parts."
+          ],
+          "end": true
+        },
+        "you": {
+          "lines": [
+            "Oh. Oh, you. Come here.",
+            "N: (She hugs you. It lasts a little longer than usual.)",
+            "Go on, then. Before I get all soppy."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "delia_mime",
+      "on": "talk",
+      "with": "delia",
+      "once": true,
+      "chance": 0.35,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Have you seen what Mr. Mime does when you leave the house? He mimes you.",
+            "Running, mostly. Then tripping. Then getting up and running again."
+          ],
+          "choices": [
+            {
+              "label": "I do NOT trip!",
+              "tone": "firm",
+              "ash": "I do NOT trip!",
+              "next": "trip"
+            },
+            {
+              "label": "Ha! Is he any good?",
+              "tone": "cheeky",
+              "ash": "Ha! Is he any good at it?",
+              "next": "good"
+            },
+            {
+              "label": "Does he miss me already?",
+              "tone": "kind",
+              "ash": "Do you think he'll miss me? When I go?",
+              "next": "miss"
+            }
+          ]
+        },
+        "trip": {
+          "lines": [
+            "Of course not, sweetie. Mr. Mime must be thinking of somebody else. Somebody exactly your height."
+          ],
+          "end": true
+        },
+        "good": {
+          "lines": [
+            "He's very good. Last night he mimed you eating supper. It took twenty minutes."
+          ],
+          "end": true
+        },
+        "miss": {
+          "lines": [
+            "He'll mime missing you. Very loudly, for someone who never says a word.",
+            "We both will, honey. But we'll be busy. You'll see."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "lily_rival",
+      "on": "talk",
+      "with": "lily",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash. I've decided. When we're both POKéMON Masters, we'll have a battle. Me and Nibbles. Against you."
+          ],
+          "choices": [
+            {
+              "label": "You're on! I'll win, though.",
+              "tone": "cheeky",
+              "ash": "You're on! I'll win, though.",
+              "next": "on"
+            },
+            {
+              "label": "Nibbles would be tough.",
+              "tone": "kind",
+              "ash": "Nibbles would be a tough one. He's got heart.",
+              "do": {
+                "rel": 1
+              },
+              "next": "heart"
+            },
+            {
+              "label": "Can Masters battle Masters?",
+              "tone": "curious",
+              "ash": "Wait. Can two Masters even battle? Who wins?",
+              "next": "who"
+            }
+          ]
+        },
+        "on": {
+          "lines": [
+            "Ha! He'll be a BUTTERFREE by then. Butterfree have Sleep Powder. You'll be asleep. I'll win asleep. I mean you'll be asleep."
+          ],
+          "end": true
+        },
+        "heart": {
+          "lines": [
+            "He DOES. ...Thanks, Ash. You're okay. For a rival."
+          ],
+          "end": true
+        },
+        "who": {
+          "lines": [
+            "The one who trained harder. Obviously. That's me. I talk to Nibbles every night now."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "lily_secret",
+      "on": "talk",
+      "with": "lily",
+      "once": true,
+      "chance": 0.45,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Can you keep a secret? A real one? Not a Timmy one?"
+          ],
+          "choices": [
+            {
+              "label": "Cross my heart.",
+              "tone": "kind",
+              "ash": "Cross my heart.",
+              "next": "tell"
+            },
+            {
+              "label": "Depends how good it is.",
+              "tone": "cheeky",
+              "ash": "Depends how good it is.",
+              "next": "depends"
+            }
+          ]
+        },
+        "depends": {
+          "lines": [
+            "It's REALLY good. But you have to promise first.",
+            "A: Okay, okay. I promise."
+          ],
+          "next": "tell"
+        },
+        "tell": {
+          "lines": [
+            "Sometimes I'm scared Nibbles won't want to stay with me when he's a Butterfree. Butterfree fly away.",
+            "There. Don't tell anyone."
+          ],
+          "choices": [
+            {
+              "label": "He'll stay. He loves you.",
+              "tone": "kind",
+              "ash": "He'll stay. Anyone can see he loves you.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                },
+                "rel": 1
+              },
+              "next": "stay"
+            },
+            {
+              "label": "Then he'll come back.",
+              "tone": "quiet",
+              "ash": "If he flies away, he'll come back. That's what home is for.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "back"
+            }
+          ]
+        },
+        "stay": {
+          "lines": [
+            "You think? ...Okay. Okay! I'll be the best friend a Butterfree ever had."
+          ],
+          "end": true
+        },
+        "back": {
+          "lines": [
+            "Home is for coming back to. ...Huh. That's actually smart, Ash. Don't let it go to your head."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "timmy_dare",
+      "on": "talk",
+      "with": "timmy",
+      "once": true,
+      "chance": 0.55,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash! Ash! I dare you to jump off the pier! Kai says only REAL trainers can do it!"
+          ],
+          "choices": [
+            {
+              "label": "Easy! Watch me!",
+              "tone": "eager",
+              "ash": "Easy! Watch me!",
+              "next": "easy"
+            },
+            {
+              "label": "Kai said that? Really?",
+              "tone": "curious",
+              "ash": "Kai said that? Really really?",
+              "next": "really"
+            },
+            {
+              "label": "Not a good idea, Timmy.",
+              "tone": "firm",
+              "ash": "That's not a good idea, Timmy. The water's deep there.",
+              "do": {
+                "growth": {
+                  "responsibility": 1
+                }
+              },
+              "next": "nope"
+            }
+          ]
+        },
+        "easy": {
+          "lines": [
+            "WHOA! ...Wait. Mom says if you jump, I have to tell her. And Marina. And YOUR mom.",
+            "...Maybe don't."
+          ],
+          "end": true
+        },
+        "really": {
+          "lines": [
+            "Well. He said 'only a really silly trainer would'. Which is kind of the same."
+          ],
+          "end": true
+        },
+        "nope": {
+          "lines": [
+            "Aw. You sound like Grandpa. ...Okay. I wasn't gonna do it anyway. Probably."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "timmy_training",
+      "on": "talk",
+      "with": "timmy",
+      "once": false,
+      "daily": true,
+      "chance": 0.35,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash! I've been TRAINING! Watch my POKé BALL throw! It's a rock. But pretend!"
+          ],
+          "choices": [
+            {
+              "label": "Wow! Great throw!",
+              "tone": "kind",
+              "ash": "Wow! Great throw, Timmy!",
+              "do": {
+                "rel": 1
+              },
+              "next": "great"
+            },
+            {
+              "label": "Bend your knees more.",
+              "tone": "curious",
+              "ash": "Bend your knees more. And follow through. Like this!",
+              "next": "tip"
+            },
+            {
+              "label": "I throw way further.",
+              "tone": "cheeky",
+              "ash": "Not bad. I throw way further, though.",
+              "do": {
+                "rel": -1
+              },
+              "next": "further"
+            }
+          ]
+        },
+        "great": {
+          "lines": [
+            "REALLY?! I'm telling EVERYONE that Ash Ketchum said great throw!"
+          ],
+          "end": true
+        },
+        "tip": {
+          "lines": [
+            "N: (Timmy bends his knees. Follows through. The rock lands in Rose's garden.)",
+            "...Whoops. Was that further? That was further!"
+          ],
+          "end": true
+        },
+        "further": {
+          "lines": [
+            "...Yeah. You're older. I'll catch up. You'll see. I'm gonna throw to CINNABAR."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "rose_seeds",
+      "on": "talk",
+      "with": "rose",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash. Would you hold out your hand? No, I'm not giving you a job. Just hold it out.",
+            "N: (She drops three dandelion seeds into your palm.)"
+          ],
+          "choices": [
+            {
+              "label": "What are these for?",
+              "tone": "curious",
+              "ash": "What are they for?",
+              "next": "for"
+            },
+            {
+              "label": "Can I blow them?",
+              "tone": "eager",
+              "ash": "Can I blow them? Can I make a wish?",
+              "next": "blow"
+            }
+          ]
+        },
+        "for": {
+          "lines": [
+            "Nothing. That's the point. They're for going wherever the wind wants.",
+            "Some seeds want to blow far from the tree. That's how forests start."
+          ],
+          "do": {
+            "know": "rose_seeds"
+          },
+          "end": true
+        },
+        "blow": {
+          "lines": [
+            "You can. Make it a good one. And don't tell me. Wishes are like bulbs. They grow in the dark."
+          ],
+          "do": {
+            "flag": "rose_wish"
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "rose_delia",
+      "on": "talk",
+      "with": "rose",
+      "once": true,
+      "chance": 0.4,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Your mother and I were girls together, you know. She had a scrapbook of every place she'd go."
+          ],
+          "choices": [
+            {
+              "label": "Mom had a scrapbook?",
+              "tone": "curious",
+              "ash": "Mom had a scrapbook? Of where?",
+              "do": {
+                "flag": "heard_of_scrapbook",
+                "growth": {
+                  "openness": 1
+                }
+              },
+              "next": "book"
+            },
+            {
+              "label": "Did she go to any of them?",
+              "tone": "kind",
+              "ash": "Did she ever go? To any of them?",
+              "next": "go"
+            }
+          ]
+        },
+        "book": {
+          "lines": [
+            "Porta Vista was page one. She'd cut the pictures out of travel posters. Very carefully, with my mother's good scissors."
+          ],
+          "next": "go"
+        },
+        "go": {
+          "lines": [
+            "Not yet. She had a very good reason to stay. Ten years old, with a cap.",
+            "There's time, Ash. Gardens don't mind waiting."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "bram_rolls",
+      "on": "talk",
+      "with": "bram",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash! I've counted the honey rolls this morning. All there! HO HO! A first!"
+          ],
+          "choices": [
+            {
+              "label": "That was ONE time!",
+              "tone": "firm",
+              "ash": "That was ONE time! And it was a Rattata!",
+              "next": "rattata"
+            },
+            {
+              "label": "Sorry about that, Bram.",
+              "tone": "quiet",
+              "ash": "...Sorry about that, Bram. It wasn't a Rattata.",
+              "do": {
+                "growth": {
+                  "humility": 1
+                },
+                "rel": 1
+              },
+              "next": "sorry"
+            },
+            {
+              "label": "Want me to count them again?",
+              "tone": "cheeky",
+              "ash": "Want me to count them again? Closely?",
+              "next": "count"
+            }
+          ]
+        },
+        "rattata": {
+          "lines": [
+            "A Rattata with honey on its chin and a cap on its head! HO HO HO!"
+          ],
+          "end": true
+        },
+        "sorry": {
+          "lines": [
+            "...Well! A confession, five years late. I'll take it, lad!",
+            "Here. A roll. A legal one."
+          ],
+          "end": true
+        },
+        "count": {
+          "lines": [
+            "Ha! Not a chance. These are going to the stall. Ada counts them twice."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "bram_oven",
+      "on": "talk",
+      "with": "bram",
+      "once": true,
+      "chance": 0.4,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "You've got fire in your belly, lad. Like a good oven. Do you know how you keep an oven good?"
+          ],
+          "choices": [
+            {
+              "label": "Keep it really hot?",
+              "tone": "eager",
+              "ash": "Keep it really, really hot?",
+              "next": "hot"
+            },
+            {
+              "label": "How?",
+              "tone": "curious",
+              "ash": "How?",
+              "next": "how"
+            }
+          ]
+        },
+        "hot": {
+          "lines": [
+            "Ha! That's how you burn the bread. No."
+          ],
+          "next": "how"
+        },
+        "how": {
+          "lines": [
+            "You don't let it go out, and you don't let it run wild. Steady heat. Every morning. Years of it.",
+            "Fire's easy, lad. Steady is hard. Remember that when you've a Charmander of your own!"
+          ],
+          "do": {
+            "know": "steady_fire"
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "ada_gossip_game",
+      "on": "talk",
+      "with": "ada",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash, dear! Is it true you're leaving on a POKéMON journey TOMORROW? With a DRAGON?"
+          ],
+          "choices": [
+            {
+              "label": "Who told you that?",
+              "tone": "curious",
+              "ash": "Who told you that?",
+              "next": "who"
+            },
+            {
+              "label": "Yep. A big one.",
+              "tone": "cheeky",
+              "ash": "Yep. A really big dragon. It's called Steve.",
+              "next": "steve"
+            },
+            {
+              "label": "No! Not yet, anyway.",
+              "tone": "quiet",
+              "ash": "No! Not yet. Not a dragon, either.",
+              "next": "no"
+            }
+          ]
+        },
+        "who": {
+          "lines": [
+            "Timmy, who heard it from Lily, who heard it from a Pidgey, apparently. Is it true?"
+          ],
+          "next": "no"
+        },
+        "steve": {
+          "lines": [
+            "STEVE! Oh, I'm telling everyone. Steve the dragon. Wait till Mae hears!",
+            "N: (By supper, half of Pallet Town will know about Steve.)"
+          ],
+          "do": {
+            "flag": "ada_steve"
+          },
+          "end": true
+        },
+        "no": {
+          "lines": [
+            "Oh. Well, that's less exciting. I'll tell everyone it's NEARLY true. That's the same, really."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "mae_blanket",
+      "on": "talk",
+      "with": "mae",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Come and sit a minute, dearie. My knees need the company.",
+            "I'm knitting you something for the road. Don't look. Well. You can look a little."
+          ],
+          "choices": [
+            {
+              "label": "Is it a scarf?",
+              "tone": "curious",
+              "ash": "Is it a scarf?",
+              "next": "scarf"
+            },
+            {
+              "label": "You don't have to do that.",
+              "tone": "kind",
+              "ash": "You don't have to do that, Granny Mae.",
+              "do": {
+                "growth": {
+                  "openness": 1
+                }
+              },
+              "next": "have"
+            },
+            {
+              "label": "Can it be red? Like a Charmander?",
+              "tone": "eager",
+              "ash": "Can it be red? Like a Charmander's tail?",
+              "next": "red"
+            }
+          ]
+        },
+        "scarf": {
+          "lines": [
+            "It's a surprise, dearie. It's a scarf. Don't tell yourself."
+          ],
+          "end": true
+        },
+        "have": {
+          "lines": [
+            "I know I don't. That's what makes it a present.",
+            "Letting people look after you is a gift too, Ash. Most boys never learn it."
+          ],
+          "end": true
+        },
+        "red": {
+          "lines": [
+            "Red it is. With a little flame at the end. Don't sit too close to the fire in it."
+          ],
+          "do": {
+            "flag": "mae_red_scarf"
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "kai_rod",
+      "on": "talk",
+      "with": "kai",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash! Kiddo! Want to see my new rod? Carbon fibre! Technology is incredible! Look but don't BORROW."
+          ],
+          "choices": [
+            {
+              "label": "I said sorry about that!",
+              "tone": "firm",
+              "ash": "I said sorry about that! Twice!",
+              "next": "sorry"
+            },
+            {
+              "label": "I'm sorry I took your old one.",
+              "tone": "kind",
+              "ash": "Kai... I'm really sorry I took your old rod.",
+              "do": {
+                "growth": {
+                  "responsibility": 1
+                },
+                "rel": 1
+              },
+              "next": "really"
+            },
+            {
+              "label": "Can I try it? Just once?",
+              "tone": "cheeky",
+              "ash": "Can I try it? Just once? Supervised?",
+              "next": "try"
+            }
+          ]
+        },
+        "sorry": {
+          "lines": [
+            "You did! Once to me, once to the Tentacool. Ha!"
+          ],
+          "end": true
+        },
+        "really": {
+          "lines": [
+            "Aw, kiddo. Water under the pier. You were six. And you DID hook a Tentacool. That's talent!"
+          ],
+          "end": true
+        },
+        "try": {
+          "lines": [
+            "Supervised? ...Fine. Supervised. Feet on the pier. If you hook a Tentacruel I'm telling Marina it was you."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "marina_hero",
+      "on": "talk",
+      "with": "marina",
+      "once": true,
+      "chance": 0.45,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash. You know the day you went missing? At the beach? You were six."
+          ],
+          "choices": [
+            {
+              "label": "Under the boat with the Krabby?",
+              "tone": "cheeky",
+              "ash": "Under the boat? With the three Krabby?",
+              "next": "krabby"
+            },
+            {
+              "label": "Did everyone really look?",
+              "tone": "quiet",
+              "ash": "Did everyone really come looking for me?",
+              "next": "everyone"
+            }
+          ]
+        },
+        "krabby": {
+          "lines": [
+            "Asleep. Hugging them. And they let you. Krabby don't let anyone. I've the scars to prove it."
+          ],
+          "next": "everyone"
+        },
+        "everyone": {
+          "lines": [
+            "The whole town. Your mother didn't stop shaking for a week.",
+            "Out there, there'll be no town to come find you. So you come find us. Phone. Letter. Whatever. Got it?"
+          ],
+          "choices": [
+            {
+              "label": "Got it. I'll call.",
+              "tone": "kind",
+              "ash": "Got it. I'll call. Promise.",
+              "do": {
+                "growth": {
+                  "openness": 1
+                }
+              },
+              "next": "good"
+            },
+            {
+              "label": "I won't get lost!",
+              "tone": "firm",
+              "ash": "I won't get lost! I'm not six anymore!",
+              "next": "six"
+            }
+          ]
+        },
+        "good": {
+          "lines": [
+            "Good. Reckless and good. Just add 'calls home'."
+          ],
+          "end": true
+        },
+        "six": {
+          "lines": [
+            "Everyone gets lost, Ash. Smart ones ask for directions. Remember that."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "ben_doduo",
+      "on": "talk",
+      "with": "ben",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Mm. Doduo likes you. Doesn't like many."
+          ],
+          "choices": [
+            {
+              "label": "How can you tell?",
+              "tone": "curious",
+              "ash": "How can you tell?",
+              "next": "tell"
+            },
+            {
+              "label": "Everyone likes me!",
+              "tone": "cheeky",
+              "ash": "Everyone likes me!",
+              "next": "everyone"
+            }
+          ]
+        },
+        "tell": {
+          "lines": [
+            "Both heads look at you at once. Usually they argue.",
+            "When the heads agree, that's a friend. Mm."
+          ],
+          "do": {
+            "know": "doduo_heads"
+          },
+          "end": true
+        },
+        "everyone": {
+          "lines": [
+            "...",
+            "Mm. Most do. Doduo's choosier. Means more."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "ben_weather",
+      "on": "talk",
+      "with": "ben",
+      "once": true,
+      "chance": 0.4,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Knee says rain tomorrow."
+          ],
+          "choices": [
+            {
+              "label": "Your knee can tell?",
+              "tone": "curious",
+              "ash": "Your knee can tell the weather?",
+              "next": "knee"
+            },
+            {
+              "label": "Kai's radio says sun.",
+              "tone": "cheeky",
+              "ash": "Kai's radio says sun.",
+              "next": "radio"
+            }
+          ]
+        },
+        "knee": {
+          "lines": [
+            "Forty years of fields. Knee's better than a radio. Mm.",
+            "Learn your body, Ash. It talks. Most folks don't listen till it shouts."
+          ],
+          "do": {
+            "know": "listen_to_body"
+          },
+          "end": true
+        },
+        "radio": {
+          "lines": [
+            "Mm. Radio's never been wrong about yesterday."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "tom_spyglass",
+      "on": "talk",
+      "with": "tom",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Here, lad. Have a look through the old spyglass. South. Past the point. See that smudge?"
+          ],
+          "choices": [
+            {
+              "label": "Is that Cinnabar?!",
+              "tone": "eager",
+              "ash": "Is that Cinnabar?!",
+              "next": "cinnabar"
+            },
+            {
+              "label": "I just see sea...",
+              "tone": "quiet",
+              "ash": "I just see sea. And a Wingull.",
+              "do": {
+                "growth": {
+                  "patience": 1
+                }
+              },
+              "next": "wait"
+            }
+          ]
+        },
+        "cinnabar": {
+          "lines": [
+            "That's her. Fire island. Hot springs, a gym, and a mountain with a temper.",
+            "You'll go there one day. I see it in you like I see that smudge."
+          ],
+          "do": {
+            "know": "seen_cinnabar"
+          },
+          "end": true
+        },
+        "wait": {
+          "lines": [
+            "Patience. Wait for the haze to lift. ...There. See it now?",
+            "Some things you only see if you wait for them, lad. Cinnabar's one."
+          ],
+          "do": {
+            "know": "seen_cinnabar"
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "tom_ladle",
+      "on": "talk",
+      "with": "tom",
+      "once": true,
+      "chance": 0.4,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Did Timmy tell you I fought a Gyarados with a spoon?"
+          ],
+          "choices": [
+            {
+              "label": "Did you?!",
+              "tone": "eager",
+              "ash": "Did you?!",
+              "next": "did"
+            },
+            {
+              "label": "That's not true, is it?",
+              "tone": "curious",
+              "ash": "That's not true. Is it?",
+              "next": "true"
+            }
+          ]
+        },
+        "did": {
+          "lines": [
+            "Certainly not. It was a ladle.",
+            "N: (He winks. You can't tell if he's joking. You suspect he can't either.)"
+          ],
+          "end": true
+        },
+        "true": {
+          "lines": [
+            "Half true, lad. There was a storm, a Gyarados, and a ladle. The fighting part, I may have stretched.",
+            "The best stories are mostly true. Like the best sailors."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "gus_logbook",
+      "on": "talk",
+      "with": "gus",
+      "once": true,
+      "chance": 0.5,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash. Do you know you're in my logbook? Eleven entries."
+          ],
+          "choices": [
+            {
+              "label": "ELEVEN? For what?",
+              "tone": "eager",
+              "ash": "Eleven?! For what?",
+              "next": "what"
+            },
+            {
+              "label": "Am I in trouble?",
+              "tone": "quiet",
+              "ash": "Am I... in trouble?",
+              "next": "trouble"
+            }
+          ]
+        },
+        "trouble": {
+          "lines": [
+            "No. A logbook isn't for trouble. It's for remembering."
+          ],
+          "next": "what"
+        },
+        "what": {
+          "lines": [
+            "Drifting in Kai's boat. Waving at the lamp from your window. Teaching a Wingull to land on a bucket.",
+            "I'll log it, when it happens. The big one. Not 'if'. When."
+          ],
+          "choices": [
+            {
+              "label": "Log me as a Master someday.",
+              "tone": "cheeky",
+              "ash": "Make the next one 'POKéMON Master'.",
+              "next": "master"
+            },
+            {
+              "label": "Thanks for watching out, Gus.",
+              "tone": "kind",
+              "ash": "Thanks for watching out for me, Gus.",
+              "do": {
+                "growth": {
+                  "openness": 1
+                },
+                "rel": 1
+              },
+              "next": "thanks"
+            }
+          ]
+        },
+        "master": {
+          "lines": [
+            "Pencil's ready. It'll wait."
+          ],
+          "end": true
+        },
+        "thanks": {
+          "lines": [
+            "...That's the job. But. You're welcome. Logged."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "gus_light",
+      "on": "talk",
+      "with": "gus",
+      "once": true,
+      "chance": 0.4,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Mae waves at my light every night. I flash it twice for her. She doesn't know. Or does."
+          ],
+          "choices": [
+            {
+              "label": "Can you flash it for Mom too?",
+              "tone": "kind",
+              "ash": "When I'm gone... could you flash it for my mom too?",
+              "do": {
+                "growth": {
+                  "heart": 1
+                },
+                "flag": "gus_flash_for_mom"
+              },
+              "next": "mom"
+            },
+            {
+              "label": "Do you ever get lonely up there?",
+              "tone": "curious",
+              "ash": "Do you ever get lonely, up there?",
+              "next": "lonely"
+            }
+          ]
+        },
+        "mom": {
+          "lines": [
+            "Three times, then. Two for Mae, three for Delia. Logged. She'll know what it means."
+          ],
+          "end": true
+        },
+        "lonely": {
+          "lines": [
+            "Lonely, no. Alone, often. Different things. The sea talks. The town glows. That's company."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "nibbles_hello",
+      "on": "talk",
+      "with": "nibbles",
+      "once": false,
+      "chance": 0.7,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Cater! Cater?",
+            "N: (Nibbles wriggles at your shoe, looking up.)"
+          ],
+          "choices": [
+            {
+              "label": "Crouch down and say hi",
+              "tone": "kind",
+              "ash": "Hi, Nibbles. Down here. It's just me.",
+              "do": {
+                "mood": "happy"
+              },
+              "next": "hi"
+            },
+            {
+              "label": "Offer him a soft leaf",
+              "tone": "curious",
+              "if": {
+                "flag": "butterfree_tips"
+              },
+              "ash": "Here. A soft one, from the top. Lily says they're your favourite.",
+              "do": {
+                "mood": "happy"
+              },
+              "next": "leaf"
+            },
+            {
+              "label": "Pretend to be a Caterpie",
+              "tone": "cheeky",
+              "ash": "Cater! Cater-cater!",
+              "do": {
+                "mood": "talk"
+              },
+              "next": "cater"
+            }
+          ]
+        },
+        "hi": {
+          "lines": [
+            "N: (Nibbles touches your finger with his little red horn. It tickles.)"
+          ],
+          "end": true
+        },
+        "leaf": {
+          "lines": [
+            "N: (Munch. Munch. Munch. He looks extremely pleased with you.)"
+          ],
+          "do": {
+            "growth": {
+              "heart": 1
+            }
+          },
+          "end": true
+        },
+        "cater": {
+          "lines": [
+            "...Cater?",
+            "N: (Nibbles looks at you for a long time. You feel judged by a bug.)"
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "doduo_hello",
+      "on": "talk",
+      "with": "doduo",
+      "once": false,
+      "chance": 0.7,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Do! Duo!",
+            "N: (Both heads lean down to look at you. One from the left, one from the right.)"
+          ],
+          "choices": [
+            {
+              "label": "Pat the left head",
+              "tone": "kind",
+              "ash": "Hey there, lefty.",
+              "do": {
+                "mood": "happy"
+              },
+              "next": "left"
+            },
+            {
+              "label": "Pat the right head",
+              "tone": "kind",
+              "ash": "Hey there, righty.",
+              "do": {
+                "mood": "happy"
+              },
+              "next": "right"
+            },
+            {
+              "label": "Pat both at once",
+              "tone": "eager",
+              "ash": "Both of you! At the same time! Fair's fair!",
+              "do": {
+                "mood": "happy",
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "both"
+            }
+          ]
+        },
+        "left": {
+          "lines": [
+            "Doooo.",
+            "N: (The left head closes its eyes happily. The right head pecks it.)"
+          ],
+          "end": true
+        },
+        "right": {
+          "lines": [
+            "Duo!",
+            "N: (The right head preens. The left head sulks and stares at a cloud.)"
+          ],
+          "end": true
+        },
+        "both": {
+          "lines": [
+            "Do-do-DUO!",
+            "N: (For once, both heads agree. They lean on you so hard you nearly fall over.)"
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "mrmime_hello",
+      "on": "talk",
+      "with": "mrmime",
+      "once": false,
+      "chance": 0.7,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Mime!",
+            "N: (Mr. Mime presses his palms against an invisible wall between you. He looks very trapped.)"
+          ],
+          "choices": [
+            {
+              "label": "Mime a wall back",
+              "tone": "cheeky",
+              "ash": "Two can play at that!",
+              "do": {
+                "mood": "happy"
+              },
+              "next": "wall"
+            },
+            {
+              "label": "Clap for him",
+              "tone": "kind",
+              "ash": "Bravo! Bravo, Mr. Mime!",
+              "do": {
+                "mood": "happy"
+              },
+              "next": "clap"
+            },
+            {
+              "label": "What are you miming?",
+              "tone": "curious",
+              "ash": "What is that? A wall? A window?",
+              "next": "what"
+            }
+          ]
+        },
+        "wall": {
+          "lines": [
+            "N: (Mr. Mime knocks on your invisible wall. Then opens an invisible door in it, and bows you through.)"
+          ],
+          "end": true
+        },
+        "clap": {
+          "lines": [
+            "N: (He bows three times. Then he mimes handing you a bouquet. You can almost smell it.)"
+          ],
+          "end": true
+        },
+        "what": {
+          "lines": [
+            "N: (He mimes a window. Then he mimes looking through it at the sea for a long time. Then he points at the terrace, and at Delia.)",
+            "N: (You're not sure what it means. He seems to think you'll understand one day.)"
+          ],
+          "end": true
+        }
+      }
+    }
+  ]
+}

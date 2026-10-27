@@ -68,6 +68,7 @@ var sfx_world: Node      # sfx_world.gd: the town's footsteps, ambience, doors
 var island: CanvasLayer  # island.gd
 var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
 var cam_shake := 0.0     # a knock (the bike into a wall): eases out
+var cam_ease := 0.0      # 1 just after a conversation: the camera glides back to its boom (eases to 0)
 
 func _ready() -> void:
 	world.load_all()
@@ -366,7 +367,9 @@ func _process(dt: float) -> void:
 		grass.set_walkers(_walkers(), dt, cam.global_position, pos)
 		grass.update(pos)
 	Ink.set_focus(pos)   # ink thins with distance from Red (ink.gd)
-	if indoors: _camera_in(dt)
+	cam_ease = maxf(0.0, cam_ease - dt * 0.8)
+	if cast.convo and cast.convo.cam_on: cast.convo.camera(dt)   # a conversation frames its own shots
+	elif indoors: _camera_in(dt)
 	else: _camera(dt)
 	if not indoors: scenery.update(cam.global_position)
 	if not indoors and route1: route1.update(dt)
@@ -401,7 +404,7 @@ func _camera(dt: float) -> void:
 	cam_floor += (fl - cam_floor) * (1.0 - exp(-dt * (T.num("camera", "floor_up", 9.0) if fl > cam_floor else T.num("camera", "floor_down", 3.0))))
 	want.y = maxf(want.y, cam_floor)
 	if cam.position == Vector3.ZERO: cam.position = want
-	cam.position = cam.position.lerp(want, 1.0 - exp(-dt * T.num("camera", "smooth", 14.0)))
+	cam.position = cam.position.lerp(want, 1.0 - exp(-dt * lerpf(T.num("camera", "smooth", 14.0), 2.2, cam_ease)))
 	cam.look_at(cam_target)
 	if cam_shake > 0.001:
 		cam_shake = move_toward(cam_shake, 0.0, dt * 0.8)
@@ -566,7 +569,8 @@ func _camera_in(dt: float) -> void:
 	free_d = D.boom(cam_target, dir, want_d)
 	if free_d < cam_boom: cam_boom = free_d
 	else: cam_boom += (free_d - cam_boom) * (1.0 - exp(-dt * 2.5))
-	cam.position = cam_target + dir * cam_boom
+	var cwant := cam_target + dir * cam_boom
+	cam.position = cwant if cam_ease <= 0.0 else cam.position.lerp(cwant, 1.0 - exp(-dt * lerpf(30.0, 2.5, cam_ease)))
 	# pressed right up against the player (a wall at their back): hide them
 	# rather than show the inside of their head
 	cast.player.visible = cam_boom > 0.75
