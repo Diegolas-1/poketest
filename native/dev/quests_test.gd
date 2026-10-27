@@ -168,6 +168,10 @@ func _fit(speaker: String, q: Quests, entry: Variant, first_prefix := true) -> v
 				_long += 1
 				if _long < 40: printerr("  too long (%d rows): %s" % [r, piece])
 			ok(r <= 3, "line fits the dialog box")
+			# and the restyled box (ui/ui_dialog_panel.gd) at its narrowest, 1280 wide, at full size
+			var sp: Array = UIDialogPanel.split_speaker(piece)
+			var fsz := UIDialogPanel.fit_size(sp[1], 921.0)
+			ok(fsz >= 26 and UITheme.wrap(sp[1], "body", fsz, 921.0 - 64.0).size() <= 3, "line fits the restyled dialog panel")
 			ok(piece.length() >= 2, "split piece not empty: " + s)
 
 func _fit_all(speaker: String, q: Quests, v: Variant) -> void:
