@@ -442,8 +442,10 @@ func _trans_step(dt: float) -> void:
 		t = FADE
 	var a := t / FADE if t < FADE else 1.0 - (t - FADE - 0.08) / FADE
 	fader.color.a = clampf(a, 0.0, 1.0)
+	wipe_out = t >= FADE
 	if t >= FADE * 2.0 + 0.08:
 		trans = {}; trans_busy = false; fader.color.a = 0.0
+	fader.queue_redraw()
 
 func _outdoor_shown(on: bool) -> void:
 	for n in [terrain_root, town_root, water_root, scenery, sun]:
@@ -588,31 +590,70 @@ func _hud() -> void:
 	var fl := CanvasLayer.new()
 	fl.layer = 5
 	add_child(fl)
+	# the door transition: a skewed ink wipe with a red and yellow leading edge
+	# that sweeps across, holds (a Poké Ball in the middle), and sweeps on off
+	# the far side; fader.color.a is its progress (the ColorRect itself draws clear)
 	fader = ColorRect.new()
 	fader.color = Color(0, 0, 0, 0)
+	fader.self_modulate = Color(1, 1, 1, 0)
 	fader.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fader.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fl.add_child(fader)
+	var wipe := Control.new()
+	wipe.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wipe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wipe.draw.connect(_draw_wipe.bind(wipe))
+	fader.draw.connect(wipe.queue_redraw)
+	fl.add_child(wipe)
 	outdoor_env = we.environment
-	stick_ui = Panel.new()
-	stick_ui.size = Vector2(120, 120)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(1, 1, 1, 0.18)
-	sb.set_corner_radius_all(60)
-	sb.border_color = Color(1, 1, 1, 0.5)
-	sb.set_border_width_all(2)
-	stick_ui.add_theme_stylebox_override("panel", sb)
+	# the move stick (shown where the left thumb lands): a dark ring with four
+	# chevrons, the knob a white disc with a red rim (ui/ui_theme.gd look)
+	stick_ui = Control.new()
+	stick_ui.size = Vector2(132, 132)
 	stick_ui.visible = false
 	stick_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stick_ui.draw.connect(func():
+		var c := stick_ui.size * 0.5
+		stick_ui.draw_circle(c, 64.0, Color(UITheme.PLATE, 0.42), true, -1.0, true)
+		stick_ui.draw_arc(c, 63.0, 0.0, TAU, 48, Color(1, 1, 1, 0.55), 2.0, true)
+		stick_ui.draw_arc(c, 44.0, 0.0, TAU, 40, Color(1, 1, 1, 0.12), 1.5, true)
+		for k in 4:
+			var d := Vector2.UP.rotated(k * PI * 0.5)
+			var n := Vector2(-d.y, d.x)
+			var tip := c + d * 57.0
+			stick_ui.draw_colored_polygon(PackedVector2Array([tip, tip - d * 7.0 + n * 8.0, tip - d * 4.0, tip - d * 7.0 - n * 8.0]), Color(1, 1, 1, 0.75)))
 	layer.add_child(stick_ui)
-	knob_ui = Panel.new()
-	knob_ui.size = Vector2(52, 52)
-	var kb := StyleBoxFlat.new()
-	kb.bg_color = Color(1, 1, 1, 0.7)
-	kb.set_corner_radius_all(26)
-	knob_ui.add_theme_stylebox_override("panel", kb)
+	knob_ui = Control.new()
+	knob_ui.size = Vector2(56, 56)
 	knob_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	knob_ui.draw.connect(func():
+		var c := knob_ui.size * 0.5
+		knob_ui.draw_circle(c + Vector2(0, 3), 27.0, Color(0, 0, 0, 0.3), true, -1.0, true)
+		knob_ui.draw_circle(c, 27.0, Color(UITheme.RED, 0.95), true, -1.0, true)
+		knob_ui.draw_circle(c, 22.0, Color(UITheme.WHITE, 0.95), true, -1.0, true)
+		knob_ui.draw_circle(c, 7.0, Color(UITheme.INK, 0.35), false, 2.0, true))
 	stick_ui.add_child(knob_ui)
+
+var wipe_out := false   # the door wipe's second half (it uncovers toward the far side)
+func _draw_wipe(w: Control) -> void:
+	var k := UITheme.ease_out(fader.color.a) if not wipe_out else UITheme.ease_in(fader.color.a)
+	if k <= 0.001: return
+	var vs := w.get_viewport_rect().size
+	var lean := vs.y * 0.35
+	var span := vs.x + lean
+	var ink := UITheme.INK
+	if not wipe_out:
+		# covering from the left: the edge at k * span
+		var ex := -lean + k * (span + lean)
+		w.draw_colored_polygon(PackedVector2Array([Vector2(-lean, 0), Vector2(ex + lean, 0), Vector2(ex, vs.y), Vector2(-lean, vs.y)]), ink)
+		w.draw_colored_polygon(PackedVector2Array([Vector2(ex + lean, 0), Vector2(ex + lean + 22, 0), Vector2(ex + 22, vs.y), Vector2(ex, vs.y)]), UITheme.RED)
+		w.draw_colored_polygon(PackedVector2Array([Vector2(ex + lean + 30, 0), Vector2(ex + lean + 36, 0), Vector2(ex + 36, vs.y), Vector2(ex + 30, vs.y)]), UITheme.YELLOW)
+	else:
+		# uncovering toward the right: the trailing edge at (1 - k) * span
+		var sx := -lean + (1.0 - k) * (span + lean)
+		w.draw_colored_polygon(PackedVector2Array([Vector2(sx + lean, 0), Vector2(vs.x + lean, 0), Vector2(vs.x + lean, vs.y), Vector2(sx, vs.y)]), ink)
+		w.draw_colored_polygon(PackedVector2Array([Vector2(sx + lean - 22, 0), Vector2(sx + lean, 0), Vector2(sx, vs.y), Vector2(sx - 22, vs.y)]), UITheme.RED)
+	if fader.color.a > 0.85: UITheme.icon(w, "ball", vs * 0.5, 22.0, Color(1, 1, 1, (fader.color.a - 0.85) / 0.15))
 
 # ---------- settings (settings.gd): the scene's share of the live settings ----------
 var grass_dirty := false

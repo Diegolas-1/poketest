@@ -1,40 +1,41 @@
 class_name QuestUI
 extends CanvasLayer
-# The quest log and its toasts (created by Quests.setup; set `quests` first).
-# A scroll button at the top right (inside the iPhone safe area) opens a cream
-# panel in the dialog box's style with three tabs: Active (each quest's
-# current step, progress, and what Ash is carrying), Done, and Rumors (the
-# Cinnabar gossip heard so far). The game pauses while it's open. Toasts
-# ("New quest", "Quest complete", "Received", "Rumor heard") slide in at the
-# top. Touch, mouse, keyboard (J / Tab to toggle, Esc to close) and gamepad.
+# The quest log and its toasts (created by Quests.setup; set `quests` first),
+# in the UI design system's look (ui/ui_theme.gd, ui/README.md).
+# A log icon button at the top right (inside the iPhone safe area; a red dot
+# when there is news) opens a crisp white panel with three tabs: Active (each
+# quest's current step, progress, and what Ash is carrying), Done, and Rumors
+# (the Cinnabar gossip heard so far). The game pauses while it's open; the
+# panel slides in. Toasts ("New quest", "Quest complete", "Received", "Rumor
+# heard") slide in at the top (UIToaster.draw_toast). Touch, mouse, keyboard
+# (J / Tab to toggle, Esc to close, Q / E or L / R tabs) and gamepad.
 #
 #   blocks(pos)  true when a touch at pos belongs to the button or the open log
 #   open()  close()  toggle()  toast(kind, text)
 #   safe_override: a Rect2 to pretend a safe area (screenshots, tests)
 
-const INK := Color("23284f")
-const RED := Color("e8463c")
-const CREAM := Color("fffdf6")
-const CREAM2 := Color("f2e9d6")
-const MUTED := Color(0.137, 0.157, 0.31, 0.62)
-const BTN := Vector2(56, 56)
+const BTN := Vector2(60, 56)
 const KIND_LABEL := {"start": "NEW QUEST", "complete": "QUEST COMPLETE", "step": "QUEST UPDATED",
 	"progress": "PROGRESS", "item": "RECEIVED", "rumor": "RUMOR HEARD"}
+const TAB_KEYS := ["active", "done", "rumors"]
 
 var quests: Node = null
 var safe_override := Rect2()
-var unread := false
+var unread := false:
+	set(v):
+		unread = v
+		if btn: btn.badge = v
 var tab := "active"
 var was_paused := false
 
-var font: FontVariation
-var font_bold: FontVariation
-var btn: Button
+var btn: UIIconButton
 var root: Control
+var dim: ColorRect
 var frame: Control
 var title_lbl: Label
-var close_btn: Button
-var tab_btns := {}
+var close_btn: UIButton
+var tabs: UITabs
+var tab_btns := {}           # (kept for callers: key -> index in tabs)
 var scroll: ScrollContainer
 var list: VBoxContainer
 var toaster: Control
@@ -42,21 +43,18 @@ var _toasts: Array = []      # [kind, text]
 var _toast_t := 0.0
 var _last_size := Vector2.ZERO
 var btn_rect := Rect2()   # island.gd: the button as a satellite above the Dynamic Island
+var _open_t := 9.0
 
 # island.gd puts the button above the island (black pill), or back (empty rect)
 func place_btn(r: Rect2) -> void:
 	btn_rect = r
 	if btn == null: return
-	for st in ["normal", "hover", "pressed", "focus"]:
-		btn.add_theme_stylebox_override(st, _sb(Color(0, 0, 0, 1) if r.size != Vector2.ZERO else Color(0.08, 0.12, 0.16, 0.62 if st == "pressed" else 0.45), int(minf(r.size.x, r.size.y) * 0.5) if r.size != Vector2.ZERO else 14))
+	btn.pill = r.size != Vector2.ZERO
 	if root: _layout()
 
 func _ready() -> void:
 	layer = 90
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	var ff: FontFile = load("res://fonts/PixelifySans.woff2")
-	font = FontVariation.new(); font.base_font = ff; font.variation_opentype = {"wght": 600}
-	font_bold = FontVariation.new(); font_bold.base_font = ff; font_bold.variation_opentype = {"wght": 700}
 	_action()
 	_build()
 	if quests != null:
@@ -75,55 +73,29 @@ func _action() -> void:
 
 # ---------- safe area ----------
 func safe_rect() -> Rect2:
-	var vs := root.get_viewport_rect().size if root and root.is_inside_tree() else Vector2(1280, 720)
-	var full := Rect2(Vector2.ZERO, vs)
-	if safe_override.size != Vector2.ZERO: return safe_override
-	if not OS.has_feature("mobile"): return full
-	var sa := DisplayServer.get_display_safe_area()
-	var ws := DisplayServer.window_get_size()
-	if sa.size.x <= 0 or ws.x <= 0: return full
-	var k := vs / Vector2(ws)
-	return Rect2(Vector2(sa.position) * k, Vector2(sa.size) * k).intersection(full)
+	return UITheme.safe_rect(root, safe_override)
 
 func blocks(pos: Vector2) -> bool:
 	if root != null and root.visible: return true
-	return btn != null and btn.visible and Rect2(btn.position - Vector2(8, 8), btn.size + Vector2(16, 16)).has_point(pos)
+	return btn != null and btn.visible and UITheme.touch_rect(btn, Rect2(btn.position, btn.size)).grow(6).has_point(pos)
 
 # ---------- building ----------
-func _sb(fill: Color, r: int, border := 0.0, bc := INK) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = fill
-	s.set_corner_radius_all(r)
-	s.corner_detail = 6
-	s.anti_aliasing = true
-	if border > 0.0:
-		s.border_color = bc
-		s.set_border_width_all(int(border))
-	return s
-
 func _build() -> void:
-	var theme := Theme.new()
-	theme.default_font = font
-	theme.default_font_size = 18
 	# the button
-	btn = Button.new()
+	btn = UIIconButton.new()
+	btn.icon_id = "log"
 	btn.size = BTN
-	btn.focus_mode = Control.FOCUS_NONE
 	btn.tooltip_text = "Quest log"
-	for st in ["normal", "hover", "pressed", "focus"]:
-		btn.add_theme_stylebox_override(st, _sb(Color(0.08, 0.12, 0.16, 0.62 if st == "pressed" else 0.45), 14))
-	btn.draw.connect(_draw_btn)
+	btn.glyph = "quests"
 	btn.pressed.connect(toggle)
 	add_child(btn)
 	# the log
 	root = Control.new()
-	root.theme = theme
+	root.theme = UITheme.theme()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.visible = false
 	add_child(root)
-	var dim := ColorRect.new()
-	dim.color = Color(0.03, 0.04, 0.1, 0.45)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim = UITheme.scrim()
 	dim.gui_input.connect(func(e: InputEvent):
 		if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed: close())
 	root.add_child(dim)
@@ -131,42 +103,21 @@ func _build() -> void:
 	frame.draw.connect(_draw_frame)
 	frame.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(frame)
-	title_lbl = Label.new()
-	title_lbl.text = "Quest Log"
-	title_lbl.add_theme_font_override("font", font_bold)
-	title_lbl.add_theme_font_size_override("font_size", 28)
-	title_lbl.add_theme_color_override("font_color", INK)
+	title_lbl = UITheme.label("QUEST LOG", "display", UITheme.fs("title"), UITheme.INK)
 	frame.add_child(title_lbl)
-	close_btn = Button.new()
-	close_btn.text = "X"
-	close_btn.focus_mode = Control.FOCUS_ALL
-	close_btn.add_theme_font_override("font", font_bold)
-	close_btn.add_theme_font_size_override("font_size", 22)
-	for st in ["normal", "hover", "pressed", "focus"]:
-		close_btn.add_theme_stylebox_override(st, _sb(RED if st != "pressed" else RED.darkened(0.2), 24, 2.0 if st == "focus" else 0.0))
-		close_btn.add_theme_color_override("font_color" if st == "normal" else "font_%s_color" % st, Color.WHITE)
+	close_btn = UIButton.new()
+	close_btn.variant = "primary"
+	close_btn.icon_id = "close"
+	close_btn.glyph = "back"
+	close_btn.focus_mode = Control.FOCUS_NONE
 	close_btn.pressed.connect(close)
 	frame.add_child(close_btn)
-	for t in [["active", "Active"], ["done", "Done"], ["rumors", "Rumors"]]:
-		var b := Button.new()
-		b.text = t[1]
-		b.toggle_mode = true
-		b.focus_mode = Control.FOCUS_ALL
-		b.add_theme_font_size_override("font_size", 19)
-		b.add_theme_stylebox_override("normal", _sb(Color(1, 1, 1, 0.0), 12, 2.0, Color(INK, 0.35)))
-		b.add_theme_stylebox_override("hover", _sb(Color(INK, 0.06), 12, 2.0, Color(INK, 0.5)))
-		b.add_theme_stylebox_override("pressed", _sb(INK, 12))
-		b.add_theme_stylebox_override("hover_pressed", _sb(INK, 12))
-		b.add_theme_stylebox_override("focus", _sb(Color(0, 0, 0, 0), 12, 3.0, RED))
-		b.add_theme_color_override("font_color", INK)
-		b.add_theme_color_override("font_hover_color", INK)
-		b.add_theme_color_override("font_pressed_color", CREAM)
-		b.add_theme_color_override("font_hover_pressed_color", CREAM)
-		b.add_theme_color_override("font_focus_color", INK)
-		var key: String = t[0]
-		b.pressed.connect(func(): _set_tab(key))
-		frame.add_child(b)
-		tab_btns[key] = b
+	tabs = UITabs.new()
+	tabs.light = true
+	tabs.tabs = ["Active", "Done", "Rumors"]
+	tabs.tab_changed.connect(func(i): _set_tab(TAB_KEYS[i]))
+	frame.add_child(tabs)
+	for i in TAB_KEYS.size(): tab_btns[TAB_KEYS[i]] = i
 	scroll = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 8
@@ -186,24 +137,19 @@ func _layout() -> void:
 	_last_size = vs
 	var sr := safe_rect()
 	btn.size = btn_rect.size if btn_rect.size != Vector2.ZERO else BTN
-	btn.position = btn_rect.position if btn_rect.size != Vector2.ZERO else Vector2(sr.end.x - 16.0 - BTN.x, sr.position.y + 16.0)
-	var w := minf(660.0, sr.size.x - 32.0)
+	btn.position = btn_rect.position if btn_rect.size != Vector2.ZERO else Vector2(sr.end.x - 20.0 - BTN.x, sr.position.y + 16.0)
+	var w := minf(700.0, sr.size.x - 32.0)
 	var h := minf(sr.size.y - 32.0, 720.0)
 	frame.position = Vector2(sr.position.x + (sr.size.x - w) * 0.5, sr.position.y + (sr.size.y - h) * 0.5)
 	frame.size = Vector2(w, h)
-	var pad := 24.0
-	title_lbl.position = Vector2(pad, 20)
-	close_btn.size = Vector2(48, 48)
-	close_btn.position = Vector2(w - pad - 48 + 6, 14)
-	var tw := (w - pad * 2 - 16) / 3.0
-	var i := 0
-	for k in ["active", "done", "rumors"]:
-		var b: Button = tab_btns[k]
-		b.position = Vector2(pad + i * (tw + 8), 72)
-		b.size = Vector2(tw, 48)
-		i += 1
-	scroll.position = Vector2(pad, 134)
-	scroll.size = Vector2(w - pad * 2 + 8, h - 134 - 22)
+	var pad := 30.0
+	title_lbl.position = Vector2(pad, 14)
+	close_btn.size = Vector2(110 if UIInput.device != "touch" else 64, 52)
+	close_btn.position = Vector2(w - pad - close_btn.size.x + 4.0, 16)
+	tabs.position = Vector2(pad, 80)
+	tabs.size = Vector2(w - pad * 2, 50)
+	scroll.position = Vector2(pad, 146)
+	scroll.size = Vector2(w - pad * 2 + 8, h - 146 - 22)
 	list.custom_minimum_size.x = scroll.size.x - 14
 	frame.queue_redraw()
 	btn.queue_redraw()
@@ -223,6 +169,8 @@ func open() -> void:
 	Sfx.ui("ui_menu_open")
 	_layout()
 	_fill()
+	_open_t = 0.0
+	_animate_in()
 
 func close() -> void:
 	if not root.visible: return
@@ -232,16 +180,31 @@ func close() -> void:
 	var f := root.get_viewport().gui_get_focus_owner()
 	if f: f.release_focus()
 
+# the panel slides in from below with a little lean, the scrim fades in
+func _animate_in() -> void:
+	var to := frame.position
+	frame.position = to + Vector2(0, 40)
+	frame.modulate.a = 0.0
+	dim.modulate.a = 0.0
+	var tw := frame.create_tween().set_parallel(true)
+	tw.tween_property(frame, "position", to, UITheme.BASE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(frame, "modulate:a", 1.0, UITheme.FAST)
+	tw.tween_property(dim, "modulate:a", 1.0, UITheme.BASE)
+
 func _input(e: InputEvent) -> void:
 	if e.is_action_pressed("quests"):
 		toggle(); get_viewport().set_input_as_handled(); return
 	if not root.visible: return
 	if e.is_action_pressed("back") or e.is_action_pressed("ui_cancel"):
 		close(); get_viewport().set_input_as_handled(); return
+	var lr := 0
 	if e is InputEventJoypadButton and e.pressed and e.button_index in [JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER]:
-		var keys := ["active", "done", "rumors"]
-		var i := (keys.find(tab) + (1 if e.button_index == JOY_BUTTON_RIGHT_SHOULDER else -1) + 3) % 3
-		_set_tab(keys[i])
+		lr = 1 if e.button_index == JOY_BUTTON_RIGHT_SHOULDER else -1
+	elif e is InputEventKey and e.pressed and not e.echo and e.physical_keycode in [KEY_Q, KEY_E]:
+		lr = 1 if e.physical_keycode == KEY_E else -1
+	if lr != 0:
+		var i := (TAB_KEYS.find(tab) + lr + 3) % 3
+		_set_tab(TAB_KEYS[i])
 		get_viewport().set_input_as_handled()
 		return
 	var pad := e is InputEventJoypadButton or e is InputEventJoypadMotion or e is InputEventKey
@@ -253,72 +216,80 @@ func _input(e: InputEvent) -> void:
 func _set_tab(k: String) -> void:
 	if k != tab: Sfx.ui("ui_tab")
 	tab = k
+	tabs.selected = TAB_KEYS.find(k)
+	tabs._kick()
 	_fill()
 
 # ---------- contents ----------
-func _label(text: String, size: int, col: Color, bold := false) -> Label:
-	var l := Label.new()
-	l.text = text
+func _label(text: String, size: int, col: Color, bold := false, role := "") -> Label:
+	var l := UITheme.label(text, role if role != "" else ("body_bold" if bold else "body"), size, col)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", col)
-	if bold: l.add_theme_font_override("font", font_bold)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return l
 
 func _card(accent: Color) -> VBoxContainer:
-	# a soft card with an accent stripe down its left edge
+	# a card: faint ink fill, an accent bar down its left edge, a cut corner
 	var pc := PanelContainer.new()
-	var s := _sb(Color(CREAM2, 0.75), 12)
+	var s := UITheme.sb(Color(UITheme.INK, 0.045), 0.0, 0.0, Color.TRANSPARENT, Vector4(22, 12, 18, 14))
 	s.border_color = accent
-	s.border_width_left = 7
-	s.content_margin_left = 18; s.content_margin_right = 14; s.content_margin_top = 10; s.content_margin_bottom = 12
+	s.border_width_left = 6
 	pc.add_theme_stylebox_override("panel", s)
 	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_child(pc)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
+	v.add_theme_constant_override("separation", 3)
 	pc.add_child(v)
 	return v
 
+func _meta(v: VBoxContainer, chips: Array) -> void:
+	# a row of small label chips: [text, colour]
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	for c in chips:
+		var l := UITheme.label(String(c[0]).to_upper(), "label", 15, Color.WHITE if c[1] != UITheme.YELLOW else UITheme.INK)
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", UITheme.sb(c[1], UITheme.SKEW, 0.0, Color.TRANSPARENT, Vector4(9, 1, 9, 1)))
+		p.add_child(l)
+		h.add_child(p)
+	v.add_child(h)
+
 func _fill() -> void:
-	for k in tab_btns: tab_btns[k].button_pressed = (k == tab)
 	for c in list.get_children(): c.queue_free()
 	var data: Dictionary = quests.log_entries() if quests != null and quests.has_method("log_entries") else {"active": [], "done": [], "rumors": [], "items": []}
-	tab_btns.active.text = "Active (%d)" % data.active.size()
-	tab_btns.done.text = "Done (%d)" % data.done.size()
-	tab_btns.rumors.text = "Rumors (%d)" % data.rumors.size()
+	tabs.counts = [data.active.size(), data.done.size(), data.rumors.size()]
+	tabs.selected = TAB_KEYS.find(tab)
+	tabs._kick()
 	if tab == "active":
 		if data.active.is_empty():
-			list.add_child(_label("No quests right now. Talk to the townspeople. Folks with a ! over their heads have something to ask.", 18, MUTED))
+			list.add_child(_label("No quests right now. Talk to the townspeople. Folks with a ! over their heads have something to ask.", 20, UITheme.INK_SOFT))
 		for e in data.active:
-			var v := _card(RED)
-			v.add_child(_label(e.title, 22, INK, true))
-			v.add_child(_label("from " + e.giver + "   step %d of %d" % [e.step + 1, e.steps], 15, MUTED))
-			v.add_child(_label("> " + e.hint, 19, INK))
-			if e.progress != "": v.add_child(_label(e.progress, 16, RED))
-			v.add_child(_label(e.summary, 15, MUTED))
+			var v := _card(UITheme.RED)
+			v.add_child(_label(String(e.title).to_upper(), 26, UITheme.INK, false, "heading"))
+			_meta(v, [["Step %d / %d" % [e.step + 1, e.steps], UITheme.RED], ["From " + String(e.giver), Color(UITheme.INK, 0.55)]])
+			v.add_child(_label("» " + String(e.hint), 21, UITheme.INK, true))
+			if e.progress != "": v.add_child(_label(String(e.progress), 18, UITheme.RED_DEEP, true))
+			v.add_child(_label(String(e.summary), 17, UITheme.INK_SOFT))
 		if not data.items.is_empty():
-			list.add_child(_label("Carrying", 20, INK, true))
+			list.add_child(_label("CARRYING", 22, UITheme.INK, false, "heading"))
 			for it in data.items:
-				var v2 := _card(Color("e0a23a"))
-				v2.add_child(_label(it.name + ("  x%d" % it.count if it.count > 1 else ""), 19, INK, true))
-				if it.desc != "": v2.add_child(_label(it.desc, 15, MUTED))
+				var v2 := _card(UITheme.ORANGE)
+				v2.add_child(_label(String(it.name) + ("  ×%d" % it.count if it.count > 1 else ""), 21, UITheme.INK, true))
+				if it.desc != "": v2.add_child(_label(String(it.desc), 17, UITheme.INK_SOFT))
 	elif tab == "done":
 		if data.done.is_empty():
-			list.add_child(_label("Nothing finished yet. Pallet Town is full of people who could use a hand.", 18, MUTED))
+			list.add_child(_label("Nothing finished yet. Pallet Town is full of people who could use a hand.", 20, UITheme.INK_SOFT))
 		for e in data.done:
-			var v := _card(Color("4c9a5b"))
-			v.add_child(_label(e.title + "   - complete", 21, INK, true))
-			v.add_child(_label("for " + e.giver, 15, MUTED))
-			v.add_child(_label(e.summary, 16, MUTED))
+			var v := _card(UITheme.GREEN)
+			v.add_child(_label(String(e.title).to_upper(), 24, UITheme.INK, false, "heading"))
+			_meta(v, [["Complete", UITheme.GREEN.darkened(0.15)], ["For " + String(e.giver), Color(UITheme.INK, 0.55)]])
+			v.add_child(_label(String(e.summary), 17, UITheme.INK_SOFT))
 	else:
 		if data.rumors.is_empty():
-			list.add_child(_label("No rumors yet. Listen to the old sailors... they say things about Cinnabar Island.", 18, MUTED))
+			list.add_child(_label("No rumors yet. Listen to the old sailors... they say things about Cinnabar Island.", 20, UITheme.INK_SOFT))
 		for e in data.rumors:
-			var v := _card(Color("8a5cc2"))
-			v.add_child(_label(e.title, 20, INK, true))
-			v.add_child(_label(e.summary, 16, INK))
+			var v := _card(UITheme.PURPLE)
+			v.add_child(_label(String(e.title).to_upper(), 22, UITheme.INK, false, "heading"))
+			v.add_child(_label(String(e.summary), 18, UITheme.INK))
 	scroll.scroll_vertical = 0
 
 # ---------- events ----------
@@ -336,70 +307,33 @@ func toast(kind: String, text: String) -> void:
 	_toasts.append([kind, text])
 	if _toasts.size() > 5: _toasts.pop_front()
 
-const TOAST_IN := 0.28
-const TOAST_HOLD := 2.6
+const TOAST_IN := UIToaster.T_IN
+const TOAST_HOLD := UIToaster.HOLD
 
 func _process(dt: float) -> void:
 	if root.get_viewport_rect().size != _last_size: _layout()
 	toaster.visible = not root.visible   # toasts wait while the log is open
 	if _toasts.is_empty() or root.visible: return
 	_toast_t += dt
-	if _toast_t > TOAST_IN * 2.0 + TOAST_HOLD:
+	if _toast_t > UIToaster.T_IN + UIToaster.HOLD + UIToaster.T_OUT:
 		_toasts.pop_front()
 		_toast_t = 0.0
 	toaster.queue_redraw()
 
 # ---------- drawing ----------
-func _draw_btn() -> void:
-	# a little scroll with writing on it
-	var c := btn.size * 0.5
-	var w := 26.0
-	var h := 30.0
-	var r := Rect2(c.x - w * 0.5, c.y - h * 0.5, w, h)
-	btn.draw_style_box(_sb(CREAM, 4, 2.0, INK), r)
-	btn.draw_rect(Rect2(r.position.x - 3, r.position.y - 3, w + 6, 6), CREAM2)
-	btn.draw_rect(Rect2(r.position.x - 3, r.position.y - 3, w + 6, 6), INK, false, 2.0)
-	btn.draw_rect(Rect2(r.position.x - 3, r.end.y - 3, w + 6, 6), CREAM2)
-	btn.draw_rect(Rect2(r.position.x - 3, r.end.y - 3, w + 6, 6), INK, false, 2.0)
-	for k in 3:
-		var y := r.position.y + 9 + k * 6
-		btn.draw_line(Vector2(r.position.x + 6, y), Vector2(r.end.x - (6 if k < 2 else 11), y), Color(INK, 0.75), 2.0)
-	if unread:
-		btn.draw_circle(Vector2(btn.size.x - 9, 9), 7.0, RED, true, -1.0, true)
-		btn.draw_circle(Vector2(btn.size.x - 9, 9), 7.0, Color.WHITE, false, 2.0, true)
-
 func _draw_frame() -> void:
 	var w := frame.size.x
 	var h := frame.size.y
-	for k in 3:
-		var g := (3 - k) * 3.0
-		frame.draw_style_box(_sb(Color(0.04, 0.05, 0.16, 0.1), int(18 + g)), Rect2(-g * 0.5, 5 - g * 0.3, w + g, h + g))
-	frame.draw_style_box(_sb(CREAM, 18), Rect2(0, 0, w, h))
-	frame.draw_style_box(_sb(Color(0, 0, 0, 0), 15, 3.0, INK), Rect2(4, 4, w - 8, h - 8))
-	frame.draw_style_box(_sb(Color(0, 0, 0, 0), 11, 1.5, Color(INK, 0.5)), Rect2(9, 9, w - 18, h - 18))
-	frame.draw_line(Vector2(24, 128), Vector2(w - 24, 128), Color(INK, 0.18), 2.0)
+	var r := Rect2(0, 0, w, h)
+	UITheme.panel(frame, r, UITheme.RED, 1.0, 0.0, 26.0, 8.0)
+	# the header: chevrons after the title, a rule under the tabs, the ball watermark
+	var tw := UITheme.text_w("QUEST LOG", "display", UITheme.fs("title"))
+	UITheme.chevrons(frame, Vector2(30.0 + tw + 18.0, 42.0), 22.0, UITheme.RED, 3)
+	frame.draw_line(Vector2(30, 138), Vector2(w - 30, 138), Color(UITheme.INK, 0.12), 1.5)
+	UIDialogPanel._ball_mark(frame, Vector2(w - 150.0, 46.0), 64.0, Color(UITheme.INK, 0.06))
 
 func _draw_toast() -> void:
 	if _toasts.is_empty(): return
 	var kind: String = _toasts[0][0]
 	var text: String = _toasts[0][1]
-	var t := _toast_t
-	var a := clampf(minf(t / TOAST_IN, (TOAST_IN * 2.0 + TOAST_HOLD - t) / TOAST_IN), 0.0, 1.0)
-	var e := 1.0 - pow(1.0 - a, 3.0)
-	var sr := safe_rect()
-	var head: String = KIND_LABEL.get(kind, kind.to_upper())
-	var hs := 15
-	var ts := 22
-	var hw := font_bold.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
-	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x
-	var w := minf(maxf(hw + 40.0, tw) + 48.0, sr.size.x - 120.0 - BTN.x * 2.0)
-	var h := 76.0
-	var x := sr.position.x + (sr.size.x - w) * 0.5
-	var y := sr.position.y + 14.0 - (1.0 - e) * (h + 30.0)
-	var accent: Color = {"complete": Color("4c9a5b"), "rumor": Color("8a5cc2"), "item": Color("d08a1f")}.get(kind, RED)
-	toaster.draw_style_box(_sb(Color(0.04, 0.05, 0.16, 0.18 * a), 18), Rect2(x - 2, y + 4, w + 4, h + 2))
-	toaster.draw_style_box(_sb(Color(CREAM, 0.97 * a), 16, 3.0, Color(INK, a)), Rect2(x, y, w, h))
-	var pill := Rect2(x + 22, y + 11, hw + 22, 22)
-	toaster.draw_style_box(_sb(Color(accent, a), 11), pill)
-	toaster.draw_string(font_bold, Vector2(pill.position.x + 11, pill.position.y + 16), head, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color(1, 1, 1, a))
-	toaster.draw_string(font, Vector2(x + 24, y + 62), text, HORIZONTAL_ALIGNMENT_LEFT, w - 48.0, ts, Color(INK, a))
+	UIToaster.draw_toast(toaster, {"kind": kind, "head": KIND_LABEL.get(kind, kind.to_upper()), "text": text}, _toast_t, safe_rect(), "top", BTN.x + 40.0)

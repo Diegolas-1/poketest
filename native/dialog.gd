@@ -1,31 +1,22 @@
 class_name DialogBox
 extends Control
-# The text box (web/world/dialog.js + web/hd/textbox.js): a cream panel with
-# the classic double border and a Poké Ball on each corner, Pixelify Sans
-# typed out at 55 letters a second, a bouncing red arrow when a line is done;
-# the "A" prompt over whatever is in reach; and the area banner.
+# The text box, the prompt over whatever is in reach, and the area banner,
+# in the UI design system's look (ui/ui_theme.gd, ui/README.md):
+#   box     UIDialogPanel.draw_box: a crisp white panel with the speaker's
+#           nameplate ("OAK: Hey!" puts OAK on the plate; later lines of the
+#           same say() keep the speaker), the line typed out at 55 letters a
+#           second, the advance mark (A glyph + a bobbing chevron) when done.
+#           Slides up into place and drops away on close.
+#   prompt  a skewed dark chip with the device's button glyph and the label,
+#           a pointer down at the thing; pops in when it changes
+#   banner  the area's name, big italic uppercase on a red slash with
+#           chevrons, the subtitle on a dark plate; wipes in, holds, slides out
 #
 #   say(lines, on_done)   next()   open   prompt = {pos, label} or {}   banner(title, sub)
 #   voice = "text" | "low" | "mid" | "high" | "kid" | "critter", voice_pitch: the
 #   typing blips (sfx ui_blip_<voice>), set by the caller before say()
 
-const INK := Color("23284f")
-const RED := Color("e8463c")
-const BALL := [
-	"....KKKK....",
-	"..KKRRRRKK..",
-	".KRhhRRRRrK.",
-	".KRhRRRRRrK.",
-	"KRRRRKKRRRrK",
-	"KKKKKWWKKKKK",
-	"KKKKKWWKKKKK",
-	"KWWWWKKWWWwK",
-	".KWWWWWWWwK.",
-	".KWWWWWWwwK.",
-	"..KKwwwwKK..",
-	"....KKKK....",
-]
-const PAL := {"K": Color("1b1d33"), "R": Color("e8463c"), "r": Color("a32a2c"), "h": Color("ffb1a4"), "W": Color.WHITE, "w": Color("c9cbdc")}
+const BAN_LEN := 4.2
 
 var lines: Array = []
 var i := 0
@@ -34,16 +25,19 @@ var on_done: Callable
 var prompt := {}            # {pos: Vector2, label: String}
 var safe_bottom := 10.0
 var t := 0.0
-var font: FontVariation
-var font_bold: FontVariation
 var _ban_title := ""
 var _ban_sub := ""
 var _ban_t := 99.0
-var _ball_tex: ImageTexture
 var _was_busy := true
 var voice := "text"
 var voice_pitch := 1.0
 var _blip_at := -1           # the last group of three letters that blipped
+var _open_t := 0.0           # since the box opened (slide in)
+var _close_t := 9.0          # since it closed (drop away)
+var _last := ["", "", 0]     # what was last shown: speaker, text, letters (for the close)
+var _speaker := ""
+var _prompt_key := ""
+var _prompt_t := 9.0
 
 var open: bool:
 	get: return not lines.is_empty()
@@ -51,19 +45,12 @@ var open: bool:
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ff: FontFile = load("res://fonts/PixelifySans.woff2")
-	font = FontVariation.new(); font.base_font = ff; font.variation_opentype = {"wght": 600}
-	font_bold = FontVariation.new(); font_bold.base_font = ff; font_bold.variation_opentype = {"wght": 700}
-	var img := Image.create(12, 12, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	for y in 12:
-		for x in 12:
-			var ch: String = BALL[y][x]
-			if PAL.has(ch): img.set_pixel(x, y, PAL[ch])
-	_ball_tex = ImageTexture.create_from_image(img)
+	if UIInput.I: UIInput.I.device_changed.connect(func(_d): queue_redraw())
 
 func say(l: Array, done: Callable = Callable()) -> void:
+	if lines.is_empty(): _open_t = 0.0
 	lines = l; i = 0; shown = 0.0; on_done = done; _blip_at = -1
+	_speaker = ""
 	Sfx.ui("ui_dialog_open")
 	queue_redraw()
 
@@ -77,6 +64,7 @@ func next() -> void:
 	Sfx.ui("ui_dialog_advance" if i < lines.size() else "ui_dialog_close")
 	if i >= lines.size():
 		lines = []
+		_close_t = 0.0
 		var f := on_done
 		on_done = Callable()
 		if f.is_valid(): f.call()
@@ -88,9 +76,13 @@ func banner(title: String, sub: String) -> void:
 func _process(dt: float) -> void:
 	t += dt
 	if size != get_viewport_rect().size: size = get_viewport_rect().size
-	var busy := open or not prompt.is_empty() or _ban_t < 4.3 or _was_busy
-	_was_busy = open or not prompt.is_empty() or _ban_t < 4.3
+	var animating := _ban_t < BAN_LEN + 0.1 or _open_t < UITheme.SLOW or _close_t < UITheme.BASE or _prompt_t < UITheme.SLOW
+	var busy := open or not prompt.is_empty() or animating or _was_busy
+	_was_busy = open or not prompt.is_empty() or animating
 	if busy: queue_redraw()
+	_open_t += dt
+	_close_t += dt
+	_prompt_t += dt
 	if open:
 		var line: String = lines[i]
 		shown = minf(float(line.length()), shown + dt * 55.0)
@@ -100,111 +92,80 @@ func _process(dt: float) -> void:
 			_blip_at = floori(k / 3.0)
 			if line[k] != " " and Sfx.I != null and Sfx.I.ui_on: Sfx.play("ui_blip_" + voice, null, {"pitch": voice_pitch})
 	_ban_t += dt
-
-func _wrap(text: String, w: float, size: int) -> Array:
-	var rows := []
-	var row := ""
-	for word in text.split(" "):
-		var tt := word if row == "" else row + " " + word
-		if font.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > w and row != "":
-			rows.append(row); row = word
-		else: row = tt
-	if row != "": rows.append(row)
-	return rows
-
-var _sbs := {}
-func _rr(r: Rect2, rad: float, fill: Color, line := 0.0, lc := Color.BLACK) -> void:
-	var key := [int(rad), fill, int(round(line)), lc]
-	if _sbs.has(key):
-		draw_style_box(_sbs[key], r); return
-	var sb := StyleBoxFlat.new()
-	_sbs[key] = sb
-	sb.bg_color = fill
-	sb.set_corner_radius_all(int(rad))
-	sb.corner_detail = 6
-	sb.anti_aliasing = true
-	if line > 0.0:
-		sb.border_color = lc
-		sb.set_border_width_all(maxi(1, int(round(line))))
-		sb.draw_center = fill.a > 0.0
-	draw_style_box(sb, r)
-
-func _panel(x: float, y: float, w: float, h: float, u: float) -> void:
-	var r := 4.0 * u
-	# soft drop shadow
-	for k in 3:
-		var g := (3 - k) * 1.6 * u
-		_rr(Rect2(x - g * 0.5, y + 2.5 * u - g * 0.3, w + g, h + g), r + g, Color(0.04, 0.05, 0.16, 0.08))
-	# cream body, lighter at the top
-	var pts := PackedVector2Array()
-	var cols := PackedColorArray()
-	var c0 := Color("fffdf6")
-	var c1 := Color("f2e9d6")
-	for corner in 4:
-		var cc: Vector2 = [Vector2(x + w - r, y + r), Vector2(x + w - r, y + h - r), Vector2(x + r, y + h - r), Vector2(x + r, y + r)][corner]
-		for k in 7:
-			var ang := -PI / 2.0 + (corner + k / 6.0) * PI / 2.0
-			var pp := cc + Vector2(cos(ang), sin(ang)) * r
-			pts.append(pp); cols.append(c0.lerp(c1, (pp.y - y) / h))
-	draw_polygon(pts, cols)
-	# double frame
-	_rr(Rect2(x + 2 * u, y + 2 * u, w - 4 * u, h - 4 * u), r - u, Color(0, 0, 0, 0), 1.5 * u, INK)
-	_rr(Rect2(x + 4.5 * u, y + 4.5 * u, w - 9 * u, h - 9 * u), r - 2 * u, Color(0, 0, 0, 0), maxf(1.0, 0.75 * u), Color(0.137, 0.157, 0.31, 0.55))
-	var bu := u * 0.85
-	var o := 6.0 * bu
-	for c in [Vector2(x + 2 * u, y + 2 * u), Vector2(x + w - 2 * u, y + 2 * u), Vector2(x + 2 * u, y + h - 2 * u), Vector2(x + w - 2 * u, y + h - 2 * u)]:
-		draw_texture_rect(_ball_tex, Rect2(c.x - o, c.y - o, 12 * bu, 12 * bu), false)
+	# the prompt pops in when it changes (another thing, another label)
+	var pk := "" if prompt.is_empty() else String(prompt.label)
+	if pk != _prompt_key:
+		_prompt_key = pk
+		if pk != "": _prompt_t = 0.0
 
 func _draw() -> void:
+	if not prompt.is_empty() and not open: _draw_prompt()
+	if _ban_t < BAN_LEN: _draw_banner()
+	_draw_box()
+
+func _draw_prompt() -> void:
+	var k := clampf(_prompt_t / UITheme.POP, 0.0, 1.0)
+	var s := lerpf(0.7, 1.0, UITheme.ease_back(k, 2.4))
+	var a := clampf(_prompt_t / UITheme.FAST, 0.0, 1.0)
+	var p: Vector2 = prompt.pos
+	UITheme.prompt(self, p + Vector2(0, (1.0 - k) * 8.0), String(prompt.label), "use", a, s)
+
+# ---------- the area banner ----------
+func _draw_banner() -> void:
 	var W := size.x
-	var H := size.y
-	# the "A" prompt over something nearby
-	if not prompt.is_empty() and not open:
-		var p: Vector2 = prompt.pos
-		var label: String = prompt.label
-		var fs := 15
-		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var bw := tw + 44.0
-		var bh := 30.0
-		var bx := p.x - bw / 2.0
-		var by := p.y - bh - 10.0
-		_rr(Rect2(bx, by, bw, bh), 10, Color(1, 0.992, 0.965, 0.94), 2.0, INK)
-		draw_circle(Vector2(bx + 16, by + bh / 2), 9.0, RED, true, -1.0, true)
-		var aw := font_bold.get_string_size("A", HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string(font_bold, Vector2(bx + 16 - aw / 2, by + bh / 2 + 4.5), "A", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
-		draw_string(font, Vector2(bx + 32, by + bh / 2 + 5.5), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, INK)
-	# the area banner: fades in, holds, fades out (4.2 s)
-	if _ban_t < 4.2:
-		var a := minf(1.0, _ban_t / 1.0) * minf(1.0, (4.2 - _ban_t) / 1.0)
-		var cx := W / 2.0
-		var ty := H * 0.14 + 52
-		var sh := Color(0.08, 0.12, 0.16, 0.45 * a)
-		var cream := Color(1, 0.992, 0.965, a)
-		var tsz := font.get_string_size(_ban_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 52)
-		draw_string(font, Vector2(cx - tsz.x / 2 + 1, ty + 2), _ban_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 52, sh)
-		draw_string(font, Vector2(cx - tsz.x / 2, ty), _ban_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 52, cream)
-		for k in 34:
-			var f := float(k) / 33.0
-			var e := clampf(minf(f, 1.0 - f) / 0.15, 0.0, 1.0)
-			draw_rect(Rect2(cx - 170 + f * 330, ty + 12, 10.5, 6), Color(1, 0.992, 0.965, 0.9 * a * e))
-		var ssz := font.get_string_size(_ban_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 20)
-		draw_string(font, Vector2(cx - ssz.x / 2 + 1, ty + 44 + 2), _ban_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, sh)
-		draw_string(font, Vector2(cx - ssz.x / 2, ty + 44), _ban_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, cream)
-	if not open: return
-	var line: String = lines[i]
-	var u := minf(W * 0.78 / 160.0, H * 0.3 / 48.0)
-	var w := 160.0 * u
-	var h := 48.0 * u
-	var x := (W - w) / 2.0
-	var y := H - h - (6.0 + safe_bottom)
-	_panel(x, y, w, h, u)
-	var fsz := int(round(9.0 * u))
-	var rows := _wrap(line.substr(0, int(shown)), w - 22.0 * u, fsz)
-	for r in mini(3, rows.size()):
-		draw_string(font, Vector2(x + 11.0 * u, y + 17.0 * u + r * 12.0 * u), rows[r], HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, INK)
-	if shown >= line.length():
-		var bob := roundf(sin(t * 6.0) * 1.2) * u
-		var tx := x + w - 16.0 * u
-		var ty2 := y + h - 11.0 * u + bob
-		var s := 3.0 * u
-		draw_colored_polygon(PackedVector2Array([Vector2(tx, ty2), Vector2(tx + 2 * s, ty2), Vector2(tx + s, ty2 + s)]), RED)
+	var bt := _ban_t
+	var t_in := 0.45
+	var t_out := 0.5
+	var a := UITheme.envelope(bt, 0.25, BAN_LEN - 0.25 - t_out, t_out)
+	var e_in := UITheme.ease_out_expo(bt / t_in)
+	var e_out := UITheme.ease_in(clampf((bt - (BAN_LEN - t_out)) / t_out, 0.0, 1.0))
+	var sr := UITheme.safe_rect(self)
+	var cx := sr.get_center().x
+	var ty := sr.position.y + sr.size.y * 0.17 + 56.0
+	var title := _ban_title.to_upper()
+	var tsz := UITheme.fs("display") + 8
+	var tw := UITheme.text_w(title, "display", tsz)
+	var slide := (1.0 - e_in) * -70.0 + e_out * 90.0
+	# the red slash behind the title: wipes in from the left
+	var bw := (tw + 120.0) * e_in
+	var bar := Rect2(cx - (tw + 120.0) * 0.5 + e_out * 60.0, ty - tsz * 0.42, bw, tsz * 0.62)
+	UITheme.para(self, Rect2(bar.position + Vector2(6, 6), bar.size), Color(0, 0, 0, 0.25 * a), 0.9)
+	UITheme.fill_v(self, UITheme.para_points(bar, 0.9), Color(UITheme.RED, 0.95 * a), Color(UITheme.RED_DEEP, 0.95 * a))
+	# the title: italic, white, a dark edge
+	UITheme.text(self, Vector2(cx + slide, ty), title, "display", tsz, Color(UITheme.WHITE, a), 1, -1.0, 8, Color(UITheme.INK, 0.55 * a))
+	# chevrons either side
+	var ch := 30.0
+	UITheme.chevrons(self, Vector2(cx - tw * 0.5 - 84.0 + slide, ty - tsz * 0.12), ch, Color(UITheme.YELLOW, a), 3, -1.0)
+	UITheme.chevrons(self, Vector2(cx + tw * 0.5 + 84.0 + slide, ty - tsz * 0.12), ch, Color(UITheme.YELLOW, a), 3, 1.0)
+	# the subtitle on a dark plate, a beat later
+	if _ban_sub != "":
+		var sub := _ban_sub.to_upper()
+		var ssz := 22
+		var sw := UITheme.text_w(sub, "label", ssz) + 70.0
+		var k2 := UITheme.ease_out(clampf((bt - 0.15) / 0.35, 0.0, 1.0))
+		var sp := Rect2(cx - sw * 0.5 - (1.0 - k2) * 30.0 + e_out * 50.0, ty + 18.0, sw, 38.0)
+		var a2 := a * k2
+		UITheme.plate(self, sp, a2)
+		UITheme.icon(self, "ball", Vector2(sp.position.x + 24.0, sp.get_center().y), 10.0, Color(1, 1, 1, a2))
+		UITheme.text_mid(self, Vector2(sp.position.x + 44.0, sp.get_center().y), sub, "label", ssz, Color(UITheme.TEXT, a2))
+
+# ---------- the box ----------
+func _draw_box() -> void:
+	var r := UIDialogPanel.default_rect(self)
+	r.position.y -= maxf(0.0, safe_bottom - 10.0)
+	if open:
+		var line: String = lines[i]
+		var sp := UIDialogPanel.split_speaker(line)
+		if sp[0] != "": _speaker = sp[0]
+		elif i == 0 or line.begins_with("("): _speaker = ""
+		var pre := line.length() - String(sp[1]).length()
+		var n := maxi(0, int(shown) - pre)
+		_last = [_speaker, sp[1], n]
+		var k := clampf(_open_t / UITheme.BASE, 0.0, 1.0)
+		var e := UITheme.ease_back(k, 1.3)
+		r.position.y += (1.0 - e) * 46.0
+		UIDialogPanel.draw_box(self, r, _speaker, "", Color(0, 0, 0, 0), sp[1], n, shown >= line.length(), t, UITheme.ease_out(k), 1.0 - e)
+	elif _close_t < UITheme.BASE and String(_last[1]) != "":
+		var k2 := clampf(_close_t / (UITheme.BASE * 0.8), 0.0, 1.0)
+		r.position.y += UITheme.ease_in(k2) * 40.0
+		UIDialogPanel.draw_box(self, r, _last[0], "", Color(0, 0, 0, 0), _last[1], _last[2], false, t, 1.0 - k2, 0.0)

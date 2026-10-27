@@ -1507,27 +1507,14 @@ func _debug_text() -> void:
 # speech bubbles and "!" markers over heads
 # ======================================================================
 class _Bubbles extends Control:
+	# speech bubbles and quest marks over the townspeople, in the UI design
+	# system's look (ui/ui_widgets.gd bubble, quest_mark); redrawn only while any shows
 	var life
-	var font: FontVariation
-	var font_b: FontVariation
-	var _sb: StyleBoxFlat
-	var _sb_far: StyleBoxFlat
 	var _had := false
+	var _wrapped := {}       # text|size -> its rows (a bubble's text is wrapped once)
 	func _ready() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ff: FontFile = load("res://fonts/PixelifySans.woff2")
-		font = FontVariation.new(); font.base_font = ff; font.variation_opentype = {"wght": 600}
-		font_b = FontVariation.new(); font_b.base_font = ff; font_b.variation_opentype = {"wght": 700}
-		_sb = StyleBoxFlat.new()
-		_sb.bg_color = Color(1, 0.992, 0.965, 0.95)
-		_sb.set_corner_radius_all(9)
-		_sb.border_color = Color("23284f")
-		_sb.set_border_width_all(2)
-		_sb.anti_aliasing = true
-		_sb_far = _sb.duplicate()
-		_sb_far.bg_color = Color(1, 0.992, 0.965, 0.75)
-		_sb_far.set_border_width_all(1)
 	func tick(dt: float) -> void:
 		var any := false
 		for p in life.people + life.companions.pets:
@@ -1541,6 +1528,7 @@ class _Bubbles extends Control:
 	func _draw() -> void:
 		var cam: Camera3D = life.game.cam
 		var me: Vector3 = life.game.pos
+		var t := Time.get_ticks_msec() / 1000.0
 		for p in life.people + life.companions.pets:
 			if not p.seen or p.state == "inside": continue
 			var hh: float = p.get("bub_h", 1.55 if p.age == "kid" else 2.05)
@@ -1552,36 +1540,19 @@ class _Bubbles extends Control:
 			var near := d < 14.0 or me.distance_to(p.pos) < 9.0
 			var y := sp.y
 			if p.wants != "" and (p.bubble.is_empty() or p.bubble.has("delay")):
-				var s := clampf(260.0 / d, 14.0, 34.0)
-				var w := font_b.get_string_size("!", HORIZONTAL_ALIGNMENT_LEFT, -1, int(s)).x
-				draw_string_outline(font_b, Vector2(sp.x - w / 2, y - 4), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, int(s), 6, Color("23284f"))
-				draw_string(font_b, Vector2(sp.x - w / 2, y - 4), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, int(s), Color("ffcc33"))
-				y -= s
+				var s := clampf(300.0 / d, 18.0, 38.0)
+				UIWidgets.quest_mark(self, Vector2(sp.x, y - 4.0), s, sin(t * 3.0 + float(p.pos.x)) * 2.5)
+				y -= s + 6.0
 			if p.bubble.is_empty() or p.bubble.has("delay"): continue
 			var text: String = p.bubble.text if near else "..."
-			var fs := 15 if near else 16
-			var maxw := 230.0
-			var rows := _wrap(text, maxw, fs)
-			var tw := 0.0
-			for r in rows: tw = maxf(tw, font.get_string_size(r, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
-			var lh := fs + 3.0
-			var bw := tw + 20.0
-			var bh := rows.size() * lh + 12.0
-			var bx := clampf(sp.x - bw / 2, 4.0, size.x - bw - 4.0)
-			var by := y - bh - 14.0
-			draw_style_box(_sb if near else _sb_far, Rect2(bx, by, bw, bh))
-			var tip := clampf(sp.x, bx + 10, bx + bw - 10)
-			draw_colored_polygon(PackedVector2Array([Vector2(tip - 7, by + bh - 1), Vector2(tip + 7, by + bh - 1), Vector2(tip, by + bh + 9)]), Color("23284f"))
-			draw_colored_polygon(PackedVector2Array([Vector2(tip - 5, by + bh - 2.5), Vector2(tip + 5, by + bh - 2.5), Vector2(tip, by + bh + 5.5)]), _sb.bg_color if near else _sb_far.bg_color)
-			for k in rows.size():
-				draw_string(font, Vector2(bx + 10, by + 6 + fs + k * lh - 2), rows[k], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("23284f"))
-	func _wrap(text: String, w: float, fs: int) -> Array:
-		var rows := []
-		var row := ""
-		for word in text.split(" "):
-			var tt := word if row == "" else row + " " + word
-			if font.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w and row != "":
-				rows.append(row); row = word
-			else: row = tt
-		if row != "": rows.append(row)
-		return rows.slice(0, 4)
+			var fs := 18
+			var rows := _rows(text, fs)
+			UIWidgets.bubble(self, Vector2(sp.x, y), rows, fs, near, size.x)
+	func _rows(text: String, fs: int) -> PackedStringArray:
+		var key := "%d|%s" % [fs, text]
+		if _wrapped.has(key): return _wrapped[key]
+		var rows := UITheme.wrap(text, "body_bold", fs, 240.0)
+		if rows.size() > 4: rows = rows.slice(0, 4)
+		if _wrapped.size() > 96: _wrapped.clear()
+		_wrapped[key] = rows
+		return rows

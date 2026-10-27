@@ -44,6 +44,7 @@ var _in := 0.0                  # 0 hidden .. 1 shown
 var _target := 0.0
 var _finished := true
 var _last_typed := -1
+var _tap_frame := -1
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -115,7 +116,13 @@ func _unhandled_input(e: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	var tap: bool = (e is InputEventScreenTouch and e.pressed) or (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT)
-	if e.is_action_pressed("use") or e.is_action_pressed("ui_accept") or (tap and box_rect().grow(20).has_point(e.position)):
+	if tap and box_rect().grow(20).has_point(e.position) and (choices.count() == 0 or is_typing()):
+		# a tap arrives twice (the touch and the mouse made from it, or the other way round)
+		if Engine.get_process_frames() == _tap_frame: return
+		_tap_frame = Engine.get_process_frames()
+		press()
+		get_viewport().set_input_as_handled()
+	elif e.is_action_pressed("use") or e.is_action_pressed("ui_accept"):
 		press()
 		get_viewport().set_input_as_handled()
 

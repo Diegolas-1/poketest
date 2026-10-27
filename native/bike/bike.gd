@@ -88,7 +88,7 @@ var _free_t := 0.0
 var _approach_from := Vector3.ZERO
 var _block_said := 0.0
 var _fresh := false
-var toast: Label
+var toast: UIToaster
 var stats := {"us": 0.0, "blocks": 0}
 var hud_layer: CanvasLayer
 var assist: BikeAssist
@@ -420,7 +420,7 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	if fwd and not _fwd_was:
 		if _clock - _fwd_at < DBL_TAP and int(Settings.get_value("bike_cruise")) == 1 and not busy:
 			cruise = true
-			if not _cruise_said: _cruise_said = true; say("Cruising: brake or pull back to stop")
+			if not _cruise_said: _cruise_said = true; say("Cruising: brake or pull back to stop", "info")
 		_fwd_at = _clock
 	_fwd_was = fwd
 	if cruise and (brake_btn or busy or dismount_want or (m > 0.5 and absf(stick_rel) > 2.2)): cruise = false
@@ -982,31 +982,17 @@ func _hud() -> void:
 	hud_layer = CanvasLayer.new()
 	hud_layer.layer = 3
 	add_child(hud_layer)
-	toast = Label.new()
-	toast.add_theme_font_size_override("font_size", 22)
-	var fv := FontVariation.new()
-	fv.base_font = load("res://fonts/PixelifySans.woff2")
-	fv.variation_opentype = {"wght": 600}
-	toast.add_theme_font_override("font", fv)
-	toast.add_theme_color_override("font_color", Color.WHITE)
-	toast.add_theme_color_override("font_outline_color", Color(0.1, 0.1, 0.18, 0.85))
-	toast.add_theme_constant_override("outline_size", 8)
-	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	toast.modulate.a = 0.0
+	toast = UIToaster.new()   # ui/ui_toast.gd: a short notice a third of the way down
+	toast.anchor = "center"
 	hud_layer.add_child(toast)
 
-func say(text: String) -> void:
-	toast.text = text
+func say(text: String, kind := "warn") -> void:
 	_toast_t = 2.2
-	toast.modulate.a = 1.0
-	var vs := get_viewport().get_visible_rect().size
-	toast.size = Vector2(vs.x, 40)
-	toast.position = Vector2(0, vs.y * 0.2)
+	toast.clear()
+	toast.push(kind, "Bike", text, "bike", 1.5)
 
-func _toast_fade(dt: float) -> void:
-	if toast.modulate.a <= 0.0: return
-	if _toast_t <= 0.4: toast.modulate.a = maxf(0.0, toast.modulate.a - dt / 0.4)
+func _toast_fade(_dt: float) -> void:
+	pass
 
 # indoors: the bike waits outside, unseen
 func set_shown(on: bool) -> void:

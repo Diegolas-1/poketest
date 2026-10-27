@@ -28,6 +28,7 @@ var _anim := {}          # row -> 0..1 selection amount
 var _appear := 1.0
 var _flash := -1
 var _flash_t := 0.0
+var _tap_frame := -1
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -99,6 +100,9 @@ func handle(e: InputEvent) -> bool:
 				selected = i; hovered.emit(i); set_process(true)
 		return false
 	if pos != Vector2.INF:
+		# a tap arrives twice (the touch and the mouse made from it, or the other way round)
+		if Engine.get_process_frames() == _tap_frame: return true
+		_tap_frame = Engine.get_process_frames()
 		var lp2: Vector2 = get_global_transform_with_canvas().affine_inverse() * pos
 		for i in items.size():
 			if row_rect(i).grow_individual(0, GAP * 0.5, 0, GAP * 0.5).has_point(lp2):

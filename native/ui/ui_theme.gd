@@ -561,6 +561,18 @@ static func theme() -> Theme:
 	_theme = t
 	return t
 
+# the modal scrim under a menu: a full-rect ColorRect with ui/shaders/ui_scrim.gdshader
+static var _scrim_mat: ShaderMaterial
+static func scrim() -> ColorRect:
+	var r := ColorRect.new()
+	r.color = Color.WHITE
+	r.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if _scrim_mat == null:
+		_scrim_mat = ShaderMaterial.new()
+		_scrim_mat.shader = load("res://ui/shaders/ui_scrim.gdshader")
+	r.material = _scrim_mat
+	return r
+
 # a Label in a role
 static func label(s: String, role := "body", size := 0, col := TEXT, upper := false) -> Label:
 	var l := Label.new()

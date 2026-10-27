@@ -20,9 +20,9 @@ extends CanvasLayer
 #   PALLET_ISLAND=left|right (environment): pretend an iPhone 17 inset and draw
 #   a black island on top (renders on the desktop)
 
-const RED := Color("e8463c")
-const GOLD := Color("ffd27a")
-const CREAM := Color("fffdf6")
+const RED := UITheme.RED
+const GOLD := UITheme.YELLOW
+const CREAM := UITheme.WHITE
 const EDGE_PT := 11.0          # island's distance from the screen edge, points
 const ENTRIES := [["quests", "Quest log", true], ["settings", "Settings", true],
 	["dex", "Pokédex", false], ["bag", "Bag", false], ["map", "Map", false]]
@@ -42,8 +42,8 @@ var side := 0              # -1 island on the left, 1 on the right, 0 none
 var isle := Rect2()        # the island in viewport units
 var safe := Rect2()        # the safe area in viewport units
 var fake := ""
-var font: FontVariation
-var font_bold: FontVariation
+var font: Font
+var font_bold: Font
 var hud: Control
 var top: Control
 var _key := ""
@@ -71,9 +71,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	fake = OS.get_environment("PALLET_ISLAND").to_lower()
 	if fake == "1": fake = "left"
-	var ff: FontFile = load("res://fonts/PixelifySans.woff2")
-	font = FontVariation.new(); font.base_font = ff; font.variation_opentype = {"wght": 600}
-	font_bold = FontVariation.new(); font_bold.base_font = ff; font_bold.variation_opentype = {"wght": 700}
+	font = UITheme.font("label_semi")   # the design system's type (ui/ui_theme.gd)
+	font_bold = UITheme.font("label")
 	hud = Control.new()
 	hud.set_anchors_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -145,6 +144,9 @@ func _place() -> void:
 		qui.place_btn(q_r)
 		_placed = true
 	if main and main.cast and main.cast.cond_ui and fake != "": main.cast.cond_ui.safe_override = safe
+	if main and main.cast and main.cast.get("clock") and main.cast.clock.hud and "right_gap" in main.cast.clock.hud:
+		main.cast.clock.hud.right_gap = 0.0 if side != 0 else 76.0
+		main.cast.clock.hud._place()
 	var ov = Settings.overlay
 	if ov and ov.panel:
 		ov.panel.position = Vector2(isle.end.x + 70.0 if side < 0 else 16.0, 84.0)
@@ -368,7 +370,7 @@ func _draw_hud() -> void:
 	var al := HORIZONTAL_ALIGNMENT_LEFT if side < 0 else HORIZONTAL_ALIGNMENT_RIGHT
 	var l1 := goal_name if has_goal else "North"
 	var l2 := ("%d m" % roundi(goal_dist)) if has_goal else ""
-	_text_at(l1, Vector2(tx, c.y - 4.0), 20, Color(1, 1, 1, a), true, al)
+	_text_at(l1.to_upper(), Vector2(tx, c.y - 4.0), 22, Color(1, 1, 1, a), true, al)
 	if assist_on:
 		# a little road (two edges closing toward the horizon, a dashed middle) under the name
 		var rc := Vector2(tx + (9.0 if side < 0 else -9.0), c.y + 46.0)
@@ -377,7 +379,7 @@ func _draw_hud() -> void:
 		hud.draw_line(rc + Vector2(8, 9), rc + Vector2(2.5, -9), col, 2.5, true)
 		hud.draw_line(rc + Vector2(0, 7), rc + Vector2(0, 2), col, 2.0, true)
 		hud.draw_line(rc + Vector2(0, -2), rc + Vector2(0, -6), col, 1.5, true)
-	if l2 != "": _text_at(l2, Vector2(tx, c.y + 20.0), 17, Color(GOLD, a), false, al)
+	if l2 != "": _text_at(l2.to_upper(), Vector2(tx, c.y + 20.0), 19, Color(GOLD, a), false, al)
 
 func _text_at(s: String, at: Vector2, size: int, col: Color, bold: bool, al: int) -> void:
 	var f: Font = font_bold if bold else font
@@ -439,8 +441,10 @@ func _draw_menu() -> void:
 	if ca <= 0.0: return
 	var cx := _content_x()
 	var full := _panel_full()
-	_text_at("MENU", Vector2(cx.x + 4.0, full.position.y + 50.0), 18, Color(1, 1, 1, 0.5 * ca), true, HORIZONTAL_ALIGNMENT_LEFT)
-	hud.draw_line(Vector2(cx.x, full.position.y + 64.0), Vector2(cx.y, full.position.y + 64.0), Color(1, 1, 1, 0.12 * ca), 2.0)
+	_text_at("MENU", Vector2(cx.x + 4.0, full.position.y + 50.0), 30, Color(1, 1, 1, 0.95 * ca), true, HORIZONTAL_ALIGNMENT_LEFT)
+	var mw := font_bold.get_string_size("MENU", HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+	UITheme.chevrons(hud, Vector2(cx.x + mw + 18.0, full.position.y + 40.0), 18.0, Color(RED, ca), 3)
+	hud.draw_line(Vector2(cx.x, full.position.y + 64.0), Vector2(cx.y, full.position.y + 64.0), Color(1, 1, 1, 0.12 * ca), 1.5)
 	var ents := _entries()
 	for i in ents.size():
 		var e: Array = ents[i]
@@ -448,57 +452,29 @@ func _draw_menu() -> void:
 		rr.position.x += (1.0 - ca) * (-24.0 if side < 0 else 24.0) * (1.0 + i * 0.4)
 		var on: bool = e[2]
 		var k := ca * (1.0 if on else 0.42)
-		hud.draw_style_box(_sb(Color(1, 1, 1, (0.08 if on else 0.04) * ca), 18), rr)
-		var ic := Vector2(rr.position.x + 38.0, rr.get_center().y)
-		hud.draw_circle(ic, 25.0, Color(_icon_col(e[0]), k), true, -1.0, true)
+		var pts := UITheme.para_points(rr)
+		UITheme.fill(hud, pts, Color(1, 1, 1, (0.09 if on else 0.04) * ca))
+		if on: UITheme.accent_bar(hud, rr, Color(_icon_col(e[0]), ca), 1.0, UITheme.SKEW, 4.0)
+		var ic := Vector2(rr.position.x + 40.0, rr.get_center().y)
+		UIWidgets.icon_disc(hud, ic, 24.0, _icon_col(e[0]), "", k)
 		_icon(e[0], ic, k)
-		var ty := rr.get_center().y + (8.0 if on else -2.0)
-		_text_at(e[1], Vector2(rr.position.x + 80.0, ty), 26, Color(1, 1, 1, k), true, HORIZONTAL_ALIGNMENT_LEFT)
-		if not on: _text_at("coming soon", Vector2(rr.position.x + 80.0, ty + 24.0), 16, Color(GOLD, 0.8 * ca), false, HORIZONTAL_ALIGNMENT_LEFT)
+		var ty := rr.get_center().y + (9.0 if on else -2.0)
+		_text_at(String(e[1]).to_upper(), Vector2(rr.position.x + 80.0, ty), 28, Color(1, 1, 1, k), true, HORIZONTAL_ALIGNMENT_LEFT)
+		if not on: UITheme.chip(hud, Vector2(rr.position.x + 80.0, ty + 10.0), "COMING SOON", Color(GOLD, 0.9), UITheme.INK, 13, 20.0, ca)
 		elif e[0] == "quests":
 			var q = _quest_ui()
-			if q and q.unread: hud.draw_circle(Vector2(rr.end.x - 26.0, rr.get_center().y), 8.0, Color(RED, ca), true, -1.0, true)
+			if q and q.unread:
+				var dp := Vector2(rr.end.x - 30.0, rr.get_center().y)
+				UITheme.glow(hud, dp, 9.0, RED, ca)
+				hud.draw_circle(dp, 8.0, Color(RED, ca), true, -1.0, true)
 
 func _icon_col(id: String) -> Color:
-	return {"quests": Color("f2e9d6"), "settings": Color("3a4a63"), "dex": RED, "bag": Color("d08a1f"), "map": Color("4c9a5b"), "bike": Color("d83a31")}.get(id, Color.GRAY)
+	return {"quests": UITheme.YELLOW, "settings": UITheme.BLUE, "dex": UITheme.RED, "bag": UITheme.ORANGE, "map": UITheme.GREEN, "bike": UITheme.SKY}.get(id, Color.GRAY)
 
 func _icon(id: String, c: Vector2, a: float) -> void:
-	var ink := Color(0.137, 0.157, 0.31, a)
-	var w := Color(1, 1, 1, a)
-	match id:
-		"quests":
-			hud.draw_rect(Rect2(c.x - 10, c.y - 12, 20, 24), Color(CREAM, a))
-			hud.draw_rect(Rect2(c.x - 10, c.y - 12, 20, 24), ink, false, 2.0)
-			for k in 3: hud.draw_line(Vector2(c.x - 6, c.y - 6 + k * 6), Vector2(c.x + 6 - (4 if k == 2 else 0), c.y - 6 + k * 6), ink, 2.0)
-		"settings":
-			for i in 8:
-				var t := i * TAU / 8.0
-				var d := Vector2(cos(t), sin(t))
-				var n := Vector2(-d.y, d.x)
-				hud.draw_colored_polygon(PackedVector2Array([c + d * 9 + n * 4, c + d * 15 + n * 3, c + d * 15 - n * 3, c + d * 9 - n * 4]), w)
-			hud.draw_circle(c, 11.0, w, true, -1.0, true)
-			hud.draw_circle(c, 4.5, Color(0.23, 0.29, 0.39, a), true, -1.0, true)
-		"dex":
-			hud.draw_rect(Rect2(c.x - 11, c.y - 15, 22, 30), Color(1, 1, 1, 0.0))
-			hud.draw_circle(c, 13.0, w, true, -1.0, true)
-			hud.draw_line(c + Vector2(-13, 0), c + Vector2(13, 0), Color(0, 0, 0, a), 3.0)
-			hud.draw_circle(c, 4.5, Color(0, 0, 0, a), true, -1.0, true)
-			hud.draw_circle(c, 2.5, w, true, -1.0, true)
-		"bag":
-			hud.draw_style_box(_sb(Color(1, 1, 1, a), 5), Rect2(c.x - 12, c.y - 6, 24, 18))
-			hud.draw_arc(c + Vector2(0, -6), 6.0, PI, TAU, 10, w, 3.0, true)
-		"bike":
-			# two wheels, the frame between, the bars
-			hud.draw_arc(c + Vector2(-8, 5), 7.0, 0.0, TAU, 18, w, 2.5, true)
-			hud.draw_arc(c + Vector2(8, 5), 7.0, 0.0, TAU, 18, w, 2.5, true)
-			hud.draw_polyline(PackedVector2Array([c + Vector2(-8, 5), c + Vector2(-2, -4), c + Vector2(6, -4), c + Vector2(8, 5)]), w, 2.5, true)
-			hud.draw_line(c + Vector2(-2, -4), c + Vector2(0, 5), w, 2.5, true)
-			hud.draw_line(c + Vector2(5, -8), c + Vector2(9, -8), w, 2.5, true)
-			hud.draw_line(c + Vector2(-5, -7), c + Vector2(0, -7), w, 3.0, true)
-		"map":
-			hud.draw_colored_polygon(PackedVector2Array([c + Vector2(-13, -9), c + Vector2(-4, -12), c + Vector2(4, -9), c + Vector2(13, -12),
-				c + Vector2(13, 9), c + Vector2(4, 12), c + Vector2(-4, 9), c + Vector2(-13, 12)]), w)
-			hud.draw_circle(c + Vector2(3, -1), 3.5, Color(RED, a), true, -1.0, true)
+	var ic: String = {"quests": "log", "settings": "cog", "dex": "ball", "bag": "bag", "map": "map", "bike": "bike"}.get(id, id)
+	var col := Color(1, 1, 1, a)
+	UITheme.icon(hud, ic, c, 13.0, col)
 
 func _draw_top() -> void:
 	if side == 0: return

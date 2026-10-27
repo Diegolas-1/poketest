@@ -19,6 +19,7 @@ var _sel_x := -1.0           # the selection's animated position
 var _sel_w := 0.0
 var _rects: Array = []
 var _hover := -1
+var _tap_frame := -1
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -72,6 +73,8 @@ func _gui_input(e: InputEvent) -> void:
 		if h != _hover: _hover = h; queue_redraw()
 		return
 	if pos == Vector2.INF: return
+	if Engine.get_process_frames() == _tap_frame: accept_event(); return
+	_tap_frame = Engine.get_process_frames()
 	for i in _rects.size():
 		if (_rects[i] as Rect2).has_point(pos):
 			set_selected(i)

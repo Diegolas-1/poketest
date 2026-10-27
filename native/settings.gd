@@ -141,6 +141,7 @@ func _ready() -> void:
 	_load()
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	_setup_input()
+	add_child(UIInput.new())   # which input was used last, for the button glyphs (ui/ui_input.gd)
 	overlay = preload("res://perf_overlay.gd").new()
 	add_child(overlay)
 	menu = preload("res://settings_menu.gd").new()

@@ -31,7 +31,7 @@ var real := false
 var _last_hour := -1
 var _last_day := -1
 var _real_day0 := 0
-var hud: Label
+var hud: Control           # the clock readout (_Readout: a small dark plate, top right)
 var _hud_acc := 1.0
 
 func _init() -> void:
@@ -44,18 +44,7 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 3
 	add_child(layer)
-	hud = Label.new()
-	hud.add_theme_font_size_override("font_size", 17)
-	var f := FontVariation.new(); f.base_font = load("res://fonts/PixelifySans.woff2"); f.variation_opentype = {"wght": 600}
-	hud.add_theme_font_override("font", f)
-	hud.add_theme_color_override("font_color", Color(1, 0.992, 0.965, 0.92))
-	hud.add_theme_color_override("font_outline_color", Color(0.08, 0.1, 0.2, 0.55))
-	hud.add_theme_constant_override("outline_size", 5)
-	hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	hud.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	hud.position = Vector2(-284, 32)   # left of the quest log button (quest_ui.gd)
-	hud.size = Vector2(200, 24)
-	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud = _Readout.new()
 	layer.add_child(hud)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--clock="):   # --clock=HH:MM[,day]
@@ -102,7 +91,7 @@ func _process(dt: float) -> void:
 	_hud_acc += dt
 	if hud and hud.visible and _hud_acc > 0.5:
 		_hud_acc = 0.0
-		hud.text = "%s  %s%s" % [day_text(), time_text(), "  >>" if ff > 1.0 else ""]
+		hud.set_text(day_text(), time_text(), ff > 1.0)
 
 func _tick() -> void:
 	var h := int(hour())
@@ -162,3 +151,37 @@ static func period_of(h: float) -> String:
 	return "evening"
 
 func period() -> String: return period_of(hour())
+
+
+# the clock on screen: a clock icon, the day dim, the time bright, on a dark
+# skewed plate left of the quest log button (quest_ui.gd), in the safe area;
+# redrawn only when the text changes
+class _Readout extends Control:
+	var day := ""
+	var time := ""
+	var fast := false
+	var _raw := ""
+	var right_gap := 76.0   # room for the quest log button at its right (0 when the island holds it)
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		get_viewport().size_changed.connect(_place)
+	func set_text(d: String, t: String, f: bool) -> void:
+		var raw := d + "|" + t + str(f)
+		if raw == _raw: return
+		_raw = raw
+		day = d.to_upper(); time = t.to_upper(); fast = f
+		_place()
+		queue_redraw()
+	func _place() -> void:
+		var w := 58.0 + UITheme.text_w(day, "label", 16) + UITheme.text_w(time, "number", 21) + (34.0 if fast else 0.0)
+		var sr := UITheme.safe_rect(self)
+		size = Vector2(w, 38)
+		position = Vector2(sr.end.x - 20.0 - right_gap - w, sr.position.y + 25.0)
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		UITheme.plate(self, r, 0.92)
+		UITheme.icon(self, "clock", Vector2(22, r.get_center().y), 8.5, UITheme.YELLOW)
+		var x := 38.0
+		x += UITheme.text_mid(self, Vector2(x, r.get_center().y), day, "label", 16, UITheme.TEXT_DIM) + 8.0
+		x += UITheme.text_mid(self, Vector2(x, r.get_center().y), time, "number", 21, UITheme.TEXT)
+		if fast: UITheme.chevrons(self, Vector2(x + 10.0, r.get_center().y), 16.0, UITheme.YELLOW, 2)

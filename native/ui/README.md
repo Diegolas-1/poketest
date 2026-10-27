@@ -8,6 +8,7 @@ is snappy and eased. Use these pieces for any new UI so every screen stays consi
 Every piece appears on the gallery page:
 
     godot --path native --resolution 1280x800 res://dev/ui_gallery.tscn -- --page=components|dialog|tokens [--device=touch|pad|keys] [--shot=out.png]
+    godot --headless --path native res://dev/ui_test.tscn      # the components' logic
 
 ## Tokens (`ui_theme.gd`, `class_name UITheme`, all static)
 
@@ -30,6 +31,7 @@ Every piece appears on the gallery page:
 * `glyph(ci, c, action, h)` draws the button for an action on the current device: a disc on a pad (A, B, X, +, -), a keycap on the keyboard (E, ESC, SPACE…) or a shoulder pill (L / R). `glyph_label(action)` gives the button's name. Actions are `use`, `back`, `jump`, `menu`, `quests`, `run`, `recenter`, `tab_l`, `tab_r`.
 * `prompt(ci, p, label, action, a, s)` draws the "[A] TALK" chip with a pointer down at p.
 * `icon(ci, id, c, r, col)` draws one of `cog`, `log`, `ball`, `close`, `bolt`, `jump`, `bell`, `bang`, `check`, `star`, `bag`, `map`, `bike`, `clock`, `update`, `warn`, `chat`, `drop`, `sweat`, `heart`, `sun` or `snow`.
+* `scrim()` makes the modal scrim under a menu: a ColorRect with `shaders/ui_scrim.gdshader`, which dims toward ink with a vignette and faint diagonal hatching. Fade it with `modulate`.
 * `theme()` is a Godot `Theme` for node-built screens (body font, scroll bars). `style_button(b, variant)` styles a plain `Button`, and `sb(...)` makes a skewable `StyleBoxFlat`. `label(text, role, size, col)` makes a `Label`.
 
 `UIWidgets` (`ui_widgets.gd`) has the shared HUD pieces as static draws:

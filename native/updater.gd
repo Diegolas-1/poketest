@@ -37,9 +37,7 @@ var boot: Node
 var url := URL
 var channel := CHANNEL
 var _req: HTTPRequest
-var _toast: PanelContainer
-var _toast_label: Label
-var _toast_t := 0.0
+var _toaster: UIToaster   # ui/ui_toast.gd
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -252,38 +250,13 @@ func _set_status(t: String) -> void:
 
 # ---------- toast ----------
 func toast(t: String) -> void:
-	_toast_label.text = t
-	_toast.visible = true
-	_toast.modulate.a = 1.0
-	_toast_t = 7.0
-
-func _process(dt: float) -> void:
-	if _toast_t <= 0.0: return
-	_toast_t -= dt
-	_toast.modulate.a = clampf(_toast_t / 0.6, 0.0, 1.0)
-	if _toast_t <= 0.0: _toast.visible = false
+	_toaster.clear()
+	_toaster.push("update", "Update", t, "", 6.4)
 
 func _build_toast() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 95
 	add_child(layer)
-	var anchor := Control.new()
-	anchor.set_anchors_preset(Control.PRESET_FULL_RECT)
-	anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(anchor)
-	_toast = PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.086, 0.118, 0.172, 0.92)
-	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 18; sb.content_margin_right = 18; sb.content_margin_top = 10; sb.content_margin_bottom = 10
-	_toast.add_theme_stylebox_override("panel", sb)
-	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_toast.anchor_left = 0.5; _toast.anchor_right = 0.5; _toast.anchor_top = 0.0; _toast.anchor_bottom = 0.0
-	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_toast.offset_top = 22
-	_toast.visible = false
-	anchor.add_child(_toast)
-	_toast_label = Label.new()
-	_toast_label.add_theme_font_size_override("font_size", 19)
-	_toast_label.add_theme_color_override("font_color", Color("ffd27a"))
-	_toast.add_child(_toast_label)
+	_toaster = UIToaster.new()
+	_toaster.anchor = "center"
+	layer.add_child(_toaster)

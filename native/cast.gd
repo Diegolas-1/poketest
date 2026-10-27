@@ -572,12 +572,10 @@ class _TouchButtons extends Control:
 	var cast
 	var down := {"use": false, "jump": false, "bell": false}
 	var _bell_on := false
-	var font: FontVariation
 	var shown := false
 	func _ready() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		font = FontVariation.new(); font.base_font = load("res://fonts/PixelifySans.woff2"); font.variation_opentype = {"wght": 700}
 		_update()
 		Input.joy_connection_changed.connect(func(_d, _c): _update())
 		get_viewport().size_changed.connect(queue_redraw)
@@ -598,15 +596,15 @@ class _TouchButtons extends Control:
 		if safe.size.x > 0 and win.x > 0:
 			var k := s.x / float(win.x)
 			s -= Vector2(maxf(0.0, win.x - safe.end.x), maxf(0.0, win.y - safe.end.y)) * k
-		var c := {"use": Vector2(s.x - 12 - 10 - 32, s.y - 86 - 10 - 32), "jump": Vector2(s.x - 86 - 10 - 32, s.y - 30 - 10 - 32)}
+		var c := {"use": Vector2(s.x - 66, s.y - 138), "jump": Vector2(s.x - 150, s.y - 70)}
 		# on the bike: a small bell button beside the two
-		if cast and cast.bike and cast.bike.riding(): c["bell"] = Vector2(s.x - 160 - 10 - 24, s.y - 30 - 10 - 24)
+		if cast and cast.bike and cast.bike.riding(): c["bell"] = Vector2(s.x - 214, s.y - 58)
 		return c
 	func hit(p: Vector2) -> String:
 		if not shown: return ""
 		var c := centres()
 		for k in c:
-			if p.distance_to(c[k]) < (30.0 if k == "bell" else 40.0): return k
+			if p.distance_to(c[k]) < (34.0 if k == "bell" else 42.0): return k
 		return ""
 	func _process(_dt: float) -> void:
 		var on: bool = cast != null and cast.bike != null and cast.bike.riding()
@@ -614,30 +612,41 @@ class _TouchButtons extends Control:
 			_bell_on = on
 			queue_redraw()
 	func _draw() -> void:
+		# the design system's touch buttons (ui/ui_theme.gd): A is a Poké Ball
+		# (red over white, the ink band, "A" on its button); Jump a dark plate
+		# disc with a double chevron; the bell a yellow disc
 		var c := centres()
 		for k in c:
-			var col := Color(0.91, 0.27, 0.235, 0.8) if k == "use" else Color(0.137, 0.157, 0.31, 0.6)
-			if down[k]: col = col.lightened(0.25)
-			if k == "bell":
-				# a little bicycle bell: a dome on a stem, the lever beside it
-				var bc: Vector2 = c[k]
-				draw_circle(bc, 24.0, Color(0.85, 0.66, 0.2, 0.75) if not down[k] else Color(0.95, 0.8, 0.35, 0.9), true, -1.0, true)
-				draw_circle(bc, 23.0, Color(1, 1, 1, 0.7), false, 2.0, true)
-				var dome := PackedVector2Array()
-				for i in 13:
-					var a := PI + PI * i / 12.0
-					dome.append(bc + Vector2(cos(a) * 11.0, 3.0 + sin(a) * 11.0))
-				draw_colored_polygon(dome, Color.WHITE)
-				draw_line(bc + Vector2(-13, 4), bc + Vector2(13, 4), Color.WHITE, 3.0, true)
-				draw_circle(bc + Vector2(0, -9), 2.5, Color.WHITE, true, -1.0, true)
-				draw_line(bc + Vector2(6, 8), bc + Vector2(12, 13), Color.WHITE, 3.0, true)
-				continue
-			draw_circle(c[k], 32.0, col, true, -1.0, true)
-			draw_circle(c[k], 31.0, Color(1, 1, 1, 0.7), false, 2.0, true)
-			var label := "A" if k == "use" else ("Hop" if _bell_on else "Jump")
-			var fs := 22 if k == "use" else 13
-			var sz := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-			draw_string(font, c[k] + Vector2(-sz.x / 2, sz.y * 0.32), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+			var bc: Vector2 = c[k]
+			var on: bool = down[k]
+			var r := (38.0 if k == "use" else (31.0 if k == "jump" else 24.0)) * (0.92 if on else 1.0)
+			draw_circle(bc + Vector2(0, 3), r + 1.0, Color(0, 0, 0, 0.28), true, -1.0, true)
+			if on: UITheme.glow(self, bc, r + 4.0, UITheme.YELLOW)
+			if k == "use":
+				var g := asin(4.0 / r)
+				var top := PackedVector2Array()
+				var bot := PackedVector2Array()
+				for i in 21:
+					var t := PI + g + (PI - 2.0 * g) * i / 20.0
+					top.append(bc + Vector2(cos(t), sin(t)) * r)
+					var t2 := g + (PI - 2.0 * g) * i / 20.0
+					bot.append(bc + Vector2(cos(t2), sin(t2)) * r)
+				draw_circle(bc, r, Color(UITheme.INK, 0.8), true, -1.0, true)
+				draw_colored_polygon(top, Color(UITheme.RED, 0.9 if not on else 1.0))
+				draw_colored_polygon(bot, Color(UITheme.WHITE, 0.82 if not on else 0.95))
+				draw_arc(bc, r, 0.0, TAU, 40, Color(UITheme.INK, 0.85), 2.5, true)
+				draw_circle(bc, 14.0, Color(UITheme.INK, 0.9), true, -1.0, true)
+				draw_circle(bc, 11.5, Color(UITheme.WHITE, 1.0), true, -1.0, true)
+				UITheme.text_mid(self, bc + Vector2(0, -0.5), "A", "label", 17, UITheme.INK, 1)
+			elif k == "jump":
+				draw_circle(bc, r, Color(UITheme.PLATE, 0.62 if not on else 0.85), true, -1.0, true)
+				draw_arc(bc, r - 1.0, 0.0, TAU, 36, Color(1, 1, 1, 0.6 if not on else 0.95), 2.0, true)
+				UITheme.icon(self, "jump", bc + Vector2(0, -5), 11.0, Color.WHITE)
+				UITheme.text_mid(self, bc + Vector2(0, 13), "HOP" if _bell_on else "JUMP", "label", 12, Color(1, 1, 1, 0.9), 1)
+			else:
+				draw_circle(bc, r, Color(UITheme.YELLOW, 0.85 if not on else 1.0), true, -1.0, true)
+				draw_arc(bc, r - 1.0, 0.0, TAU, 32, Color(UITheme.INK, 0.6), 2.0, true)
+				UITheme.icon(self, "bell", bc, 10.0, UITheme.INK)
 
 # Route 1's people (cast.json route1.npcs, from web/world/route1.js): they keep
 # their spot (wander 0) and turn back to it after a talk; ylock = a floor

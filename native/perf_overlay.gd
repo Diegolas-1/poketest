@@ -4,7 +4,7 @@ extends CanvasLayer
 # primitives, objects, video memory and the render resolution, refreshed
 # twice a second, so the numbers can be read off the phone and reported.
 
-var fps_label: Label
+var fps_label: Control      # the counter: a small dark plate (drawn)
 var panel: PanelContainer
 var text: Label
 var acc := 0.0
@@ -16,20 +16,22 @@ var gpu := 0.0
 func _ready() -> void:
 	layer = 90
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	fps_label = _label(22)
-	fps_label.position = Vector2(84, 24)
+	fps_label = Control.new()
+	fps_label.size = Vector2(190, 36)
+	fps_label.position = Vector2(96, 26)
+	fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fps_label.draw.connect(_draw_fps)
 	add_child(fps_label)
 	panel = PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.086, 0.118, 0.172, 0.78)
-	sb.set_corner_radius_all(12)
-	sb.content_margin_left = 14; sb.content_margin_right = 14
-	sb.content_margin_top = 10; sb.content_margin_bottom = 10
+	var sb := UITheme.sb(Color(UITheme.PLATE, 0.85), 0.0, 0.0, Color.TRANSPARENT, Vector4(18, 12, 18, 12))
+	sb.border_color = UITheme.YELLOW
+	sb.border_width_left = 4
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.position = Vector2(16, 84)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text = _label(17)
-	text.add_theme_constant_override("line_spacing", 2)
+	text.add_theme_font_override("font", UITheme.font("number"))
+	text.add_theme_constant_override("line_spacing", 1)
 	text.text = "measuring…"
 	panel.add_child(text)
 	add_child(panel)
@@ -38,9 +40,8 @@ func _ready() -> void:
 func _label(sz: int) -> Label:
 	var l := Label.new()
 	l.add_theme_font_size_override("font_size", sz)
-	l.add_theme_color_override("font_color", Color.WHITE)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
-	l.add_theme_constant_override("outline_size", 5)
+	l.add_theme_font_override("font", UITheme.font("label_semi"))
+	l.add_theme_color_override("font_color", UITheme.TEXT)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -58,9 +59,11 @@ func _process(dt: float) -> void:
 	if acc < 0.5: return
 	var fps := n / acc
 	var avg := acc / n * 1000.0
-	fps_label.text = "%d fps · %.1f ms" % [roundi(fps), avg]
 	var target := Settings.target_fps()
-	fps_label.add_theme_color_override("font_color", Color.WHITE if fps >= target * 0.95 else (Color("ffd27a") if fps >= target * 0.75 else Color("ff8a7a")))
+	_fps = roundi(fps); _ms = avg
+	_fps_col = UITheme.GREEN if fps >= target * 0.95 else (UITheme.YELLOW if fps >= target * 0.75 else UITheme.RED)
+	fps_label.size.x = 34.0 + UITheme.text_w(str(_fps), "number", 24) + UITheme.text_w("FPS · %.1f MS" % _ms, "label", 15)
+	fps_label.queue_redraw()
 	if panel.visible:
 		var win := DisplayServer.window_get_size()
 		var s := Settings.render_scale()
@@ -77,6 +80,16 @@ func _process(dt: float) -> void:
 		]
 		text.text = "\n".join(lines)
 	acc = 0.0; n = 0; worst = 0.0; cpu = 0.0; gpu = 0.0
+
+var _fps := 0
+var _ms := 0.0
+var _fps_col := UITheme.GREEN
+func _draw_fps() -> void:
+	var r := Rect2(Vector2.ZERO, fps_label.size)
+	UITheme.plate(fps_label, r, 0.9)
+	var n := str(_fps) if _fps > 0 else "--"
+	var w := UITheme.text_mid(fps_label, Vector2(14, r.get_center().y), n, "number", 24, _fps_col)
+	UITheme.text_mid(fps_label, Vector2(14 + w + 6, r.get_center().y), "FPS · %.1f MS" % _ms, "label", 15, UITheme.TEXT_DIM)
 
 func _big(v: int) -> String:
 	if v >= 1000000: return "%.2fM" % (v / 1000000.0)
