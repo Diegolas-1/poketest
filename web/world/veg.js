@@ -2,7 +2,8 @@
 // birches, poplars and cypresses, willows by the pond, Scots pines and giants
 // on the hills, palms on the beach, bushes and hedges, fern beds in the shade,
 // flower clumps and mossy rocks. Seeded, so the town always looks the same.
-import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS, BOATHOUSE, CLEARINGS, PALLET_HOUSE, inCliff, edgeRuns, FALLS } from './terrain.js';
+import { height, isWater, fbm, rng, POND, SEA_Y, roadDist, townDist, labHillU, fieldAt, onStairs, inYard, streamAt, PLAZA, STAIRS, FIELDS, onPath, shoreSD, cliffiness, routeX, routeHalfWidth, ledgeAt, HARBOUR, TALL_GRASS, BOATHOUSE, CLEARINGS, PALLET_HOUSE, inCliff, edgeRuns, FALLS, inBank } from './terrain.js';
+import { bankPlants, treeRoots } from './props/banks.js';
 import { Scatter, Impostor } from './assets.js';
 import * as THREE from 'three';
 import { makeTree, makeBush, makeRock, makeClump, TILE, setTreeDetail } from './foliage.js';
@@ -39,9 +40,11 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   const keepOff = (list, br) => { E.veg(list); for (const p of list) if (!p.off && onPath(p.x, p.z, br * p.s)) p.off = true; };
   const pick = (w) => { let t = R() * w.reduce((a, b) => a + b[1], 0); for (const [k, p] of w) { t -= p; if (t <= 0) return k; } return w[0][0]; };
   // a few shapes of each kind, points shared out between them
-  const sow = (models, pts, opts) => {
+  const sow = (models, pts, opts, extra = null) => {
     const by = models.map(() => []);
     for (const p of pts) { const j = Math.floor(R() * models.length); if (!p.off) by[j].push(p); }   // p.off: on a path (the draw keeps the seeded layout)
+    // (extra points shared out by their own random numbers: the seeded ones keep their models)
+    if (extra) { const Q2 = rng(7373); for (const p of extra) { const j = Math.floor(Q2() * models.length); if (!p.off) by[j].push(p); } }
     models.forEach((m, i) => { if (by[i].length) scatters.push(new Scatter(scene, m, by[i], opts(m))); });
   };
   const yieldUI = () => new Promise((r) => setTimeout(r, 0));
@@ -140,6 +143,11 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   // nothing stands on the dirt: drop any tree whose trunk base is on a path
   for (const k of Object.keys(pts)) keepOff(pts[k], Math.max(0.6, baseR(models[k])));
   for (const t of all) if (!t.off) colliders.push({ x: E.at(t).x, z: E.at(t).z, r: Math.max(0.45, E.at(t).trunk + 0.1) });
+  // nothing grows on the streams' cut faces (props/banks.js; marked after
+  // the sowing, so every other plant keeps its place), and roots show on
+  // the faces where a tree stands near the brim
+  for (const t of all) if (!t.off && inBank(t.x, t.z, Math.max(0.6, t.trunk + 0.4))) t.off = true;
+  treeRoots(all);
   // each shape gets its own billboard, so the far tree has the near one's
   // outline; the model cross-fades into it when it passes its range
   const treeD = 75 * quality.lod, L = lights();
@@ -255,9 +263,13 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
     if (isWater(x, z) || inCliff(x, z, 0.2) || roadDist(x, z) < 2.6 || blocked(x, z, 2.2)) continue;
     fp.push({ x, z, y: height(x, z) - 0.04, rot: Q() * 6.28, s: 0.9 + Q() * 0.6 });
   }
+  for (const list of [fp, fl]) for (const p of list) if (!p.off && inBank(p.x, p.z, 0.2)) p.off = true;
   keepOff(fp, baseR(ferns)); keepOff(fl, baseR(flowers));
   // small plants fade out and sink into the ground past their range
-  sow(ferns, fp, () => ({ chunk: 36, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
+  // (with the ferns in the pockets of the streams' cut faces and at their feet: props/banks.js)
+  const bankFerns = bankPlants().map((p, i) => ({ x: p.x, z: p.z, y: p.y, rot: (i * 2.399) % 6.283, s: p.s }));
+  E.veg(bankFerns);
+  sow(ferns, fp, () => ({ chunk: 36, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }), bankFerns);
   sow(flowers, fl, () => ({ chunk: 32, fade: [55 * quality.lod - 3, 55 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }));
   // Route 1's flower meadow, in drifts (route1veg.js): one scatter per kind
   {

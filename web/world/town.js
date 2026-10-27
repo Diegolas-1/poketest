@@ -5,7 +5,7 @@
 // and a thin ink outline. Returns the meshes plus colliders, walkable decks
 // and things to read or use.
 import * as THREE from 'three';
-import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, FIELDS, meshHeight, ROUTE1, routeX, LEDGES, ledgeLineZ, TRAIL0, R1_TRAIL1, edgeRuns, inCliff, fallWet, fallNotch, FALLS } from './terrain.js';
+import { height, baseHeight, rng, LAB_HILL, STAIRS, STEP, PLAT_Y, PLAZA, BRIDGES, HOUSES, ROADS, STREAM, SEA_Y, toWorld, roadDist, coastZ, labHillU, isWater, inYard, streamAt, stairY, onPath, pathSD, onStairs, shoreSD, HARBOUR, ISLET, BOATHOUSE, TRAILS, CLEARINGS, PALLET_HOUSE, FIELDS, meshHeight, ROUTE1, routeX, LEDGES, ledgeLineZ, TRAIL0, R1_TRAIL1, edgeRuns, inCliff, fallWet, fallNotch, FALLS, bankRuns, BANK_STONES, groundColor, meshColor, meshNormal } from './terrain.js';
 import { buildLab, LAB_DOOR } from './lab.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon.js';
@@ -22,6 +22,7 @@ import * as FA from './props/farm.js';
 import * as BO from './props/boats.js';   // rowing and fishing boats
 import * as CR from './crops.js';
 import { buildCliffs } from './props/cliffs.js';   // the world's edges as rock (worker 20)
+import { buildBanks } from './props/banks.js';   // the streams' cut banks (worker 23)
 import { creekAt } from './route1land.js';
 const creekNear = (x, z, m) => { const q = creekAt(x, z); return !!q && q.d < q.c.w + m; };
 
@@ -1670,6 +1671,13 @@ export function buildTown() {
   const cliffs = buildCliffs(edgeRuns(), { heightAt: height, wet: fallWet, notch: fallNotch });
   for (const m of cliffs) world.group.add(m);
   fallPlants(world, cliffs.faces, cliffs);
+  // where a stream or creek has cut the land steeply: earth faces with a turf
+  // lip, stones, roots and plants (terrain.js bankRuns); their turf is ground
+  // (main.js adds world.bankTurf to the terrain, in its material)
+  const banks = buildBanks(bankRuns(), { meshAt: meshHeight, groundColor, meshColor, meshNormal, stones: BANK_STONES, group: world.group });
+  for (const g of banks.pieces) world.group.add(g);
+  world.bankTurf = banks.turf;
+  world.bankColliders = banks.colliders;   // (main.js adds them once the plants are sown: plants are seeded round the colliders)
   applyTown(world);
   OD.foldFlat(world.group);
   // tools/qa/scan.mjs (?qa): keep every placed piece as its own group, unmerged

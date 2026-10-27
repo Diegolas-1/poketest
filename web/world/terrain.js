@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import * as R1 from './route1land.js';   // Route 1's pockets, trails and creeks (worker 12)
 import { traceEdges, finishLine, EdgeIndex, lineAt } from './edges.js';   // the world's edges (cliffs, worker 20)
+import { planBanks, BankIndex } from './bankplan.js';   // the streams' cut banks (props/banks.js)
 // the world editor's hand edits (editlayer/index.js); terrain.js?raw is this
 // same module without them, for the generators' decisions (see there)
 import { E, NOEDIT } from './editlayer/index.js';
@@ -782,7 +783,8 @@ export function outOfBounds(x, z) { return boundsF(x, z) > 0; }
 export function noWalk(x, z) {
   const u = hillU(x, z);
   if (u > 0.002 && u <= 0.985 && !onStairs(x, z, -0.15)) return ED.noWalk(x, z, true);
-  return ED.noWalk(x, z, outOfBounds(x, z));
+  // (and the streams' steep earth faces: a visible barrier, props/banks.js)
+  return ED.noWalk(x, z, outOfBounds(x, z) || bankFace(x, z));
 }
 
 // ---------- the height ----------
@@ -1358,6 +1360,8 @@ export function fallGeometries() {
   };
   for (const c of R1.CREEKS) { const P = R1.creekProfile(c); for (const st of c.steps || []) cascade(c.line, st.i, st.hi, st.lo, (c.w + 0.7) * 2 * 0.92); void P; }
   for (const st of STREAM_STEPS) cascade(STREAM, st.i, st.hi, st.lo, 2.9 * 2 * 0.9);
+  // foam round the boulders in the water below the cut banks (props/banks.js)
+  for (const b of BANK_STONES) disk(3, b.x, b.wl + 0.035, b.z, b.s * 0.95 + 0.25, 14);
   // the stream's mouth: foam where the fresh water meets the sea
   if (STREAM_MOUTH > 0) { const m = STREAM[Math.min(STREAM.length - 1, STREAM_MOUTH + 1)]; disk(3, m[0], SEA_Y + 0.03, m[1], 3.4, 22); }
   const out = [];
@@ -1386,6 +1390,8 @@ export function grassMap(x0, z0, w, d, res) {
     if (streamAt(x, z).d < 3.2) g = 0;
     // none inside the rock of the edges' cliffs
     if (inCliff(x, z, -0.45)) g = 0;
+    // none on the streams' cut faces and their overhanging turf (props/banks.js)
+    if (inBank(x, z, 0.1)) g = 0;
     // no grass on a ledge's edge (the clumps would float off its face)
     if (z < -90 && z > -380 && ledgeAt(x, z, 1.7)) g = 0;
     // none under PALLET HOUSE and its terrace deck
@@ -1590,6 +1596,95 @@ function fallCarve(x, z, h) {
     if (s < 1.6 && Math.abs(t) < half + 0.4) h = Math.min(h, lv - 0.3);
   }
   return h;
+}
+
+// ---------- the banks: where a stream or creek cuts the land steeply ----------
+// Each side of each water line, read off the ground (bankplan.js): where the
+// bank rises steep and high enough above the water it gets a designed face
+// (props/banks.js: earth strata, stones, roots, a turf lip over the brim),
+// tapering into the grass where it gets low or gentle. The ground itself is
+// unchanged (the walk height and the brim stay where they were); the face
+// covers the steep part of the mesh, and the face is not walkable.
+let BANKS = [], BIDX = null;
+export const BANK_STONES = [];   // boulders in the water below the faces (props/banks.js; foam: fallGeometries)
+function buildBanks() {
+  const lines = [{ id: 'stream', pts: STREAM, level: (f) => profAt(SPROF, f), w0: 1.7 },
+    ...R1.CREEKS.map((c) => ({ id: c.id, pts: c.line, level: (f) => profAt(R1.creekProfile(c), f), w0: c.w + 0.3 }))];
+  // no face where a lane runs along the brim, next to the edges' cliffs, round
+  // a waterfall's plunge pool (its own rock), or down on the beach
+  const exclude = (bx, bz, cx, cz) => {
+    let e = 1 - smooth(1.7, 3.4, roadDist(bx, bz));
+    const q = EIDX.near(bx, bz);
+    if (q) e = Math.max(e, 1 - smooth(2.5, 5.5, q.d));
+    for (const F of FALLS) e = Math.max(e, 1 - smooth(F.pr + 4, F.pr + 9, Math.hypot(cx - F.pool[0], cz - F.pool[1])));
+    e = Math.max(e, 1 - smooth(4, 10, shoreSD(bx, bz)));
+    return e;
+  };
+  // where a lane, a bridge or the stepping stones cross the water
+  const cross = (x, z) => {
+    let c = 1 - smooth(3.2, 5.5, roadDist(x, z));
+    for (const b of BRIDGES) if (x > b.x0 - 3 && x < b.x1 + 3 && Math.abs(z - b.z) < b.w / 2 + 3) c = 1;
+    return c;
+  };
+  BANKS = planBanks(lines, { height, exclude, cross });
+  BIDX = new BankIndex(BANKS);
+  // a few boulders in the water under the tall faces, a little foam round each
+  const R = rng(5150);
+  for (const B of BANKS) {
+    let next = 3 + R() * 8;
+    for (const o of B.s) {
+      if (o.u < next || o.k < 0.6 || o.H < 1.2) continue;
+      next = o.u + 7 + R() * 9;
+      const n = R() < 0.35 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        const s = 0.32 + R() * 0.34, off = o.dT - 0.45 - s * 0.5 - R() * 0.6, al = (R() - 0.5) * 1.6;
+        const x = o.x + o.nx * off + o.tx * al, z = o.z + o.nz * off + o.tz * al;
+        if (BANK_STONES.some((b) => Math.hypot(b.x - x, b.z - z) < b.s + s + 0.3)) continue;
+        BANK_STONES.push({ x, z, s, wl: o.wl, bed: height(x, z), seed: Math.floor(R() * 1e6) });
+      }
+    }
+  }
+}
+buildBanks();
+export function bankRuns() { return BANKS; }
+// on a bank's zone (the face, its foot and the turf over its brim): plants
+// and grass keep off. r = the plant's radius
+export function inBank(x, z, r = 0) { return BIDX ? BIDX.near(x, z, r, 1) : false; }
+// on a bank's steep face: not walkable
+export function bankFace(x, z) { const c = BIDX ? BIDX.get(x, z) : null; return !!(c && (c.bits & 2)); }
+// the ground mesh's own values at (x, z), as it draws them: f(gx, gz, step)
+// at the three corners of the mesh triangle under the point, interpolated
+function meshTri(x, z, f) {
+  const T = chunkInfo(), C = TB.chunk;
+  const ci = Math.floor((x - TB.x0) / C), cj = Math.floor((z - TB.z0) / C);
+  const ch = ci >= 0 && cj >= 0 && ci < T.ncx && cj < T.ncz ? T.info[cj * T.ncx + ci] : null;
+  if (!ch || !ch.step) return f(x, z, TB.fine);
+  const st = ch.step, u = (x - ch.x0) / st, w = (z - ch.z0) / st, n = ch.n;
+  const i = Math.min(n - 1, Math.max(0, Math.floor(u))), j = Math.min(n - 1, Math.max(0, Math.floor(w))), fx = u - i, fz = w - j;
+  const X = (q) => ch.x0 + q * st, Z = (q) => ch.z0 + q * st;
+  if (fx + fz <= 1) {
+    const A = f(X(i), Z(j), st), B = f(X(i), Z(j + 1), st), D = f(X(i + 1), Z(j), st);
+    return A.map((v, k) => v + fz * (B[k] - v) + fx * (D[k] - v));
+  }
+  const Cc = f(X(i + 1), Z(j + 1), st), B = f(X(i), Z(j + 1), st), D = f(X(i + 1), Z(j), st);
+  return Cc.map((v, k) => v + (1 - fx) * (B[k] - v) + (1 - fz) * (D[k] - v));
+}
+// a grid vertex's normal, as buildTerrain gives it
+function vertN(gx, gz, st) {
+  const dx = (meshY(gx + st, gz) - meshY(gx - st, gz)) / (2 * st), dz = (meshY(gx, gz + st) - meshY(gx, gz - st)) / (2 * st), l = Math.hypot(dx, 1, dz);
+  return [-dx / l, 1 / l, -dz / l];
+}
+// the ground mesh's (interpolated vertex) normal and colour at (x, z): what
+// the terrain is drawn with, so pieces laid over it (the banks' turf) shade
+// and colour the same where they meet it
+export function meshNormal(x, z) {
+  const r = meshTri(x, z, vertN), l = Math.hypot(r[0], r[1], r[2]) || 1;
+  return [r[0] / l, r[1] / l, r[2] / l];
+}
+const _mc = new THREE.Color();
+export function meshColor(x, z, out) {
+  const r = meshTri(x, z, (gx, gz, st) => { groundColor(gx, gz, meshY(gx, gz), 1 - vertN(gx, gz, st)[1], _mc); return [_mc.r, _mc.g, _mc.b]; });
+  return out.setRGB(r[0], r[1], r[2]);
 }
 
 // the editor's hooks: the edited and the unedited ground (vegetation follows

@@ -23,6 +23,7 @@ uniform vec3 d_pale : source_color = vec3(0.902, 0.812, 0.612);
 uniform float hidden_y = -1000.0;
 
 varying vec3 v_w;
+varying vec3 v_n;
 varying float v_dirt;
 
 float p_hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
@@ -32,8 +33,54 @@ float pvn(vec2 p) {
 }
 float p_sd(vec2 w) { return texture(path_map, (w - pm_origin) / pm_size).r * 8.0 - 4.0; }
 
+// Steep ground (the same in paths.js pathGround): the grass picture projected
+// from the side as well as from above (no stretching down a slope), and on
+// the steepest slopes bare earth showing through in painted strata, rain
+// streaks and pebbles (a = along the face, y = height), with patches of
+// grass holding on. Ground under ~25 degrees is drawn exactly as before.
+vec3 earth_col(float a, float y) {
+	float wob = (pvn(vec2(a * 0.25, 1.7)) - 0.5) * 0.9 + (pvn(vec2(a * 1.1, 5.3)) - 0.5) * 0.2;
+	float b = (y + wob) / 1.05, bi = floor(b), bf = fract(b);
+	float pk = p_hash(vec2(bi, 3.7));
+	vec3 c = pk < 0.3 ? vec3(0.39, 0.18, 0.076) : pk < 0.52 ? vec3(0.27, 0.17, 0.11) : pk < 0.68 ? vec3(0.64, 0.43, 0.19) : vec3(0.33, 0.16, 0.08);
+	c *= 1.0 - 0.22 * (1.0 - smoothstep(0.0, 0.06, bf));
+	c *= 0.95 + 0.08 * sin(y * 27.0 + pvn(vec2(a * 0.7, y)) * 4.0);
+	float st = pvn(vec2(a * 7.0, y * 0.4));
+	c *= 0.95 + 0.12 * smoothstep(0.55, 0.7, st) - 0.08 * smoothstep(0.35, 0.2, st);
+	vec2 pc = vec2(a, y) / 0.3, ci = floor(pc), fp = fract(pc) - 0.5;
+	float h = p_hash(ci + 5.1);
+	if (h < 0.24) {
+		vec2 off = (vec2(p_hash(ci + 1.3), p_hash(ci + 2.9)) - 0.5) * 0.4;
+		float r = 0.12 + h * 0.45, d = length((fp - off) * vec2(1.0, 1.3));
+		float sh = smoothstep(r * 1.15, r * 0.95, length((fp - off + vec2(0.0, 0.07)) * vec2(1.0, 1.3)));
+		c *= 1.0 - 0.35 * sh * step(r, d);
+		vec3 pcol = vec3(0.36, 0.34, 0.31) * (0.8 + h);
+		c = mix(c, pcol, smoothstep(r, r - 0.03, d));
+		c = mix(c, pcol * 1.45, smoothstep(r * 0.55, r * 0.35, length(fp - off + vec2(0.03, -0.05))));
+	}
+	return c;
+}
+vec3 steep_ground(vec3 w, vec3 n, vec3 vc, vec3 flat_grass, out float earth) {
+	float s = 1.0 - n.y;
+	earth = 0.0;
+	if (s < 0.1) return flat_grass;
+	vec3 bw = pow(abs(n), vec3(4.0)); bw /= bw.x + bw.y + bw.z;
+	vec3 g = texture(grass_tex, w.xz / 4.0).rgb * bw.y + texture(grass_tex, w.zy / 4.0).rgb * bw.x + texture(grass_tex, w.xy / 4.0).rgb * bw.z;
+	vec3 grass = mix(flat_grass, vc * g, smoothstep(0.1, 0.2, s));
+	float k = smoothstep(0.2, 0.42, s);
+	if (k <= 0.0) return grass;
+	k *= smoothstep(0.3, 0.55, pvn(w.xz * 0.5 + w.y * 0.4) + k * 0.45);
+	float sx = bw.x / max(bw.x + bw.z, 1e-4);
+	vec3 e = mix(earth_col(w.x, w.y), earth_col(w.z, w.y), sx);
+	// grass darker where it hangs on over the earth (a soft edge, no line)
+	grass *= mix(1.0, 0.8, k);
+	earth = k;
+	return mix(grass, e, k);
+}
+
 void vertex() {
 	v_w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_n = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 }
 
 void fragment() {
@@ -42,7 +89,8 @@ void fragment() {
 		ALBEDO = COLOR.rgb;
 		v_dirt = 0.0;
 	} else {
-	vec3 base = COLOR.rgb * texture(grass_tex, wp / 4.0).rgb;
+	float s_earth;
+	vec3 base = steep_ground(v_w, normalize(v_n), COLOR.rgb, COLOR.rgb * texture(grass_tex, wp / 4.0).rgb, s_earth);
 	vec4 pm = texture(path_map, (wp - pm_origin) / pm_size);
 	vec3 dt = texture(dirt_tex, wp / 3.0).rgb;
 	float sd = pm.r * 8.0 - 4.0, det = dt.r;

@@ -1,6 +1,7 @@
 // Pallet Town in 3D: a modern seaside eco-village to walk around freely.
 import * as THREE from 'three';
-import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU, ledgeAt, WALK } from './terrain.js';
+import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU, ledgeAt, WALK, TB } from './terrain.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildSky, buildClouds, buildMountains, buildCinnabar, CINNABAR, TALL_GRASS } from './nature.js';
 import { buildTown, BEDS, PIER } from './town.js';
 import { celify } from './toon.js';
@@ -178,13 +179,11 @@ const gfx = createSettings({
 // ---------- the world ----------
 status('Shaping the land');
 const terrain = buildTerrain();
-{
-  // flat anime ground: bright in the sun, cool where shadows fall (one
-  // material for every chunk and ledge; their uv is already x / 4, z / 4)
-  const mat = celify(pathGround(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() })), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
-    deep: [0.5, 0.62, 0.8], shade: [0.66, 0.78, 0.9], lit: [1.06, 1.06, 0.98] });
-  terrain.traverse((o) => { if (o.isMesh) o.material = mat; });
-}
+// flat anime ground: bright in the sun, cool where shadows fall (one
+// material for every chunk and ledge; their uv is already x / 4, z / 4)
+const groundMat = celify(pathGround(new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTexture() })), { detail: 0.5, mid: 0.4, bands: [0.08, 0.22, 0.5], soft: 0.04,
+  deep: [0.5, 0.62, 0.8], shade: [0.66, 0.78, 0.9], lit: [1.06, 1.06, 0.98] });
+terrain.traverse((o) => { if (o.isMesh) o.material = groundMat; });
 scene.add(terrain);
 const uTime = wind.uTime;
 scene.add(outline.mark(buildWater(uTime, { color: '#cfe6f2', near: 140, far: 700 }), 'ground'));
@@ -211,6 +210,23 @@ for (const c of clouds.children.slice()) if (c.scale.y > 300 && c.position.y < 1
 const cinnabar = buildCinnabar(sunDir); scene.add(cinnabar);
 const town = buildTown();
 scene.add(town.group);
+// the streams' cut banks: their turf lips are ground (props/banks.js),
+// joined into the ground block they lie on (no extra draw)
+{
+  const byBlock = new Map(), c = new THREE.Vector3();
+  for (const m of town.bankTurf || []) {
+    m.geometry.computeBoundingBox(); m.geometry.boundingBox.getCenter(c);
+    const key = 'terrain_' + Math.floor(Math.floor((c.x - TB.x0) / TB.chunk) / 4) + '_' + Math.floor(Math.floor((c.z - TB.z0) / TB.chunk) / 4);
+    if (!byBlock.has(key)) byBlock.set(key, []);
+    byBlock.get(key).push(m);
+  }
+  for (const [key, list] of byBlock) {
+    const blk = terrain.getObjectByName(key);
+    const g = blk ? mergeGeometries([blk.geometry, ...list.map((m) => m.geometry)], false) : null;
+    if (g) { g.computeBoundingSphere(); g.computeBoundingBox(); blk.geometry = g; }
+    else for (const m of list) { m.material = groundMat; terrain.add(m); }
+  }
+}
 const colliders = town.colliders;
 
 // where plants may not grow: buildings, beds' walls, the dock
@@ -331,6 +347,7 @@ const grassScene = new THREE.Scene();
 async function grow() {
   status('Loading plants');
   veg = await buildVegetation(scene, renderer, blocked, colliders, QUALITY, status);
+  for (const c of town.bankColliders || []) colliders.push(c);   // the boulders in the streams below the cut banks
   status('Growing grass');
   const area = { x0: WALK.x0, z0: WALK.z0, w: WALK.x1 - WALK.x0, d: WALK.z1 - WALK.z0 };
   const tex = grassMap(area.x0, area.z0, area.w, area.d, 1);

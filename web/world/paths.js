@@ -50,18 +50,62 @@ export function pathGround(m) {
   m.onBeforeCompile = (sh, r) => {
     if (prev) prev.call(m, sh, r);
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = 'varying vec3 vPW;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
-      vPW = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
-    sh.fragmentShader = `varying vec3 vPW;
+    sh.vertexShader = 'varying vec3 vPW; varying vec3 vPN;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      vPW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+      vPN = mat3(modelMatrix) * objectNormal;`);
+    sh.fragmentShader = `varying vec3 vPW; varying vec3 vPN;
       uniform sampler2D uPM, uDirt; uniform vec2 uPMo, uPMs;
       uniform vec3 uDMid, uDLight, uDEdge, uDDark, uDPale;
       float pHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
       float pvn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(pHash(i), pHash(i + vec2(1, 0)), f.x), mix(pHash(i + vec2(0, 1)), pHash(i + vec2(1, 1)), f.x), f.y); }
       float pSD(vec2 w) { return texture2D(uPM, (w - uPMo) / uPMs).r * 8.0 - 4.0; }
+      // steep ground (the same in native shaders/terrain.gdshader): the grass
+      // projected from the side too, bare earth in strata on the steepest
+      vec3 earthCol(float a, float y) {
+        float wob = (pvn(vec2(a * 0.25, 1.7)) - 0.5) * 0.9 + (pvn(vec2(a * 1.1, 5.3)) - 0.5) * 0.2;
+        float b = (y + wob) / 1.05, bi = floor(b), bf = fract(b);
+        float pk = pHash(vec2(bi, 3.7));
+        vec3 c = pk < 0.3 ? vec3(0.39, 0.18, 0.076) : pk < 0.52 ? vec3(0.27, 0.17, 0.11) : pk < 0.68 ? vec3(0.64, 0.43, 0.19) : vec3(0.33, 0.16, 0.08);
+        c *= 1.0 - 0.22 * (1.0 - smoothstep(0.0, 0.06, bf));
+        c *= 0.95 + 0.08 * sin(y * 27.0 + pvn(vec2(a * 0.7, y)) * 4.0);
+        float st = pvn(vec2(a * 7.0, y * 0.4));
+        c *= 0.95 + 0.12 * smoothstep(0.55, 0.7, st) - 0.08 * smoothstep(0.35, 0.2, st);
+        vec2 pc = vec2(a, y) / 0.3, ci = floor(pc), fp = fract(pc) - 0.5;
+        float h = pHash(ci + 5.1);
+        if (h < 0.24) {
+          vec2 off = (vec2(pHash(ci + 1.3), pHash(ci + 2.9)) - 0.5) * 0.4;
+          float r = 0.12 + h * 0.45, d = length((fp - off) * vec2(1.0, 1.3));
+          float sh = smoothstep(r * 1.15, r * 0.95, length((fp - off + vec2(0.0, 0.07)) * vec2(1.0, 1.3)));
+          c *= 1.0 - 0.35 * sh * step(r, d);
+          vec3 pcol = vec3(0.36, 0.34, 0.31) * (0.8 + h);
+          c = mix(c, pcol, smoothstep(r, r - 0.03, d));
+          c = mix(c, pcol * 1.45, smoothstep(r * 0.55, r * 0.35, length(fp - off + vec2(0.03, -0.05))));
+        }
+        return c;
+      }
       ` + sh.fragmentShader
       .replace('#include <color_fragment>', `#include <color_fragment>
       float pDirt; vec2 pNrm;
+      #if defined(USE_MAP) && defined(USE_COLOR)
+      {
+        vec3 n = normalize(vPN), w = vPW;
+        float s = 1.0 - n.y;
+        if (s > 0.1) {
+          vec3 bw = pow(abs(n), vec3(4.0)); bw /= bw.x + bw.y + bw.z;
+          vec3 g = texture2D(map, w.xz / 4.0).rgb * bw.y + texture2D(map, w.zy / 4.0).rgb * bw.x + texture2D(map, w.xy / 4.0).rgb * bw.z;
+          vec3 grass = mix(diffuseColor.rgb, diffuse * vColor * g, smoothstep(0.1, 0.2, s));
+          float k = smoothstep(0.2, 0.42, s);
+          if (k > 0.0) {
+            k *= smoothstep(0.3, 0.55, pvn(w.xz * 0.5 + w.y * 0.4) + k * 0.45);
+            float sx = bw.x / max(bw.x + bw.z, 1e-4);
+            vec3 e = mix(earthCol(w.x, w.y), earthCol(w.z, w.y), sx);
+            grass = mix(grass * mix(1.0, 0.8, k), e, k);
+          }
+          diffuseColor.rgb = grass;
+        }
+      }
+      #endif
       {
         vec2 wp = vPW.xz;
         vec4 pm = texture2D(uPM, (wp - uPMo) / uPMs);

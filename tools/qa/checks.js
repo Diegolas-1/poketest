@@ -101,7 +101,8 @@
     };
     const inside = (o, q) => { for (let x = q; x; x = x.parent) if (x === o) return true; return false; };
     // exceptions marked in the generators: userData.qa = {k: 'hung' (held up
-    // by something else: wires, ropes, a bough) | 'open' (open by design), why}
+    // by something else: wires, ropes, a bough) | 'open' (open by design) |
+    // 'ground' (part of the ground: a stream's cut bank, one-sided), why}
     const tag = (o, k) => { for (let q = o; q && q !== root; q = q.parent) if (q.userData.qa && q.userData.qa.k === k) return q.userData.qa; return null; };
     const allowed = [];
     const skip = (o, k, check) => { const t = tag(o, k); if (t) { allowed.push({ check, object: nameOf(o), why: t.why }); return true; } return false; };
@@ -244,7 +245,7 @@
         const b = bbox(p), c = V(), s = V(); b.getCenter(c); b.getSize(s);
         const R = Math.hypot(s.x, s.z) / 2 + 1;
         const big = s.x > 2.5 && s.z > 2.5 && s.y > 2.5;
-        if (skip(p, 'open', 'shell') || skip(p, 'hung', 'shell')) continue;
+        if (skip(p, 'open', 'shell') || skip(p, 'hung', 'shell') || skip(p, 'ground', 'shell')) continue;
         const own = []; p.traverse((m) => { if (m.isMesh && !leafy(m.material)) own.push(m); });
         if (!own.length) continue;
         const gy = Math.max(b.min.y, T.height(c.x, c.z));
@@ -329,7 +330,7 @@
       // each piece's footprint as an oriented box in its own frame (y turn only)
       const fps = [];
       for (const p of pieces) {
-        if (tag(p, 'hung')) continue;   // wires, ropes, wall-mounted things
+        if (tag(p, 'hung') || tag(p, 'ground')) continue;   // wires, ropes, wall-mounted things; ground pieces (a stream's cut bank)
         const vs = vertsOf(p, 3000); if (vs.length < 3) continue;
         const ry = new THREE.Euler().setFromRotationMatrix(p.matrixWorld, 'YXZ').y, c = Math.cos(ry), s = Math.sin(ry);
         const px = p.matrixWorld.elements[12], pz = p.matrixWorld.elements[14];
@@ -402,7 +403,7 @@
     // ===== 7. water and paths =====
     if (on('water')) {
       let n = 0;
-      const WET = /dock|boat|buoy|bridge|pier|lighthouse|harbour|stepping|rowboat|fishingBoat/i;
+      const WET = /dock|boat|buoy|bridge|pier|lighthouse|harbour|stepping|rowboat|fishingBoat|streambank/i;
       for (const p of pieces) {
         const b = bbox(p), c = V(); b.getCenter(c);
         const src = srcOf(p).join(' ');
@@ -609,8 +610,8 @@
 
     // ===== 13. barrier: no invisible walls. Every edge of the walk grid where
     // walkable ground meets no-walk ground (not water, not a deck) must show
-    // what stops you: a barrier mesh (userData.barrier: cliff, thicket, wall,
-    // fence, hedge, water) within 0.75 m, or a solid building / wall collider
+    // what stops you: a barrier mesh (userData.barrier: cliff, bank, thicket,
+    // wall, fence, hedge, water) within 0.75 m, or a solid building / wall collider
     if (on('barrier')) {
       const RES = 0.5, W = T.WALK, gx0 = W.x0 - 2, gz0 = W.z0 - 2, nx = Math.round((W.x1 - W.x0 + 4) / RES), nz = Math.round((W.z1 - W.z0 + 4) / RES);
       // the barrier meshes, their triangles' footprints rasterized
@@ -665,7 +666,7 @@
       // one finding per stretch (8 m clusters)
       const seen = new Map();
       for (const [x, z] of bad) { const key = Math.floor(x / 8) + ',' + Math.floor(z / 8); if (!seen.has(key)) seen.set(key, [x, z, 0]); seen.get(key)[2]++; }
-      for (const [x, z, n] of seen.values()) add('barrier', 'high', V(x, T.height(x, z), z), null, `an invisible wall: ${n} cells of no-walk ground meet open ground here with nothing to see (no cliff, thicket, wall, fence, hedge or water within 0.75 m)`, 'make the edge visible (props/cliffs.js along terrain.js edgeRuns, or a wall / hedge tagged userData.barrier), or let the player walk there', { object: 'walk grid edge' });
+      for (const [x, z, n] of seen.values()) add('barrier', 'high', V(x, T.height(x, z), z), null, `an invisible wall: ${n} cells of no-walk ground meet open ground here with nothing to see (no cliff, bank, thicket, wall, fence, hedge or water within 0.75 m)`, 'make the edge visible (props/cliffs.js along terrain.js edgeRuns, or a wall / hedge tagged userData.barrier), or let the player walk there', { object: 'walk grid edge' });
       stats.barrier = { edges, ok, bad: bad.length, stretches: seen.size, meshes: kinds };
     }
 
