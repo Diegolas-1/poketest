@@ -30,6 +30,7 @@ var skid := 0.0          # 0..1
 var wheel_rps := 0.0     # wheel turns a second
 var active := false      # riding (else everything fades out)
 var _lvl := {}
+var _quiet := false
 
 func _ready() -> void:
 	name = "BikeAudio"
@@ -114,16 +115,16 @@ static func _chain_loop(rng: RandomNumberGenerator) -> PackedFloat32Array:
 	o.resize(n)
 	var lo := 0.0
 	var bp := 0.0
-	var f := 2.0 * sin(PI * 700.0 / RATE)
+	var f := 2.0 * sin(PI * 520.0 / RATE)
 	for i in n:
 		var t := float(i) / RATE
 		var ph := fmod(t * 38.0, 1.0)
 		var tick := exp(-ph * 9.0) * (rng.randf() * 2.0 - 1.0)
-		var hp := tick - lo - 0.5 * bp
+		var hp := tick - lo - 0.35 * bp
 		bp += f * hp
 		lo += f * bp
 		var stroke := 0.65 + 0.35 * absf(sin(t * PI * 2.0))
-		o[i] = (bp * 0.9 + tick * 0.25) * stroke
+		o[i] = (bp * 0.9 + lo * 0.35 + tick * 0.04) * stroke
 	return _norm(o, 0.7)
 
 # the freewheel's pawls: sharp ticks, 60 a second at pitch 1 (pitched by the wheel)
@@ -187,6 +188,7 @@ func _process(dt: float) -> void:
 			_task = -1
 			_build_players()
 		return
+	if not active and _quiet: return   # (off the bike: nothing to do until he rides again)
 	var v := speed if active else 0.0
 	var on := clampf(v / 1.2, 0.0, 1.0)
 	var vk := clampf(v / 9.0, 0.0, 1.4)
@@ -203,6 +205,7 @@ func _process(dt: float) -> void:
 	want.scrub = skid * clampf(v / 2.0, 0.0, 1.0) * 0.9
 	want.wind = clampf((v - 3.0) / 8.0, 0.0, 1.0) * 0.8 if active else 0.0
 	var base_db := {"roll_dirt": -15.0, "roll_grass": -17.0, "roll_sand": -14.0, "roll_hard": -19.0, "chain": -21.0, "free": -20.0, "squeal": -15.0, "scrub": -14.0, "wind": -20.0}
+	_quiet = true
 	for n in LOOPS:
 		var p: AudioStreamPlayer = players[n]
 		var k: float = _lvl[n]
@@ -212,6 +215,7 @@ func _process(dt: float) -> void:
 		if k < 0.003:
 			if p.playing: p.stop()
 			continue
+		_quiet = false
 		if not p.playing: p.play(randf() * 0.5)
 		p.volume_db = base_db[n] + linear_to_db(k)
 		match n:

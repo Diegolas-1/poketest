@@ -26,6 +26,7 @@ var T := 0.0
 var res := {}
 var phase := 0
 var ph_t := 0.0
+var ph_f := 0   # frames in this phase (the first-frame actions run once, whatever dt does)
 var waypoints: Array = []
 var wi := 0
 var trace: Array = []
@@ -98,8 +99,9 @@ func _process(dt: float) -> void:
 				# coast: up to speed, then a light touch on the stick (the pedals still)
 				if case == "coast" and T > float(_arg("turn_at", "2.5")): main.stick_vec = _toward(b.at + f * 5.0, 0.2)
 		"ledge":
-			if frame == 4: _ride_at(at[0] if at.size() >= 2 else -14.0, at[1] if at.size() >= 2 else -150.0, 0.0)
-			if frame > 6: main.stick_vec = Vector2(0, 1) * 0.0 + _toward(Vector3(main.pos.x, 0, main.pos.z + 10.0))
+			if frame == 4: _ride_at(at[0], at[1], 0.0)
+			if frame > 6: main.stick_vec = _toward(Vector3(at[0], 0, at[1] + 14.0), float(_arg("tilt", "0.8")))
+			if OS.get_cmdline_user_args().has("--log") and frame > 6: print("f %d z %.2f y %.2f ground %s v %.2f" % [frame, B().at.z, B().at.y, main.cast.ground, B().v])
 		"test": _test(dt)
 		"stats": _stats(dt)
 		"road":
@@ -249,6 +251,7 @@ func _check(ok: bool, what: String) -> void:
 func _test(dt: float) -> void:
 	var b := B()
 	ph_t += dt
+	ph_f += 1
 	var W = main.world
 	match phase:
 		0:
@@ -302,10 +305,10 @@ func _test(dt: float) -> void:
 			_clip_check()
 			if wi >= waypoints.size() or b.at.z > -10.0 or ph_t > 150.0:
 				_check(b.at.z > -40.0, "rode back down to town (z %.0f in %.0f s, airborne frames %d)" % [b.at.z, ph_t, res.air])
-				phase = 10; ph_t = 0.0
+				phase = 10; ph_t = 0.0; ph_f = 0
 		10:
 			# a ledge: the nearest ledge cell to Route 1's road, ridden off going south
-			if ph_t < dt * 1.5:
+			if ph_f == 1:
 				var L := _find_ledge()
 				res.ledge = L
 				if L == Vector3.ZERO:
@@ -319,17 +322,17 @@ func _test(dt: float) -> void:
 				_check(b.at.z > res.ledge.z + 0.5 and res.l_air > 6, "rode off the ledge at (%.1f, %.1f) with a hop (airborne %d frames, dropped %.2f m)" % [res.ledge.x, res.ledge.z, res.l_air, res.l_y0 - b.at.y])
 				# and can't ride back up it
 				res.l_back = b.at
-				phase = 11; ph_t = 0.0
+				phase = 11; ph_t = 0.0; ph_f = 0
 		11:
 			main.stick_vec = _toward(Vector3(res.ledge.x, 0, res.ledge.z - 8.0), 1.0)
 			# straight back up through the ledge (round its end is fine)
 			if b.at.z < res.ledge.z - 0.3 and absf(b.at.x - res.ledge.x) < 1.2: res.l_up = true
 			if ph_t > 4.0:
 				_check(not res.get("l_up", false), "could not ride back up through the ledge (now at %.1f, %.1f; ledge %.1f, %.1f)" % [b.at.x, b.at.z, res.ledge.x, res.ledge.z])
-				phase = 3; ph_t = 0.0
+				phase = 3; ph_t = 0.0; ph_f = 0
 		3:
 			# the shoreline: from the beach, ride south into the sea
-			if ph_t < dt * 1.5: _ride_at(20.0, 98.0, 0.0)
+			if ph_f == 1: _ride_at(20.0, 98.0, 0.0)
 			main.stick_vec = _toward(Vector3(20.0, 0, 140.0), 1.0)
 			if ph_t > 6.0:
 				var fl: int = W.flag(b.at.x, b.at.z)
@@ -339,7 +342,7 @@ func _test(dt: float) -> void:
 				_next()
 		4:
 			# stairs: Oak's lab stairs from the bottom
-			if ph_t < dt * 1.5:
+			if ph_f == 1:
 				var s: Rect2 = main.sfx_world.STAIRS
 				var c := s.get_center()
 				_ride_at(c.x - s.size.x * 0.5 - 2.5, c.y, PI * 0.5)
@@ -351,7 +354,7 @@ func _test(dt: float) -> void:
 				_next()
 		5:
 			# a door: ride to Oak's lab door, press A: parked outside, Ash goes in
-			if ph_t < dt * 1.5:
+			if ph_f == 1:
 				var d: Vector2 = main.cast.lab_door
 				_ride_at(d.x + 1.6, d.y, -PI * 0.5)
 			main.stick_vec = Vector2.ZERO
@@ -361,13 +364,13 @@ func _test(dt: float) -> void:
 				_check(b.at.distance_to(Vector3(main.cast.lab_door.x + 1.6, b.at.y, main.cast.lab_door.y)) < 1.0, "the bike stayed at the door")
 				_next()
 		6:
-			if ph_t < dt * 1.5: main.leave_space(true)
+			if ph_f == 1: main.leave_space(true)
 			if ph_t > 1.0:
 				_check(b.visible and b.state == "parked", "outside again, the bike there")
 				_next()
 		7:
 			# dismount by A when stopped and persistence of the spot
-			if ph_t < dt * 1.5: _ride_at(-10.0, -6.0, 0.0)
+			if ph_f == 1: _ride_at(-10.0, -6.0, 0.0)
 			if absf(ph_t - 0.6) < dt * 0.6: main.cast._btn_a = true
 			if ph_t > 2.0:
 				_check(b.state == "parked" and b.at.distance_to(Vector3(-10.0, b.at.y, -6.0)) < 0.2, "got off: parked where he stopped (%s)" % str(b.at))
@@ -404,6 +407,7 @@ func _find_ledge() -> Vector3:
 func _next() -> void:
 	phase += 1
 	ph_t = 0.0
+	ph_f = 0
 	waypoints = []
 	wi = 0
 

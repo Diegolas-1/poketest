@@ -85,8 +85,58 @@ static func foot_pitch(cr: float, sd: float) -> float:
 	return 0.13 - 0.14 * cos(th - 0.35)
 
 # ---------- the frame (CastActor.animate, after the clips) ----------
+# (the bones' frames are worked out down each chain from the trunk once, not from the
+# root for every bone: about a fifth of the cost of looking each one up)
+func _loc(bi: int) -> Transform3D:
+	return Transform3D(Basis(A.q[bi]), A.waist_pos if bi == A.waist else A.rest_pos[bi])
+
+# two-bone IK under a parent frame pg (skeleton space): b1 aimed and twisted so b3 lands on T
+# with the middle joint toward pole; b2 bent about its hinge axis (rest frame) by sign hs.
+# Returns b2's frame (for orienting b3)
+func _ik2(pg: Transform3D, b1: int, b2: int, b3: int, T: Vector3, pole: Vector3, hax: Vector3, hs: float) -> Transform3D:
+	var G1 := pg * _loc(b1)
+	var p1 := G1.origin
+	var a: float = (A.rest_pos[b2] as Vector3).length()
+	var c: float = (A.rest_pos[b3] as Vector3).length()
+	var d := clampf(T.distance_to(p1), absf(a - c) + 1e-4, (a + c) * 0.9995)
+	var bend := acos(clampf((d * d - a * a - c * c) / (2.0 * a * c), -1.0, 1.0))
+	A.q[b2] = A.rest_q[b2] * Quaternion(hax, hs * bend)
+	var G2 := G1 * _loc(b2)
+	var G3 := G2 * _loc(b3)
+	# the limb is not quite straight at rest: one Newton step on the reach (as idles.gd)
+	var d0 := G3.origin.distance_to(p1)
+	var sb := sin(bend)
+	if sb > 0.05 and absf(d0 - d) > 1e-6:
+		bend = clampf(bend + (d0 - d) * d0 / (a * c * sb), 0.0, PI - 0.01)
+		A.q[b2] = A.rest_q[b2] * Quaternion(hax, hs * bend)
+		G2 = G1 * _loc(b2)
+		G3 = G2 * _loc(b3)
+	var v3 := (G3.origin - p1).normalized()
+	var dir := (T - p1).normalized()
+	var q1 := Quaternion(v3, dir) if v3.dot(dir) > -0.999 else Quaternion(v3.cross(Vector3.UP).normalized(), PI)
+	var kk := q1 * (G2.origin - p1)
+	kk -= dir * kk.dot(dir)
+	var pp := pole - dir * pole.dot(dir)
+	if kk.length_squared() > 1e-10 and pp.length_squared() > 1e-8:
+		kk = kk.normalized(); pp = pp.normalized()
+		q1 = Quaternion(dir, atan2(kk.cross(pp).dot(dir), kk.dot(pp))) * q1
+	var w1 := q1 * G1.basis.get_rotation_quaternion()
+	A.q[b1] = (pg.basis.get_rotation_quaternion().inverse() * w1).normalized()
+	return pg * _loc(b1) * _loc(b2)
+
+# set a bone's orientation (skeleton space) under its parent's frame pg, blended by w
+func _orient2(pg: Transform3D, bi: int, qr: Quaternion, w: float) -> void:
+	A.q[bi] = A.q[bi].slerp((pg.basis.get_rotation_quaternion().inverse() * qr).normalized(), w)
+
+var _ix := {}
+func _idx() -> void:
+	for n in ["Waist", "Hips", "Spine1", "Spine2", "Spine3", "LShoulder", "RShoulder", "LArmA", "RArmA", "LForeArm", "RForeArm",
+			"LHand", "RHand", "LThigh", "RThigh", "LLeg", "RLeg", "LFoot", "RFoot"]:
+		_ix[n] = _bi(n)
+
 func apply(dt: float) -> void:
 	if on <= 0.001: return
+	if _ix.is_empty(): _idx()
 	t += dt
 	var I := A.idles
 	if I.P.act != null: I._end()
@@ -94,13 +144,15 @@ func apply(dt: float) -> void:
 	var m := clampf(mount, 0.0, 1.0)
 	var me := _sm(0.0, 1.0, m)
 	# the base: the idle pose, stood at the side spot (where he walked up to the bike)
-	var base_q: Array[Quaternion] = A.q.duplicate()
+	var blend := on < 0.999
+	var base_q: Array = A.q.duplicate() if blend else []
 	var stand_off := sk(side_spot) - sk(Vector3.ZERO)
 	stand_off.y = 0.0
 	var base_wp := A.waist_pos + stand_off
 	A.waist_pos = base_wp
 	var st := {}
-	for n in ["Hips", "LFoot", "RFoot", "LHand", "RHand"]: st[n] = A.gxf(_bi(n)).origin
+	if m < 1.0:
+		for n in ["Hips", "LFoot", "RFoot", "LHand", "RHand"]: st[n] = A.gxf(_bi(n)).origin
 	# ---- the trunk ----
 	for n in TRUNK:
 		var bi := _bi(n)
@@ -110,63 +162,71 @@ func apply(dt: float) -> void:
 	A.bend("Waist", 1, 0, 0, pel)
 	var sp := lean_want * me - pel
 	A.bend("Spine1", 1, 0, 0, sp * 0.3)
-	A.bend("Spine2", 1, 0, 0, sp * 0.4)
+	A.bend("Spine2", 1, 0, 0, sp * 0.4 + 0.12 * stand * me)
 	A.bend("Spine3", 1, 0, 0, sp * 0.3)
-	# standing on the pedals: upright, over the bars
-	if stand > 0.001:
-		A.bend("Spine2", 1, 0, 0, 0.12 * stand * me)
 	# the head up, looking ahead (and where he's going)
 	A.bend("Neck", 1, 0, 0, -(lean_want * 0.45 + pel * 0.2) * me)
 	A.bend("Head", 1, 0, 0, -(lean_want * 0.35) * me)
+	A.bend("Neck", 0, 1, 0, look * 0.4 * me)
+	A.bend("Head", 0, 1, 0, look * 0.5 * me)
+	# the shoulders forward to the bars
+	A.bend("LShoulder", 0, 1, 0, 0.18 * me)
+	A.bend("RShoulder", 0, 1, 0, -0.18 * me)
 	# ---- the hips: from standing to the saddle, over the back ----
-	var hips_now := A.gxf(_bi("Hips")).origin
+	var root: Transform3D = A.gxf(A.skel.get_bone_parent(A.waist))
+	var GW := root * _loc(A.waist)
+	var hips_now := (GW * _loc(_ix.Hips)).origin
 	var seat := sk(B.saddle() + Vector3(0, 0.082, -0.03) * B.s)
 	seat += Vector3(0, 0.13, 0.13) / A.k * stand
 	seat += Vector3(0, -0.07, 0.14) / A.k * foot_down
 	var up := Vector3(0, 0.22, 0) / A.k * sin(me * PI) * (1.0 if mounting else 0.6)
-	var hips_want: Vector3 = (st.Hips as Vector3).lerp(seat, me) + up * 0.5
+	var hips_want: Vector3 = (st.Hips as Vector3).lerp(seat, me) + up * 0.5 if m < 1.0 else seat
 	A.waist_pos += hips_want - hips_now
+	GW = root * _loc(A.waist)
+	var GH := GW * _loc(_ix.Hips)
+	var G3 := GW * _loc(_ix.Spine1) * _loc(_ix.Spine2) * _loc(_ix.Spine3)
 	# ---- the reach: lean more or less so the hands land on the grips ----
-	var reach := 0.0
-	var arm := 0.0
-	for s in ["L", "R"]:
-		var sh := A.gxf(_bi(s + "ArmA")).origin
-		var g := sk(B.grip(1.0 if s == "L" else -1.0))
-		reach += sh.distance_to(g) * 0.5
-		arm += (A.gxf(_bi(s + "ArmA")).origin.distance_to(A.gxf(_bi(s + "ForeArm")).origin) + A.gxf(_bi(s + "ForeArm")).origin.distance_to(A.gxf(_bi(s + "Hand")).origin)) * 0.5
 	if me > 0.5:
-		var want := arm * 0.86
-		_lean = clampf(_lean + (reach - want) * 2.2 * minf(1.0, dt * 8.0), 0.0, 0.75)
+		var reach := 0.0
+		var arm := 0.0
+		for i in 2:
+			var s := "L" if i == 0 else "R"
+			var sh := (G3 * _loc(_ix[s + "Shoulder"]) * _loc(_ix[s + "ArmA"])).origin
+			reach += sh.distance_to(sk(B.grip(1.0 - 2.0 * i))) * 0.5
+			arm += ((A.rest_pos[_ix[s + "ForeArm"]] as Vector3).length() + (A.rest_pos[_ix[s + "Hand"]] as Vector3).length()) * 0.5
+		_lean = clampf(_lean + (reach - arm * 0.86) * 2.2 * minf(1.0, dt * 8.0), 0.0, 0.75)
 	# ---- the arms ----
 	for i in 2:
 		var s := "L" if i == 0 else "R"
 		var sd := 1.0 if i == 0 else -1.0
-		var sg := sd
-		# protract the shoulders toward the bars
-		A.bend(s + "Shoulder", 0, 1, 0, sd * 0.18 * me)
 		var g := B.grip(sd)
 		var wrist := sk(g + Vector3(-sd * 0.012, 0.03, -0.045) * B.s)
 		if s == "L" and bell > 0.0: wrist += Vector3(-0.03, 0.012, 0.01) / A.k * bell
 		var aw := _sm(0.0, 0.35, m) if mounting else _sm(0.15, 0.6, m)
-		var T: Vector3 = (st[s + "Hand"] as Vector3).lerp(wrist, aw)
+		var T: Vector3 = (st[s + "Hand"] as Vector3).lerp(wrist, aw) if m < 1.0 else wrist
 		var pole := Vector3(sd * 0.9, -0.6, -0.5).normalized()
-		I._ik(s + "ArmA", s + "ForeArm", s + "Hand", T, pole, [0, 1, 0, -sg], 1.0)
+		var b1: int = _ix[s + "ArmA"]
+		var b2: int = _ix[s + "ForeArm"]
+		var hb: int = _ix[s + "Hand"]
+		var GS := G3 * _loc(_ix[s + "Shoulder"])
+		var GF := _ik2(GS, b1, b2, hb, T, pole, A.ax_y[b2], sd)
+		if squash > 0.001:
+			A.bend(s + "ForeArm", 0, 1, 0, sd * 0.25 * squash)
+			GF = GS * _loc(b1) * _loc(b2)
 		# the hand: knuckles forward over the grip, palm down round it
 		if aw > 0.01:
-			var hb := _bi(s + "Hand")
-			var fwd := (sk(g + Vector3(sd * 0.02, -0.005, 0.03) * B.s) - A.gxf(hb).origin).normalized()
-			var rest_dir := Vector3(sd, 0, 0)
-			var q0 := Quaternion(rest_dir, fwd)
+			var hp := (GF * _loc(hb)).origin
+			var fwd := (sk(g + Vector3(sd * 0.02, -0.005, 0.03) * B.s) - hp).normalized()
+			var q0 := Quaternion(Vector3(sd, 0, 0), fwd)
 			# roll so the palm faces down onto the grip (the thumb toward the stem)
 			var palm := q0 * Vector3.DOWN
 			var want_palm := Vector3(-sd * 0.25, -1.0, 0.15).normalized()
 			want_palm = (want_palm - fwd * want_palm.dot(fwd)).normalized()
 			var roll := atan2(palm.cross(want_palm).dot(fwd), palm.dot(want_palm))
-			var qh := Quaternion(fwd, roll) * q0 * A.rest_w[hb].inverse()
-			I._orient(s + "Hand", qh, aw)
+			_orient2(GF, hb, Quaternion(fwd, roll) * q0 * A.rest_w[hb].inverse(), aw)
 			# fingers round the grip, the thumb under it
 			var curl := aw * (0.95 if not (s == "L" and bell > 0.3) else 0.6)
-			for f in ["B", "C", "D", "E"]:
+			for f in ["B", "C", "D"]:
 				for j in 3:
 					A.bend(s + "Finger" + f + str(j + 1), 0, 0, 1, -sd * curl * (0.9 if j == 0 else 1.1))
 			A.bend(s + "FingerA1", 0, 1, 0, sd * 0.4 * aw)
@@ -176,12 +236,11 @@ func apply(dt: float) -> void:
 	for i in 2:
 		var s := "L" if i == 0 else "R"
 		var sd := 1.0 if i == 0 else -1.0
-		var fb := _bi(s + "Foot")
+		var fb: int = _ix[s + "Foot"]
 		var pitch: float = _pitch[i]
 		var Q := Quaternion(Vector3.RIGHT, pitch)
 		var pd := sk(B.pedal(sd)) + Vector3(0, 0.03, 0)
-		var on_pedal := pd - Q * ball
-		var T := on_pedal
+		var T := pd - Q * ball
 		var foot_q := Q * A.rest_w[fb].inverse()
 		# the left foot down at a stop: beside the bike, flat on the ground
 		if s == "L" and foot_down > 0.001:
@@ -190,7 +249,6 @@ func apply(dt: float) -> void:
 			T = T.lerp(gT, foot_down)
 			foot_q = foot_q.slerp(A.rest_w[fb].inverse(), foot_down)
 		# getting on / off: from the standing foot, the right leg swung high over the back
-		var lw := 1.0
 		if m < 1.0:
 			var stand_foot: Vector3 = st[s + "Foot"]
 			if s == "R":
@@ -200,26 +258,16 @@ func apply(dt: float) -> void:
 				T = a1.lerp(T, _sm(0.5, 1.0, u))
 				T.y += sin(u * PI) * 0.12 / A.k
 			else:
-				var u2 := _sm(0.55, 1.0, m)
-				T = stand_foot.lerp(T, u2)
+				T = stand_foot.lerp(T, _sm(0.55, 1.0, m))
 				if kick_foot > 0.0:
-					var kt := sk(B.kick_tip() + Vector3(0.02, 0.06, 0.04))
-					T = T.lerp(kt, kick_foot)
-			lw = 1.0
+					T = T.lerp(sk(B.kick_tip() + Vector3(0.02, 0.06, 0.04)), kick_foot)
 			foot_q = A.rest_w[fb].inverse().slerp(foot_q, me)
 		var pole := Vector3(sd * 0.18, 0.15, 1.0).normalized()
-		# (seated, the knees come up past the hips: the pole leans up as well)
-		I._ik(s + "Thigh", s + "Leg", s + "Foot", T, pole, [1, 0, 0, 1], lw)
-		I._orient(s + "Foot", foot_q, 1.0)
-	# a hop and its landing: elbows and knees soak it
-	if squash > 0.001:
-		for s in ["L", "R"]:
-			A.bend(s + "ForeArm", 0, 1, 0, (0.25 if s == "L" else -0.25) * squash)
-	# the head turns where he's going
-	A.bend("Neck", 0, 1, 0, look * 0.4 * me)
-	A.bend("Head", 0, 1, 0, look * 0.5 * me)
+		var lb: int = _ix[s + "Leg"]
+		var GL := _ik2(GH, _ix[s + "Thigh"], lb, fb, T, pole, A.ax_x[lb], 1.0)
+		_orient2(GL, fb, foot_q, 1.0)
 	# blend in from the plain pose (the first instants of getting on)
-	if on < 0.999:
+	if blend:
 		for bi in A.used: A.q[bi] = base_q[bi].slerp(A.q[bi], on)
 		A.waist_pos = base_wp.lerp(A.waist_pos, on)
 	A.skel.set_bone_pose_position(A.waist, A.waist_pos)
@@ -241,7 +289,7 @@ func _ground_local(p: Vector3) -> Vector3:
 
 # the saddle as a capsule for the cloth (the jacket's tails rest on it, not through it)
 func _cloth_caps() -> void:
-	if A.cloth == null: return
+	if A.cloth == null or not B.is_inside_tree(): return
 	var gx: Transform3D = B.global_transform
 	var sa := B.saddle()
 	var a := gx * (sa + Vector3(0, -0.035, 0.1) * B.s)
