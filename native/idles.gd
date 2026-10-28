@@ -270,8 +270,8 @@ static func _battle_defs() -> Dictionary:
 	var SHIELD_L := {"at": HD(-0.04, -0.03, 0.24), "pole": [1, -0.5, 0.1], "wt": 0.9, "wf": -0.3, "cu": 0.3}
 	var EYE_R := {"at": HD(-0.035, 0.07, 0.13), "pole": [-1, -0.9, 0.0], "wt": 0.4, "wf": 0.3, "cu": 0.7}
 	var EYE_L := {"at": HD(0.035, 0.07, 0.13), "pole": [1, -0.9, 0.0], "wt": 0.4, "wf": 0.3, "cu": 0.7}
-	var UP_R := func(x, z): return {"at": CH(-x, -0.08, z), "pole": [-1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
-	var UP_L := func(x, z): return {"at": CH(x, -0.08, z), "pole": [1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
+	var UP_R := func(x, z): return {"at": CH(-x * 0.75, -0.12, z + 0.26), "pole": [-1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
+	var UP_L := func(x, z): return {"at": CH(x * 0.75, -0.12, z + 0.26), "pole": [1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
 	var KNEEL := {"dy": -0.52, "dz": -0.08, "wp": 0.35, "lean": 0.28, "ko": 0.42, "heel": 0.6, "hp": 0.15}
 	var SLUMP := {"dy": -0.63, "dz": -0.54, "wp": 0.2, "lean": 0.42, "ko": 0.35, "seat": 1, "gap": 0, "hp": 0.42, "side": 0.08, "sh": 0.04}
 	return {

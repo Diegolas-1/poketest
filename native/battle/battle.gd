@@ -311,7 +311,8 @@ func _shot_xf(n: String) -> Dictionary:
 		"gust_side": return {"pos": c + side * 6.0 - fwd * 2.2 + up * 2.6, "look": c + fwd * 0.2 + up * 0.9, "fov": 58.0}
 		"ash_front": return {"pos": ash_pos + fwd * 3.0 + side * 1.4 + up * 1.35, "look": ash_pos + up * 1.15, "fov": 44.0}
 		"ash_side": return {"pos": ash_pos + side * 3.1 - fwd * 0.6 + up * 1.7, "look": ash_pos + fwd * 1.7 + up * 0.7, "fov": 50.0}
-		"foe_close": return {"pos": ash_pos - fwd * 1.5 + side * 1.1 + up * 2.0, "look": foe_p + up * 0.45, "fov": 40.0}
+		"foe_close": return {"pos": ash_pos - fwd * 0.9 + side * 2.0 + up * 1.9, "look": foe_p + up * 0.4 - side * 0.3, "fov": 38.0}
+		"qa": return {"pos": c + side * 5.0 - fwd * 0.8 + up * 2.2, "look": c - fwd * 0.6 + up * 0.6, "fov": 52.0}
 		"impact": return {"pos": ash_pos + fwd * 2.6 + side * 2.6 + up * 1.6, "look": ash_pos + up * 0.9, "fov": 50.0}
 		"down": return {"pos": ash_pos + side * 1.9 + fwd * 1.2 + up * 0.9, "look": ash_pos + up * 0.45, "fov": 46.0}
 		"flee": return {"pos": c - fwd * 5.5 + side * 3.0 + up * 3.2, "look": foe_p + up * 1.2, "fov": 52.0}
@@ -552,8 +553,9 @@ func _do_kick() -> Dictionary:
 	var foot := _bone("RToe", 0.1)
 	var to := foe_pos + Vector3(0, 0.35, 0)
 	var d := (to - foot).normalized()
-	fx.sand(foot + Vector3(0, 0.05, 0), d + Vector3(0, 0.18, 0), 120, 8.5 if e.hit else 5.0, 0.32)
-	fx.dust(foot, 6, Color("cdb68a"), 0.8, 0.5, 0.4)
+	fx.sand(foot + Vector3(0, 0.05, 0), d + Vector3(0, 0.22, 0), 220, 8.5 if e.hit else 5.0, 0.3)
+	fx.sand(foot + Vector3(0, 0.05, 0), d + Vector3(0, 0.4, 0), 80, 6.0 if e.hit else 3.5, 0.45)
+	fx.dust(foot, 10, Color("cdb68a"), 1.0, 0.6, 0.5)
 	Sfx.play("scuff", ash_pos, {"vol": 2.0})
 	Sfx.play("dig", ash_pos, {"vol": -2.0, "pitch": 1.2})
 	Sfx.play("sand_spray", ash_pos, {"vol": -2.0})
@@ -694,7 +696,7 @@ func _do_back_away() -> Dictionary:
 	var e := R.ash_act("back_away")
 	ui.speak(["Easy… easy now…", "Nice Pidgey… I'm going…", "Okay, okay, I'm leaving…"][_rng.randi() % 3], _bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.6)
 	await _ash_move(ash_pos - fwd * 1.1, 1.3)
-	if e.slip:
+	if R.outcome == "ran":
 		# away he goes: turn and run for it, out of the clearing
 		ash_yaw = atan2(-fwd.x, -fwd.z)
 		await _wait(0.15)
@@ -707,7 +709,7 @@ func _do_back_away() -> Dictionary:
 			ash_anim_speed = 6.0
 			await get_tree().process_frame
 		ash_anim_speed = 0.0
-	else:
+	elif R.outcome == "":
 		_mood("taunt")
 		_cry(0.9)
 		ui.pop("IT WON'T LET YOU GO!", foe_pos + Vector3(0, 0.9, 0), UITheme.ORANGE, 22, "word")
@@ -832,7 +834,7 @@ func _tackle(e: Dictionary, quick: bool) -> void:
 	var hit_at := ash_pos + fwd * 0.45
 	if not e.hit: hit_at = ash_pos + side * 0.4 - fwd * 1.4   # (he ducks aside: it shoots past)
 	Sfx.play("whoosh", foe_pos, {"vol": 0.0, "pitch": 1.4 if quick else 1.0})
-	shot("impact", 5.0)
+	shot("qa" if quick else "impact", 5.0)
 	if quick:
 		# zig, zag, in: white streaks left where it was
 		var pts := [home, home.lerp(hit_at, 0.35) + side * 1.1, home.lerp(hit_at, 0.7) - side * 1.0, hit_at]

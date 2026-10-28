@@ -389,8 +389,9 @@ func speed_lines(p: Vector3, v: Vector3, n := 3) -> void:
 # Quick Attack's white streak: a bright smear left where it was, fading behind it
 func afterimage(p: Vector3, v: Vector3, size := 0.45) -> void:
 	var d := v.normalized() if v.length_squared() > 1e-6 else Vector3.FORWARD
-	spawn("streak", p + Vector3(0, 0.25, 0), Vector3.ZERO, {"life": 0.32, "size": maxf(0.6, v.length() * 0.06), "len": 0.0, "w": size * 0.55, "col": Color(1, 1, 1, 0.7), "axis": d})
-	spawn("soft", p + Vector3(0, 0.28, 0), Vector3.ZERO, {"life": 0.25, "size": size * 1.3, "size_end": size * 0.6, "col": Color(1, 1, 1, 0.55)})
+	spawn("streak", p + Vector3(0, 0.3, 0), Vector3.ZERO, {"life": 0.45, "size": maxf(1.2, v.length() * 0.09), "len": 0.0, "w": size * 0.9, "col": Color(1, 1, 1, 0.85), "axis": d})
+	spawn("streak", p + Vector3(0, 0.3, 0), Vector3.ZERO, {"life": 0.6, "size": maxf(1.6, v.length() * 0.12), "len": 0.0, "w": size * 0.3, "col": Color(1, 1, 1, 1.0), "axis": d})
+	spawn("soft", p + Vector3(0, 0.32, 0), Vector3.ZERO, {"life": 0.35, "size": size * 1.6, "size_end": size * 0.8, "col": Color(1, 1, 1, 0.7)})
 
 # rock chips and grit off a hit
 func chips(p: Vector3, n := 8, col := Color("8d8a86")) -> void:
@@ -450,7 +451,7 @@ func _unflash(f: Dictionary) -> void:
 # the stone Ash throws (a lumpy grey pebble)
 static func rock_node() -> MeshInstance3D:
 	var s := SphereMesh.new()
-	s.radius = 0.06; s.height = 0.1; s.radial_segments = 7; s.rings = 4
+	s.radius = 0.085; s.height = 0.15; s.radial_segments = 7; s.rings = 4
 	var mi := MeshInstance3D.new()
 	mi.mesh = s
 	var m := ShaderMaterial.new()
