@@ -24,7 +24,15 @@ extends Node3D
 # turn rate. Wherever Ash can walk, the bike rides: climbs slow him (steep ones to a
 # crawl, standing on the pedals), downhill runs him on up to max speed, stairs are taken
 # slowly with a bump at each step; grass, tall grass and sand are slower than the paths.
-# No riding into water (he stops at the edge), over the stepping stones, or indoors.
+# Into the water too, wherever Ash could wade (world_data.gd can_wade: the streams, the
+# creeks (beside the tea house trail's stepping stones too; the stones themselves are
+# ridden over slowly, bumping from stone to stone), the pond's edge, the beach's
+# shallows), slower the deeper it is at the tyres (water_slow: ankle-deep a light drag, hub-deep heavy, near
+# the wade limit a crawl), with a drag by speed squared (water_drag), stronger brakes
+# (water_brake), standing on the pedals deep in it and more stamina (water_stamina);
+# deeper than Ash could wade he brakes to a stop at its edge ("Too deep for the bike").
+# The bow wave, the spray, the wake, the water parting and the wet frame: bike_water.gd.
+# Not indoors.
 # Riding uses Ash's stamina bar (body.gd): pedalling a little, sprinting and climbing
 # more, coasting gives some back; worn out, no sprint and a lower top speed, hunched
 # over the bars. The jump button hops; a
@@ -52,12 +60,14 @@ extends Node3D
 
 const T := preload("res://tunables.gd")
 const SAVE := "user://bike.save"
+const BikeWaterS := preload("res://bike/bike_water.gd")
 
 var game: Node3D
 var cast: Node
 var model: BikeModel
 var rider: BikeRider
 var audio: BikeAudio
+var water   # bike_water.gd
 var look := {}
 var state := "parked"      # parked | approach | mount | ride | dismount
 var st_t := 0.0
@@ -142,8 +152,16 @@ var CARVE_E := T.num("bike", "carve_angle", 1.2)
 var LEAN_GAIN := T.num("bike", "lean_gain", 0.85)
 var LEAN_MAX := T.num("bike", "lean_max", 0.6)
 var SLOPE := T.num("bike", "slope_gain", 0.75)
-var SURF_MULT := T.dict("bike", "surface_mult", {"dirt": 1.0, "stone": 1.0, "wood": 1.0, "grass": 0.84, "tallgrass": 0.68, "sand": 0.55, "water": 0.4})
-var SURF_DRAG := T.dict("bike", "surface_drag", {"dirt": 0.0, "stone": 0.0, "wood": 0.0, "grass": 0.35, "tallgrass": 0.8, "sand": 1.6, "water": 3.0})
+var SURF_MULT := T.dict("bike", "surface_mult", {"dirt": 1.0, "stone": 1.0, "wood": 1.0, "grass": 0.84, "tallgrass": 0.68, "sand": 0.55})
+var SURF_DRAG := T.dict("bike", "surface_drag", {"dirt": 0.0, "stone": 0.0, "wood": 0.0, "grass": 0.35, "tallgrass": 0.8, "sand": 1.6})
+var W_SLOW: Array = T.file("bike").get("water_slow", [[0.0, 1.0], [0.04, 0.9], [0.12, 0.68], [0.22, 0.48], [0.33, 0.32], [0.42, 0.2], [0.5, 0.11]])
+var W_DRAG := T.num("bike", "water_drag", 0.07)
+var W_BRAKE := T.num("bike", "water_brake", 0.8)
+var W_STAMINA := T.num("bike", "water_stamina", 0.03)
+var W_STAND := T.num("bike", "water_stand", 0.22)
+var W_FULL := T.num("bike", "water_full", 0.5)
+var W_SETTLE := T.num("bike", "water_settle", 1.5)
+var W_MARGIN := T.num("bike", "water_margin", 0.06)
 var HOP_VY := T.num("bike", "hop_vy", 4.1)
 var LEDGE_VY := T.num("bike", "ledge_vy", 3.4)
 var STEP_MAX := T.num("bike", "step_max", 0.2)
@@ -218,6 +236,9 @@ func setup(g: Node3D, c: Node) -> void:
 	rider.fit_bike()
 	audio = BikeAudio.new()
 	add_child(audio)
+	water = BikeWaterS.new()
+	add_child(water)
+	water.setup(self)
 	var home: Array = T.file("bike").get("parked", [-18.0, -18.45, -1.69])
 	var pk: Array = sv.get("at", home)
 	# the game ended with him riding: he rode it home (he starts the day at home)
@@ -360,6 +381,7 @@ func _end_dismount() -> void:
 	cast.player.rider = null
 	if cast.player.cloth: cast.player.cloth.obstacles = []
 	var s := _side_world()
+	if _too_deep(s, 0.0): s = at   # (stopped at the wade limit: he steps off where the bike is)
 	game.pos = Vector3(s.x, game.world.ash_ground(s.x, s.z), s.z)
 	game.yaw = yaw
 	game.speed = 0.0
@@ -432,8 +454,8 @@ func _step_arrive(dt: float) -> void:
 	wheel_f += dw
 	wheel_r += dw
 	var f := Vector3(sin(yaw), 0, cos(yaw))
-	var hf: float = game.world.height_at(at.x + f.x * model.WB * 0.5, at.z + f.z * model.WB * 0.5)
-	var hb: float = game.world.height_at(at.x - f.x * model.WB * 0.5, at.z - f.z * model.WB * 0.5)
+	var hf: float = game.world.ash_ground(at.x + f.x * model.WB * 0.5, at.z + f.z * model.WB * 0.5)
+	var hb: float = game.world.ash_ground(at.x - f.x * model.WB * 0.5, at.z - f.z * model.WB * 0.5)
 	pitch = atan2(hf - hb, model.WB)
 	var k := smoothstep(0.8, 1.0, u)
 	lean = parked_lean * k
@@ -543,6 +565,10 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	surface = _surface(at)
 	var smul: float = float(SURF_MULT.get(surface, 1.0))
 	var sdrag: float = float(SURF_DRAG.get(surface, 0.0))
+	# the water at the tyres (as the bike sits in it, m): slower, the deeper it is
+	_wd += ((_water_depth(f) if ground else _wd) - _wd) * (1.0 - exp(-dt * 10.0))
+	var wmul := _water_mult(_wd)
+	var wfrac := clampf(_wd / W_FULL, 0.0, 1.0)
 	# where the stick points (heading error), how hard (throttle)
 	var e := 0.0
 	if m > 0.05: e = wrapf(atan2(dir.x, dir.y) - yaw, -PI, PI)
@@ -572,8 +598,8 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	# worn out (body.gd's fatigue): no sprint, a lower top speed, slow climbing
 	var tired := _tired()
 	# the slope along the way (+ uphill), eased so a deck's steps read as a ramp
-	var hf: float = W.height_at(at.x + f.x * 0.5, at.z + f.z * 0.5)
-	var hb: float = W.height_at(at.x - f.x * 0.5, at.z - f.z * 0.5)
+	var hf: float = W.ash_ground(at.x + f.x * 0.5, at.z + f.z * 0.5)
+	var hb: float = W.ash_ground(at.x - f.x * 0.5, at.z - f.z * 0.5)
 	var slope_now := clampf((hf - hb) / 1.0, -0.6, 0.6) if ground else 0.0
 	_slope_s += (slope_now - _slope_s) * (1.0 - exp(-dt * 8.0))
 	var slope := _slope_s if ground else 0.0
@@ -599,6 +625,8 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		assist.active = false
 	if assisting:
 		target = minf(target, assist.v_limit)
+	# in the water (the assist's pace through a ford too)
+	target *= wmul
 	# a carve: a very sharp turn at speed scrubs speed (no pedalling) so the turn stays tight
 	var carve := 0.0
 	if not assisting and v > CARVE_V and absf(e) > CARVE_E and not pivot:
@@ -606,28 +634,26 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		target = minf(target, v * (1.0 - 0.5 * carve))
 	# people ahead: brake for them
 	target = minf(target, _people_limit(f))
-	# the stepping stones are for walking: brake to a stop before them
+	# water deeper than Ash could wade ahead: brake to a stop at its edge
 	var stones_lim := 1e9
 	var sd := 0.9
 	var s_reach := 0.9 + maxf(v, 0.0) * maxf(v, 0.0) / (1.6 * BRAKE) + 1.0
 	while sd <= s_reach:
 		var probe := at + f * sd
-		if assist.walk_only(Vector2(probe.x, probe.z), 1.1):
+		if assist.walk_only(Vector2(probe.x, probe.z), 0.9):
+			# the stepping stones: ridden over slowly, bumping from stone to stone
+			stones_lim = sqrt(STAIR_V * STAIR_V + 1.6 * BRAKE * maxf(0.0, sd - 0.9))
+			target = minf(target, stones_lim)
+			break
+		if _too_deep(probe):
 			stones_lim = sqrt(1.6 * BRAKE * maxf(0.0, sd - 0.9))
 			target = minf(target, stones_lim)
 			if sd < 0.9 + absf(v) * 0.32:
 				target = 0.0
 				cruise = false
-				if v > 0.3 and _toast_t <= 0.0: say("The bike stays out of the water")
+				if v > 0.3 and _toast_t <= 0.0: say("Too deep for the bike")
 			break
 		sd += 0.5
-	# water, stairs or a wall right ahead: ease off before it
-	var look_d := 0.75 + absf(v) * 0.32
-	var ahead: Vector3 = at + f * look_d
-	var fl: int = W.flag(ahead.x, ahead.z)
-	if fl != 255 and (fl & 1) and not (fl & 4):
-		target = minf(target, maxf(0.0, (look_d - 0.85) * 2.0))
-		if v > 0.5 and _toast_t <= 0.0: say("The bike stays out of the water")
 	# stairs (a step higher than step_max) ahead or under him: slow and bumpy over them
 	var st_d := _stairs_ahead(f)
 	var slow_lim := 1e9
@@ -643,10 +669,10 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	pedalling = false
 	var bend_brake := v > slow_lim + 0.3 and not brake_btn
 	if brake_btn:
-		a = -BRAKE_HARD * signf(v)
+		a = -BRAKE_HARD * (1.0 + W_BRAKE * wfrac) * signf(v)
 		if v > SKID_V * 0.75 and skid_t <= 0.0: _skid()
 	elif released or busy or dismount_want:
-		a = -BRAKE * signf(v)
+		a = -BRAKE * (1.0 + W_BRAKE * wfrac) * signf(v)
 		if v > SKID_V and skid_t <= 0.0 and (released or dismount_want): _skid()
 	elif v < target - 0.15:
 		pedalling = true
@@ -656,12 +682,13 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		a = -slow_dec * (1.0 if slow_dec == BRAKE else clampf((v - slow_lim) / 1.5, 0.3, 1.0))   # the assist slowing for a bend, or for stairs
 	elif v > target + 0.4:
 		a = -0.5 if thr < 0.5 else 0.0   # easing off: coast down to it (a downhill may still run him on)
+		a -= (v - target) * W_SETTLE * wfrac   # (the water holding him back to its pace)
 	else:
 		pedalling = target > 0.5
 		a = (target - v) * 2.0
 	# rolling resistance on soft ground, gravity on slopes (only on the ground)
 	if ground:
-		a -= (COAST * (0.0 if pedalling else 1.0) + sdrag + DRAG * v * v) * signf(v) if absf(v) > 0.05 else 0.0
+		a -= (COAST * (0.0 if pedalling else 1.0) + sdrag + (DRAG + W_DRAG * wfrac) * v * v) * signf(v) if absf(v) > 0.05 else 0.0
 		if not pivot: a -= 9.8 * sin(atan(slope)) * SLOPE   # (walking it round, he holds it)
 		a -= CARVE * carve
 	if not ground: a = 0.0
@@ -676,8 +703,8 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		if absf(v) < 0.05: _bumping = false; v = 0.0
 	v = clampf(v, -2.0, lerpf(VMAX, FLOW_VMAX, flow))
 	# (the assist's light braking for a gentle bend keeps the flow; a hard slow-down drains it)
-	_flow_step(dt, ground, thr, brake_btn or (released and not cruise) or (bend_brake and v > slow_lim + 2.5), smul, slope)
-	_stamina(dt, sprint, slope, tired)
+	_flow_step(dt, ground, thr, brake_btn or (released and not cruise) or (bend_brake and v > slow_lim + 2.5), smul * wmul, slope)
+	_stamina(dt, sprint, slope, tired, wfrac)
 	if _rough_t > 0.0: _rough_t -= dt
 	coasting = not pedalling and v > 0.5 and not brake_btn
 	if skid_t > 0.0: skid_t -= dt
@@ -693,7 +720,12 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		if assisting and v > 0.0: om_t = clampf(assist.om_target, -om_max, om_max)
 		if skid_t > 0.0: om_t *= 0.4
 	om += (om_t - om) * (1.0 - exp(-dt * (10.0 if pivot else TURN_RESP)))
+	var yaw0 := yaw
 	yaw = wrapf(yaw + om * dt, -PI, PI)
+	# (at the wade limit: turning never swings a tyre out over deeper water)
+	if _wd > 0.0 and _tyre_too_deep(yaw) and not _tyre_too_deep(yaw0):
+		yaw = yaw0
+		om = 0.0
 	f = Vector3(sin(yaw), 0, cos(yaw))
 	# a ledge under the front wheel, going down it: the hop off (cast.gd lands him)
 	var ff: Vector3 = at + f * (model.WB * 0.5)
@@ -711,7 +743,7 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	var lt := -LEAN_MAX * tanh(atan(v * om / 9.8) * LEAN_GAIN / LEAN_MAX)   # (eases into its cap)
 	var stopped := absf(v) < 0.45 and (released or pivot or busy)
 	foot_k = move_toward(foot_k, 1.0 if stopped else 0.0, dt * (3.5 if stopped else 6.0))
-	var stand_want := 1.0 if (pedalling and (sprint and v < SPRINT - 1.0 or slope > 0.09 and v < CRUISE * 0.8)) else 0.0
+	var stand_want := 1.0 if (pedalling and (sprint and v < SPRINT - 1.0 or slope > 0.09 and v < CRUISE * 0.8 or _wd > W_STAND)) else 0.0
 	stand_k += (stand_want - stand_k) * (1.0 - exp(-dt * 4.0))
 	lt += sin(crank) * 0.07 * stand_k
 	lt = lerpf(lt, -0.1, foot_k)
@@ -737,6 +769,50 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 
 var _bumping := false
 var _ledged := false
+var _stone_d := 0.0
+var _wd := 0.0             # the water at the tyres, eased (m, as the bike sits in it)
+
+# the deeper of the water at the two tyres (m, as the bike sits in it; 0 dry)
+func _water_depth(f: Vector3) -> float:
+	var W = game.world
+	var d := 0.0
+	for p in [at + f * model.WB * 0.5, at - f * model.WB * 0.5]:
+		var s: float = W.water_surface(p.x, p.z)
+		if not is_nan(s): d = maxf(d, s - W.ash_ground(p.x, p.z))
+	return d
+
+# the speed in water by its depth at the tyres (water_slow: [depth m, times the speed] points)
+func _water_mult(d: float) -> float:
+	if d <= 0.0 or W_SLOW.is_empty(): return 1.0
+	var p0: Array = W_SLOW[0]
+	if d <= float(p0[0]): return float(p0[1])
+	for i in range(1, W_SLOW.size()):
+		var p1: Array = W_SLOW[i]
+		if d <= float(p1[0]):
+			return lerpf(float(p0[1]), float(p1[1]), (d - float(p0[0])) / maxf(1e-4, float(p1[0]) - float(p0[0])))
+		p0 = p1
+	return float(p0[1])
+
+# either tyre deeper than Ash could wade, the bike turned to y
+func _tyre_too_deep(y: float) -> bool:
+	var f := Vector3(sin(y), 0, cos(y)) * model.WB * 0.5
+	return _too_deep(at + f, 0.0) or _too_deep(at - f, 0.0)
+
+# a water cell (not a deck over it)
+func _wet_cell(p: Vector3) -> bool:
+	var fl: int = game.world.flag(p.x, p.z)
+	return fl != 255 and (fl & 1) != 0 and (fl & 4) == 0
+
+# water there deeper than Ash could wade (the bike goes where he can), less margin m:
+# riding stops water_margin short of the limit, so turning round there (a tyre swinging
+# out sideways) never takes it past the limit itself
+func _too_deep(p: Vector3, margin := W_MARGIN) -> bool:
+	var W = game.world
+	var fl: int = W.flag(p.x, p.z)
+	if fl == 255 or (fl & 1) == 0 or (fl & 4) != 0: return false
+	var sf: float = W.water_surface(p.x, p.z)
+	if is_nan(sf): return true
+	return sf - W.height_at(p.x, p.z) > (W.WADE_SEA if (fl & 8) else W.WADE_FRESH) - margin
 
 # off the bike (or put away): no flow, no cruise, no assist
 func _calm() -> void:
@@ -776,7 +852,7 @@ func _move(want: Vector3, f: Vector3) -> void:
 	var stp := want / n
 	for i in n:
 		var p := at
-		var np: Vector3 = W.step(p, stp.x, stp.z, false)
+		var np: Vector3 = W.step(p, stp.x, stp.z, true)   # (wading: where Ash could)
 		var moved := Vector2(np.x - p.x, np.z - p.z).length()
 		var full := Vector2(stp.x, stp.z).length()
 		# the front wheel (going forward) or the back one (rolling back) into something
@@ -788,16 +864,27 @@ func _move(want: Vector3, f: Vector3) -> void:
 		# a townsperson's parked bike
 		var cy = cast.life.cyclists if cast.life else null
 		if cy and (cy.blocks(tip) or cy.blocks(np)): tip_hit = true
-		if assist.walk_only(Vector2(tip.x, tip.z), 0.6): tip_hit = true
+		if _too_deep(tip): tip_hit = true   # (neither tyre deeper than Ash could wade)
 		# (no steepness lock: anywhere Ash can walk, the bike rides; a step higher than
 		# step_max (stairs) is ridden slowly with a bump, see _stairs_ahead)
-		var h0: float = W.height_at(p.x, p.z)
-		var h1: float = W.height_at(np.x, np.z)
+		var h0: float = W.ash_ground(p.x, p.z)
+		var h1: float = W.ash_ground(np.x, np.z)
 		var ledge: bool = (int(W.flag(np.x, np.z)) & 32) != 0 or (int(W.flag(p.x, p.z)) & 32) != 0
 		if absf(h1 - h0) > STEP_MAX and not (ledge and h1 < h0) and moved > 0.0:
+			if _wet_cell(p) or _wet_cell(np) or (h1 < h0 and _wet_cell(np + f * 0.75 * signf(v))):
+				squash = maxf(squash, 0.22)   # (a stream's bank or bed: a bump and a splash, not stairs)
+			else:
+				_rough_t = 0.35
+				squash = maxf(squash, 0.3)
+				Sfx.play("land_metal", null, {"vol": -20.0, "pitch": 1.7})
+		# the stepping stones: a bump from stone to stone, slowly
+		if assist.walk_only(Vector2(np.x, np.z), 0.7) and moved > 0.0:
 			_rough_t = 0.35
-			squash = maxf(squash, 0.3)
-			Sfx.play("land_metal", null, {"vol": -20.0, "pitch": 1.7})
+			_stone_d += moved
+			if _stone_d > 0.55:
+				_stone_d = 0.0
+				squash = maxf(squash, 0.25)
+				Sfx.play("land_stone", null, {"vol": -20.0, "pitch": 1.3})
 		# (at a crawl the world's push-out of a body just touching something is bigger than
 		# the step itself: that is not a wall in the way, the tip check says so)
 		if tip_hit or moved < full * 0.35 - 0.006:
@@ -819,7 +906,7 @@ func _slide(stp: Vector3, f: Vector3) -> bool:
 	var W = game.world
 	for ang in [0.45, -0.45, 0.9, -0.9]:
 		var d := stp.rotated(Vector3.UP, ang)
-		var np: Vector3 = W.step(at, d.x, d.z, false)
+		var np: Vector3 = W.step(at, d.x, d.z, true)
 		var moved := Vector2(np.x - at.x, np.z - at.z).length()
 		if moved < d.length() * 0.6: continue
 		var fd := Vector3(d.x, 0, d.z).normalized()
@@ -827,7 +914,7 @@ func _slide(stp: Vector3, f: Vector3) -> bool:
 		var tc: Vector3 = W.collide(tip, 0.1)
 		if Vector2(tc.x - tip.x, tc.z - tip.z).length() > 0.02: continue
 		var tf: int = W.flag(tip.x, tip.z)
-		if tf == 255 or (tf & 1 and not tf & 4): continue
+		if tf == 255 or _too_deep(tip): continue
 		at = Vector3(np.x, at.y, np.z)
 		yaw = wrapf(yaw + ang * 0.18, -PI, PI)
 		v *= 0.97 if absf(ang) < 0.6 else 0.9
@@ -858,13 +945,14 @@ func _tired() -> bool:
 # stamina on the bike (body.gd reads ride_rate: + drains, - refills): pedalling costs a
 # fraction of running, sprinting more, climbing more by the slope (steep: more than
 # running); coasting and downhill give some back, stopped more
-func _stamina(_dt: float, sprint: bool, slope: float, _tired_now: bool) -> void:
+func _stamina(_dt: float, sprint: bool, slope: float, _tired_now: bool, wfrac := 0.0) -> void:
 	var bd = cast.body if cast else null
 	if bd == null: return
 	var r := 0.0
 	if pedalling:
 		r = ST_SPRINT if sprint else ST_FLAT
 		r += ST_CLIMB * clampf(slope - SLOPE_FREE, 0.0, ST_CLIMB_MAX)
+		r += W_STAMINA * wfrac   # (pushing through water: more the deeper)
 	elif absf(v) < 0.3: r = -ST_REGEN_STOP
 	else: r = -ST_REGEN
 	bd.ride_rate = r
@@ -875,16 +963,18 @@ var _slope_s := 0.0
 func _stairs_ahead(f: Vector3) -> float:
 	var W = game.world
 	var reach := minf(24.0, 0.6 + maxf(v, 0.0) * maxf(v, 0.0) / (2.0 * BRAKE) + 0.5)
-	var hp: float = W.height_at(at.x, at.z)
+	var hp: float = W.ash_ground(at.x, at.z)
 	var lp: int = W.flag(at.x, at.z)
 	var d := 0.25
 	while d <= reach:
 		var q := at + f * d
-		var h: float = W.height_at(q.x, q.z)
+		var h: float = W.ash_ground(q.x, q.z)
 		var lf: int = W.flag(q.x, q.z)
 		if absf(h - hp) > STEP_MAX:
 			var ledge := (lf != 255 and (lf & 32) != 0) or (lp != 255 and (lp & 32) != 0)
-			if not (ledge and h < hp): return d   # (a ledge going down is a hop)
+			var wet := (lf != 255 and (lf & 1) != 0 and (lf & 4) == 0) or (lp != 255 and (lp & 1) != 0 and (lp & 4) == 0)
+			if h < hp and not wet: wet = _wet_cell(q + f * 0.75)   # (the bank down into a stream: ridden in, a splash)
+			if not (ledge and h < hp) and not wet: return d   # (a ledge going down is a hop; a stream's bank is ridden into)
 		hp = h
 		lp = lf
 		d += 0.25 if d < 3.0 else 0.5   # (a riser is a jump either way; further out, coarser)
@@ -909,20 +999,20 @@ func _dir_free(y: float) -> bool:
 	var d := Vector3(sin(y), 0, cos(y))
 	var p := at
 	for i in 5:
-		var np: Vector3 = W.step(p, d.x * 0.3, d.z * 0.3, false)
+		var np: Vector3 = W.step(p, d.x * 0.3, d.z * 0.3, true)
 		if Vector2(np.x - p.x, np.z - p.z).dot(Vector2(d.x, d.z)) < 0.22: return false   # (pushed aside: too narrow)
 		p = np
 		var tip := p + d * (model.WB * 0.5 + model.R * 0.6)
 		var tc: Vector3 = W.collide(tip, 0.1)
 		if Vector2(tc.x - tip.x, tc.z - tip.z).length() > 0.02: return false
 		var tf: int = W.flag(tip.x, tip.z)
-		if tf == 255 or (tf & 1 and not tf & 4) or (tf & 2 and not W.flag(at.x, at.z) & 2): return false
+		if tf == 255 or _too_deep(tip) or (tf & 2 and not W.flag(at.x, at.z) & 2): return false
 		if tf & 32 and d.z < 0.0: return false
 	return true
 
 func _skid() -> void:
 	skid_t = SKID_T
-	Sfx.play("scuff", null, {"vol": -6.0, "pitch": 0.8})
+	if _wd < 0.03: Sfx.play("scuff", null, {"vol": -6.0, "pitch": 0.8})   # (in the water: no tyre scuff)
 
 # the townspeople (and Prof. Oak) ahead: brake to keep clear of them
 func _people_limit(f: Vector3) -> float:
@@ -949,7 +1039,7 @@ func _people_limit(f: Vector3) -> float:
 		# right up against someone: never through them
 		if d.length() < 0.75 and d.length() > 1e-3:
 			var push := -d.normalized() * (0.75 - d.length())
-			var np: Vector3 = game.world.step(at, push.x, push.y, false)
+			var np: Vector3 = game.world.step(at, push.x, push.y, true)
 			at = Vector3(np.x, at.y, np.z)
 	return lim
 
@@ -1017,6 +1107,7 @@ func _skid_marks(dt: float) -> void:
 
 func _process(dt: float) -> void:
 	_idle(dt)
+	if state != "ride" and water: water.update(dt)   # (riding: place() runs it; off, the drips and wet fade)
 	if state != "ride" and not _marks.is_empty(): _skid_marks(dt)   # (they fade while he is off)
 	if state != "ride" and (_glow_a > 0.0 or _chev_a > 0.0 or _lines_a > 0.0): _assist_fx(dt)
 
@@ -1137,7 +1228,7 @@ func _surface_fx(dt: float) -> void:
 			Sfx.play("bike_freewheel", null, {"vol": -26.0, "pitch": clampf(v / 7.0, 0.8, 1.3)})
 
 func _ground(p: Vector3) -> float:
-	return game.world.height_at(p.x, p.z)
+	return game.world.ash_ground(p.x, p.z)   # (in the water: the bed Ash stands on, world_data.gd)
 
 # ---------- the frame's placing (cast.gd, after gravity) ----------
 func place(dt: float) -> void:
@@ -1149,13 +1240,14 @@ func place(dt: float) -> void:
 	if ground and not _was_ground:
 		squash = clampf(-_land_vy / 5.5, 0.25, 1.0)
 		Sfx.play("land_metal", null, {"vol": -14.0 + squash * 6.0, "pitch": 1.4})
-		Sfx.play("land_" + ("dirt" if surface in ["dirt", "sand"] else ("grass" if surface in ["grass", "tallgrass"] else "stone")), null, {"vol": -8.0 + squash * 4.0})
+		# (in the water the splash is bike_water.gd's)
+		if _wd < 0.03: Sfx.play("land_" + ("dirt" if surface in ["dirt", "sand"] else ("grass" if surface in ["grass", "tallgrass"] else "stone")), null, {"vol": -8.0 + squash * 4.0})
 	_was_ground = ground
 	_land_vy = cast.vy
 	squash = move_toward(squash, 0.0, dt * 3.2)
 	# pitch with the ground under both tyres
-	var hf: float = W.height_at(at.x + f.x * model.WB * 0.5, at.z + f.z * model.WB * 0.5)
-	var hb: float = W.height_at(at.x - f.x * model.WB * 0.5, at.z - f.z * model.WB * 0.5)
+	var hf: float = W.ash_ground(at.x + f.x * model.WB * 0.5, at.z + f.z * model.WB * 0.5)
+	var hb: float = W.ash_ground(at.x - f.x * model.WB * 0.5, at.z - f.z * model.WB * 0.5)
 	var pt := atan2(hf - hb, model.WB) if ground else pitch * 0.98
 	pitch += (pt - pitch) * (1.0 - exp(-dt * 12.0))
 	# getting on: the bike stands up off its stand as he takes the bars, the stand flicks up
@@ -1214,7 +1306,9 @@ func place(dt: float) -> void:
 	audio.skid = clampf(skid_t / SKID_T, 0.0, 1.0) if skid_t > 0.0 else 0.0
 	audio.wheel_rps = absf(v) / model.R / TAU
 	audio.flow = flow
+	audio.water = clampf(_wd / 0.25, 0.0, 1.0) if water.in_water else 0.0
 	_assist_fx(dt)
+	water.update(dt)
 	if _toast_t > 0.0: _toast_t -= dt
 	if _block_said > 0.0: _block_said -= dt
 	_toast_fade(dt)
@@ -1222,8 +1316,8 @@ func place(dt: float) -> void:
 func _pose_parked() -> void:
 	at.y = _ground(at)
 	var f := Vector3(sin(yaw), 0, cos(yaw))
-	var hf: float = game.world.height_at(at.x + f.x * model.WB * 0.5, at.z + f.z * model.WB * 0.5)
-	var hb: float = game.world.height_at(at.x - f.x * model.WB * 0.5, at.z - f.z * model.WB * 0.5)
+	var hf: float = game.world.ash_ground(at.x + f.x * model.WB * 0.5, at.z + f.z * model.WB * 0.5)
+	var hb: float = game.world.ash_ground(at.x - f.x * model.WB * 0.5, at.z - f.z * model.WB * 0.5)
 	pitch = atan2(hf - hb, model.WB)
 	lean = parked_lean
 	steer = parked_steer
@@ -1269,4 +1363,6 @@ func _idle(dt: float) -> void:
 func set_shown(on: bool) -> void:
 	visible = on and not away
 	model.visible = visible
-	if not on: audio.stop_all()
+	if not on:
+		audio.stop_all()
+		if water: water.clear()
