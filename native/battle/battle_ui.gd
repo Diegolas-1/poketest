@@ -293,7 +293,7 @@ func _foe_rect(safe: Rect2) -> Rect2:
 func energy_slot(who: String) -> Rect2:
 	var safe := UITheme.safe_rect(self)
 	var r := _foe_rect(safe) if who == "foe" else _ash_rect(safe)
-	return Rect2(r.position.x + 16, r.position.y - 34, r.size.x - 32, 28)
+	return Rect2(r.position.x, r.position.y - 54, r.size.x, 48)
 
 func _ash_plate(safe: Rect2) -> void:
 	var k := UITheme.ease_out_expo(hud_k)

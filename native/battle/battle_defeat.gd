@@ -1,37 +1,37 @@
 class_name BattleDefeat
 extends Node3D
-# Knocked down on Route 1 with no Pokémon of his own (battle.gd, outcome
-# ash_down, quest flag has_starter unset): the defeat event.
-#   Ash lies crumpled in the clearing the battle opened. Officer Jenny (from her
-#   post at the Viridian gate: life.gd's "jenny", taken over for the scene with
-#   the state "scene") and Nurse Joy come running, kneel down beside him and,
-#   once he says he doesn't feel so good, tell him what it means to walk into
-#   the tall grass alone, with no Pokémon and no experience. Then the screen goes
-#   dark: they carry him home to his mom (Ash's house, his own bed to rest in).
+# Worn out on Route 1 with no Pokémon of his own (battle.gd, outcome ash_down,
+# quest flag has_starter unset): the defeat event.
+#   Ash lies curled up on his side in the clearing the battle opened, too
+#   exhausted and sore to get up. Officer Jenny (from her post at the Viridian
+#   gate) and Nurse Joy come running, kneel beside him and, once he says he
+#   doesn't feel so good, tell him what it means to walk into the tall grass
+#   alone, with no Pokémon and no experience. Then the screen goes dark: they
+#   take him home to his mom (Ash's house: his own bed to rest in).
 #   He comes to with the "Scraped & Dirty" condition (life/conditions.json:
 #   dirt and scratches on him, a limp, slower and short of breath; rest or
-#   Nurse Joy cures it), his stamina only a little back, and the quest flag route1_mauled.
+#   Nurse Joy cures it), his stamina only a little back, and the quest flag
+#   route1_mauled. Never near-death: scrapes, soreness and a big scare.
 #
-# Nurse Joy's own model is the ASSETS worker's (res://cast/joy.glb as the cast
-# look "joy"); until it lands she is a stand-in: another look with her pink
-# hair (JOY_STANDIN). spawn_joy(at) is where she comes from.
+# Both rescuers are ScenePersons (joy/scene_person.gd: run_to, kneel_by, say,
+# emote). Jenny is the town's own: life.gd's "jenny" is taken over for the scene
+# (state "scene", her life actor kept hidden so only one Jenny shows) and put back
+# at her post afterwards.
 #
 #   BattleDefeat.applies(game)                 the event's conditions
 #   BattleDefeat.aftermath(quests, conditions, body, mauled)   what it leaves (tests call it)
 #   BattleDefeat.joy_heals(conditions, body)   Nurse Joy patches him up (the Pokémon Center, later)
 #   BattleDefeat.on_route1_mauled(game)        >>> THE HOOK for the game's real start <<<
 
-const JOY_STANDIN := "rose"
-const HOME := "ketchum_house"        # where they carry him (interiors/ketchum_house.json)
+const HOME := "ketchum_house"        # where they take him (interiors/ketchum_house.json)
 const HOME_SPAWN := "from_town"
 
 var battle: Battle
 var game: Node3D
 var cast: Node
-var jenny := {}                      # life.gd's person (or {actor} for a stand-in)
-var jenny_actor: CastActor
-var joy: CastActor
-var _own_jenny := false
+var jenny_p := {}                    # life.gd's person, while the scene has her
+var jenny: ScenePerson
+var joy: ScenePerson
 var _speaker := ""
 
 static func applies(g: Node) -> bool:
@@ -42,7 +42,7 @@ static func applies(g: Node) -> bool:
 	var on_route1: bool = String(c.area) == "route1" or (g.pos.z < -66.0 and g.pos.z > -420.0)
 	return on_route1 and not c.life.quests.flag("has_starter")
 
-# what a knock-down leaves him with (the event, or picking himself up elsewhere)
+# what being worn down leaves him with (the event, or picking himself up elsewhere)
 static func aftermath(quests: Node, cond: Conditions, body: AshBody, mauled := true) -> void:
 	if cond: cond.apply("scraped", 1.0 if mauled else 0.7)
 	if body: body.set_stamina(0.3 if mauled else 0.12)
@@ -78,47 +78,37 @@ func run(b: Battle) -> void:
 	var side: Vector3 = b.side
 	await _wait(1.0)
 	battle.shot("down", 1.5)
-	battle.ui.speak("Ugh… I don't feel so good…", battle._bone("Head", 0.9) + Vector3(0, 0.3, 0), 2.4)
+	battle.ui.speak("Ugh… I don't feel so good…", battle._bone("Head", 0.5) + Vector3(0, 0.45, 0), 2.4)
 	await _wait(2.6)
 	# a shout from the path: they've seen him
-	_take_jenny()
 	var from_dir := (-fwd + side * 0.35).normalized()
 	var j_from := ash + from_dir * 13.0
-	var y_from := ash + (from_dir + side * 0.25).normalized() * 15.0
-	_put(jenny_actor, j_from, atan2(-from_dir.x, -from_dir.z))
-	joy = spawn_joy(y_from)
+	var y_from := ash + (from_dir + side * 0.3).normalized() * 15.0
+	_take_jenny()
+	jenny = _person("jenny", j_from, atan2(-from_dir.x, -from_dir.z))
+	joy = _person("joy", y_from, atan2(-from_dir.x, -from_dir.z))
 	battle.ui.speak("ASH!! Hang on, we're coming!", j_from + Vector3(0, 2.0, 0), 2.0)
 	Sfx.play("step_grass_run", j_from, {"vol": 0.0})
-	# the camera low behind Ash, the two of them running in through the grass
+	# the camera low behind him, the two of them running in through the grass
 	battle._shot = {"pos": ash - from_dir * 2.6 + side * 1.2 + Vector3(0, 1.1, 0), "look": ash + from_dir * 6.0 + Vector3(0, 0.9, 0), "fov": 46.0, "rate": 3.0, "name": "_fixed"}
-	var j_to := ash + side * 0.85 + fwd * 0.25
-	var y_to := ash - side * 0.85 + fwd * 0.35
+	var chest := battle._bone("Spine3", 0.3)
+	# kneeling one each side of him
+	jenny.kneel_by(chest + side * 0.15, 4.4)
+	await _wait(0.35)
+	joy.kneel_by(chest - side * 0.15 + fwd * 0.1, 4.0)
 	var t := 0.0
-	var dur := 2.4
-	var jp := j_from
-	var yp := y_from
-	while t < dur:
-		var dt := get_process_delta_time()
-		t += dt
-		var u := clampf(t / dur, 0.0, 1.0)
-		var e := u if u < 0.8 else 0.8 + (u - 0.8) * (1.0 - (u - 0.8) / 0.4)
-		var nj := j_from.lerp(j_to, clampf(e / 0.92, 0.0, 1.0))
-		var ny := y_from.lerp(y_to, clampf(e / 0.92 - 0.04, 0.0, 1.0))
-		var vj := nj.distance_to(jp) / maxf(dt, 1e-4)
-		var vy := ny.distance_to(yp) / maxf(dt, 1e-4)
-		_put(jenny_actor, nj, atan2(nj.x - jp.x, nj.z - jp.z) if vj > 0.2 else jenny_actor.rotation.y, vj)
-		_put(joy, ny, atan2(ny.x - yp.x, ny.z - yp.z) if vy > 0.2 else joy.rotation.y, vy)
-		jp = nj; yp = ny
-		if int(t * 3.0) != int((t - dt) * 3.0): Sfx.play("step_grass_run", nj, {"vol": -6.0})
+	var steps := 0.0
+	while t < 6.0 and (jenny.state != "kneel" or joy.state != "kneel"):
+		t += get_process_delta_time()
+		steps += get_process_delta_time()
+		if steps > 0.3 and jenny.speed > 1.0:
+			steps = 0.0
+			Sfx.play("step_grass_run", jenny.global_position, {"vol": -6.0})
 		await get_tree().process_frame
-	# down beside him
-	_put(jenny_actor, j_to, atan2(ash.x - j_to.x, ash.z - j_to.z), 0.0)
-	_put(joy, y_to, atan2(ash.x - y_to.x, ash.z - y_to.z), 0.0)
-	jenny_actor.idles.force("b_kneel", 1e6)
-	joy.idles.force("b_kneel", 1e6)
 	Sfx.play("cloth_rustle", ash, {"vol": -4.0})
-	await _wait(1.2)
-	battle._shot = {"pos": ash + fwd * 2.3 + side * 0.4 + Vector3(0, 1.25, 0), "look": ash + Vector3(0, 0.55, 0), "fov": 48.0, "rate": 2.0, "name": "_fixed"}
+	jenny.look_at_point(chest); joy.look_at_point(chest)
+	await _wait(0.5)
+	battle._shot = {"pos": ash + fwd * 2.4 + side * 0.5 + Vector3(0, 1.3, 0), "look": ash + Vector3(0, 0.45, 0), "fov": 48.0, "rate": 2.0, "name": "_fixed"}
 	# the talk
 	await _say([
 		"JENNY: Ash! Ash, can you hear me? Don't try to get up.",
@@ -129,9 +119,9 @@ func run(b: Battle) -> void:
 		"JOY: Even a little Pidgey will fight hard to protect its home. And you didn't have a Pokémon of your own to stand with you.",
 		"JENNY: Trainers only go in there with a partner Pokémon, and once they know how to read a wild one. Promise me you won't go in alone again.",
 		"ASH: I… I promise.",
-		"JOY: Good. Nothing's broken, but you need rest. Let's get you home to your mom.",
+		"JOY: Good. Nothing's broken, you're just worn out and banged up. Let's get you home to your mom.",
 	])
-	# dark: carried home
+	# dark: taken home
 	var ui := battle.ui
 	ui.caption = "Later, at home…"
 	var f := 0.0
@@ -142,7 +132,8 @@ func run(b: Battle) -> void:
 	aftermath(cast.life.quests if cast and cast.life else null, cast.conditions if cast else null, cast.body if cast else null, true)
 	on_route1_mauled(game)
 	_release()
-	if player_idles(): cast.player.idles.release()
+	battle.lie_down(0.0, true)
+	if cast and cast.player and cast.player.idles: cast.player.idles.release()
 	battle.arena_k = 0.0
 	RenderingServer.global_shader_parameter_set("battle_arena", Vector4(0, 0, 0, 0))
 	battle.puppet = false
@@ -157,71 +148,47 @@ func run(b: Battle) -> void:
 		await get_tree().process_frame
 	if cast and cast.dialog:
 		cast.dialog.voice = "high"
-		cast.dialog.say(["MOM: Oh, Ash… Officer Jenny and Nurse Joy carried you all the way home.",
+		cast.dialog.say(["MOM: Oh, Ash… Officer Jenny and Nurse Joy brought you all the way home.",
 			"MOM: You get some rest, sweetie. And no more tall grass without a Pokémon, OK?"])
 
-func player_idles() -> bool: return cast != null and cast.player != null and cast.player.idles != null
+func _person(look: String, at: Vector3, yaw: float) -> ScenePerson:
+	var p := ScenePerson.make(look)
+	add_child(p)
+	p.ground = func(x: float, z: float) -> float: return game.world.height_at(x, z)
+	p.place(at, yaw)
+	return p
 
-# Officer Jenny: the town's own (life.gd), taken over for the scene; a fresh one if she isn't there
+# Officer Jenny is the town's: her life actor steps out of the town's day for the
+# scene (kept hidden while the scene's Jenny is on, so there's only one)
 func _take_jenny() -> void:
 	var life = cast.life if cast else null
-	if life and life.by_id.has("jenny"):
-		jenny = life.by_id["jenny"]
-		if jenny.state == "inside": life.person_exited.emit("jenny", jenny.inside); jenny.inside = ""
-		jenny.state = "scene"
-		jenny.v = 0.0
-		jenny_actor = jenny.actor
-	if jenny_actor == null:
-		jenny_actor = CastActor.make("jenny")
-		jenny_actor.ground = func(x: float, z: float) -> float: return game.world.height_at(x, z)
-		add_child(jenny_actor)
-		_own_jenny = true
-	jenny_actor.visible = true
+	if life == null or not life.by_id.has("jenny"): return
+	jenny_p = life.by_id["jenny"]
+	if jenny_p.state != "inside":
+		jenny_p.state = "scene"
+		jenny_p.v = 0.0
 
-# Nurse Joy at a point (world): her own look once it exists, else the stand-in with pink hair
-func spawn_joy(at: Vector3) -> CastActor:
-	var look := "joy" if CastActor.data().looks.has("joy") and ResourceLoader.exists("res://cast/joy.glb") else JOY_STANDIN
-	var a := CastActor.make(look)
-	a.name = "NurseJoy"
-	a.ground = func(x: float, z: float) -> float: return game.world.height_at(x, z)
-	add_child(a)
-	if look != "joy":
-		# TODO(joy): the stand-in's hair, Joy's pink, until her model lands
-		for m in a.mat_src:
-			var src: String = String(a.mat_src[m]).to_lower()
-			if src.contains("hair"): (m as ShaderMaterial).set_shader_parameter("albedo", Color("f2879f"))
-	_put(a, at, 0.0)
-	return a
-
-func _put(a: CastActor, p: Vector3, yaw: float, v := 0.0) -> void:
-	if a == null: return
-	p.y = game.world.height_at(p.x, p.z)
-	if not jenny.is_empty() and a == jenny_actor:
-		jenny.pos = p; jenny.yaw = yaw; jenny.v = v
-		return   # (life.gd places and animates her from these)
-	a.position = p
-	a.rotation.y = yaw
-	a.set_meta("v", v)
-
-func _process(dt: float) -> void:
-	if joy and is_instance_valid(joy): joy.animate(dt, float(joy.get_meta("v", 0.0)), false)
-	if _own_jenny and jenny_actor and is_instance_valid(jenny_actor): jenny_actor.animate(dt, float(jenny_actor.get_meta("v", 0.0)), false)
+func _process(_dt: float) -> void:
+	if not jenny_p.is_empty() and jenny_p.get("actor") and is_instance_valid(jenny_p.actor): jenny_p.actor.visible = false
 	# whoever speaks moves their mouth while the line types out
 	var d = cast.dialog if cast else null
 	var talking := false
 	if d != null and d.open: talking = d.shown < String(d.lines[d.i]).length()
 	var flap := (0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.03)) if talking else 0.0
-	if jenny_actor and is_instance_valid(jenny_actor): jenny_actor.mouth = flap if _speaker == "JENNY" else 0.0
-	if joy and is_instance_valid(joy): joy.mouth = flap if _speaker == "JOY" else 0.0
+	if jenny and is_instance_valid(jenny): jenny.actor.mouth = flap if _speaker == "JENNY" else 0.0
+	if joy and is_instance_valid(joy): joy.actor.mouth = flap if _speaker == "JOY" else 0.0
 	if cast and cast.player: cast.player.mouth = flap if _speaker == "ASH" else 0.0
 
-# the lines one by one through the text box, the voice and the speaker for each
+# the lines one by one through the text box, the voice, the speaker and a gesture for each
 func _say(lines: Array) -> void:
 	for ln in lines:
 		var s := String(ln)
 		_speaker = s.get_slice(":", 0)
+		var text := s.substr(s.find(":") + 1).strip_edges()
 		cast.dialog.voice = "mid" if _speaker == "ASH" else "high"
 		cast.dialog.voice_pitch = 1.08 if _speaker == "ASH" else (1.0 if _speaker == "JENNY" else 1.12)
+		if _speaker == "JENNY" and jenny: jenny.say(text)
+		elif _speaker == "JOY" and joy: joy.say(text)
 		var fin := [false]
 		cast.dialog.say([s], func(): fin[0] = true)
 		while not fin[0]:
@@ -229,21 +196,20 @@ func _say(lines: Array) -> void:
 			if not cast.dialog.open: break
 	_speaker = ""
 
-# give Jenny back to the town (straight to her post) and send Joy on her way
+# Jenny back to the town (straight to her post), the scene's people gone
 func _release() -> void:
 	var life = cast.life if cast else null
-	if not jenny.is_empty() and life:
-		jenny_actor.idles.release()
-		jenny.state = "act"
-		jenny.blk = -1
+	if not jenny_p.is_empty() and life and jenny_p.state == "scene":
+		jenny_p.state = "act"
+		jenny_p.blk = -1
 		life._jumped = true
-		life._check(jenny)
+		life._check(jenny_p)
 		life._jumped = false
-		life._place_now(jenny)
-	elif _own_jenny and jenny_actor:
-		jenny_actor.queue_free()
-	if joy and is_instance_valid(joy): joy.queue_free()
-	joy = null
+		life._place_now(jenny_p)
+	jenny_p = {}
+	for p in [jenny, joy]:
+		if p and is_instance_valid(p): p.queue_free()
+	jenny = null; joy = null
 
 func _wait(secs: float) -> void:
 	await get_tree().create_timer(secs).timeout

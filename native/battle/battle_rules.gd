@@ -206,6 +206,7 @@ func pick_move() -> String:
 	for id in moves:
 		var m: Dictionary = moves[id]
 		if m.has("max_uses") and int(uses.get(id, 0)) >= int(m.max_uses): continue
+		if int(m.get("learned", 0)) > level(): continue   # (not at its level yet)
 		if m.has("ash_acc_stage") and ash_acc_stage <= -2: continue
 		var w := maxf(0.05, float(m.get("w", 1.0)) + float(m.get("w_anger", 0.0)) * anger)
 		ids.append(id); ws.append(w); tot += w

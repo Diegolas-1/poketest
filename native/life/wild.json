@@ -122,8 +122,8 @@
       "name": "GUST",
       "acc": 0.92,
       "dmg": [
-       27,
-       33
+       24,
+       28
       ],
       "w": 3.0,
       "w_anger": 0.5
@@ -134,8 +134,8 @@
       "name": "TACKLE",
       "acc": 0.9,
       "dmg": [
-       25,
-       31
+       11,
+       14
       ],
       "w": 3.0,
       "w_anger": 2.0
@@ -146,8 +146,8 @@
       "name": "QUICK ATTACK",
       "acc": 0.96,
       "dmg": [
-       18,
-       23
+       9,
+       12
       ],
       "w": 2.0,
       "w_anger": 3.0,
@@ -166,8 +166,35 @@
       "w": 1.6,
       "w_anger": -1.0,
       "max_uses": 2
+     },
+     "whirlwind": {
+      "id": "whirlwind",
+      "type": "normal",
+      "name": "WHIRLWIND",
+      "acc": 0.9,
+      "dmg": [
+       5,
+       8
+      ],
+      "w": 0.5,
+      "w_anger": 0.0,
+      "learned": 9
+     },
+     "wing_attack": {
+      "id": "wing_attack",
+      "type": "flying",
+      "name": "WING ATTACK",
+      "acc": 0.9,
+      "dmg": [
+       30,
+       35
+      ],
+      "w": 0.5,
+      "w_anger": 1.0,
+      "learned": 15
      }
-    }
+    },
+    "_note_energy": "How often it acts and with what: the energy system (battle/energy.gd, life/moves.json costs: Tackle, Quick Attack and Sand-Attack 1 chip, Gust 2, Whirlwind 2, Wing Attack 3). dmg here is per move, scaled to its cost (about 11-14 stamina points a chip), so a fight lasts 3 to 5 turns. w / w_anger: the pick without the energy system."
    }
   }
  }

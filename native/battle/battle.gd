@@ -40,9 +40,15 @@ extends Node3D
 #
 # ---- turns, and the hooks for the energy system (battle/energy.gd, life/moves.json) ----
 # The loop is a sequence of turns in which a side may act more than once:
-#   _wild_pick(state) -> Array    the wild Pokémon's move ids for this turn, in
-#                                 order (one for now; the energy system returns
-#                                 as many as the turn's energy pays for)
+#   _wild_pick(state) -> Array    the wild Pokémon's moves for this turn, in order:
+#                                 plans {kind: "move", move, first, cost...}. With
+#                                 the energy system attached (battle/energy_hook.gd,
+#                                 EnergyHook.attach once the HUD is up) as many as
+#                                 the turn's chips pay for (1, 2, 3... a turn, up
+#                                 to its capacity: Pidgey may act twice); without
+#                                 it, one a turn (R.pick_move)
+#   energy_moves() -> Array       the moves this battle can stage (the hook plans with these)
+#   energy_anchor(side) -> Rect2  where the energy bars go (ui.energy_slot)
 #   _state() -> Dictionary        what it sees: turn, mood, HPs, Ash's stamina, its moves
 #   _foe_act(id)                  stages one move by id (each move's data in
 #                                 life/wild.json moves.<id>: id, type, and room for
@@ -125,6 +131,9 @@ var _foe_last := Vector3.ZERO
 # the camera
 var cam_on := false
 var puppet := true              # the battle places Ash (off once the defeat carries him home)
+var lie := 0.0                  # Ash down: 0 sitting slumped (b_crumple) .. 1 curled up on his side
+var _lie_to := 0.0
+var _lie_rate := 0.0
 var cam_pos := Vector3.ZERO
 var cam_look := Vector3.ZERO
 var cam_fov := 52.0
@@ -221,6 +230,10 @@ func _make_foe() -> void:
 		else: foe = PidgeyStandin.new()
 		add_child(foe)
 	foe.set_meta("battle", true)
+	if "battle" in foe: foe.battle = true          # (CreaturePidgey: a fighting stance, no idle pecks)
+	if "auto" in foe: foe.auto = false
+	if "act_reach" in foe: foe.act_reach = 0.0     # (the battle carries it to Ash itself)
+	if "gust_beats" in foe: foe.gust_beats = 3
 	var at: Vector3 = opts.get("at", foe_spot)
 	foe_pos = Vector3(at.x, 0, at.z) if own_foe and not is_nan(at.x) else (foe.global_position if not own_foe else foe_spot)
 	foe_pos.y = _gy(foe_pos)
@@ -250,6 +263,7 @@ func _process(dt: float) -> void:
 	game.speed = ash_anim_speed
 	game.cam_yaw = ash_yaw + PI   # (his head looks ahead, not round at the camera)
 	_put_foe(dt)
+	_lie(dt)
 	_menu_input()
 	fx.update(dt)
 	ui.tick(real)
@@ -257,6 +271,34 @@ func _process(dt: float) -> void:
 	ui.sand_k = maxf(0.0, ui.sand_k - dt * 0.5)
 	ui.speed_k = maxf(0.0, ui.speed_k - dt * 3.0)
 	if cam_on: _camera(dt, real)
+
+# down: from the slumped sit (b_crumple: knees drawn up, a hand to his side) he
+# tips over onto his left side and lies there curled up; the model's root (under
+# the actor, which the acting and its ground checks keep upright) turns about his
+# forward axis round the seat, lifted by half his width so his side rests on the ground
+func lie_down(to: float, instant := false, secs := 0.9) -> void:
+	_lie_to = to
+	_lie_rate = 1.0 / maxf(secs, 0.05)
+	if instant:
+		lie = to
+		_lie(0.0)
+
+func _lie(dt: float) -> void:
+	if player == null or player.get_child_count() == 0: return
+	if absf(lie - _lie_to) > 1e-4: lie = move_toward(lie, _lie_to, dt * _lie_rate)
+	var root := player.get_child(0) as Node3D
+	if root == null: return
+	if lie <= 1e-4:
+		if root.has_meta("lie0"): root.transform = root.get_meta("lie0"); root.remove_meta("lie0")
+		return
+	if not root.has_meta("lie0"): root.set_meta("lie0", root.transform)
+	var t0: Transform3D = root.get_meta("lie0")
+	var e := lie * lie * (3.0 - 2.0 * lie)
+	var ang := -1.38 * e                       # (about his forward axis, +z: negative tips him to his left)
+	var pivot := Vector3(0.12, 0.0, -0.3)      # the seat's left edge
+	var b := Basis(Vector3(0, 0, 1), ang)
+	var lift := Vector3(0, 0.08 * sin(e * PI * 0.5), 0)
+	root.transform = Transform3D(b, pivot - b * pivot + lift) * t0
 
 func _put_foe(dt: float) -> void:
 	if foe == null or not is_instance_valid(foe): return
@@ -314,7 +356,7 @@ func _shot_xf(n: String) -> Dictionary:
 		"foe_close": return {"pos": ash_pos - fwd * 0.9 + side * 2.0 + up * 1.9, "look": foe_p + up * 0.4 - side * 0.3, "fov": 38.0}
 		"qa": return {"pos": c + side * 5.0 - fwd * 0.8 + up * 2.2, "look": c - fwd * 0.6 + up * 0.6, "fov": 52.0}
 		"impact": return {"pos": ash_pos + fwd * 2.6 + side * 2.6 + up * 1.6, "look": ash_pos + up * 0.9, "fov": 50.0}
-		"down": return {"pos": ash_pos + side * 1.9 + fwd * 1.2 + up * 0.9, "look": ash_pos + up * 0.45, "fov": 46.0}
+		"down": return {"pos": ash_pos - side * 2.0 + fwd * 1.4 + up * 1.1, "look": ash_pos + up * 0.3, "fov": 46.0}
 		"flee": return {"pos": c - fwd * 5.5 + side * 3.0 + up * 3.2, "look": foe_p + up * 1.2, "fov": 52.0}
 	return _shot_xf("overview")
 
@@ -441,6 +483,8 @@ func _run() -> void:
 	await _wait(0.9)
 	ui.show_hud(true)
 	Sfx.ui("ui_banner")
+	# the energy system (battle/energy_hook.gd): the foe's bar, and its turn plans
+	EnergyHook.attach(self, {"species": species, "level": R.level(), "temper": String(opts.get("temper", "flighty"))})
 	await _wait(0.5)
 	# ---- the turns ----
 	# A turn: the wild side's picks for it (_wild_pick: one move now; the energy
@@ -450,19 +494,19 @@ func _run() -> void:
 	var first: String = String(opts.get("first_strike", "ash"))
 	if String(opts.get("state", "")) == "attacking": first = "wild"
 	if first == "wild":
-		for id in _wild_pick(_state()):
-			await _foe_act(id)
+		for p in _wild_pick(_state()):
+			await _foe_act(p)
 			if R.outcome != "": break
 		R.end_turn()
 	while R.outcome == "":
 		var picks := _wild_pick(_state())
 		var lead: Array = []
-		while not picks.is_empty() and R.is_first(String(picks[0])):
+		while not picks.is_empty() and bool(picks[0].get("first", false)):
 			lead.append(picks.pop_front())
 		var act := await _choose()
 		shot("overview", 3.0)
-		for id in lead:
-			await _foe_act(String(id))
+		for p in lead:
+			await _foe_act(p)
 			if R.outcome != "": break
 			await _wait(0.3)
 		if R.outcome != "": break
@@ -473,8 +517,8 @@ func _run() -> void:
 		if not re.is_empty():
 			R.foe_turn(re)
 			break
-		for id in picks:
-			await _foe_act(String(id))
+		for p in picks:
+			await _foe_act(p)
 			if R.outcome != "": break
 		R.end_turn()
 	await _outcome()
@@ -482,19 +526,34 @@ func _run() -> void:
 # ---------- the wild side's mind: the hooks for the energy system ----------
 # what the battle looks like to the wild side when it picks its moves
 func _state() -> Dictionary:
-	return {"turn": R.turn, "species": species, "temper": R.temper, "mood": R.mood(), "foe_hp": R.foe_hp, "foe_max": R.foe_max,
+	return {"turn": R.turn + 1, "species": species, "temper": R.temper, "mood": R.mood(), "foe_hp": R.foe_hp, "foe_max": R.foe_max,
 		"ash_stamina": R.ash_sta / maxf(1.0, R.ash_sta_max), "anger": R.anger, "fear": R.fear, "threat": R.threat, "moves": R.S.get("moves", {}).keys()}
 
 # the wild Pokémon's moves for this turn, in order (move ids from life/wild.json).
 # One a turn for now: the energy system (battle/energy.gd) replaces this with as
 # many as the turn's energy pays for (each move's "cost").
-func _wild_pick(_st: Dictionary) -> Array:
+func _wild_pick(st: Dictionary) -> Array:
+	var h := get_node_or_null("EnergyHook")
 	if not script_moves.is_empty():
 		var m := String(script_moves[0])
 		if m in ["flee", "disengage"]: return []   # (scripted: it leaves after Ash's action, _wild_react)
 		script_moves.pop_front()
-		return [m]
-	return [R.pick_move()]
+		# scripted renders: "a+b" plays both in one turn; the energy bar still turns over
+		if h and h.has_method("wild_pick"): h.wild_pick(st)
+		var out := []
+		for id in m.split("+"): out.append({"kind": "move", "move": id, "first": R.is_first(id)})
+		return out
+	if h and h.has_method("wild_pick"): return h.wild_pick(st)
+	var id := R.pick_move()
+	return [{"kind": "move", "move": id, "first": R.is_first(id)}]
+
+# the moves this battle knows how to stage (the energy system plans only with these)
+func energy_moves() -> Array:
+	return ["tackle", "sand_attack", "gust", "quick_attack", "whirlwind", "wing_attack"]
+
+# where the energy bars sit: above the foe's plate, and above Ash's for an ally later
+func energy_anchor(side: String) -> Rect2:
+	return ui.energy_slot(side) if ui else Rect2()
 
 # after Ash's action: does it bolt or lose interest? ({} = it stays)
 func _wild_react() -> Dictionary:
@@ -717,16 +776,21 @@ func _do_back_away() -> Dictionary:
 	return e
 
 # ---------- the wild side's turn ----------
-# one action of the wild side's turn: a move by its id
-func _foe_act(id: String) -> void:
-	if id in ["flee", "disengage"]:
-		R.foe_turn({"kind": id})
+# one action of the wild side's turn: a plan {kind, move} (or a bare move id)
+func _foe_act(p) -> void:
+	var id: String = String(p.get("move", "")) if p is Dictionary else String(p)
+	var kind: String = String(p.get("kind", "move")) if p is Dictionary else ("move" if not id in ["flee", "disengage"] else id)
+	if kind != "move":
+		R.foe_turn({"kind": kind})
 		return
+	# its energy is spent: the chips fly from its bar to Ash
+	var h := get_node_or_null("EnergyHook")
+	if h and h.has_method("on_move") and cam: h.on_move(id, cam.unproject_position(ash_pos + Vector3(0, 1.0, 0)))
 	var e := R.foe_turn({"kind": "move", "move": id})
 	ui.set_mood(R.mood())
 	match id:
-		"gust": await _gust(e)
-		"tackle": await _tackle(e, false)
+		"gust", "whirlwind": await _gust(e)
+		"tackle", "wing_attack": await _tackle(e, false)
 		"quick_attack": await _tackle(e, true)
 		"sand_attack": await _sand_attack(e)
 		_: await _tackle(e, false)   # (a move with no staging of its own yet)
@@ -778,8 +842,15 @@ func _gust(e: Dictionary) -> void:
 		var travel := UITheme.ease_in(clampf((u - 0.3) / 0.7, 0.0, 1.0))
 		var at := start.lerp(target, travel)
 		at.y = _gy(at)
-		var ph: float = foe.get("wing_phase") if "wing_phase" in foe else fmod(t * 3.2, 1.0)
+		var ph: float = fmod(t * 3.2, 1.0)
 		var pulse := clampf(sin(ph * TAU), 0.0, 1.0)
+		if "beat_phase" in foe:
+			# CreaturePidgey: the push is its downstroke (beat_phase 0 .. 0.5)
+			ph = float(foe.beat_phase)
+			pulse = sin(clampf(ph / 0.5, 0.0, 1.0) * PI) if bool(foe.get("gusting")) else 0.0
+		elif "wing_phase" in foe:
+			ph = float(foe.wing_phase)
+			pulse = clampf(sin(ph * TAU), 0.0, 1.0)
 		if ph < beat_last: Sfx.play("wing_flap_large", foe_pos + Vector3(0, 0.8, 0), {"vol": 0.0})
 		beat_last = ph
 		fx.gust_move(g, at, clampf(u * 2.5, 0.0, 1.0), pulse, (target - start).normalized())
@@ -970,6 +1041,7 @@ func _ash_down() -> void:
 	slowmo(0.35, 0.9)
 	_act("b_crumple", 1e6)
 	shot("down", 2.0)
+	get_tree().create_timer(2.2).timeout.connect(func(): lie_down(1.0, false, 1.1); Sfx.play("land_dirt", ash_pos, {"vol": -4.0}))
 	Sfx.play("scuff", ash_pos, {"vol": 2.0})
 	await _wait(0.5)
 	fx.dust(ash_pos, 10, Color("cdb68a"), 1.0, 0.3, 0.5)
@@ -1029,12 +1101,15 @@ func _finish() -> void:
 	game.speed = 0.0
 	if player:
 		player.rotation = Vector3(0, player.rotation.y, 0)
+		lie_down(0.0, true)
 		if player.idles:
 			player.idles.stance = _prev_stance
 			if player.idles.acting().begins_with("b_"): player.idles.release()
 	for n in _hidden: if is_instance_valid(n): n.visible = true
 	_hidden.clear()
 	fx.clear()
+	var h := get_node_or_null("EnergyHook")
+	if h: h.detach()
 	if foe and is_instance_valid(foe):
 		foe.remove_meta("battle")
 		if own_foe: foe.queue_free()
