@@ -23,6 +23,7 @@ extends RefCounted
 #     B.unqueue("a") / B.queued("a")    # take the last one back (refunded)
 #     B.ai_queue("b")                   # the opponent's plan (PkmnAI)
 #     B.resolve() -> events             # actions interleaved by speed, then the end of the turn
+#       (or B.begin_resolve(); while B.resolving(): animate(B.step()): one action at a time)
 #     until B.over                      # B.outcome: won | lost | fled | blown_away | wild_fled
 #   B.finish()                          # each side's after_battle (persistence, warm-up, faint)
 # Other: B.flee("a") -> bool, B.use_item("a", id), B.fighter(side), B.order_fn
@@ -255,15 +256,38 @@ static func speed_interleave(b: PkmnBattle, queues: Dictionary) -> Array:
 	return out
 
 # ---------- resolving the turn ----------
+# all at once (headless), or one action at a time for a host that animates:
+#   B.begin_resolve(); while B.resolving(): play(B.step())
+var _order: Array = []
+var _resolving := false
+
 func resolve() -> Array:
 	var out := []
-	if over: return out
-	var order: Array = order_fn.call(self, {"a": F.a.queue.duplicate(), "b": F.b.queue.duplicate()})
-	for pair in order:
-		if over: break
-		out.append_array(_act(String(pair[0]), pair[1]))
-	if not over: out.append_array(_end_turn())
+	begin_resolve()
+	while _resolving: out.append_array(step())
 	return out
+
+func begin_resolve() -> void:
+	_order = [] if over else order_fn.call(self, {"a": F.a.queue.duplicate(), "b": F.b.queue.duplicate()})
+	_resolving = not over
+
+func resolving() -> bool: return _resolving
+
+# the next action's events; after the last, the end of the turn's
+func step() -> Array:
+	if not _resolving: return []
+	if over:
+		_resolving = false
+		return []
+	if _order.is_empty():
+		_resolving = false
+		return _end_turn()
+	var pair: Array = _order.pop_front()
+	return _act(String(pair[0]), pair[1])
+
+# what's left to play this turn: [[side, move id], ...]
+func upcoming() -> Array:
+	return _order.map(func(p): return [p[0], p[1].move])
 
 func _act(s: String, q: Dictionary) -> Array:
 	var out := []

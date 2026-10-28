@@ -44,6 +44,8 @@ const STAGGER := 0.13
 const FLY_T := 0.46
 const FOCUS_Y := 17.0
 const POOLS_Y := 45.0
+const TRAP := "_trap"            # the opponent's view: locked chips face down in a tray of their own (their pool hidden)
+const TRAP_COL := Color("9d6cf0")
 
 var energy: BattleEnergy
 var side := "foe":
@@ -102,8 +104,19 @@ func bind(e: BattleEnergy) -> void:
 	e.locked_in_changed.connect(_on_locked_in)
 	turn_no = e.turn
 	_focus_shown = e.focus
-	for c in e.chip_list(): vis.append(_v(c, 9.0))
+	for c in _shown_list(): vis.append(_v(c, 9.0))
 	queue_redraw()
+
+func _shown_list() -> Array:
+	var L := energy.chip_list()
+	if owner_view: return L
+	var out := L.filter(func(c): return c.state != "locked")
+	for c in L:
+		if c.state == "locked":
+			var x: Dictionary = c.duplicate()
+			x.pool = TRAP
+			out.append(x)
+	return out
 
 func _v(c: Dictionary, age: float, delay := 0.0) -> Dictionary:
 	return {"kind": c.kind, "pool": c.pool, "state": c.state, "lock": c.lock, "t": age, "delay": delay, "st_t": 9.0, "snd": age > 1.0}
@@ -135,10 +148,20 @@ func _on_turn(turn: int, _lost: Array, gained: Array) -> void:
 	_resync(gained.size())
 	if not gained.is_empty(): _gain = {"n": gained.size(), "t": -CHARGE_T}
 
+# a chip_list index -> the index shown (the same unless the opponent's view moved locked chips)
+func _shown_index(li: int) -> int:
+	if owner_view or energy == null: return li
+	var L := energy.chip_list()
+	if li < 0 or li >= L.size(): return li
+	var before := 0
+	for i in li:
+		if L[i].state == "locked": before += 1
+	return li - before if L[li].state != "locked" else li
+
 func _on_spent(indices: Array, kinds: Array, _move: String) -> void:
 	var j := 0
 	for i in indices.size():
-		var at: int = indices[i]
+		var at: int = _shown_index(int(indices[i]))
 		var kd: String = kinds[i] if i < kinds.size() else "colorless"
 		var from := _chip_c(at) if at >= 0 and at < vis.size() else _plate_rect().get_center()
 		flying.append({"kind": kd, "from": from, "to": _target(), "t": 0.0, "delay": j * 0.07, "spin": 1.0 if j % 2 == 0 else -1.0})
@@ -173,7 +196,7 @@ func _on_locked_in(_on: bool) -> void:
 # ones charge in (staggered), gone ones fade (red after a disruption), state changes ease
 func _resync(_new_hint: int) -> void:
 	if energy == null: return
-	var L := energy.chip_list()
+	var L := _shown_list()
 	var old := {}
 	for v in vis:
 		if not old.has(v.pool): old[v.pool] = []
@@ -217,7 +240,7 @@ func preview_cost(cost) -> void:
 		used = pm.used
 		ghosts = pm.missing
 	hi = []
-	for i in used: hi.append(energy._list_index(int(i)))
+	for i in used: hi.append(_shown_index(energy._list_index(int(i))))
 	hi.sort()
 
 func clear_preview() -> void:
@@ -230,7 +253,8 @@ func _s() -> float: return scale_k
 func _pools() -> Array:
 	if energy == null: return ["colorless"]
 	var p := energy.pool_kinds()
-	if int(energy.bonus.ready) + int(energy.bonus.spent) > 0 or energy.locks.any(func(l): return BattleEnergy.ANY in l.kinds): p.append(BattleEnergy.ANY)
+	if int(energy.bonus.ready) + int(energy.bonus.spent) > 0 or (owner_view and energy.locks.any(func(l): return BattleEnergy.ANY in l.kinds)): p.append(BattleEnergy.ANY)
+	if not owner_view and not energy.locks.is_empty(): p.append(TRAP)
 	return p
 
 func _pool_n(pool: String) -> int:
@@ -243,6 +267,7 @@ func _trays() -> Array:
 	for pool in _pools():
 		var n := _pool_n(pool)
 		var g := ghosts.count(pool) if preview_on else 0
+		if picking() and pool != TRAP and pool != BattleEnergy.ANY and energy.pool_room(pool) > 0 and n > 0: g += 1
 		if pool == "colorless" and preview_on:
 			for gk in ghosts:
 				if not gk in _pools(): g += 1
@@ -254,7 +279,13 @@ func _trays() -> Array:
 func _content_w() -> float:
 	var tr := _trays()
 	var w: float = (float(tr.back().x1) if not tr.is_empty() else 100.0) + LEFT
+	if energy and not energy.commit.is_empty(): w += UITheme.text_w(_commit_text(), "label", 13) + 30.0
 	return maxf(w, 300.0)
+
+func _commit_text() -> String:
+	var names := {"underground": "UNDERGROUND", "airborne": "IN THE AIR", "underwater": "UNDERWATER", "charging": "CHARGING"}
+	var mv := String(BattleEnergy.move(String(energy.commit.move)).get("name", energy.commit.move)).to_upper()
+	return "%s: %s" % [mv, names.get(String(energy.commit.get("semi", "")), "COMMITTED")]
 
 func _plate_w() -> float:
 	return _content_w() * _s()
@@ -378,6 +409,12 @@ func _process(dt: float) -> void:
 	if energy and vis.size() != energy.chip_list().size(): _resync(0)
 	queue_redraw()
 
+# a rounded rect's points, safe for thin rects (the radius never exceeds half a side)
+static func _rr(r: Rect2, rad: float, steps := 3) -> PackedVector2Array:
+	var m := minf(r.size.x, r.size.y) * 0.5 - 0.6
+	if m <= 0.5: return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+	return UITheme.rounded_points(r, minf(rad, m), steps)
+
 # ---------- drawing ----------
 func _draw() -> void:
 	if k <= 0.001 or energy == null: return
@@ -391,7 +428,7 @@ func _draw() -> void:
 	UITheme.para(self, Rect2(r.position + Vector2(16 * s, -5 * s), Vector2(86 * s, 5 * s)), Color(acc, a))
 	# tags above the plate: the turn, Locked In, the pick
 	var tx := r.end.x - 8 * s
-	if turn_no > 0:
+	if turn_no > 0 and not picking():
 		var pk := 1.0 + 0.3 * maxf(0.0, 1.0 - _turn_pop / 0.25)
 		var tag := "TURN %d" % turn_no
 		tx -= (UITheme.text_w(tag, "label", int(13 * s)) + 30.0) * s
@@ -403,8 +440,20 @@ func _draw() -> void:
 		tx -= lw + 6 * s
 		UITheme.glow(self, Vector2(tx + lw * 0.5, r.position.y - 2 * s), 26 * s, UITheme.YELLOW, a * (0.5 + 0.3 * sin(t * 5.0)))
 		UITheme.chip(self, Vector2(tx, r.position.y - 12 * s * lp), lt, UITheme.YELLOW, UITheme.INK, int(13 * s * lp), 21.0 * s * lp, a)
+	if not energy.locks.is_empty():
+		var lt2 := "TRAP SET" if not owner_view else "%s SET" % String(BattleEnergy.move(String(energy.locks[0].move)).get("name", "")).to_upper()
+		var lw2 := (UITheme.text_w(lt2, "label", int(13 * s)) + 30.0) * s
+		tx -= lw2 + 6 * s
+		UITheme.chip(self, Vector2(tx, r.position.y - 12 * s), lt2, TRAP_COL, UITheme.WHITE, int(13 * s), 21.0 * s, a * (0.85 + 0.15 * sin(t * 4.0)))
 	if picking():
-		UITheme.chip(self, Vector2(r.position.x + 110 * s, r.position.y - 12 * s), "PICK A POOL", UITheme.WHITE, UITheme.INK, int(13 * s), 21.0 * s, a * (0.75 + 0.25 * sin(t * 6.0)))
+		var pw := UITheme.chip(self, Vector2(r.position.x + 14 * s, r.position.y - 14 * s), "NEW CHIP: TAP A POOL", UITheme.YELLOW, UITheme.INK, int(14 * s), 24.0 * s, a * (0.8 + 0.2 * sin(t * 6.0)))
+		# the chips waiting, floating by the tag
+		for i in energy.pending:
+			var c := Vector2(r.position.x + 14 * s + pw + (18 + i * 26) * s, r.position.y - 2 * s + sin(t * 4.0 + i) * 2.0 * s)
+			UITheme.glow(self, c, SLOT_R * s * 1.5, UITheme.YELLOW, a * 0.8)
+			draw_circle(c, SLOT_R * 0.95 * s, Color(UITheme.WHITE, a), true, -1.0, true)
+			draw_arc(c, SLOT_R * 0.95 * s, 0.0, TAU, 24, Color(UITheme.YELLOW, a), 2.0 * s, true)
+			UITheme.text_mid(self, c + Vector2(0, 1), "+", "display", int(18 * s), Color(UITheme.INK, a), 1)
 	_draw_focus(r, s, a)
 	_draw_pools(r, s, a)
 	_draw_commit(r, s, a)
@@ -432,18 +481,18 @@ func _draw_focus(r: Rect2, s: float, a: float) -> void:
 	var lab := Color(UITheme.YELLOW, a) if li else Color(UITheme.TEXT_DIM, a)
 	UITheme.text_mid(self, Vector2(r.position.x + LEFT * s + 2 * s, y), "FOCUS", "label", int(12 * s), lab)
 	var bar := Rect2(Vector2(x0, y - bh * 0.5), Vector2(x1 - x0, bh))
-	draw_colored_polygon(UITheme.rounded_points(bar.grow(1.5 * s), 4.0 * s, 3), Color(0, 0, 0, 0.45 * a))
-	draw_colored_polygon(UITheme.rounded_points(bar, 3.0 * s, 3), Color(1, 1, 1, 0.1 * a))
+	draw_colored_polygon(_rr(bar.grow(1.5 * s), 4.0 * s), Color(0, 0, 0, 0.45 * a))
+	draw_colored_polygon(_rr(bar, 3.0 * s), Color(1, 1, 1, 0.1 * a))
 	var fk := clampf(_focus_shown / fm, 0.0, 1.0)
 	# the red part a disruption took
 	if _focus_hurt > 0.0:
 		var hk := clampf(_focus_hurt / fm, 0.0, 1.0)
-		if (hk - fk) * bar.size.x > 4.0 * s: draw_colored_polygon(UITheme.rounded_points(Rect2(bar.position + Vector2(bar.size.x * fk, 0), Vector2(bar.size.x * (hk - fk), bh)), 2.0 * s, 2), Color(UITheme.RED, 0.85 * a))
+		if (hk - fk) * bar.size.x > 2.0 * s: draw_colored_polygon(_rr(Rect2(bar.position + Vector2(bar.size.x * fk, 0), Vector2(bar.size.x * (hk - fk), bh)), 2.0 * s), Color(UITheme.RED, 0.85 * a))
 	if fk > 0.003:
 		var fr := Rect2(bar.position, Vector2(maxf(bh, bar.size.x * fk), bh))
 		var c0 := Color("dfe8f5") if not li else UITheme.YELLOW
 		var c1 := Color("ffffff") if not li else Color("fff3b0")
-		var fp := UITheme.rounded_points(fr, 3.0 * s, 3)
+		var fp := _rr(fr, 3.0 * s)
 		UITheme.fill_v(self, fp, Color(c1, a), Color(c0, a))
 		if li:
 			var sweep := fmod(t * 0.7, 1.4) - 0.2
@@ -459,13 +508,6 @@ func _draw_focus(r: Rect2, s: float, a: float) -> void:
 	# the percentage
 	var pc := "%d%%" % int(round(energy.focus / fm * 100.0))
 	UITheme.text_mid(self, Vector2(r.end.x - 20 * s, y + 1 * s), pc, "number", int(17 * s), Color(UITheme.YELLOW if li else UITheme.TEXT, a), 2)
-	# chips waiting for a pool: they hover over the bar's end
-	if energy.pending > 0:
-		for i in energy.pending:
-			var c := Vector2(x1 - 10 * s - i * 22 * s, y - 20 * s + sin(t * 4.0 + i) * 2.0 * s)
-			UITheme.glow(self, c, SLOT_R * s * 1.3, Color.WHITE, a * 0.6)
-			EnergyIcon.draw_icon(self, "colorless", c, SLOT_R * 0.85 * s, a * (0.7 + 0.3 * sin(t * 6.0)), {"flat": true})
-			UITheme.text_mid(self, c + Vector2(0, 1), "+", "display", int(16 * s), Color(UITheme.INK, a), 1)
 
 func _draw_pools(r: Rect2, s: float, a: float) -> void:
 	var R := SLOT_R * s
@@ -474,19 +516,20 @@ func _draw_pools(r: Rect2, s: float, a: float) -> void:
 	for tr in _trays():
 		var pool: String = tr.pool
 		var trr := _tray_rect(tr)
-		var col := EnergyIcon.color(pool)
-		var tp := UITheme.rounded_points(trr, 13.0 * s, 4)
+		var col := EnergyIcon.color(pool) if pool != TRAP else TRAP_COL
+		var tp := _rr(trr, 13.0 * s, 4)
 		draw_colored_polygon(tp, Color(0, 0, 0, 0.35 * a))
-		draw_colored_polygon(UITheme.rounded_points(trr.grow(-1.5 * s), 12.0 * s, 4), Color(col.darkened(0.55), 0.35 * a))
+		draw_colored_polygon(_rr(trr.grow(-1.5 * s), 12.0 * s, 4), Color(col.darkened(0.55), 0.35 * a))
 		var tl := tp.duplicate()
 		tl.append(tp[0])
 		var ring := Color(col.lightened(0.2), 0.45 * a)
 		if pick and pool != BattleEnergy.ANY and energy.pool_room(pool) > 0:
 			ring = Color(UITheme.YELLOW, a * (0.6 + 0.4 * sin(t * 6.0)))
 		draw_polyline(tl, ring, (2.5 if pick else 1.2) * s, true)
-		# the pool's glyph at its head
+		# the pool's glyph at its head (a bare glyph in the pool's colour: a label, not a chip)
 		var hc := Vector2(trr.position.x + (TRAY_PAD + HEAD * 0.5) * s, cy)
-		EnergyIcon.draw_icon(self, pool, hc, 8.5 * s, a, {"flat": true})
+		if pool == TRAP: _lock_badge(hc, 8.0 * s, a)
+		else: EnergyIcon.draw_icon(self, pool, hc, 11.0 * s, a, {"glyph_only": true, "col": col.lightened(0.35)})
 		if int(tr.n) == 0 and not (preview_on and ghosts.has(pool)):
 			var ec := _slot_in(pool, 0)
 			draw_arc(ec, R, 0.0, TAU, 24, Color(1, 1, 1, 0.16 * a), 1.2 * s, true)
@@ -511,12 +554,11 @@ func _draw_pools(r: Rect2, s: float, a: float) -> void:
 func _draw_commit(r: Rect2, s: float, a: float) -> void:
 	if energy.commit.is_empty(): return
 	var semi := String(energy.commit.get("semi", "charging"))
-	var names := {"underground": "UNDERGROUND", "airborne": "IN THE AIR", "underwater": "UNDERWATER", "charging": "CHARGING"}
 	var cols := {"underground": Color("c08a4a"), "airborne": UITheme.SKY, "underwater": UITheme.BLUE, "charging": UITheme.YELLOW}
-	var mv := String(BattleEnergy.move(String(energy.commit.move)).get("name", energy.commit.move)).to_upper()
-	var txt := "%s  %s" % [mv, names.get(semi, "COMMITTED")]
+	var txt := _commit_text()
 	var col: Color = cols.get(semi, UITheme.ORANGE)
-	var at := Vector2(r.position.x + 18 * s, r.end.y - 6 * s)
+	var tr := _trays()
+	var at := Vector2(r.position.x + (float(tr.back().x1) + 12.0) * s, r.position.y + (POOLS_Y - 10.5) * s)
 	var pulse := 0.8 + 0.2 * sin(t * 5.0)
 	UITheme.chip(self, at, txt, col, UITheme.INK, int(13 * s), 21.0 * s, a * pulse)
 
@@ -547,19 +589,23 @@ func _chip(v: Dictionary, i: int, R: float, a: float) -> void:
 	var on := hi.has(i) and st == "ready"
 	if st == "spent": dim = 0.85 * stk
 	elif st == "locked": dim = 0.7
+	var fade := 1.0
 	if preview_on and st == "ready":
 		if on: lift = -4.0 * s
-		else: dim = maxf(dim, 0.5)
+		else: fade = 0.6                 # not part of the preview: a little faded, still in colour
+	if st == "spent": fade = 0.55
 	var cc := c + Vector2(0, lift)
 	if st == "locked":
 		var face_down := not owner_view
 		var pop := float(_lock_pop.get(int(v.lock), 9.0))
 		var ps := 1.0 + 0.3 * maxf(0.0, 1.0 - pop / 0.25)
 		if face_down:
+			draw_circle(cc, R * 1.12 * ps, Color(TRAP_COL, 0.55 * a * (0.7 + 0.3 * sin(t * 4.0))), false, 2.0 * s, true)
 			EnergyIcon.draw_icon(self, "hidden", cc, R * sc * ps, a)
 		else:
 			EnergyIcon.draw_icon(self, v.kind, cc, R * sc * 0.92 * ps, a, {"dim": dim})
-		_lock_badge(cc + Vector2(R * 0.62, R * 0.55), R * 0.62 * ps, a)
+			draw_circle(cc, R * 1.08 * ps, Color(TRAP_COL, 0.8 * a), false, 2.0 * s, true)
+		_lock_badge(cc + Vector2(R * 0.62, R * 0.55), R * 0.7 * ps, a)
 		return
 	if on:
 		var pulse := 0.5 + 0.5 * sin(t * 8.0)
@@ -568,7 +614,9 @@ func _chip(v: Dictionary, i: int, R: float, a: float) -> void:
 		UITheme.glow(self, cc, R * 0.95, col, a * 0.45)
 	if v.kind == BattleEnergy.ANY and st == "ready":
 		UITheme.glow(self, cc, R * 1.5, UITheme.YELLOW, a * (0.5 + 0.3 * sin(t * 5.0)))
-	EnergyIcon.draw_icon(self, v.kind, cc, R * sc * (1.0 - 0.1 * (dim if st == "spent" else 0.0)), a * (1.0 - 0.25 * (dim if st == "spent" else 0.0)), {"dim": dim})
+	# spent: grey, smaller, a hollow ring where the chip was (back next turn)
+	if st == "spent": draw_arc(cc, R * 0.98, 0.0, TAU, 24, Color(1, 1, 1, 0.22 * a), 1.4 * s, true)
+	EnergyIcon.draw_icon(self, v.kind, cc, R * sc * (1.0 - 0.22 * (dim if st == "spent" else 0.0)), a * fade, {"dim": dim})
 	if on: draw_arc(cc, R + 3.0 * s, 0.0, TAU, 30, Color(UITheme.YELLOW, a), 2.5 * s, true)
 	# just spent: a white flash ring
 	if st == "spent" and v.st_t < 0.3:

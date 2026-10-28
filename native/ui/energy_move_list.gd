@@ -36,6 +36,7 @@ var selected := 0
 var input_enabled := true
 var show_end := true
 var bar_preview: EnergyBar
+var reach_fn: Callable           # optional (id) -> "" or a warning (the foe is out of reach of this move)
 var _anim := {}
 var _appear := 0.0
 var _flash := -1
@@ -104,7 +105,7 @@ func _preview() -> void:
 	_hold = false
 	if bar_preview == null or not is_instance_valid(bar_preview): return
 	var id := id_at(selected)
-	if id == END_ID or count() == 0 or not is_visible_in_tree(): bar_preview.clear_preview()
+	if id == END_ID or count() == 0 or not is_visible_in_tree() or state_of(id) == "locked": bar_preview.clear_preview()
 	else: bar_preview.preview_cost(id)
 
 func pick(i: int) -> void:
@@ -237,7 +238,11 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 	m = m.duplicate()
 	m["_id"] = id
 	var line := _subline(m, st)
-	UITheme.text(self, Vector2(nx + 1.0, cy + 21.0), line, "label", 13, sub if st != "locked" else Color(UITheme.ORANGE, ra))
+	var warn := String(reach_fn.call(id)) if reach_fn.is_valid() and st != "locked" else ""
+	var lc: Color = sub if st != "locked" else Color(UITheme.ORANGE, ra)
+	if warn != "": line = warn; lc = (Color(UITheme.GREEN, ra).lerp(Color("1d7a40", ra), k)) if warn.begins_with("REACHES") else Color(UITheme.ORANGE, ra).lerp(Color("b4560b", ra), k)
+	var cost_w := BattleEnergy.cost_of(id).size() * 27.0 + (60.0 if BattleEnergy.is_all(id) else 0.0) + 30.0
+	UITheme.text(self, Vector2(nx + 1.0, cy + 21.0), line, "label", 13, lc, 0, maxf(60.0, r.end.x - nx - cost_w))
 	# the cost: icons from the right
 	var cost := BattleEnergy.cost_of(id)
 	var miss: Array = energy.missing(id) if energy and st == "short" else []
@@ -294,10 +299,11 @@ func _subline(m: Dictionary, st: String) -> String:
 		var r: Dictionary = m.get("reaction", {})
 		var trig := {"any": "ANY MOVE", "attack": "ANY ATTACK", "physical": "PHYSICAL ONLY", "special": "SPECIAL ONLY"}
 		bits.append("LOCKS ITS CHIPS: %s" % trig.get(String(r.get("trigger", "any")), "ANY"))
+		return "  ·  ".join(bits)
 	if String(m.get("role", "")) == "two_phase":
 		bits.append("PAY NOW, STRIKE NEXT TURN")
 	if int(m.get("power", 0)) > 0: bits.append("POW %d" % int(m.power))
-	if int(m.get("priority", 0)) > 0: bits.append("FIRST")
+	if int(m.get("priority", 0)) > 0 and String(m.get("role", "")) != "reaction": bits.append("FIRST")
 	if int(m.get("accuracy", 100)) < 100 and int(m.get("accuracy", 100)) > 0: bits.append("ACC %d" % int(m.accuracy))
 	if bits.is_empty() or int(m.get("power", 0)) <= 0:
 		bits.append(String(m.get("desc", "")).trim_suffix(".").to_upper())

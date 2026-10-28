@@ -89,7 +89,7 @@ func _data() -> void:
 		ok(String(m.get("role", "")) in BattleEnergy.ROLES, "move %s has a known role" % id)
 		if m.get("role") == "reaction": ok(m.has("reaction"), "%s: a reaction says how it triggers" % id)
 		if m.get("role") == "two_phase": ok(m.has("two_phase"), "%s: a two-phase move says its state" % id)
-		ok(not String(m.get("desc", "")).contains("—") and not String(m.get("name", "")).contains("—"), "%s: no em dashes" % id)
+		ok(not String(m.get("desc", "")).contains(String.chr(0x2014)) and not String(m.get("name", "")).contains(String.chr(0x2014)), "%s: no em dashes" % id)
 	var gp := BattleEnergy.move("ground_pound")
 	ok(gp.type == "ground" and gp.category == "physical" and BattleEnergy.cost_of("ground_pound").size() == 2, "Ground Pound: Ground, physical, 2 chips")
 	for id in ["leer", "growl", "screech", "hypnosis", "confusion", "roar", "mean_look"]:
