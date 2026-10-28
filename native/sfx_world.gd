@@ -244,10 +244,10 @@ func _player(_dt: float) -> void:
 	if c.ground != _p_ground:
 		var s := surface_at(pos)
 		if not c.ground:
-			Sfx.play("jump_" + _jl(s), null, {"vol": -2.0})
+			Sfx.play("jump_" + _jl(s), null, {"vol": -10.0})
 		else:
 			var hard := clampf(-_p_vy / 9.0, 0.3, 1.0)
-			Sfx.play("land_" + _jl(s), null, {"vol": linear_to_db(hard) - 1.0})
+			Sfx.play("land_" + _jl(s), null, {"vol": linear_to_db(hard) - 9.0})
 			_p_steps = a.steps
 		_p_ground = c.ground
 	_p_vy = c.vy
@@ -258,7 +258,7 @@ func _player(_dt: float) -> void:
 			var s2 := surface_at(pos)
 			var run := sp > 6.0
 			var id := "step_" + s2 + ("_run" if run else "")
-			Sfx.play(id, null, {"vol": -3.0 + (1.5 if run else 0.0) - (3.0 if sp < 2.5 else 0.0)})
+			Sfx.play(id, null, {"vol": -15.0 + (1.5 if run else 0.0) - (3.0 if sp < 2.5 else 0.0)})
 			# brushing through a bush, a fern or flowers (the tall grass steps rustle already)
 			if s2 != "tallgrass" and not game.indoors and _rustle_t <= t and in_plant(pos):
 				Sfx.play("bush_rustle", null, {"vol": -4.0 if run else -7.0})
@@ -297,7 +297,7 @@ func _npc_step(p: Dictionary, a: CastActor, cp: Vector3, v: float) -> void:
 	var at: Vector3 = p.pos
 	if at.distance_squared_to(cp) > 22.0 * 22.0: return
 	var s := surface_at(at)
-	Sfx.play("step_" + s + ("_run" if v > 2.6 else ""), at, {"vol": -9.0, "dist": 22.0, "unit": 2.0})
+	Sfx.play("step_" + s + ("_run" if v > 2.6 else ""), at, {"vol": -16.0, "dist": 18.0, "unit": 1.5})
 
 # the companions: footfalls, calls, hops and pecks (counters on the creature)
 func _pet(c: Dictionary, cp: Vector3) -> void:

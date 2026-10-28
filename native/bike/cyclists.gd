@@ -232,7 +232,7 @@ func _ride(p: Dictionary, c: Dictionary, e: Dictionary, dt: float, full: bool) -
 		if e.bell_t > 3.5:
 			e.bell_t = 0.0
 			stats.bells += 1
-			Sfx.play("bike_bell", e.model.global_transform * e.model.grip(1.0), {"vol": -4.0})
+			Sfx.play("bike_bell", e.model.global_transform * e.model.grip(1.0), {"vol": 2.0})
 	for o in life.people:
 		if o == p or o.state == "inside": continue
 		var d2: Vector2 = Vector2(o.pos.x, o.pos.z) - here

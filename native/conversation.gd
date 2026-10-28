@@ -992,7 +992,8 @@ func camera(dt: float) -> void:
 	var sep := Vector2(B.x - A.x, B.z - A.z).length()
 	# the two-shot: from the side, a little back toward Ash, both in frame
 	var two_pos := mid + perp * (sep * 0.85 + 1.9) - d * 0.55 + Vector3(0, 0.3, 0)
-	var two_look := mid + Vector3(0, -0.08, 0)
+	# aimed below the heads, so the faces sit in the upper part of the frame (above the panel)
+	var two_look := mid + Vector3(0, -0.45, 0)
 	var pos := two_pos
 	var look := two_look
 	var focus := ""
@@ -1006,7 +1007,7 @@ func camera(dt: float) -> void:
 		var ots := Lh + away * 0.85 + perp * 0.75 + Vector3(0, 0.12, 0)
 		var k := 0.42 if _shot_who == "ash_choice" else 0.62
 		pos = two_pos.lerp(ots, k)
-		look = two_look.lerp(S + Vector3(0, -0.04, 0), 0.7)
+		look = two_look.lerp(S + Vector3(0, -0.4, 0), 0.7)
 		# a slow push-in while they speak
 		pos = pos.lerp(look, minf(_line_t * 0.025, 0.1))
 	pos = _clear_pos(look, pos)
@@ -1016,6 +1017,12 @@ func camera(dt: float) -> void:
 	_cam_look = _cam_look.lerp(look, kl)
 	cam.global_position = _cam_pos
 	if _cam_pos.distance_to(_cam_look) > 0.05: cam.look_at(_cam_look)
+	# Ash's choices go on the side of the screen he isn't on
+	if ui and ui.dp and not cam.is_position_behind(A):
+		var left := cam.unproject_position(A).x > cam.get_viewport().get_visible_rect().size.x * 0.5
+		if left != ui.dp.choices_left:
+			ui.dp.choices_left = left
+			ui.dp.queue_redraw()
 	if game.get("indoors"):
 		cam.fov += (50.0 - cam.fov) * (1.0 - exp(-dt * 2.0))
 

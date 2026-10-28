@@ -66,6 +66,10 @@ static func ui(id: String) -> void:
 static func bed(key: String, id: String, amount: float, pos = null, fade := 1.5) -> void:
 	if I != null: I._bed(key, id, amount, pos, fade)
 
+# the pitch of a running bed (the bike's whir follows its speed)
+static func bed_pitch(key: String, pitch: float) -> void:
+	if I and I.beds.has(key): I.beds[key].p.pitch_scale = maxf(pitch, 0.05)
+
 static func stop_beds(fade := 0.6) -> void:
 	if I == null: return
 	for k in I.beds: I.beds[k].target = 0.0; I.beds[k].rate = 1.0 / maxf(fade, 0.01)

@@ -58,9 +58,12 @@ func move(d: int) -> void:
 	if items.is_empty(): return
 	var n := items.size()
 	var s := selected
-	for _i in n:
-		s = (s + d + n) % n
-		if not _disabled(s): break
+	# no wrap-around: the cursor stops at the first and last choice
+	var t := s
+	while true:
+		t += d
+		if t < 0 or t >= n: break
+		if not _disabled(t): s = t; break
 	if s != selected:
 		selected = s
 		Sfx.ui("ui_cursor")

@@ -4748,6 +4748,36 @@
    "files": [
     "ui/ui_toggle_on_1.ogg"
    ]
+  },
+  {
+   "id": "bike_whir",
+   "category": "town",
+   "vol": 0.0,
+   "pitch": [
+    1.0,
+    1.0
+   ],
+   "vjit": 0.0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 1,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "bicycle",
+    "wheels",
+    "whir",
+    "loop"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game)",
+   "files": [
+    "town/bike_whir_1.ogg"
+   ]
   }
  ],
  "sources": [

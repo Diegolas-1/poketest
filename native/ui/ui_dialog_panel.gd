@@ -38,6 +38,7 @@ var input_enabled := true
 var anchor_rect := Rect2()      # empty = automatic
 var safe_override := Rect2()
 var choices: UIChoiceList
+var choices_left := false       # the choice list on the left of the box (kept off a speaker's face)
 
 var _t := 0.0
 var _in := 0.0                  # 0 hidden .. 1 shown
@@ -150,8 +151,8 @@ func _process(dt: float) -> void:
 func _layout_choices() -> void:
 	var r := box_rect()
 	var h := choices.content_height()
-	choices.position = Vector2(r.end.x - choices.size.x - 10.0, r.position.y - h - 34.0)
 	choices.size = Vector2(minf(520.0, r.size.x * 0.56), h)
+	choices.position = Vector2(r.position.x + 10.0 if choices_left else r.end.x - choices.size.x - 10.0, r.position.y - h - 34.0)
 	choices.modulate.a = UITheme.ease_out(_in)
 	choices.visible = _in > 0.01 and not is_typing() and choices.count() > 0
 

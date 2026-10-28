@@ -308,6 +308,7 @@ func _start_dismount() -> void:
 
 func _end_dismount() -> void:
 	state = "parked"
+	Sfx.bed("bike_whir", "bike_whir", 0.0, null, 0.3)
 	rider.on = 0.0
 	rider.mount = 0.0
 	rider.kick_foot = 0.0
@@ -357,7 +358,7 @@ func menu_toggle() -> void:
 			kick = 1.0
 			_pose_parked()
 			Sfx.play("whoosh", null, {"vol": -12.0, "pitch": 1.3})
-			Sfx.play("bike_bell", at, {"vol": -6.0})
+			Sfx.play("bike_bell", at, {"vol": 2.0})
 			start_mount()
 			return
 	say("No room for the bike here")
@@ -376,7 +377,7 @@ func _room_for(root: Vector3, y: float) -> bool:
 func ring() -> void:
 	if not riding() or bell_t < BELL_GAP: return
 	bell_t = 0.0
-	Sfx.play("bike_bell", model.global_transform * model.grip(1.0), {"vol": -3.0})
+	Sfx.play("bike_bell", null, {"vol": 4.0})   # 2D: his own bell, right at his hands
 
 func hop() -> void:
 	if state != "ride" or not cast.ground: return
@@ -933,11 +934,16 @@ func _surface_fx(dt: float) -> void:
 		if _plank > 0.42:
 			_plank = 0.0
 			Sfx.play("step_wood", null, {"vol": -17.0 + minf(v, 8.0), "pitch": 1.35})
-	if coasting and v > 3.0:
+	# the wheels: a soft whir that rises with speed (the ratchet's clicks only now and
+	# then while coasting fast, quiet under it)
+	var rolling: bool = cast.ground and absf(v) > 0.4
+	Sfx.bed("bike_whir", "bike_whir", clampf((absf(v) - 0.4) / 6.0, 0.0, 1.0) * 0.55 if rolling else 0.0, null, 0.25)
+	Sfx.bed_pitch("bike_whir", clampf(0.7 + absf(v) * 0.06, 0.7, 1.45))
+	if coasting and v > 4.0:
 		_free_t -= dt
 		if _free_t <= 0.0:
-			_free_t = randf_range(2.5, 5.0)
-			Sfx.play("bike_freewheel", null, {"vol": -16.0, "pitch": clampf(v / 7.0, 0.8, 1.3)})
+			_free_t = randf_range(5.0, 9.0)
+			Sfx.play("bike_freewheel", null, {"vol": -26.0, "pitch": clampf(v / 7.0, 0.8, 1.3)})
 
 func _ground(p: Vector3) -> float:
 	return game.world.height_at(p.x, p.z)
