@@ -11,6 +11,7 @@ extends Node3D
 var species := "pidgey"
 var look_at_pos := Vector3(NAN, NAN, NAN)
 var fly_height := 1.4
+var height := 0.0         # (as the real one's: the body's height over the ground now)
 var flying := false
 var wing_phase := 0.0
 var footfalls := 0
@@ -162,6 +163,7 @@ func animate(dt: float, speed: float) -> void:
 	# in the air at fly_height over its position (eased, like the real one's take-off and landing)
 	_air += ((fly_height if flying else 0.0) - _air) * (1.0 - exp(-dt * 5.0))
 	by += _air
+	height = _air
 	body.position = Vector3(0, 0.15 + by + br, 0)
 	body.rotation = Vector3(bp, 0, 0)
 	head.position = Vector3(0, 0.12 + hh, 0.11)

@@ -30,6 +30,12 @@ func _init(w, c: String) -> void:
 		elif a.begins_with("--wild-react="): react = a.substr(13)
 		elif a.begins_with("--wild-outcome="): W.STUB.outcome = a.substr(15)
 		elif a.begins_with("--wild-cam="): cam_off = float(a.substr(11))
+		elif a.begins_with("--wild-view="):
+			# a fixed camera: ox,oy,oz,lx,ly,lz offsets from the start spot (dev checks)
+			var v := Array(a.substr(12).split(",")).map(func(x): return float(x))
+			var vc := _Cam.new(); vc.shot = self; vc.v = v
+			vc.process_priority = 1000
+			W.add_child(vc)
 		elif a.begins_with("--wild-at="):
 			var v := a.substr(10).split(",")
 			start = Vector3(float(v[0]), 0, float(v[1])); yaw = float(v[2])
@@ -85,6 +91,9 @@ func step(dt: float) -> void:
 		if case == "tutorial":
 			_place(_ahead(-6.0, 0.0), yaw)
 		return
+	if W.debug and not e.is_empty() and fmod(t, 0.25) < dt:
+		var n0: Node3D = e.node
+		print("wild-shot: t %.1f bird at %s vis %s act %s height %.2f ash %s" % [t, str(n0.global_position), n0.is_visible_in_tree(), str(n0.get("act")), float(n0.get("height")), str(g.pos)])
 	match case:
 		"tells":
 			if ph == 1 and t > 0.6:
@@ -177,3 +186,12 @@ func _tutorial(dt: float) -> void:
 	elif ph == 4:
 		g.stick_vec = Vector2.ZERO
 		if tut.dp.visible and not tut.dp.is_typing(): _press("a", 1.4, "talk")
+
+class _Cam extends Node:
+	var shot
+	var v: Array
+	func _process(_dt: float) -> void:
+		var g = shot.W.game
+		var b: Vector3 = shot.start
+		b.y = g.world.height_at(b.x, b.z)
+		g.cam.look_at_from_position(b + Vector3(v[0], v[1], v[2]), b + Vector3(v[3], v[4], v[5]))

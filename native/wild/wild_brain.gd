@@ -26,6 +26,7 @@ func _init(path := PATH) -> void:
 func sp(id: String) -> Dictionary: return D.species.get(id, {})
 func t(key: String, d = 0.0): return T.get(key, d)
 func tv(key: String, sub: String, d := 0.0) -> float: return float(T.get(key, {}).get(sub, d))
+func tv_arr(key: String, sub: String, d: Array) -> Array: return T.get(key, {}).get(sub, d)
 
 static func sm(a: float, b: float, x: float) -> float:
 	var u := clampf((x - a) / (b - a), 0.0, 1.0)

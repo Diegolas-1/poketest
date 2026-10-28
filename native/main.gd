@@ -332,9 +332,10 @@ func _process(dt: float) -> void:
 	var pad := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var mv := (pad + stick_vec).limit_length(1.0)
 	var rs := T.num("player", "run_stick", 0.85)
-	var run := Input.is_action_pressed("run") or stick_vec.length() > rs or pad.length() > rs
+	# crouched, the stick pushed right out is the full creep, not a run: only the run button stands him up (cast.gd)
+	var run := Input.is_action_pressed("run") or (not cast.crouching and (stick_vec.length() > rs or pad.length() > rs))
 	run = run and cast.body.can_run()   # worn out: walking only (body.gd, the fatigue condition)
-	var crouched: bool = cast.crouching and not run   # (cast.gd: running stands him up)
+	var crouched: bool = cast.crouching and not run
 	if cast.busy() or trans_busy: mv = Vector2.ZERO
 	# move relative to the camera (as in Legends: Arceus)
 	var f := Vector2(-sin(cam_yaw), -cos(cam_yaw))
@@ -347,7 +348,7 @@ func _process(dt: float) -> void:
 		cast.body.running = false
 	else:
 		var want := (T.num("player", "run_speed", 8.5) if run else T.num("player", "walk_speed", 4.5)) * m if m > 0.05 else 0.0
-		if crouched: want = T.num("player", "crouch_speed", 1.4) * m if m > 0.05 else 0.0   # crouch-walking: slow and quiet
+		if crouched: want = T.num("player", "crouch_speed", 1.4) * minf(1.0, m / rs) if m > 0.05 else 0.0   # crouch-walking: slow and quiet
 		want *= cast.body.speed_mult(run)   # slower in the water (deeper, slower), and by his conditions
 		cast.body.running = run and m > 0.05 and not cast.busy() and not trans_busy
 		if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * T.num("player", "accel", 10.0)))

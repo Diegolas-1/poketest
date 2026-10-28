@@ -8,9 +8,11 @@ extends Node
 #               hardly lures one, running never
 #   tells       where it hides the grass twitches in bursts (a few clumps shaken
 #               through grass.gd's push points), a rustle, now and then a
-#               feather or (setting wild_peek = "peek") the bird itself, half
-#               sunk in the grass, pecking or looking about; hidden, only the
-#               grass gives it away
+#               feather; with the setting wild_peek = "peek" the bird itself
+#               shows: the grass is about Ash's height, so every few seconds it
+#               flutters up over the tops, hovers looking round, and drops back
+#               (the blades thrashed under its wings); hidden, only the grass
+#               gives it away
 #   approach    Ash's noise and how much it sees of him (speed, crouch,
 #               distance, its facing) build its alertness; quiet lets it fall.
 #               Alert, the grass goes still and its head comes up. Startled
@@ -21,6 +23,7 @@ extends Node
 #               meter (the "A A A!" prompt) and Ash pounces: the battle
 #               (Battle.start, native/battle/; wild_battle_stub.gd until it is
 #               in). A fleeing one in reach can still be grabbed: A, A in time
+#               (its take-off lifts it nearly in place for a moment first)
 #   tracking    a fled one flies off to a safe zone 30-60 m away (another
 #               patch, a bush, a tree), dropping feathers on the way; the
 #               compass points there (island.gd: track_hint); it hides again,
@@ -97,6 +100,7 @@ func use_pressed() -> bool:
 					if float(e.mash) >= 0.999: _pounce(e)
 					return true
 			"fleeing":
+				if debug: print("wild: A on a fleeing one: %.1f m, window %.2f, grab %.2f" % [d, float(e.window), float(e.grab)])
 				if float(e.window) > 0.0 and d <= brain.tv("grab", "d", 3.2):
 					e.grab = minf(1.0, float(e.grab) + brain.tv("grab", "press", 0.55))
 					e.mash_pop = 1.0
@@ -255,25 +259,30 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 	if debug and fmod(float(e.t), 0.5) < dt: print("wild: d %.1f speed %.1f crouch %s noise %.2f stim %.2f alert %.2f" % [d, speed, crouched, n, s, e.alert])
 	var wary_at := float(brain.t("wary_at", 0.45))
 	var alert := float(e.alert)
-	# how it sits: hidden, pressed low in the grass; peeking, up and about (its own
-	# pecks and looks); listening, still and watching him
+	# how it sits: hidden, pressed low in the grass; peeking, up and about on the ground
+	# (its own pecks and looks) and now and then fluttering up over the grass tops to
+	# look round; listening, still, low and watching him
 	var pose := "listen" if alert >= wary_at else ("peek" if pk else "hide")
+	var up := bool(e.get("up", false))
 	if pose != String(e.get("pose", "")):
 		e.pose = pose
 		node.set("auto", pose == "peek")
-		match pose:
-			"hide": node.mood("hide")
-			"peek": node.mood("idle")
-			"listen": node.mood("look") if pk else node.mood("hide")
+		if not up:
+			match pose:
+				"hide", "listen": node.mood("hide")
+				"peek": node.mood("idle")
+		e.peek_t = _rng.randf_range(0.8, 2.0)
 	if alert >= wary_at:
-		# listening: the grass stills, it turns toward him, and (peeking) its head comes up
+		# listening: the grass stills, it turns toward him; up over the grass it drops
+		# straight back down into it
 		_face(node, me, dt, 3.0)
 		node.set("look_at_pos", me + Vector3(0, 1.2, 0))
 		e.burst = 0.0
+		if up: _peek_down(e)
 	else:
 		node.set("look_at_pos", Vector3(NAN, NAN, NAN))
 		e.burst_t = float(e.burst_t) - dt
-		if float(e.burst_t) <= 0.0:
+		if float(e.burst_t) <= 0.0 and not up:
 			var gap: Array = brain.t("burst_gap_wary" if bool(e.wary) else "burst_gap", [2.0, 4.5])
 			e.burst_t = _rng.randf_range(float(gap[0]), float(gap[1]))
 			_burst(e, 0.6 + 0.4 * _rng.randf())
@@ -287,17 +296,41 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 				var p: Vector3 = e.pts[i]
 				var f := 17.0 + i * 5.0
 				extra.append(Vector4(node.position.x + p.x, node.position.z + p.z, PUSH_W * (0.8 + p.y), env * float(e.amp) * sin(t * f + i * 2.1)))
-	# peeking it sits up on the pressed grass, half sunk; its head higher when it listens
 	if not in_tree:
-		var lift := (float(brain.t("peek_lift", 0.42)) + (0.1 if alert >= wary_at else 0.0)) if pk else 0.0
 		var gy: float = game.world.height_at(node.position.x, node.position.z)
-		node.position.y = lerpf(node.position.y, gy + lift, 1.0 - exp(-dt * 6.0))
-	if pk and not in_tree:
-		# peeking: a little nest pressed open round it, so it shows
-		extra.append(Vector4(node.position.x, node.position.z, 0.42, 0.5 + 0.15 * (1.0 if alert >= wary_at else 0.0)))
-	# peeking, now and then a peck or a look about (the head-bob tell; a creature with
-	# its own idle acting, "auto", does that itself)
-	if pk and alert < wary_at and node.get("auto") == null:
+		node.position.y = lerpf(node.position.y, gy, 1.0 - exp(-dt * 6.0))
+	# peeking (the setting): the grass here is about Ash's height, far over a Pidgey's
+	# head, so it shows itself by fluttering up over the tops (a few wingbeats to
+	# hover there, looking round, then down again), the blades thrashed by its wings
+	if pk and not in_tree and alert < wary_at and node.get("flying") != null:
+		e.peek_t = float(e.peek_t) - dt
+		if not up and float(e.peek_t) <= 0.0 and not (node.has_method("busy") and bool(node.call("busy"))):
+			e.up = true; up = true
+			e.up_t = 0.0
+			e.up_for = _rng.randf_range(float(brain.tv("peek", "hover_min", 1.4)), float(brain.tv("peek", "hover_max", 2.6)))
+			node.set("auto", false)
+			node.set("fly_height", float(brain.tv("peek", "height", 1.5)))
+			node.set("glide", false)
+			node.mood("takeoff")
+			Sfx.play("wing_flap_small", node.position + Vector3(0, 1.0, 0), {"vol": -10.0, "dist": 22.0})
+		elif up:
+			e.up_t = float(e.up_t) + dt
+			# hovering it looks this way and that (now and then at him)
+			if fmod(float(e.up_t), 0.9) < dt: node.set("look_at_pos", (me + Vector3(0, 1.2, 0)) if _rng.randf() < 0.4 else node.position + Vector3(_rng.randf_range(-5, 5), 1.4, _rng.randf_range(-5, 5)))
+			if float(e.up_t) > 1.2 + float(e.up_for): _peek_down(e)
+	if up:
+		var h := float(node.get("height"))
+		if h > 0.15: extra.append(Vector4(node.position.x, node.position.z, 0.7, clampf(h / 1.2, 0.0, 1.0) * (0.55 + 0.25 * sin(t * 26.0))))
+		if bool(e.get("landing", false)) and not bool(node.get("flying")):
+			e.up = false; e.landing = false
+			node.set("fly_height", 1.4)
+			node.mood("idle" if pose == "peek" else "hide")
+			node.set("auto", pose == "peek")
+			var g2: Array = brain.tv_arr("peek", "gap", [2.5, 5.5])
+			e.peek_t = _rng.randf_range(float(g2[0]), float(g2[1]))
+	# peeking on the ground, now and then a peck or a look about (a creature with its own
+	# idle acting, "auto", does that itself)
+	if pk and alert < wary_at and not up and node.get("auto") == null:
 		e.bob_t = float(e.bob_t) - dt
 		if float(e.bob_t) <= 0.0:
 			e.bob_t = _rng.randf_range(1.2, 3.2)
@@ -317,6 +350,12 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 	if bool(e.tracked) and t - float(e.fled_t) > float(brain.sp(String(e.species)).get("forget", 150.0)):
 		print("wild: %s forgot about Ash" % e.species)
 		_remove(e)
+
+# down from a peek over the grass (it lands where it was)
+func _peek_down(e: Dictionary) -> void:
+	if bool(e.get("landing", false)): return
+	e.landing = true
+	(e.node as Node3D).call("mood", "land")
 
 # a burst of twitching: a few points round it, a rustle, sometimes a feather
 func _burst(e: Dictionary, amp: float) -> void:
@@ -412,8 +451,13 @@ func _fly_to(e: Dictionary, to: Vector3, kind: String, track: bool) -> void:
 	var dist := _d2(from, to)
 	var v := float(F.get("speed", 10.0))
 	e.path = {"from": from, "to": to, "dur": maxf(1.2, dist / v + 0.9), "h": float(F.get("height", 4.5)) + dist * 0.04, "kind": kind}
+	if track:
+		# (startled off the ground: the launch before it goes)
+		e.path.launch = true
+		e.path.dur = float(e.path.dur) + float(brain.tv("flee_launch", "s", 0.4))
 	e.t = 0.0
 	e.fph = ""
+	e.up = false; e.landing = false
 	e.tracked = track
 	e.trail_d = 0.0
 	e.at = to
@@ -425,9 +469,13 @@ func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void
 	var u := clampf(float(e.t) / float(P.dur), 0.0, 1.0)
 	var from: Vector3 = P.from
 	var to: Vector3 = P.to
-	# fast off (it bursts up and away), easing down onto its new spot
-	var k := WildBrain.sm(0.0, 1.0, u) * 0.35 + u * 0.65
+	# up first (the take-off's first wingbeats lift it nearly in place, a short drift
+	# away: the moment he can still grab it), then fast off, easing down onto its new spot
+	var launch := float(brain.tv("flee_launch", "s", 0.4)) if P.has("launch") else 0.0
+	var ul := clampf((float(e.t) - launch) / maxf(0.1, float(P.dur) - launch), 0.0, 1.0)
+	var k := WildBrain.sm(0.0, 1.0, ul) * 0.35 + ul * 0.65
 	k = 1.0 - pow(1.0 - k, 1.6)
+	if launch > 0.0: k = maxf(k, float(brain.tv("flee_launch", "drift", 0.7)) / maxf(1.0, _d2(from, to)) * WildBrain.sm(0.0, launch, float(e.t)))
 	var flat := Vector3(lerpf(from.x, to.x, k), 0, lerpf(from.z, to.z, k))
 	var g: float = game.world.height_at(flat.x, flat.z)
 	var base := maxf(g, lerpf(from.y, to.y, WildBrain.sm(0.6, 1.0, u)))

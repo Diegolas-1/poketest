@@ -38,9 +38,11 @@
 		"decay": 0.12,
 		"bump_d": 0.9,
 		"wary_at": 0.45,
+		"peek": {"height": 1.7, "hover_min": 1.4, "hover_max": 2.6, "gap": [2.5, 5.5]},
 		"engage_d": 2.0,
-		"mash": {"press": 0.3, "decay": 0.45, "alert": 0.07},
-		"grab": {"d": 3.2, "window": 1.3, "press": 0.55, "decay": 0.8},
+		"mash": {"press": 0.36, "decay": 0.45, "alert": 0.07},
+		"grab": {"d": 3.5, "window": 1.3, "press": 0.6, "decay": 0.5},
+		"flee_launch": {"s": 0.5, "drift": 0.7},
 		"burst_gap": [2.0, 4.5],
 		"burst_gap_wary": [3.5, 7.0],
 		"burst_len": [0.5, 0.9]
