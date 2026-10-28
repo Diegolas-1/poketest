@@ -137,7 +137,7 @@ func _actions() -> void:
 			InputMap.action_add_event(a, jb)
 
 func busy() -> bool:
-	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy()) or (meal != null and meal.busy())
+	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy()) or (meal != null and meal.busy()) or Battle.active
 
 # someone is being talked to (the text box or a conversation): people stand still
 func talking() -> bool:
@@ -399,7 +399,7 @@ func update(dt: float) -> void:
 	elif dialog.open:
 		if use or jmp or back: dialog.next()
 		use = false; jmp = false
-	elif script_phase < 0 and not convo.busy() and not meal.busy():
+	elif script_phase < 0 and not convo.busy() and not meal.busy() and not Battle.active:   # (a battle has the controls: battle/battle.gd)
 		if bike.riding():
 			# on the bike: the jump hops (a pad's X / Y ring the bell, its R hops)
 			if jmp and _pad_xy(): bell = true
@@ -528,7 +528,7 @@ func update(dt: float) -> void:
 		vy = 3.2; ground = false
 	_on_ledge = fl != 255 and (fl & 32) != 0
 	# the prompt over whatever is in reach
-	var n2 := nearby() if not dialog.open and script_phase < 0 and not convo.busy() and not meal.busy() else {}
+	var n2 := nearby() if not dialog.open and script_phase < 0 and not convo.busy() and not meal.busy() and not Battle.active else {}
 	var cam: Camera3D = game.cam
 	if not n2.is_empty() and not cam.is_position_behind(n2.at):
 		dialog.prompt = {"pos": cam.unproject_position(n2.at), "label": n2.label}

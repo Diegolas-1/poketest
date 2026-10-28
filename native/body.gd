@@ -56,6 +56,15 @@ var _drip_snd := 3.0
 var _run_t := 0.0         # how long since he last ran (s)
 var _save_t := 0.0
 var rng := RandomNumberGenerator.new()
+# in a battle (battle/battle.gd) his stamina is what the wild Pokémon wears down
+# (no HP: an exhausted, sore kid is what "down" means): it neither drains with
+# running nor refills while Battle.active; the battle sets it (set_stamina)
+# scraped and dirty (the "scraped" condition): the dirt and scratches on him
+# (actor shader "dirt"), a limp, and resting (standing still, sitting) heals it
+# faster than time alone
+var REST_HEAL := T.num("body", "scraped_rest_heal", 1.0 / 300.0)   # strength a real second standing still
+var SIT_HEAL := T.num("body", "scraped_sit_heal", 1.0 / 90.0)      # sitting down
+var _dirt_set := -1.0
 
 # tunables (body.json)
 var RUN_DRAIN := T.num("body", "run_drain", 0.026)         # stamina a second running on land (a full bar: ~38 s)
@@ -99,6 +108,7 @@ func setup(g: Node, c: Node, a: CastActor, conditions: Conditions) -> void:
 	stamina = clampf(float(cond.body.get("stamina", 1.0)), 0.0, 1.0)
 	wet_line = cond.strength("wet") * height
 	_apply_wet_look()
+	_apply_dirt()
 
 # ---------- what main.gd asks ----------
 func depth_frac() -> float: return clampf(depth / DEEP, 0.0, 1.0)
@@ -125,8 +135,34 @@ func update(dt: float) -> void:
 	if (in_water or cond.has("fatigue")) and actor.idles: actor.idles.P.wait = maxf(actor.idles.P.wait, 3.0)
 	actor.tired += ((1.0 if cond.has("fatigue") else 0.0) - actor.tired) * (1.0 - exp(-dt * 3.0))
 	_was_in = in_water
+	_scraped(dt, spd)
+
+# ---------- the battle's hold on the bar ----------
+func set_stamina(v: float) -> void:
+	stamina = clampf(v, 0.0, 1.0)
+	cond.body["stamina"] = snappedf(stamina, 0.001)
+
+# ---------- scraped and dirty ----------
+func _scraped(dt: float, spd: float) -> void:
+	var s := cond.strength("scraped")
+	if s > 0.0 and not Battle.active:
+		var sitting: bool = actor.idles != null and actor.idles.acting() == "sit"
+		var heal := SIT_HEAL if sitting else (REST_HEAL if spd < 0.3 else 0.0)
+		if heal > 0.0:
+			s = maxf(0.0, s - heal * dt)
+			if s <= 0.001: cond.remove("scraped")
+			else: cond.apply("scraped", s)
+	actor.limp += (s - actor.limp) * (1.0 - exp(-dt * 2.0))
+	_apply_dirt()
+
+func _apply_dirt() -> void:
+	var s := cond.strength("scraped")
+	if absf(s - _dirt_set) < 0.01: return
+	_dirt_set = s
+	for e in _mats: e[0].set_shader_parameter("dirt", s)
 
 func _stamina(dt: float, spd: float) -> void:
+	if Battle.active: return   # (battle.gd has the bar: no running drain, no refill)
 	var was := stamina
 	var run_now: bool = running and spd > 1.0 and cast.ground
 	if not is_nan(ride_rate):

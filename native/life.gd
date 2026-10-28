@@ -662,10 +662,10 @@ func _unclaim(p: Dictionary) -> void:
 # act on the goal from wherever the person is
 func _pursue(p: Dictionary) -> void:
 	var g: Dictionary = p.goal
-	if p.state in ["chat", "talk", "chase"]:
+	if p.state in ["chat", "talk", "chase", "scene"]:
 		if p.state == "chase": _end_chase()
 		elif p.state == "chat": _end_chat(p)
-		else: return   # the talk ends first; end_talk calls this again
+		else: return   # the talk ends first; end_talk calls this again ("scene": someone a cutscene moves, battle/battle_defeat.gd)
 	if p.state == "inside":
 		if g.kind == "inside" and g.house == p.inside: return
 		_leave(p)
@@ -764,7 +764,7 @@ func resync() -> void:
 	_end_chase()
 	for p in people:
 		if p.state == "chat": _end_chat(p)
-		if p.state == "talk": continue
+		if p.state in ["talk", "scene"]: continue
 		p.blk = -1
 		_jumped = true
 		_check(p)

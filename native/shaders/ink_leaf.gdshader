@@ -7,6 +7,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque, shadows_disabled;
 #include "res://shaders/aces.gdshaderinc"
+#include "res://shaders/arena.gdshaderinc"
 
 global uniform vec3 ink_focus;
 uniform vec4 ink_color : source_color = vec4(0.165, 0.129, 0.196, 1.0);
@@ -41,6 +42,8 @@ void vertex() {
 		float k = clamp(VERTEX.y / 8.0, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
 		VERTEX += vec3(sw * leaf_wind * k * 3.0, 0.0, sw * leaf_wind * 0.6 * k * 3.0);
 		VERTEX += NORMAL * sin(TIME * 4.0 + UV2.x * 30.0) * 0.03 * UV2.x;
+		// a battle's arena: the ink slides out with its plant (arena.gdshaderinc)
+		if (arena_on()) VERTEX += inverse(mat3(MODEL_MATRIX)) * arena_push(ip, (mat3(MODEL_MATRIX) * VERTEX).y);
 	}
 	vec3 vp = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 vc = use_center ? (MODELVIEW_MATRIX * vec4(center, 1.0)).xyz : vp;

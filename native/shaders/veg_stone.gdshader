@@ -22,7 +22,7 @@ void vertex() {
 	v_sn = NORMAL;
 	v_rim = UV.x;
 	if (v_k >= 0.999) VERTEX = vec3(0.0);
-	else VERTEX *= mix(1.0, shrink, v_k);
+	else VERTEX = arena_vertex(VERTEX * mix(1.0, shrink, v_k), MODEL_MATRIX);
 }
 
 void fragment() {
