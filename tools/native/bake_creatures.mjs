@@ -35,17 +35,26 @@ const SPECIES = {
   // so the eyes and the mouth are each one 2 x 4 expression atlas (uv_off).
   mrmime: { dir: 'Mr. Mime', smd: 'MrMime.SMD', scale: 0.0101,
     swap: { 'pm0122_00_Eye1.png': 'pm0122_00_Eye1_Merged.png' }, drop: ['pm0122_00_Iris1.png'] },
+  // Route 1's wild Pidgey, about 0.4 m to the top of its head (a real threat to a kid), from the X/Y rip as a
+  // COLLADA file (3ds Max), its images in Images/. The eye sheet (Eye1) is a 1 x 4
+  // atlas: both open, one shut, the other shut, both shut (uv_off: the blink).
+  // The rip has each wing twice: spread (the bind pose: LArm - LForeArm - LHand, fanned
+  // along x) and folded at the side (LFeeler1 - LFeeler2): separate meshes (parts).
+  pidgey: { dir: 'Pidgey', dae: 'Pidgey.DAE', img: 'Images', scale: 0.0135,
+    parts: { wing_l: ['LArm'], wing_r: ['RArm'], fold_l: ['LFeeler1'], fold_r: ['RFeeler1'] } },
 };
 
 const args = process.argv.slice(2);
 let src = process.env.CREATURE_SRC || '';
+let outDir = '';
 const ids = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--src') src = args[++i];
+  else if (args[i] === '--out') outDir = args[++i];
   else ids.push(args[i]);
 }
 if (!src) throw new Error('--src <dir with the extracted rips> (or CREATURE_SRC)');
-const OUT = path.join(ROOT, 'native/creatures');
+const OUT = outDir ? path.resolve(outDir) : path.join(ROOT, 'native/creatures');
 fs.mkdirSync(OUT, { recursive: true });
 
 // ---------- small 4x4 helpers (column-major like glTF) ----------
@@ -112,10 +121,143 @@ function parseSMD(text) {
   return { nodes, tris };
 }
 
+// ---------- COLLADA (.dae, as 3ds Max's OpenCOLLADA writes the newer rips) ----------
+// A small XML reader (no entities, no CDATA: the rips have neither), then the same
+// { nodes, tris } as parseSMD: nodes (name, parent, local {R, t}) from the visual
+// scene (translate / rotate (axis, degrees) / matrix / scale, in order), and the
+// skinned triangles posed at that scene (sum of w * joint * inverse bind * bind shape),
+// in the rip's frame (Z up). A triangle's material is its image file.
+function xml(text) {
+  const root = { tag: '#', kids: [], a: {} }, st = [root];
+  const re = /<(\/?)([A-Za-z_][\w:.-]*)((?:\s+[\w:.-]+\s*=\s*"[^"]*")*)\s*(\/?)>|<\?[^>]*\?>|<!--[\s\S]*?-->/g;
+  let m, last = 0;
+  while ((m = re.exec(text))) {
+    const top = st[st.length - 1];
+    const txt = text.slice(last, m.index);
+    if (txt.trim()) top.text = (top.text || '') + txt;
+    last = re.lastIndex;
+    if (!m[2]) continue;
+    if (m[1]) { st.pop(); continue; }
+    const a = {};
+    for (const am of m[3].matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"/g)) a[am[1]] = am[2];
+    const n = { tag: m[2], a, kids: [] };
+    top.kids.push(n);
+    if (!m[4]) st.push(n);
+  }
+  return root;
+}
+const kid = (n, tag) => n.kids.find((k) => k.tag === tag);
+const kidsOf = (n, tag) => n.kids.filter((k) => k.tag === tag);
+function walk(n, f) { f(n); for (const k of n.kids) walk(k, f); }
+const nums = (n) => (n.text || '').trim().split(/\s+/).filter(Boolean).map(Number);
+const ID3 = () => [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const m4 = (a, o = 0) => ({ R: [[a[o], a[o + 1], a[o + 2]], [a[o + 4], a[o + 5], a[o + 6]], [a[o + 8], a[o + 9], a[o + 10]]], t: [a[o + 3], a[o + 7], a[o + 11]] });
+function axisAngle(x, y, z, deg) {
+  const l = Math.hypot(x, y, z) || 1; x /= l; y /= l; z /= l;
+  const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), C = 1 - c;
+  return [[c + x * x * C, x * y * C - z * s, x * z * C + y * s], [y * x * C + z * s, c + y * y * C, y * z * C - x * s], [z * x * C - y * s, z * y * C + x * s, c + z * z * C]];
+}
+const xf = (A, v) => A.R.map((r, i) => r[0] * v[0] + r[1] * v[1] + r[2] * v[2] + A.t[i]);
+const xr = (A, v) => A.R.map((r) => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+function parseDAE(text) {
+  const doc = xml(text);
+  const byId = {};
+  walk(doc, (n) => { if (n.a.id) byId[n.a.id] = n; });
+  const ref = (u) => byId[u.replace(/^#/, '')];
+  const imgFile = (id) => { const im = byId[id]; return im && kid(im, 'init_from') ? path.basename(kid(im, 'init_from').text.trim()) : null; };
+  // material symbol -> image file (effect: surface init_from -> image, or a texture's image id)
+  const imgOf = {};
+  walk(doc, (n) => {
+    if (n.tag !== 'instance_material') return;
+    const eff = ref(kid(ref(n.a.target), 'instance_effect').a.url);
+    let file = null;
+    walk(eff, (k) => {
+      if (!file && k.tag === 'surface' && kid(k, 'init_from')) file = imgFile(kid(k, 'init_from').text.trim());
+      if (!file && k.tag === 'texture') file = imgFile(k.a.texture.replace(/-sampler$/, ''));
+    });
+    imgOf[n.a.symbol] = file;
+  });
+  const nodes = [], bySid = {}, byNodeId = {}, ctrls = [];
+  const col = doc.kids.find((k) => k.tag === 'COLLADA');
+  const vs = ref(kid(kid(col, 'scene'), 'instance_visual_scene').a.url);
+  const visit = (n, parent) => {
+    let L = { R: ID3(), t: [0, 0, 0] };
+    for (const k of n.kids) {
+      const v = nums(k);
+      if (k.tag === 'translate') L = mul(L, { R: ID3(), t: v });
+      else if (k.tag === 'rotate') L = mul(L, { R: axisAngle(...v), t: [0, 0, 0] });
+      else if (k.tag === 'matrix') L = mul(L, m4(v));
+      else if (k.tag === 'scale') L = mul(L, { R: [[v[0], 0, 0], [0, v[1], 0], [0, 0, v[2]]], t: [0, 0, 0] });
+    }
+    const i = nodes.length;
+    nodes.push({ name: (n.a.name || n.a.id).replace(/^_\d+_/, ''), parent, local: L, joint: n.a.type === 'JOINT' });
+    if (n.a.sid) bySid[n.a.sid] = i;
+    byNodeId[n.a.id] = i;
+    for (const k of n.kids) if (k.tag === 'instance_controller') ctrls.push(k);
+    for (const k of kidsOf(n, 'node')) visit(k, i);
+  };
+  for (const k of kidsOf(vs, 'node')) visit(k, -1);
+  const W = [];
+  nodes.forEach((n, i) => { W[i] = n.parent >= 0 ? mul(W[n.parent], n.local) : n.local; });
+  const tris = [];
+  for (const ic of ctrls) {
+    const skin = kid(ref(ic.a.url), 'skin');
+    const mesh = kid(ref(skin.a.source), 'mesh');
+    const BSM = m4(nums(kid(skin, 'bind_shape_matrix')));
+    const srcArr = (id) => {
+      const s = ref(id), fa = kid(s, 'float_array') || kid(s, 'Name_array'), acc = kid(kid(s, 'technique_common'), 'accessor');
+      return { d: fa.tag === 'Name_array' ? fa.text.trim().split(/\s+/) : nums(fa), st: +acc.a.stride };
+    };
+    const jIn = kid(skin, 'joints').kids;
+    const names = srcArr(jIn.find((k) => k.a.semantic === 'JOINT').a.source).d;
+    const ibm = srcArr(jIn.find((k) => k.a.semantic === 'INV_BIND_MATRIX').a.source).d;
+    const jn = names.map((nm) => bySid[nm] ?? byNodeId[nm]);
+    const JM = names.map((nm, j) => mul(W[jn[j]], m4(ibm, j * 16)));
+    const vw = kid(skin, 'vertex_weights');
+    const wIn = kidsOf(vw, 'input');
+    const wts = srcArr(wIn.find((k) => k.a.semantic === 'WEIGHT').a.source).d;
+    const jo = +wIn.find((k) => k.a.semantic === 'JOINT').a.offset, wo = +wIn.find((k) => k.a.semantic === 'WEIGHT').a.offset, ws = wIn.length;
+    const vc = nums(kid(vw, 'vcount')), vv = nums(kid(vw, 'v'));
+    const VW = [];
+    for (let i = 0, o = 0; i < vc.length; i++) { const l = []; for (let k = 0; k < vc[i]; k++, o += ws) l.push([vv[o + jo], wts[vv[o + wo]]]); VW.push(l); }
+    const P = srcArr(kid(kid(mesh, 'vertices'), 'input').a.source);
+    for (const pl of mesh.kids.filter((k) => k.tag === 'triangles' || k.tag === 'polylist')) {
+      const ins = kidsOf(pl, 'input');
+      const stride = Math.max(...ins.map((k) => +k.a.offset)) + 1;
+      const get = (sem) => ins.find((k) => k.a.semantic === sem && (!k.a.set || k.a.set === '0'));
+      const iv = get('VERTEX'), inn = get('NORMAL'), iuv = get('TEXCOORD');
+      const N = inn && srcArr(inn.a.source), UV = iuv && srcArr(iuv.a.source);
+      const idx = nums(kid(pl, 'p'));
+      const file = imgOf[pl.a.material] || pl.a.material;
+      const corner = (c) => {
+        const o = c * stride, pi = idx[o + +iv.a.offset];
+        const p0 = xf(BSM, P.d.slice(pi * 3, pi * 3 + 3));
+        const ni = N ? idx[o + +inn.a.offset] * N.st : 0, ui = UV ? idx[o + +iuv.a.offset] * UV.st : 0;
+        const n0 = N ? xr(BSM, N.d.slice(ni, ni + 3)) : [0, 0, 1];
+        const uv = UV ? UV.d.slice(ui, ui + 2) : [0, 0];
+        const p = [0, 0, 0], n = [0, 0, 0];
+        let sw = 0;
+        for (const [j, w] of VW[pi]) { const a = xf(JM[j], p0), b2 = xr(JM[j], n0); for (let k = 0; k < 3; k++) { p[k] += a[k] * w; n[k] += b2[k] * w; } sw += w; }
+        for (let k = 0; k < 3; k++) { p[k] /= sw || 1; n[k] /= sw || 1; }
+        return { p, n, uv, w: VW[pi].map(([j, w]) => [jn[j], w]) };
+      };
+      const polys = kid(pl, 'vcount') ? nums(kid(pl, 'vcount')) : Array(idx.length / stride / 3).fill(3);
+      let c = 0;
+      for (const k of polys) {
+        for (let f = 1; f + 1 < k; f++) tris.push({ mat: file, v: [corner(c), corner(c + f), corner(c + f + 1)] });
+        c += k;
+      }
+    }
+  }
+  return { nodes, tris };
+}
+
 async function bake(id) {
   const sp = SPECIES[id];
   const dir = path.join(src, sp.dir);
-  const { nodes, tris: all } = parseSMD(fs.readFileSync(path.join(dir, sp.smd), 'utf8'));
+  const text = fs.readFileSync(path.join(dir, sp.dae || sp.smd), 'utf8');
+  const { nodes, tris: all } = sp.dae ? parseDAE(text) : parseSMD(text);
+  const imgDir = path.join(dir, sp.img || 'images');
   const tris = all.filter((t) => !(sp.drop || []).includes(t.mat));
   const s = sp.scale;
   // world bind matrices in the rip's frame, then in the game's (rotation by M, translation scaled)
@@ -127,7 +269,7 @@ async function bake(id) {
   const extra = [];
   for (const e of sp.extra || []) {
     const pi = nodes.findIndex((n) => n.name === e.parent);
-    const { data, info } = await sharp(path.join(dir, 'images', e.png)).raw().toBuffer({ resolveWithObject: true });
+    const { data, info } = await sharp(path.join(imgDir, e.png)).raw().toBuffer({ resolveWithObject: true });
     const texel = (uv) => {
       const x = Math.min(info.width - 1, Math.floor((((uv[0] % 1) + 1) % 1) * info.width));
       const y = Math.min(info.height - 1, Math.floor((1 - (((uv[1] % 1) + 1) % 1)) * info.height));
@@ -150,6 +292,12 @@ async function bake(id) {
     extra.push(`${e.name}: ${picked.length} corners`);
   }
   if (extra.length) console.log('  extra bones', extra.join(', '));
+  if (process.env.DUMP) {
+    nodes.forEach((n, i) => console.log(i, n.name, n.parent, G[i].t.map((x) => x.toFixed(3)).join(' ')));
+    const cnt = {};
+    for (const t of tris) for (const v of t.v) { const b = v.w.reduce((a, c) => (c[1] > a[1] ? c : a))[0]; const k = nodes[b].name + ' ' + t.mat; cnt[k] = (cnt[k] || 0) + 1; }
+    console.log(cnt);
+  }
   // the skeleton: every node under the model's root except the mesh holders
   const skip = (n, i) => n.parent < 0 || /Skin$|^VriVis/.test(n.name);
   const doc = new Document();
@@ -180,7 +328,7 @@ async function bake(id) {
   const mats = {};
   const material = (key, png) => {
     if (mats[key]) return mats[key];
-    const img = fs.readFileSync(path.join(dir, 'images', (sp.swap && sp.swap[png]) || png));
+    const img = fs.readFileSync(path.join(imgDir, (sp.swap && sp.swap[png]) || png));
     const nm = key.slice(id.length + 1);   // Godot names the extracted file <glb>_<texture>.png
     const tex = doc.createTexture(nm).setImage(img).setMimeType('image/png').setURI(nm + '.png');
     return (mats[key] = doc.createMaterial(key).setBaseColorTexture(tex).setRoughnessFactor(1).setMetallicFactor(0));
@@ -211,12 +359,21 @@ async function bake(id) {
       const hit = sp2.find((nm) => under(b, byName[nm]));
       if (hit) key += '_' + hit.toLowerCase();
     }
-    (groups[key] = groups[key] || { png: t.mat, tris: [] }).tris.push(t);
+    // parts: a triangle with a corner on a named bone's branch goes to that part's own
+    // mesh (Pidgey's open and folded wings: separate shells the game shows one at a time)
+    let part = '';
+    if (sp.parts) {
+      const bs = t.v.map((v) => v.w.reduce((a, c) => (c[1] > a[1] ? c : a))[0]);
+      part = Object.keys(sp.parts).find((pn) => sp.parts[pn].some((nm) => bs.some((b) => under(b, byName[nm])))) || '';
+    }
+    const gk = part + '|' + key;
+    (groups[gk] = groups[gk] || { png: t.mat, tris: [], part, key }).tris.push(t);
   }
-  const mesh = doc.createMesh(id);
+  const meshes = {};
   let flipped = 0, faces = 0;
-  for (const key of Object.keys(groups).sort()) {
-    const g = groups[key];
+  for (const gk of Object.keys(groups).sort()) {
+    const g = groups[gk], key = g.key;
+    const mesh = meshes[g.part] || (meshes[g.part] = doc.createMesh(g.part ? id + '_' + g.part : id));
     const pos = [], nor = [], uv = [], J = [], Wt = [], idx = [];
     const seen = new Map();
     const vert = (v) => {
@@ -255,10 +412,11 @@ async function bake(id) {
       prim.setMaterial(m2);
     }
     mesh.addPrimitive(prim);
-    console.log(`  ${key}: ${pos.length / 3} vertices, ${idx.length / 3} triangles`);
+    const u0 = [1e9, 1e9], u1 = [-1e9, -1e9];
+    for (let k = 0; k < uv.length; k += 2) for (let j = 0; j < 2; j++) { u0[j] = Math.min(u0[j], uv[k + j]); u1[j] = Math.max(u1[j], uv[k + j]); }
+    console.log(`  ${g.part ? g.part + ' ' : ''}${key}: ${pos.length / 3} vertices, ${idx.length / 3} triangles, uv ${u0.map((x) => x.toFixed(3))} .. ${u1.map((x) => x.toFixed(3))}`);
   }
-  const body = doc.createNode(id + '_mesh').setMesh(mesh).setSkin(skin);
-  top.addChild(body);
+  for (const part of Object.keys(meshes).sort()) top.addChild(doc.createNode(part ? id + '_' + part : id + '_mesh').setMesh(meshes[part]).setSkin(skin));
   let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
   for (const t of tris) for (const v of t.v) toGame(v.p).forEach((x, j) => { lo[j] = Math.min(lo[j], x * s); hi[j] = Math.max(hi[j], x * s); });
   const out = path.join(OUT, id + '.glb');
