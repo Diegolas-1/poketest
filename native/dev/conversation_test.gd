@@ -17,7 +17,7 @@ extends Node
 #      question offered twice in one talk, menus of 2-4 plus the goodbye
 #   5. interruptions, save / load, growth stages setting the heart_* flags
 
-const IDS := ["delia", "lily", "rose", "bram", "ada", "timmy", "mae", "kai", "marina", "ben", "tom", "gus"]
+const IDS := ["delia", "lily", "rose", "bram", "ada", "timmy", "mae", "kai", "marina", "ben", "tom", "gus", "jenny"]
 const OTHERS := ["oak", "tea_keeper", "mart_clerk"]
 const PETS := ["nibbles", "doduo", "mrmime"]
 const HOUR := {"dawn": 6.0, "morning": 9.0, "midday": 12.5, "afternoon": 15.0, "evening": 19.0, "night": 22.5}

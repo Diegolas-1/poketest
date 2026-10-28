@@ -114,7 +114,8 @@
       "colour": "#3d78c4",
       "voice": "mid",
       "pitch": 1.0
-    }
+    },
+    "jenny": {"name": "OFFICER JENNY", "colour": "#4a55c8", "voice": "high", "pitch": 1.02}
   },
   "ash": {
     "greet": [
@@ -215,6 +216,22 @@
           "See you, Professor!",
           "Thanks, Professor!"
         ]
+      },
+      "jenny": {
+        "greet": [
+          "Hi, Officer Jenny!",
+          "Officer Jenny! Hi!",
+          "Morning, Officer!"
+        ],
+        "bye": [
+          "Bye, Officer Jenny!",
+          "See you, Officer!",
+          "Thanks, Officer Jenny!"
+        ],
+        "bye_labels": [
+          "Bye, Officer Jenny!",
+          "Thanks, Officer!"
+        ]
       }
     }
   },
@@ -284,6 +301,11 @@
     ],
     "mart_clerk": [
       "Thank you, come again!"
+    ],
+    "jenny": [
+      "Straight home along the road, now!",
+      "Stay safe, young man. Carry on!",
+      "Mind the ledges on your way down!"
     ]
   },
   "wrap_up": {
@@ -305,7 +327,8 @@
     ],
     "oak": [
       "My boy, I could talk POKéMON all day. And I would! But my notes are waiting."
-    ]
+    ],
+    "jenny": ["That's enough chit-chat. I'm on duty, you know. Very much on duty."]
   },
   "interrupts": {
     "_any": [
@@ -356,6 +379,10 @@
     ],
     "mrmime": [
       "N: (Mr. Mime checks an invisible watch, bows, and hurries after Delia.)"
+    ],
+    "jenny": [
+      "Excuse me, Ash. Change of watch. I have to light the gate lamps.",
+      "One moment, young man. The crew's radio. Duty calls!"
     ]
   },
   "clue_labels": {},
@@ -4107,6 +4134,389 @@
           "lines": [
             "N: (He mimes a window. Then he mimes looking through it at the sea for a long time. Then he points at the terrace, and at Delia.)",
             "N: (You're not sure what it means. He seems to think you'll understand one day.)"
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "jenny_gate",
+      "on": "talk",
+      "with": "jenny",
+      "once": true,
+      "chance": 1,
+      "priority": 5,
+      "start": "s",
+      "_note": "Meeting her: why the Viridian gate is shut (the quake from under Cinnabar's volcano brought the slope down past the gate; lore.json volcano_rumble, viridian_rockslide).",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Halt! Stop right there, young man!",
+            "N: (She steps smartly between you and the gate, one white glove raised.)",
+            "Officer Jenny, Viridian City Police. I'm afraid this gate is closed."
+          ],
+          "choices": [
+            {
+              "label": "Closed? Why?",
+              "tone": "curious",
+              "ash": "Closed? Why? What happened?",
+              "next": "why"
+            },
+            {
+              "label": "But I need to get through!",
+              "tone": "eager",
+              "ash": "But I need to get to Viridian City!",
+              "next": "need"
+            },
+            {
+              "label": "Can't I just climb over?",
+              "tone": "cheeky",
+              "ash": "Can't I just... climb over?",
+              "next": "climb"
+            }
+          ]
+        },
+        "need": {
+          "lines": [
+            "Everybody needs to get to Viridian. The road doesn't care, I'm afraid."
+          ],
+          "next": "why"
+        },
+        "climb": {
+          "lines": [
+            "Absolutely not! Climbing a closed gate is a violation of City Ordinance 47-B.",
+            "I'd have to write you a ticket. In triplicate. I have the forms right here.",
+            "N: (She pats the pouch on her hip. It does look very full of forms.)"
+          ],
+          "next": "why"
+        },
+        "why": {
+          "lines": [
+            "The earthquake. In the night, five past one. Eleven seconds of shaking. You felt it, I expect.",
+            "Down in Pallet it was a shiver. But just past this gate, the road runs through a cutting.",
+            "The shaking brought the slope down. Rocks right across the road, and a crack down the middle."
+          ],
+          "do": {
+            "know": "viridian_road_closed",
+            "rumor": "viridian_rockslide"
+          },
+          "next": "cause"
+        },
+        "cause": {
+          "lines": [
+            "The observatory traced the quake to deep under Cinnabar's volcano. Far to the south. A long way to shake our road.",
+            "Nobody was hurt. Except a family of Geodude who rolled down with the rocks. Very confused. Very heavy."
+          ],
+          "choices": [
+            {
+              "label": "Is Cinnabar okay?",
+              "tone": "kind",
+              "ash": "Is Cinnabar okay? The volcano, I mean?",
+              "next": "volcano"
+            },
+            {
+              "label": "When will it open?",
+              "tone": "curious",
+              "ash": "So when will the road open again?",
+              "next": "when"
+            }
+          ]
+        },
+        "volcano": {
+          "lines": [
+            "Restless, not angry, the observatory says. The island folk know its moods.",
+            "Your lighthouse keeper is watching it from his tower. So is half of Kanto."
+          ],
+          "next": "when"
+        },
+        "when": {
+          "lines": [
+            "When the crews have cleared it and the surveyors say the slope will hold. Not a minute before.",
+            "Meanwhile my officers are checking all of Route 1. Every bridge, every ledge.",
+            "If you see any damage on your way home, you report it. To me."
+          ],
+          "choices": [
+            {
+              "label": "Yes, ma'am! I'll report it!",
+              "tone": "firm",
+              "ash": "Yes, ma'am! I'll report anything I see!",
+              "do": {
+                "growth": {
+                  "responsibility": 1
+                },
+                "rel": 1
+              },
+              "next": "good"
+            },
+            {
+              "label": "I guess I'll wait...",
+              "tone": "quiet",
+              "ash": "Okay... I guess I'll just have to wait.",
+              "next": "wait"
+            }
+          ]
+        },
+        "good": {
+          "lines": [
+            "Good man. Er, good boy. Good young man.",
+            "...Carry on."
+          ],
+          "end": true
+        },
+        "wait": {
+          "lines": [
+            "Patience is a Trainer's best friend. After their POKéMON. And their mother."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "jenny_license",
+      "on": "talk",
+      "with": "jenny",
+      "once": true,
+      "chance": 0.6,
+      "if": {
+        "talks_min": 1
+      },
+      "start": "s",
+      "_note": "She asks for his Trainer ID, as Viridian's Jenny does in EP002; he hasn't got one yet.",
+      "nodes": {
+        "s": {
+          "lines": [
+            "One moment. Are you a POKéMON Trainer, young man? I'll need to see some identification."
+          ],
+          "choices": [
+            {
+              "label": "Not yet. But soon!",
+              "tone": "eager",
+              "ash": "Not yet! But soon! I'm going to be a POKéMON Master!",
+              "next": "soon"
+            },
+            {
+              "label": "Do I need ID to walk?",
+              "tone": "cheeky",
+              "ash": "I need ID just to walk up a road?",
+              "next": "walk"
+            }
+          ]
+        },
+        "walk": {
+          "lines": [
+            "Walking is free. Walking past this gate is not. Neither is walking into tall grass without a POKéMON."
+          ],
+          "next": "soon"
+        },
+        "soon": {
+          "lines": [
+            "A Master! Well. Every Master starts with one POKéMON and a license.",
+            "Professor Oak gives both, in Pallet. Your POKéDEX is your Trainer ID. Keep it on you at all times.",
+            "My cousins in every town will ask to see it. I'll ask too. That's the job."
+          ],
+          "choices": [
+            {
+              "label": "I'll keep it safe!",
+              "tone": "firm",
+              "ash": "I'll keep it safe. Promise!",
+              "do": {
+                "growth": {
+                  "responsibility": 1
+                }
+              },
+              "next": "safe"
+            },
+            {
+              "label": "Your cousins?",
+              "tone": "curious",
+              "ash": "Wait, your cousins?",
+              "next": "cousins"
+            }
+          ]
+        },
+        "safe": {
+          "lines": [
+            "Good. Now. Name, please. For my notebook.",
+            "N: (She writes 'ASH KETCHUM, PALLET TOWN. FUTURE MASTER (SELF-DECLARED).')"
+          ],
+          "end": true
+        },
+        "cousins": {
+          "lines": [
+            "Every town in Kanto has an Officer Jenny. We're family. Very proud family.",
+            "You'll see. Ask me about them some time. When I'm not checking IDs."
+          ],
+          "do": {
+            "know": "jenny_family_met"
+          },
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "jenny_night",
+      "on": "talk",
+      "with": "jenny",
+      "once": false,
+      "daily": true,
+      "chance": 0.8,
+      "priority": 2,
+      "if": {
+        "period": [
+          "night"
+        ]
+      },
+      "start": "s",
+      "_note": "The night watch: she sends a ten-year-old home, sternly and kindly.",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Ash Ketchum! Do you know what time it is? It's the middle of the night!",
+            "N: (Under the gate lamps her face is very stern. Then a little less stern.)"
+          ],
+          "choices": [
+            {
+              "label": "I couldn't sleep.",
+              "tone": "quiet",
+              "ash": "I couldn't sleep. I keep thinking about my journey.",
+              "next": "sleep"
+            },
+            {
+              "label": "I'm keeping you company!",
+              "tone": "cheeky",
+              "ash": "I came to keep you company! Night watch is lonely, right?",
+              "next": "company"
+            }
+          ]
+        },
+        "sleep": {
+          "lines": [
+            "I know that feeling. The night before my first patrol, I polished my boots four times.",
+            "But a Trainer needs sleep. So does a Trainer's mother, who will wake up and find an empty bed."
+          ],
+          "next": "home"
+        },
+        "company": {
+          "lines": [
+            "Very thoughtful. Also against every rule I can think of. And I can think of a lot of rules."
+          ],
+          "next": "home"
+        },
+        "home": {
+          "lines": [
+            "Straight home, down the road, no detours through the grass. That's an order.",
+            "...A friendly one."
+          ],
+          "choices": [
+            {
+              "label": "Yes, Officer Jenny.",
+              "tone": "kind",
+              "ash": "Yes, Officer Jenny. Goodnight.",
+              "do": {
+                "rel": 1
+              },
+              "next": "night"
+            },
+            {
+              "label": "Five more minutes?",
+              "tone": "cheeky",
+              "ash": "Five more minutes?",
+              "next": "five"
+            }
+          ]
+        },
+        "five": {
+          "lines": [
+            "Zero more minutes. I'm counting. One...",
+            "N: (She actually starts counting.)"
+          ],
+          "end": true
+        },
+        "night": {
+          "lines": [
+            "Goodnight, Ash. I'll watch the road till you're out of sight."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "jenny_cousins",
+      "on": "talk",
+      "with": "jenny",
+      "once": true,
+      "chance": 0.5,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "_note": "The family of identical cousins: proud, and she can't always tell them apart either.",
+      "nodes": {
+        "s": {
+          "lines": [
+            "You keep looking at my cap, young man. Is something the matter?"
+          ],
+          "choices": [
+            {
+              "label": "Are you all the same Jenny?",
+              "tone": "cheeky",
+              "ash": "Is it true every town has the same Officer Jenny?",
+              "next": "same"
+            },
+            {
+              "label": "I like the badge!",
+              "tone": "kind",
+              "ash": "I like the badge on your cap. It's really cool.",
+              "next": "badge"
+            }
+          ]
+        },
+        "badge": {
+          "lines": [
+            "The winged badge! My mother wore it, and her mother before her. Kanto police since the very first patrol."
+          ],
+          "next": "photo"
+        },
+        "same": {
+          "lines": [
+            "The SAME? Certainly not! We're cousins. Completely different people.",
+            "Pewter's Jenny is two weeks older than me. Cerulean's Jenny parts her hair slightly to the left."
+          ],
+          "next": "photo"
+        },
+        "photo": {
+          "lines": [
+            "N: (She takes a photo from her pouch: a family reunion. Rows and rows of identical Officer Jennys.)",
+            "That's me. No, that's Vermilion. No, wait... that's me. I think. The cap's at my angle."
+          ],
+          "choices": [
+            {
+              "label": "How do you tell them apart?",
+              "tone": "curious",
+              "ash": "How do you even tell them apart?",
+              "next": "apart"
+            },
+            {
+              "label": "Your family's amazing.",
+              "tone": "kind",
+              "ash": "Your family's amazing. A whole family of police!",
+              "do": {
+                "rel": 1
+              },
+              "next": "proud"
+            }
+          ]
+        },
+        "apart": {
+          "lines": [
+            "By their Growlithe, mostly. The Growlithe can always tell. Never ask a Jenny. We get very defensive."
+          ],
+          "end": true
+        },
+        "proud": {
+          "lines": [
+            "...Thank you, Ash. We are. Very proud.",
+            "When you start your journey, tell every Jenny you meet that Viridian says hello."
           ],
           "end": true
         }

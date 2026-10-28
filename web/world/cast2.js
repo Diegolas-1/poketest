@@ -419,6 +419,13 @@ export function townsfolk(K) {
     marina: { skin: '#e8b48c', hair: '#2c2836', scarf: '#36b0a8', top: '#f6f4ee', stripe: '#2c4a86', pants: '#c0583e', boots: '#3f6e4a', sole: '#2a4a32' },
     ben: { skin: '#dca27a', hair: '#6a5240', hat: '#e4c674', hat2: '#c8a656', band: '#b8402e', shirt: '#cc4a3e', check: '#f2e6d0', check2: '#7a2a22', overalls: '#4a70a8', overalls2: '#3d5e90', brass: '#e0b84a', boots: '#5a4030', sole: '#3a2a20' },
     tom: { skin: '#eebf9c', hair: '#f2f2f0', beard: '#f6f6f4', coat: '#2a3552', coat2: '#222b44', sweater: '#efe6cf', pants: '#55595f', cap: '#fbfbf8', capBand: '#1e2436', peak: '#151821', badge: '#e8c050', brass: '#e2b850', boots: '#2a2626', sole: '#1a1616', pipe: '#6a3e26' },
+    // Officer Jenny (Viridian City): teal hair flaring out at the sides under a navy police cap
+    // (a red band, a gold winged badge, a black peak), a blue short-sleeved uniform jacket with a
+    // light-blue front panel, a red collar and red cuffs, a black belt with a gold buckle, a black
+    // strap across to a pouch on her left hip, a navy pencil skirt, white gloves, black low heels
+    jenny: { skin: '#f6d0b0', hair: '#2fa58c', hair2: '#24876f', cap: '#474cb6', cap2: '#3a3e9c', band: '#d8343a', peak: '#23264a', gold: '#e8b830',
+      jacket: '#5157c6', jacket2: '#4247a8', panel: '#a8d6ee', panel2: '#86bcda', red: '#d8343a', red2: '#b02630', navy: '#2c2f70',
+      skirt: '#4446ac', skirt2: '#2f3180', belt: '#1c1c24', strap: '#1c1c24', glove: '#f8f8f4', shoes: '#1e1e28', sole: '#121218' },
     gus: { skin: '#e9b896', hair: '#5e4a3e', beard: '#5a4a40', cap: '#cc4b2e', cap2: '#a83a22', coat: '#f2c22e', coat2: '#d9a41e', jumper: '#3e5a4e', pants: '#3e4452', boots: '#2a2a2e', sole: '#1a1a1e', brass: '#3a3a3a' },
   };
   // adult women: a smaller head, longer legs, narrower shoulders, a slimmer waist
@@ -443,6 +450,9 @@ export function townsfolk(K) {
     gus: { height: 1.86, edits: body({ trunk: [1.12, 1.04, 1.12], hips: [1.06, 1, 1.04], head: 0.94, arm: 1.12, leg: 1.06, legLen: 1.02, sh: 0.008 }), drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
       face: { iris: '#2a3a3a', brow: '#4a3a30', browThick: 2, mature: true, old: true } },
   };
+  // an adult woman, tall (the cap included), long-legged and trim
+  CAST.jenny = { height: 1.86, edits: body({ ...WOMAN, trunk: [0.94, 1.03, 0.95], hips: [1.0, 1, 1.0], arm: 0.9, leg: 0.92, legLen: 1.08 }),
+    face: { iris: '#8a4a26', brow: '#1f6a5c', lashes: '#141418', mouth: 'smile', blush: '#f2a0a0', forehead: 'smooth', lips: '#d46a6c', mature: true } };
   for (const k in CAST) CAST[k].drop = ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'];
 
   // bare forearms and hands, the rest of the arm as the sleeve's colour (it shows only in gaps)
@@ -815,6 +825,188 @@ export function townsfolk(K) {
         G.late('topsjer', drawIn((p, th) => 0.012 * sstep(0.95, 0.92, p.y) * sstep(0.55, 0.95, Math.abs(th))));
       });
     },
+  };
+
+  // a shirt collar turned down round the neck, open in a V at the throat, its two points
+  // lying on the chest either side of it: rays from above the trunk's axis outwards and down
+  // (as band), each row t (0 at the neck .. 1 at the edge) e0..e1 radians below the level, the
+  // points (at ptAt radians either side of the front) reaching on to tip
+  function pointCollar(G, o) {
+    const T = G.torsoT, NC = o.nc ?? 48, c = V(0, o.cy ?? 1.12, ZC - 0.004), NI = o.rows ?? 5;
+    const gap = (t) => (o.gap0 ?? 0.05) + (o.gap1 ?? 0.3) * t;
+    const thOf = (t, j) => gap(t) + j / NC * (TAU - 2 * gap(t));
+    const eOf = (t, th) => {
+      const a = Math.abs(Math.atan2(Math.sin(th), Math.cos(th)));
+      const pt = Math.exp(-(((a - (o.ptAt ?? 0.5)) / (o.ptW ?? 0.22)) ** 2));
+      return o.e0 + (o.e1 - o.e0) * t + (o.tip - o.e1) * pt * t * t;
+    };
+    const ray = (e, th) => V(Math.sin(th) * Math.cos(e), -Math.sin(e), Math.cos(th) * Math.cos(e));
+    const D = Array.from({ length: NI }, (_, i) => {
+      const t = i / (NI - 1);
+      return fixRing(Array.from({ length: NC + 1 }, (_, j) => { const th = thOf(t, j); return cast(T, c, ray(eOf(t, th), th), 0.3) ?? 0.09; }), false, o.smooth ?? 5);
+    });
+    const P = D.map((row, i) => row.map((d, j) => { const t = i / (NI - 1), th = thOf(t, j); return c.clone().addScaledVector(ray(eOf(t, th), th), d + (o.off ?? 0.004) + 0.003 * t); }));
+    const B = G.build(), W = P.map((row) => row.map((p) => G.bodyW(p)));
+    slab(B, P, W, o.th ?? 0.003, { out: (p) => p.clone().sub(c), rims: { top: true, bottom: true, left: true, right: true } });
+    G.add(B, paintGrid(P, 128, 32, o.paint || (() => o.color), o.lining || mul(o.color, 0.75)), o.name);
+    return P;
+  }
+  // rigid parts in one skinned mesh with a palette texture (a strip of colour cells, each part's
+  // uvs on its cell) instead of vertex colours: the native renderer reads the baked vertex
+  // colours as sRGB and shows them darker than the web does, a texture comes out the same in
+  // both. parts: [[geometry, colour]], wfn(p) -> [[bone, weight]]
+  function paletted(v, parts, wfn, name) {
+    const cols = [...new Set(parts.map(([, c]) => c))], CW = 32;
+    const geos = parts.map(([g, c]) => {
+      const k = cols.indexOf(c), U = new Float32Array(g.attributes.position.count * 2);
+      for (let i = 0; i < U.length; i += 2) { U[i] = (k + 0.5) / cols.length; U[i + 1] = 0.5; }
+      g.setAttribute('uv', new THREE.BufferAttribute(U, 2));
+      if (!g.attributes.normal) g.computeVertexNormals();
+      return g;
+    });
+    v.add(mergeGeos(geos), K.canvasMat(cols.length * CW, 4, (x, w, h) => cols.forEach((c, k) => { x.fillStyle = c; x.fillRect(k * CW, 0, CW, h); }), v.CLOTH,
+      { name: 'cast_' + name, side: THREE.DoubleSide }), wfn, name);
+  }
+  // a point on the trunk (or what is on it already) at angle th round it and height y, off it by off
+  const onTrunk = (G, th, y, off = 0) => {
+    const T = [...G.torsoT, ...G.hipT, ...G.extraT], r = cast(T, V(0, y, ZC), dirOf(th), 0.45) ?? 0.12;
+    return { p: V(0, y, ZC).addScaledVector(dirOf(th), r + off), th };
+  };
+  BUILD.jenny = (v) => {
+    const c = C.jenny, skin = hex(c.skin), jk = hex(c.jacket), jk2 = hex(c.jacket2), pn = hex(c.panel), pn2 = hex(c.panel2), red = hex(c.red), red2 = hex(c.red2);
+    const navy = hex(c.navy), sk = hex(c.skirt), sk2 = hex(c.skirt2), glove = hex(c.glove), blk = hex(c.belt);
+    // the body: white gloves on the hands, bare arms below the sleeves, the jacket's blue under it
+    v.paint('topsjer', 0.5, (p, n, o, part) => {
+      if (part === 'hand' || (isArm(part) && ax(p) > 0.425)) return glove;
+      if (isArm(part)) return ax(p) > 0.19 ? skin : jk;
+      if (p.y > 1.0) return navy;                        // (inside the collar)
+      if (p.z > 0 && p.y > 0.93 && ax(p) < 0.088) return pn;   // the front panel up to the collar (above the jacket's top)
+      return keepShade(jk, o, 0.5, 0.15);
+    });
+    v.paint('btmsskin', 0.5, (p) => (p.y > 0.6 ? sk2 : skin));
+    // bare legs right down into the shoes: the jeans' legs (which stop at the boots' tops)
+    // let down to the ankle, slimmed to legs from the upper thigh (a trim seat for the skirt)
+    v.shape('btmsskin', (p) => { if (p.y < 0.3) p.y = 0.3 - (0.3 - p.y) * (0.3 - 0.07) / (0.3 - 0.213); });
+    skirtLegs(v, skin, 0.68);
+    // and smooth (the jeans' creases gone): round, a leg's profile, the calves fuller behind
+    v.shape('btmsskin', (p) => {
+      const t = sstep(0.66, 0.58, p.y); if (!t) return;
+      const cx = Math.sign(p.x) * 0.056, cz = 0.002, dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz); if (d < 1e-6) return;
+      const ca = dz / d, want = legR(p.y) * (1 + 0.1 * Math.max(0, -ca) * sstep(0.18, 0.26, p.y) * sstep(0.38, 0.3, p.y) - 0.03 * ca);
+      const k = 1 + (want / d - 1) * t; p.x = cx + dx * k; p.z = cz + dz * k;
+    });
+    v.shape('topsjer', lowerCollar(1.045, 0.22));
+    // low black court shoes: the boots cut down to the instep (the rest sunk inside the ankle),
+    // narrower and lower over the toes, a thin sole with an arch under it, a heel at the back
+    v.shoes({ up: c.shoes, sole: c.sole, sock: c.skin, sockY: 0.068, rimY: 0.066, rim: c.shoes, toe: c.shoes, soleH: 0.016 });
+    v.shape('shoessboots', (p) => {
+      const cx = Math.sign(p.x) * 0.056, cz = 0.002, dx = p.x - cx, dz = p.z - cz;
+      if (p.y > 0.075) {   // inside the leg
+        const d = Math.hypot(dx, dz), want = legR(Math.min(p.y, 0.2)) * 0.78; if (d > want && d > 1e-6) { p.x = cx + dx * want / d; p.z = cz + dz * want / d; }
+        return;
+      }
+      const toe = sstep(0.02, 0.1, dz);
+      p.x = cx + dx * (0.86 - 0.08 * toe);
+      if (p.y > 0.018) p.y = 0.018 + (p.y - 0.018) * (1 - 0.22 * toe);
+      if (p.y < 0.016) { const arch = sstep(-0.035, -0.012, dz) * sstep(0.065, 0.035, dz); p.y = Math.max(p.y, 0.016 * arch); }
+    });
+    v.hair(c.hair);
+    v.neck();
+    // (what goes on the head is gathered into one mesh coloured from a palette strip: see paletted)
+    const onHead = [], flat0 = v.flat;
+    v.flat = (geo, col) => onHead.push([geo, col]);
+    // the police cap: a tall crown, flat on top, a red band round its top edge, a black peak and a
+    // gold winged badge on the front
+    const TILT = 0.07;
+    lathe(v, [[0.119, 1.196], [0.1205, 1.23], [0.1235, 1.28], [0.1265, 1.322], [0.1262, 1.332], [0.11, 1.338], [0.06, 1.341], [0, 1.342]], c.cap, { tilt: TILT, seg: 40 });
+    lathe(v, [[0.1255, 1.308], [0.1278, 1.311], [0.1281, 1.324], [0.1262, 1.327]], c.band, { tilt: TILT, seg: 40 });
+    lathe(v, [[0.1203, 1.199], [0.1222, 1.203], [0.1228, 1.222], [0.1208, 1.226]], c.cap2, { tilt: TILT, seg: 40 });   // the band above the peak
+    peak(v, c.peak, { tilt: TILT, y: 1.203, r0: 0.116, r1: 0.178, half: 1.1 });
+    {
+      const at = (g, x, y) => { g.translate(x, y, -0.012 + 0.1262); g.translate(0, -1.2, 0).rotateX(-TILT).translate(0, 1.2, 0); return g; };
+      const bd = [], ctr = new THREE.SphereGeometry(0.011, 10, 8); ctr.scale(1, 1.15, 0.45); bd.push(at(ctr, 0, 1.262));
+      for (const s of [1, -1]) {
+        const w = new THREE.SphereGeometry(1, 10, 6); w.scale(0.021, 0.0075, 0.004); w.rotateZ(s * 0.5); bd.push(at(w, s * 0.02, 1.27));
+        const w2 = new THREE.SphereGeometry(1, 8, 6); w2.scale(0.015, 0.006, 0.0035); w2.rotateZ(s * 0.25); bd.push(at(w2, s * 0.018, 1.259));
+      }
+      v.flat(mergeGeos(bd), c.gold, head1);
+    }
+    // the hair: bangs and face-framing locks from under the cap, and spikes flaring out at the
+    // sides and the back below it
+    {
+      const parts = [], hc = new V3(0, 1.17, -0.005);
+      for (const s of [1, -1]) {
+        parts.push(lock([[s * 0.03, 1.232, 0.096], [s * 0.044, 1.208, 0.103], [s * 0.052, 1.18, 0.1], [s * 0.05, 1.162, 0.097]], 0.019, 0.3, 0.003, 10, 10, hc));
+        parts.push(lock([[s * 0.072, 1.225, 0.078], [s * 0.088, 1.18, 0.07], [s * 0.094, 1.13, 0.052], [s * 0.088, 1.09, 0.036]], 0.022, 0.32, 0.004, 12, 10, hc));
+        parts.push(lock([[s * 0.092, 1.215, 0.04], [s * 0.104, 1.16, 0.03], [s * 0.106, 1.11, 0.012], [s * 0.098, 1.075, 0.0]], 0.02, 0.35, 0.004, 12, 10, hc));
+      }
+      parts.push(lock([[0.004, 1.236, 0.1], [0.008, 1.21, 0.107], [0.006, 1.186, 0.106], [0.0, 1.17, 0.104]], 0.017, 0.3, 0.002, 10, 10, hc));
+      v.flat(mergeGeos(parts), c.hair, head1);
+      const S = [];
+      for (const s of [-1, 1]) {
+        S.push([s * 1.65, -0.45, 0.15, 0.062, [s * 1, 0.3, -0.25], 0.0]);
+        S.push([s * 1.95, -0.55, 0.17, 0.066, [s * 1, 0.05, -0.5], 0.05]);
+        S.push([s * 2.3, -0.65, 0.14, 0.062, [s * 0.75, -0.25, -0.8], 0.1]);
+        S.push([s * 1.75, -0.8, 0.11, 0.05, [s * 1, -0.35, -0.1], 0.1]);
+        S.push([s * 2.7, -0.75, 0.1, 0.055, [s * 0.3, -0.6, -0.9], 0.15]);
+      }
+      S.push([Math.PI, -0.8, 0.09, 0.06, [0, -0.75, -0.65], 0.2]);
+      v.spikes(c.hair, S);
+    }
+    v.flat = flat0;
+    paletted(v, onHead, head1, 'jenny_head');
+    v.garment((G) => {
+      // the pencil skirt: from the waist to above the knee, close round the hips and thighs,
+      // darker panels down the sides
+      skirt(G, { name: 'jenny_skirt', hem: 0.46, rx: [0.118, 0.128], rz: [0.096, 0.094], back: 1.06, curve: 1, folds: 8, wave: 0.008, lining: mul(sk2, 0.8), flut: 0.25,
+        paint: (p) => {
+          if (p.y < 0.472) return mul(sk, 0.86);
+          const th = Math.atan2(p.x, p.z - ZC), sd = Math.abs(Math.sin(th));
+          if (sd > 0.9) return sk2;                                       // the side panels
+          if (sd > 0.86) return mix(sk, sk2, 0.5);
+          return sk;
+        } });
+      // the uniform jacket: fitted at the waist, a little peplum over the skirt; the light-blue
+      // panel down the front, narrowing to the belt; the seams and the breast pockets
+      const ys = rowsOf([0.958, 0.945], 0.93, 0.665, 0.02);
+      const panel = (y) => 0.028 + 0.06 * sstep(0.76, 0.96, y);
+      const jg = G.hang({
+        name: 'jenny_jacket', ys, nc: 48, pin: 2, mid: 0,
+        off: offTop(0.005, 0.009, 0.82), tuck: 0.012, lining: mul(jk2, 0.8), th: 0.0045,
+        min: (y, th) => { const t = clamp((0.745 - y) / 0.08); if (t <= 0) return 0; const rx = 0.118 + 0.03 * t, rz = 0.098 + 0.024 * t; return 1 / Math.hypot(Math.sin(th) / rx, Math.cos(th) / rz); },
+        paint: (p) => {
+          const x = Math.abs(p.x), y = p.y;
+          if (y < 0.678) return jk2;                                               // the hem
+          if (p.z > 0 && y > 0.745) {                                              // (it ends at the belt)
+            const e = panel(y) - x;
+            if (e > 0.003) return pn;
+            if (e > 0) return pn2;                                                 // its edge
+          }
+          if (p.z < -0.02 && Math.abs(x - 0.06) < 0.0018 && y < 0.92) return jk2;  // the back's seams
+          return jk;
+        },
+      });
+      // the breast pockets' flaps and buttons, beside the panel
+      const flaps = [];
+      for (const s of [1, -1]) flaps.push({ ...G.on(jg, s * 0.1, 0.915), w: 0.046, h: 0.02, d: 0.006 });
+      G.boxes(flaps, c.jacket2, 'jenny_flaps');
+      studs(G, jg, [[0.1, 0.906], [-0.1, 0.906]], hex(c.gold), 'jenny_buttons', 0.0045, 0.004);
+      sleeves(G, { name: 'jenny', to: 0.2, color: jk, cuff: red, puff: 0.004 });
+      // the red collar, turned down, open at the throat
+      pointCollar(G, { name: 'jenny_collar', e0: 0.7, e1: 0.86, tip: 1.1, ptAt: 0.42, ptW: 0.25, gap0: 0.07, gap1: 0.2, color: red, lining: red2, off: 0.004 });
+      // the belt and its gold buckle
+      const bp = belt(G, 0.768, 0.742, c.belt, 'jenny_belt', { off: 0.005 });
+      G.boxes([{ ...G.on({ P: bp }, 0, 0.755), w: 0.038, h: 0.03, d: 0.007 }], c.gold, 'jenny_buckle');
+      // the strap: from the right shoulder across the chest to the left hip, and down the back
+      strap(G, [[1.28, 0.71], [0.75, 0.78], [0.25, 0.85], [-0.3, 0.93], [-0.7, 1.0], [-0.98, 1.032], [-1.3, 1.042], [-1.72, 1.036], [-2.2, 0.99], [-2.6, 0.94],
+        [-2.95, 0.88], [-3.45, 0.8], [-3.95, 0.74], [-4.45, 0.71], [-4.9, 0.7]], 0.017, blk, 'jenny_strap', { off: 0.004, n: 40 });
+      // the pouch on it, on the left hip: a box with a flap
+      const hp = onTrunk(G, 1.33, 0.69, 0.002), fp = onTrunk(G, 1.33, 0.716, 0.036);
+      G.boxes([{ p: hp.p, th: hp.th, w: 0.068, h: 0.088, d: 0.036 }], c.belt, 'jenny_pouch');
+      G.boxes([{ p: fp.p, th: fp.th, w: 0.072, h: 0.036, d: 0.006 }], '#2a2a34', 'jenny_pouchflap');
+      gloves(v, G, mul(glove, 0.97));
+      underTop(G); underSkirt(G);
+    });
   };
 
   // Delia's hair: the fringe parted in the middle and swept to the sides, an ahoge on top

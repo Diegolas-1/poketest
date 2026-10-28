@@ -144,6 +144,128 @@
     {"id": "mart_clerk_stock", "label": "What do you sell?", "tone": "curious", "note": "The POKé MART: Potions, POKé BALLS, Antidotes, Repels.",
       "by": {"mart_clerk": ["Potions, POKé BALLS, Antidotes, Repels! Everything a new Trainer needs. Except confidence. We're sold out of that."]}},
     {"id": "mart_clerk_tip", "label": "Any tips for a new Trainer?", "tone": "eager", "note": "The clerk's tip: always carry one more Potion than you think.",
-      "by": {"mart_clerk": ["Always carry one more Potion than you think you'll need. And read the labels. You'd be amazed."]}}
+      "by": {"mart_clerk": ["Always carry one more Potion than you think you'll need. And read the labels. You'd be amazed."]}},
+    {
+      "id": "jenny_reopen",
+      "label": "When will the road open?",
+      "tone": "curious",
+      "ash": "When will the road to Viridian open again?",
+      "note": "The Viridian road: shut until the slope past the gate is cleared and declared safe. Surveyors check it every morning.",
+      "by": {
+        "jenny": [
+          "The crews are clearing the rocks now. Then the surveyors have to say the slope will hold.",
+          "A few days, if there are no aftershocks. When it opens, I'll open this gate myself. At eight sharp."
+        ]
+      }
+    },
+    {
+      "id": "jenny_quake",
+      "label": "What did the quake do?",
+      "tone": "curious",
+      "ash": "What did the earthquake actually do up here?",
+      "note": "The quake (1:05 a.m., eleven seconds) came from under Cinnabar's volcano. It brought down the cutting's slope past the Viridian gate.",
+      "by": {
+        "jenny": {
+          "lines": [
+            "Shook the crockery off every shelf in the station. Then the cutting past this gate let go. Half the hillside, onto the road.",
+            "The observatory says it came from deep under Cinnabar's volcano. Eleven seconds. That's all it took."
+          ],
+          "do": {
+            "rumor": "volcano_rumble"
+          }
+        }
+      }
+    },
+    {
+      "id": "jenny_family",
+      "label": "Are all Officer Jennys family?",
+      "tone": "curious",
+      "ash": "Are all the Officer Jennys really family?",
+      "note": "Every town in Kanto has an Officer Jenny. They're cousins, and very proud of it.",
+      "by": {
+        "jenny": [
+          "Every one. Cousins, mostly, and a few sisters. Pewter, Cerulean, Vermilion, Celadon, Saffron, Fuchsia...",
+          "People say we look alike. I really don't see it. Pewter's nose is completely different. Slightly."
+        ]
+      }
+    },
+    {
+      "id": "jenny_growlithe",
+      "label": "Do you have a POKéMON?",
+      "tone": "eager",
+      "ash": "Do you have a POKéMON partner?",
+      "note": "Officer Jenny's partner is Growlithe, a police dog with a famous nose. He's up at the rockslide.",
+      "by": {
+        "jenny": [
+          "Growlithe! My partner. He's up at the slide with the crews, nose to the rocks, checking no POKéMON is trapped under them.",
+          "Best nose on the force. He'll be very cross he missed you. He loves boys who smell of grass."
+        ]
+      }
+    },
+    {
+      "id": "jenny_trainer",
+      "label": "How do I become a Trainer?",
+      "tone": "eager",
+      "ash": "How do I become a real POKéMON Trainer?",
+      "note": "To become a Trainer: be ten, get a POKéMON and a POKéDEX from Prof. Oak (it's your Trainer ID), and carry it everywhere.",
+      "by": {
+        "jenny": [
+          "Be ten. Get a POKéMON and a POKéDEX from Professor Oak. The POKéDEX is your Trainer ID. Carry it everywhere.",
+          "Then follow the rules of the road. All of them. I can recite them, if you like. There are a hundred and twelve."
+        ]
+      }
+    },
+    {
+      "id": "jenny_bike",
+      "label": "Do you ride a motorbike?",
+      "tone": "cheeky",
+      "ash": "Is it true police officers ride motorbikes?",
+      "note": "Officer Jenny rides a police motorbike. Fast. It's parked on the Viridian side of the gate.",
+      "by": {
+        "jenny": [
+          "This one does. It's parked on the Viridian side. Zero to sixty in no time at all, for emergencies only.",
+          "And no, you can't have a ride. Unless it's an emergency. Please don't make it an emergency."
+        ]
+      }
+    },
+    {
+      "id": "jenny_duty",
+      "label": "Don't you get bored?",
+      "tone": "cheeky",
+      "ash": "Don't you get bored, just standing here all day?",
+      "note": "Officer Jenny doesn't get bored. She says. She counts Pidgey.",
+      "by": {
+        "jenny": [
+          "Bored? An officer on duty is never bored. She is alert.",
+          "...I've counted forty-one Pidgey today. And a Rattata that keeps coming back to look at me. I think it's suspicious."
+        ]
+      }
+    },
+    {
+      "id": "jenny_checks",
+      "label": "What are the route checks?",
+      "tone": "curious",
+      "ash": "What are you checking on Route 1?",
+      "note": "After the quake the Viridian police are checking Route 1's bridges, ledges and banks for damage.",
+      "by": {
+        "jenny": [
+          "After a quake you check everything. Bridges for cracks, ledges for loose rock, the brook banks for slips.",
+          "So far Route 1 is sound. It's only the cutting past this gate that came down. Lucky, really."
+        ]
+      }
+    },
+    {
+      "id": "jenny_pallet",
+      "label": "Have you been to Pallet?",
+      "tone": "kind",
+      "ash": "Have you ever been down to Pallet Town?",
+      "note": "Officer Jenny has been to Pallet once: to return Prof. Oak's runaway Tauros.",
+      "by": {
+        "jenny": [
+          "Once. To return a runaway Tauros to Professor Oak's ranch. It had eaten a hedge in Viridian. Two hedges.",
+          "Lovely town. Quiet. Smells of bread and the sea. Nobody tried to climb anything."
+        ]
+      }
+    }
   ]
 }

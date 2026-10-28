@@ -76,7 +76,7 @@ if (q.has('gait')) {
 } else if (q.get('base') === 'cast') {
   // a row per person: front, 3/4, side, back, walking, the face
   const cols = 6, w = Math.floor(W / cols), h = Math.floor(H / CAST.length);
-  const H_ = { girl: 1.5, fisher: 1.86, kid: 1.35, oak: 1.88, delia: 1.8, rose: 1.78, bram: 1.92, ada: 1.76, mae: 1.5, marina: 1.77, ben: 1.86, tom: 1.8, gus: 1.86 };
+  const H_ = { girl: 1.5, fisher: 1.86, kid: 1.35, oak: 1.88, delia: 1.8, rose: 1.78, bram: 1.92, ada: 1.76, mae: 1.5, marina: 1.77, ben: 1.86, tom: 1.8, gus: 1.86, jenny: 1.86 };
   CAST.forEach((k, row) => {
     const z = row * 8, hh = H_[k], vy = H - (row + 1) * h;
     [0, 0.75, Math.PI / 2, Math.PI].forEach((y, i) => put(LOOKS[k], i * 6, z, y));

@@ -749,6 +749,7 @@ func begin_person(p: Dictionary, life: TownLife) -> void:
 			c.pet_near = String(pc.id)
 			pc.face = atan2(game.pos.x - pc.pos.x, game.pos.z - pc.pos.z)
 	partner = {"kind": "person", "d": p}
+	life.greet(p)   # (someone on duty salutes, unless they just did)
 	_blk0 = int(p.blk)
 	open(String(p.id), "person", c, _forced())
 	_start_scene()

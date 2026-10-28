@@ -1024,6 +1024,98 @@
         },
         "close": ["Back to the lamp.", "Fair seas."]
       }
+    },
+    "jenny": {
+      "name": "Officer Jenny",
+      "tag": "OFFICER JENNY",
+      "short": "Jenny",
+      "label": "Officer Jenny",
+      "home": "",
+      "voice": "Viridian City's police officer, keeping the closed gate at the top of Route 1 since the quake. Earnest, dutiful, brisk but kind; a little stern with kids; proud of her family of identical cousins; comically over-serious about rules.",
+      "remarks": {
+        "wet": [["You're dripping on my road, young man. Is everything all right?"]],
+        "soaked": [["Soaked to the skin! Did you fall in the brook by the bridge?", "Dry off before you catch a chill. That's official advice."]],
+        "tired": [["You ran all the way up Route 1? Catch your breath. Slowly. In, out."]]
+      },
+      "greet": {
+        "dawn": ["Halt! Who goes... oh. Good morning. You're up early, young man.", "Dawn patrol. The gate is still closed. Good morning, though!"],
+        "morning": ["Good morning! Officer Jenny, Viridian City Police. How can I help?", "Morning, citizen! Er, young citizen. Hello."],
+        "midday": ["Hello there! Keeping out of trouble, I hope?", "Afternoon soon. Still on duty. Still closed. Hello!"],
+        "afternoon": ["Good afternoon! The gate is closed, but I'm open. For questions.", "Hello again, young man. Staying off the rockslide, I trust?"],
+        "evening": ["Good evening. The gate lamps will be lit soon.", "Evening! Shouldn't you be heading home for supper?"],
+        "night": ["Halt! ...Ash Ketchum? It's the middle of the night!", "Night watch. Who's there? Oh. You. Does your mother know?"]
+      },
+      "period": {
+        "dawn": ["The surveyors come down at dawn to check the slope. Every morning. Without fail."],
+        "morning": ["Morning report: slope holding, crews digging, gate closed. Same as yesterday."],
+        "midday": ["Lunch on duty. A rice ball. I eat it standing up. Duty doesn't sit down."],
+        "afternoon": ["Afternoons, the travellers come. I turn every one of them back. Politely."],
+        "evening": ["When the sun goes down I light the gate lamps. Then the night watch begins."],
+        "night": ["Night watch. Nobody goes over a closed gate on my shift. Nobody."]
+      },
+      "activity": {
+        "guard": [
+          ["The quake brought the slope down just past this gate. Rocks right across the road.", "Until it's cleared and checked, nobody goes through. Not even you."],
+          ["You felt it too, didn't you? Five past one in the morning. Eleven seconds.", "It came up from under Cinnabar's volcano, the observatory says. All the way up here."],
+          ["We're checking all of Route 1. Every bridge, every ledge, every crack.", "If you see damage on your way home, report it. To me. Officially."],
+          "I'm on guard. Standing very still and looking very alert. It's harder than it looks.",
+          ["The crews are clearing the rocks. And a family of Geodude that came down with them.", "Very confused. Very heavy. We're helping them back up the hill."]
+        ],
+        "night_watch": [
+          ["The gate lamps are lit and so am I. Awake, I mean.", "A good officer never sleeps on watch. I've had a lot of coffee."],
+          ["Nights are the worst for travellers trying their luck.", "They see a dark gate and think, 'nobody's watching'. Somebody is. Me."],
+          "Night watch. Listen... hear the crews' generator, past the gate? They work in shifts too."
+        ],
+        "commute": ["I'm not going anywhere. That's rather the point of a post."],
+        "chat": ["Chatting? Only for a moment. I'm on duty."]
+      },
+      "place": {
+        "viridian_gate": [
+          ["This is Viridian City's south gate. Normally it's wide open, day and night.", "Normally."],
+          "Viridian's just over that hill. The road's the problem. Rocks, and a crack you could lose a bicycle in."
+        ],
+        "route1_gate": ["Route 1. The longest stretch of road I've ever stood at the end of."]
+      },
+      "ash": [
+        ["Ash Ketchum, from Pallet Town. I've written it down.", "It's not a ticket! It's just... a note. I take a lot of notes."],
+        ["You want to be a POKéMON Trainer? Good. Kanto needs good Trainers.", "Kind ones. Ones who look after their partners. Remember that."],
+        ["You've got that look. The 'I'm going to climb that gate' look.", "Don't. I've seen that look on a hundred boys. And one Snorlax."],
+        ["When you start your journey, you'll meet my cousins. Every town has one of us.", "Tell them Viridian's Jenny said hello. They'll know which one."],
+        ["Professor Oak tells me you're a handful.", "He also says you've got a good heart. That counts for more in my book."]
+      ],
+      "town": [
+        "Pallet Town barely felt the quake, I hear. Lucky. Up here it shook the crockery off the shelves.",
+        "Your town sends me lunch, you know. Bread from the Hollis bakery. Very welcome. Very crusty."
+      ],
+      "about": {
+        "oak": ["Professor Oak telephones the station every morning. Is the road open yet? He has a lot of parcels."],
+        "ada": ["A lady called Ada came up yesterday to ask about the rockslide. Then she told me four things I didn't know. About my own town."],
+        "kai": ["A fisherman radioed the station about the quake. Very excited. He said 'incredible' nine times. I counted."],
+        "delia": ["Your mother? Delia Ketchum? She came up to ask if the road would be open in time for your journey. She worries. That's a good mother."]
+      },
+      "after": {
+        "rumbles_heard": [["So you've been asking around about the shake, Ash? Good police work.", "Gus at the lighthouse, Old Tom, the fishermen... You'd make a fine detective."]]
+      },
+      "sleep": ["(Officer Jenny is wide awake. Officer Jenny is always wide awake.)"],
+      "bark": {
+        "any": ["Gate's closed, I'm afraid.", "All quiet on Route 1.", "Keep to the road, please!", "Hm. Slope's holding."],
+        "guard": ["Closed until further notice!", "No one past this point, please.", "Stay back from the gate!"],
+        "night_watch": ["Who goes there?", "Lamps lit. All quiet.", "Late to be out, young man."],
+        "night": ["Who's there?", "All quiet."]
+      },
+      "chat": {
+        "open": {
+          "any": ["{b}. Officer Jenny, Viridian Police. Any trouble on the road?", "Good day, {b}. The gate's still closed, I'm afraid."],
+          "ash": ["Ash Ketchum was up at my gate again, {b}. Eyeing the bars.", "That Ketchum boy, {b}. Keen as mustard. Tell him to wait."],
+          "cinnabar": ["{b}, the observatory says the quake came from under Cinnabar's volcano."]
+        },
+        "reply": {
+          "any": ["Understood. Thank you, citizen.", "Noted. I'll put it in my report."],
+          "ash": ["He's a good boy. A handful, but a good boy.", "I've written his name down. Just in case."],
+          "cinnabar": ["The mountain's restless, they say. Not angry. We're watching."]
+        },
+        "close": ["Back to my post.", "Stay safe, citizen!"]
+      }
     }
   },
 

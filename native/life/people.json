@@ -1,7 +1,7 @@
 {
  "note": "Pallet Town's townspeople and their days (native/life.gd). schedule: per day type ('default', or a key listing weekdays like 'sat' / 'mon,wed'), blocks [start 'HH:MM', activity, place, opts]. Place: 'home' (inside their own home), a house id (inside it: a visit), '<house>.door|porch|gate|yard|mailbox|lane', a place from places.json ('pier', 'plaza', ...) or '<place>.<list>' ('plaza.stalls', 'plaza.benches'), 'a|b' = pick one, 'route:<house>,<house>..' = Ada's round of the doors. opts: p (chance the block happens; else 'else' [activity, place] or the block before carries on), jitter (minutes, default the person's). What they say is quests.gd's (life/dialogue.json).",
- "activities": ["sleep", "home", "breakfast", "supper", "commute", "work:bakery", "work:farm", "work:sell", "work:boat", "work:stall", "work:market", "shop", "chat", "walk", "yardwork", "fish", "garden", "bake", "deliver", "mend", "lighthouse", "porch", "play", "feed", "yarn", "errand", "visit", "inside"],
- "places": ["red", "blue", "hollis", "mae", "marina", "farmer", "oldman", "lily", "lighthouse", "pier", "beach", "boathouse", "plaza", "lab_gate", "route1_gate", "fields", "pond", "hill", "lab_hill"],
+ "activities": ["sleep", "home", "breakfast", "supper", "commute", "work:bakery", "work:farm", "work:sell", "work:boat", "work:stall", "work:market", "shop", "chat", "walk", "yardwork", "fish", "garden", "bake", "deliver", "mend", "lighthouse", "porch", "play", "feed", "yarn", "errand", "visit", "inside", "guard", "night_watch"],
+ "places": ["red", "blue", "hollis", "mae", "marina", "farmer", "oldman", "lily", "lighthouse", "pier", "beach", "boathouse", "plaza", "lab_gate", "route1_gate", "fields", "pond", "hill", "lab_hill", "viridian_gate"],
  "people": [
   {"id": "delia", "name": "Delia", "full": "Delia Ketchum", "look": "delia", "stand_in": "girl", "home": "red", "age": "adult", "speed": 1.42, "jitter": 15,
    "friends": ["mae", "rose", "ada", "marina"],
@@ -86,6 +86,13 @@
     "default": [["00:00", "lighthouse", "home"], ["10:00", "shop", "plaza", {"p": 0.45, "else": ["lighthouse", "home"]}], ["11:30", "chat", "pier|boathouse", {"p": 0.6, "else": ["lighthouse", "home"]}], ["13:00", "lighthouse", "home"]],
     "sat": [["00:00", "lighthouse", "home"], ["09:00", "shop", "plaza.stalls|plaza"], ["11:00", "chat", "pier"], ["12:30", "lighthouse", "home"]],
     "sun": [["00:00", "lighthouse", "home"], ["14:00", "walk", "beach|pier", {"p": 0.5, "else": ["lighthouse", "home"]}], ["16:00", "lighthouse", "home"]]
+   }},
+  {"id": "jenny", "name": "Officer Jenny", "full": "Officer Jenny", "look": "jenny", "stand_in": "girl", "home": "", "post": "viridian_gate", "age": "adult", "speed": 1.5, "jitter": 0,
+   "_note": "Viridian City's Officer Jenny, keeping the closed gate at the top of Route 1 (the road beyond came down in the quake). No home in Pallet: her post all day, the night watch under the gate lamps after dark. stance / idles / greet_act: how she stands, the idle actions she may do, her salute (idles.gd).",
+   "voice": "high", "stance": "hands_front", "idles": ["shade", "cap", "hip", "shoulders"], "greet_act": "salute",
+   "friends": [],
+   "schedule": {
+    "default": [["00:00", "night_watch", "viridian_gate"], ["05:30", "guard", "viridian_gate"], ["21:00", "night_watch", "viridian_gate"]]
    }}
  ]
 }

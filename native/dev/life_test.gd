@@ -3,7 +3,8 @@ extends Node
 # life.gd (everyone in full steering, as if the camera saw them all) on the
 # real walk grid and checks that
 #   - nobody stays stuck (re-plans and hops counted; no walker without progress for long),
-#   - everyone is at home (Gus at the lighthouse) in the small hours,
+#   - everyone is at home (Gus at the lighthouse) in the small hours, and anyone with
+#     a post (Officer Jenny at the Viridian gate) is at it, day and night,
 #   - the schedule blocks reach their places (hit rate per person),
 #   - the Pokémon (companions.gd) keep to free ground, keep up with their owners,
 #     go in with them (Nibbles) or wait outside (Doduo), and sleep at night,
@@ -56,6 +57,7 @@ func _ready() -> void:
 	var end_min := clock.minutes + days * 1440.0
 	var last_check_day := -1
 	var noprog := {}
+	var post_walk := {}
 	var pet := {}
 	for c in life.companions.pets: pet[c.id] = {"bad": 0, "far": 0.0, "with": 0.0, "night": [0, 0], "in": [0, 0]}
 	for p in life.people:
@@ -118,8 +120,19 @@ func _ready() -> void:
 			for p in life.people:
 				night_checks += 1
 				var want: String = p.home
-				if p.state == "inside" and p.inside == want: night_ok += 1
+				# someone on duty at a post (Officer Jenny at the Viridian gate) is at it, keeping the night watch
+				var post := String(p.data.get("post", ""))
+				if post != "":
+					var spot: Vector3 = life.places[post].spots[0]
+					if p.state == "act" and life.place_of(p) == post and Vector2(p.pos.x, p.pos.z).distance_to(Vector2(spot.x, spot.y)) < 0.5: night_ok += 1
+					else: fails.append("day %d 03:00: %s not at the %s post (%s)" % [clock.day(), p.id, post, life.describe(p)])
+				elif p.state == "inside" and p.inside == want: night_ok += 1
 				else: fails.append("day %d 03:00: %s not home (%s)" % [clock.day(), p.id, life.describe(p)])
+		# and on duty in the day too: never walking off (nobody walks to or from a post off the grid)
+		for p in life.people:
+			if String(p.data.get("post", "")) != "" and p.state in ["walk", "wait_path"] and not post_walk.has(p.id):
+				post_walk[p.id] = true
+				fails.append("%s left the %s post (%s)" % [p.id, String(p.data.post), life.describe(p)])
 	var wall := Time.get_ticks_msec() - t_start
 	print("\n==== town life: %d game days, %d steps of %.2f s, %.1f s wall ====" % [days, steps, dt, wall / 1000.0])
 	print("sim cost per update (12 people, all in full steering): %.3f ms avg" % (t_us / 1000.0 / steps))

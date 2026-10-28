@@ -9,6 +9,9 @@
 //                 wander), the things to read (town.use), Oak's lab door,
 //                 Route 1's road and the tall grass
 // Run: node tools/native/bake_cast.mjs   (serves web/ on :8790 if nothing is there)
+//      node tools/native/bake_cast.mjs --only=<look>[,<look>..]   bakes just those looks: their
+//      .glb and their cast.json entries, the rest of cast.json (the other looks, the world's
+//      people and things to read) kept as it is
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +25,7 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../.
 const OUT = path.join(ROOT, 'native/cast');
 fs.mkdirSync(OUT, { recursive: true });
 
+const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 const PORT = process.env.WEB_PORT || '8790';   // (another copy of the repo may already serve 8790)
 const up = async () => { try { return (await fetch(`http://localhost:${PORT}/world/`)).ok; } catch { return false; } };
 if (!(await up())) {
@@ -37,7 +41,7 @@ await p.goto(`http://localhost:${PORT}/world/?test&q=high&outline=0`);
 await p.waitForFunction(() => window.worldReady, null, { timeout: 300000 });
 console.log('world ready');
 
-const res = await p.evaluate(async () => {
+const res = await p.evaluate(async (ONLY) => {
   const THREE = await import('three');
   const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
   const A = await import('/world/actor.js');
@@ -214,7 +218,7 @@ const res = await p.evaluate(async () => {
   }
   const out = { looks: {}, glb: {} };
   // every look made on the base model: Ash, Prof. Oak and the townspeople (actor.js TOWNSFOLK)
-  for (const look of ['ash', 'oak', ...A.TOWNSFOLK]) {
+  for (const look of ['ash', 'oak', ...A.TOWNSFOLK, ...A.VISITORS].filter((k) => !ONLY.length || ONLY.includes(k))) {
     const a = A.makeActor(A.LOOKS[look]);
     for (let i = 0; i < 600 && !a.model; i++) await sleep(50);
     if (!a.model) throw new Error('no model for ' + look);
@@ -257,13 +261,22 @@ const res = await p.evaluate(async () => {
   out.tallGrass = N.TALL_GRASS;
   out.route1 = w.town.r1 || null;   // Route 1's people, moving parts and ambient life (web/world/route1.js)
   return out;
-});
+}, ONLY);
 
 for (const [k, v] of Object.entries(res.glb)) {
   fs.writeFileSync(path.join(OUT, k + '.glb'), Buffer.from(v, 'base64'));
   console.log(k + '.glb', (fs.statSync(path.join(OUT, k + '.glb')).size / 1048576).toFixed(2), 'MB');
 }
 delete res.glb;
+if (ONLY.length) {
+  // just these looks: into the cast.json that is there
+  const old = JSON.parse(fs.readFileSync(path.join(OUT, 'cast.json'), 'utf8'));
+  for (const k of ONLY) { if (!res.looks[k]) throw new Error('no look ' + k); old.looks[k] = res.looks[k]; }
+  fs.writeFileSync(path.join(OUT, 'cast.json'), JSON.stringify(old));
+  console.log('looks', ONLY.join(', '), 'baked into cast.json');
+  await b.close();
+  process.exit(0);
+}
 fs.writeFileSync(path.join(OUT, 'cast.json'), JSON.stringify(res));
 console.log('npcs', res.npcs.length, 'use', res.use.length);
 await b.close();

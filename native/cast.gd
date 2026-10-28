@@ -244,7 +244,7 @@ func _voice(n: Dictionary) -> void:
 		match String(pp.age):
 			"kid": v = "kid"; pitch = 1.08 if String(pp.id) == "lily" else 0.95
 			"elder": v = "low" if not HIGH_VOICES.has(String(pp.id)) else "high"; pitch = 0.9
-			_: v = "high" if HIGH_VOICES.has(String(pp.id)) else "mid"
+			_: v = "high" if HIGH_VOICES.has(String(pp.id)) or String(pp.data.get("voice", "")) == "high" else "mid"
 	elif n.has("pet"): v = "critter"
 	elif n.has("npc"): v = "low"
 	dialog.voice = v

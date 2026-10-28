@@ -130,6 +130,14 @@ for (const [lx, lz] of [[-12, 14], [-8, 16], [10, 14]]) { const [x, z] = T.toWor
 out.places.hill = { spots: hill };
 out.places.lab_hill = { spots: benches.filter((b) => b.x > T.STAIRS.x1).map((b) => P(b.x + 1.2, b.z, -Math.PI / 2)) };
 out.places.benches = { spots: benches.map((b) => P(b.x, b.z)) };
+// Viridian City's gate at the north end of Route 1 (web route1.js): a post beside it, on the
+// road, facing back down the route. It lies far outside the walk grid: offgrid, so life.gd
+// keeps the spot as it is, and whoever keeps it stays there (nobody walks to it)
+// (the gate's middle: where its "Look" is, in front of it)
+{
+  const gz = T.ROUTE1.gateZ, look = cast.use.find((u) => u.label === 'Look' && /gate to VIRIDIAN/i.test(u.lines[0])), gx = look ? look.x : T.routeX(gz);
+  out.places.viridian_gate = { spots: [P(gx + 1.3, gz + 1.7, -0.1)], offgrid: true };
+}
 
 // ---------- the lanes ----------
 out.roads = T.ROADS.map((r) => r.filter((_, i) => i % 2 === 0 || i === r.length - 1).map(([x, z]) => P(x, z)));
