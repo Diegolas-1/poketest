@@ -4,7 +4,8 @@ extends Node
 # Interiors: --interior=oak_lab (go straight in), --ipos=x,z[,level[,yaw]] (stand there
 # inside), --camyaw=a --campitch=p (the game's own camera, radians, absolute),
 # --press=f,f (press A), --ipos0=... (place once, then walk), --stick=x,y[,from_frame] (hold the move stick), --enterlab (stand at the lab's
-# outdoor door and press A: the real fade in).
+# outdoor door and press A: the real fade in), --enterdoor=<interior id> (the same at one of res://interiors/doors.json's doors),
+# --hour=h (the game clock's time, for who is home).
 # --stats prints draw calls, objects and primitives of a frame: ink on, off, and
 # on without the leaf ink.
 var main: Node
@@ -18,6 +19,8 @@ var camyaw := NAN
 var campitch := NAN
 var stick := PackedFloat64Array()
 var enterlab := false
+var enterdoor := ""
+var hour := NAN
 var press: Array = []     # --press=f1,f2: press A on these frames
 var ipos_once := false   # --ipos0: place once, then let the player walk
 var quest := ""          # --quest=q_bread: start that quest (the island compass then points the way)
@@ -40,6 +43,8 @@ func _ready() -> void:
 		elif a.begins_with("--campitch="): campitch = float(a.substr(11))
 		elif a.begins_with("--stick="): stick = PackedFloat64Array(Array(a.substr(8).split(",")).map(func(x): return float(x)))
 		elif a == "--enterlab": enterlab = true
+		elif a.begins_with("--enterdoor="): enterdoor = a.substr(12)
+		elif a.begins_with("--hour="): hour = float(a.substr(7))
 		elif a.begins_with("--press="): press = Array(a.substr(8).split(",")).map(func(x): return int(x))
 		elif a.begins_with("--quest="): quest = a.substr(8)
 		elif a.begins_with("--snap="): snaps = Array(a.substr(7).split(",")).map(func(x): return int(x))
@@ -82,6 +87,19 @@ func _process(_dt: float) -> void:
 		main.pos = Vector3(d.x + 1.0, main.world.height_at(d.x + 1.0, d.y), d.y); main.yaw = PI / 2.0
 		main.cam_yaw = main.yaw + PI; main.cam_ty = main.pos.y
 	if enterlab and frame == 12: main.cast._btn_a = true
+	if not is_nan(hour) and frame == 3:
+		main.cast.clock.real = false; main.cast.clock.ff = 1.0; main.cast.clock.set_time(hour)
+	if enterdoor != "" and frame >= 8 and frame <= 10:
+		# on its step, facing the door, the camera behind
+		var dd: Dictionary = main.cast.door_of(enterdoor)
+		var ex: Array = dd.exit
+		main.pos = Vector3(ex[0], main.world.height_at(ex[0], ex[1]), ex[1]); main.yaw = float(ex[2]) + PI
+		main.cam_yaw = main.yaw + PI; main.cam_ty = main.pos.y; main.speed = 0.0
+		main.cast.land(main.pos.y)
+	if enterdoor != "" and frame == 14: main.cast._btn_a = true
+	if OS.get_cmdline_user_args().has("--residents") and frame % 20 == 0:
+		var dl = main.cast.life.by_id.get("delia")
+		print("frame %d indoors %s npcs %s | delia %s %s in '%s'" % [frame, main.indoors, main.cast.npcs.map(func(n): return String(n.name)), dl.act, dl.state, dl.inside])
 	if frame in press: main.cast._btn_a = true
 	if frame in snaps and snapdir != "":
 		var at := frame

@@ -112,7 +112,7 @@ func surface_at(p: Vector3) -> String:
 		if (f & InteriorData.STAIR) and fl.has("stair"): return fl.stair
 		var lv: Dictionary = fl.get("levels", {})
 		if lv.has(D.level): return lv[D.level]
-		return fl.get("default", "tile")
+		return fl.get("default", "wood")   # (the houses: wooden floors)
 	var W: WorldData = game.world
 	var fw := W.flag(p.x, p.z)
 	if fw != 255 and (fw & 4): return "wood"            # decks, bridges, the pier

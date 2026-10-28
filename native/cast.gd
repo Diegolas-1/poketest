@@ -28,6 +28,7 @@ var uses: Array = []
 var road: Array = []
 var tall: Array = []
 var lab_door := Vector2.ZERO
+var doors: Array = []    # the town's doors into interiors (res://interiors/doors.json): {id, name, house, refuse, at, r, exit, spawn}
 var script_phase := -1   # Oak's scene: -1 none, 0 runs to you, 1 talking, 2 walking to the lab
 var walk_path: Array = []
 var vy := 0.0
@@ -70,6 +71,7 @@ func setup(g: Node3D) -> void:
 			e.hidden = true; a.visible = false
 	_route_npcs(d)   # Route 1's people (web route1.js: the tea keeper, the POKé MART clerk)
 	uses = d.use
+	_load_doors()
 	road = d.road
 	tall = d.tallGrass
 	lab_door = Vector2(d.labDoor[0], d.labDoor[1])
@@ -101,6 +103,7 @@ func setup(g: Node3D) -> void:
 	bike.setup(game, self)
 	life = TownLife.new()
 	add_child(life)
+	life.interiors = self   # (has_room / enter / exit: the townspeople inside the interior you are in)
 	life.setup(game, self, clock)
 	# talking: the conversation mode (conversation.gd), its panel over the text box's layer
 	convo = Conversation.new()
@@ -130,11 +133,41 @@ func busy() -> bool:
 func talking() -> bool:
 	return dialog.open or (convo != null and convo.active)
 
+# ---------- the doors (res://interiors/doors.json, tools/native/bake_interior.mjs) ----------
+# Every interior baked with a door on its blueprint's place: pressing A there
+# goes in (main.gd enter_space). The outdoor stubs at that door (the shut
+# door's 'Door' or 'Look') give way to it.
+func _load_doors() -> void:
+	var path := "res://interiors/doors.json"
+	if not FileAccess.file_exists(path): return
+	var j = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not j is Dictionary: return
+	for dd in j.get("doors", []):
+		if not FileAccess.file_exists("res://interiors/%s.json" % dd.id): continue
+		var at := Vector2(dd.at[0], dd.at[1])
+		uses = uses.filter(func(u): return not (String(u.label) in ["Door", "Look"] and Vector2(float(u.x), float(u.z)).distance_to(at) < 1.6))
+		uses.append({"x": at.x, "z": at.y, "r": float(dd.r), "label": "Door", "lines": [], "door": dd})
+		doors.append(dd)
+
+func door_of(id: String) -> Dictionary:
+	for dd in doors:
+		if String(dd.id) == id: return dd
+	return {}
+
+# A at a door: the lab's (cast.json labDoor) or one of doors.json's
+func _is_door(n: Dictionary) -> bool:
+	if indoors or not n.has("u") or String(n.u.label) != "Door": return false
+	return n.u.has("door") or Vector2(n.u.x, n.u.z).distance_to(lab_door) < 1.5
+
 # ---------- inside a building (main.gd enter_space / leave_space) ----------
 # The villagers outside are hidden and left alone; the interior's own people
-# (its blueprint's actors) and things to look at take their place.
+# (its blueprint's actors) and things to look at take their place, and the
+# townspeople whose schedule has them in this house (its blueprint's
+# residents: life.gd's interiors hook, has_room / enter / exit) stand at their
+# spots for what they are doing (cooking at the stove, behind the counter).
 var indoors := false
 var _out := {}           # the outdoor npcs and uses while inside
+var _space: Interior = null
 func enter_space(it) -> void:
 	indoors = true
 	body.clear_fx()
@@ -153,7 +186,92 @@ func enter_space(it) -> void:
 		inside.append(e)
 	npcs = inside
 	uses = it.data.meta.uses
-	dialog.banner(String(it.data.meta.name), "Pallet Town")
+	_space = it
+	for p in life.people:
+		if p.state == "inside" and String(p.inside) == _house(): _resident_in(p)
+	dialog.banner(String(it.data.meta.name), "Route 1" if String(it.data.id) == "tea_house" else "Pallet Town")
+
+# the town house this interior is (its blueprint's residents.house), or ""
+func _house() -> String:
+	if _space == null: return ""
+	var r = _space.data.meta.get("residents")
+	return String(r.get("house", "")) if r is Dictionary else ""
+
+# life.gd's interiors hook: a house has a room when an interior is baked for it
+func has_room(h: String) -> bool:
+	for dd in doors:
+		if String(dd.house) == h: return true
+	return false
+
+func enter(p: Dictionary, h: String) -> void:
+	if indoors and h == _house(): _resident_in(p)
+
+func exit(p: Dictionary, h: String) -> void:
+	if indoors and h == _house(): _resident_out(p)
+
+# a townsperson in the interior you are in: an actor at the spot for what they
+# are doing (residents.people.<id>.<activity>, else '_', else residents.default;
+# activities in residents.hide, sleep, are upstairs, out of sight). Talking to
+# them is the person's own conversation (a stand-in dict for the talk, so the
+# life sim's record of them stays inside)
+func _resident_in(p: Dictionary) -> void:
+	_resident_out(p)
+	var R = _space.data.meta.get("residents")
+	if not R is Dictionary: return
+	if String(p.act) in R.get("hide", []): return
+	var mine: Dictionary = R.get("people", {}).get(String(p.id), {})
+	var at = mine.get(String(p.act), mine.get("_", R.get("default", null)))
+	if at == null: return
+	var y: float = _space.data.height_at_level(float(at[0]), float(at[1]), 0)
+	var a := CastActor.make(String(p.look))
+	add_child(a)
+	var yw := deg_to_rad(float(at[2])) if at.size() > 2 else 0.0
+	var e := {"actor": a, "name": p.name, "home": Vector2(at[0], at[1]), "pos": Vector3(at[0], y, at[1]), "yaw": yw, "rot0": yw,
+		"target": null, "wait": 1e9, "wander": 0.0, "lines": [], "speed": 0.0, "face": NAN, "hidden": false,
+		"level": 0, "ylock": y, "person": p, "act": String(p.act)}
+	npcs.append(e)
+	_space.data.colliders[0].append([0, float(at[0]), float(at[1]), 0.32])
+
+func _resident_out(p: Dictionary) -> void:
+	for n in npcs.duplicate():
+		if n.get("person") == p:
+			# (in the middle of a talk with them: they go when it ends)
+			if convo.active and convo.partner.get("d", {}).get("indoor_of") == p:
+				n.leave = true; continue
+			n.actor.queue_free()
+			npcs.erase(n)
+			var cs: Array = _space.data.colliders[0]
+			for c in cs.duplicate():
+				if c[0] == 0 and is_equal_approx(float(c[1]), n.pos.x) and is_equal_approx(float(c[2]), n.pos.z): cs.erase(c)
+
+# the stand-in a conversation with someone indoors talks to: the person's
+# record (their id, schedule, words) with the indoor actor and position
+func _talk_proxy(n: Dictionary) -> Dictionary:
+	var p: Dictionary = n.person
+	var q := p.duplicate()
+	q.indoor_of = p
+	q.actor = n.actor
+	q.pos = n.pos
+	q.yaw = n.yaw
+	q.state = "inside"
+	return q
+
+# indoors, now and then: residents follow what their day has them doing (a new
+# activity moves them to its spot; out of the house, they go)
+var _res_t := 0.0
+func _residents_tick(dt: float) -> void:
+	_res_t += dt
+	if _res_t < 1.0 or _space == null or talking(): return
+	_res_t = 0.0
+	var h := _house()
+	for n in npcs.duplicate():
+		if not n.has("person"): continue
+		var p: Dictionary = n.person
+		if n.get("leave", false) or p.state != "inside" or String(p.inside) != h: _resident_out(p)
+		elif String(p.act) != String(n.act): _resident_in(p)
+	if h != "":
+		for p in life.people:
+			if p.state == "inside" and String(p.inside) == h and not npcs.any(func(n): return n.get("person") == p): _resident_in(p)
 
 # put the player on the ground at once (after a door: no fall from the old height)
 func land(y: float) -> void:
@@ -161,6 +279,7 @@ func land(y: float) -> void:
 
 func leave_space() -> void:
 	body.clear_fx()
+	_space = null
 	for n in npcs: n.actor.queue_free()
 	npcs = _out.npcs
 	uses = _out.uses
@@ -284,7 +403,7 @@ func update(dt: float) -> void:
 				# A on the bike: a door parks it outside; someone or something to talk to
 				# or read, stopped: that; else off (braking to a stop first)
 				var talk_ok: bool = absf(bike.v) < 1.0 and (n.has("person") or n.has("pet") or n.has("npc") or (n.has("u") and String(n.u.label) != "Door"))
-				if not indoors and n.has("u") and String(n.u.label) == "Door" and Vector2(n.u.x, n.u.z).distance_to(lab_door) < 1.5:
+				if _is_door(n):
 					bike.park_now()
 				elif not talk_ok:
 					bike.request_dismount()
@@ -292,12 +411,14 @@ func update(dt: float) -> void:
 			elif n.has("bike"):
 				bike.start_mount()
 				n = {}
-			# the lab's door opens: inside you go (main.gd enter_space)
-			if not indoors and n.has("u") and String(n.u.label) == "Door" and Vector2(n.u.x, n.u.z).distance_to(lab_door) < 1.5:
+			# a door opens: inside you go (main.gd enter_space)
+			if _is_door(n):
 				# dripping wet: the one at the door won't have him in (conditions.json entry)
-				var no := conditions.entry_refusal("oak_lab")
+				var dd: Dictionary = n.u.get("door", {})
+				var no := conditions.entry_refusal(String(dd.get("refuse", "oak_lab")))
 				if no.is_empty():
-					game.enter_space("oak_lab", "from_town")
+					if dd.is_empty(): game.enter_space("oak_lab", "from_town")
+					else: game.enter_space(String(dd.id), String(dd.spawn))
 				else:
 					game.speed = 0.0
 					face = atan2(n.at.x - game.pos.x, n.at.z - game.pos.z)
@@ -314,6 +435,11 @@ func update(dt: float) -> void:
 					convo.begin_person(n.person, life)
 				elif n.has("pet"):
 					convo.begin_pet(n.pet, life.companions)
+				elif n.has("npc") and n.npc.has("person"):
+					# someone indoors: their own conversation
+					var c2: Dictionary = n.npc
+					c2.face = atan2(me.x - c2.pos.x, me.z - c2.pos.z)
+					convo.begin_person(_talk_proxy(c2), life)
 				elif n.has("npc"):
 					var c: Dictionary = n.npc
 					c.target = null; c.wait = 3.0; c.speed = 0.0
@@ -355,6 +481,7 @@ func update(dt: float) -> void:
 	_villagers(dt)
 	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
 	if indoors:
+		_residents_tick(dt)
 		var n3 := nearby() if not dialog.open and not convo.busy() else {}
 		var cam3: Camera3D = game.cam
 		dialog.prompt = {"pos": cam3.unproject_position(n3.at), "label": n3.label} if not n3.is_empty() and not cam3.is_position_behind(n3.at) else {}

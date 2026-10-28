@@ -9,6 +9,25 @@ extends RefCounted
 # and climbing past their middle moves you to the upper one.
 #
 # Grid flags: 1 OPEN floor, 2 STAIR, 4 PROP, 8 WALL, 16 RAIL, 32 PORTAL.
+#
+# meta.uses (the things to press A at; cast.gd shows the nearest on the
+# player's level): {id, level, x, z, r, label, lines, y, action} plus whatever
+# else the blueprint's use carried. The food contract (home, PALLET HOUSE, the
+# tea house):
+#   a seat at a table      {"label": "Eat", "food_place": "home" | "inn" | "tea_house",
+#                           "seat": [x, y, z, yaw]   where Ash's hips go (y = the level's
+#                                                    floor + the seat: 0.46 on a chair,
+#                                                    0.1 on a floor cushion), yaw facing
+#                                                    the table (forward = (sin yaw, cos yaw)),
+#                           "seat_h": 0.46 for a chair, 0 for a floor cushion (zabuton),
+#                           "table_top": [x, y, z]   the plate spot in front of him, on the
+#                                                    tabletop (cloth included)}
+#                          (at home Mom serves the table)
+#   the counter / keeper   {"label": "Order", "food_place": "inn" | "tea_house"}
+#   (both carry fallback `lines` for until the food handles them)
+#   his bed (Ash's room)   {"label": "Rest", "rest": "ash_bed"}  a placeholder spot
+# meta.residents (cast.gd): {house, people: {id: {activity: [x, z, rot_deg], "_": ...}},
+#   default, hide} where townspeople inside this house stand.
 
 const OPEN := 1
 const STAIR := 2

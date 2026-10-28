@@ -38,10 +38,12 @@ extends Node3D
 # step in, gone; coming out is the reverse. Inside, a person costs nothing: no
 # actor, no animation; only the schedule runs. Gus's "door" is the boat steps
 # on the pier: he rows out to the lighthouse (offmap).
-# Interiors hook (for the interiors worker): set `interiors` to an object with
+# Interiors hook: `interiors` (cast.gd) has
 #   has_room(house_id) -> bool, enter(person: Dictionary, house_id), exit(person, house_id)
-# and life calls enter/exit instead of hiding the person; signals
-# person_entered(id, house) and person_exited(id, house) fire either way.
+# and life calls enter/exit as a person goes in and comes out (they are hidden
+# outside either way); signals person_entered(id, house) and
+# person_exited(id, house) fire either way. cast.gd shows the ones inside the
+# interior the player is in (its blueprint's residents spots).
 #
 # ---- LOD / cost ----
 # inside: nothing.  Outside, out of view or over 45 m from the camera: the walk
@@ -1511,6 +1513,8 @@ func begin_talk_quiet(p: Dictionary) -> Dictionary:
 
 func end_talk(p: Dictionary) -> void:
 	_talking = null
+	# (someone talked to inside a house, cast.gd _talk_proxy: their record stays inside)
+	if p.has("indoor_of"): return
 	var r: Dictionary = p.get("talk_resume", {"state": "act"})
 	if r.state in ["walk", "wait_path"] and not p.path.is_empty():
 		p.state = "walk"; p.best_d = INF; p.prog_t = 0.0

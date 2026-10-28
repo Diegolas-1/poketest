@@ -5,6 +5,7 @@
 // the height of their middle); ceiling props hang down from y 0.
 import * as THREE from 'three';
 import { makeBush, TILE } from '../foliage.js';
+import { photoTex } from './home.js';
 import { rng, hash, shade, paint, flat, texm, unlit, box, block, cyl, sphere, torus, lathe, rod, plane, planks, metal, HEAD, BODY, fitText } from './kit.js';
 
 // ---------- potted plant ----------
@@ -64,7 +65,7 @@ export function notice_board(P) {
 // ---------- framed picture ----------
 export function framed_picture(P) {
   const G = new THREE.Group(), [w, d, h] = P.size, p = P.params, art = p.art || 'landscape';
-  const t = paint('pic' + art + (p.seed || 0), 192, 240, (x, W, H, R) => {
+  const t = ['family', 'baby', 'trainer', 'garden', 'house'].includes(art) ? photoTex(art, p.seed || 0) : paint('pic' + art + (p.seed || 0), 192, 240, (x, W, H, R) => {
     if (art === 'pokemon') {
       // an old naturalist's plate: a round, long-eared creature on cream paper
       x.fillStyle = '#f2ead4'; x.fillRect(0, 0, W, H);
