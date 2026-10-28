@@ -1,0 +1,81 @@
+{
+  "_doc": "The energy system's species data (battle/energy.gd, design/energy_system.md). capacity: level -> energy slots (the highest key at or below the level wins; a species may shift it with capacity_shift, in slots). max_capacity: the most slots anything has. energy_types: the energy kinds, in gallery order (Normal folds into Colorless, as in the card game). type_energy: a Pokémon type -> its energy kind when the names differ. energy_names: how a kind is shown (the card game's names). species.<id>: name, types, focus (the energy kinds a turn's chips come in, in order, cycled: the first chip of every turn is focus[0]; mostly its own types, plus Colorless), wild_levels [lo, hi], learnset [{level, move}] (moves.json ids; a move can be learned once the level is reached and the bar can pay its cost; learned moves are never forgotten), ai (the wild one's default plan style: aggressive | strategic | evasive). energy_items: the hook for rare items that restore energy in battle: restore (chips), type ('' = the Pokémon's next focus kind, 'colorless', or a kind), price.",
+  "max_capacity": 10,
+  "capacity": {"1": 1, "3": 2, "8": 3, "14": 4, "21": 5, "29": 6, "38": 7, "48": 8, "60": 9, "75": 10},
+  "energy_types": ["colorless", "grass", "fire", "water", "electric", "psychic", "fighting", "dark", "steel", "dragon", "fairy", "ice", "poison", "ground", "flying", "bug", "rock", "ghost"],
+  "type_energy": {"normal": "colorless"},
+  "energy_names": {"colorless": "Colorless", "grass": "Grass", "fire": "Fire", "water": "Water", "electric": "Lightning", "psychic": "Psychic", "fighting": "Fighting", "dark": "Darkness", "steel": "Metal", "dragon": "Dragon", "fairy": "Fairy", "ice": "Ice", "poison": "Poison", "ground": "Ground", "flying": "Flying", "bug": "Bug", "rock": "Rock", "ghost": "Ghost"},
+  "energy_items": {
+    "energy_shard": {"name": "Energy Shard", "restore": 1, "type": "colorless", "price": 1500, "desc": "A sliver of crystal that hums. Restores 1 Colorless energy in battle."},
+    "focus_crystal": {"name": "Focus Crystal", "restore": 2, "type": "", "price": 4000, "desc": "A rare crystal from Mt. Moon. Restores 2 energy of the Pokémon's own type."},
+    "full_charge": {"name": "Full Charge", "restore": 10, "type": "", "price": 12000, "desc": "Extremely rare. Refills the whole energy bar."}
+  },
+  "species": {
+    "pidgey": {
+      "name": "Pidgey", "types": ["normal", "flying"], "focus": ["flying", "colorless"], "wild_levels": [2, 5], "ai": "strategic",
+      "learnset": [
+        {"level": 1, "move": "tackle"},
+        {"level": 2, "move": "sand_attack"},
+        {"level": 3, "move": "gust"},
+        {"level": 3, "move": "quick_attack"},
+        {"level": 9, "move": "whirlwind"},
+        {"level": 15, "move": "wing_attack"}
+      ]
+    },
+    "pikachu": {
+      "name": "Pikachu", "types": ["electric"], "focus": ["electric", "electric", "colorless"], "wild_levels": [3, 6], "ai": "aggressive",
+      "learnset": [
+        {"level": 1, "move": "thunder_shock"},
+        {"level": 1, "move": "growl"},
+        {"level": 3, "move": "tail_whip"},
+        {"level": 5, "move": "quick_attack"},
+        {"level": 7, "move": "thunder_wave"},
+        {"level": 10, "move": "double_team"},
+        {"level": 16, "move": "thunderbolt"},
+        {"level": 22, "move": "iron_tail"},
+        {"level": 30, "move": "thunder"}
+      ]
+    },
+    "bulbasaur": {
+      "name": "Bulbasaur", "types": ["grass", "poison"], "focus": ["grass", "grass", "poison", "colorless", "grass"], "wild_levels": [5, 8], "ai": "strategic",
+      "learnset": [
+        {"level": 1, "move": "tackle"},
+        {"level": 1, "move": "growl"},
+        {"level": 3, "move": "vine_whip"},
+        {"level": 7, "move": "leech_seed"},
+        {"level": 11, "move": "poison_powder"},
+        {"level": 11, "move": "sleep_powder"},
+        {"level": 15, "move": "razor_leaf"},
+        {"level": 19, "move": "take_down"},
+        {"level": 30, "move": "solar_beam"}
+      ]
+    },
+    "charmander": {
+      "name": "Charmander", "types": ["fire"], "focus": ["fire", "fire", "colorless"], "wild_levels": [5, 8], "ai": "aggressive",
+      "learnset": [
+        {"level": 1, "move": "scratch"},
+        {"level": 1, "move": "growl"},
+        {"level": 4, "move": "ember"},
+        {"level": 8, "move": "smokescreen"},
+        {"level": 12, "move": "dragon_rage"},
+        {"level": 17, "move": "slash"},
+        {"level": 22, "move": "flamethrower"},
+        {"level": 28, "move": "fire_spin"}
+      ]
+    },
+    "squirtle": {
+      "name": "Squirtle", "types": ["water"], "focus": ["water", "water", "colorless"], "wild_levels": [5, 8], "ai": "strategic",
+      "learnset": [
+        {"level": 1, "move": "tackle"},
+        {"level": 1, "move": "tail_whip"},
+        {"level": 4, "move": "bubble"},
+        {"level": 7, "move": "withdraw"},
+        {"level": 10, "move": "water_gun"},
+        {"level": 13, "move": "bite"},
+        {"level": 16, "move": "rapid_spin"},
+        {"level": 25, "move": "skull_bash"},
+        {"level": 34, "move": "hydro_pump"}
+      ]
+    }
+  }
+}

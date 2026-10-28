@@ -82,6 +82,16 @@ dp.slide_out(); dp.closed.connect(...)
 
 `UIChoiceList` works on its own too: `set_choices(list)`, `selected`, `move(d)`, `pick(i)` and `handle(event) -> bool`, with signals `picked(i, choice)` and `hovered(i)`.
 
+### The energy system's pieces (battle energy: `design/energy_system.md`)
+
+| Class | What | API |
+|---|---|---|
+| `EnergyIcon` (Control) | an energy kind's symbol: a flat coloured disc and a white glyph, all vector (the 18 kinds: Colorless star, Grass leaf, Fire flame, Water drop, Lightning bolt, Psychic eye, Fighting fist, Darkness, Metal, Dragon, Fairy, Ice, Poison, Ground, Flying, Bug, Rock, Ghost) | `kind`, `dim`; static `draw_icon(ci, kind, c, r, a, {dim, flat, glyph_only, col})`, `color(kind)`, `KINDS` |
+| `EnergyBar` (Control) | a Pokémon's energy bar on a dark plate: the turn tag, the count, sockets filled / empty / locked (with the unlocking level); animates a new turn (charge-up, pop, "+n", sounds), spending (chips fly to `fly_target`) and a move's cost preview | `bind(BattleEnergy)`, `side` ("foe" / "ally"), `fit(rect)`, `show_bar(on)`, `preview_cost(cost)`, `clear_preview()`, `fly_target`, `show_locked` |
+| `EnergyMoveList` (Control) | a Pokémon's moves with their costs as icons; ready / short / locked rows; touch (tap to preview, tap again to use), pad and keys (up / down, A, 1-9, B ends the turn), mouse | `bind(energy, ids)`, `bar_preview`, `select(i)`, `move(d)`, `pick(i)`, `state_of(id)`; signals `picked(id)`, `hovered(id)`, `end_turn` |
+
+Look at them with `res://dev/energy_shot.tscn -- --page=gallery|states|battle`.
+
 ## Rules of thumb
 
 * Use dark plates over the 3D world (HUD) and light panels for reading (dialog, quest log, cards).

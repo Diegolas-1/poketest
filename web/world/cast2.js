@@ -426,6 +426,13 @@ export function townsfolk(K) {
     jenny: { skin: '#f6d0b0', hair: '#2fa58c', hair2: '#24876f', cap: '#474cb6', cap2: '#3a3e9c', band: '#d8343a', peak: '#23264a', gold: '#e8b830',
       jacket: '#5157c6', jacket2: '#4247a8', panel: '#a8d6ee', panel2: '#86bcda', red: '#d8343a', red2: '#b02630', navy: '#2c2f70',
       skirt: '#4446ac', skirt2: '#2f3180', belt: '#1c1c24', strap: '#1c1c24', glove: '#f8f8f4', shoes: '#1e1e28', sole: '#121218' },
+    // Nurse Joy (the Pokémon Center's; after the X/Y field model, tr0072): coral-pink hair, its
+    // bangs swept over the forehead and two big loops at the back, a white nurse's cap with the
+    // Center's red emblem, a salmon-pink dress with short puffed sleeves and a white collar, a
+    // white apron over it from the chest to the hem, white stockings, pink shoes
+    joy: { skin: '#f8dac6', hair: '#ec6c7c', hair2: '#c94c5e', cap: '#fbfaf8', cap2: '#e4dedc', emblem: '#e0404e',
+      dress: '#f0a4a2', dress2: '#d88684', cuff: '#e08886', collar: '#fdfcfa', apron: '#fcfaf8', apron2: '#e2dcda',
+      stockings: '#f8f4f2', shoes: '#ec8e9a', sole: '#c06a78' },
     gus: { skin: '#e9b896', hair: '#5e4a3e', beard: '#5a4a40', cap: '#cc4b2e', cap2: '#a83a22', coat: '#f2c22e', coat2: '#d9a41e', jumper: '#3e5a4e', pants: '#3e4452', boots: '#2a2a2e', sole: '#1a1a1e', brass: '#3a3a3a' },
   };
   // adult women: a smaller head, longer legs, narrower shoulders, a slimmer waist
@@ -450,9 +457,14 @@ export function townsfolk(K) {
     gus: { height: 1.86, edits: body({ trunk: [1.12, 1.04, 1.12], hips: [1.06, 1, 1.04], head: 0.94, arm: 1.12, leg: 1.06, legLen: 1.02, sh: 0.008 }), drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
       face: { iris: '#2a3a3a', brow: '#4a3a30', browThick: 2, mature: true, old: true } },
   };
-  // an adult woman, tall (the cap included), long-legged and trim
-  CAST.jenny = { height: 1.86, edits: body({ ...WOMAN, trunk: [0.94, 1.03, 0.95], hips: [1.0, 1, 1.0], arm: 0.9, leg: 0.92, legLen: 1.08 }),
-    face: { iris: '#8a4a26', brow: '#1f6a5c', lashes: '#141418', mouth: 'smile', blush: '#f2a0a0', forehead: 'smooth', lips: '#d46a6c', mature: true } };
+  // an adult woman, tall (the cap included), long-legged and trim. Jenny and Joy share the
+  // anime's one face: a full-sized head (the women's 0.93 is too small for it) and the big,
+  // round-irised eyes (the atlas's young cell, not the grown-ups' narrow one)
+  CAST.jenny = { height: 1.86, edits: body({ ...WOMAN, head: 1.0, trunk: [0.94, 1.03, 0.95], hips: [1.0, 1, 1.0], arm: 0.9, leg: 0.92, legLen: 1.08 }),
+    face: { iris: '#8a4a26', brow: '#1f6a5c', lashes: '#141418', mouth: 'smile', blush: '#f2a0a0', forehead: 'smooth', lips: '#d46a6c' } };
+  // a little shorter than Jenny, slight
+  CAST.joy = { height: 1.76, edits: body({ ...WOMAN, head: 1.0, trunk: [0.93, 1.02, 0.95], hips: [1.0, 1, 1.0], arm: 0.9, leg: 0.93, legLen: 1.06 }),
+    face: { iris: '#3a6c9c', brow: '#b04e5a', lashes: '#2a1418', mouth: 'smile', blush: '#f4a0a2', lips: '#de6e78' } };
   for (const k in CAST) CAST[k].drop = ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'];
 
   // bare forearms and hands, the rest of the arm as the sleeve's colour (it shows only in gaps)
@@ -932,25 +944,29 @@ export function townsfolk(K) {
       v.flat(mergeGeos(bd), c.gold, head1);
     }
     // the hair: bangs and face-framing locks from under the cap, and spikes flaring out at the
-    // sides and the back below it
+    // sides and the back below it. As full as Joy's (the anime's sisters share the look): thick
+    // locks, the flare's spikes broad at the root, a mass of hair filling out the back of the
+    // head down to the nape under them
     {
       const parts = [], hc = new V3(0, 1.17, -0.005);
       for (const s of [1, -1]) {
-        parts.push(lock([[s * 0.03, 1.232, 0.096], [s * 0.044, 1.208, 0.103], [s * 0.052, 1.18, 0.1], [s * 0.05, 1.162, 0.097]], 0.019, 0.3, 0.003, 10, 10, hc));
-        parts.push(lock([[s * 0.072, 1.225, 0.078], [s * 0.088, 1.18, 0.07], [s * 0.094, 1.13, 0.052], [s * 0.088, 1.09, 0.036]], 0.022, 0.32, 0.004, 12, 10, hc));
-        parts.push(lock([[s * 0.092, 1.215, 0.04], [s * 0.104, 1.16, 0.03], [s * 0.106, 1.11, 0.012], [s * 0.098, 1.075, 0.0]], 0.02, 0.35, 0.004, 12, 10, hc));
+        parts.push(lock([[s * 0.03, 1.232, 0.096], [s * 0.044, 1.208, 0.103], [s * 0.052, 1.18, 0.1], [s * 0.05, 1.162, 0.097]], 0.024, 0.3, 0.004, 10, 10, hc));
+        parts.push(lock([[s * 0.072, 1.225, 0.078], [s * 0.09, 1.18, 0.07], [s * 0.097, 1.13, 0.052], [s * 0.09, 1.085, 0.036]], 0.028, 0.34, 0.005, 12, 10, hc));
+        parts.push(lock([[s * 0.092, 1.215, 0.04], [s * 0.108, 1.16, 0.03], [s * 0.11, 1.105, 0.012], [s * 0.1, 1.068, 0.0]], 0.027, 0.38, 0.005, 12, 10, hc));
+        parts.push(lock([[s * 0.085, 1.21, -0.04], [s * 0.108, 1.15, -0.06], [s * 0.11, 1.09, -0.07], [s * 0.096, 1.05, -0.07]], 0.04, 0.5, 0.01, 12, 12, hc));
       }
-      parts.push(lock([[0.004, 1.236, 0.1], [0.008, 1.21, 0.107], [0.006, 1.186, 0.106], [0.0, 1.17, 0.104]], 0.017, 0.3, 0.002, 10, 10, hc));
+      parts.push(lock([[0.004, 1.236, 0.1], [0.008, 1.21, 0.107], [0.006, 1.186, 0.106], [0.0, 1.17, 0.104]], 0.021, 0.3, 0.003, 10, 10, hc));
+      parts.push(lock([[0, 1.24, -0.08], [0, 1.18, -0.115], [0, 1.11, -0.108], [0, 1.06, -0.086]], 0.066, 0.4, 0.036, 12, 14, hc));
       v.flat(mergeGeos(parts), c.hair, head1);
       const S = [];
       for (const s of [-1, 1]) {
-        S.push([s * 1.65, -0.45, 0.15, 0.062, [s * 1, 0.3, -0.25], 0.0]);
-        S.push([s * 1.95, -0.55, 0.17, 0.066, [s * 1, 0.05, -0.5], 0.05]);
-        S.push([s * 2.3, -0.65, 0.14, 0.062, [s * 0.75, -0.25, -0.8], 0.1]);
-        S.push([s * 1.75, -0.8, 0.11, 0.05, [s * 1, -0.35, -0.1], 0.1]);
-        S.push([s * 2.7, -0.75, 0.1, 0.055, [s * 0.3, -0.6, -0.9], 0.15]);
+        S.push([s * 1.65, -0.45, 0.16, 0.09, [s * 1, 0.3, -0.25], 0.0]);
+        S.push([s * 1.95, -0.55, 0.18, 0.095, [s * 1, 0.05, -0.5], 0.05]);
+        S.push([s * 2.3, -0.65, 0.15, 0.09, [s * 0.75, -0.25, -0.8], 0.1]);
+        S.push([s * 1.75, -0.8, 0.12, 0.075, [s * 1, -0.35, -0.1], 0.1]);
+        S.push([s * 2.7, -0.75, 0.11, 0.08, [s * 0.3, -0.6, -0.9], 0.15]);
       }
-      S.push([Math.PI, -0.8, 0.09, 0.06, [0, -0.75, -0.65], 0.2]);
+      S.push([Math.PI, -0.8, 0.1, 0.085, [0, -0.75, -0.65], 0.2]);
       v.spikes(c.hair, S);
     }
     v.flat = flat0;
@@ -1008,6 +1024,118 @@ export function townsfolk(K) {
       underTop(G); underSkirt(G);
     });
   };
+
+  // ---------- Nurse Joy ----------
+  BUILD.joy = (v) => {
+    const c = C.joy, skin = hex(c.skin), dr = hex(c.dress), dr2 = hex(c.dress2), st = hex(c.stockings), ap = hex(c.apron), ap2 = hex(c.apron2);
+    v.paint('topsjer', 0.5, (p, n, o, part) => {
+      if (part === 'hand' || (isArm(part) && ax(p) > 0.19)) return skin;
+      if (isArm(part)) return dr;
+      if (p.y > 1.035) return hex(c.collar);
+      return keepShade(dr, o, 0.5, 0.15);
+    });
+    v.paint('btmsskin', 0.5, (p, n, o) => (p.y > 0.6 ? dr2 : keepShade(st, o, 0.6, 0.35)));
+    // stockinged legs down into the shoes, slim and smooth (as Jenny's)
+    v.shape('btmsskin', (p) => { if (p.y < 0.3) p.y = 0.3 - (0.3 - p.y) * (0.3 - 0.07) / (0.3 - 0.213); });
+    skirtLegs(v, st, 0.66);
+    v.shape('btmsskin', (p) => {
+      const t = sstep(0.66, 0.58, p.y); if (!t) return;
+      const cx = Math.sign(p.x) * 0.056, cz = 0.002, dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz); if (d < 1e-6) return;
+      const ca = dz / d, want = legR(p.y) * (1 + 0.1 * Math.max(0, -ca) * sstep(0.18, 0.26, p.y) * sstep(0.38, 0.3, p.y) - 0.03 * ca);
+      const k = 1 + (want / d - 1) * t; p.x = cx + dx * k; p.z = cz + dz * k;
+    });
+    v.shape('topsjer', lowerCollar(1.045, 0.22));
+    // low pink shoes with a round toe
+    v.shoes({ up: c.shoes, sole: c.sole, sock: c.stockings, sockY: 0.07, rimY: 0.068, rim: c.shoes, toe: c.shoes, soleH: 0.018 });
+    v.shape('shoessboots', (p) => {
+      const cx = Math.sign(p.x) * 0.056, cz = 0.002, dx = p.x - cx, dz = p.z - cz;
+      if (p.y > 0.078) {
+        const d = Math.hypot(dx, dz), want = legR(Math.min(p.y, 0.2)) * 0.8; if (d > want && d > 1e-6) { p.x = cx + dx * want / d; p.z = cz + dz * want / d; }
+        return;
+      }
+      const toe = sstep(0.02, 0.1, dz);
+      p.x = cx + dx * (0.88 - 0.06 * toe);
+      if (p.y > 0.02) p.y = 0.02 + (p.y - 0.02) * (1 - 0.18 * toe);
+    });
+    v.hair(c.hair, 0.8);
+    v.shape('hair01_on', K.foldFringe);
+    v.crown({ top: 1.29, back: 0.02, bulge: 1.07, front: 0.03 });
+    v.neck();
+    const onHead = [], flat0 = v.flat;
+    v.flat = (geo, col) => onHead.push([geo, col]);
+    joyHair(v, c);
+    // the nurse's cap: a white band round the crown, tipped back, its front turned up into a
+    // panel with the Pokémon Center's emblem (a red half disc over a white one, a line between)
+    const TILT = 0.34;
+    lathe(v, [[0.112, 1.262], [0.118, 1.272], [0.12, 1.292], [0.116, 1.306], [0.098, 1.316], [0.05, 1.321], [0, 1.322]], c.cap, { tilt: TILT, seg: 36, zc: -0.018 });
+    lathe(v, [[0.1185, 1.271], [0.1205, 1.278], [0.1205, 1.284], [0.1185, 1.29]], c.cap2, { tilt: TILT, seg: 36, zc: -0.018 });
+    {
+      const fr = (g) => { g.translate(0, -1.2, 0).rotateX(-TILT).translate(0, 1.2, 0); return g; };
+      // the turned-up front: a curved band standing a little proud of the cap
+      const pnl = sheet(3, 18, (t, u) => { const a = (u * 2 - 1) * 0.95, r = 0.123 + 0.004 * t; return [Math.sin(a) * r, 1.268 + 0.062 * t - 0.012 * Math.abs(Math.sin(a)) * t, -0.018 + Math.cos(a) * r]; }, false);
+      v.flat(fr(pnl), c.cap, head1);
+      const em = [];
+      const top = new THREE.SphereGeometry(1, 14, 8, 0, TAU, 0, Math.PI / 2); top.scale(0.021, 0.021, 0.005); top.translate(0, 1.302, -0.018 + 0.1285); em.push(fr(top));
+      v.flat(mergeGeos(em), c.emblem, head1);
+      const bot = new THREE.SphereGeometry(1, 14, 8, 0, TAU, Math.PI / 2, Math.PI / 2); bot.scale(0.021, 0.021, 0.005); bot.translate(0, 1.298, -0.018 + 0.1285);
+      v.flat(fr(bot), '#ffffff', head1);
+      const ln = new THREE.BoxGeometry(0.044, 0.0035, 0.004); ln.translate(0, 1.3, -0.018 + 0.1305);
+      v.flat(fr(ln), c.emblem, head1);
+    }
+    v.flat = flat0;
+    paletted(v, onHead, head1, 'joy_head');
+    v.garment((G) => {
+      // the dress's skirt: from the waist, flared to just below the knee, a deeper hem band
+      const sg = skirt(G, { name: 'joy_skirt', hem: 0.34, rx: [0.118, 0.19], rz: [0.096, 0.175], back: 1.04, folds: 12, lining: mul(dr2, 0.85),
+        paint: (p) => (p.y < 0.36 ? dr2 : Math.abs(p.y - 0.375) < 0.003 ? dr2 : dr) });
+      // the bodice, to the hip under the skirt's waist
+      top(G, { name: 'joy_bodice', hem: 0.7, lining: mul(dr2, 0.85), off1: 0.01,
+        paint: (p) => (p.y < 0.712 ? dr2 : dr) });
+      // short puffed sleeves with a band round the end
+      sleeves(G, { name: 'joy', to: 0.19, color: dr, cuff: hex(c.cuff), puff: 0.012 });
+      // the round white collar
+      band(G, { name: 'joy_collar', e: [0.72, 0.8, 0.88, 0.96, 1.04], color: hex(c.collar), off: () => 0.003, nc: 40 });
+      // the apron: a bib on the chest and down over the skirt to just above its hem, a pocket,
+      // straps over the shoulders, tied at the back; it moves with the skirt
+      const ys = rowsOf([], 0.94, 0.37, 0.025);
+      const half = (y) => (y > 0.76 ? 0.52 + 0.1 * sstep(0.94, 0.8, y) : 0.66 + 0.6 * sstep(0.76, 0.58, y));
+      panel(G, { name: 'joy_apron', ys, nc: 20, half, waist: 0.75, under: sg, lining: ap2, off: (y) => (y > 0.76 ? 0.005 : 0.009),
+        paint: (p, i, j) => {
+          const x = Math.abs(p.x);
+          if (p.y < 0.39) return ap2;                                                         // the hem
+          if (p.y < 0.62 && p.y > 0.5 && p.x > 0.0 && p.x < 0.085 && p.z > 0) return (p.y > 0.612 || p.y < 0.506) ? ap2 : mix(ap, ap2, 0.25);   // the pocket
+          if (Math.abs(p.y - 0.752) < 0.006) return ap2;                                     // the waist seam
+          if (j < 0.6 || j > 19.4) return ap2;
+          return x < 0.002 && p.y > 0.76 ? ap2 : ap;
+        } });
+      for (const s of [1, -1]) strap(G, [[s * 0.44, 0.935], [s * 0.5, 0.99], [s * 0.46, 1.04], [s * 0.05, 1.07]], 0.016, ap, 'joy_strap' + (s > 0 ? 'L' : 'R'));
+      belt(G, 0.762, 0.742, ap, 'joy_ties');
+      underTop(G); underSkirt(G);
+    });
+    tie(v, [0, 0.752, -0.1], C.joy.apron, { len: 0.12 });
+  };
+  // Joy's hair: the bangs swept over the forehead from a parting on her left, locks framing the
+  // face to the jaw, and the two big loops at the back, one each side (each a thick lock bent
+  // round on itself from the back of the head)
+  function joyHair(v, c) {
+    const parts = [], hc = new V3(0, 1.17, -0.005);
+    // the bangs: big curving locks from the parting over the brow
+    parts.push(lock([[0.03, 1.29, 0.07], [0.0, 1.262, 0.098], [-0.035, 1.22, 0.108], [-0.06, 1.185, 0.1]], 0.03, 0.3, 0.005, 14, 12, hc));
+    parts.push(lock([[0.03, 1.29, 0.07], [0.04, 1.25, 0.1], [0.045, 1.21, 0.108], [0.05, 1.188, 0.103]], 0.026, 0.3, 0.004, 12, 12, hc));
+    parts.push(lock([[0.015, 1.288, 0.075], [-0.008, 1.25, 0.104], [-0.012, 1.21, 0.112], [-0.008, 1.19, 0.11]], 0.022, 0.3, 0.003, 12, 10, hc));
+    for (const s of [1, -1]) {
+      parts.push(lock([[s * 0.07, 1.26, 0.07], [s * 0.088, 1.21, 0.075], [s * 0.096, 1.15, 0.06], [s * 0.092, 1.1, 0.045], [s * 0.084, 1.07, 0.04]], 0.024, 0.32, 0.005, 14, 10, hc));
+      parts.push(lock([[s * 0.09, 1.25, 0.03], [s * 0.106, 1.19, 0.02], [s * 0.11, 1.13, 0.0], [s * 0.1, 1.09, -0.012]], 0.026, 0.35, 0.006, 12, 10, hc));
+      // the loop: a ring of hair behind the ear, facing out and back, a thick root to the head
+      const lc = new V3(s * 0.17, 1.168, -0.1), up = new V3(0, 1, 0), hz = new V3(s * 0.86, 0, -0.51), R = 0.066, ring = [];
+      for (let k = 0; k <= 14; k++) { const a = Math.PI + 0.2 - k / 12 * TAU; ring.push(lc.clone().addScaledVector(hz, Math.cos(a) * R).addScaledVector(up, Math.sin(a) * R).toArray()); }
+      parts.push(lock(ring, 0.04, 0.8, 0.047, 28, 14));
+      parts.push(lock([[s * 0.06, 1.21, -0.07], [s * 0.09, 1.19, -0.075], [s * 0.115, 1.18, -0.07]], 0.045, 0.7, 0.034, 8, 12));
+    }
+    // the back of the head, full down to the nape
+    parts.push(lock([[0, 1.28, -0.06], [0, 1.22, -0.112], [0, 1.15, -0.112], [0, 1.1, -0.085]], 0.07, 0.42, 0.04, 12, 14, hc));
+    v.flat(mergeGeos(parts), c.hair, head1);
+  }
 
   // Delia's hair: the fringe parted in the middle and swept to the sides, an ahoge on top
   function partBangs(p) {

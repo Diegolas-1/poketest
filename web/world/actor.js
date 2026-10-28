@@ -634,11 +634,14 @@ Object.assign(LOOKS, {
   jenny: { adult: true, hair: '#2fa58c', hairStyle: 'short', skin: '#f6d0b0', face: W_FACE('#8a4a26', '#1f6a5c'),
     hat: { color: '#4a4fb8', band: '#d8343a' }, shirt: '#5157c6', sleeve: 'short', pants: '#4446ac', shorts: true,
     gloves: '#f8f8f4', gloves2: '#e6e6e0', shoes: { up: '#1e1e28', sole: '#121218', collar: '#1e1e28' } },
+  // and Nurse Joy (the native game's Route 1 rescue)
+  joy: { adult: true, hair: '#ec6c7c', hairStyle: 'pony', ribbon: '#fbfaf8', skin: '#f8dac6', face: W_FACE('#3a6c9c', '#b04e5a'), shirt: null, pants: null,
+    dress: { color: '#f0a4a2', collar: '#fdfcfa', sleeve: '#f0a4a2', trim: '#fcfaf8' }, shoes: { up: '#ec8e9a', sole: '#c06a78', collar: '#ec8e9a' } },
 });
 // the townspeople, in the order the town lists them (Ash and Prof. Oak aside)
 export const TOWNSFOLK = ['delia', 'girl', 'rose', 'bram', 'ada', 'kid', 'mae', 'fisher', 'marina', 'ben', 'tom', 'gus'];
 // and the visitors (baked like them)
-export const VISITORS = ['jenny'];
+export const VISITORS = ['jenny', 'joy'];
 
 // the others are made from the same base model too, reworked in cast.js (and cast2.js)
 for (const k of ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus', ...VISITORS]) Object.assign(LOOKS[k], { base: 'calem', cast: k });
