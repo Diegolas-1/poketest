@@ -107,4 +107,23 @@ for (const [k, ids] of bins) {
 }
 fs.writeFileSync(path.join(OUT, ID + '_ink.bin'), Buffer.concat(parts));
 for (const f of [ID + '.glb', ID + '.json', ID + '_ink.bin']) console.log(f, (fs.statSync(path.join(OUT, f)).size / 1048576).toFixed(2), 'MB');
+// the doors index (native cast.gd): every baked interior whose blueprint's place
+// has a door, in world coordinates: where you press A outside (at, r), where you
+// come out (exit: x, z, yaw facing away from the door), the town house it is
+// (life.gd houses: its residents can be inside) and the conditions.json entry key
+writeDoors();
+function writeDoors() {
+  const maps = path.join(ROOT, 'web/world/maps'), doors = [];
+  for (const f of fs.readdirSync(maps).filter((n) => n.endsWith('.json')).sort()) {
+    let bp; try { bp = JSON.parse(fs.readFileSync(path.join(maps, f), 'utf8')); } catch { continue; }
+    const pl = bp.place, d = pl && pl.door;
+    if (bp.kind !== 'interior' || !d || !fs.existsSync(path.join(OUT, bp.id + '.glb'))) continue;
+    const a = (pl.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const W = ([lx, lz]) => [+(pl.at[0] + lx * c + lz * s).toFixed(3), +(pl.at[1] - lx * s + lz * c).toFixed(3)];
+    doors.push({ id: bp.id, name: bp.name, house: pl.house || '', refuse: d.refuse || pl.house || bp.id, at: W(d.use), r: d.r || 1.2,
+      exit: [...W(d.exit), +a.toFixed(4)], spawn: (bp.spawns && bp.spawns[0] && bp.spawns[0].id) || '' });
+  }
+  fs.writeFileSync(path.join(OUT, 'doors.json'), JSON.stringify({ note: 'written by tools/native/bake_interior.mjs from web/world/maps/*.json place.door', doors }, null, 1) + '\n');
+  console.log('doors.json:', doors.map((x) => x.id).join(', '));
+}
 console.log('meshes', res.stats.meshes, 'triangles', res.stats.tris, 'ink edges', res.n);

@@ -20,6 +20,7 @@ var P := {"act": null, "wait": 0.0, "idle": 0.0, "last": "", "busy": false, "eye
 var names: Array = []
 var rng := RandomNumberGenerator.new()
 var stance := ""            # a STANCES key held while idle ("" none)
+var hold := false           # in a conversation: no random actions (the talk's emotes only)
 var _sw := 0.0              # its weight now
 var _swi := 0.0             # the idle weight it follows
 
@@ -105,6 +106,10 @@ static func _defs() -> Dictionary:
 	var STR := {"at": CH(-0.03, 0.02, 0.44), "pole": [-1, -0.4, 0], "wt": 1.4, "wf": -0.4, "cu": 0.3}
 	var BELT := {"at": H(-0.15, 0.085, 0.085), "pole": [-1, -0.3, -0.7], "wd": -0.2, "cu": 0.3}
 	var BELT0 := {"at": H(-0.15, 0.09, 0.08), "pole": [-1, -0.3, -0.7], "wd": -0.2, "cu": 0.1}
+	var HIPR := {"at": H(-0.205, 0.11, -0.03), "pole": [-1, 0.4, -0.5], "wf": 0.5, "wd": -0.6, "cu": -0.25}
+	var HIPL := {"at": H(0.205, 0.11, -0.03), "pole": [1, 0.4, -0.5], "wf": 0.5, "wd": -0.6, "cu": -0.25}
+	var THIGH := func(s, sg): return {"at": KN(s, sg * -0.035, 0.13, 0.07), "pole": [sg * 0.9, -0.3, -0.6], "wf": 0.35, "wd": 0.1, "cu": 0.15}
+	var LEAN := {"dy": -0.07, "dz": -0.07, "wp": 0.3, "lean": 0.34, "ko": 0.14, "heel": 0.0, "hp": -0.28}
 	var SAL := {"at": HD(-0.155, 0.085, 0.075), "pole": [-1, -0.1, 0.35], "wf": 0.25, "wd": -0.1, "wt": 1.2, "cu": -0.1}
 	var CR := {"dy": -0.45, "dz": -0.1, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.45, "hp": -0.2}
 	var CR2 := {"dy": -0.5, "dz": -0.09, "wp": 0.45, "lean": 0.4, "ko": 0.42, "heel": 0.6, "side": -0.1, "tw": -0.1, "hp": -0.18}
@@ -192,6 +197,49 @@ static func _defs() -> Dictionary:
 			"body": [[0, {}], [0.5, {"hp": 0.05, "tw": -0.04}], [1.1, {"hp": -0.03, "tw": -0.06}], [1.8, {"hp": 0.03}], [2.4, {}]]},
 		"shrug": {"dur": 1.6, "talk": true, "fx": "shoulders",
 			"body": [[0, {}], [0.4, {"hr": 0.06, "hp": -0.03}], [1.0, {"hr": 0.05}], [1.6, {}]]},
+		# conversation emotes (conversation.gd picks them from what is said, or a line's
+		# "[name]" tag): a wave, a hand to the chin, pointing off, a laugh, a fist pump,
+		# hands on the hips, a gasp, hands clasped in worry
+		"wave": {"dur": 2.2, "talk": true,
+			"armR": [[0, null], [0.35, {"at": HD(-0.27, 0.12, 0.08), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}],
+				[0.7, {"at": HD(-0.33, 0.1, 0.1), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}], [1.05, {"at": HD(-0.24, 0.13, 0.08), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}],
+				[1.4, {"at": HD(-0.33, 0.1, 0.1), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}], [2.2, null]],
+			"body": [[0, {}], [0.5, {"side": 0.03, "hr": -0.05}], [1.5, {"side": 0.03, "hr": -0.04}], [2.2, {}]]},
+		"think": {"dur": 3.0, "talk": true,
+			"armR": [[0, null], [0.5, {"at": HD(-0.03, 0.0, 0.13), "pole": [-1, -1, 0.1], "wf": 0.3, "wt": 0.4, "cu": 0.5}], [2.4, {"at": HD(-0.03, 0.005, 0.13), "pole": [-1, -1, 0.1], "wf": 0.3, "wt": 0.4, "cu": 0.55}], [3.0, null]],
+			"armL": [[0, null], [0.55, {"at": CH(-0.06, -0.16, 0.2), "pole": [1, -0.8, -0.2], "cu": 0.3}], [2.4, {"at": CH(-0.06, -0.16, 0.2), "pole": [1, -0.8, -0.2], "cu": 0.3}], [3.0, null]],
+			"body": [[0, {}], [0.6, {"hr": 0.09, "hp": -0.04}], [2.4, {"hr": 0.1, "hp": -0.06}], [3.0, {}]],
+			"gaze": [[0, {"y": 0, "p": 0}], [0.7, {"y": 0.25, "p": -0.25}], [2.3, {"y": 0.3, "p": -0.2}], [3.0, {"y": 0, "p": 0}]]},
+		"point": {"dur": 2.4, "talk": true,
+			"armR": [[0, null], [0.4, {"at": CH(-0.3, 0.12, 0.38), "pole": [-1, -0.5, 0], "wt": 0.1, "wf": -0.1, "cu": 0.5}], [1.8, {"at": CH(-0.32, 0.13, 0.39), "pole": [-1, -0.5, 0], "wt": 0.1, "wf": -0.1, "cu": 0.5}], [2.4, null]],
+			"body": [[0, {}], [0.5, {"tw": -0.12, "lean": 0.03}], [1.8, {"tw": -0.12, "lean": 0.03}], [2.4, {}]],
+			"gaze": [[0, {"y": 0, "p": 0}], [0.45, {"y": -0.55, "p": -0.05}], [1.7, {"y": -0.5, "p": -0.05}], [2.4, {"y": 0, "p": 0}]]},
+		"laugh": {"dur": 2.2, "talk": true,
+			"armR": [[0, null], [0.35, {"at": H(-0.06, 0.17, 0.15), "pole": [-1, -0.4, -0.6], "wf": 0.2, "cu": 0.2}], [1.7, {"at": H(-0.06, 0.17, 0.15), "pole": [-1, -0.4, -0.6], "wf": 0.2, "cu": 0.2}], [2.2, null]],
+			"body": [[0, {}], [0.35, {"lean": -0.1, "hp": -0.16, "sh": 0.04}], [0.55, {"lean": -0.08, "hp": -0.12, "sh": 0.0}], [0.75, {"lean": -0.11, "hp": -0.16, "sh": 0.05}],
+				[0.95, {"lean": -0.08, "hp": -0.12, "sh": 0.0}], [1.15, {"lean": -0.1, "hp": -0.15, "sh": 0.04}], [1.4, {"lean": 0.04, "hp": 0.04}], [2.2, {}]]},
+		"fist": {"dur": 1.9, "talk": true,
+			"armR": [[0, null], [0.3, {"at": CH(-0.2, -0.04, 0.26), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}], [0.55, {"at": CH(-0.17, 0.08, 0.25), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}],
+				[0.8, {"at": CH(-0.19, -0.1, 0.24), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}], [1.35, {"at": CH(-0.19, -0.08, 0.24), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}], [1.9, null]],
+			"body": [[0, {}], [0.55, {"lean": 0.06, "hp": 0.04, "tw": -0.05}], [0.8, {"lean": 0.08, "hp": 0.06}], [1.9, {}]]},
+		"hips": {"dur": 3.0, "talk": true,
+			"armR": [[0, null], [0.6, HIPR], [2.4, HIPR], [3.0, null]],
+			"armL": [[0, null], [0.65, HIPL], [2.4, HIPL], [3.0, null]],
+			"body": [[0, {}], [0.6, {"lean": -0.04, "hp": 0.07, "side": 0.02}], [2.4, {"lean": -0.04, "hp": 0.06, "side": 0.02}], [3.0, {}]]},
+		"gasp": {"dur": 1.8, "talk": true,
+			"armR": [[0, null], [0.2, {"at": CH(-0.12, 0.0, 0.24), "pole": [-1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.2, {"at": CH(-0.12, 0.01, 0.24), "pole": [-1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.8, null]],
+			"armL": [[0, null], [0.22, {"at": CH(0.12, 0.0, 0.24), "pole": [1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.2, {"at": CH(0.12, 0.01, 0.24), "pole": [1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.8, null]],
+			"body": [[0, {}], [0.2, {"lean": -0.12, "hp": -0.1, "sh": 0.06}], [1.2, {"lean": -0.09, "hp": -0.08, "sh": 0.04}], [1.8, {}]]},
+		"worry": {"dur": 2.8, "talk": true,
+			"armR": [[0, null], [0.5, {"at": CH(-0.03, -0.06, 0.2), "pole": [-1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.2, {"at": CH(-0.03, -0.06, 0.2), "pole": [-1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.8, null]],
+			"armL": [[0, null], [0.5, {"at": CH(0.03, -0.07, 0.19), "pole": [1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.2, {"at": CH(0.03, -0.07, 0.19), "pole": [1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.8, null]],
+			"body": [[0, {}], [0.5, {"hp": 0.08, "hr": 0.07, "sh": 0.03}], [2.2, {"hp": 0.07, "hr": 0.08, "sh": 0.03}], [2.8, {}]]},
+		# Ash talking to someone small (a kid, a Pokémon): leaning forward, hands on his
+		# thighs above the knees, the head up to look at them (held for the whole talk)
+		"lean_down": {"dur": 10.0, "len": [9999, 9999], "stretch": [1.5, 8.0], "talk": true, "legs": true,
+			"body": [[0, {}], [0.9, LEAN], [8.5, LEAN], [10, {}]],
+			"armL": [[0, null], [0.85, THIGH.call("L", 1)], [8.6, THIGH.call("L", 1)], [9.6, null]],
+			"armR": [[0, null], [0.85, THIGH.call("R", -1)], [8.6, THIGH.call("R", -1)], [9.6, null]]},
 		# a salute (forced: someone on duty greeting Ash, people.json "greet_act"): the
 		# right hand up smartly to the cap's brim at the temple, held, then back down
 		"salute": {"dur": 2.7, "talk": true,
@@ -278,7 +326,14 @@ func _start(n: String) -> void:
 func force(n: String, ln := 0.0) -> void:
 	if P.act: _end()
 	_start(n)
+	P.act.forced = true
 	if ln > 0.0: P.act.len = ln
+
+# let go of the action now (eased out, as moving does)
+func release() -> void:
+	if P.act and P.act.ab < 0.0: P.act.ab = 0.0
+
+func acting() -> String: return String(P.act.name) if P.act else ""
 
 func _end() -> void:
 	if P.act and P.act.def.has("gaze"): A.L.look = rng.randf_range(0.5, 1.5)
@@ -322,7 +377,10 @@ func update(dt: float, wI: float) -> void:
 	if wI > 0.9: P.idle += dt
 	elif wI < 0.5: P.idle = 0.0
 	var a = P.act
+	# in a conversation the random acting fades out at once
+	if hold and a != null and not a.get("forced", false) and a.ab < 0.0: a.ab = 0.0
 	if a == null:
+		if hold: return
 		if wI > 0.9:
 			P.wait -= dt
 			if P.wait < 0.0: _start(_choose())

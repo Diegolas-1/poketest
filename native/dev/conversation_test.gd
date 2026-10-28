@@ -62,6 +62,7 @@ func _ready() -> void:
 	_quest_flows()
 	_everyday()
 	_misc()
+	_emotes()
 	print("conversation_test: %d checks, %d failures" % [checks, fails])
 	print("CONVERSATION TEST " + ("GREEN" if fails == 0 else "RED"))
 	get_tree().quit(1 if fails > 0 else 0)
@@ -249,12 +250,29 @@ func _paths(nodes: Dictionary, nid: String, acc: Array, depth := 0) -> Array:
 	else: out.append(a)
 	return out
 
+# what is said picks the emote (conversation.gd EMOTE_RULES), and every emote exists
+func _emotes() -> void:
+	var D := IdleActions._defs()
+	for e in Conversation.EMOTES:
+		ok(e == "nod" or D.has(e), "emote %s: no such action" % e)
+	var want := {"Haha, you're funny!": "laugh", "Whoa, really?!": "gasp", "Good morning, Ash!": "wave", "Halt! Stop right there, young man!": "hips",
+		"Oh dear, be careful.": "worry", "The lighthouse is over there.": "point", "I'm gonna be a Pokémon Master!": "fist", "Hmm. I wonder.": "think",
+		"Sorry, I forgot.": "scratch", "This is it!": "", "Things are fine.": "", "That's the whole story.": ""}
+	for t in want:
+		var e := ""
+		for r in Conversation._emote_rules():
+			if r[1].search(String(t).to_lower()): e = r[0]; break
+		ok(e == want[t], "emote for '%s': %s (want %s)" % [t, e, want[t]])
+
 func _line_ok(l: String, where: String, who_ok: Callable) -> void:
 	var d := cv._line(l)
 	var c := l.find(": ")
 	if c > 0 and c < 10 and l.substr(0, c) == l.substr(0, c).to_lower() and l.substr(0, c) != "A" and l.substr(0, c) != "N":
 		ok(who_ok.call(l.substr(0, c)), "%s: speaker %s" % [where, l.substr(0, c)])
 	ok(String(d.text).strip_edges() != "", "%s: an empty line" % where)
+	var tx := String(d.text)
+	if tx.begins_with("[") and tx.find("]") > 1:
+		ok(Conversation.EMOTES.has(tx.substr(1, tx.find("]") - 1)), "%s: an emote tag it doesn't know: %s" % [where, tx.left(20)])
 	ok(ConversationUI.rows(String(d.text)) <= ConversationUI.ROWS, "%s: fits the panel: '%s'" % [where, String(d.text).left(50)])
 
 func _cond(c: Variant, where: String, know_set: Dictionary) -> void:

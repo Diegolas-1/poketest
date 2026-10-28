@@ -17,18 +17,30 @@
 //   grid      snap (m)                      bounds [x0, z0, x1, z1]
 //   place     {map, at:[x,z], y, rot}  where this space sits on its parent map
 //             (the world-map overlay; local (0,0) lands on `at`)
-//   palette   {matId: {color, label, pattern?}}  every material a zone, wall,
-//             ceiling, slab, run or stair names (the plan's colours come from here)
+//   palette   {matId: {color, label, pattern?, color2?, gloss?}}  every material a zone, wall,
+//             ceiling, slab, run or stair names (the plan's colours come from here);
+//             patterns: floors 'tile1' | 'tile05' | 'boards' | 'tatami' | 'checker',
+//             walls 'wallpaper' | 'boards' (else plaster), ceilings 'boards'; gloss =
+//             a floor's shine in the native game
+//   place     also {house (life.gd's house id), door: {use: [lx, lz] (where you press
+//             A outside), exit: [lx, lz] (where you come out), r}} in the place's frame:
+//             tools/native/bake_interior.mjs writes them, in world coordinates, to
+//             native/interiors/doors.json
 //   levels    [{id, name, y}]  floor heights, low to high
 //   zones     [{id, name, level, poly:[[x,z]...], floor, ceiling, walk, tags}]
 //             walkable areas with a floor material; ceiling:
 //               {type:'vault', axis:'x'|'z', spring, rise, ribs (spacing), mat}
-//               {type:'flat', h, mat, lights?}   {type:'open'} (under another
+//               {type:'flat', h, mat, lights?, holes?:[[x0,z0,x1,z1]] (a stairwell),
+//               well?: false (no dim shaft above a hole), beams?:{axis, step}, beamCol}
+//               {type:'open'} (under another
 //               zone's ceiling)   {type:'sky'} (outdoors)
 //             walk:false = a floor nobody walks on (a pit, a stage)
 //   walls     [{id, level, path:[[x,z]...] (centre line), t, h, mat,
 //               gable?:{rise, axis} (a wall end-on to a vault: the top follows it),
-//               wainscot?:{h, mat}, trim?, openings:[...]}]
+//               wainscot?:{h, mat}, trim?, cornice?: true | colour, rail?:{y, col},
+//               openings:[...]}]  (openings may also carry frame (colour), wood (a door's),
+//               panes [cols, rows] for style 'grid'; window style 'shoji' = lit paper,
+//               door style 'shoji' = sliding paper doors)
 //             opening {id?, type:'door'|'window'|'arch'|'opening', seg (index of
 //               the path segment, default 0), at (distance along that segment
 //               to the opening's middle), w, h, sill, style, outside?, portal?}
@@ -38,16 +50,22 @@
 //             standing over a lower one (a mezzanine): walkable on its own
 //             level; columns hold it up (colliders on the levels below)
 //   stairs    [{id, from, to, a:[x,z], b:[x,z], w, steps, style, rails}]  the
-//             foot a is on level `from`, the head b on level `to`
+//             foot a is on level `from`, the head b on level `to`; style 'hidden' =
+//             walked on only (a staircase prop draws it)
 //   rails     [{id, level, path, h, style}] railings: block walking
-//   runs      [{id, type:'pipe'|'cable'|'beam', pts:[[x,y,z]...], r, mat}]
+//   runs      [{id, type:'pipe'|'cable'|'beam'|'timber', pts:[[x,y,z]...], r, mat}]
 //             linear fixtures (absolute y)
 //   props     [{id, type (props/catalog.js), pos:[x,z], rot, level, y?, mount?,
-//               params?, walk?:'block'|'free', use?:{label, lines|dialogue} | false,
+//               params?, walk?:'block'|'free', use?:{label, lines|dialogue, at?, r?, ...} | false,
+//               (a use's other fields go into the compiled use as they are: the food
+//               contract's food_place, seat, seat_h, table_top; see native interior_data.gd)
 //               tags?}]   y: above the level for floor/top props, the middle of a
 //               wall prop, the ceiling a hanging prop hangs from
 //   actors    [{id, look, name, pos, rot, level, pose:'stand'|'sit', dialogue | lines}]
 //             people who live here (the cast's looks)
+//   residents {house (life.gd's house id), people: {personId: {activity: [x, z, rot], '_': [x, z, rot]}},
+//               default: [x, z, rot], hide: [activities]}  the townspeople whose day has
+//               them inside this house stand at these spots (native cast.gd)
 //   dialogue  {id: [lines]}
 //   spawns    [{id, pos, level, rot}]
 //   portals   [{id, level, rect:[x0,z0,x1,z1], trigger:'walk'|'use', spawn
@@ -254,8 +272,11 @@ export function compile(bp, cat) {
     const lines = u.dialogue ? bp.dialogue[u.dialogue] : u.lines;
     const b = propBox(p, cat), L = LI[p.level];
     const f = p.use && p.use.at ? p.use.at : null;
-    uses.push({ id: p.id, level: L, x: f ? f[0] : b[0], z: f ? f[1] : b[1], r: +(Math.max(b[2], b[3]) + 0.35).toFixed(3), label: u.label || 'Look', lines,
-      y: LY[L] + Math.min(1.9, ((c.size || [1, 1, 1])[2]) + 0.3), action: u.action || null });
+    // anything else the use carries (the food contract: food_place, seat, seat_h, table_top) goes through as it is
+    const extra = {};
+    for (const k of Object.keys(u)) if (!['label', 'lines', 'dialogue', 'at', 'action', 'r', 'y'].includes(k)) extra[k] = u[k];
+    uses.push({ id: p.id, level: L, x: f ? f[0] : b[0], z: f ? f[1] : b[1], r: u.r ?? +(Math.max(b[2], b[3]) + 0.35).toFixed(3), label: u.label || 'Look', lines: lines || [],
+      y: u.y ?? LY[L] + Math.min(1.9, ((c.size || [1, 1, 1])[2]) + 0.3), action: u.action || null, ...extra });
   }
   // openings with a use (a locked door): the point is just inside the room
   // (side 1 = the right of the segment's direction, -1 the left)
@@ -285,6 +306,7 @@ export function compile(bp, cat) {
     _raw: { H, FL },
     colliders: col, uses, portals, spawns, actors, props,
     camera: { ...bp.camera, blocks: camBlocks }, lights: bp.lights || {},
+    residents: bp.residents || null,   // (the townspeople who can be inside: their spots by activity, cast.gd)
   };
 }
 

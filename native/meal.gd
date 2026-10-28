@@ -24,6 +24,8 @@ extends Node
 
 const T := preload("res://tunables.gd")
 const STAND_BACK := 0.4         # his feet this far in front of the chair's seat (m)
+const KNEEL_BACK := 0.06        # on a floor cushion: his feet this far behind its middle (he kneels, seiza)
+const FLOOR_SEAT := 0.15        # a seat lower than this (seat_h) is a floor cushion
 const SEAT_H := 0.45            # a chair's seat when its usable doesn't say
 const TABLE_H := 0.74           # a table's top over the floor when it doesn't say
 const TERRACE_TABLE_H := 0.8    # Pallet House's terrace tables (outdoors: places.json has no heights)
@@ -134,7 +136,9 @@ func _find_seat() -> Dictionary:
 	if bd > 14.0: return {}
 	return best
 
-# {pos, yaw, h, table, stand} from a usable's seat fields (tolerant of missing ones)
+# {pos, yaw, h, table, stand, floor, kind} from a usable's seat fields (tolerant of
+# missing ones; interior_data.gd's contract): seat [x, y (his hips: the floor + 0.46 on a
+# chair, + 0.1 on a cushion), z, yaw], seat_h (0.46 a chair, 0 a floor cushion), table_top
 func _seat_of(u: Dictionary) -> Dictionary:
 	var s = u.get("seat")
 	if not s is Array or s.size() < 3: return {}
@@ -142,12 +146,16 @@ func _seat_of(u: Dictionary) -> Dictionary:
 	var h := float(u.get("seat_h", SEAT_H))
 	var p := Vector3(float(s[0]), float(s[1]), float(s[2]))
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
-	var floor_y := p.y - h
-	var tb := p + fwd * 0.55 + Vector3(0, TABLE_H - h, 0)
+	var kind := "floor" if h < FLOOR_SEAT else "chair"
+	var floor_y := p.y - h if kind == "chair" else p.y - 0.1
+	if game != null and game.world != null and game.world.has_method("height_at"):
+		var fy: float = game.world.height_at(p.x, p.z)
+		if absf(fy - floor_y) < 0.3: floor_y = fy
+	var tb := p + fwd * 0.55 + Vector3(0, (TABLE_H if kind == "chair" else 0.36) - (p.y - floor_y), 0)
 	var tt = u.get("table_top")
 	if tt is Array and tt.size() >= 3: tb = Vector3(float(tt[0]), float(tt[1]), float(tt[2]))
-	var stand := Vector3(p.x, floor_y, p.z) + fwd * STAND_BACK
-	return {"pos": p, "yaw": yaw, "h": h, "table": tb, "stand": stand, "floor": floor_y}
+	var stand := Vector3(p.x, floor_y, p.z) + fwd * (STAND_BACK if kind == "chair" else -KNEEL_BACK)
+	return {"pos": p, "yaw": yaw, "h": h, "table": tb, "stand": stand, "floor": floor_y, "kind": kind}
 
 # ---------- 4. the meal ----------
 func _process(dt: float) -> void:
@@ -204,14 +212,16 @@ func _sit_down() -> void:
 	if seated:
 		dish.global_position = seat.table
 		dish.rotation.y = float(seat.yaw) + PI   # its front (+z) toward him
-		# the chair's seat under his hips (the seat solver sits on the ground)
+		# the chair's seat under his hips (the seat solver sits on the ground); on a
+		# cushion he kneels, his own legs under him
+	if seated and String(seat.get("kind", "chair")) == "chair":
 		_ground_was = A.ground
 		var sp: Vector3 = seat.pos
 		var gw := _ground_was
 		A.ground = func(x: float, z: float) -> float:
 			if Vector2(x - sp.x, z - sp.z).length() < 0.3: return sp.y
 			return float(gw.call(x, z)) if gw.is_valid() else sp.y - SEAT_H
-	else:
+	if not seated:
 		dish.scale = Vector3.ONE * (0.8 if dish.held == null else 1.0)
 	# the utensil in his right hand (cups and fingers need none)
 	var ut := String(item.get("utensil", dish.utensil))
@@ -225,7 +235,7 @@ func _sit_down() -> void:
 		morsel = FoodKit.node(FoodKit.blob(0.011, Vector3(1.0, 0.7, 1.0), 0.25, dish.morsel, 3, 10, 6), FoodKit.mat(Color.WHITE, {"gloss": 0.5}))
 		morsel.visible = false
 		game.add_child(morsel)
-	var def := build_action(ut, _bites, _plate_local(), seated, float(seat.get("h", SEAT_H)), _cup_local())
+	var def := build_action(ut, _bites, _plate_local(), String(seat.get("kind", "chair")) if seated else "stand", float(seat.get("h", SEAT_H)), _cup_local())
 	_events = def.events
 	_ev_i = 0
 	IdleActions._defs()["meal"] = def
@@ -410,9 +420,13 @@ static func standin(parent: Node3D, at: Vector3, yaw: float, pid := "home") -> D
 
 # ---------- the acting: one idle action for the whole meal ----------
 # kind: fork | spoon | chopsticks | hand | cup; plate / cup: where they are in his
-# own frame (metres, +z ahead, +x his left); seated: on a chair (seat_h high)
+# own frame (metres, +z ahead, +x his left); mode: "chair" (seat_h high), "floor" (kneeling
+# on a cushion at a low table, seiza) or "stand"
 # Returns an IdleActions action with its events [[t, "scoop" | "bite" | "chew" | "grab" | "release" | "pat"]].
-static func build_action(kind: String, bites: int, plate: Vector3, seated: bool, seat_h := SEAT_H, cup := Vector3.ZERO) -> Dictionary:
+static func build_action(kind: String, bites: int, plate: Vector3, mode = "chair", seat_h := SEAT_H, cup := Vector3.ZERO) -> Dictionary:
+	if mode is bool: mode = "chair" if mode else "stand"
+	var seated: bool = mode != "stand"
+	var floor_sit: bool = mode == "floor"
 	var B := T.num("hunger", "bite_s", float(T.dict("hunger", "eat", {}).get("bite_s", 2.4)))
 	var t0 := 2.8 if seated else 0.6
 	var body := []
@@ -422,13 +436,16 @@ static func build_action(kind: String, bites: int, plate: Vector3, seated: bool,
 	var drop := -(0.68 - seat_h) if seated else 0.0
 	# the hips back over the chair, the trunk a little forward to the table
 	var SITC := {"dy": drop, "dz": -STAND_BACK + 0.04, "wp": 0.1, "lean": 0.16, "ko": 0.22, "seat": 1, "gap": 0, "hp": 0.18}
+	if floor_sit:
+		# seiza: down onto his knees, sitting back on his heels (the hips over the planted feet)
+		SITC = {"dy": -0.5, "dz": 0.02, "wp": 0.05, "lean": 0.12, "ko": 0.04, "hp": 0.2}
 	var LEAN := SITC.duplicate(); LEAN.lean = 0.3; LEAN.hp = 0.32
 	var UPR := SITC.duplicate(); UPR.lean = 0.12; UPR.hp = 0.05
 	var ST := {} if not seated else SITC
 	if seated:
 		body.append([0.0, {}])
 		body.append([0.5, {"dy": -0.03, "lean": 0.06, "hp": 0.08}])
-		body.append([1.4, {"dy": drop * 0.7, "dz": -0.22, "wp": 0.25, "lean": 0.32, "ko": 0.3, "gap": 0.12, "seat": 0.3}])
+		body.append([1.4, {"dy": -0.3, "dz": 0.06, "wp": 0.2, "lean": 0.35, "ko": 0.06, "hp": 0.2} if floor_sit else {"dy": drop * 0.7, "dz": -0.22, "wp": 0.25, "lean": 0.32, "ko": 0.3, "gap": 0.12, "seat": 0.3}])
 		body.append([2.2, SITC])
 	else:
 		body.append([0.0, {}])
@@ -495,14 +512,14 @@ static func build_action(kind: String, bites: int, plate: Vector3, seated: bool,
 	if seated:
 		# up off the chair
 		body.append([te + 3.0, SITC])
-		body.append([te + 3.8, {"dy": drop * 0.6, "dz": -0.2, "wp": 0.3, "lean": 0.35, "ko": 0.3, "gap": 0.15, "seat": 0.3}])
+		body.append([te + 3.8, {"dy": -0.3, "dz": 0.06, "wp": 0.2, "lean": 0.35, "ko": 0.06, "hp": 0.1} if floor_sit else {"dy": drop * 0.6, "dz": -0.2, "wp": 0.3, "lean": 0.35, "ko": 0.3, "gap": 0.15, "seat": 0.3}])
 		body.append([te + 4.6, {"dy": -0.02, "lean": 0.05}])
 		body.append([te + 5.0, {}])
 		dur = te + 5.0
 	else:
 		body.append([te + 3.0, {}])
 	var gaze := [[0.0, {"y": 0, "p": 0}], [t0, {"y": 0, "p": 0.35}], [te, {"y": 0, "p": 0.3}], [te + 0.8, {"y": 0, "p": -0.1}], [dur, {"y": 0, "p": 0}]]
-	return {"dur": dur, "talk": true, "player": true, "legs": seated, "kup": 0.35, "body": body, "armR": arm_r, "armL": arm_l if not arm_l.is_empty() else [[0.0, null], [dur, null]],
+	return {"dur": dur, "talk": true, "player": true, "legs": seated, "kup": 0.0 if floor_sit else 0.35, "body": body, "armR": arm_r, "armL": arm_l if not arm_l.is_empty() else [[0.0, null], [dur, null]],
 		"gaze": gaze, "events": ev}
 
 static func _with(a: Dictionary, b: Dictionary) -> Dictionary:

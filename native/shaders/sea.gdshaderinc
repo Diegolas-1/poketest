@@ -9,6 +9,9 @@ varying vec3 v_w;
 float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float n(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
 	return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+#ifndef SEA_DEEP
+#include "res://shaders/part.gdshaderinc"
+#endif
 
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -41,6 +44,13 @@ void fragment() {
 	foam = max(foam, step(depth, lap));
 	float rim = step(depth, lap + 0.22) * step(0.5, n(v_w.xz * 1.6 + vec2(TIME * 0.6, 0.0)));
 	foam = max(foam, rim);
+#ifndef SEA_DEEP
+	// the bike's wheels parting the water (part.gdshaderinc)
+	float pdark;
+	float pf = bike_part(v_w.xz, pdark);
+	c *= 1.0 - 0.16 * pdark;
+	foam = max(foam, pf);
+#endif
 	c = mix(c, vec3(0.97, 0.99, 1.0), foam);
 	vec2 g = floor(v_w.xz * vec2(0.9, 2.2));
 	float tw = h(g); float on = step(0.985, tw) * step(0.5, fract(TIME * 0.35 + tw * 7.0));

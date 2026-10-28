@@ -815,6 +815,11 @@ static func npc_id(n: Dictionary) -> String:
 func _start_scene() -> void:
 	_t = 0.0; _line_t = 0.0; _int_t = 0.0
 	cam_on = true
+	# no idle acting while they talk: only the emotes the lines call for
+	for a in [_ash_actor(), _actor_of(partner)]:
+		if a and a.idles: a.idles.hold = true
+	# someone small (a kid, a Pokémon): Ash leans down to their level, hands on his thighs
+	_lean = _ash_head().y - _other_head().y > LEAN_FROM
 	var cam: Camera3D = game.cam
 	_cam_pos = cam.global_position
 	_cam_look = _ash_head().lerp(_other_head(), 0.5)
@@ -855,11 +860,17 @@ func _present(it: Dictionary) -> void:
 		"line":
 			var w := String(it.who)
 			var v := speaker_voice(w)
+			var tx := String(it.text)
+			var tag := ""
+			# "[emote] text": the line names its emote
+			if tx.begins_with("[") and tx.find("]") > 1:
+				tag = tx.substr(1, tx.find("]") - 1)
+				tx = tx.substr(tx.find("]") + 1).strip_edges()
 			ui.voice = String(v[0]); ui.voice_pitch = float(v[1])
-			ui.show_line(speaker_name(w), String(it.text), speaker_colour(w))
+			ui.show_line(speaker_name(w), tx, speaker_colour(w))
 			_shot_who = w
 			_line_t = 0.0
-			_gesture(w, String(it.text))
+			_emote(w, tx, tag)
 			_listener_nod(w)
 		"choices":
 			_shot_who = "ash_choice"
@@ -883,6 +894,10 @@ func _end_scene() -> void:
 	elif p.get("kind", "") == "npc": p.d.wait = 2.0
 	for a in [_ash_actor(), _actor_of(p)]:
 		if a: a.mouth = 0.0; a.nod = 0.0; a.look_pitch = 0.0
+		if a and a.idles: a.idles.hold = false
+	var ash := _ash_actor()
+	if _lean and ash and ash.idles and ash.idles.acting() == "lean_down": ash.idles.release()
+	_lean = false
 	# back to the gameplay camera from where this one is: its yaw and pitch, eased in
 	var cam: Camera3D = game.cam
 	var off: Vector3 = cam.global_position - (game.pos + Vector3(0, 1.45, 0))
@@ -908,6 +923,7 @@ func update(dt: float) -> void:
 		if absf(want - _amp_db) > 0.2: _amp_db = want; _amp.volume_db = want
 	if not active: return
 	_place(dt)
+	_lean_down()
 	_faces(dt)
 	_check_interrupt(dt)
 
@@ -976,15 +992,66 @@ func _faces(dt: float) -> void:
 			a.nod = sin(clampf(nt / 0.9, 0.0, 1.0) * TAU) * 0.09 * (1.0 - nt / 0.9) if nt < 0.9 else 0.0
 	if cast and cast.player: cast.player.visible = true
 
-func _gesture(w: String, text: String) -> void:
-	_gest_cd -= 1.0
+# Ash leans down once he has stepped into place (and again if a step let go of it)
+const LEAN_FROM := 0.22      # m: the other's head this much lower than his
+var _lean := false
+func _lean_down() -> void:
+	var a := _ash_actor()
+	if not _lean or a == null or a.idles == null or _place_to != Vector3.INF or absf(game.speed) > 0.05: return
+	if cast.bike and cast.bike.places_player(): return
+	if a.idles.acting() != "lean_down": a.idles.force("lean_down", 9999.0)
+
+# an emote for what is said: the line's own tag, else read from the words (first
+# rule that matches); none twice running for the same person, and not on every line
+const EMOTES := ["wave", "think", "point", "laugh", "fist", "hips", "gasp", "worry", "explain", "shrug", "scratch", "salute", "cap", "nod"]
+const EMOTE_RULES := [
+	["laugh", ["haha", "hehe", "ha!", "ha,", "ha ha", "heh"]],
+	["gasp", ["?!", "!?", "whoa", "no way", "wow!", "what?!", "really?!", "eek"]],
+	["wave", ["hello", "hi!", "hi,", "hey there", "good morning", "good evening", "see you", "bye", "later!", "take care", "goodnight", "good night"]],
+	["hips", ["young man", "ash ketchum!", "mister", "you'd better", "don't you", "halt", "stop right", "no running", "behave", "rules are rules"]],
+	["worry", ["oh dear", "careful", "worried", "worry", "be safe", "scared", "afraid", "i hope", "poor thing", "dangerous"]],
+	["point", ["over there", "that way", "this way", "up the road", "down the road", "across the", "beyond", "north", "south", "the lighthouse", "the pier", "the lab", "cinnabar", "route 1", "viridian", "up on the hill"]],
+	["fist", ["gonna", "i'll be", "i'm going to", "pokémon master", "you bet", "let's go", "can do it", "watch me", "the best", "i'll show"]],
+	["think", ["hmm", "let me think", "i wonder", "maybe", "perhaps", "...", "i suppose", "come to think"]],
+	["scratch", ["sorry", "oops", "um,", "uh,", "er,", "well, i", "i guess"]],
+]
+var _last_emote := {}
+static var _emote_re: Array = []
+static func _emote_rules() -> Array:
+	if _emote_re.is_empty():
+		for r in EMOTE_RULES:
+			var alts := []
+			for k in r[1]:
+				var k2 := String(k)
+				var esc := ""
+				for ch in k2: esc += ("\\" + ch) if "\\^$.|?*+()[]{}".contains(ch) else ch
+				# a word's start (not inside another word)
+				alts.append(("(?<![a-zé])" if k2.unicode_at(0) >= 97 and k2.unicode_at(0) <= 122 else "") + esc)
+			var re := RegEx.new()
+			re.compile("|".join(alts))
+			_emote_re.append([r[0], re])
+	return _emote_re
+
+func _emote(w: String, text: String, tag := "") -> void:
 	var a: CastActor = _ash_actor() if w == "ash" else (_actor_of(partner) if w == who else null)
-	if a == null or a.idles == null or a.idles.busy: return
-	if text.length() > 55 and _gest_cd <= 0.0 and rng.randf() < 0.45:
-		a.idles.force("explain" if rng.randf() < 0.75 else "shrug")
-		_gest_cd = 2.0
-	elif text.ends_with("?") and rng.randf() < 0.25:
-		a.idles.force("shrug")
+	if a == null or a.idles == null: return
+	if a == _ash_actor() and _lean: return   # (leaning down, his hands stay on his thighs; he nods)
+	var e := tag if EMOTES.has(tag) else ""
+	if e == "":
+		var low := text.to_lower()
+		for r in _emote_rules():
+			if r[1].search(low): e = r[0]; break
+		if e == "":
+			_gest_cd -= 1.0
+			if text.length() > 55 and _gest_cd <= 0.0 and rng.randf() < 0.5: e = "explain"; _gest_cd = 2.0
+			elif text.ends_with("?") and rng.randf() < 0.3: e = "shrug"
+		if e == _last_emote.get(a, "") and rng.randf() < 0.75: e = ""
+		elif e != "" and rng.randf() < 0.15: e = ""
+	if e == "": return
+	_last_emote[a] = e
+	if e == "nod": _nod[a] = 0.0; return
+	if a.idles.busy and a.idles.acting() == "salute": return
+	a.idles.force(e)
 
 func _listener_nod(speaker: String) -> void:
 	var l: CastActor = _actor_of(partner) if speaker == "ash" else _ash_actor()

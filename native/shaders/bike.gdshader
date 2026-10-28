@@ -4,7 +4,8 @@ shader_type spatial;
 // and chrome (gloss), chrome's dark band where it turns away (chrome), and a
 // few patterns drawn from the UVs instead of textures: the chain's links
 // (scrolled as the cranks turn), the basket's weave, the tyres' tread, and the
-// lamp's lit lens (glow).
+// lamp's lit lens (glow). Wet below wet_y (world height; bike/bike_water.gd: ridden
+// through water, it dries from the top down): darker, deeper colours.
 render_mode ambient_light_disabled;
 #include "res://shaders/aces.gdshaderinc"
 
@@ -25,9 +26,12 @@ uniform int pattern = 0;        // 0 none, 1 chain, 2 weave, 3 tread, 4 lens
 uniform float chain_off = 0.0;  // the chain's travel (m)
 uniform float glow = 0.0;       // a lit lamp
 uniform vec4 col2 : source_color = vec4(0.2, 0.2, 0.22, 1.0);   // the pattern's second colour
+uniform float wet_y = -10000.0;
+varying vec3 v_wp;
 
 void vertex() {
 	if (lift > 0.0) VERTEX += NORMAL * lift;
+	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
@@ -58,6 +62,13 @@ void fragment() {
 	} else if (pattern == 4) {
 		float d = length(UV - vec2(0.5));
 		c.rgb = mix(c.rgb, col2.rgb, smoothstep(0.32, 0.5, d));
+	}
+	if (wet_y > -9000.0) {
+		float wob = sin(v_wp.x * 29.0 + v_wp.z * 19.0) * 0.012;
+		float wet = 1.0 - smoothstep(wet_y - 0.03, wet_y + 0.01, v_wp.y + wob);
+		float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+		vec3 sat = clamp(mix(vec3(lum), c.rgb, 1.35), 0.0, 1.0);
+		c.rgb = mix(c.rgb, sat * sat * 0.6 + sat * 0.18, wet * 0.85);
 	}
 	ALBEDO = c.rgb;
 	// chrome: the surroundings in it (a light sky band above, a dark ground band below the horizon line)

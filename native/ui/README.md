@@ -30,7 +30,7 @@ Every piece appears on the gallery page:
 * `chip(ci, at, "NEW", col)` draws a small skewed label. `bar(ci, r, f, col, a, segments)` draws a skewed or segmented bar.
 * `glyph(ci, c, action, h)` draws the button for an action on the current device: a disc on a pad (A, B, X, +, -), a keycap on the keyboard (E, ESC, SPACE…) or a shoulder pill (L / R). `glyph_label(action)` gives the button's name. Actions are `use`, `back`, `jump`, `menu`, `quests`, `run`, `recenter`, `tab_l`, `tab_r`.
 * `prompt(ci, p, label, action, a, s)` draws the "[A] TALK" chip with a pointer down at p.
-* `icon(ci, id, c, r, col)` draws one of `cog`, `log`, `ball`, `close`, `bolt`, `jump`, `bell`, `bang`, `check`, `star`, `bag`, `map`, `bike`, `clock`, `update`, `warn`, `chat`, `drop`, `sweat`, `heart`, `sun` or `snow`.
+* `icon(ci, id, c, r, col)` draws one of `cog`, `log`, `ball`, `close`, `bolt`, `jump`, `bell`, `bang`, `check`, `star`, `bag`, `map`, `bike`, `clock`, `update`, `warn`, `chat`, `drop`, `sweat`, `heart`, `sun`, `snow`, `bowl` (a meal, well fed), `hungry` (a fork and spoon), `stuffed` or `coin`.
 * `scrim()` makes the modal scrim under a menu: a ColorRect with `shaders/ui_scrim.gdshader`, which dims toward ink with a vignette and faint diagonal hatching. Fade it with `modulate`.
 * `theme()` is a Godot `Theme` for node-built screens (body font, scroll bars). `style_button(b, variant)` styles a plain `Button`, and `sb(...)` makes a skewable `StyleBoxFlat`. `label(text, role, size, col)` makes a `Label`.
 

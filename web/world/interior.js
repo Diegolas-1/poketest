@@ -19,6 +19,19 @@ import { compile, wallSegments, propMount } from './maps/format.js';
 import { CATALOG } from './props/catalog.js';
 import { buildProp } from './props/index.js';
 import { doorLeaf } from './props/decor.js';
+
+// a sliding shoji door leaf (dark frame, paper lattice), centred, its back at z
+function shojiLeaf(G, w, h, col, z) {
+  for (const [x, lw, dz] of [[-w / 4, w / 2, 0], [w / 4, w / 2, 0.04]]) {
+    box(G, lw, h - 0.02, 0.04, col, x, 0, z + 0.02 + dz);
+    const pg = new THREE.PlaneGeometry(lw - 0.1, h - 0.4); const uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (lw - 0.1) * 2.2, uv.getY(i) * (h - 0.4) * 2.2);
+    const pm = texm(shojiTex(), '#ffffff'); pm.map.wrapS = pm.map.wrapT = THREE.RepeatWrapping;
+    const m = new THREE.Mesh(pg, pm); m.position.set(x, 0.08, z + 0.045 + dz); m.userData.outline = false; G.add(m);
+    box(G, lw - 0.08, 0.26, 0.01, shade(col, 1.25), x, -h / 2 + 0.17, z + 0.045 + dz, { line: false });
+  }
+  for (const s of [-1, 1]) box(G, 0.1, h + 0.1, 0.1, col, s * (w / 2 + 0.05), 0.05, z + 0.05);
+  box(G, w + 0.2, 0.1, 0.1, col, 0, h / 2 + 0.05, z + 0.05);
+}
 import { inkSolid, partEdges, inkSkip } from './outline.js';
 import { setPalette, paint, flat, texm, unlit, glow, box, block, cyl, sphere, torus, rod, plane, extrude, wuv, plaster, planks, metal, poolTex, shade, rng, hash } from './props/kit.js';
 
@@ -96,6 +109,67 @@ const streakTex = () => paint('streak', 64, 256, (x, w, h) => {
   const s = x.createLinearGradient(0, 0, w, 0); s.addColorStop(0, 'rgba(0,0,0,1)'); s.addColorStop(0.5, 'rgba(0,0,0,0)'); s.addColorStop(1, 'rgba(0,0,0,1)');
   x.globalCompositeOperation = 'destination-out'; x.fillStyle = s; x.fillRect(0, 0, w, h);
 }, { repeat: false });
+// wooden floorboards: long boards of slightly different tones, staggered end
+// joints, grain and a soft polish (1 texture = 2 x 2 m, boards run along u)
+const boardsTex = (col) => paint('boards' + col, 512, 512, (x, w, h, R) => {
+  const n = 10, bh = h / n;
+  for (let j = 0; j < n; j++) {
+    let u = -R() * 200;
+    while (u < w) {
+      const L = 160 + R() * 220, c = shade(col, 0.88 + R() * 0.2);
+      const g = x.createLinearGradient(0, j * bh, 0, (j + 1) * bh); g.addColorStop(0, shade(c, 1.06)); g.addColorStop(1, shade(c, 0.94));
+      x.fillStyle = g; x.fillRect(u, j * bh, L, bh);
+      x.globalAlpha = 0.18; x.strokeStyle = shade(c, 0.7); x.lineWidth = 1.2;
+      for (let k = 0; k < 4; k++) { const y0 = j * bh + 4 + R() * (bh - 8); x.beginPath(); x.moveTo(u, y0); x.bezierCurveTo(u + L * 0.3, y0 + 3, u + L * 0.6, y0 - 3, u + L, y0 + (R() - 0.5) * 4); x.stroke(); }
+      if (R() < 0.3) { x.fillStyle = shade(c, 0.7); x.beginPath(); x.ellipse(u + R() * L, j * bh + bh / 2, 6, 3, 0, 0, 6.28); x.fill(); }
+      x.globalAlpha = 1;
+      x.fillStyle = shade(col, 0.6); x.fillRect(u + L - 1.5, j * bh, 1.5, bh);
+      u += L;
+    }
+    x.fillStyle = shade(col, 0.58); x.fillRect(0, j * bh, w, 2);
+    x.fillStyle = 'rgba(255,255,255,.16)'; x.fillRect(0, j * bh + 2, w, 1.5);
+  }
+});
+// tatami: woven rush, a dark cloth border, laid in 1.8 x 0.9 m mats (texture = one mat)
+const tatamiTex = (col) => paint('tatami' + col, 256, 128, (x, w, h, R) => {
+  x.fillStyle = col; x.fillRect(0, 0, w, h);
+  for (let k = 0; k < w; k += 3) { x.fillStyle = k % 6 ? shade(col, 0.93) : shade(col, 1.06); x.fillRect(k, 0, 1.5, h); }
+  x.globalAlpha = 0.12; for (let k = 0; k < 200; k++) { x.fillStyle = R() < 0.5 ? '#fff8d8' : '#6a6a3a'; x.fillRect(R() * w, R() * h, 2, 1); } x.globalAlpha = 1;
+  x.fillStyle = '#3a4a3a'; x.fillRect(0, 0, w, 9); x.fillRect(0, h - 9, w, 9);
+  x.fillStyle = 'rgba(255,255,255,.18)'; x.fillRect(0, 9, w, 1.5);
+  x.fillStyle = shade(col, 0.7); x.fillRect(0, 0, 2, h); x.fillRect(w - 2, 0, 2, h);
+});
+// linoleum checks (a kitchen floor)
+const checkerTex = (col, col2 = '#f6f0e0') => paint('checker' + col + col2, 256, 256, (x, w, h) => {
+  const n = 4, s = w / n;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { x.fillStyle = (i + j) % 2 ? col : col2; x.fillRect(i * s, j * s, s, s); }
+  x.fillStyle = 'rgba(0,0,0,.12)'; for (let i = 0; i <= n; i++) { x.fillRect(i * s - 1, 0, 2, h); x.fillRect(0, i * s - 1, w, 2); }
+});
+// wallpaper: soft vertical stripes with little sprigs between (1 texture = 1 m)
+const wallpaperTex = (col, col2) => paint('wallp' + col + col2, 256, 256, (x, w, h, R) => {
+  x.fillStyle = col; x.fillRect(0, 0, w, h);
+  const c2 = col2 || shade(col, 0.9);
+  for (let i = 0; i < w; i += 64) { x.fillStyle = c2; x.fillRect(i + 26, 0, 12, h); x.fillStyle = shade(c2, 0.92); x.fillRect(i + 24, 0, 2, h); x.fillRect(i + 38, 0, 2, h); }
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const cx = i * 64 + 0 + (j % 2) * 0, cy = j * 64 + 32;
+    x.fillStyle = '#e88aa0'; for (let k = 0; k < 5; k++) { const a = k * 1.256; x.beginPath(); x.arc(cx + 2 + Math.cos(a) * 4, cy + Math.sin(a) * 4, 3, 0, 6.28); x.fill(); }
+    x.fillStyle = '#f6d24a'; x.beginPath(); x.arc(cx + 2, cy, 2, 0, 6.28); x.fill();
+    x.strokeStyle = '#7aa66a'; x.lineWidth = 2; x.beginPath(); x.moveTo(cx + 2, cy + 6); x.quadraticCurveTo(cx + 8, cy + 12, cx + 4, cy + 18); x.stroke();
+  }
+  x.globalAlpha = 0.05; for (let k = 0; k < 300; k++) { x.fillStyle = R() < 0.5 ? '#fff' : '#000'; x.fillRect(R() * w, R() * h, 2, 2); } x.globalAlpha = 1;
+});
+// a ceiling of boards between beams (1 texture = 2 m)
+const ceilBoardsTex = (col) => paint('ceilb' + col, 256, 256, (x, w, h, R) => {
+  const n = 8, bw = w / n;
+  for (let k = 0; k < n; k++) { x.fillStyle = shade(col, 0.92 + R() * 0.14); x.fillRect(k * bw, 0, bw, h); x.fillStyle = shade(col, 0.66); x.fillRect(k * bw + bw - 2, 0, 2, h); x.globalAlpha = 0.18; x.fillStyle = shade(col, 0.75); for (let j = 0; j < 4; j++) x.fillRect(k * bw + 4 + R() * (bw - 8), R() * h, 1.2, 40 + R() * 80); x.globalAlpha = 1; }
+});
+const shojiTex = () => paint('shoji_win', 128, 128, (x, w, h) => {
+  const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#fff8e6'); g.addColorStop(1, '#f6e8c4');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#5a3a22'; for (let i = 0; i <= 4; i++) { x.fillRect(i * 32 - 2.5, 0, 5, h); x.fillRect(0, i * 32 - 2.5, w, 5); }
+});
+// a wall's face texture from its palette entry (pattern 'wallpaper' | 'boards' | plaster)
+const wallTex = (p) => p.pattern === 'wallpaper' ? wallpaperTex(p.color, p.color2) : p.pattern === 'boards' ? planks(p.color, 8) : plaster(p.color);
 const softRect = () => paint('softrect', 128, 128, (x, w, h) => {
   for (let i = 0; i < 24; i++) { x.fillStyle = `rgba(255,255,255,${0.05})`; x.fillRect(i * 2.4, i * 2.4, w - i * 4.8, h - i * 4.8); }
 }, { repeat: false });
@@ -174,15 +248,24 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
     const g = new THREE.ShapeGeometry(sh).rotateX(-Math.PI / 2);
     const p = bp.palette[z.floor] || {}, n = p.pattern === 'tile05' ? 4 : 2, rep = p.pattern === 'tile05' ? 0.5 : 0.5;
     const uv = g.attributes.uv, P = g.attributes.position;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, P.getX(i) * rep * (n / 2), P.getZ(i) * rep * (n / 2));
-    const fm = texm(tileTex(p.color || '#cccccc', n)); fm.name = 'floor';   // glossy in the native game (interior_floor.gdshader)
+    // boards run along the zone's `boards` axis ('x' default); tatami mats are 1.8 x 0.9 m
+    const along = z.boards === 'z';
+    for (let i = 0; i < uv.count; i++) {
+      const X = P.getX(i), Z = P.getZ(i);
+      if (p.pattern === 'tatami') uv.setXY(i, along ? Z / 1.8 : X / 1.8, along ? X / 0.9 : Z / 0.9);
+      else if (p.pattern === 'boards') uv.setXY(i, (along ? Z : X) * 0.5, (along ? X : Z) * 0.5);
+      else uv.setXY(i, X * rep * (n / 2), Z * rep * (n / 2));
+    }
+    const t = p.pattern === 'boards' ? boardsTex(p.color) : p.pattern === 'tatami' ? tatamiTex(p.color) : p.pattern === 'checker' ? checkerTex(p.color, p.color2) : tileTex(p.color || '#cccccc', n);
+    // glossy in the native game (interior_floor.gdshader; 'floor_g<k>' = its gloss x100); tatami is matte
+    const fm = texm(t); fm.name = p.pattern === 'tatami' ? 'mat' : p.gloss !== undefined ? 'floor_g' + Math.round(p.gloss * 100) : 'floor';
     const m = new THREE.Mesh(g, fm);
     m.position.y = LY[LI[z.level]]; m.receiveShadow = true; m.userData.outline = false; m.userData.noShadow = true; F.add(m);
   }
 
   // ---- walls, wainscot, trim, openings ----
   for (const w of bp.walls) {
-    const L = LI[w.level], y0 = LY[L], wallM = texm(plaster(pal(w.mat)));
+    const L = LI[w.level], y0 = LY[L], wallM = texm(wallTex(bp.palette[w.mat] || { color: pal(w.mat) }));
     for (const sg of wallSegments(w)) {
       const W = part('wall_' + w.id + '_' + sg.i);
       const M = segMatrix(sg);
@@ -229,7 +312,10 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
           }
         } else for (const [a, b] of runs(0.12)) seg(a, b, 0, 0.1, 0, 0.03, '#e2ddd0');
         // a cornice under the vault / ceiling
-        if (!w.gable && w.h > 4) for (const [a, b] of runs(w.h - 0.3)) { seg(a, b, w.h - 0.22, w.h, 0, 0.16, TRIM); seg(a, b, w.h - 0.32, w.h - 0.22, 0, 0.07, TRIM); }
+        const cc = typeof w.cornice === 'string' ? w.cornice : TRIM;
+        if (!w.gable && (w.h > 4 || w.cornice)) for (const [a, b] of runs(w.h - 0.3)) { seg(a, b, w.h - 0.16, w.h, 0, 0.12, cc); seg(a, b, w.h - 0.24, w.h - 0.16, 0, 0.06, cc); }
+        // a picture rail / dado line
+        if (w.rail) for (const [a, b] of runs(w.rail.y + 0.05)) seg(a, b, w.rail.y - 0.025, w.rail.y + 0.025, 0, 0.035, w.rail.col || TRIM);
       }
       // openings
       for (const o of sg.openings) {
@@ -243,24 +329,38 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
         const sides = [1, -1].filter((s) => roomAt(om[0] - sg.dir[1] * s * (w.t / 2 + 0.25), om[1] + sg.dir[0] * s * (w.t / 2 + 0.25), oy));
         const ringOn = (s, fw, d, col) => { const g = new THREE.ExtrudeGeometry(frameRing(o, fw), { depth: d, bevelEnabled: false, curveSegments: 16 }); g.translate(0, yb, s > 0 ? w.t / 2 : -w.t / 2 - d); addG(g, col, { noShadow: true }); };
         // the reveal: the hole's sides lined in trim
+        const FR = o.frame || TRIM;
         const reveal = () => {
           const pts = openingPath(o).getPoints(48);
           const sh = new THREE.Shape(openingPath(o, 0.04).getPoints(48)); sh.holes.push(new THREE.Path(pts.slice().reverse()));
           const g = new THREE.ExtrudeGeometry(sh, { depth: w.t + 0.02, bevelEnabled: false, curveSegments: 16 }); g.translate(0, yb, -w.t / 2 - 0.01);
-          addG(g, TRIM, { noShadow: true, line: false });
+          addG(g, FR, { noShadow: true, line: false });
         };
         if (o.type === 'window') {
           reveal();
-          for (const s of sides) ringOn(s, 0.1, 0.05, TRIM);
-          // the view outside: a painted card beyond the wall (on the side with no room)
+          for (const s of sides) ringOn(s, 0.1, 0.05, FR);
+          // the view outside: a painted card beyond the wall (on the side with no room);
+          // a shoji window is warm paper lit from outside instead
           const out = sides.length === 1 ? -sides[0] : -1;
           const cw = o.w + 2.4, ch = o.h + 2.4;
-          const card = new THREE.PlaneGeometry(cw, ch); card.rotateY(out > 0 ? Math.PI : 0);
-          card.translate(o.at, yb + sill + o.h / 2, out * (w.t / 2 + 1.0));
-          addG(card, unlit(outsideTex(o.outside || 'sky')), { noShadow: true, line: false });
+          if (o.style === 'shoji') {
+            const pg = new THREE.PlaneGeometry(o.w, o.h); const uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * o.w * 2.2, uv.getY(i) * o.h * 2.2);
+            pg.rotateY(out > 0 ? Math.PI : 0); pg.translate(o.at, yb + sill + o.h / 2, out * 0.02);
+            const sm = unlit(shojiTex(), '#ffffff'); sm.map.wrapS = sm.map.wrapT = THREE.RepeatWrapping;
+            addG(pg, sm, { noShadow: true, line: false });
+          } else {
+            const card = new THREE.PlaneGeometry(cw, ch); card.rotateY(out > 0 ? Math.PI : 0);
+            card.translate(o.at, yb + sill + o.h / 2, out * (w.t / 2 + 1.0));
+            addG(card, unlit(outsideTex(o.outside || 'sky')), { noShadow: true, line: false });
+          }
           // mullions and a transom (in the middle of the wall's depth)
-          const mul = (u0, u1, v0, v1) => { const g = new THREE.BoxGeometry(u1 - u0, v1 - v0, 0.06); g.translate((u0 + u1) / 2, yb + (v0 + v1) / 2, 0); addG(g, TRIM, { noShadow: true }); };
-          if (o.style === 'round') { mul(o.at - 0.03, o.at + 0.03, sill, sill + o.h); mul(o.at - o.w / 2, o.at + o.w / 2, sill + o.h / 2 - 0.03, sill + o.h / 2 + 0.03); }
+          const mul = (u0, u1, v0, v1) => { const g = new THREE.BoxGeometry(u1 - u0, v1 - v0, 0.06); g.translate((u0 + u1) / 2, yb + (v0 + v1) / 2, 0); addG(g, FR, { noShadow: true }); };
+          if (o.style === 'shoji') { /* the lattice is painted on the paper */ }
+          else if (o.style === 'grid') {
+            const [nc, nr] = o.panes || [2, 2];
+            for (let c = 1; c < nc; c++) { const u = o.at - o.w / 2 + (o.w * c) / nc; mul(u - 0.025, u + 0.025, sill, sill + o.h); }
+            for (let r = 1; r < nr; r++) { const v = sill + (o.h * r) / nr; mul(o.at - o.w / 2, o.at + o.w / 2, v - 0.025, v + 0.025); }
+          } else if (o.style === 'round') { mul(o.at - 0.03, o.at + 0.03, sill, sill + o.h); mul(o.at - o.w / 2, o.at + o.w / 2, sill + o.h / 2 - 0.03, sill + o.h / 2 + 0.03); }
           else {
             const cols = o.style === 'blinds' ? 4 : o.w > 1.2 ? 2 : 1;
             for (let c = 1; c < cols * (o.style === 'arched' ? 1 : 1) + (o.style === 'arched' ? 1 : 0); c++) { const u = o.at - o.w / 2 + (o.w * c) / (cols + (o.style === 'arched' ? 1 : 0)); mul(u - 0.03, u + 0.03, sill, sill + o.h - (o.style === 'arched' ? 0.05 : 0)); }
@@ -268,9 +368,9 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
             if (o.style === 'arched') { const sp = sill + o.h - o.w / 2; mul(o.at - o.w / 2, o.at + o.w / 2, sp - 0.03, sp + 0.03); mul(o.at - o.w / 2, o.at + o.w / 2, sill + (sp - sill) * 0.5 - 0.025, sill + (sp - sill) * 0.5 + 0.025); }
           }
           // a sill on the room side
-          for (const s of sides) { const g = new THREE.BoxGeometry(o.w + 0.3, 0.06, 0.16); g.translate(o.at, yb + sill - 0.03, s * (w.t / 2 + 0.06)); addG(g, TRIM); }
+          for (const s of sides) { const g = new THREE.BoxGeometry(o.w + 0.3, 0.06, 0.16); g.translate(o.at, yb + sill - 0.03, s * (w.t / 2 + 0.06)); addG(g, FR); }
           // glass: a faint streak of light (additive)
-          for (const s of sides) {
+          if (o.style !== 'shoji') for (const s of sides) {
             const g = new THREE.PlaneGeometry(Math.min(0.5, o.w * 0.35), o.h * 0.9); g.rotateY(s > 0 ? 0 : Math.PI); g.rotateZ(0.0);
             g.translate(o.at - o.w * 0.18, yb + sill + o.h * 0.48, s * 0.02);
             addG(g, glow(streakTex(), '#ffffff', 0.35), { noShadow: true, line: false });
@@ -290,7 +390,8 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
           // the leaf: on the room side, closed
           const g2 = new THREE.Group();
           const s = sides[0] || 1;
-          doorLeaf(g2, o.w, o.h, '#8a5634', -0.05, { double: o.style === 'double' });
+          if (o.style === 'shoji') shojiLeaf(g2, o.w, o.h, o.wood || '#5a3a22', -0.05);
+          else doorLeaf(g2, o.w, o.h, o.wood || '#8a5634', -0.05, { double: o.style === 'double', frame: FR });
           g2.position.set(o.at, yb + sill + o.h / 2, s * (w.t / 2 - 0.08)); if (s < 0) g2.rotation.y = Math.PI;
           g2.updateMatrix();
           g2.traverse((m) => { if (m.isMesh) { m.updateMatrix(); const g = m.geometry.clone().applyMatrix4(m.matrix).applyMatrix4(g2.matrix); addG(g, m.material, { line: m.userData.outline !== false }); } });
@@ -350,9 +451,31 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
       }
     } else if (c.type === 'flat') {
       const C = part('ceiling_' + z.id);
-      const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0).rotateX(Math.PI / 2);
-      const uv = g.attributes.uv, P = g.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (P.getX(i) + (x0 + x1) / 2) * 0.625, (P.getZ(i) + (z0 + z1) / 2) * 0.625);
-      const m = new THREE.Mesh(g, texm(ceilTex(pal(c.mat)))); m.position.set((x0 + x1) / 2, yB + c.h, (z0 + z1) / 2); m.userData.outline = false; m.userData.noShadow = true; C.add(m);
+      // the ceiling as a shape (x, -z), with holes (a stairwell: [x0, z0, x1, z1])
+      const sh = new THREE.Shape([[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([a, b]) => new THREE.Vector2(a, b)));
+      for (const hl of c.holes || []) sh.holes.push(new THREE.Path([[hl[0], hl[1]], [hl[0], hl[3]], [hl[2], hl[3]], [hl[2], hl[1]]].map(([a, b]) => new THREE.Vector2(a, b))));
+      const g = new THREE.ShapeGeometry(sh).rotateX(Math.PI / 2);
+      const cp = bp.palette[c.mat] || {}, boards = cp.pattern === 'boards';
+      const uv = g.attributes.uv, P = g.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, boards ? P.getZ(i) * 0.5 : P.getX(i) * 0.625, boards ? P.getX(i) * 0.5 : P.getZ(i) * 0.625);
+      // (ShapeGeometry's normals face +y; turned over by rotateX(+90) they face down)
+      const m = new THREE.Mesh(g, texm(boards ? ceilBoardsTex(pal(c.mat)) : ceilTex(pal(c.mat)))); m.position.set(0, yB + c.h, 0); m.userData.outline = false; m.userData.noShadow = true; C.add(m);
+      // the stairwell: dim walls up into the floor above
+      for (const hl of c.well === false ? [] : c.holes || []) {
+        const W2 = part('well_' + z.id), hw = (hl[2] - hl[0]) / 2, hd = (hl[3] - hl[1]) / 2, cx = (hl[0] + hl[2]) / 2, cz = (hl[1] + hl[3]) / 2;
+        const wm = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, 1.6, hd * 2), flat(shade(pal(c.wellMat || c.mat), 0.55), { side: THREE.BackSide }));
+        wm.position.set(cx, yB + c.h + 0.8, cz); wm.userData.outline = false; wm.userData.noShadow = true; W2.add(wm);
+        box(W2, hw * 2 + 0.1, 0.14, 0.1, shade(pal(c.mat), 0.7), cx, yB + c.h - 0.07, hl[1] - 0.05);
+        box(W2, hw * 2 + 0.1, 0.14, 0.1, shade(pal(c.mat), 0.7), cx, yB + c.h - 0.07, hl[3] + 0.05);
+      }
+      // exposed beams across the ceiling
+      if (c.beams) {
+        const B = part('beams_' + z.id); B.userData.high = true; const bc = c.beamCol || '#6b4a33', ax = c.beams.axis || 'x', step = c.beams.step || 1.2;
+        const a0 = ax === 'x' ? z0 : x0, a1 = ax === 'x' ? z1 : x1;
+        for (let a = a0 + step / 2; a < a1 - 0.1; a += step) {
+          if (ax === 'x') block(B, x1 - x0, 0.18, 0.14, texm(planks(bc, 2)), (x0 + x1) / 2, yB + c.h - 0.18, a, { uv: 1 });
+          else block(B, 0.14, 0.18, z1 - z0, texm(planks(bc, 2)), a, yB + c.h - 0.18, (z0 + z1) / 2, { uv: 1 });
+        }
+      }
     }
   }
 
@@ -377,6 +500,7 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
 
   // ---- stairs: open metal treads between two stringers, a handrail ----
   for (const st of bp.stairs || []) {
+    if (st.style === 'hidden') continue;   // (walked on only: a staircase prop draws it)
     const S = part('stairs_' + st.id);
     const y0 = LY[LI[st.from]], y1 = LY[LI[st.to]], len = Math.hypot(st.b[0] - st.a[0], st.b[1] - st.a[1]);
     const ux = (st.b[0] - st.a[0]) / len, uz = (st.b[1] - st.a[1]) / len, n = st.steps, g = len / n, rise = (y1 - y0) / n;
@@ -422,9 +546,15 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
   // ---- runs: pipes (with elbows and flanges) and beams ----
   for (const r of bp.runs || []) {
     const P = part('run_' + r.id), col = pal(r.mat, '#8cc4a2');
-    P.userData.high = r.pts.every((q) => q[1] > 5);   // high up: no shadow stripes across the floor
+    P.userData.high = r.pts.every((q) => q[1] > 5) || r.type === 'timber';   // high up: no shadow stripes across the floor
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1];
+      if (r.type === 'timber') {
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+        const m = box(P, r.r * 2, r.r * 2, len, texm(planks(col, 2)), (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, { uv: 1 });
+        m.lookAt(b[0], b[1], b[2]);
+        continue;
+      }
       if (r.type === 'beam') {
         const len = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
         const m = box(P, r.r * 1.6, r.r * 2.4, len, texm(metal(col)), (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, { uv: 1 });
@@ -456,6 +586,8 @@ export function buildInterior(bp, { cat = CATALOG } = {}) {
     G.rotation.y = (p.rot || 0) * D2R;
     // hanging things carry light and air, not shadows
     if (mount === 'ceiling') G.userData.high = true;
+    // a floor above another (a house's upstairs) casts no shadows down through it
+    if (L > 0 && bp.lights && bp.lights.upperShadows === false) G.userData.high = true;
     root.add(G); parts.push(G); propGroups.push(G);
     void s;
   }

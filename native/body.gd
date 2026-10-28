@@ -181,7 +181,7 @@ func _fx(dt: float, spd: float, p: Vector3) -> void:
 	var steps_changed := a.steps != _steps
 	_steps = a.steps
 	var dir := Vector3(sin(game.yaw), 0, cos(game.yaw))
-	if in_water and actor.visible:
+	if in_water and actor.visible and is_nan(ride_rate):   # (on his bike: bike/bike_water.gd splashes)
 		var at := Vector3(p.x, surface + 0.01, p.z)
 		# into the water at a pace: a splash
 		if not _was_in and spd > 2.0:
@@ -196,7 +196,7 @@ func _fx(dt: float, spd: float, p: Vector3) -> void:
 		if _ring_t <= 0.0:
 			_ring_t = 0.24 if spd > 0.4 else rng.randf_range(0.9, 1.6)
 			fx.ring(at - dir * minf(0.4, spd * 0.06), 0.9 + spd * 0.12 + depth * 1.2)
-	elif steps_changed and cast.ground and spd > 0.3 and wet_line > 0.02:
+	elif steps_changed and cast.ground and spd > 0.3 and wet_line > 0.02 and is_nan(ride_rate):
 		# out of the water: wet shoes squelch (louder the wetter, until they dry last of all)
 		var w := clampf(wet_line / (height * 0.5), 0.0, 1.0)
 		Sfx.play("step_water", null, {"vol": -19.0 + 8.0 * w, "pitch": 1.35})

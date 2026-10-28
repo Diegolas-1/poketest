@@ -99,6 +99,10 @@ func _material(src: Material, pal: Dictionary) -> Material:
 		if nm.begins_with("glow"): m.render_priority = 1
 		return m
 	m.shader = FLOOR if nm.begins_with("floor") else TOON
+	# 'floor_g<k>': a floor with its own gloss (k / 100: waxed boards shine less than tiles)
+	if nm.begins_with("floor_g"):
+		var k := nm.substr(7).get_slice("_", 0)
+		if k.is_valid_int(): m.set_shader_parameter("gloss", int(k) / 100.0)
 	m.set_shader_parameter("uw_sea_y", -1.0e6)   # (indoors nothing is under the sea)
 	if b:
 		m.set_shader_parameter("albedo", b.albedo_color)
