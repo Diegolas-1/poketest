@@ -255,15 +255,23 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 	if debug and fmod(float(e.t), 0.5) < dt: print("wild: d %.1f speed %.1f crouch %s noise %.2f stim %.2f alert %.2f" % [d, speed, crouched, n, s, e.alert])
 	var wary_at := float(brain.t("wary_at", 0.45))
 	var alert := float(e.alert)
+	# how it sits: hidden, pressed low in the grass; peeking, up and about (its own
+	# pecks and looks); listening, still and watching him
+	var pose := "listen" if alert >= wary_at else ("peek" if pk else "hide")
+	if pose != String(e.get("pose", "")):
+		e.pose = pose
+		node.set("auto", pose == "peek")
+		match pose:
+			"hide": node.mood("hide")
+			"peek": node.mood("idle")
+			"listen": node.mood("look") if pk else node.mood("hide")
 	if alert >= wary_at:
 		# listening: the grass stills, it turns toward him, and (peeking) its head comes up
 		_face(node, me, dt, 3.0)
 		node.set("look_at_pos", me + Vector3(0, 1.2, 0))
-		if pk: node.mood("look")
 		e.burst = 0.0
 	else:
 		node.set("look_at_pos", Vector3(NAN, NAN, NAN))
-		if pk and str(node.get("act")) == "look": node.mood("hide")
 		e.burst_t = float(e.burst_t) - dt
 		if float(e.burst_t) <= 0.0:
 			var gap: Array = brain.t("burst_gap_wary" if bool(e.wary) else "burst_gap", [2.0, 4.5])
@@ -281,14 +289,15 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 				extra.append(Vector4(node.position.x + p.x, node.position.z + p.z, PUSH_W * (0.8 + p.y), env * float(e.amp) * sin(t * f + i * 2.1)))
 	# peeking it sits up on the pressed grass, half sunk; its head higher when it listens
 	if not in_tree:
-		var lift := (0.32 + (0.12 if alert >= wary_at else 0.0)) if pk else 0.0
+		var lift := (float(brain.t("peek_lift", 0.42)) + (0.1 if alert >= wary_at else 0.0)) if pk else 0.0
 		var gy: float = game.world.height_at(node.position.x, node.position.z)
 		node.position.y = lerpf(node.position.y, gy + lift, 1.0 - exp(-dt * 6.0))
 	if pk and not in_tree:
 		# peeking: a little nest pressed open round it, so it shows
 		extra.append(Vector4(node.position.x, node.position.z, 0.42, 0.5 + 0.15 * (1.0 if alert >= wary_at else 0.0)))
-	# peeking, now and then a peck or a look about (the head-bob tell)
-	if pk and alert < wary_at:
+	# peeking, now and then a peck or a look about (the head-bob tell; a creature with
+	# its own idle acting, "auto", does that itself)
+	if pk and alert < wary_at and node.get("auto") == null:
 		e.bob_t = float(e.bob_t) - dt
 		if float(e.bob_t) <= 0.0:
 			e.bob_t = _rng.randf_range(1.2, 3.2)
@@ -404,6 +413,7 @@ func _fly_to(e: Dictionary, to: Vector3, kind: String, track: bool) -> void:
 	var v := float(F.get("speed", 10.0))
 	e.path = {"from": from, "to": to, "dur": maxf(1.2, dist / v + 0.9), "h": float(F.get("height", 4.5)) + dist * 0.04, "kind": kind}
 	e.t = 0.0
+	e.fph = ""
 	e.tracked = track
 	e.trail_d = 0.0
 	e.at = to
@@ -420,16 +430,25 @@ func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void
 	k = 1.0 - pow(1.0 - k, 1.6)
 	var flat := Vector3(lerpf(from.x, to.x, k), 0, lerpf(from.z, to.z, k))
 	var g: float = game.world.height_at(flat.x, flat.z)
-	var base := lerpf(from.y, to.y, WildBrain.sm(0.6, 1.0, u))
+	var base := maxf(g, lerpf(from.y, to.y, WildBrain.sm(0.6, 1.0, u)))
 	var h := float(P.h) * WildBrain.sm(0.0, 0.22, u) * (1.0 - WildBrain.sm(0.7, 1.0, u))
 	var prev := node.position
-	node.position = Vector3(flat.x, maxf(g + 0.05, base + h), flat.z)
+	var prev_air := prev.y + float(node.get("fly_height")) * (1.0 if bool(node.get("flying")) else 0.0)
+	# the node stays on what is under it (the ground, or the branch it perches on at the
+	# end); the bird's height over that is its fly_height
+	node.position = Vector3(flat.x, base, flat.z)
+	node.set("fly_height", maxf(0.0, h))
 	var mv := node.position - prev
 	if Vector2(mv.x, mv.z).length() > 1e-4: node.rotation.y = atan2(mv.x, mv.z)
 	node.rotation.x = 0.0
-	if u < 0.12: node.mood("takeoff")
-	elif u < 0.78: node.mood("fly")
-	elif u < 0.97: node.mood("glide")
+	var ph := "takeoff" if u < 0.1 else ("fly" if u < 0.72 else ("glide" if u < 0.93 else "land"))
+	if ph != String(e.get("fph", "")):
+		e.fph = ph
+		node.set("auto", false)
+		if ph == "takeoff": node.set("flying", false)   # (from the ground: the take-off act lifts it)
+		node.mood(ph)
+	var air := node.position.y + float(node.get("fly_height"))
+	mv.y = air - prev_air
 	# the take-off blasts the grass flat round it
 	if float(e.t) < 0.5:
 		extra.append(Vector4(from.x, from.z, 1.1, 1.0 - float(e.t) / 0.5))
@@ -437,14 +456,14 @@ func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void
 	e.trail_d = float(e.trail_d) + Vector2(mv.x, mv.z).length()
 	if bool(e.tracked) and float(e.trail_d) > 5.5:
 		e.trail_d = 0.0
-		_feather(node.position, false)
+		_feather(node.position + Vector3(0, float(node.get("fly_height")), 0), false)
 	if fmod(float(e.t), 0.3) < dt and u < 0.8: Sfx.play("wing_flap_small", node.position, {"vol": -8.0, "dist": 26.0})
 	# grabbed in time?
 	if String(e.state) == "fleeing":
 		e.window = maxf(0.0, float(e.window) - dt)
 		e.grab = maxf(0.0, float(e.grab) - brain.tv("grab", "decay", 0.8) * dt)
 		if float(e.window) > 0.0 and d <= brain.tv("grab", "d", 3.2):
-			hud.prompt = {"at": node.position + Vector3(0, 0.5, 0), "kind": "grab", "fill": float(e.grab), "near": true, "left": float(e.window) / brain.tv("grab", "window", 1.3), "pop": float(e.mash_pop)}
+			hud.prompt = {"at": node.position + Vector3(0, 0.5 + float(node.get("fly_height")), 0), "kind": "grab", "fill": float(e.grab), "near": true, "left": float(e.window) / brain.tv("grab", "window", 1.3), "pop": float(e.mash_pop)}
 		if float(e.window) <= 0.0 and not bool(e.told) and bool(e.tracked):
 			e.told = true
 			toaster.push("step", _name(e).to_upper() + " FLED!", "It flew off toward %s. Follow the feathers and your compass." % _kind_text(String(P.kind)), "bang", 3.2)
@@ -460,8 +479,9 @@ func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void
 		e.burst_t = 0.8
 		e.mash = 0.0
 		e.patch = (e.source as WildSource).patch_of(node.position) if e.source else -1
-		node.mood("land")
-		node.mood("hide")
+		e.fph = ""
+		e.pose = ""
+		node.set("fly_height", 0.0)
 		print("wild: %s hides again in a %s at %s" % [e.species, P.kind, str(node.position)])
 
 func _kind_text(k: String) -> String:

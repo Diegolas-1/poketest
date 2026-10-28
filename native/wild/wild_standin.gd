@@ -10,7 +10,7 @@ extends Node3D
 
 var species := "pidgey"
 var look_at_pos := Vector3(NAN, NAN, NAN)
-var fly_height := 0.0
+var fly_height := 1.4
 var flying := false
 var wing_phase := 0.0
 var footfalls := 0
@@ -33,6 +33,7 @@ var _hnext := 1.0
 var _low := 0.0          # how far it is crouched down (hide)
 var _wing := 0.0         # wings open 0..1
 var _hop := 0.0
+var _air := 0.0
 
 const BROWN := Color("a8743e")
 const DARK := Color("6e4422")
@@ -108,7 +109,7 @@ func mood(what: String) -> void:
 	match what:
 		"peck": pecks += 1
 		"hop", "takeoff": hops += 1
-	flying = what in ["takeoff", "fly", "glide"]
+	if what in ["takeoff", "fly", "glide"]: flying = true
 
 func animate(dt: float, speed: float) -> void:
 	t += dt; act_t += dt
@@ -158,6 +159,9 @@ func animate(dt: float, speed: float) -> void:
 			if act == "land" and act_t > 0.3: act = "idle"; flying = false
 	# hiding: tucked down, head low
 	by -= _low * 0.07; hp += _low * 0.25
+	# in the air at fly_height over its position (eased, like the real one's take-off and landing)
+	_air += ((fly_height if flying else 0.0) - _air) * (1.0 - exp(-dt * 5.0))
+	by += _air
 	body.position = Vector3(0, 0.15 + by + br, 0)
 	body.rotation = Vector3(bp, 0, 0)
 	head.position = Vector3(0, 0.12 + hh, 0.11)
@@ -174,5 +178,5 @@ func animate(dt: float, speed: float) -> void:
 	tail.rotation = Vector3(-0.1 + _wing * 0.3, 0, 0)
 	# the legs tucked up in the air
 	for lg in legs:
-		lg.visible = not flying or act == "land"
+		lg.visible = _air < 0.3
 	if speed > 0.2 and not flying and int(t * 9.0) % 2 == 0 and fmod(t * 9.0, 1.0) < dt * 9.0: footfalls += 1
