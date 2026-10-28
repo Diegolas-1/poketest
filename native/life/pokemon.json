@@ -1,70 +1,116 @@
 {
-  "_doc": "The energy system's species data (battle/energy.gd, design/energy_system.md). capacity: level -> energy slots (the highest key at or below the level wins; a species may shift it with capacity_shift, in slots). max_capacity: the most slots anything has. energy_types: the energy kinds, in gallery order (Normal folds into Colorless, as in the card game). type_energy: a Pokémon type -> its energy kind when the names differ. energy_names: how a kind is shown (the card game's names). species.<id>: name, types, focus (the energy kinds a turn's chips come in, in order, cycled: the first chip of every turn is focus[0]; mostly its own types, plus Colorless), wild_levels [lo, hi], learnset [{level, move}] (moves.json ids; a move can be learned once the level is reached and the bar can pay its cost; learned moves are never forgotten), ai (the wild one's default plan style: aggressive | strategic | evasive). energy_items: the hook for rare items that restore energy in battle: restore (chips), type ('' = the Pokémon's next focus kind, 'colorless', or a kind), price.",
-  "max_capacity": 10,
-  "capacity": {"1": 1, "3": 2, "8": 3, "14": 4, "21": 5, "29": 6, "38": 7, "48": 8, "60": 9, "75": 10},
+  "_doc": "The species data of the energy system and the Pokemon battle (battle/energy.gd, battle/pkmn_battle.gd, design/energy_system.md). The balance numbers (focus, slots, items) are in life/battle_config.json. energy_types: the energy kinds, in gallery order (Normal folds into Colorless, as in the card game). type_energy: a Pokemon type -> its energy kind when the names differ. energy_names: how a kind is shown (the card game's names). type_chart: attacking type -> {defending type: multiplier} (1 when missing). species.<id>: name, types, base [hp, atk, def, spa, spd, spe], wild_levels [lo, hi], learnset [{level, move}] (moves.json ids, learned by level and never forgotten), tm (moves it can be taught by TM or tutor), ai (the wild one's plan style: aggressive | strategic | evasive).",
+  "_schema": {
+      "_file": "Species data: {\"species\": {id: species}}. Other datasets (kanto151.json) use the same schema and are merged by id.",
+      "id": "lower_snake_case species id (e.g. mr_mime, nidoran_f).",
+      "name": "the shown name.",
+      "types": "its Pokemon types, 1 or 2. Its pools are their energy kinds (type_energy: normal -> colorless) plus Colorless; at most three typed pools.",
+      "energy": "optional: its TCG energy kinds when they differ from its types' (e.g. [\"psychic\"] for a Ghost in the classic sets).",
+      "rarity": "optional: common | uncommon | rare | rare_holo (the card game's tiers).",
+      "weakness": "optional: energy kinds it is weak to (TCG style; battle_config matchups.weakness_mult). With weakness or resistance, the battle uses TCG matchups for it (mode auto).",
+      "resistance": "optional: energy kinds it resists (battle_config matchups.resistance_mult / resistance_sub).",
+      "base": "[hp, atk, def, spa, spd, spe] base stats.",
+      "wild_levels": "[lo, hi].",
+      "learnset": "[{level, move}] in level order (moves.json ids; never forgotten). Aim for openers early, mids from about Lv 10, a finisher from about Lv 25.",
+      "tm": "move ids it can be taught by TM or a tutor.",
+      "ai": "the wild planner's style: aggressive | strategic | evasive."
+  },
   "energy_types": ["colorless", "grass", "fire", "water", "electric", "psychic", "fighting", "dark", "steel", "dragon", "fairy", "ice", "poison", "ground", "flying", "bug", "rock", "ghost"],
   "type_energy": {"normal": "colorless"},
   "energy_names": {"colorless": "Colorless", "grass": "Grass", "fire": "Fire", "water": "Water", "electric": "Lightning", "psychic": "Psychic", "fighting": "Fighting", "dark": "Darkness", "steel": "Metal", "dragon": "Dragon", "fairy": "Fairy", "ice": "Ice", "poison": "Poison", "ground": "Ground", "flying": "Flying", "bug": "Bug", "rock": "Rock", "ghost": "Ghost"},
-  "energy_items": {
-    "energy_shard": {"name": "Energy Shard", "restore": 1, "type": "colorless", "price": 1500, "desc": "A sliver of crystal that hums. Restores 1 Colorless energy in battle."},
-    "focus_crystal": {"name": "Focus Crystal", "restore": 2, "type": "", "price": 4000, "desc": "A rare crystal from Mt. Moon. Restores 2 energy of the Pokémon's own type."},
-    "full_charge": {"name": "Full Charge", "restore": 10, "type": "", "price": 12000, "desc": "Extremely rare. Refills the whole energy bar."}
+  "type_chart": {
+    "normal": {"rock": 0.5, "ghost": 0, "steel": 0.5},
+    "fire": {"fire": 0.5, "water": 0.5, "grass": 2, "ice": 2, "bug": 2, "rock": 0.5, "dragon": 0.5, "steel": 2},
+    "water": {"fire": 2, "water": 0.5, "grass": 0.5, "ground": 2, "rock": 2, "dragon": 0.5},
+    "electric": {"water": 2, "electric": 0.5, "grass": 0.5, "ground": 0, "flying": 2, "dragon": 0.5},
+    "grass": {"fire": 0.5, "water": 2, "grass": 0.5, "poison": 0.5, "ground": 2, "flying": 0.5, "bug": 0.5, "rock": 2, "dragon": 0.5, "steel": 0.5},
+    "ice": {"fire": 0.5, "water": 0.5, "grass": 2, "ice": 0.5, "ground": 2, "flying": 2, "dragon": 2, "steel": 0.5},
+    "fighting": {"normal": 2, "ice": 2, "poison": 0.5, "flying": 0.5, "psychic": 0.5, "bug": 0.5, "rock": 2, "ghost": 0, "dark": 2, "steel": 2, "fairy": 0.5},
+    "poison": {"grass": 2, "poison": 0.5, "ground": 0.5, "rock": 0.5, "ghost": 0.5, "steel": 0, "fairy": 2},
+    "ground": {"fire": 2, "electric": 2, "grass": 0.5, "poison": 2, "flying": 0, "bug": 0.5, "rock": 2, "steel": 2},
+    "flying": {"electric": 0.5, "grass": 2, "fighting": 2, "bug": 2, "rock": 0.5, "steel": 0.5},
+    "psychic": {"fighting": 2, "poison": 2, "psychic": 0.5, "dark": 0, "steel": 0.5},
+    "bug": {"fire": 0.5, "grass": 2, "fighting": 0.5, "poison": 0.5, "flying": 0.5, "psychic": 2, "ghost": 0.5, "dark": 2, "steel": 0.5, "fairy": 0.5},
+    "rock": {"fire": 2, "ice": 2, "fighting": 0.5, "ground": 0.5, "flying": 2, "bug": 2, "steel": 0.5},
+    "ghost": {"normal": 0, "psychic": 2, "ghost": 2, "dark": 0.5},
+    "dragon": {"dragon": 2, "steel": 0.5, "fairy": 0},
+    "dark": {"fighting": 0.5, "psychic": 2, "ghost": 2, "dark": 0.5, "fairy": 0.5},
+    "steel": {"fire": 0.5, "water": 0.5, "electric": 0.5, "ice": 2, "rock": 2, "steel": 0.5, "fairy": 2},
+    "fairy": {"fire": 0.5, "fighting": 2, "poison": 0.5, "dragon": 2, "dark": 2, "steel": 0.5}
   },
   "species": {
     "pidgey": {
-      "name": "Pidgey", "types": ["normal", "flying"], "focus": ["flying", "colorless"], "wild_levels": [2, 5], "ai": "strategic",
+      "name": "Pidgey", "types": ["normal", "flying"], "base": [40, 45, 40, 35, 35, 56], "wild_levels": [2, 5], "ai": "strategic",
       "learnset": [
         {"level": 1, "move": "tackle"},
         {"level": 2, "move": "sand_attack"},
         {"level": 3, "move": "gust"},
         {"level": 3, "move": "quick_attack"},
+        {"level": 7, "move": "dodge"},
         {"level": 9, "move": "whirlwind"},
-        {"level": 15, "move": "wing_attack"}
-      ]
+        {"level": 12, "move": "fly"},
+        {"level": 15, "move": "wing_attack"},
+        {"level": 21, "move": "twister"},
+        {"level": 29, "move": "agility"},
+        {"level": 33, "move": "brave_bird"}
+      ],
+      "tm": ["swift", "protect", "mind_reader", "bounce"]
     },
     "pikachu": {
-      "name": "Pikachu", "types": ["electric"], "focus": ["electric", "electric", "colorless"], "wild_levels": [3, 6], "ai": "aggressive",
+      "name": "Pikachu", "types": ["electric"], "base": [35, 55, 40, 50, 50, 90], "wild_levels": [3, 6], "ai": "aggressive",
       "learnset": [
         {"level": 1, "move": "thunder_shock"},
         {"level": 1, "move": "growl"},
         {"level": 3, "move": "tail_whip"},
         {"level": 5, "move": "quick_attack"},
+        {"level": 6, "move": "dodge"},
         {"level": 7, "move": "thunder_wave"},
         {"level": 10, "move": "double_team"},
+        {"level": 13, "move": "feint"},
         {"level": 16, "move": "thunderbolt"},
+        {"level": 18, "move": "agility"},
         {"level": 22, "move": "iron_tail"},
+        {"level": 26, "move": "volt_tackle"},
         {"level": 30, "move": "thunder"}
-      ]
+      ],
+      "tm": ["swift", "dig", "protect", "counter", "mind_reader", "foresight", "headbutt"]
     },
     "bulbasaur": {
-      "name": "Bulbasaur", "types": ["grass", "poison"], "focus": ["grass", "grass", "poison", "colorless", "grass"], "wild_levels": [5, 8], "ai": "strategic",
+      "name": "Bulbasaur", "types": ["grass", "poison"], "base": [45, 49, 49, 65, 65, 45], "wild_levels": [5, 8], "ai": "strategic",
       "learnset": [
         {"level": 1, "move": "tackle"},
         {"level": 1, "move": "growl"},
         {"level": 3, "move": "vine_whip"},
         {"level": 7, "move": "leech_seed"},
+        {"level": 9, "move": "detect"},
         {"level": 11, "move": "poison_powder"},
         {"level": 11, "move": "sleep_powder"},
         {"level": 15, "move": "razor_leaf"},
         {"level": 19, "move": "take_down"},
-        {"level": 30, "move": "solar_beam"}
-      ]
+        {"level": 24, "move": "solar_beam"},
+        {"level": 32, "move": "frenzy_plant"}
+      ],
+      "tm": ["swift", "protect", "headbutt", "body_slam"]
     },
     "charmander": {
-      "name": "Charmander", "types": ["fire"], "focus": ["fire", "fire", "colorless"], "wild_levels": [5, 8], "ai": "aggressive",
+      "name": "Charmander", "types": ["fire"], "base": [39, 52, 43, 60, 50, 65], "wild_levels": [5, 8], "ai": "aggressive",
       "learnset": [
         {"level": 1, "move": "scratch"},
         {"level": 1, "move": "growl"},
         {"level": 4, "move": "ember"},
         {"level": 8, "move": "smokescreen"},
+        {"level": 10, "move": "leer"},
         {"level": 12, "move": "dragon_rage"},
+        {"level": 14, "move": "counter"},
         {"level": 17, "move": "slash"},
         {"level": 22, "move": "flamethrower"},
-        {"level": 28, "move": "fire_spin"}
-      ]
+        {"level": 28, "move": "fire_spin"},
+        {"level": 33, "move": "flare_blitz"}
+      ],
+      "tm": ["swift", "dig", "protect", "headbutt", "roar"]
     },
     "squirtle": {
-      "name": "Squirtle", "types": ["water"], "focus": ["water", "water", "colorless"], "wild_levels": [5, 8], "ai": "strategic",
+      "name": "Squirtle", "types": ["water"], "base": [44, 48, 65, 50, 64, 43], "wild_levels": [5, 8], "ai": "strategic",
       "learnset": [
         {"level": 1, "move": "tackle"},
         {"level": 1, "move": "tail_whip"},
@@ -73,9 +119,77 @@
         {"level": 10, "move": "water_gun"},
         {"level": 13, "move": "bite"},
         {"level": 16, "move": "rapid_spin"},
+        {"level": 19, "move": "protect"},
+        {"level": 22, "move": "mirror_coat"},
         {"level": 25, "move": "skull_bash"},
-        {"level": 34, "move": "hydro_pump"}
-      ]
+        {"level": 28, "move": "dive"},
+        {"level": 34, "move": "hydro_pump"},
+        {"level": 36, "move": "hydro_cannon"}
+      ],
+      "tm": ["swift", "dig", "surf", "whirlpool", "headbutt"]
+    },
+    "sandshrew": {
+      "name": "Sandshrew", "types": ["ground"], "base": [50, 75, 85, 20, 30, 40], "wild_levels": [6, 10], "ai": "strategic",
+      "learnset": [
+        {"level": 1, "move": "scratch"},
+        {"level": 1, "move": "defense_curl"},
+        {"level": 3, "move": "sand_attack"},
+        {"level": 6, "move": "dodge"},
+        {"level": 8, "move": "dig"},
+        {"level": 10, "move": "ground_pound"},
+        {"level": 14, "move": "swift"},
+        {"level": 17, "move": "detect"},
+        {"level": 21, "move": "slash"},
+        {"level": 26, "move": "magnitude"},
+        {"level": 28, "move": "fissure_slam"},
+        {"level": 33, "move": "earthquake"}
+      ],
+      "tm": ["counter", "roar"]
+    },
+    "diglett": {
+      "name": "Diglett", "types": ["ground"], "base": [10, 55, 25, 35, 45, 95], "wild_levels": [8, 14], "ai": "evasive",
+      "learnset": [
+        {"level": 1, "move": "scratch"},
+        {"level": 1, "move": "sand_attack"},
+        {"level": 4, "move": "growl"},
+        {"level": 7, "move": "dig"},
+        {"level": 12, "move": "magnitude"},
+        {"level": 18, "move": "ground_pound"},
+        {"level": 24, "move": "earthquake"}
+      ],
+      "tm": ["mind_reader"]
+    },
+    "drowzee": {
+      "name": "Drowzee", "types": ["psychic"], "base": [60, 48, 45, 43, 90, 42], "wild_levels": [10, 16], "ai": "evasive",
+      "learnset": [
+        {"level": 1, "move": "pound"},
+        {"level": 1, "move": "hypnosis"},
+        {"level": 9, "move": "confusion"},
+        {"level": 15, "move": "headbutt"},
+        {"level": 21, "move": "mirror_coat"}
+      ],
+      "tm": ["counter", "foresight"]
+    },
+    "gastly": {
+      "name": "Gastly", "types": ["ghost", "poison"], "base": [30, 35, 30, 100, 35, 80], "wild_levels": [12, 18], "ai": "evasive",
+      "learnset": [
+        {"level": 1, "move": "lick"},
+        {"level": 1, "move": "hypnosis"},
+        {"level": 8, "move": "mean_look"},
+        {"level": 12, "move": "dodge"}
+      ],
+      "tm": []
+    },
+    "snorlax": {
+      "name": "Snorlax", "types": ["normal"], "base": [160, 110, 65, 65, 110, 30], "wild_levels": [30, 30], "ai": "aggressive",
+      "learnset": [
+        {"level": 1, "move": "tackle"},
+        {"level": 1, "move": "defense_curl"},
+        {"level": 10, "move": "headbutt"},
+        {"level": 20, "move": "body_slam"},
+        {"level": 25, "move": "giga_impact"}
+      ],
+      "tm": ["counter", "protect"]
     }
   }
 }

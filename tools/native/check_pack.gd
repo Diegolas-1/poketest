@@ -57,7 +57,7 @@ func _check_world() -> void:
 		if want.is_empty(): fail("no region has " + name)
 		if got.size() != want.size(): fail("WorldRegions.files(%s) finds %d of %d" % [name, got.size(), want.size()])
 		for p in got: _check_scene(p)
-	for p in [WR.BASE + "grass.png", WR.BASE + "dirt.webp", WR.BASE + "clouds.png", WR.BASE + "water.glb"]:
+	for p in [WR.BASE + "grass.png", WR.BASE + "dirt.webp", WR.BASE + "earth.webp", WR.BASE + "clouds.png", WR.BASE + "water.glb"]:
 		if load(p) == null: fail("does not load: " + p)
 	if WR.files("ink.bin").is_empty(): fail("no region has ink.bin")
 	var vb: Array = WR.veg(false)

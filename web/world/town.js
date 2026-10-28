@@ -23,6 +23,9 @@ import * as BO from './props/boats.js';   // rowing and fishing boats
 import * as CR from './crops.js';
 import { buildCliffs } from './props/cliffs.js';   // the world's edges as rock (worker 20)
 import { buildBanks } from './props/banks.js';   // the streams' cut banks (worker 23)
+import { turfOverWalls } from './props/turflip.js';   // turf rolling over retaining walls' tops
+import { buildLedges } from './props/ledges.js';     // Route 1's one-way ledges as earth faces
+import { LIPS } from './grasslip.js';
 import { creekAt } from './route1land.js';
 const creekNear = (x, z, m) => { const q = creekAt(x, z); return !!q && q.d < q.c.w + m; };
 
@@ -1578,7 +1581,7 @@ function mergeStatic(G) {
     if (o.userData.keep) return;
     if (o.isMesh && !o.isInstancedMesh && o !== G) {
       let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k) && !(k === 'color' && o.material.vertexColors)) g.deleteAttribute(k);
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k) && !(k === 'color' && o.material.vertexColors) && !(k === 'uv1' && o.material.userData.earth)) g.deleteAttribute(k);
       if (!g.attributes.normal) g.computeVertexNormals();
       if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
@@ -1616,6 +1619,7 @@ export const BEDS = [
 
 export function buildTown() {
   const world = { colliders: [], use: [], solid: [], walk: [], anim: [], noVeg: [], group: new THREE.Group() };
+  LIPS.length = 0;   // (the grass lips are made again with the town: grasslip.js)
   trackTown(world);
   for (const hs of HOUSES) cottage(hs, world);
   // the lab on its hill, facing west down the stairs
@@ -1678,6 +1682,24 @@ export function buildTown() {
   for (const g of banks.pieces) world.group.add(g);
   world.bankTurf = banks.turf;
   world.bankColliders = banks.colliders;   // (main.js adds them once the plants are sown: plants are seeded round the colliders)
+  // Route 1's ledges: natural earth faces under a turf lip (props/ledges.js); their turf is ground too
+  const ledges = buildLedges(LEDGES, { height, groundColor });
+  for (const g of ledges.pieces) world.group.add(g);
+  world.bankTurf.push(...ledges.turf);
+  // where the ground comes up behind a retaining wall: the turf rolls over its
+  // top with a grass lip, ivy on some (props/turflip.js); the turf is ground
+  {
+    world.group.updateMatrixWorld(true);
+    const walls = [];
+    world.group.traverse((o) => { if (o.userData.wallRuns && o.parent) walls.push({ runs: o.userData.wallRuns, M: o.parent.matrixWorld.clone() }); });
+    const houses = world.colliders.filter((c) => c.box && Math.min(c.hw, c.hd) > 1.0);
+    const blocked = (x, z) => onPath(x, z, 0.15) || onStairs(x, z, 0.6) || world.walk.some((d) => d.x0 !== undefined && x > d.x0 - 0.3 && x < d.x1 + 0.3 && z > d.z0 - 0.3 && z < d.z1 + 0.3)
+      || houses.some((c) => { let dx = x - c.x, dz = z - c.z; if (c.rot) { const cs = Math.cos(c.rot), sn = Math.sin(c.rot); [dx, dz] = [dx * cs - dz * sn, dx * sn + dz * cs]; } return Math.abs(dx) < c.hw + 0.3 && Math.abs(dz) < c.hd + 0.3; });
+    const wt = turfOverWalls(walls, { height, groundColor, blocked });
+    world.bankTurf.push(...wt.turf);
+    world.group.add(wt.plants);
+    world.wallTurf = { stretches: wt.stretches, metres: wt.metres, list: wt.list };
+  }
   applyTown(world);
   OD.foldFlat(world.group);
   // tools/qa/scan.mjs (?qa): keep every placed piece as its own group, unmerged

@@ -1,24 +1,122 @@
 {
  "scanned": {
-  "up": 1554,
-  "ground": 3073,
-  "wall": 223,
-  "shell": 4608,
+  "up": 1613,
+  "ground": 3160,
+  "wall": 274,
+  "shell": 4720,
   "text": 372,
   "overlap": 174,
-  "water": 188,
-  "facing": 7
+  "water": 246,
+  "facing": 7,
+  "bridge": 6,
+  "walk": 16,
+  "boat": 8,
+  "wallx": 244,
+  "barrier": {
+   "edges": 6360,
+   "ok": 6360,
+   "bad": 0,
+   "stretches": 0,
+   "meshes": {
+    "wall": 10,
+    "hedge": 2,
+    "cliff": 134,
+    "bank": 57
+   }
+  },
+  "stream": 3
  },
  "counts": {
+  "up": 3,
   "splay": 3,
-  "ground": 20,
-  "overlap": 5
+  "ground": 22,
+  "overlap": 5,
+  "wallx": 1,
+  "path": 2
  },
- "total": 28,
+ "total": 36,
  "errors": 0,
- "warnings": 28,
- "allowed": 69,
+ "warnings": 36,
+ "allowed": 118,
  "findings": [
+  {
+   "check": "up",
+   "sev": "med",
+   "at": [
+    -41.56,
+    16.97,
+    -139.4
+   ],
+   "object": "route1/fallenLog/hollow-42_-139 @route1.js:320",
+   "src": [
+    "route1.js:59",
+    "route1.js:320",
+    "town.js:1672",
+    "main.js:213"
+   ],
+   "fns": [
+    "place",
+    "route1Fill",
+    "buildTown"
+   ],
+   "msg": "the piece leans 14° off vertical",
+   "fix": "place it upright (rotation only about y) unless it is meant to lean",
+   "owner": "worker14",
+   "id": "QA001",
+   "level": "warn"
+  },
+  {
+   "check": "up",
+   "sev": "med",
+   "at": [
+    44.2,
+    30.54,
+    -218.38
+   ],
+   "object": "route1/fallenLog/hollow44_-218 @route1.js:320",
+   "src": [
+    "route1.js:59",
+    "route1.js:320",
+    "town.js:1672",
+    "main.js:213"
+   ],
+   "fns": [
+    "place",
+    "route1Fill",
+    "buildTown"
+   ],
+   "msg": "the piece leans 14° off vertical",
+   "fix": "place it upright (rotation only about y) unless it is meant to lean",
+   "owner": "worker14",
+   "id": "QA002",
+   "level": "warn"
+  },
+  {
+   "check": "up",
+   "sev": "med",
+   "at": [
+    -47.96,
+    31.41,
+    -300.48
+   ],
+   "object": "route1/fallenLog/fall-48_-300 @route1.js:320",
+   "src": [
+    "route1.js:59",
+    "route1.js:320",
+    "town.js:1672",
+    "main.js:213"
+   ],
+   "fns": [
+    "place",
+    "route1Fill",
+    "buildTown"
+   ],
+   "msg": "the piece leans 14° off vertical",
+   "fix": "place it upright (rotation only about y) unless it is meant to lean",
+   "owner": "worker14",
+   "id": "QA003",
+   "level": "warn"
+  },
   {
    "check": "splay",
    "sev": "med",
@@ -32,9 +130,9 @@
     "props/buildings.js:115",
     "props/buildings.js:467",
     "props/buildings.js:435",
-    "town.js:945",
-    "town.js:1642",
-    "main.js:212"
+    "town.js:963",
+    "town.js:1662",
+    "main.js:213"
    ],
    "fns": [
     "mesh",
@@ -47,7 +145,7 @@
    "msg": "a leg/post leans 27° with its foot 0.35 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker14",
-   "id": "QA001",
+   "id": "QA004",
    "level": "warn"
   },
   {
@@ -55,17 +153,17 @@
    "sev": "med",
    "at": [
     10.32,
-    3.72,
+    3.71,
     -93.35
    ],
-   "object": "Mesh Module.martCart() @props/outdoor.js:237",
+   "object": "Mesh Module.martCart() @props/outdoor.js:243",
    "src": [
-    "props/outdoor.js:237",
-    "props/outdoor.js:240",
-    "props/outdoor.js:801",
+    "props/outdoor.js:243",
+    "props/outdoor.js:246",
+    "props/outdoor.js:807",
     "route1.js:112",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "put",
@@ -78,7 +176,7 @@
    "msg": "a leg/post leans 30° with its foot 0.18 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker15",
-   "id": "QA002",
+   "id": "QA005",
    "level": "warn"
   },
   {
@@ -89,14 +187,14 @@
     3.8,
     -93.42
    ],
-   "object": "Mesh Module.martCart() @props/outdoor.js:237",
+   "object": "Mesh Module.martCart() @props/outdoor.js:243",
    "src": [
-    "props/outdoor.js:237",
-    "props/outdoor.js:240",
-    "props/outdoor.js:801",
+    "props/outdoor.js:243",
+    "props/outdoor.js:246",
+    "props/outdoor.js:807",
     "route1.js:112",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "put",
@@ -109,7 +207,57 @@
    "msg": "a leg/post leans 60° with its foot 0.31 m nearer the middle than its top (legs angled inward)",
    "fix": "mirror the lean so feet splay outward (A-frame legs)",
    "owner": "worker15",
-   "id": "QA003",
+   "id": "QA006",
+   "level": "warn"
+  },
+  {
+   "check": "ground",
+   "sev": "med",
+   "at": [
+    46.4,
+    17.66,
+    18.42
+   ],
+   "object": "Group globeLamp() @town.js:627",
+   "src": [
+    "town.js:627",
+    "town.js:613",
+    "town.js:1635",
+    "main.js:213"
+   ],
+   "fns": [
+    "globeLamp",
+    "labStairs",
+    "buildTown"
+   ],
+   "msg": "floats 0.05 m above whatever is under it",
+   "fix": "set its y from the ground under its footprint (lowest point, or sink it a little)",
+   "owner": "worker15",
+   "id": "QA007",
+   "level": "warn"
+  },
+  {
+   "check": "ground",
+   "sev": "med",
+   "at": [
+    -96.87,
+    29.47,
+    -417.9
+   ],
+   "object": "Group @route1.js:445",
+   "src": [
+    "route1.js:445",
+    "town.js:1672",
+    "main.js:213"
+   ],
+   "fns": [
+    "route1Fill",
+    "buildTown"
+   ],
+   "msg": "floats 0.06 m above whatever is under it",
+   "fix": "set its y from the ground under its footprint (lowest point, or sink it a little)",
+   "owner": "worker15",
+   "id": "QA008",
    "level": "warn"
   },
   {
@@ -120,22 +268,22 @@
     13.6,
     95.6
    ],
-   "object": "Mesh fenceMeshes() @town.js:907",
+   "object": "Mesh fenceMeshes() @town.js:925",
    "src": [
-    "town.js:907",
-    "town.js:1104",
-    "town.js:1642",
-    "main.js:212"
+    "town.js:925",
+    "town.js:1122",
+    "town.js:1662",
+    "main.js:213"
    ],
    "fns": [
     "fenceMeshes",
     "palletHouse",
     "buildTown"
    ],
-   "msg": "3 of 20 instances float, up to 0.46 m",
+   "msg": "3 of 26 instances float, up to 0.46 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA004",
+   "id": "QA009",
    "level": "warn"
   },
   {
@@ -146,23 +294,23 @@
     13.513622067338625,
     111.25716166706174
    ],
-   "object": "Group bench() @town.js:1175",
+   "object": "Group bench() @town.js:1193",
    "src": [
-    "town.js:1175",
-    "town.js:1093",
-    "town.js:1642",
-    "main.js:212"
+    "town.js:1193",
+    "town.js:1111",
+    "town.js:1662",
+    "main.js:213"
    ],
    "fns": [
     "bench",
     "palletHouse",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside Group palletHouse() @town.js:270",
+   "msg": "100% of its footprint is inside Group palletHouse() @town.js:275",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker14",
-   "other": "Group palletHouse() @town.js:270",
-   "id": "QA005",
+   "other": "Group palletHouse() @town.js:275",
+   "id": "QA010",
    "level": "warn"
   },
   {
@@ -170,26 +318,26 @@
    "sev": "med",
    "at": [
     -73.40256953515797,
-    14.457936694638796,
+    14.4598083568638,
     -257.6212610285254
    ],
-   "object": "Group @route1.js:281",
+   "object": "Group @route1.js:284",
    "src": [
     "route1.js:59",
-    "route1.js:281",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:284",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:266",
+   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:269",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "route1/teahouse/house/teahouse @route1.js:266",
-   "id": "QA006",
+   "other": "route1/teahouse/house/teahouse @route1.js:269",
+   "id": "QA011",
    "level": "warn"
   },
   {
@@ -197,26 +345,26 @@
    "sev": "med",
    "at": [
     -74.15709975966251,
-    14.52948057201495,
+    14.52762339708494,
     -257.09146470888066
    ],
-   "object": "Group @route1.js:286",
+   "object": "Group @route1.js:289",
    "src": [
     "route1.js:59",
-    "route1.js:286",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:289",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:266",
+   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:269",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "route1/teahouse/house/teahouse @route1.js:266",
-   "id": "QA007",
+   "other": "route1/teahouse/house/teahouse @route1.js:269",
+   "id": "QA012",
    "level": "warn"
   },
   {
@@ -224,26 +372,26 @@
    "sev": "med",
    "at": [
     -72.00468531414816,
-    15.046678597699795,
+    15.049091966672865,
     -265.5210027777633
    ],
-   "object": "Group @route1.js:286",
+   "object": "Group @route1.js:289",
    "src": [
     "route1.js:59",
-    "route1.js:286",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:289",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:266",
+   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:269",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "route1/teahouse/house/teahouse @route1.js:266",
-   "id": "QA008",
+   "other": "route1/teahouse/house/teahouse @route1.js:269",
+   "id": "QA013",
    "level": "warn"
   },
   {
@@ -251,26 +399,52 @@
    "sev": "med",
    "at": [
     -78.59142684513678,
-    15.284108652194478,
+    15.285389602627996,
     -257.9141087990128
    ],
-   "object": "Group @route1.js:286",
+   "object": "Group @route1.js:289",
    "src": [
     "route1.js:59",
-    "route1.js:286",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:289",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:266",
+   "msg": "100% of its footprint is inside route1/teahouse/house/teahouse @route1.js:269",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "route1/teahouse/house/teahouse @route1.js:266",
-   "id": "QA009",
+   "other": "route1/teahouse/house/teahouse @route1.js:269",
+   "id": "QA014",
+   "level": "warn"
+  },
+  {
+   "check": "wallx",
+   "sev": "med",
+   "at": [
+    -66.83,
+    -0.7,
+    187.99
+   ],
+   "object": "Mesh lighthouse() @town.js:1512 run -1.7,-1.7",
+   "src": [
+    "town.js:1512",
+    "town.js:1351",
+    "town.js:1654",
+    "main.js:213"
+   ],
+   "fns": [
+    "lighthouse",
+    "dock",
+    "buildTown"
+   ],
+   "msg": "no cap stone found on the wall's top",
+   "fix": "cap it",
+   "owner": "worker15",
+   "id": "QA015",
    "level": "warn"
   },
   {
@@ -281,12 +455,12 @@
     13.51,
     111.03
    ],
-   "object": "Group bench() @town.js:1175",
+   "object": "Group bench() @town.js:1193",
    "src": [
-    "town.js:1175",
-    "town.js:1093",
-    "town.js:1642",
-    "main.js:212"
+    "town.js:1193",
+    "town.js:1111",
+    "town.js:1662",
+    "main.js:213"
    ],
    "fns": [
     "bench",
@@ -296,7 +470,7 @@
    "msg": "2 of 4 feet are up to 0.26 m off the ground (on a slope)",
    "fix": "level it on the lowest point of its footprint, or tilt its legs to the slope",
    "owner": "worker14",
-   "id": "QA010",
+   "id": "QA016",
    "level": "warn"
   },
   {
@@ -311,8 +485,8 @@
    "src": [
     "route1.js:59",
     "route1.js:99",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
@@ -322,7 +496,7 @@
    "msg": "6 of 9 feet are up to 0.47 m off the ground (on a slope)",
    "fix": "level it on the lowest point of its footprint, or tilt its legs to the slope",
    "owner": "worker14",
-   "id": "QA011",
+   "id": "QA017",
    "level": "warn"
   },
   {
@@ -333,12 +507,12 @@
     21.87,
     -399.59
    ],
-   "object": "Group @route1.js:406",
+   "object": "Group @route1.js:410",
    "src": [
     "route1.js:59",
-    "route1.js:406",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:410",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
@@ -348,7 +522,7 @@
    "msg": "5 of 9 feet are up to 0.21 m off the ground (on a slope)",
    "fix": "level it on the lowest point of its footprint, or tilt its legs to the slope",
    "owner": "worker15",
-   "id": "QA012",
+   "id": "QA018",
    "level": "warn"
   },
   {
@@ -364,9 +538,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1006",
-    "town.js:1642",
-    "main.js:212"
+    "town.js:1024",
+    "town.js:1662",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -377,7 +551,7 @@
    "msg": "2 of 5 instances float, up to 0.10 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA013",
+   "id": "QA019",
    "level": "warn"
   },
   {
@@ -393,9 +567,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1006",
-    "town.js:1642",
-    "main.js:212"
+    "town.js:1024",
+    "town.js:1662",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -406,7 +580,7 @@
    "msg": "6 of 6 instances float, up to 0.17 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA014",
+   "id": "QA020",
    "level": "warn"
   },
   {
@@ -422,9 +596,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -434,7 +608,7 @@
    "msg": "156 of 156 instances float, up to 0.17 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA015",
+   "id": "QA021",
    "level": "warn"
   },
   {
@@ -450,9 +624,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -462,7 +636,7 @@
    "msg": "104 of 165 instances float, up to 0.18 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA016",
+   "id": "QA022",
    "level": "warn"
   },
   {
@@ -478,9 +652,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -490,7 +664,7 @@
    "msg": "123 of 143 instances float, up to 0.17 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA017",
+   "id": "QA023",
    "level": "warn"
   },
   {
@@ -506,9 +680,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -518,7 +692,7 @@
    "msg": "243 of 243 instances float, up to 0.17 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA018",
+   "id": "QA024",
    "level": "warn"
   },
   {
@@ -534,9 +708,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -546,7 +720,7 @@
    "msg": "31 of 31 instances float, up to 0.16 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA019",
+   "id": "QA025",
    "level": "warn"
   },
   {
@@ -562,9 +736,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -574,7 +748,7 @@
    "msg": "58 of 76 instances float, up to 0.17 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA020",
+   "id": "QA026",
    "level": "warn"
   },
   {
@@ -590,9 +764,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -602,7 +776,7 @@
    "msg": "132 of 132 instances float, up to 0.16 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA021",
+   "id": "QA027",
    "level": "warn"
   },
   {
@@ -618,9 +792,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -630,7 +804,7 @@
    "msg": "17 of 17 instances float, up to 0.16 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA022",
+   "id": "QA028",
    "level": "warn"
   },
   {
@@ -646,9 +820,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -658,7 +832,7 @@
    "msg": "81 of 81 instances float, up to 0.21 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA023",
+   "id": "QA029",
    "level": "warn"
   },
   {
@@ -674,9 +848,9 @@
     "crops.js:401",
     "crops.js:388",
     "props/farm.js:69",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -686,7 +860,7 @@
    "msg": "52 of 81 instances float, up to 0.22 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker15",
-   "id": "QA024",
+   "id": "QA030",
    "level": "warn"
   },
   {
@@ -703,8 +877,8 @@
     "crops.js:388",
     "props/farm.js:69",
     "route1.js:88",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -715,7 +889,7 @@
    "msg": "86 of 106 instances float, up to 0.18 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA025",
+   "id": "QA031",
    "level": "warn"
   },
   {
@@ -732,8 +906,8 @@
     "crops.js:388",
     "props/farm.js:69",
     "route1.js:88",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -744,7 +918,7 @@
    "msg": "143 of 143 instances float, up to 0.17 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA026",
+   "id": "QA032",
    "level": "warn"
   },
   {
@@ -761,8 +935,8 @@
     "crops.js:388",
     "props/farm.js:69",
     "route1.js:88",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -773,16 +947,16 @@
    "msg": "1 of 33 instances float, up to 0.08 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA027",
+   "id": "QA033",
    "level": "warn"
   },
   {
    "check": "ground",
    "sev": "low",
    "at": [
-    -53.66,
-    4.58,
-    -100.49
+    -65.8,
+    5.94,
+    -105.6
    ],
    "object": "crop_sunflower Module.plantAt() @crops.js:401",
    "src": [
@@ -790,8 +964,8 @@
     "crops.js:388",
     "props/farm.js:69",
     "route1.js:88",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "Module.plantAt",
@@ -802,36 +976,59 @@
    "msg": "36 of 36 instances float, up to 0.17 m",
    "fix": "set each instance on the ground under its own footprint",
    "owner": "worker14",
-   "id": "QA028",
+   "id": "QA034",
+   "level": "warn"
+  },
+  {
+   "check": "path",
+   "sev": "low",
+   "at": [
+    0,
+    30.75,
+    0
+   ],
+   "object": "edges/fall/brook/plants fallPlants() @town.js:1727",
+   "src": [
+    "town.js:1727",
+    "town.js:1677",
+    "main.js:213"
+   ],
+   "fns": [
+    "fallPlants",
+    "buildTown"
+   ],
+   "msg": "stands in the middle of a path",
+   "fix": "step it off the path (offPath)",
+   "owner": "worker15",
+   "id": "QA035",
+   "level": "warn"
+  },
+  {
+   "check": "path",
+   "sev": "low",
+   "at": [
+    0,
+    7.59,
+    0
+   ],
+   "object": "edges/fall/stream/plants fallPlants() @town.js:1727",
+   "src": [
+    "town.js:1727",
+    "town.js:1677",
+    "main.js:213"
+   ],
+   "fns": [
+    "fallPlants",
+    "buildTown"
+   ],
+   "msg": "stands in the middle of a path",
+   "fix": "step it off the path (offPath)",
+   "owner": "worker15",
+   "id": "QA036",
    "level": "warn"
   }
  ],
  "allowedFindings": [
-  {
-   "check": "up",
-   "sev": "high",
-   "at": [
-    -44,
-    28.13,
-    -300
-   ],
-   "object": "route1/fallenLog/fall-44_-300 @route1.js:316",
-   "src": [
-    "route1.js:59",
-    "route1.js:316",
-    "town.js:1652",
-    "main.js:212"
-   ],
-   "fns": [
-    "place",
-    "route1Fill",
-    "buildTown"
-   ],
-   "msg": "the piece leans 33° off vertical",
-   "fix": "place it upright (rotation only about y) unless it is meant to lean",
-   "owner": "worker14",
-   "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"
-  },
   {
    "check": "ground",
    "sev": "high",
@@ -840,11 +1037,11 @@
     -1.68,
     85.25
    ],
-   "object": "Group dock() @town.js:1235",
+   "object": "Group dock() @town.js:1253",
    "src": [
-    "town.js:1235",
-    "town.js:1634",
-    "main.js:212"
+    "town.js:1253",
+    "town.js:1654",
+    "main.js:213"
    ],
    "fns": [
     "dock",
@@ -860,14 +1057,14 @@
    "sev": "high",
    "at": [
     8.16,
-    -0.28,
+    0.35,
     16.48
    ],
-   "object": "Group bridge() @town.js:744",
+   "object": "Group bridge() @town.js:753",
    "src": [
-    "town.js:744",
-    "town.js:1617",
-    "main.js:212"
+    "town.js:753",
+    "town.js:1637",
+    "main.js:213"
    ],
    "fns": [
     "bridge",
@@ -882,21 +1079,21 @@
    "check": "shell",
    "sev": "high",
    "at": [
-    9.07,
-    -0.02,
+    8.33,
+    0.56,
     -7.02
    ],
-   "object": "Group bridge() @town.js:744",
+   "object": "Group bridge() @town.js:753",
    "src": [
-    "town.js:744",
-    "town.js:1617",
-    "main.js:212"
+    "town.js:753",
+    "town.js:1637",
+    "main.js:213"
    ],
    "fns": [
     "bridge",
     "buildTown"
    ],
-   "msg": "open side(s): rays straight through at 10 spots (front (+z), right (+x), back (-z), left (-x))",
+   "msg": "open side(s): rays straight through at 6 spots (front (+z), right (+x), back (-z), left (-x))",
    "fix": "close the wall (or whitelist it if the structure is open by design)",
    "owner": "worker15",
    "why": "footbridge: open by design"
@@ -905,15 +1102,15 @@
    "check": "shell",
    "sev": "high",
    "at": [
-    112.42,
-    -0.64,
+    112.43,
+    -0.27,
     91.48
    ],
-   "object": "Group bridge() @town.js:744",
+   "object": "Group bridge() @town.js:753",
    "src": [
-    "town.js:744",
-    "town.js:1617",
-    "main.js:212"
+    "town.js:753",
+    "town.js:1637",
+    "main.js:213"
    ],
    "fns": [
     "bridge",
@@ -932,11 +1129,11 @@
     3.62,
     2.14
    ],
-   "object": "Group well() @town.js:1185",
+   "object": "Group well() @town.js:1203",
    "src": [
-    "town.js:1185",
-    "town.js:1622",
-    "main.js:212"
+    "town.js:1203",
+    "town.js:1642",
+    "main.js:213"
    ],
    "fns": [
     "well",
@@ -955,11 +1152,11 @@
     -2.7,
     109.6
    ],
-   "object": "Group dock() @town.js:1235",
+   "object": "Group dock() @town.js:1253",
    "src": [
-    "town.js:1235",
-    "town.js:1634",
-    "main.js:212"
+    "town.js:1253",
+    "town.js:1654",
+    "main.js:213"
    ],
    "fns": [
     "dock",
@@ -978,12 +1175,12 @@
     -8.96,
     189.61
    ],
-   "object": "Group lighthouse() @town.js:1404",
+   "object": "Group lighthouse() @town.js:1423",
    "src": [
-    "town.js:1404",
-    "town.js:1332",
-    "town.js:1634",
-    "main.js:212"
+    "town.js:1423",
+    "town.js:1351",
+    "town.js:1654",
+    "main.js:213"
    ],
    "fns": [
     "lighthouse",
@@ -999,23 +1196,25 @@
    "check": "shell",
    "sev": "high",
    "at": [
-    12.45,
-    10.4,
-    -243
+    18.17,
+    11.76,
+    -249.8
    ],
-   "object": "Group deckBridge() @route1.js:542",
+   "object": "route1/creek/road_footbridge deckBridge() @route1.js:592",
    "src": [
-    "route1.js:542",
-    "route1.js:236",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:592",
+    "route1.js:584",
+    "route1.js:234",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "deckBridge",
+    "bridgeAt",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "open side(s): rays straight through at 12 spots (right (+x), back (-z), left (-x), front (+z))",
+   "msg": "open side(s): rays straight through at 8 spots (front (+z), right (+x), back (-z), left (-x))",
    "fix": "close the wall (or whitelist it if the structure is open by design)",
    "owner": "worker14",
    "why": "bridges: open by design"
@@ -1024,23 +1223,25 @@
    "check": "shell",
    "sev": "high",
    "at": [
-    -15.35,
-    18.92,
-    -380.69
+    -15.45,
+    19.01,
+    -380.78
    ],
-   "object": "Group deckBridge() @route1.js:542",
+   "object": "route1/brook/stone_bridge deckBridge() @route1.js:592",
    "src": [
-    "route1.js:542",
-    "route1.js:260",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:592",
+    "route1.js:584",
+    "route1.js:261",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "deckBridge",
+    "bridgeAt",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "open side(s): rays straight through at 12 spots (front (+z), right (+x), back (-z), left (-x))",
+   "msg": "open side(s): rays straight through at 6 spots (front (+z), right (+x), back (-z), left (-x))",
    "fix": "close the wall (or whitelist it if the structure is open by design)",
    "owner": "worker15",
    "why": "bridges: open by design"
@@ -1049,23 +1250,23 @@
    "check": "shell",
    "sev": "high",
    "at": [
-    43.34,
-    19.04,
-    -332.88
+    42.5,
+    19.05,
+    -333.1
    ],
-   "object": "route1/fallenLog/fall44_-334 @route1.js:316",
+   "object": "route1/fallenLog/fall44_-334 @route1.js:320",
    "src": [
     "route1.js:59",
-    "route1.js:316",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:320",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "open side(s): rays straight through at 12 spots (front (+z), right (+x), back (-z), left (-x))",
+   "msg": "open side(s): rays straight through at 9 spots (left (-x), front (+z), right (+x), back (-z))",
    "fix": "close the wall (or whitelist it if the structure is open by design)",
    "owner": "worker14",
    "why": "fallen tree: not a building"
@@ -1074,16 +1275,16 @@
    "check": "shell",
    "sev": "high",
    "at": [
-    -42.33,
-    28.49,
-    -298.63
+    -46.3,
+    32.05,
+    -299.46
    ],
-   "object": "route1/fallenLog/fall-44_-300 @route1.js:316",
+   "object": "route1/fallenLog/fall-48_-300 @route1.js:320",
    "src": [
     "route1.js:59",
-    "route1.js:316",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:320",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
@@ -1099,6 +1300,30 @@
    "check": "overlap",
    "sev": "high",
    "at": [
+    32.16447067260742,
+    4.038294315338135,
+    -43.49120330810547
+   ],
+   "object": "veg.js plant in field_beds Module.cropField() @props/farm.js:46",
+   "src": [
+    "props/farm.js:46",
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
+   ],
+   "fns": [
+    "Module.cropField",
+    "buildTown"
+   ],
+   "msg": "a plant (veg.js) grows inside this building's footprint",
+   "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
+   "owner": "worker15",
+   "why": "the hedges veg.js plants round each field stand just outside the turned field; the bed mesh's footprint box is axis-aligned, so it covers them"
+  },
+  {
+   "check": "overlap",
+   "sev": "high",
+   "at": [
     47.83552932739258,
     5.454165935516357,
     -56.50879669189453
@@ -1106,9 +1331,33 @@
    "object": "veg.js plant in field_beds Module.cropField() @props/farm.js:46",
    "src": [
     "props/farm.js:46",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
+   ],
+   "fns": [
+    "Module.cropField",
+    "buildTown"
+   ],
+   "msg": "a plant (veg.js) grows inside this building's footprint",
+   "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
+   "owner": "worker15",
+   "why": "the hedges veg.js plants round each field stand just outside the turned field; the bed mesh's footprint box is axis-aligned, so it covers them"
+  },
+  {
+   "check": "overlap",
+   "sev": "high",
+   "at": [
+    31.02273941040039,
+    3.98708176612854,
+    -43.62887191772461
+   ],
+   "object": "veg.js plant in field_beds Module.cropField() @props/farm.js:46",
+   "src": [
+    "props/farm.js:46",
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.cropField",
@@ -1130,9 +1379,9 @@
    "object": "veg.js plant in field_beds Module.cropField() @props/farm.js:46",
    "src": [
     "props/farm.js:46",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
+    "town.js:1670",
+    "town.js:1670",
+    "main.js:213"
    ],
    "fns": [
     "Module.cropField",
@@ -1142,53 +1391,6 @@
    "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
    "owner": "worker15",
    "why": "the hedges veg.js plants round each field stand just outside the turned field; the bed mesh's footprint box is axis-aligned, so it covers them"
-  },
-  {
-   "check": "overlap",
-   "sev": "high",
-   "at": [
-    32.16447067260742,
-    4.038294315338135,
-    -43.49120330810547
-   ],
-   "object": "veg.js plant in field_beds Module.cropField() @props/farm.js:46",
-   "src": [
-    "props/farm.js:46",
-    "town.js:1650",
-    "town.js:1650",
-    "main.js:212"
-   ],
-   "fns": [
-    "Module.cropField",
-    "buildTown"
-   ],
-   "msg": "a plant (veg.js) grows inside this building's footprint",
-   "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
-   "owner": "worker15",
-   "why": "the hedges veg.js plants round each field stand just outside the turned field; the bed mesh's footprint box is axis-aligned, so it covers them"
-  },
-  {
-   "check": "overlap",
-   "sev": "high",
-   "at": [
-    1.4861857891082764,
-    0.16091887652873993,
-    104.98333740234375
-   ],
-   "object": "veg.js plant in Group dock() @town.js:1235",
-   "src": [
-    "town.js:1235",
-    "town.js:1634",
-    "main.js:212"
-   ],
-   "fns": [
-    "dock",
-    "buildTown"
-   ],
-   "msg": "a plant (veg.js) grows inside this building's footprint",
-   "fix": "keep veg.js scatter out of the building (blocked()/colliders)",
-   "owner": "worker15",
-   "why": "the harbour's box covers the whole bay; its own parts and the beach palms are inside it"
   },
   {
    "check": "overlap",
@@ -1198,11 +1400,11 @@
     0.11469481140375137,
     105.27072143554688
    ],
-   "object": "veg.js plant in Group dock() @town.js:1235",
+   "object": "veg.js plant in Group dock() @town.js:1253",
    "src": [
-    "town.js:1235",
-    "town.js:1634",
-    "main.js:212"
+    "town.js:1253",
+    "town.js:1654",
+    "main.js:213"
    ],
    "fns": [
     "dock",
@@ -1221,11 +1423,11 @@
     0.20000000298023224,
     106.23414611816406
    ],
-   "object": "veg.js plant in Group dock() @town.js:1235",
+   "object": "veg.js plant in Group dock() @town.js:1253",
    "src": [
-    "town.js:1235",
-    "town.js:1634",
-    "main.js:212"
+    "town.js:1253",
+    "town.js:1654",
+    "main.js:213"
    ],
    "fns": [
     "dock",
@@ -1241,72 +1443,22 @@
    "sev": "med",
    "at": [
     44,
-    18.73,
+    18.72,
     -334
    ],
-   "object": "route1/fallenLog/fall44_-334 @route1.js:316",
+   "object": "route1/fallenLog/fall44_-334 @route1.js:320",
    "src": [
     "route1.js:59",
-    "route1.js:316",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:320",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "the piece leans 20° off vertical",
-   "fix": "place it upright (rotation only about y) unless it is meant to lean",
-   "owner": "worker14",
-   "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"
-  },
-  {
-   "check": "up",
-   "sev": "med",
-   "at": [
-    -36,
-    11.23,
-    -142
-   ],
-   "object": "route1/fallenLog/hollow-36_-142 @route1.js:316",
-   "src": [
-    "route1.js:59",
-    "route1.js:316",
-    "town.js:1652",
-    "main.js:212"
-   ],
-   "fns": [
-    "place",
-    "route1Fill",
-    "buildTown"
-   ],
-   "msg": "the piece leans 13° off vertical",
-   "fix": "place it upright (rotation only about y) unless it is meant to lean",
-   "owner": "worker14",
-   "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"
-  },
-  {
-   "check": "up",
-   "sev": "med",
-   "at": [
-    46,
-    25.54,
-    -214
-   ],
-   "object": "route1/fallenLog/hollow46_-214 @route1.js:316",
-   "src": [
-    "route1.js:59",
-    "route1.js:316",
-    "town.js:1652",
-    "main.js:212"
-   ],
-   "fns": [
-    "place",
-    "route1Fill",
-    "buildTown"
-   ],
-   "msg": "the piece leans 15° off vertical",
+   "msg": "the piece leans 14° off vertical",
    "fix": "place it upright (rotation only about y) unless it is meant to lean",
    "owner": "worker14",
    "why": "a fallen tree lies along the slope it fell on: tilted with the ground and sunk into it (route1.js)"
@@ -1323,8 +1475,8 @@
    "src": [
     "lab.js:138",
     "lab.js:423",
-    "town.js:1609",
-    "main.js:212"
+    "town.js:1629",
+    "main.js:213"
    ],
    "fns": [
     "add",
@@ -1349,8 +1501,8 @@
     "lab.js:138",
     "lab.js:144",
     "lab.js:424",
-    "town.js:1609",
-    "main.js:212"
+    "town.js:1629",
+    "main.js:213"
    ],
    "fns": [
     "add",
@@ -1376,8 +1528,8 @@
     "lab.js:138",
     "lab.js:147",
     "lab.js:373",
-    "town.js:1609",
-    "main.js:212"
+    "town.js:1629",
+    "main.js:213"
    ],
    "fns": [
     "add",
@@ -1394,18 +1546,18 @@
    "check": "splay",
    "sev": "med",
    "at": [
-    -102.81,
-    40.75,
-    -418.8
+    -98.86,
+    39.32,
+    -416.92
    ],
-   "object": "r1_sails/r1_sails bev() @props/outdoor.js:237",
+   "object": "r1_sails/r1_sails bev() @props/outdoor.js:243",
    "src": [
-    "props/outdoor.js:237",
-    "props/outdoor.js:640",
-    "props/outdoor.js:1049",
-    "route1.js:441",
-    "town.js:1652",
-    "main.js:212"
+    "props/outdoor.js:243",
+    "props/outdoor.js:646",
+    "props/outdoor.js:1085",
+    "route1.js:445",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "put",
@@ -1423,18 +1575,18 @@
    "check": "splay",
    "sev": "med",
    "at": [
-    -102.91,
-    41.81,
-    -418.7
+    -98.95,
+    40.38,
+    -416.83
    ],
-   "object": "r1_sails/r1_sails bev() @props/outdoor.js:237",
+   "object": "r1_sails/r1_sails bev() @props/outdoor.js:243",
    "src": [
-    "props/outdoor.js:237",
-    "props/outdoor.js:640",
-    "props/outdoor.js:1050",
-    "route1.js:441",
-    "town.js:1652",
-    "main.js:212"
+    "props/outdoor.js:243",
+    "props/outdoor.js:646",
+    "props/outdoor.js:1086",
+    "route1.js:445",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "put",
@@ -1452,18 +1604,18 @@
    "check": "splay",
    "sev": "med",
    "at": [
-    -102.15,
-    42.08,
-    -419.12
+    -98.19,
+    40.65,
+    -417.24
    ],
-   "object": "r1_sails/r1_sails bev() @props/outdoor.js:237",
+   "object": "r1_sails/r1_sails bev() @props/outdoor.js:243",
    "src": [
-    "props/outdoor.js:237",
-    "props/outdoor.js:640",
-    "props/outdoor.js:1050",
-    "route1.js:441",
-    "town.js:1652",
-    "main.js:212"
+    "props/outdoor.js:243",
+    "props/outdoor.js:646",
+    "props/outdoor.js:1086",
+    "route1.js:445",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "put",
@@ -1481,18 +1633,18 @@
    "check": "splay",
    "sev": "med",
    "at": [
-    -102.55,
-    42.09,
-    -418.86
+    -98.6,
+    40.66,
+    -416.99
    ],
-   "object": "r1_sails/r1_sails Module.windmill() @props/outdoor.js:237",
+   "object": "r1_sails/r1_sails Module.windmill() @props/outdoor.js:243",
    "src": [
-    "props/outdoor.js:237",
-    "props/outdoor.js:240",
-    "props/outdoor.js:1054",
-    "route1.js:441",
-    "town.js:1652",
-    "main.js:212"
+    "props/outdoor.js:243",
+    "props/outdoor.js:246",
+    "props/outdoor.js:1090",
+    "route1.js:445",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "put",
@@ -1514,11 +1666,11 @@
     0.57,
     16
    ],
-   "object": "Mesh labStairs() @town.js:604",
+   "object": "Mesh labStairs() @town.js:609",
    "src": [
-    "town.js:604",
-    "town.js:1615",
-    "main.js:212"
+    "town.js:609",
+    "town.js:1635",
+    "main.js:213"
    ],
    "fns": [
     "labStairs",
@@ -1537,11 +1689,11 @@
     1.91,
     16
    ],
-   "object": "Mesh labStairs() @town.js:604",
+   "object": "Mesh labStairs() @town.js:609",
    "src": [
-    "town.js:604",
-    "town.js:1615",
-    "main.js:212"
+    "town.js:609",
+    "town.js:1635",
+    "main.js:213"
    ],
    "fns": [
     "labStairs",
@@ -1560,11 +1712,11 @@
     1.71,
     16
    ],
-   "object": "Mesh bridge() @town.js:754",
+   "object": "Mesh bridge() @town.js:763",
    "src": [
-    "town.js:754",
-    "town.js:1617",
-    "main.js:212"
+    "town.js:763",
+    "town.js:1637",
+    "main.js:213"
    ],
    "fns": [
     "bridge",
@@ -1583,11 +1735,11 @@
     1.68,
     -7.5
    ],
-   "object": "Mesh bridge() @town.js:754",
+   "object": "Mesh bridge() @town.js:763",
    "src": [
-    "town.js:754",
-    "town.js:1617",
-    "main.js:212"
+    "town.js:763",
+    "town.js:1637",
+    "main.js:213"
    ],
    "fns": [
     "bridge",
@@ -1606,11 +1758,11 @@
     9.71,
     91
    ],
-   "object": "Mesh bridge() @town.js:754",
+   "object": "Mesh bridge() @town.js:763",
    "src": [
-    "town.js:754",
-    "town.js:1617",
-    "main.js:212"
+    "town.js:763",
+    "town.js:1637",
+    "main.js:213"
    ],
    "fns": [
     "bridge",
@@ -1634,8 +1786,8 @@
     "route1.js:59",
     "route1.js:69",
     "route1.js:214",
-    "town.js:1652",
-    "main.js:212"
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
@@ -1656,22 +1808,22 @@
     4.613166813955758,
     13.25
    ],
-   "object": "Group globeLamp() @town.js:620",
+   "object": "Group globeLamp() @town.js:627",
    "src": [
-    "town.js:620",
-    "town.js:654",
-    "town.js:1614",
-    "main.js:212"
+    "town.js:627",
+    "town.js:661",
+    "town.js:1634",
+    "main.js:213"
    ],
    "fns": [
     "globeLamp",
     "labGate",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside Group labGate() @town.js:650",
+   "msg": "100% of its footprint is inside Group labGate() @town.js:657",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "Group labGate() @town.js:650",
+   "other": "Group labGate() @town.js:657",
    "why": "globe lamps sit on the gate's pillars"
   },
   {
@@ -1682,22 +1834,22 @@
     4.613166813955758,
     18.75
    ],
-   "object": "Group globeLamp() @town.js:620",
+   "object": "Group globeLamp() @town.js:627",
    "src": [
-    "town.js:620",
-    "town.js:654",
-    "town.js:1614",
-    "main.js:212"
+    "town.js:627",
+    "town.js:661",
+    "town.js:1634",
+    "main.js:213"
    ],
    "fns": [
     "globeLamp",
     "labGate",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside Group labGate() @town.js:650",
+   "msg": "100% of its footprint is inside Group labGate() @town.js:657",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "Group labGate() @town.js:650",
+   "other": "Group labGate() @town.js:657",
    "why": "globe lamps sit on the gate's pillars"
   },
   {
@@ -1705,25 +1857,25 @@
    "sev": "low",
    "at": [
     -68.87952887119214,
-    13.652211187006204,
+    13.654136180346539,
     -259.9754282171744
    ],
-   "object": "Group @route1.js:279",
+   "object": "Group @route1.js:282",
    "src": [
     "route1.js:59",
-    "route1.js:279",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:282",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "place",
     "route1Fill",
     "buildTown"
    ],
-   "msg": "100% of its footprint is inside Group @route1.js:280",
+   "msg": "100% of its footprint is inside Group @route1.js:283",
    "fix": "move one of them clear (check the colliders before placing)",
    "owner": "worker15",
-   "other": "Group @route1.js:280",
+   "other": "Group @route1.js:283",
    "why": "a shogi bench under the tea house parasol"
   },
   {
@@ -1734,11 +1886,11 @@
     21.58,
     -438
    ],
-   "object": "Group @route1.js:466",
+   "object": "Group @route1.js:471",
    "src": [
-    "route1.js:466",
-    "town.js:1652",
-    "main.js:212"
+    "route1.js:471",
+    "town.js:1672",
+    "main.js:213"
    ],
    "fns": [
     "route1Fill",
@@ -1753,7 +1905,7 @@
  "taggedInCode": [
   {
    "check": "ground",
-   "object": "town/lab/plate labGate() @town.js:684",
+   "object": "town/lab/plate labGate() @town.js:691",
    "why": "mounted on the retaining wall"
   },
   {
@@ -1763,47 +1915,77 @@
   },
   {
    "check": "ground",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "ground",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "ground",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "ground",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "ground",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "ground",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "ground",
-   "object": "Group @route1.js:430",
+   "object": "Group @route1.js:434",
    "why": "the washing line, hung between two poles"
   },
   {
    "check": "ground",
-   "object": "Mesh palletHouse() @town.js:986",
+   "object": "edges/bank/stream/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "ground",
+   "object": "edges/bank/stream/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "ground",
+   "object": "route1/ledge/2/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "ground",
+   "object": "route1/ledge/5/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "ground",
+   "object": "route1/ledge/7/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "ground",
+   "object": "edges/bank/tree_roots/2,2/bank_tree_roots bankTreeRoots() @props/banks.js:589",
+   "why": "tree roots exposed on the bank's face"
+  },
+  {
+   "check": "ground",
+   "object": "Mesh palletHouse() @town.js:1004",
    "why": "string-light bulbs hang on their strands"
   },
   {
    "check": "ground",
-   "object": "Mesh @route1.js:522",
+   "object": "Mesh @route1.js:527",
    "why": "berries hang in the orchard trees"
   },
   {
@@ -1813,12 +1995,12 @@
   },
   {
    "check": "shell",
-   "object": "town/lab/plate labGate() @town.js:684",
+   "object": "town/lab/plate labGate() @town.js:691",
    "why": "mounted on the retaining wall"
   },
   {
    "check": "shell",
-   "object": "Group palletHouse() @town.js:1007",
+   "object": "Group palletHouse() @town.js:1025",
    "why": "the vegetable patch: furrowed beds, open ground"
   },
   {
@@ -1863,48 +2045,278 @@
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:348",
+   "object": "Group @route1.js:352",
    "why": "telegraph wires, strung between the poles"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:406",
+   "object": "Group @route1.js:410",
    "why": "a bus shelter: open at the front by design"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:430",
+   "object": "Group @route1.js:434",
    "why": "the washing line, hung between two poles"
   },
   {
    "check": "shell",
-   "object": "Group @route1.js:440",
+   "object": "Group @route1.js:444",
    "why": "the water tower stands on four legs"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/40/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/40/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/80/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/120/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/-1/160/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/1/40/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/1/40/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/1/80/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/stream/1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/tea/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/tea/-1/40/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/tea/1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/brook/-1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/brook/1/0/streambank @town.js:1682",
+   "why": "a stream's cut bank: an earth face laid over the ground, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/0/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/0/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/0/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/1/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/1/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/1/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/2/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/2/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/2/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/3/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/3/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/3/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/4/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/4/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/4/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/5/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/5/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/5/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/6/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/6/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/6/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/7/0/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/7/80/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "route1/ledge/7/160/ledge @town.js:1687",
+   "why": "a Route 1 ledge: an earth face laid on the ground's step, one-sided like the ground"
+  },
+  {
+   "check": "shell",
+   "object": "edges/bank/tree_roots/2,2/bank_tree_roots bankTreeRoots() @props/banks.js:589",
+   "why": "tree roots exposed on the bank's face"
   }
  ]
 }

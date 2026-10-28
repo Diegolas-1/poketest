@@ -430,7 +430,10 @@ export const LEDGES = [
   { z: -112, x0: -46, x1: 12 }, { z: -150, x0: -17, x1: 34 }, { z: -188, x0: -58, x1: -6 }, { z: -222, x0: -23, x1: 28 },
   { z: -258, x0: -44, x1: 9 }, { z: -290, x0: 0, x1: 50 }, { z: -325, x0: -32, x1: 19 }, { z: -360, x0: -7, x1: 44 },
 ].map((L, i) => ({ ...L, drop: 1.0, i }));
-const ledgeLine = (L, x) => L.z + Math.sin(x * 0.11 + L.i) * 0.9 + Math.sin(x * 0.31 + L.i * 2) * 0.3;
+// (the line wanders and is scalloped where bites of the face have eroded:
+// props/ledges.js builds the earth face on it, the walk grid flags it)
+const ledgeLine = (L, x) => L.z + Math.sin(x * 0.11 + L.i) * 0.9 + Math.sin(x * 0.31 + L.i * 2) * 0.3
+  + Math.sin(x * 0.83 + L.i * 3) * 0.2 * (0.6 + 0.4 * Math.sin(x * 0.07 + L.i)) + Math.sin(x * 1.9 + L.i * 5) * 0.07;
 // how far past the ledge's ends (0 inside)
 const ledgeOut = (L, x) => Math.max(0, L.x0 - x, x - L.x1);
 // the ledge's step at (x, z): 1 north of its line (the high side), 0 south;
@@ -1005,19 +1008,7 @@ export function buildTerrain() {
     m.receiveShadow = true;
     group.add(m);
   }
-  // the ledges: one mesh for all of them (one draw)
-  {
-    const gs = LEDGES.map((L) => ledgeMesh(L).geometry), P = [], N = [], Cc = [], U = [], I = [];
-    for (const g of gs) { const o = P.length / 3; P.push(...g.attributes.position.array); N.push(...g.attributes.normal.array); Cc.push(...g.attributes.color.array); U.push(...g.attributes.uv.array); for (const k of g.index.array) I.push(k + o); }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
-    g.setIndex(I);
-    const m = new THREE.Mesh(g); m.name = 'ledges'; m.receiveShadow = true;
-    group.add(m);
-  }
+  // (the ledges' tops and faces: props/ledges.js, built with the town)
   return group;
 }
 // the ground as the terrain mesh draws it (for the ink's ground cuts)
@@ -1032,56 +1023,6 @@ export function meshHeight(x, z) {
   const ha = H(i, j), hb = H(i, j + 1), hc = H(i + 1, j + 1), hd = H(i + 1, j);
   return fx + fz <= 1 ? ha + fz * (hb - ha) + fx * (hd - ha) : hc + (1 - fx) * (hb - hc) + (1 - fz) * (hd - hc);
 }
-// A ledge as part of the ground: its grassy top (over the hidden step of the
-// terrain mesh, which sits LEDGE_MESH_SHIFT north of the edge), a rounded lip
-// and a rocky face down to the low side, running a few metres past its ends
-// where it fades into the ramp. Same material as the ground.
-const LEDGE_FACE = new THREE.Color('#a4805a'), LEDGE_FACE_D = new THREE.Color('#7a5a42'), LEDGE_LIP = new THREE.Color('#4a3a2c');
-function ledgeMesh(L) {
-  // rows across: [t (m north of the edge), dy over the ground there, face colour k (-1 = ground colour)]
-  const ROWS = [[-1.6, 0, -1], [-0.7, 0, -1], [-0.06, -0.12, 2], [-0.02, 0, 1], [0.04, 0.05, 3], [0.2, 0.05, -1], [1.0, 0.04, -1], [2.0, 0.04, -1], [3.0, 0.04, -1], [4.0, 0.03, -1], [4.7, -0.03, -1]];
-  const pos = [], nrm = [], col = [], uv = [], idx = [], tmp = new THREE.Color();
-  const xa = L.x0 - 3, xb = L.x1 + 3, n = Math.ceil((xb - xa) / 0.5);
-  const R = ROWS.length;
-  for (let k = 0; k <= n; k++) {
-    const x = xa + (xb - xa) * k / n, zl = ledgeLine(L, x), e = ledgeOut(L, x);
-    const lo = height(x, zl + 0.35), hi = height(x, zl - 0.35);
-    for (const [t, dy, ck] of ROWS) {
-      const z = zl - t;
-      let y;
-      if (t < -0.1) y = height(x, z) + (e > 0.3 ? 0.04 : -0.06);   // in front: only past the ends, where the ramp starts
-      else if (ck === 2) y = Math.min(lo, height(x, z)) + dy;          // the foot of the face, a little sunk
-      else if (ck === 1 || ck === 3) y = Math.max(hi, height(x, z)) + dy;
-      else y = height(x, z) + dy;
-      pos.push(x, y, z); uv.push(x / 4, z / 4);
-      if (ck < 0) { groundColor(x, z, y, 0.05, tmp); col.push(tmp.r, tmp.g, tmp.b); }
-      else { const c = ck === 3 ? LEDGE_LIP : ck === 1 ? LEDGE_FACE : LEDGE_FACE_D; col.push(c.r, c.g, c.b); }
-      nrm.push(0, 1, 0);
-    }
-  }
-  for (let k = 0; k < n; k++) for (let r = 0; r < R - 1; r++) {
-    const a = k * R + r, b = a + 1, c = a + R, d = c + 1;
-    idx.push(a, c, b, b, c, d);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  // the top keeps the ground's normals (up, as the mesh under it), the face its own
-  const N = g.attributes.normal;
-  for (let k = 0; k <= n; k++) for (let r = 0; r < R; r++) if (ROWS[r][2] < 0) {
-    const x = pos[(k * R + r) * 3], z = pos[(k * R + r) * 3 + 2];
-    const dx = (height(x + 0.75, z) - height(x - 0.75, z)) / 1.5, dz = (height(x, z + 0.75) - height(x, z - 0.75)) / 1.5, l = Math.hypot(dx, 1, dz);
-    N.setXYZ(k * R + r, -dx / l, 1 / l, -dz / l);
-  }
-  const m = new THREE.Mesh(g);
-  m.name = 'ledge_' + L.i;
-  m.receiveShadow = true;
-  return m;
-}
-
 // The water as the anime paints it: turquoise over sand, deep blue further
 // out, crisp white bands of foam rolling onto the beach, a white edge where
 // it laps the sand, a slow swell and glints of sun. A depth map of the sea
@@ -1377,12 +1318,16 @@ export function fallGeometries() {
 
 // Height and grass density over an area, as a float texture for the grass:
 // r = ground height, g = how much grass grows there.
+// how far something laid on the ground lifts the grass (main.js: the turf
+// rolled up over a wall's top, props/turflip.js turfLift)
+let GRASS_LIFT = null;
+export const setGrassLift = (f) => { GRASS_LIFT = f; };
 export function grassMap(x0, z0, w, d, res) {
   const nx = Math.round(w / res), nz = Math.round(d / res);
   const data = new Float32Array(nx * nz * 4);
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const x = x0 + (i + 0.5) * res, z = z0 + (j + 0.5) * res;
-    const h = height(x, z);
+    const h = height(x, z) + (GRASS_LIFT ? GRASS_LIFT(x, z) : 0);
     // grass stops at the dirt's edge (a few blades lean over it)
     let g = smooth(-0.15, 0.55, pathSD(x, z));
     if (isWater(x, z) || h < SEA_Y + 1.6 && shoreSD(x, z) < 16) g = 0;
@@ -1393,7 +1338,7 @@ export function grassMap(x0, z0, w, d, res) {
     // none on the streams' cut faces and their overhanging turf (props/banks.js)
     if (inBank(x, z, 0.1)) g = 0;
     // no grass on a ledge's edge (the clumps would float off its face)
-    if (z < -90 && z > -380 && ledgeAt(x, z, 1.7)) g = 0;
+    if (z < -90 && z > -380 && ledgeAt(x, z, 1.0)) g = 0;
     // none under PALLET HOUSE and its terrace deck
     if (Math.abs(x - PALLET_HOUSE.x) < 20 && Math.abs(z - PALLET_HOUSE.z) < 20) {
       const [lx, lz] = toLocal(PALLET_HOUSE, x, z);

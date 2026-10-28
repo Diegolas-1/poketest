@@ -2,20 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cid2dd7mc0ryq"
-path="res://.godot/imported/3f3a2eacb1005d67.png-a6488fd105a6957dd7eae1415d817cab.ctex"
+uid="uid://c7t4eyuyrxyiy"
+path.s3tc="res://.godot/imported/earth.webp-37179238a217a432a1b4dbb9e42b786b.s3tc.ctex"
+path.etc2="res://.godot/imported/earth.webp-37179238a217a432a1b4dbb9e42b786b.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
-source_file="res://world/base/tex/3f3a2eacb1005d67.png"
-dest_files=["res://.godot/imported/3f3a2eacb1005d67.png-a6488fd105a6957dd7eae1415d817cab.ctex"]
+source_file="res://world/base/earth.webp"
+dest_files=["res://.godot/imported/earth.webp-37179238a217a432a1b4dbb9e42b786b.s3tc.ctex", "res://.godot/imported/earth.webp-37179238a217a432a1b4dbb9e42b786b.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
