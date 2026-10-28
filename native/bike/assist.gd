@@ -48,6 +48,8 @@ var ENGAGE := 0.8          # rad
 var OVERRIDE := 0.42       # rad of stick off straight ahead (camera relative)
 var NUDGE := 0.1
 var EDGE := 0.6
+var CAPTURE := 2.5         # m past the edge it takes over again within 3 s of letting go (heading and stick along it)
+var LA_NARROW := 4.0       # the lookahead at most this x the half width (narrow decks: follow closely)
 var LAT := 3.6
 var BRAKE := 4.5
 var SIGNAL_T := 2.2
@@ -83,6 +85,8 @@ func _init() -> void:
 	OVERRIDE = float(c.get("override", OVERRIDE))
 	NUDGE = float(c.get("nudge", NUDGE))
 	EDGE = float(c.get("edge_margin", EDGE))
+	CAPTURE = float(c.get("capture", CAPTURE))
+	LA_NARROW = float(c.get("lookahead_narrow", LA_NARROW))
 	LAT = float(c.get("lat_acc", LAT))
 	BRAKE = float(c.get("brake", BRAKE))
 	SIGNAL_T = float(c.get("signal_t", SIGNAL_T))
@@ -317,6 +321,9 @@ func update(dt: float, p3: Vector3, yaw: float, v: float, stick: Vector2, stick_
 	return active
 
 func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick_rel: float, m: float, cruising: bool) -> void:
+	_lost_t = 0.0 if active else _lost_t + _dt
+	# (just steered off it by hand: centring the stick takes over again from a little way off)
+	var cap := CAPTURE if _lost_t < 3.0 else 0.0
 	om_target = 0.0
 	v_limit = 1e9
 	if E.is_empty(): active = false; return
@@ -331,7 +338,9 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 		if q[0] > ed.w: q = _proj(e, p, 0, ed.p.size())
 		lat = q[0]; s = q[1]; _seg = q[3]
 		half = ed.w
-		found = lat < half + EDGE
+		# (taken over from beside the path: the allowance shrinks as it brings him back on)
+		found = lat < maxf(half + EDGE, _allow)
+		_allow = minf(_allow, maxf(lat + 0.3, half + EDGE))
 		# past its end: onto the next edge
 		if found and to_end() < 0.05:
 			var nx := _next(e, dir)
@@ -343,8 +352,8 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 			elif active:
 				dead_end = true
 	if not found or not active:
-		var nr := nearest(p, 4.0)
-		if nr.is_empty() or nr[1] > E[nr[0]].w + (EDGE if active else 0.0):
+		var nr := nearest(p, 4.0 + cap)
+		if nr.is_empty() or nr[1] > E[nr[0]].w + (maxf(EDGE, _allow - E[nr[0]].w) if active else cap):
 			active = false; e = -1; choice = []
 			return
 		var k: int = nr[0]
@@ -356,6 +365,7 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 			var sang := acos(clampf((tg * d).dot(stick), -1.0, 1.0)) if stick != Vector2.ZERO else (0.0 if cruising else 9.0)
 			if not active and (ang > ENGAGE or sang > ENGAGE): e = -1; return
 			e = k; dir = d; s = nr[2]; lat = nr[1]; half = E[k].w
+			_allow = maxf(lat + 0.3, half + EDGE)
 			_seg = clampi(E[k].cum.bsearch(s) - 1, 0, E[k].p.size() - 2)
 			choice = []
 			dead_end = false
@@ -385,7 +395,8 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 	elif choice.size() > 0 and choice[0] != n:
 		choice = []
 	# pure pursuit toward the point ahead on the centre line
-	var la := LA_MIN + LA_K * v
+	# (a narrow path, a footbridge's deck: a shorter lookahead follows it more closely)
+	var la := minf(LA_MIN + LA_K * v, maxf(LA_MIN, LA_NARROW * half))
 	aim = ahead(la)
 	var to := aim - p
 	var alpha := wrapf(atan2(to.x, to.y) - yaw, -PI, PI)
@@ -420,6 +431,8 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 		var left := to_end()
 		v_limit = minf(v_limit, sqrt(2.0 * BRAKE * maxf(0.0, left - 0.5)) + 0.6)
 
+var _allow := 0.0
+var _lost_t := 99.0
 var _r_min := 1.3
 var _r_k := 0.045
 var _om_max := 99.0
