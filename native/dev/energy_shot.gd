@@ -83,7 +83,7 @@ func _h(at_: Vector2, s: String, size_ := 20) -> void:
 # ---------- gallery ----------
 func _gallery(vs: Vector2) -> void:
 	_h(Vector2(40, 46), "Energy types", 30)
-	UITheme.text(self, Vector2(250, 44), "ORIGINAL VECTOR SYMBOLS · A COLOURED DISC, A WHITE GLYPH · DRAWN WITH draw_*", "label", 14, UITheme.TEXT_DIM)
+	UITheme.text(self, Vector2(250, 44), "ORIGINAL FLAT SYMBOLS · A COLOURED DISC, A WHITE GLYPH · INLINE SVG, CACHED PER SIZE", "label", 14, UITheme.TEXT_DIM)
 	var kinds := EnergyIcon.KINDS
 	var cols := 9
 	var cell := Vector2(136, 140)
