@@ -13,6 +13,7 @@ render_mode ambient_light_disabled;
 
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec2 uv_off = vec2(0.0);
+uniform vec3 tint = vec3(1.0);             // a per-material colour multiply (some rips' sheets are paler than the games show them)
 uniform vec4 eye_l = vec4(0.0);
 uniform vec4 eye_r = vec4(0.0);
 uniform vec2 lid_from = vec2(0.0, -1.7);   // where the skin is sampled, in eye radii from the centre
@@ -49,7 +50,7 @@ void fragment() {
 	vec3 c = texture(albedo_tex, uv).rgb;
 	c = eyelid(c, uv, eye_l);
 	c = eyelid(c, uv, eye_r);
-	ALBEDO = c;
+	ALBEDO = c * tint;
 }
 
 void light() {

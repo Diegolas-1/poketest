@@ -48,24 +48,35 @@ var _tl := {}                        # bone -> local rotation this frame
 var _tp := {}                        # bone -> local position this frame
 var _touched := {}                   # bones written last frame (back to rest when left alone)
 
-static func make(sp: String) -> Creature:
+# variant: "" (the default) or "f" / "m" for a species whose sexes differ (rattata,
+# raticate, pikachu, raichu: the female's model is creatures/<species>_f.glb); a variant
+# it has no model for is the default. The species of creatures/species.json (#019 on) are
+# CreatureRig's families (creature_rig.gd), each with its own subclass where it has one.
+static func make(sp: String, variant := "") -> Creature:
 	var c: Creature
 	match sp:
 		"caterpie": c = CreatureCaterpie.new()
 		"doduo": c = CreatureDoduo.new()
 		"mrmime": c = CreatureMrMime.new()
 		"pidgey": c = CreaturePidgey.new()
-		_: c = Creature.new()
+		_: c = CreatureRig.create(sp)
 	c.name = "Creature_" + sp
+	c.variant = variant
 	c._build(sp)
 	return c
+
+var variant := ""
 
 func _build(sp: String) -> void:
 	species = sp
 	rng.randomize()
-	if not _scenes.has(sp): _scenes[sp] = load("res://creatures/%s.glb" % sp)
-	var root: Node3D = _scenes[sp].instantiate()
+	var key := sp
+	if variant != "" and ResourceLoader.exists("res://creatures/%s_%s.glb" % [sp, variant]): key = sp + "_" + variant
+	else: variant = ""
+	if not _scenes.has(key): _scenes[key] = load("res://creatures/%s.glb" % key)
+	var root: Node3D = _scenes[key].instantiate()
 	add_child(root)
+	_root_ready(root)
 	skel = root.find_child("Skeleton3D", true, false)
 	var n := skel.get_bone_count()
 	parent.resize(n)
@@ -99,6 +110,7 @@ func _build(sp: String) -> void:
 	_setup()
 
 # ---------- for the species ----------
+func _root_ready(_root: Node3D) -> void: pass   # the model is in, before the skeleton is read (its scale)
 func _setup() -> void: pass
 func _pose(_dt: float, _speed: float) -> void: pass
 func reset() -> void: pass
