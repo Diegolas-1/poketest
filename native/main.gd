@@ -59,6 +59,7 @@ var we: WorldEnvironment
 var sun: DirectionalLight3D
 var indoors := false
 var interior: Interior
+var space_door := {}     # the door of the interior you are in (cast.gd doors, doors.json): where you come out; {} = Oak's lab
 var trans := {}          # a door fade in progress: {t, mid (Callable at full black), done}
 var trans_busy := false  # true while a fade has the controls
 var fader: ColorRect
@@ -474,6 +475,7 @@ func _enter_now(id: String, spawn_id: String) -> void:
 	if not it.build(id):
 		it.queue_free(); push_warning("no interior " + id); return
 	interior = it
+	space_door = cast.door_of(id) if cast else {}
 	indoors = true
 	_outdoor_shown(false)
 	if grass:
@@ -509,9 +511,16 @@ func _leave_now() -> void:
 	_outdoor_shown(true)
 	grass_dirty = true
 	_rebuild_grass()
-	# outside the lab door, facing away from it (down the courtyard, west)
-	pos = Vector3(lab.x, world.height_at(lab.x, lab.y), lab.y)
-	yaw = -PI / 2.0
+	# outside the lab door, facing away from it (down the courtyard, west);
+	# another building's: on its step, facing away from its door
+	if space_door.is_empty():
+		pos = Vector3(lab.x, world.height_at(lab.x, lab.y), lab.y)
+		yaw = -PI / 2.0
+	else:
+		var ex: Array = space_door.exit
+		pos = Vector3(ex[0], world.height_at(ex[0], ex[1]), ex[1])
+		yaw = float(ex[2])
+		space_door = {}
 	speed = 0.0
 	# the camera out in front, a little to the side: Ash walking out, the lab behind him
 	cam_yaw = yaw + 0.55

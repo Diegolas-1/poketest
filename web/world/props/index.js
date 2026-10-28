@@ -11,6 +11,7 @@ import * as D from './decor.js';
 import * as FA from './farm.js';
 import * as BK from './buildings.js';
 import * as CR from '../crops.js';
+import * as HM from './home.js';
 
 // outdoor builders take their own option names; these adapt a placement's params
 const flatGround = () => 0;
@@ -42,6 +43,16 @@ export const PROPS = {
   square_bale: () => FA.squareBale(), wheelbarrow: ({ params: p }) => FA.wheelbarrow(p), watering_can: ({ params: p }) => FA.wateringCan(p),
   tool_rack: () => FA.toolRack(), water_trough: () => FA.trough(), produce_crates: ({ params: p }) => FA.crateStack(p),
   grain_sack: ({ params: p }) => FA.sack(p), garden_trellis: () => FA.trellis(),
+  dining_table: HM.dining_table, dining_chair: HM.dining_chair, kitchen_counter: HM.kitchen_counter, stove: HM.stove, fridge: HM.fridge,
+  wall_cabinets: HM.wall_cabinets, range_hood: HM.range_hood, tv_set: HM.tv_set, home_sofa: HM.home_sofa, armchair: HM.armchair,
+  coffee_table: HM.coffee_table, side_table: HM.side_table, flower_vase: HM.flower_vase, photo_frame: HM.photo_frame, apron_hook: HM.apron_hook,
+  broom: HM.broom, entry_bench: HM.entry_bench, umbrella_stand: HM.umbrella_stand, staircase: HM.staircase, curtains: HM.curtains,
+  hanging_lamp: HM.hanging_lamp, wall_lamp: HM.wall_lamp, wall_shelf: HM.wall_shelf, telephone: HM.telephone, fruit_bowl: HM.fruit_bowl,
+  inn_counter: HM.inn_counter, menu_board: HM.menu_board, fireplace: HM.fireplace, plate_dresser: HM.plate_dresser, barrel: HM.barrel,
+  coat_stand: HM.coat_stand, low_table: HM.low_table, zabuton: HM.zabuton, tea_set: HM.tea_set, hanging_scroll: HM.hanging_scroll,
+  tokonoma: HM.tokonoma, ikebana: HM.ikebana, andon: HM.andon, paper_lantern: HM.paper_lantern, tea_counter: HM.tea_counter,
+  folding_screen: HM.folding_screen, bonsai: HM.bonsai, shoji_panel: HM.shoji_panel,
+  bed: HM.bed, alarm_clock: HM.alarm_clock, poster: HM.poster, plush: HM.plush, backpack: HM.backpack, clothes_pile: HM.clothes_pile,
 };
 
 export function buildProp(p, cat = CATALOG) {
