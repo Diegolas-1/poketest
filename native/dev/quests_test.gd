@@ -8,7 +8,7 @@ extends Node
 # Screenshots (xvfb, see dev/shot.gd):
 #   godot --path native --rendering-driver opengl3 --resolution 1688x780 res://dev/quests_test.tscn -- --shot=/abs/dir
 
-const IDS := ["delia", "lily", "rose", "bram", "ada", "timmy", "mae", "kai", "marina", "ben", "tom", "gus"]
+const IDS := ["delia", "lily", "rose", "bram", "ada", "timmy", "mae", "kai", "marina", "ben", "tom", "gus", "jenny"]
 const PERIODS := ["dawn", "morning", "midday", "afternoon", "evening", "night"]
 const HOUR := {"dawn": 6.0, "morning": 9.0, "midday": 12.5, "afternoon": 15.0, "evening": 19.0, "night": 22.5}
 const ACTS := ["", "home", "breakfast", "commute", "work:farm", "work:bake", "shop", "chat", "walk", "yardwork", "fish",
@@ -349,7 +349,11 @@ func _quests(q: Quests) -> void:
 		if qq.get("reward", {}).has("flag"): ok(q2.flag(qq.reward.flag), qq.id + " reward flag")
 	var lg := q2.log_entries()
 	ok(lg.done.size() == q2.quests().size() and lg.active.is_empty(), "log: all done")
-	ok(lg.rumors.size() >= 3, "log: rumors heard")
+	# the log lists every rumour heard, the quests' reward rumours among them (how many more
+	# came up in passing while solving depends on the talk's dice)
+	var lg_ids: Array = lg.rumors.map(func(r): return r.id)
+	var rewards: Array = q2.quests().filter(func(qq): return qq.get("reward", {}).has("rumor")).map(func(qq): return qq.reward.rumor)
+	ok(lg_ids.size() == q2.st.heard.size() and lg_ids.size() >= 2 and rewards.all(func(r): return lg_ids.has(r)), "log: rumors heard (%s)" % str(lg_ids))
 	ok(lg.items.size() >= 2, "log: keepsakes carried (roll, card)")
 	ok(not q2.has_item("net_twine"), "twine handed back")
 	ok(changed > 5, "quest_changed fired")

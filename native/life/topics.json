@@ -30,7 +30,11 @@
         "gus": ["From the top of the tower, on a clear night, you can just see Viridian's lights. A smudge of gold. Then the dark of the forest."],
         "mae": ["I went once, dearie, in nineteen-something. Bought a hat. Never wore it. Lovely town."],
         "timmy": ["Viridian has a GYM! And the leader is SO strong nobody's EVER beaten him! ...I think. Grandpa says."],
-        "lily": ["Viridian Forest is right past it. It's full of Caterpie! Thousands! Nibbles might have cousins there."]
+        "lily": ["Viridian Forest is right past it. It's full of Caterpie! Thousands! Nibbles might have cousins there."],
+        "jenny": [
+          "My city! Wide green streets, a POKéMON Center, a Gym, a police station with very shiny floors. I polish them.",
+          "It's called the Eternally Green Paradise. Not the Eternally Closed Road. That's temporary."
+        ]
       }},
     {"id": "beyond", "label": "What's past Viridian?", "tone": "curious", "note": "Past Viridian: the forest, then Pewter City (a Rock Gym), then Mt. Moon and Cerulean.",
       "if": {"known": "viridian"},
@@ -41,7 +45,8 @@
         "oak": ["Viridian Forest, then Pewter City and its Gym. Rock types, Ash. Think about what that means for your partner before you get there."],
         "ben": ["Pewter. Hard ground. Wouldn't farm it. Mm."],
         "bram": ["Pewter! A friend of mine bakes there. Says it's all rocks and nine children in one house down the street. Their eldest cooks for the lot!"],
-        "delia": ["Further than I like to think about, honey. Pewter. Mt. Moon. Cerulean. I've looked at the map more times than I'll admit."]
+        "delia": ["Further than I like to think about, honey. Pewter. Mt. Moon. Cerulean. I've looked at the map more times than I'll admit."],
+        "jenny": ["The forest, then Pewter. My cousin's town. She'll want to see your ID too. We're thorough."]
       }},
     {"id": "master", "label": "How do I become a POKéMON Master?", "tone": "eager", "ash": "How do you become a POKéMON Master? Like, really?", "note": "Becoming a Master: badges, the League... and, everyone says, something more.",
       "by": {
@@ -57,7 +62,10 @@
         "kai": ["Read EVERYTHING. Know every type, every move. Information, kiddo! The trainer with the best info wins!"],
         "ben": ["Mm. Work. Every day. Like wheat."],
         "bram": ["Same as bread, lad! Get up early, work hard, and don't eat the stock. HO HO!"],
-        "ada": ["You go out there and you do something we can talk about for twenty years! Something big! I'll handle the talking."]
+        "ada": ["You go out there and you do something we can talk about for twenty years! Something big! I'll handle the talking."],
+        "jenny": [
+          "Follow the rules, care for your POKéMON, and never give up. That's how you become anything worth becoming. Even a Master."
+        ]
       }},
     {"id": "badges", "label": "What are Gym badges?", "tone": "curious", "note": "Gym badges: eight in Kanto, one from each Gym Leader. Eight gets you into the Indigo League.",
       "by": {
@@ -67,7 +75,10 @@
         "kai": ["Each one's a different design! I've seen pictures on the PC. The Marsh Badge has a little gold... thing. Incredible."],
         "lily": ["Eight shiny pins. Everybody wants them. I'd rather have a Butterfree. But I'll get the badges too. Obviously."],
         "ada": ["Badges! Oh, they say the Viridian one hasn't been won in YEARS. Or was it won yesterday? One of those."],
-        "gus": ["Eight. Like the points of a compass, doubled. Each one a direction you've already been."]
+        "gus": ["Eight. Like the points of a compass, doubled. Each one a direction you've already been."],
+        "jenny": [
+          "Eight Gyms, eight badges, then the League. Viridian's Gym is one of them. The leader is... away a great deal. On business."
+        ]
       }},
     {"id": "route1", "label": "What's on Route 1?", "tone": "curious", "note": "Route 1: north of town to Viridian. Tall grass, ledges, wild Pidgey and Rattata. A tea stop and a Mart on the way.",
       "by": {
@@ -77,7 +88,10 @@
         "timmy": ["There are ledges! You can JUMP off them! But you can't jump back up. I tried. For an hour."],
         "lily": ["There's a tea stop on Route 1! The lady there has a garden with Oddish in it. They let me pat them."],
         "kai": ["There's a POKé MART along the way. Potions, POKé BALLS. Bring money. Bring snacks. Mostly snacks."],
-        "marina": ["Long walk to Viridian. Takes a day if you dawdle, and you'll dawdle. Bring water."]
+        "marina": ["Long walk to Viridian. Takes a day if you dawdle, and you'll dawdle. Bring water."],
+        "jenny": [
+          "Route 1, according to my report: two bridges sound, eight ledges checked, one brook, too many Rattata. No serious damage."
+        ]
       }},
     {"id": "cinnabar", "label": "Tell me about Cinnabar.", "tone": "curious", "note": "Cinnabar Island: south across the sea. A volcano, hot springs, a hidden Gym, a burned mansion.",
       "by": {
@@ -89,7 +103,10 @@
         "delia": ["Cinnabar? The hot springs. I always meant to... oh, never mind. It's very far, honey. Very far and very lovely."],
         "rose": ["They say flowers grow in the volcanic soil there like nowhere else. Red as embers. I'd give a lot for a seed."],
         "bram": ["Hot springs! You could bake bread in the rocks, they say. I'd like to try! For science! HO HO!"],
-        "timmy": ["Cinnabar has a VOLCANO! And a GHOST MANSION! And a Gym you have to answer QUESTIONS to get in! I'd get them all right!"]
+        "timmy": ["Cinnabar has a VOLCANO! And a GHOST MANSION! And a Gym you have to answer QUESTIONS to get in! I'd get them all right!"],
+        "jenny": [
+          "The volcano island, far to the south. The quake came up from under it, the observatory says. Then all the way here."
+        ]
       }},
     {"id": "seafoam", "label": "What are the Seafoam Islands?", "tone": "curious", "note": "Seafoam Islands: icy islands out to sea between Fuchsia and Cinnabar. Caves, cold currents, rumours of an ice bird.",
       "by": {
@@ -114,7 +131,10 @@
         "gus": ["The one that looks back at you, Ash. Some do. You'll know."],
         "mae": ["The one that's a little shy, dearie. The shy ones love hardest."],
         "rose": ["Bulbasaur. The bulb on its back opens into a flower one day. Imagine growing up with your own flower."],
-        "ada": ["Whatever Gary doesn't pick! Then you'll have something to talk about. Ha!"]
+        "ada": ["Whatever Gary doesn't pick! Then you'll have something to talk about. Ha!"],
+        "jenny": [
+          "Officially, the police don't take sides. Unofficially: a Fire-type. Growlithe was my first. Best partner I could ask for."
+        ]
       }},
     {"id": "pallet_old", "label": "How old is Pallet Town?", "tone": "curious", "note": "Pallet Town: an old fishing village, a hundred years and more. Not much changes.",
       "by": {
@@ -134,7 +154,10 @@
         "ben": ["Good man. Asks about the Doduo. Listens to the answer. Mm. Rare."],
         "timmy": ["He's the smartest person in the WORLD! He knows every POKéMON! Even the secret ones!"],
         "gus": ["He comes up to the lighthouse sometimes, to watch the Wingull migrate. Doesn't talk much. I like that in a professor."],
-        "rose": ["He sent me a note once to say my garden had the happiest Oddish in Kanto. I framed it."]
+        "rose": ["He sent me a note once to say my garden had the happiest Oddish in Kanto. I framed it."],
+        "jenny": [
+          "The Professor? A great man. He calls the station every morning to ask if the road's open. He has a lot of parcels waiting."
+        ]
       }},
     {"id": "gary", "label": "What do you think of Gary?", "tone": "cheeky", "ash": "What do you think of Gary? Honestly?", "note": "Gary Oak: the Professor's grandson. Ash's rival. Everyone has a gentler opinion than Ash does.",
       "by": {
@@ -230,7 +253,10 @@
         "marina": ["When you went missing at the beach. Don't make that face. You asked."],
         "kai": ["Thunder! Big thunder! Don't tell anyone. It's very bad for my image as a weather expert."],
         "delia": ["Every day, sweetie. A little. That's what it is, loving someone. You get used to it. It makes you braver, somehow."],
-        "ben": ["Mm. The year the crop failed. Scared. Didn't say. Should've. Rose helped anyway."]
+        "ben": ["Mm. The year the crop failed. Scared. Didn't say. Should've. Rose helped anyway."],
+        "jenny": [
+          "Scared? An officer of the law? ...Once. A Gyarados in the Viridian reservoir. I saluted it. It went away. I don't know why it worked."
+        ]
       }},
     {"id": "dream", "label": "What did you want to be?", "tone": "curious", "ash": "When you were a kid, what did you want to be?", "note": "Everyone in Pallet had a dream once. Some kept them, some changed them.",
       "by": {
@@ -251,7 +277,10 @@
         "ada": ["Every spring! They buy bread for the road. I always slip in an extra roll. For luck. And for the gossip."],
         "mae": ["They do, dearie. I wave them off from my step. Every one. It's my job, I've decided."],
         "gus": ["Logged every one that's ever walked up Route 1. Thirty-one last year. You'll be in there soon."],
-        "bram": ["They stop for bread and leave with a story! HO HO! I give them both for free."]
+        "bram": ["They stop for bread and leave with a story! HO HO! I give them both for free."],
+        "jenny": [
+          "Dozens a week, normally, heading north. Since the quake I've turned back every one. Politely. Firmly. Politely."
+        ]
       }},
     {"id": "battled", "label": "Have you ever battled?", "tone": "eager", "ash": "Have you ever had a POKéMON battle?", "note": "Some of Pallet's grown-ups were Trainers once, a little.",
       "by": {
@@ -305,7 +334,10 @@
         "tom": ["Restless, lad, not angry. The island folk know its moods. They'd tell us if it got cross."],
         "gus": ["I watch it every night now. Calm, mostly. If it changes, I'll know first. That's the job."],
         "kai": ["The ferry radio checks in every evening! All quiet! Technology keeps people safe, kiddo!"],
-        "marina": ["The sea would tell us first. Warm water, fleeing fish. It's warmer. Not that warm. Not yet."]
+        "marina": ["The sea would tell us first. Warm water, fleeing fish. It's warmer. Not that warm. Not yet."],
+        "jenny": [
+          "The observatory watches it day and night, and so do the island's own officers. My cousin there says it's restless, not angry."
+        ]
       }},
     {"id": "pokedex_ask", "label": "What's a POKéDEX?", "tone": "curious", "note": "The POKéDEX: Prof. Oak's device that records every POKéMON you meet.",
       "if": {"known": "pokedex"},

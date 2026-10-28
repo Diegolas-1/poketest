@@ -629,11 +629,19 @@ Object.assign(LOOKS, {
   gus: { adult: true, wide: 1.15, hair: '#5e4a3e', hairStyle: 'short', skin: '#e9b896', face: M_FACE('#4a3a30', { beard: 'rgba(90,74,64,0.6)' }),
     shirt: '#3e5a4e', sleeve: 'long', coat: { color: '#f2c22e' }, pants: '#3e4452', boots: { up: '#2a2a2e', sole: '#1a1a1e' } },
 });
+// people from out of town: Officer Jenny of Viridian City, on guard at its gate
+Object.assign(LOOKS, {
+  jenny: { adult: true, hair: '#2fa58c', hairStyle: 'short', skin: '#f6d0b0', face: W_FACE('#8a4a26', '#1f6a5c'),
+    hat: { color: '#4a4fb8', band: '#d8343a' }, shirt: '#5157c6', sleeve: 'short', pants: '#4446ac', shorts: true,
+    gloves: '#f8f8f4', gloves2: '#e6e6e0', shoes: { up: '#1e1e28', sole: '#121218', collar: '#1e1e28' } },
+});
 // the townspeople, in the order the town lists them (Ash and Prof. Oak aside)
 export const TOWNSFOLK = ['delia', 'girl', 'rose', 'bram', 'ada', 'kid', 'mae', 'fisher', 'marina', 'ben', 'tom', 'gus'];
+// and the visitors (baked like them)
+export const VISITORS = ['jenny'];
 
 // the others are made from the same base model too, reworked in cast.js (and cast2.js)
-for (const k of ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus']) Object.assign(LOOKS[k], { base: 'calem', cast: k });
+for (const k of ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus', ...VISITORS]) Object.assign(LOOKS[k], { base: 'calem', cast: k });
 
 // ---------- optional local base model ----------
 // web/world/local/ash.glb holds a skinned 3D-game body dressed as Ash. When it

@@ -151,6 +151,9 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 			a.walk_v = 2.0; a.run_v = 3.6
 			a.cad_walk = 0.8 if e.age == "elder" else (1.0 if e.age == "kid" else 0.9)
 			a.cad_run = 1.45
+			# how they stand and what they do idle (idles.gd): a stance held, only some of the actions
+			a.idles.stance = String(e.get("stance", ""))
+			if e.has("idles"): a.idles.limit(e.idles)
 			a.visible = false
 			add_child(a)
 			p.actor = a
@@ -433,6 +436,14 @@ func _snap_places() -> void:
 		hs.normal = Vector2(sin(float(hs.rot)), cos(float(hs.rot)))
 	for k in places:
 		var pl: Dictionary = places[k]
+		if pl.get("offgrid", false):
+			# off the walk grid (Viridian's gate): the spots as they are; whoever keeps
+			# such a place stays at it (people.json "post")
+			for key in pl.keys():
+				var v0 = pl[key]
+				if v0 is Array and v0.size() > 0 and v0[0] is Array:
+					pl[key] = v0.map(func(a): return Vector3(a[0], a[1], float(a[2]) if a.size() > 2 else NAN))
+			continue
 		for key in pl.keys():
 			var v = pl[key]
 			if v is Array and v.size() > 0 and v[0] is Array: pl[key] = v.map(func(a): return _v(a))
@@ -771,7 +782,7 @@ func _place_now(p: Dictionary) -> void:
 			_enter(p, g.house)
 		return
 	if p.state == "inside":
-		person_exited.emit(p.id, p.inside)
+		if p.inside != "": person_exited.emit(p.id, p.inside)   # (someone with no home here starts out at their post)
 		p.inside = ""
 	var s: Vector3
 	if g.kind == "route":
@@ -1236,11 +1247,38 @@ func _social(dt: float) -> void:
 			_delia_cd = _rng.randf_range(50, 90)
 			say(dl, quests.overheard("delia", ctx_of(dl)), 3.5)
 			dl.face = atan2(me.x - dl.pos.x, me.y - dl.pos.z)
+		_duty()
 		for p in outside:
 			if p.id == "delia" or p.bark_cd > 0.0 or not p.bubble.is_empty() or not (p.state in ["act", "walk"]): continue
 			if _xz3(p.pos).distance_to(me) < 3.5:
 				p.bark_cd = _rng.randf_range(60, 120)
 				if _rng.randf() < 0.45: say(p, quests.overheard(p.id, ctx_of(p)), 2.6)
+
+# someone on duty at a post (people.json "greet_act": a salute) greets Ash as he comes up,
+# keeps an eye on him while he's near, and faces back down the road once he's gone
+func _duty() -> void:
+	var me := Vector2(game.pos.x, game.pos.z)
+	for p in people:
+		if String(p.data.get("greet_act", "")) == "" or p.state != "act": continue
+		var d := _xz3(p.pos).distance_to(me)
+		if d < 6.5:
+			p.face = atan2(me.x - p.pos.x, me.y - p.pos.z)
+			if not p.get("greeted", false):
+				p.greeted = true
+				greet(p)
+		elif d > 12.0 and p.get("greeted", false):
+			p.greeted = false
+			var t: Vector3 = p.target
+			p.face = t.z if not is_nan(t.z) else NAN
+
+# their greeting (the salute), at most once in a while: as Ash comes up, or as a talk begins
+func greet(p: Dictionary) -> void:
+	var act := String(p.data.get("greet_act", ""))
+	if act == "" or p.actor == null: return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - float(p.get("greet_t", -100.0)) < 20.0: return
+	p.greet_t = now
+	p.actor.idles.force(act)
 
 func _greet(a: Dictionary, b: Dictionary) -> void:
 	stats.greets += 1

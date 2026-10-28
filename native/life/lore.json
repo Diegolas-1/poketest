@@ -8,7 +8,8 @@
         "ben": [["Ground shivered last night. Felt it in the soil.", "Doduo wouldn't settle. Mm."]],
         "mae": [["My teacups rattled in the night, dearie.", "Last time that happened I was a girl, and Cinnabar smoked for a week."]],
         "delia": ["Did you feel that little shake last night? I thought it was you falling out of bed again, sweetie."],
-        "timmy": [["Did you feel the EARTHQUAKE?!", "Grandpa says a giant fire POKéMON rolled over in its sleep!"]]
+        "timmy": [["Did you feel the EARTHQUAKE?!", "Grandpa says a giant fire POKéMON rolled over in its sleep!"]],
+        "jenny": [["Our station logged it: five past one in the morning, eleven seconds of shaking.", "The observatory traced it to deep under Cinnabar's volcano. A long way to shake our road."]]
       }
     },
     {
@@ -159,6 +160,25 @@
         "tom": [["They say Blaine was a scientist once. Worked in that old mansion, even.", "Before the fire. He doesn't talk about it. Burns his secrets, does Blaine."]],
         "gus": ["Blaine has been on Cinnabar longer than his gym. He watches the mansion ruins, I hear. Like a man waiting."]
       }
+    },
+    {
+      "id": "viridian_rockslide", "title": "The road to Viridian",
+      "summary": "The night's quake shook the slope loose just past Viridian City's south gate. Rocks lie across the road, so Officer Jenny keeps the gate shut while crews clear it.",
+      "tellers": {
+        "jenny": [["Just past this gate the road runs through a cutting. The quake brought the slope down.", "Rocks across the road, a crack down the middle. Closed until the surveyors say it's safe."]],
+        "kai": ["Ferry radio says the Viridian road's shut! Rockslide! There's an officer on the gate and everything!"],
+        "ada": [["They've shut the road to Viridian, dear! A landslide, right across it!", "Bram's flour is stuck on the other side. He's beside himself."]],
+        "ben": ["Couldn't get the wheat to Viridian market. Road's shut. Rocks. Mm."],
+        "bram": ["No flour from Viridian this week! The road's blocked! I'm baking with what I've got. Creative times, lad! HO HO!"]
+      }
+    },
+    {
+      "id": "pokemon_thieves", "title": "POKéMON thieves",
+      "summary": "Viridian's police have reports of two strangers in white uniforms with a big red R, and a Meowth, snooping round POKéMON Centers. Officer Jenny is on the lookout.",
+      "tellers": {
+        "jenny": [["Keep this under your cap. We've had reports of POKéMON thieves near Viridian.", "Two strangers in white uniforms with a big red R. And a Meowth. Someone swears it talked. Nonsense."]],
+        "ada": [["Thieves, dear! POKéMON thieves, up Viridian way! Two of them, all in white!", "And a cat. A TALKING cat. You heard it here first."]]
+      }
     }
   ],
 
@@ -173,7 +193,8 @@
       {"a": ["timmy", "lily"], "b": ["any"], "lines": [["A", "The Cinnabar Lab brings DINOSAURS back to life!"], ["B", "Fossils, sweetheart. They're called fossils."], ["A", "FOSSIL DINOSAURS!"]]},
       {"a": ["tom", "kai"], "b": ["any"], "lines": [["A", "Never laugh at a Magikarp."], ["B", "I wasn't laughing!"], ["A", "You were smiling. That's how it starts."]]},
       {"a": ["mae", "tom"], "b": ["any"], "lines": [["A", "Remember when the Cinnabar mansion burned?"], ["B", "Orange sky all night. I'll never forget it."], ["A", "Nor I. Strange folk, those scientists."]]},
-      {"a": ["gus"], "b": ["kai", "tom", "marina"], "lines": [["A", "Black boat again last night. No lights."], ["B", "Smugglers?"], ["A", "Maybe. I logged it."]]}
+      {"a": ["gus"], "b": ["kai", "tom", "marina"], "lines": [["A", "Black boat again last night. No lights."], ["B", "Smugglers?"], ["A", "Maybe. I logged it."]]},
+      {"a": ["ada", "kai", "bram", "ben"], "b": ["any"], "lines": [["A", "Heard the Viridian road's shut?"], ["B", "Since the shake? A rockslide, I heard."], ["A", "There's an officer up at the gate. Very serious. Very blue."]]}
     ]
   }
 }

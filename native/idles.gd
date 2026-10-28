@@ -19,6 +19,9 @@ var ball: Node3D
 var P := {"act": null, "wait": 0.0, "idle": 0.0, "last": "", "busy": false, "eyes": false}
 var names: Array = []
 var rng := RandomNumberGenerator.new()
+var stance := ""            # a STANCES key held while idle ("" none)
+var _sw := 0.0              # its weight now
+var _swi := 0.0             # the idle weight it follows
 
 static func _cl(x: float, a: float, b: float) -> float: return minf(b, maxf(a, x))
 static func _sm(a: float, b: float, x: float) -> float:
@@ -102,6 +105,7 @@ static func _defs() -> Dictionary:
 	var STR := {"at": CH(-0.03, 0.02, 0.44), "pole": [-1, -0.4, 0], "wt": 1.4, "wf": -0.4, "cu": 0.3}
 	var BELT := {"at": H(-0.15, 0.085, 0.085), "pole": [-1, -0.3, -0.7], "wd": -0.2, "cu": 0.3}
 	var BELT0 := {"at": H(-0.15, 0.09, 0.08), "pole": [-1, -0.3, -0.7], "wd": -0.2, "cu": 0.1}
+	var SAL := {"at": HD(-0.155, 0.085, 0.075), "pole": [-1, -0.1, 0.35], "wf": 0.25, "wd": -0.1, "wt": 1.2, "cu": -0.1}
 	var CR := {"dy": -0.45, "dz": -0.1, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.45, "hp": -0.2}
 	var CR2 := {"dy": -0.5, "dz": -0.09, "wp": 0.45, "lean": 0.4, "ko": 0.42, "heel": 0.6, "side": -0.1, "tw": -0.1, "hp": -0.18}
 	var SIT := {"dy": -0.63, "dz": -0.54, "wp": 0, "lean": 0.1, "ko": 0.35, "seat": 1, "gap": 0}
@@ -188,8 +192,31 @@ static func _defs() -> Dictionary:
 			"body": [[0, {}], [0.5, {"hp": 0.05, "tw": -0.04}], [1.1, {"hp": -0.03, "tw": -0.06}], [1.8, {"hp": 0.03}], [2.4, {}]]},
 		"shrug": {"dur": 1.6, "talk": true, "fx": "shoulders",
 			"body": [[0, {}], [0.4, {"hr": 0.06, "hp": -0.03}], [1.0, {"hr": 0.05}], [1.6, {}]]},
+		# a salute (forced: someone on duty greeting Ash, people.json "greet_act"): the
+		# right hand up smartly to the cap's brim at the temple, held, then back down
+		"salute": {"dur": 2.7, "talk": true,
+			"armR": [[0, null], [0.28, {"at": CH(-0.2, 0.12, 0.16), "pole": [-1, -0.25, 0.1], "wf": 0.1, "wt": 0.3, "cu": -0.05}], [0.5, SAL], [1.95, SAL],
+				[2.25, {"at": CH(-0.2, 0.1, 0.15), "pole": [-1, -0.3, 0.1], "wf": 0.1, "wt": 0.3, "cu": 0.0}], [2.7, null]],
+			"body": [[0, {}], [0.45, {"lean": -0.05, "hp": -0.05, "sh": -0.01}], [1.95, {"lean": -0.05, "hp": -0.04, "sh": -0.01}], [2.7, {}]],
+			"gaze": [[0, {"y": 0, "p": 0}], [2.7, {"y": 0, "p": 0}]]},
 	}
 	return ACTIONS
+
+# ---------- stances: a way of standing held while idle (people.json "stance") ----------
+# Arms held with the same IK as the actions (targets on the body, metres), body bends
+# (lean, the legs drawn in); faded in while standing, out for walking and for any
+# action that moves an arm (the arms go back to the stance when it ends).
+static var STANCES := {}
+static func _stances() -> Dictionary:
+	if not STANCES.is_empty(): return STANCES
+	STANCES = {
+		# hands folded in front, the right over the left, arms relaxed down: at ease on duty
+		"hands_front": {
+			"armR": {"at": H(-0.006, -0.14, 0.19), "pole": [-1, 0.0, 0.25], "wf": -0.2, "wd": 0.3, "wt": 0.5, "cu": 0.35},
+			"armL": {"at": H(0.022, -0.16, 0.178), "pole": [1, 0.0, 0.25], "wf": -0.2, "wd": 0.3, "wt": 0.5, "cu": 0.45},
+			"body": {"lean": -0.03, "legs_in": 0.035, "hp": -0.02}},
+	}
+	return STANCES
 
 # ---------- set up ----------
 func _init(actor: CastActor, is_npc: bool, with_ball: bool) -> void:
@@ -269,7 +296,17 @@ func _local(a: Dictionary) -> float:
 	if a.t <= st[0] + (st[1] - st[0]) * k: return st[0] + (a.t - st[0]) / k
 	return a.t - (a.len - d.dur)
 
+# only these of the random actions (people.json "idles": someone on duty doesn't
+# put their hands behind their head and gaze at the sky)
+func limit(allowed: Array) -> void:
+	names = names.filter(func(n): return allowed.has(n))
+
 func update(dt: float, wI: float) -> void:
+	# the stance: in while standing, out while an arm is busy with an action
+	var arms_busy: bool = P.act != null and (P.act.def.has("armL") or P.act.def.has("armR"))
+	var want := wI if stance != "" and not arms_busy else 0.0
+	_sw += (want - _sw) * (1.0 - exp(-dt * (5.0 if want < _sw else 3.0)))
+	_swi = wI
 	if wI > 0.9: P.idle += dt
 	elif wI < 0.5: P.idle = 0.0
 	var a = P.act
@@ -348,6 +385,7 @@ func _orient(n: String, qr: Quaternion, w: float) -> void:
 	A.q[bi] = A.q[bi].slerp((pw.inverse() * qr).normalized(), w)
 
 func post(_dt: float) -> void:
+	if _sw > 0.002: _stance(_sw)
 	var a = P.act
 	if a == null: return
 	var t: float = a.lt
@@ -423,6 +461,24 @@ func _fx(id: String, a: Dictionary, t: float, env0: float) -> void:
 			var up := sin(minf(1.0, u * 1.4) * PI) * env0
 			b.call("LShoulder", 0, 0, 1, 0.14 * up); b.call("RShoulder", 0, 0, 1, -0.14 * up); b.call("Spine3", 1, 0, 0, -0.06 * up)
 			b.call("Head", 0, 0, 1, sin(u * PI * 2.0) * 0.12 * env)
+
+# the stance held (before any action, which then blends from it)
+func _stance(w: float) -> void:
+	var S: Dictionary = _stances().get(stance, {})
+	if S.is_empty(): return
+	var Bo: Dictionary = S.get("body", {})
+	var b := A.bend
+	var v: float = Bo.get("lean", 0.0)
+	if v: b.call("Spine1", 1, 0, 0, v * 0.3 * w); b.call("Spine2", 1, 0, 0, v * 0.35 * w); b.call("Spine3", 1, 0, 0, v * 0.35 * w)
+	v = Bo.get("hp", 0.0)
+	if v: b.call("Neck", 1, 0, 0, v * 0.4 * w); b.call("Head", 1, 0, 0, v * 0.6 * w)
+	v = Bo.get("legs_in", 0.0)
+	if v:
+		for s in [["L", 1.0], ["R", -1.0]]:
+			b.call(s[0] + "Thigh", 0, 0, 1, -s[1] * v * w); b.call(s[0] + "Foot", 0, 0, 1, s[1] * v * w)
+	for s in ["L", "R"]:
+		if S.has("arm" + s):
+			_arm({"def": {"arm" + s: [[0.0, S["arm" + s]], [1.0, S["arm" + s]]]}, "wob": {"L": 0.0, "R": 0.0}}, s, 0.5, w)
 
 # ---------- arms ----------
 func _arm(a: Dictionary, s: String, t: float, env: float) -> void:
