@@ -205,8 +205,9 @@ func _process(dt: float) -> void:
 	want.squeal = skid * clampf(v / 3.0, 0.0, 1.0)
 	want.scrub = skid * clampf(v / 2.0, 0.0, 1.0) * 0.9
 	want.wind = minf(1.0, clampf((v - 2.0) / 12.0, 0.0, 1.0) * 0.85 + flow * 0.2) if active else 0.0
-	# soft and airy: the wind leads, the tyres a quiet low rumble under it, the chain and freewheel faint
-	var base_db := {"roll_dirt": -29.0, "roll_grass": -31.0, "roll_sand": -28.0, "roll_hard": -32.0, "chain": -33.0, "free": -37.0, "squeal": -20.0, "scrub": -22.0, "wind": -17.0}
+	# just the ratchet's soft clicks coasting and a subtle rush of wind; the tyres and chain
+	# barely there (any rolling hiss read as a vacuum cleaner)
+	var base_db := {"roll_dirt": -42.0, "roll_grass": -44.0, "roll_sand": -40.0, "roll_hard": -45.0, "chain": -40.0, "free": -36.0, "squeal": -20.0, "scrub": -22.0, "wind": -19.0}
 	_quiet = true
 	for n in LOOPS:
 		var p: AudioStreamPlayer = players[n]

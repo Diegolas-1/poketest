@@ -441,7 +441,7 @@ func _step_arrive(dt: float) -> void:
 	model.global_transform = Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -pitch) * Basis(Vector3.BACK, lean), at)
 	model.pose(parked_steer * k, wheel_f, wheel_r, crank, kick, 0.0, 0.0)
 	_set_fade(smoothstep(0.0, 0.45, u))
-	Sfx.bed("bike_whir", "bike_whir", 0.35 * (1.0 - u) if u < 1.0 else 0.0, null, 0.2)
+	Sfx.bed("bike_whir", "bike_whir", 0.0, null, 0.2)   # (no whir rolling in either)
 	if u >= 1.0:
 		state = "parked"
 		_set_fade(1.0)
@@ -1128,11 +1128,8 @@ func _surface_fx(dt: float) -> void:
 		if _plank > 0.42:
 			_plank = 0.0
 			Sfx.play("step_wood", null, {"vol": -17.0 + minf(v, 8.0), "pitch": 1.35})
-	# the wheels: a soft whir that rises with speed (the ratchet's clicks only now and
-	# then while coasting fast, quiet under it)
-	var rolling: bool = cast.ground and absf(v) > 0.4
-	Sfx.bed("bike_whir", "bike_whir", clampf((absf(v) - 0.4) / 6.0, 0.0, 1.0) * 0.55 if rolling else 0.0, null, 0.25)
-	Sfx.bed_pitch("bike_whir", clampf(0.7 + absf(v) * 0.06, 0.7, 1.45))
+	# riding sounds only the ratchet's soft clicks and the wind (bike_audio.gd); no
+	# looping wheel whir: it read as a vacuum cleaner (the user's call)
 	if coasting and v > 4.0:
 		_free_t -= dt
 		if _free_t <= 0.0:
