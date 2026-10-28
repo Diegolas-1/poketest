@@ -325,7 +325,7 @@ func grow(thread: String, n: int) -> void:
 	st.growth[thread] = growth(thread) + n
 	var after := stage(thread)
 	var nm := String(G.threads[thread].get("name", thread.capitalize()))
-	notes.append(nm + (" grew" if n > 0 else ""))
+	notes.append("Ash's " + nm + (" grew" if n > 0 else " was tested"))
 	if after > before:
 		for s in range(before + 1, after + 1): quests.set_flag("heart_%s_%d" % [thread, s])
 		notes.append("%s: stage %d" % [nm, after])

@@ -35,6 +35,7 @@ var voice := "mid"
 var voice_pitch := 1.0
 var _note := ""
 var _note_t := 99.0
+var _dirty := false
 var _on := false
 var _vig: GradientTexture2D
 
@@ -48,6 +49,7 @@ var sel: int:
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	visibility_changed.connect(func(): _dirty = true; queue_redraw())
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dp = UIDialogPanel.new()
 	dp.input_enabled = false    # conversation.gd routes the buttons; taps come through _input below
@@ -148,7 +150,10 @@ func _process(dt: float) -> void:
 	var r := UIDialogPanel.default_rect(self)
 	r.position.y -= size.y * 0.035 * cine
 	dp.anchor_rect = r
-	if cine > 0.001 or _note_t < 3.0: queue_redraw()
+	# (and one frame more once both are done, so nothing is left drawn on screen)
+	var live := cine > 0.001 or _note_t < 3.0
+	if live or _dirty: queue_redraw()
+	_dirty = live
 
 func _draw() -> void:
 	var W := size.x
