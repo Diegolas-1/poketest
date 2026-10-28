@@ -408,6 +408,9 @@ func _camera(dt: float) -> void:
 	if cam.position == Vector3.ZERO: cam.position = want
 	cam.position = cam.position.lerp(want, 1.0 - exp(-dt * lerpf(T.num("camera", "smooth", 14.0), 2.2, cam_ease)))
 	cam.look_at(cam_target)
+	# (on the bike the view widens a little with speed; indoors may have left another)
+	var fov_want: float = T.num("camera", "fov", 52.0) + (bk.cam_fov() if bk else 0.0)
+	cam.fov += (fov_want - cam.fov) * (1.0 - exp(-dt * 3.0))
 	if cam_shake > 0.001:
 		cam_shake = move_toward(cam_shake, 0.0, dt * 0.8)
 		cam.rotate_object_local(Vector3.RIGHT, sin(Time.get_ticks_msec() * 0.06) * cam_shake * 0.05)

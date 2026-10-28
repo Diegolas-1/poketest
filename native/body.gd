@@ -38,6 +38,7 @@ var fx: WaterFx
 var height := 1.6         # his height (m), from the model
 var stamina := 1.0
 var running := false      # main.gd: he means to run this frame
+var ride_rate := NAN      # on his bike (bike/bike.gd, each frame): stamina a second, + drains, - refills
 var depth := 0.0          # how far his feet are under the water (m; 0 out of it)
 var surface := NAN        # the water's surface under him
 var in_water := false
@@ -126,7 +127,15 @@ func update(dt: float) -> void:
 func _stamina(dt: float, spd: float) -> void:
 	var was := stamina
 	var run_now: bool = running and spd > 1.0 and cast.ground
-	if run_now:
+	if not is_nan(ride_rate):
+		# riding: the bike says what it costs (pedalling a little, climbing more, coasting refills)
+		if ride_rate > 0.0:
+			_run_t = 0.0
+			stamina -= dt * ride_rate * cond.mult("stamina_drain")
+		else:
+			_run_t += dt
+			if _run_t > REGEN_DELAY: stamina -= dt * ride_rate * cond.mult("stamina_regen")
+	elif run_now:
 		_run_t = 0.0
 		stamina -= dt * RUN_DRAIN * (1.0 + WATER_DRAIN * depth_frac()) * cond.mult("stamina_drain")
 	else:

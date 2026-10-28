@@ -7,10 +7,13 @@ extends Node
 #   ride       on the bike at --at=x,z,yaw, the stick held (--stick=x,y, camera-relative), the game camera
 #   turn       riding a circle (--at), a side camera to see the lean
 #   ledge      Route 1: riding south off a ledge
-#   test       the scripted ride test: town -> Route 1 -> the gate and back, ledges down,
-#              the shoreline stop, stairs blocked, a door (Oak's lab) dismounts, the turn radius,
-#              a u-turn, pinned against a wall; prints PASS / FAIL (--phase=N starts at that part,
-#              --trace prints the bike every frame in the ledge and turning parts)
+#   test       the scripted ride test: town -> Route 1 -> the gate and back (faster than
+#              running), ledges down, the shoreline stop, the lab's stairs ridden slowly, a door
+#              (Oak's lab) dismounts, the turn radius, a u-turn, pinned against a wall, flow
+#              draining in a hard turn, every bridge and the steepest paths never locking him in
+#              place (--only=<label part>), stamina on the flat and climbing, worn out; prints
+#              PASS / FAIL (--phase=N starts at that part, --trace prints the bike every frame in
+#              the stairs, ledge and later parts)
 #   cyclists   a townsperson's bike ride in view (--who=ben|ada|timmy)
 #   paths      QA: the road assist's graph (bike/paths.json) against the walk grid: every
 #              point of every edge rideable, the junctions joined; prints PASS / FAIL
@@ -66,6 +69,14 @@ func _ready() -> void:
 	add_child(main)
 
 func B() -> AshBike: return main.cast.bike
+
+# (settings and Ash's stamina are saved between runs: every test starts from the defaults)
+func _fresh_state() -> void:
+	Settings.set_value("bike_assist", 1)
+	Settings.set_value("bike_goal", 1)
+	var bd = main.cast.body
+	bd.stamina = 1.0
+	bd.cond.remove("fatigue")
 
 # put Ash on the bike at once, there
 func _ride_at(x: float, z: float, y: float) -> void:
@@ -265,13 +276,14 @@ func _test(dt: float) -> void:
 	ph_f += 1
 	var W = main.world
 	# --phase=N: start the test at that phase (dev: one part at a time)
-	if frame == 4 and _arg("phase", "") != "": phase = int(_arg("phase", "0")); ph_t = 0.0; ph_f = 1
-	if OS.get_cmdline_user_args().has("--trace") and (phase in [10, 11, 12] or phase >= 20 or (phase == 2 and frame % 10 == 0)):
+	if frame == 4 and _arg("phase", "") != "": phase = int(_arg("phase", "0")); ph_t = 0.0; ph_f = 1; _fresh_state()
+	if OS.get_cmdline_user_args().has("--trace") and (phase in [4, 10, 11, 12] or phase >= 20 or (phase == 2 and frame % 10 == 0)):
 		print("tr %d t %.2f at (%.2f %.2f %.2f) v %.2f yaw %.2f om %.2f fl %d stick %s bl %.2f" % [phase, ph_t, b.at.x, b.at.z, b.at.y, b.v, b.yaw, b.om, W.flag(b.at.x, b.at.z), str(main.stick_vec), b._blocked_t])
 	match phase:
 		0:
 			# start: walk up to the parked bike and get on
 			if frame == 4:
+				_fresh_state()
 				var s := b._side_world()
 				main.pos = s + Vector3(0.8, 0, 0.6)
 				main.pos.y = W.height_at(main.pos.x, main.pos.z)
@@ -293,18 +305,31 @@ func _test(dt: float) -> void:
 				res.air = 0
 				res.clip = 0
 				res.frames = 0
+				res.dist = 0.0; res.prev = b.at; res.road_d = 0.0; res.road_t = 0.0
 			_follow(dt)
+			var stp1 := Vector2(b.at.x - res.prev.x, b.at.z - res.prev.z).length()
+			res.dist += stp1
+			res.prev = b.at
+			if b.at.z < -60.0: res.road_d += stp1; res.road_t += dt
 			res.vmax = maxf(res.vmax, b.v)
 			res.frames += 1
 			if not main.cast.ground: res.air += 1
 			_clip_check()
 			if wi >= waypoints.size() or b.at.z < -425.0 or ph_t > 150.0:
 				_check(b.at.z < -400.0, "rode the lanes and Route 1 to the gate (z %.0f in %.0f s, top speed %.1f m/s)" % [b.at.z, ph_t, res.vmax])
-				_check(res.vmax > 8.0 and res.vmax <= 12.5, "speed in range (%.1f)" % res.vmax)
+				_check(res.vmax > 12.0 and res.vmax <= 19.6, "speed in range (%.1f)" % res.vmax)
+				var run_v := T_RUN()
+				_check(res.road_d / maxf(0.1, res.road_t) >= 1.4 * run_v and res.dist / maxf(0.1, ph_t) >= 1.2 * run_v, "faster than running: %.1f m/s on Route 1's road, %.1f m/s over the whole ride (%.0f m in %.1f s; running %.1f m/s)" % [res.road_d / maxf(0.1, res.road_t), res.dist / maxf(0.1, ph_t), res.dist, ph_t, run_v])
 				_check(res.clip < res.frames * 0.02, "hands and feet stayed on the grips and pedals (%d of %d frames off)" % [res.clip, res.frames])
 				_next()
 		2:
-			# and back south down Route 1's road to town (ledges only ever ridden down)
+			# and back south down Route 1's road to town (ledges only ever ridden down); first a
+			# stop at the gate, as a player would (at full speed he would run on into the fence)
+			if ph_t < 1.2:
+				b._test_brake = true
+				main.stick_vec = Vector2.ZERO
+				return
+			b._test_brake = false
 			if waypoints.is_empty():
 				var road: Array = main.cast.road
 				var bi := 0
@@ -384,12 +409,19 @@ func _test(dt: float) -> void:
 			if ph_f == 1:
 				var s: Rect2 = main.sfx_world.STAIRS
 				var c := s.get_center()
-				_ride_at(c.x - s.size.x * 0.5 - 2.5, c.y, PI * 0.5)
-				res.st0 = b.at
+				Settings.set_value("bike_assist", 0)
+				_ride_at(c.x - s.size.x * 0.5 - 8.0, c.y, PI * 0.5)
+				b.v = 9.0
+				res.st0 = b.at; res.st_v = 0.0; res.st_still = 0.0; res.st_stuck = 0.0
 			main.stick_vec = _toward(Vector3(main.sfx_world.STAIRS.get_center().x + 6.0, 0, main.sfx_world.STAIRS.get_center().y), 0.8)
-			if ph_t > 4.0:
-				var s2: Rect2 = main.sfx_world.STAIRS
-				_check(b.at.x < s2.position.x + 1.2 and b.at.y - res.st0.y < 0.4, "stairs blocked: stopped at the bottom step (at %.1f, %.1f, up %.2f m; stairs from x %.1f)" % [b.at.x, b.at.z, b.at.y - res.st0.y, s2.position.x])
+			var s3: Rect2 = main.sfx_world.STAIRS
+			if s3.has_point(Vector2(b.at.x, b.at.z)): res.st_v = maxf(res.st_v, b.v)
+			res.st_still = res.st_still + dt if absf(b.v) < 0.3 else 0.0
+			res.st_stuck = maxf(res.st_stuck, res.st_still)
+			if ph_t > 6.0:
+				# (walkable, so rideable: slowly, bumping up each step)
+				Settings.set_value("bike_assist", 1)
+				_check(b.at.y - res.st0.y > 1.0 and res.st_v <= b.STAIR_V + 0.6 and res.st_stuck < 1.0, "stairs: rode up them slowly (up %.2f m, at most %.1f m/s on them, stairs speed %.1f; longest stop %.1f s)" % [b.at.y - res.st0.y, res.st_v, b.STAIR_V, res.st_stuck])
 				_next()
 		5:
 			# a door: ride to Oak's lab door, press A: parked outside, Ash goes in
@@ -460,7 +492,10 @@ func _test(dt: float) -> void:
 			# pinned against a wall, the stick still into it: he walks it round and rides off along it
 			if ph_f == 1:
 				res.wall = _wall_spot()
-				_ride_at(res.wall.x, res.wall.z, res.wall.y)
+				# (nose to the wall, stopped: at today's speeds a run-up from 1.6 m glances off it)
+				var tip0: float = b.model.WB * 0.5 + b.model.R * 0.6
+				_ride_at(res.wall.x + sin(res.wall.y) * (1.6 - tip0 - 0.08), res.wall.z + cos(res.wall.y) * (1.6 - tip0 - 0.08), res.wall.y)
+				b._blocked_t = 0.4   # (just knocked into it: pinned, as when a glance has nowhere to slide)
 				res.p_tgt = b.at + Vector3(sin(res.wall.y), 0, cos(res.wall.y)) * 6.0
 				res.p0 = b.at; res.p_blk = 0
 			main.stick_vec = _toward(res.p_tgt, 1.0)
@@ -500,12 +535,171 @@ func _test(dt: float) -> void:
 			res.p_prev = b.at
 			if ph_t > 5.0:
 				_check(res.p_len > 4.0, "the old stuck spot by the gate: not stuck (rode %.1f m in 5 s)" % res.p_len)
-				phase = 8; ph_t = 0.0; ph_f = 0
+				phase = 25; ph_t = 0.0; ph_f = 0
+		25:
+			# flow at full, then a hard turn (the stick well past full lock): it drains
+			if ph_f == 1:
+				res.open = _open_spot(9.0) if not res.has("open") else res.open
+				_ride_at(res.open.x, res.open.z - 6.0, 0.0)
+				b.v = 13.0; b.flow_raw = 1.0; b.flow = 1.0
+				res.f0 = 1.0
+			var hy: float = b.yaw + 1.4
+			main.stick_vec = _toward(b.at + Vector3(sin(hy), 0, cos(hy)) * 5.0, 1.0) if ph_t > 0.1 else _toward(b.at + Vector3(sin(b.yaw), 0, cos(b.yaw)) * 5.0, 1.0)
+			if ph_t > 1.1:
+				_check(res.f0 - b.flow > 0.3, "flow drained in a hard turn (from %.2f to %.2f in 1 s)" % [res.f0, b.flow])
+				phase = 26; ph_t = 0.0; ph_f = 0
+		26:
+			# never locked in place: across every bridge and deck on the paths (both ways) and up
+			# the steepest stretches of path, the stick held, the assist off
+			if ph_f == 1:
+				Settings.set_value("bike_assist", 0)
+				res.courses = _courses()
+				if _arg("only", "") != "": res.courses = res.courses.filter(func(c): return String(c[1]).contains(_arg("only", "")))
+				res.ci = -1; res.c_bad = []; res.c_still = 0.0; res.c_worst = 0.0; res.c_t = 99.0
+				res.flat_n = 0.0; res.flat_s = 0.0; res.climb_n = 0.0; res.climb_s = 0.0; res.st_prev = main.cast.body.stamina
+				main.cast.body.stamina = 0.95
+				main.cast.body.cond.remove("fatigue")
+			var cs: Array = res.courses
+			if res.c_t > float(cs[res.ci][2]) if res.ci >= 0 else true:
+				if res.ci >= 0:
+					if res.c_worst >= 1.0 or wi < waypoints.size() - 1: res.c_bad.append("%s (stopped %.1f s, %d of %d points)" % [cs[res.ci][1], res.c_worst, wi, waypoints.size()])
+				res.ci += 1
+				if res.ci >= cs.size():
+					Settings.set_value("bike_assist", 1)
+					_check(res.c_bad.is_empty() and (cs.size() >= 4 or _arg("only", "") != ""), "never locked in place: %d rides over the bridges and up the steepest paths (stuck: %s)" % [cs.size(), ", ".join(res.c_bad)])
+					res.flat_n = 0.0; res.flat_s = 0.0
+					phase = 27; ph_t = 0.0; ph_f = 0
+					return
+				var pts: Array = cs[res.ci][0]
+				var p0: Vector3 = pts[0]; var p1: Vector3 = pts[1]
+				_ride_at(p0.x, p0.z, atan2(p1.x - p0.x, p1.z - p0.z))
+				b.v = 5.0
+				waypoints = pts.slice(1); wi = 0
+				res.c_t = 0.0; res.c_still = 0.0; res.c_worst = 0.0
+				main.cast.body.stamina = maxf(main.cast.body.stamina, 0.5)
+				res.st_prev = main.cast.body.stamina
+				return
+			res.c_t += dt
+			_follow(dt)
+			main.stick_vec *= 0.9   # (pedalling, not sprinting)
+			if wi >= waypoints.size(): res.c_t = 1e9
+			res.c_still = res.c_still + dt if absf(b.v) < 0.3 and res.c_t > 0.3 else 0.0
+			res.c_worst = maxf(res.c_worst, res.c_still)
+			# the stamina it costs (body.gd's own bar), pedalling on the flat and climbing
+			var bs: float = main.cast.body.stamina
+			if OS.get_cmdline_user_args().has("--log") and ph_f % 20 == 0: print("st ped %s rate %.4f run_t %.2f slope %.3f stam %.4f v %.2f fat %s" % [b.pedalling, main.cast.body.ride_rate, main.cast.body._run_t, b._slope_s, bs, b.v, main.cast.body.cond.has("fatigue")])
+			var ds: float = res.st_prev - bs
+			res.st_prev = bs
+			if b.pedalling and not main.cast.body.cond.has("fatigue") and res.c_t > 1.0 and main.cast.body._run_t <= 0.0:
+				if b._slope_s > 0.15: res.climb_n += dt; res.climb_s += ds
+		27, 28:
+			# the same stretch of road, the stick right out (sprint): fresh, then worn out
+			var tired := phase == 28
+			if ph_f == 1:
+				Settings.set_value("bike_assist", 1)
+				var rd2 := _straight_road()
+				_ride_at(rd2.x, rd2.z, rd2.y)
+				main.cast.body.stamina = 0.05 if tired else 1.0
+				if tired: main.cast.body.cond.apply("fatigue", 1.0)
+				else: main.cast.body.cond.remove("fatigue")
+				res.fv = 0.0
+				res.st_prev = main.cast.body.stamina
+			if tired: main.cast.body.stamina = minf(main.cast.body.stamina, 0.05)
+			# (straight ahead, the assist keeping him on the road: fresh at a normal push, worn
+			# out with the stick right out, which would be a sprint)
+			main.stick_vec = Vector2(0, -1.0) if tired else Vector2(0, -0.9)
+			res.fv = maxf(res.fv, b.v)
+			if not tired:
+				var bs2: float = main.cast.body.stamina
+				if b.pedalling and absf(b._slope_s) < 0.03 and ph_t > 1.0 and main.cast.body._run_t <= 0.0: res.flat_n += dt; res.flat_s += res.st_prev - bs2
+				res.st_prev = bs2
+			if ph_t > 4.0:
+				if not tired:
+					res.fresh_v = res.fv
+					var fr: float = res.flat_s / maxf(0.01, res.flat_n)
+					var cr: float = res.climb_s / maxf(0.01, res.climb_n)
+					var rd: float = main.cast.body.RUN_DRAIN
+					_check(res.flat_n > 1.0 and res.climb_n > 0.5 and fr > 0.0 and fr < rd * 0.45 and cr > fr * 2.0, "stamina: pedalling on the flat %.4f a second (running %.4f), climbing %.4f (%.1f s flat, %.1f s climbing)" % [fr, rd, cr, res.flat_n, res.climb_n])
+					phase = 28; ph_t = 0.0; ph_f = 0
+				else:
+					_check(main.cast.body.cond.has("fatigue") and res.fv < res.fresh_v * 0.82 and res.fv > 4.0, "worn out: top speed %.1f m/s against %.1f fresh on the same stretch (no sprint, x %.2f)" % [res.fv, res.fresh_v, b.FAT_SPEED])
+					main.cast.body.stamina = 1.0
+					main.cast.body.cond.remove("fatigue")
+					phase = 8; ph_t = 0.0; ph_f = 0
 		8:
 			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
 			for n in notes: print("  " + n)
 			get_tree().quit(0 if fails.is_empty() else 1)
 			phase = 99
+
+func T_RUN() -> float: return preload("res://tunables.gd").num("player", "run_speed", 8.5)
+
+# a straight stretch of Route 1's road for the fatigue ride: [x, yaw, z]
+func _straight_road() -> Vector3:
+	var road: Array = main.cast.road
+	var i := road.size() / 2
+	var a := Vector2(road[i][0], road[i][1]); var c := Vector2(road[i - 6][0], road[i - 6][1])
+	return Vector3(a.x, atan2(c.x - a.x, c.y - a.y), a.y)
+
+# the rides for the lock-in check: [points, label, seconds]; every deck crossing of the path
+# graph both ways (8 m on and off; bridges, not a deck the path ends on), and the 4 steepest 6 m climbs (stepping stones left out)
+func _courses() -> Array:
+	var A: BikeAssist = B().assist
+	var W = main.world
+	var out := []
+	var climbs := []
+	for k in A.E.size():
+		var L: float = A.E[k].len
+		var t := 0.0
+		var run0 := -1.0
+		while t <= L + 0.01:
+			var q := A.at(k, t)
+			var fl: int = W.flag(q.x, q.y)
+			var deck := fl != 255 and (fl & 4) != 0
+			if deck and run0 < 0.0: run0 = t
+			if (not deck or t + 0.5 > L) and run0 >= 0.0:
+				var a0 := maxf(0.0, run0 - 8.0); var a1 := minf(L, t + 8.0)
+				var near_stones := false
+				for u in range(0, 9): if A.walk_only(A.at(k, lerpf(a0, a1, u / 8.0)), 2.0): near_stones = true
+				# (a bridge: ground on both sides of the deck along the path; a deck the path ends
+				# on, a lookout's floor, is not crossed)
+				var crossing: bool = run0 > 0.6 and t + 0.5 <= L and not deck
+				if not near_stones and crossing and a1 - a0 > 6.0:
+					for dd in [1, -1]:
+						var pts := []
+						var u2 := a0 if dd > 0 else a1
+						while (u2 <= a1 + 0.01) if dd > 0 else (u2 >= a0 - 0.01):
+							var p := A.at(k, u2); pts.append(Vector3(p.x, 0, p.y)); u2 += 1.0 * dd
+						out.append([pts, "deck on edge %d at (%.0f, %.0f) %s" % [k, q.x, q.y, "a->b" if dd > 0 else "b->a"], (a1 - a0) / 2.0 + 4.0])
+				run0 = -1.0
+			t += 0.5
+		# climbs: rise over 6 m (either way along the edge)
+		t = 0.0
+		while t + 6.0 <= L:
+			var pa := A.at(k, t); var pb := A.at(k, t + 6.0)
+			var rise: float = W.height_at(pb.x, pb.y) - W.height_at(pa.x, pa.y)
+			var ok := true
+			for u in range(0, 7): if A.walk_only(A.at(k, t + u), 2.0): ok = false
+			if ok: climbs.append([absf(rise) / 6.0, k, t, signf(rise)])
+			t += 3.0
+	climbs.sort_custom(func(a, b2): return a[0] > b2[0])
+	var used := {}
+	for c in climbs:
+		if used.size() >= 4: break
+		if used.has(c[1]): continue
+		used[c[1]] = true
+		var k2: int = c[1]
+		var L2: float = A.E[k2].len
+		var lo: float = c[2] - 8.0 if c[3] > 0 else c[2] + 14.0
+		var hi: float = c[2] + 12.0 if c[3] > 0 else c[2] - 6.0
+		lo = clampf(lo, 0.0, L2); hi = clampf(hi, 0.0, L2)
+		var pts2 := []
+		var stp := 1.0 if hi > lo else -1.0
+		var u3 := lo
+		while (u3 <= hi + 0.01) if stp > 0 else (u3 >= hi - 0.01):
+			var p2 := A.at(k2, u3); pts2.append(Vector3(p2.x, 0, p2.y)); u3 += stp
+		if pts2.size() > 3: out.append([pts2, "climb %.2f on edge %d" % [c[0], k2], absf(hi - lo) / 1.5 + 4.0])
+	return out
 
 # Route 1 by the gate: where the bike was once pinned against the roadside wall
 const PIN := Vector3(-11.34, 0, -415.4)
@@ -606,7 +800,7 @@ func _follow(dt: float) -> void:
 	main.stick_vec = _toward(tgt, 1.0)
 	# like a rider: ease off for a sharp turn at speed (a U-turn), then pedal again
 	var tdir := Vector2(tgt.x - b.at.x, tgt.z - b.at.z)
-	if b.v > 4.0 and tdir.length() > 0.01 and absf(wrapf(atan2(tdir.x, tdir.y) - b.yaw, -PI, PI)) > 1.2:
+	if b.v > 4.0 and tdir.length() > 0.01 and absf(wrapf(atan2(tdir.x, tdir.y) - b.yaw, -PI, PI)) > 1.9:
 		main.stick_vec = main.stick_vec.normalized() * 0.35
 	# someone standing in the way (the player would steer round them): swerve a moment
 	_stuck = _stuck + dt if absf(b.v) < 0.3 and absf(b.om) < 0.2 else 0.0
@@ -737,6 +931,7 @@ func _assist_test(dt: float) -> void:
 	var b := B()
 	var A: BikeAssist = b.assist
 	if frame < 5: return
+	if frame == 5 and _arg("phase", "") != "": phase = int(_arg("phase", "0")); _fresh_state()
 	ph_t += dt
 	ph_f += 1
 	var p2 := Vector2(b.at.x, b.at.z)
@@ -744,10 +939,10 @@ func _assist_test(dt: float) -> void:
 		0:
 			# town -> the Route 1 gate: Red's lane by Ash's house, the stick held forward only
 			if ph_f == 1:
-				Settings.set_value("bike_goal", 1)
+				_fresh_state()
 				_start_on(-12.0, -15.5, Vector2(-5.6, -18.0))
 				b.goal_override = Vector3(-2.0, 0.0, -446.0)
-				_as = {"dev": 0.0, "over": -99.0, "flow_pk": 0.0, "drop": 0.0, "lost": 0, "fr": 0, "us": 0.0, "us_max": 0.0, "vmax": 0.0, "fmax": 0.0, "drain": false, "hi_t": -1.0, "onf": 0, "turn_max": 0.0}
+				_as = {"dev": 0.0, "over": -99.0, "flow_pk": 0.0, "drop": 0.0, "lost": 0, "fr": 0, "us": 0.0, "us_max": 0.0, "vmax": 0.0, "fmax": 0.0, "drain": false, "hi_t": -1.0, "onf": 0, "turn_max": 0.0, "hold": 0.0, "c_min": 99.0, "c_sum": 0.0, "c_n": 0, "c_at": Vector2.ZERO}
 			main.stick_vec = Vector2(0, -0.85)
 			if b.v > 2.0:
 				var dv := _graph_dev(b.at)
@@ -762,9 +957,17 @@ func _assist_test(dt: float) -> void:
 			_as.fmax = maxf(_as.fmax, b.flow)
 			if b.flow > 0.9 and _as.hi_t < 0.0: _as.hi_t = ph_t
 			# a drop in flow through a bend (from the peak since the last straight)
+			# flow through the road's bends: held in the gentle ones (from its peak on the straight before)
 			if absf(b.om) < b.FLOW_YAW: _as.flow_pk = b.flow
-			elif absf(b.om) > b.FLOW_YAW_DRAIN: _as.drop = maxf(_as.drop, _as.flow_pk - b.flow)
-			if _as.drop > 0.3: _as.drain = true
+			elif absf(b.om) < b.FLOW_YAW_DRAIN:
+				# (only the bend's own share: a climb, a brake or slow ground drain it anyway)
+				if b.flow_why == "": _as.hold = maxf(_as.hold, _as.flow_pk - b.flow)
+				else: _as.flow_pk = b.flow
+			else: _as.drop = maxf(_as.drop, _as.flow_pk - b.flow)
+			# corner speeds on Route 1's road (turning at more than 0.45 rad/s)
+			if b.at.z < -60.0 and absf(b.om) > 0.45 and ph_t > 3.0:
+				_as.c_n += 1; _as.c_sum += b.v
+				if b.v < _as.c_min: _as.c_min = b.v; _as.c_at = Vector2(b.at.x, b.at.z)
 			if OS.get_cmdline_user_args().has("--log") and ph_f % 30 == 0:
 				print("t %.1f at (%.1f %.1f) v %.2f flow %.2f om %.2f assist %s e %d lat %.2f lim %.1f why %s" % [ph_t, b.at.x, b.at.z, b.v, b.flow, b.om, b.assisting, A.e, A.lat, A.v_limit, A.why])
 			if b.at.z < -425.0 or ph_t > 150.0:
@@ -775,7 +978,8 @@ func _assist_test(dt: float) -> void:
 				_check(b.stats.blocks == 0, "hit nothing (%d knocks)" % b.stats.blocks)
 				var base_v: float = b.CRUISE * 0.85   # (the stick at 0.85)
 				_check(_as.fmax > 0.9 and _as.vmax > base_v * 1.12, "flow built on the straights (flow %.2f, top speed %.1f m/s against %.1f without it)" % [_as.fmax, _as.vmax, base_v])
-				_check(_as.drain, "flow drained in a bend (fell by %.2f)" % _as.drop)
+				_check(_as.hold < 0.25, "flow held through the road's gentle bends (fell by %.2f at most; %.2f in sharper ones)" % [_as.hold, _as.drop])
+				_check(_as.c_n > 60 and _as.c_min >= b.CRUISE * 0.7, "kept speed round Route 1's corners: %.1f m/s at the slowest (at %s), %.1f on average; cruise %.1f (%d frames turning)" % [_as.c_min, str(_as.c_at), _as.c_sum / maxf(1.0, _as.c_n), b.CRUISE, _as.c_n])
 				print("cost: assist %.1f us a frame on average, %.0f us at most" % [_as.us / n, _as.us_max])
 				# and in a tight loop at a few points of the ride (no frame noise): the median
 				var samp := []
