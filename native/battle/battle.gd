@@ -370,6 +370,7 @@ func _shot_xf(n: String) -> Dictionary:
 		"foe_close": return {"pos": ash_pos - fwd * 0.9 + side * 2.0 + up * 1.9, "look": foe_p + up * 0.4 - side * 0.3, "fov": 38.0}
 		"qa": return {"pos": c + side * 5.0 - fwd * 0.8 + up * 2.2, "look": c - fwd * 0.6 + up * 0.6, "fov": 52.0}
 		"impact": return {"pos": ash_pos + fwd * 2.6 + side * 2.6 + up * 1.6, "look": ash_pos + up * 0.9, "fov": 50.0}
+		"run": return {"pos": ash_spot - fwd * 4.6 + side * 3.4 + up * 2.4, "look": ash_pos - fwd * 0.4 + up * 0.7, "fov": 50.0}
 		"hide": return {"pos": ash_pos + fwd * 2.3 + side * 1.3 + up * 1.0, "look": ash_pos + up * 0.45, "fov": 44.0}
 		"down": return {"pos": ash_pos - side * 2.0 + fwd * 1.4 + up * 1.1, "look": ash_pos + up * 0.3, "fov": 46.0}
 		"flee": return {"pos": c - fwd * 5.5 + side * 3.0 + up * 3.2, "look": foe_p + up * 1.2, "fov": 52.0}
@@ -790,7 +791,7 @@ func _do_rock() -> Dictionary:
 # his head and land in his path, and he skids and backs up to where he was.
 func _do_run() -> Dictionary:
 	ui.say("ASH", "RUN!", UITheme.SKY)
-	shot("overview", 3.0)
+	shot("run", 2.5)
 	var e := R.ash_act("run")
 	ui.speak(["I gotta get outta here!", "Nope, nope, nope!", "Run, run, RUN!"][_rng.randi() % 3], _bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.4)
 	ash_yaw = atan2(-fwd.x, -fwd.z)
@@ -1107,7 +1108,7 @@ func _ash_down() -> void:
 	ui.close_menu()
 	slowmo(0.35, 0.9)
 	_act("b_crumple", 1e6)
-	shot("down", 2.0)
+	shot("down", 0.0)   # (a cut: a glide from the hit's shot would pass through him)
 	get_tree().create_timer(2.2).timeout.connect(func(): lie_down(1.0, false, 1.1); Sfx.play("land_dirt", ash_pos, {"vol": -4.0}))
 	Sfx.play("scuff", ash_pos, {"vol": 2.0})
 	await _wait(0.5)

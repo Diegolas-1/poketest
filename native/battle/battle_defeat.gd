@@ -110,7 +110,8 @@ func run(b: Battle) -> void:
 	jenny.look_at_point(chest); joy.look_at_point(battle._bone("Head", 0.3))
 	await _wait(0.5)
 	# the two-shot from his head's end: Jenny on one side of him, Joy on the other
-	battle._shot = {"pos": chest - side * 2.4 + fwd * 0.35 + Vector3(0, 1.25, 0), "look": chest + Vector3(0, 0.35, 0), "fov": 46.0, "rate": 2.0, "name": "_fixed"}
+	# (framed high: the text box takes the bottom of the screen)
+	battle._shot = {"pos": chest - side * 2.7 + fwd * 0.35 + Vector3(0, 1.55, 0), "look": chest + Vector3(0, -0.2, 0), "fov": 46.0, "rate": 2.0, "name": "_fixed"}
 	# the talk
 	await _say([
 		"JENNY{worry}: Ash! Ash, can you hear me? Don't try to get up.",
