@@ -18,6 +18,7 @@
 import * as THREE from 'three';
 import { rng } from '../terrain.js';
 import { cutGeometry, boulderGeometry, mergeAll, stoneMesh } from '../stone.js';
+import { lipAlong } from '../grasslip.js';
 
 // the cliff rock: a cool grey with a little warmth, like the meadow
 // outcrop; strata tones alternate per tier
@@ -64,7 +65,7 @@ const frame = (x, y, z, tx, tz, nx, nz) => _m.set(tx, 0, nx, x, 0, 1, 0, y, tz, 
 
 // One run: its slabs and talus as geometries (world space)
 export function buildCliffRun(run, { seed = 1, heightAt, col = CLIFF.rock, wet = null, notch = null, faces = null } = {}) {
-  const R = rng(seed * 977 + 31);
+  const R = rng(seed * 977 + 31), RL = rng(seed * 131 + 17);   // (RL: the grass lips, apart so the rock stays as it was)
   const geos = [], N = run.pts.length, dir = run.kind === 'down' ? -1 : 1;
   const at = (u) => {
     // vertex index and blend at arc length u
@@ -108,6 +109,7 @@ export function buildCliffRun(run, { seed = 1, heightAt, col = CLIFF.rock, wet =
       const calm = !F && notch && notch(c.x, c.z, 8);
       if (calm && !side) f = Math.max(f, 0.5);
       const lean = side ? 0.0 : 0.03 + R() * 0.09, yaw = side || calm ? 0 : (R() - 0.5) * 0.3, diag = !side && R() < 0.55;
+      let fTop = f;
       while (y < y1 - 0.3) {
         const h = Math.min(y1 - y, (k === 0 ? 1.6 : 1.8) + R() * 2.2);
         const top = y + h < y1 - 0.5 ? y + h : y1;
@@ -117,10 +119,21 @@ export function buildCliffRun(run, { seed = 1, heightAt, col = CLIFF.rock, wet =
         const g = slab(R, { w: w + 0.55, y0: yb - c.foot, y1: top - c.foot, f, back: 4.4 + R() * 0.8, lean: side ? 0 : lean + (R() - 0.5) * 0.06, dir: 1, col: tone, seed: Math.floor(R() * 1e6), yaw: side || calm ? 0 : yaw + (R() - 0.5) * 0.15, diag: diag && R() < 0.7, facets: !side });
         frame(c.x, c.foot, c.z, tx, tz, c.nx, c.nz);
         g.applyMatrix4(_m); geos.push(g);
+        fTop = f + (top - yb) * Math.tan(lean + 0.0);
         // the next tier steps back (a ledge) or now and then out a little
         f += side ? 0 : (top - yb) * Math.tan(lean) + (R() < 0.75 ? 0.05 + R() * 0.2 : -0.06);
         f = Math.max(0.35, f);
         y = top; k++;
+      }
+      // the turf of the high ground behind rolls onto the column's top: a grass
+      // lip along its front edge, hanging over the face (grasslip.js); not over a fall
+      if (!F && !side && y1 < c.top + 0.6 && y1 > c.top - 0.4 && RL() < 0.55) {
+        const smp = [];
+        for (let a = -w / 2 + 0.15; a <= w / 2 - 0.15 + 1e-6; a += 0.3) {
+          const x = c.x + tx * a + c.nx * (fTop + 0.06), z = c.z + tz * a + c.nz * (fTop + 0.06);
+          smp.push({ x, y: y1 - 0.04, z, nx: -c.nx, nz: -c.nz, k: Math.min(1, (w / 2 - Math.abs(a)) / 0.5) * 0.9 });
+        }
+        lipAlong(smp, { seed: Math.floor(RL() * 1e6), density: 0.65, hang: 0.8 });
       }
       // (a plain face beside a fall: where town.js hangs its ivy)
       const ca = at(Math.max(0, u - 2.5)), cb = at(Math.min(run.len, u + w + 2.5));   // (only where the line runs straight: on a bend the next column juts across)

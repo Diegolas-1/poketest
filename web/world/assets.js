@@ -424,45 +424,19 @@ export class Impostor {
 }
 
 // ---------- grass ----------
-// A fixed pattern of blades that wraps around the camera. A texture holds the
-// ground height and where grass may grow (not on roads, water or buildings).
-export function grassField(scene, { count, size, heightTex, area, sunDir, heightAt }) {
-  // anime grass clumps: broad flat blades, pointed, fanning out of one root,
-  // a few with a notch on one side, plus short blades curling at the foot
+// The blades of one grass clump, as records (the field's clumps here, the
+// fluffy lips where turf rolls over an edge in grasslip.js, and the native
+// game's grass.gd build the same clump from the same random order):
+// anime grass clumps: broad flat blades, pointed, fanning out of one root,
+// a few with a notch on one side, plus short blades curling at the foot.
+// One blade: a long pointed leaf from a root at (rx, rz), leaning out along
+// ang; notch adds a small spike on one side, layer = shade (inner darker);
+// role: 0 main blade, 1 the dark heart, 2 a wisp, 3 a curl at the foot
+// (the far clumps leave out 1-3: too small to see from there)
+export function grassBlades(r) {
   const blades = [];
-  let s = 12345;
-  const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-  // one blade: a long pointed leaf from a root at (rx, rz), leaning out along
-  // ang; notch adds a small spike on one side, layer = shade (inner darker)
-  // role: 0 main blade, 1 the dark heart, 2 a wisp, 3 a curl at the foot
-  // (the far clumps leave out 1-3: too small to see from there)
   const bladeAt = (rx, rz, ang, lean, len, wid, notch, layer, curl = 0, role = 0) => {
     blades.push({ rx, rz, ang, lean, len, wid, notch, layer, curl, role, twist: (r() - 0.5) * 0.6 });
-  };
-  const build = (list, segs) => {
-    const pos = [], tt = [], face = [], lay = [], idx = [];
-    for (const { rx, rz, ang, lean, len, wid, notch, layer, curl, twist } of list) {
-      const base = pos.length / 3;
-      const dx = Math.cos(ang), dz = Math.sin(ang), sx = -dz, sz = dx;
-      for (let i = 0; i <= segs; i++) {
-        const t = i / segs;
-        const w = wid * Math.min(1, t * 5 + 0.35) * Math.pow(1 - t, 0.85);
-        const out = lean * t * t * len * 0.8 + curl * t * 0.2, y = len * t * (1 - lean * 0.25 * t) * (1 - curl * t * 0.6);
-        const cx = rx + dx * out, cz = rz + dz * out;
-        const tw = twist * t, ux = sx * Math.cos(tw) - dx * Math.sin(tw), uz = sz * Math.cos(tw) - dz * Math.sin(tw);
-        const wl = w * (notch && Math.abs(t - 0.4) < 0.11 ? 2.4 : 1);
-        pos.push(cx - ux * wl, y, cz - uz * wl, cx + ux * w, y, cz + uz * w);
-        tt.push(t, t); face.push(ang, ang); lay.push(layer, layer);
-        if (i < segs) { const q = base + i * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
-      }
-    }
-    const g = new THREE.InstancedBufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute('bt', new THREE.Float32BufferAttribute(tt, 1));
-    g.setAttribute('bface', new THREE.Float32BufferAttribute(face, 1));
-    g.setAttribute('blay', new THREE.Float32BufferAttribute(lay, 1));
-    g.setIndex(idx);
-    return g;
   };
   // a tuft in layers: short dark blades in the heart, a middle ring, long
   // blades fanning out low, thin wisps, and a couple curling on the ground
@@ -477,9 +451,46 @@ export function grassField(scene, { count, size, heightTex, area, sunDir, height
   // a cluster: a big tuft with two or three smaller ones leaning against it
   tuft(0, 0, 1);
   for (let k = 0; k < 3; k++) { const a = k * 2.1 + r(), d = 0.3 + r() * 0.15; tuft(Math.cos(a) * d, Math.sin(a) * d, 0.55 + r() * 0.3); }
+  return blades;
+}
+// one clump's blades as a mesh: segs segments per blade (bt = how far up the
+// blade, bface = the way it faces, blay = its layer's shade)
+export function grassClumpGeometry(list, segs) {
+  const pos = [], tt = [], face = [], lay = [], idx = [];
+  for (const { rx, rz, ang, lean, len, wid, notch, layer, curl, twist } of list) {
+    const base = pos.length / 3;
+    const dx = Math.cos(ang), dz = Math.sin(ang), sx = -dz, sz = dx;
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const w = wid * Math.min(1, t * 5 + 0.35) * Math.pow(1 - t, 0.85);
+      const out = lean * t * t * len * 0.8 + curl * t * 0.2, y = len * t * (1 - lean * 0.25 * t) * (1 - curl * t * 0.6);
+      const cx = rx + dx * out, cz = rz + dz * out;
+      const tw = twist * t, ux = sx * Math.cos(tw) - dx * Math.sin(tw), uz = sz * Math.cos(tw) - dz * Math.sin(tw);
+      const wl = w * (notch && Math.abs(t - 0.4) < 0.11 ? 2.4 : 1);
+      pos.push(cx - ux * wl, y, cz - uz * wl, cx + ux * w, y, cz + uz * w);
+      tt.push(t, t); face.push(ang, ang); lay.push(layer, layer);
+      if (i < segs) { const q = base + i * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+    }
+  }
+  const g = new THREE.InstancedBufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('bt', new THREE.Float32BufferAttribute(tt, 1));
+  g.setAttribute('bface', new THREE.Float32BufferAttribute(face, 1));
+  g.setAttribute('blay', new THREE.Float32BufferAttribute(lay, 1));
+  g.setIndex(idx);
+  return g;
+}
+// A fixed pattern of blades that wraps around the camera. A texture holds the
+// ground height and where grass may grow (not on roads, water or buildings).
+export function grassField(scene, { count, size, heightTex, area, sunDir, heightAt }) {
+  let s = 12345;
+  const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  // the clump's blades (grassBlades: shared with the grass lips, grasslip.js)
+  const blades = grassBlades(r);
   // three levels of detail: the full clump near the player; past MID the hair-
   // thin wisps and foot curls go and blades bend in 4 segments (about 60% of
   // the triangles); past FAR only the main blades in 3 (about a third)
+  const build = grassClumpGeometry;
   const nearG = build(blades, 5), midG = build(blades.filter((b) => b.role < 2), 4), farG = build(blades.filter((b) => b.role === 0), 3);
   const n = Math.round(count / 14);
   const off = new Float32Array(n * 4);

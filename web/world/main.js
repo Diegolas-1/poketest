@@ -1,6 +1,6 @@
 // Pallet Town in 3D: a modern seaside eco-village to walk around freely.
 import * as THREE from 'three';
-import { buildTerrain, buildWater, grassMap, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU, ledgeAt, WALK, TB } from './terrain.js';
+import { buildTerrain, buildWater, grassMap, setGrassLift, height, isWater, SEA_Y, noWalk, HOUSES, toWorld, ROADS, coastZ, labHillU, ledgeAt, WALK, TB } from './terrain.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildSky, buildClouds, buildMountains, buildCinnabar, CINNABAR, TALL_GRASS } from './nature.js';
 import { buildTown, BEDS, PIER } from './town.js';
@@ -9,6 +9,8 @@ import { foliageTime } from './foliage.js';
 import { buildPaths, buildFields, grassTexture, pathGround } from './paths.js';
 import { buildVegetation } from './veg.js';
 import { grassField, wind, surface } from './assets.js';
+import { buildLips } from './grasslip.js';
+import { turfLift } from './props/turflip.js';
 import { makeActor, LOOKS } from './actor.js';
 import { Input } from './input.js';
 import { Dialog } from './dialog.js';
@@ -344,16 +346,21 @@ oak.actor.root.visible = false; oak.hidden = true;
 let veg = null, grass = null;
 // the grass lives in its own little scene, drawn in its own pass (see draw)
 const grassScene = new THREE.Scene();
+let lips = null;
 async function grow() {
   status('Loading plants');
   veg = await buildVegetation(scene, renderer, blocked, colliders, QUALITY, status);
   for (const c of town.bankColliders || []) colliders.push(c);   // the boulders in the streams below the cut banks
   status('Growing grass');
   const area = { x0: WALK.x0, z0: WALK.z0, w: WALK.x1 - WALK.x0, d: WALK.z1 - WALK.z0 };
+  setGrassLift(turfLift);   // (the grass stands on the turf rolled over the walls' tops)
   const tex = grassMap(area.x0, area.z0, area.w, area.d, 1);
   grass = grassField(grassScene, { count: QUALITY.grass, size: QUALITY.grassSize, heightTex: tex, area, sunDir, heightAt: groundAt });
   for (const imp of veg.impostors) Object.assign(imp.material.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
   Object.assign(grass.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
+  // the fluffy grass lips over banks, wall tops and ledges (grasslip.js): with the grass, no ink
+  lips = buildLips(grassScene, { sunDir });
+  Object.assign(lips.uniforms, { fogColor: { value: FOG }, fogNear: { value: scene.fog.near }, fogFar: { value: scene.fog.far } });
   $('loading').classList.add('done');
   banner('Pallet Town', 'A quiet seaside village');
   setTimeout(() => $('hint').classList.add('fade'), 12000);
@@ -370,7 +377,7 @@ function onDeck(w, x, z) {
 let space = null;   // the interior behind a door, when you are inside (spaces.js)
 function groundAt(x, z) {
   if (space && space.active) return space.groundAt(x, z);
-  let y = height(x, z);
+  let y = height(x, z) + turfLift(x, z);   // (+ the turf rolled up over a wall's top: props/turflip.js)
   for (const w of town.walk) if (onDeck(w, x, z)) y = Math.max(y, w.y);
   return y;
 }
@@ -741,6 +748,7 @@ function frame(fixed) {
   else {
     if (veg) veg.update(camera.position);
     if (grass) grass.update(me.pos);
+    if (lips) lips.update(camera.position);
   }
   // the prompt over whatever is in reach
   const n = !dialog.open && !script ? nearby() : null;

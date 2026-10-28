@@ -200,7 +200,7 @@ function meshKey(g, mi) {
 // the ground's grass and dirt without mipmaps, as they always were.
 const texImport = (mode, mips, detect) => `[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=${mode}\nmipmaps/generate=${mips}\nprocess/fix_alpha_border=true\ndetect_3d/compress_to=${detect}\n`;
 const TEX_IMPORT = texImport(0, true, 0), VRAM_IMPORT = texImport(2, true, 0);
-const BASE_IMPORT = { 'clouds.png': texImport(0, true, 1), 'grass.png': texImport(0, false, 1), 'dirt.webp': texImport(0, false, 1) };
+const BASE_IMPORT = { 'clouds.png': texImport(0, true, 1), 'grass.png': texImport(0, false, 1), 'dirt.webp': texImport(0, false, 1), 'earth.webp': VRAM_IMPORT };
 
 class Out {
   constructor(root) { this.root = root; this.written = new Map(); }   // dir -> Set of names
@@ -253,8 +253,8 @@ function cutGrid(data, g, planes, t) {
   return Buffer.concat(parts);
 }
 
-const WORLD_FILES = new Set(['town.glb', 'terrain.glb', 'inst.bin', 'veg.json', 'veg.bin', 'ground.bin', 'pathmap.bin', 'seabed.bin', 'grassmap.bin']);
-const BASE_FILES = new Set(['world.json', 'water.glb', 'mountains.bin', 'cinnabar.bin', 'clouds.png', 'clouds.json', 'grass.png', 'dirt.webp']);
+const WORLD_FILES = new Set(['town.glb', 'terrain.glb', 'inst.bin', 'veg.json', 'veg.bin', 'ground.bin', 'pathmap.bin', 'seabed.bin', 'grassmap.bin', 'lips.bin']);
+const BASE_FILES = new Set(['world.json', 'water.glb', 'mountains.bin', 'cinnabar.bin', 'clouds.png', 'clouds.json', 'grass.png', 'dirt.webp', 'earth.webp']);
 
 // src: a folder with the single-file bake (bake.mjs's outputs: world.json,
 // town.glb, town_inst.bin, terrain.glb, water.glb, veg.json/bin, veg_*.png,
@@ -353,6 +353,15 @@ export function splitWorld(src, dest, parts = ['world', 'ink']) {
         cells += t[2] * t[3];
       }
       if (cells !== g.nx * g.nz) throw new Error(`${key}: the tiles cover ${cells} of ${g.nx * g.nz} cells`);
+    }
+    // ---- the grass lips: each cluster with the region of its root ----
+    if (has('lips.bin')) {
+      const L = new Float32Array(S('lips.bin').buffer.slice(0)), by = Object.fromEntries(ids.map((id) => [id, []]));
+      for (let i = 0; i + 8 <= L.length; i += 8) by[regionOf(L[i], L[i + 2])].push(L.subarray(i, i + 8));
+      for (const id of ids) if (by[id].length) {
+        const a = new Float32Array(by[id].length * 8); by[id].forEach((r, k) => a.set(r, k * 8));
+        out.put(`r/${id}/lips.bin`, Buffer.from(a.buffer)); note(id, 'grass lips', by[id].length);
+      }
     }
     // ---- plants ----
     splitVeg(out, S, ids, note);

@@ -35,8 +35,8 @@ import { rng, fbm } from '../terrain.js';
 import { boulderGeometry, mergeAll, stoneMesh, STONE } from '../stone.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { leafMaterial, pushCard, toGeometry, cards, TILE } from '../foliage.js';
-import { toon } from '../toon.js';
-import { paint } from './outdoor.js';
+import { earthMaterial, EARTH_TILES as ET } from './earth.js';
+import { lipAlong } from '../grasslip.js';
 
 const sm = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -51,70 +51,15 @@ const GRASS = { root: C('#3f7a34'), mid: C('#6cba45'), tip: C('#b6e06a'), dry: C
 const ROOT = { dark: C('#7d634e'), pale: C('#c2a884'), bark: C('#7a5e48') };
 const CEL = { bands: [0.1, 0.32, 0.6], deep: [0.46, 0.5, 0.7], shade: [0.64, 0.68, 0.86], lit: [1.08, 1.05, 0.98], litAdd: [0.02, 0.015, 0] };
 
-// The face's picture, 2.2 x 2.2 m, neutral (the strata colours ride in the
-// vertices): vertical rain streaks, layered specks, pebbles with a lit top
-// and a shadow, fine root hairs and a few cracks, posterized for the paint.
-function earthTexture() {
-  return paint('bank_earth', 512, 512, (x, w, h, R) => {
-    x.fillStyle = '#d6d2cc'; x.fillRect(0, 0, w, h);
-    const wrap = (f) => { for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) f(ox, oy); };
-    // broad blotches (two painted steps)
-    for (let i = 0; i < 70; i++) {
-      const cx = R() * w, cy = R() * h, rx = 20 + R() * 60, ry = 8 + R() * 22, l = R() < 0.5;
-      x.fillStyle = l ? 'rgba(236,233,228,0.55)' : 'rgba(176,170,162,0.45)';
-      wrap((ox, oy) => { x.beginPath(); x.ellipse(cx + ox, cy + oy, rx, ry, (R() - 0.5) * 0.3, 0, 7); x.fill(); });
-    }
-    // fine horizontal laminae (thin darker lines, broken)
-    for (let i = 0; i < 46; i++) {
-      const y0 = R() * h, x0 = R() * w, L = 60 + R() * 260;
-      x.strokeStyle = R() < 0.6 ? 'rgba(150,142,132,0.55)' : 'rgba(240,236,230,0.6)'; x.lineWidth = 1 + R() * 1.6;
-      wrap((ox, oy) => { x.beginPath(); x.moveTo(x0 + ox, y0 + oy); for (let s = 0; s <= L; s += 16) x.lineTo(x0 + s + ox, y0 + Math.sin((x0 + s) * 0.03) * 2 + oy); x.stroke(); });
-    }
-    // rain streaks running down
-    for (let i = 0; i < 120; i++) {
-      const x0 = R() * w, y0 = R() * h, L = 40 + R() * 180, dk = R() < 0.65;
-      x.strokeStyle = dk ? `rgba(120,112,104,${0.25 + R() * 0.3})` : `rgba(246,244,240,${0.3 + R() * 0.35})`; x.lineWidth = 1 + R() * 2.4;
-      wrap((ox, oy) => { x.beginPath(); x.moveTo(x0 + ox, y0 + oy); x.bezierCurveTo(x0 + (R() - 0.5) * 6 + ox, y0 + L * 0.4 + oy, x0 + (R() - 0.5) * 8 + ox, y0 + L * 0.7 + oy, x0 + (R() - 0.5) * 5 + ox, y0 + L + oy); x.stroke(); });
-    }
-    // root hairs: thin dark wandering lines from the top down
-    for (let i = 0; i < 26; i++) {
-      let px = R() * w, py = R() * h; const n = 6 + Math.floor(R() * 8);
-      x.strokeStyle = 'rgba(78,62,52,0.55)'; x.lineWidth = 1 + R();
-      const pts = [[px, py]]; for (let k = 0; k < n; k++) { px += (R() - 0.5) * 18; py += 6 + R() * 12; pts.push([px, py]); }
-      wrap((ox, oy) => { x.beginPath(); x.moveTo(pts[0][0] + ox, pts[0][1] + oy); for (const [a, b] of pts) x.lineTo(a + ox, b + oy); x.stroke(); });
-    }
-    // cracks (short, jointed, dark with a lit lip)
-    for (let i = 0; i < 9; i++) {
-      let px = R() * w, py = R() * h; const pts = [[px, py]];
-      for (let k = 0; k < 5; k++) { px += (R() - 0.5) * 30; py += 8 + R() * 18; pts.push([px, py]); }
-      for (const [col, dx, lw] of [['rgba(250,248,244,0.7)', 1.5, 1.5], ['rgba(70,58,50,0.75)', 0, 1.8]]) {
-        x.strokeStyle = col; x.lineWidth = lw;
-        wrap((ox, oy) => { x.beginPath(); x.moveTo(pts[0][0] + ox + dx, pts[0][1] + oy); for (const [a, b] of pts) x.lineTo(a + ox + dx, b + oy); x.stroke(); });
-      }
-    }
-    // specks
-    for (let i = 0; i < 1800; i++) { x.fillStyle = R() < 0.5 ? 'rgba(110,100,92,0.6)' : 'rgba(250,248,244,0.7)'; x.fillRect(R() * w, R() * h, 1 + R() * 2, 1 + R() * 2); }
-    // pebbles: a shadow below, a body, a lit top
-    for (let i = 0; i < 150; i++) {
-      const cx = R() * w, cy = R() * h, r = 2.5 + Math.pow(R(), 2) * 9, a = R() * 3, t = 0.82 + R() * 0.3;
-      const v = Math.round(200 * t), bc = `rgb(${v},${v - 4},${v - 9})`;
-      wrap((ox, oy) => {
-        x.fillStyle = 'rgba(90,80,72,0.55)'; x.beginPath(); x.ellipse(cx + ox + 1, cy + oy + r * 0.45, r * 1.05, r * 0.8, a, 0, 7); x.fill();
-        x.fillStyle = bc; x.beginPath(); x.ellipse(cx + ox, cy + oy, r, r * 0.74, a, 0, 7); x.fill();
-        x.fillStyle = 'rgba(255,255,252,0.6)'; x.beginPath(); x.ellipse(cx + ox - r * 0.2, cy + oy - r * 0.3, r * 0.5, r * 0.3, a, 0, 7); x.fill();
-      });
-    }
-    // a plain patch in the corner: the hanging grass and the roots (drawn with
-    // the face, in one draw) take their colour from the vertices there
-    x.fillStyle = '#d6d2cc'; x.fillRect(0, 0, 24, 24);
-  });
-}
-let EARTH_MAT = null, LEAF_MAT = null;
-const earthMat = () => EARTH_MAT || (EARTH_MAT = toon('#ffffff', { map: earthTexture(), vertexColors: true, cel: CEL }));
+let LEAF_MAT = null;
+// the faces' material: painted soils from the earth atlas (props/earth.js)
+export const earthMat = () => earthMaterial(CEL);
+// each layer's soil and the soil it is mixed with (atlas tiles, uv1)
+export const LAYER_TILES = { under: [ET.roots, ET.loam], loam: [ET.loam, ET.roots], clay: [ET.clay, ET.eroded], sand: [ET.sand, ET.silt], silt: [ET.silt, ET.eroded], gravel: [ET.gravel, ET.sand] };
 const leafMat = () => LEAF_MAT || (LEAF_MAT = leafMaterial('#ffffff', 0.03));
 
 // a strip mesh builder: rows of points along u (a grid), with colours, uvs
-function grid(rowsByCol, R) {
+export function grid(rowsByCol, R) {
   const pos = [], col = [], uv = [], idx = [];
   const nc = rowsByCol.length;
   for (const rows of rowsByCol) for (const v of rows) { pos.push(v.p[0], v.p[1], v.p[2]); col.push(v.c.r, v.c.g, v.c.b); uv.push(v.uv[0], v.uv[1]); }
@@ -130,7 +75,7 @@ function grid(rowsByCol, R) {
   return g;
 }
 // make a grid face away from the bank (its outward side: -n): flip if not
-function faceOut(g, nx, nz) {
+export function faceOut(g, nx, nz) {
   g.computeVertexNormals();
   const N = g.attributes.normal;
   let s = 0; for (let i = 0; i < N.count; i += 7) s += -(N.getX(i) * nx + N.getZ(i) * nz);
@@ -144,7 +89,7 @@ function faceOut(g, nx, nz) {
 }
 
 // a ribbon (grass blade) or a three-sided tube (root) along points
-function strand(out, pts, w0, w1, side, c0, c1, tube = false) {
+export function strand(out, pts, w0, w1, side, c0, c1, tube = false) {
   const n = pts.length, base = out.pos.length / 3;
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1), w = lerp(w0, w1, t), c = c0.clone().lerp(c1, t), p = pts[i];
@@ -164,22 +109,26 @@ function strand(out, pts, w0, w1, side, c0, c1, tube = false) {
   }
 }
 // (both = a second copy turned the other way, for a one-sided material; the
-// uvs point at the face picture's plain corner, its colour divided out)
-const PLAIN = new THREE.Color('#d6d2cc');
-function strandGeometry(out, both = false) {
+// earth material's detail is read at one spot, so a root is its own colour;
+// tile = the atlas soil in uv1)
+export function strandGeometry(out, both = false, tile = ET.roots) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(out.pos, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(out.col, 3));
   g.setIndex(out.idx);
   g.computeVertexNormals();
-  if (!both) { g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(out.pos.length / 3 * 2), 2)); return g; }
+  if (!both) {
+    const n = out.pos.length / 3, u1 = new Float32Array(n * 2).fill(tile);
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n * 2), 2)); g.setAttribute('uv1', new THREE.Float32BufferAttribute(u1, 2));
+    return g;
+  }
   const n = out.pos.length / 3, P = [], N = [], Cc = [], U = [], I = [];
   const nr = g.attributes.normal.array;
   for (const sg of [1, -1]) for (let i = 0; i < n; i++) {
     P.push(out.pos[i * 3], out.pos[i * 3 + 1], out.pos[i * 3 + 2]);
     N.push(nr[i * 3] * sg, nr[i * 3 + 1] * sg, nr[i * 3 + 2] * sg);
-    Cc.push(Math.min(1, out.col[i * 3] / PLAIN.r), Math.min(1, out.col[i * 3 + 1] / PLAIN.g), Math.min(1, out.col[i * 3 + 2] / PLAIN.b));
-    U.push(12 / 512, 1 - 12 / 512);
+    Cc.push(out.col[i * 3], out.col[i * 3 + 1], out.col[i * 3 + 2]);
+    U.push(0.5, 0.5);
   }
   for (const k of out.idx) I.push(k);
   for (let t = 0; t < out.idx.length; t += 3) I.push(out.idx[t] + n, out.idx[t + 2] + n, out.idx[t + 1] + n);
@@ -188,7 +137,40 @@ function strandGeometry(out, both = false) {
   h.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
   h.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3));
   h.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+  h.setAttribute('uv1', new THREE.Float32BufferAttribute(new Float32Array(U.length).fill(tile), 2));
   h.setIndex(I);
+  return h;
+}
+
+// A grid face (grid(): rows R per column) with its quads apart, so each band
+// of rows gets its own pair of soils in uv1 (tiles(col, row) -> [a, b] for the
+// quad below that row): a tile number is never blended across a band. Normals
+// as the shared grid had them (smooth shading kept).
+export function soilBands(g, R, tiles) {
+  const P = g.attributes.position, N = g.attributes.normal, C = g.attributes.color, U = g.attributes.uv, I = g.index.array;
+  const pos = [], nrm = [], col = [], uv = [], uv1 = [], idx = [], made = new Map();
+  // (a vertex is copied only where quads of different soils meet at it)
+  const vert = (v, a, b) => {
+    const key = v * 64 + a * 8 + b;
+    let k = made.get(key);
+    if (k === undefined) {
+      k = pos.length / 3; made.set(key, k);
+      pos.push(P.getX(v), P.getY(v), P.getZ(v)); nrm.push(N.getX(v), N.getY(v), N.getZ(v)); col.push(C.getX(v), C.getY(v), C.getZ(v)); uv.push(U.getX(v), U.getY(v)); uv1.push(a, b);
+    }
+    return k;
+  };
+  for (let t = 0; t < I.length; t += 6) {
+    const q = t / 6, r = q % (R - 1), j = (q - r) / (R - 1);
+    const [a, b] = tiles(j, r);
+    for (let e = 0; e < 6; e++) idx.push(vert(I[t + e], a, b));
+  }
+  const h = new THREE.BufferGeometry();
+  h.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  h.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  h.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  h.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  h.setAttribute('uv1', new THREE.Float32BufferAttribute(uv1, 2));
+  h.setIndex(idx);
   return h;
 }
 
@@ -240,13 +222,19 @@ function section(o, meshAt, yRef = o.yB) {
   const dmB = dm(yB - 0.04);
   const yTop = Math.max(hmax(dLip, dmB + 0.3), yB) + 0.045 + (lift - 0.04);
   // ---- turf rows (back to front): [d, y, kind]
+  // (the sod is a rounded cushion, as a mossy shelf's: it swells a little
+  // above the ground behind and rolls over the brim in a soft curve)
+  const bul = kk * (0.035 + 0.05 * n2);
   const turf = [
-    [dmB + 1.15, null, 0], [dmB + 0.7, hmax(dmB + 0.45, dmB + 0.95) + lift, 1], [dmB + 0.28, hmax(dmB + 0.05, dmB + 0.5) + lift, 2],
-    [dLip + 0.15, yTop, 3], [dLip + 0.035, yTop - 0.04, 4], [dLip, yTop - lipT * 0.55, 5], [dLip + 0.045, yTop - lipT, 6],
+    [dmB + 1.15, null, 0], [dmB + 0.7, hmax(dmB + 0.45, dmB + 0.95) + lift, 1], [dmB + 0.28, hmax(dmB + 0.05, dmB + 0.5) + lift + bul * 0.4, 2],
+    [dLip + 0.24, yTop + bul, 3], [dLip + 0.1, yTop + bul * 0.75, 3], [dLip + 0.035, yTop + bul * 0.2 - 0.025, 4], [dLip + 0.0, yTop - lipT * 0.4, 5],
+    [dLip + 0.012, yTop - lipT * 0.75, 5], [dLip + 0.045, yTop - lipT, 6],
   ];
   // (the back row: just under the drawn ground, so the turf rises out of it)
   { const [x, , z] = P(turf[0][0], 0); turf[0][1] = meshAt(x, z) - 0.05; }
   for (let r = 1; r < 3; r++) turf[r][1] = Math.max(turf[r][1], turf[r - 1][1] + 0.0);
+  // (the crown never dips under the drawn ground just behind it)
+  turf[3][1] = Math.max(turf[3][1], turf[2][1]); turf[4][1] = Math.max(turf[4][1], turf[3][1] - bul * 0.4);
   // ---- earth rows (top to bottom): [d, y, layer, depth]
   const yE = yTop - lipT;
   const rows = [[dLip + 0.045, yE, 'under', 0], [dLoam + 0.02, yE - 0.03, 'loam', 0.03]];
@@ -278,7 +266,7 @@ function section(o, meshAt, yRef = o.yB) {
   }
   // the loam row may not stand out past the lip's underside
   rows[1][0] = Math.max(rows[1][0], dLip + 0.08);
-  return { P, turf, rows, kk, full, yTop, lipT, dLip, dLoam, dm, yE, Hc, L: [L1, L2, L3, L4] };
+  return { P, turf, rows, kk, full, yTop, lipT, dLip, dLoam, dm, yE, Hc, bul, L: [L1, L2, L3, L4] };
 }
 
 // the colour of a face vertex: its layer, a few thin laminae, the wet band
@@ -331,10 +319,10 @@ function buildPiece(run, a, b, o) {
       if (kind <= 1) { c = meshColor(p[0], p[2], new THREE.Color()); nrm = meshNormal(p[0], p[2]); }
       else if (kind === 2) { c = meshColor(p[0], p[2], new THREE.Color()).lerp(grass, 0.5); const m = meshNormal(p[0], p[2]); nrm = [m[0] * 0.6, m[1] * 0.6 + 0.4, m[2] * 0.6]; }
       else {
-        c = grass.clone().multiplyScalar(kind === 6 ? 0.62 : kind === 5 ? 0.82 : 1);
+        c = grass.clone().multiplyScalar(kind === 6 ? 0.62 : kind === 5 ? 0.8 : kind === 4 ? 0.94 : 1);
         // (the front stays under ~33 degrees for the ground's shader, so it is
         // painted as grass, not as its bare earth for steep slopes)
-        const out = [-s.nx, 0, -s.nz], k = kind === 3 ? 0.15 : 0.35;
+        const out = [-s.nx, 0, -s.nz], k = kind === 3 ? 0.15 : kind === 4 ? 0.45 : 0.35;
         nrm = kind === 6 ? [out[0] * 0.6, -0.8, out[2] * 0.6] : [lerp(up[0], out[0], k), lerp(up[1], out[1], k), lerp(up[2], out[2], k)];
       }
       const l = Math.hypot(nrm[0], nrm[1], nrm[2]) || 1;
@@ -357,13 +345,15 @@ function buildPiece(run, a, b, o) {
     const X = secs[j];
     return X.rows.map(([d, y, layer, dp]) => {
       const p = X.P(d, y);
-      return { p, c: earthColor(s, layer, dp, y, p[0], p[2], new THREE.Color()), uv: [s.u / 2.2, y / 2.2 + (run.side > 0 ? 0.37 : 0)] };
+      return { p, c: earthColor(s, layer, dp, y, p[0], p[2], new THREE.Color()), uv: [s.u * run.side, y], layer };
     });
   });
   // (the first row is the turf's last: the sod's front-bottom edge)
-  const eg = faceOut(grid(ecols, ecols[0].length), S[0].nx, S[0].nz);
+  const eR = ecols[0].length;
+  const eg = soilBands(faceOut(grid(ecols, eR), S[0].nx, S[0].nz), eR, (j, r) => LAYER_TILES[ecols[j][Math.min(eR - 1, r + 1)].layer] || LAYER_TILES.gravel);
   const G = new THREE.Group();
   G.name = 'streambank';
+  G.userData.keep = true;   // (not unindexed by town.js mergeStatic: cellMerge joins it by cell)
   G.userData.eid = `edges/bank/${run.line}/${run.side}/${a}`;
   G.userData.barrier = 'bank';
   G.userData.qa = { k: 'ground', why: 'a stream\'s cut bank: an earth face laid over the ground, one-sided like the ground' };
@@ -380,29 +370,19 @@ function buildPiece(run, a, b, o) {
     }
     return null;
   };
-  // ---------- hanging grass and roots ----------
+  // ---------- the grass lip: fluffy clusters of the field's grass along the
+  // brim, rolling over it and hanging down the face (grasslip.js) ----------
+  lipAlong(S.map((s, j) => {
+    const X = secs[j], p = X.P(X.dLip + 0.07, X.yTop + X.bul * 0.5);
+    return { x: p[0], y: p[1], z: p[2], nx: -s.nx, nz: -s.nz, k: sm(0.12, 0.5, X.kk), j };
+  }), { seed: run.id * 7919 + a * 31 + 5, face: (smp, dep) => { const X = secs[smp.j]; return X.Hc > 0.6 ? faceAt(smp.j, X.yE - dep * Math.min(1, X.Hc * 0.6)) : null; }, faceMax: 0.9 });
+  // ---------- roots ----------
   const st = { pos: [], col: [], idx: [] };
   const lc = cards();
   for (let j = 0; j < S.length - 1; j++) {
     const s = S[j], X = secs[j], kk = X.kk;
     if (kk < 0.2) continue;
     const out = [-s.nx, 0, -s.nz], side = [s.tx, 0, s.tz];
-    // grass hanging over the lip's front, and blades sticking out over it
-    const nb = Math.round((3 + R() * 3) * kk);
-    for (let i = 0; i < nb; i++) {
-      const al = R() * 0.5, L = (0.14 + R() * 0.32) * (0.6 + kk * 0.5), hang = R() < 0.62;
-      const root = X.P(X.dLip + 0.06 + R() * 0.08, X.yTop - (hang ? X.lipT * (0.3 + R() * 0.3) : 0.01));
-      const p0 = [root[0] + side[0] * al, root[1], root[2] + side[2] * al];
-      const sw = (R() - 0.5) * 0.12, pts = [p0];
-      const dirOut = hang ? 0.07 + R() * 0.06 : 0.12 + R() * 0.1, rise = hang ? 0.02 : 0.05 + R() * 0.06;
-      for (let q = 1; q <= 4; q++) {
-        const t = q / 4, prevp = pts[q - 1];
-        const dy = hang ? (q === 1 ? rise : -L * t * 0.55) : (q < 3 ? rise * 0.7 : -L * 0.25 * (q - 2));
-        pts.push([prevp[0] + out[0] * dirOut / q + side[0] * sw * t, prevp[1] + dy, prevp[2] + out[2] * dirOut / q + side[2] * sw * t]);
-      }
-      const tip = (R() < 0.15 ? GRASS.dry : GRASS.tip).clone().multiplyScalar(0.9 + R() * 0.15);
-      strand(st, pts, 0.016 + R() * 0.01, 0.002, side, GRASS.root, tip);
-    }
     // root tangles in the loam (and the top of the clay)
     if (X.Hc > 0.5 && R() < 0.62 * kk) {
       const nr = 2 + Math.floor(R() * 4), al0 = R() * 0.5, y0 = X.yE - 0.06 - R() * Math.min(0.75, X.L[1] * 0.8);

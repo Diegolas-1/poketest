@@ -21,6 +21,10 @@
 //                 the web's own Impostor; leaf atlas and barks as veg_*.png
 //   mountains.bin the distant ranges (main.js opening to the south included)
 //   clouds.png/.json the painted clouds as one atlas, and where each sprite is
+//   lips.bin      the grass lips over banks, wall tops and ledges (grasslip.js
+//                 LIPS: float32 x 8 per cluster), drawn by native grass_lip.gd
+//   earth.webp    the earth atlas (web/world/tex/earth_atlas.webp) for the earth
+//                 faces and the ground's steep earth
 // Run: node tools/native/bake.mjs   (serves web/ on :8790 if nothing is there;
 // with GODOT set, Godot imports the new files at the end: commit the .import
 // files with them)
@@ -103,7 +107,8 @@ const res = await p.evaluate(async () => {
   const canvasPngOf = (cv) => cv.toDataURL('image/png').split(',')[1];
 
   // terrain
-  // (chunks of the ground and Route 1's ledges, one mesh each: terrain.js buildTerrain)
+  // (chunks of the ground, one mesh each: terrain.js buildTerrain, with the turf of the
+  // banks, ledges and wall tops joined in: main.js)
   const terr = w.scene.children.find((o) => o.name === 'terrain');
   const tg = new THREE.Group(), terrMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   for (const c of terr.children) { const tm = new THREE.Mesh(c.geometry, terrMat); tm.name = c.name; tg.add(tm); }
@@ -453,10 +458,11 @@ const res = await p.evaluate(async () => {
     const dx = x - d.x, dz = z - d.z, c = Math.cos(d.rot || 0), s = Math.sin(d.rot || 0);
     return Math.abs(dx * c - dz * s) < d.hw && Math.abs(dx * s + dz * c) < d.hd;
   };
+  const TL = await import('/world/props/turflip.js');   // (the turf rolled up over a wall's top lifts the ground)
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const x = G.x0 + (i + 0.5) * G.res, z = G.z0 + (j + 0.5) * G.res;
     const h0 = T.height(x, z);
-    let y = h0, f = 0;
+    let y = h0 + TL.turfLift(x, z), f = 0;
     for (const d of walk) if (onDeck(d, x, z)) { if (d.y > y) y = d.y; f |= 4; }
     const wl = T.waterLevel(x, z);
     if (h0 < wl - 0.05) { f |= 1; if (wl === T.SEA_Y && Math.hypot(x - T.POND.x, z - T.POND.z) > T.POND.r + 3 && T.streamAt(x, z).d > 4) f |= 8; }
@@ -486,9 +492,12 @@ const res = await p.evaluate(async () => {
   const GA = { x0: T.WALK.x0, z0: T.WALK.z0, w: T.WALK.x1 - T.WALK.x0, d: T.WALK.z1 - T.WALK.z0, res: 1 };
   const gm = T.grassMap(GA.x0, GA.z0, GA.w, GA.d, GA.res).image;
   const gp = new Float32Array(gm.width * gm.height * 2);
-  for (let k = 0; k < gm.width * gm.height; k++) { gp[k * 2] = gm.data[k * 4]; gp[k * 2 + 1] = gm.data[k * 4 + 1]; }
+  for (let k = 0; k < gm.width * gm.height; k++) { gp[k * 2] = gm.data[k * 4]; gp[k * 2 + 1] = gm.data[k * 4 + 1]; }   // (the turf over walls' tops lifts it: terrain.js setGrassLift)
   out.grassmap = b64(new Uint8Array(gp.buffer));
   out.grassGrid = { ...GA, nx: gm.width, nz: gm.height };
+
+  // the grass lips (grasslip.js): float32 x 8 per cluster
+  { const GL = await import('/world/grasslip.js'); out.lips = b64(new Uint8Array(new Float32Array(GL.LIPS).buffer)); out.lipN = GL.LIPS.length / GL.LIP_STRIDE; }
 
   out.meta = {
     sea: T.SEA_Y, pathmap: { x0: PM.x0, z0: PM.z0, w: PM.w, d: PM.d, nx: PM.nx, nz: PM.nz },
@@ -508,6 +517,8 @@ save('ground.bin', res.ground);
 save('seabed.bin', res.seabed);
 save('grassmap.bin', res.grassmap);
 save('town_inst.bin', res.townInst);
+save('lips.bin', res.lips);
+console.log('grass lip clusters', res.lipN);
 save('veg.bin', res.veg);
 for (const [f, d] of Object.entries(res.vegPngs)) save(f, d);
 fs.writeFileSync(path.join(OUT, 'veg.json'), JSON.stringify(res.vegJson));
@@ -517,6 +528,7 @@ save('clouds.png', res.clouds);
 // (how each picture is imported: regions.mjs)
 fs.writeFileSync(path.join(OUT, 'clouds.json'), JSON.stringify(res.cloudsJson));
 fs.copyFileSync(path.join(ROOT, 'web/world/tex/dirt_pack.webp'), path.join(OUT, 'dirt.webp'));
+fs.copyFileSync(path.join(ROOT, 'web/world/tex/earth_atlas.webp'), path.join(OUT, 'earth.webp'));
 // the stone paint, word for word from the web (stone.js STONE_GLSL)
 {
   const src = fs.readFileSync(path.join(ROOT, 'web/world/stone.js'), 'utf8'), m = src.match(/export const STONE_GLSL = `([\s\S]*?)`;/);

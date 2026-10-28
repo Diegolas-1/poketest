@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { ROADS, FIELDS, height, rng, pathMap, pathSD, meshHeight } from './terrain.js';
 import { celify } from './toon.js';
 import { makeClump, TILE } from './foliage.js';
+import { earthAtlas } from './props/earth.js';
 
 let DIRT = null;
 function dirtTexture() {
@@ -42,7 +43,7 @@ export function pathGround(m) {
   const col = (h) => new THREE.Color(h);
   const U = {
     uPM: { value: pathMapTexture() }, uPMo: { value: new THREE.Vector2(M.x0, M.z0) }, uPMs: { value: new THREE.Vector2(M.w, M.d) },
-    uDirt: { value: dirtTexture() },
+    uDirt: { value: dirtTexture() }, uEarth: { value: earthAtlas() },
     uDMid: { value: col('#d8aa70') }, uDLight: { value: col('#e8c890') }, uDEdge: { value: col('#c49a6c') },
     uDDark: { value: col('#86593a') }, uDPale: { value: col('#e6cf9c') },
   };
@@ -54,7 +55,14 @@ export function pathGround(m) {
       vPW = (modelMatrix * vec4(transformed, 1.0)).xyz;
       vPN = mat3(modelMatrix) * objectNormal;`);
     sh.fragmentShader = `varying vec3 vPW; varying vec3 vPN;
-      uniform sampler2D uPM, uDirt; uniform vec2 uPMo, uPMs;
+      uniform sampler2D uPM, uDirt, uEarth; uniform vec2 uPMo, uPMs;
+      // the earth atlas (props/earth.js): the steep earth's strata, the paths' soils
+      vec3 eTile(vec2 p, float k) {
+        vec2 cell = vec2(mod(k, 4.0), floor(k / 4.0));
+        vec2 sc = vec2(480.0 / 2048.0, 480.0 / 1024.0);
+        vec2 q = (cell * 512.0 + 16.0) / vec2(2048.0, 1024.0) + fract(p) * sc;
+        return textureGrad(uEarth, q, dFdx(p) * sc, dFdy(p) * sc).rgb;
+      }
       uniform vec3 uDMid, uDLight, uDEdge, uDDark, uDPale;
       float pHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
       float pvn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -100,6 +108,13 @@ export function pathGround(m) {
             k *= smoothstep(0.3, 0.55, pvn(w.xz * 0.5 + w.y * 0.4) + k * 0.45);
             float sx = bw.x / max(bw.x + bw.z, 1e-4);
             vec3 e = mix(earthCol(w.x, w.y), earthCol(w.z, w.y), sx);
+            float ea = mix(w.x, w.z, sx);
+            float band = floor((w.y + (pvn(vec2(ea * 0.25, 1.7)) - 0.5) * 0.9) / 1.05);
+            float bt = pHash(vec2(band, 3.7));
+            float t0 = bt < 0.3 ? 2.0 : bt < 0.52 ? 0.0 : bt < 0.68 ? 5.0 : 6.0;
+            vec2 ep = vec2(ea, w.y) / 1.6;
+            vec3 ed = mix(eTile(ep, t0), eTile(ep * 0.83 + vec2(0.37, 0.61), t0 == 0.0 ? 4.0 : 3.0), smoothstep(0.4, 0.6, pvn(w.xz * 0.45 + w.y * 0.3)));
+            e *= mix(vec3(1.0), ed * 2.0, 0.8);
             grass = mix(grass * mix(1.0, 0.8, k), e, k);
           }
           diffuseColor.rgb = grass;
@@ -193,6 +208,11 @@ export function pathGround(m) {
         float pn = pvn(wp * 0.32 + 11.0) * 0.65 + pvn(wp * 0.9 + 3.0) * 0.35;
         c *= 0.86 + smoothstep(0.25, 0.75, pn) * 0.22;
         // stones and hollows from the photo, posterized for the painted look
+        if (farK < 0.99) {
+          vec2 sp = wp / 2.2;
+          vec3 sd2 = mix(eTile(sp, 1.0), eTile(sp * 0.83 + vec2(0.3, 0.7), 3.0), smoothstep(0.35, 0.65, pvn(wp * 0.12 + 5.0)));
+          c *= mix(vec3(1.0), sd2 * 2.0, 0.3 * (1.0 - farK));
+        }
         float dq = mix(det, floor(det * 4.0 + 0.5) / 4.0, 0.65 * (1.0 - farK));
         c *= 0.66 + dq * 0.72;
         // the photo's relief lit by the sun: stones get a lit and a shaded side
