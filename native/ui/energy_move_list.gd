@@ -1,13 +1,16 @@
 class_name EnergyMoveList
 extends Control
 # A Pokémon's moves for the energy system (battle/energy.gd): one skewed row
-# per move with its type disc, its name, a line of what it does, and its cost
-# as energy icons on the right. No four-move cap: the list scrolls with the
-# selection when there are more rows than fit. States:
+# per move with its type disc, its name, its role (a small tag: REACTION,
+# 2 TURNS, DISRUPT...), a line of what it does, and its cost as energy icons on
+# the right. No four-move cap: the list scrolls with the selection when there
+# are more rows than fit; every known move is listed (never forgotten), the
+# ones in its slots first. States:
 #   ready    it can pay now
-#   short    known and fits the bar, but not enough chips this turn: dimmed,
-#            the chips it lacks ringed red
-#   locked   bigger than the bar: a lock and the level its slots open
+#   short    in a slot, but not enough chips this turn: dimmed, the chips it
+#            lacks ringed red
+#   locked   known but not in a slot (the slots are full, or the move is too
+#            big): a lock, and the level the next slot opens
 # The selected row turns white with a slide; a bar bound with bar_preview
 # lights the chips it would use. Touch: tap a row to select it (the preview),
 # tap it again to use it. Pad / keys: up / down, A (E / Enter), 1-9; B / Esc
@@ -52,6 +55,11 @@ func bind(e: BattleEnergy, moves = null) -> void:
 	if energy and energy.changed.is_connected(_on_changed): energy.changed.disconnect(_on_changed)
 	energy = e
 	ids = (moves if moves is Array else (e.known if e else [])).duplicate()
+	# the moves in its slots first, then the locked ones (same order otherwise)
+	if e:
+		var on := ids.filter(func(id): return not e.locked(id))
+		var off := ids.filter(func(id): return e.locked(id))
+		ids = on + off
 	if e: e.changed.connect(_on_changed)
 	selected = clampi(selected, 0, maxi(0, count() - 1))
 	_appear = 0.0
@@ -221,7 +229,11 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 	EnergyIcon.draw_icon(self, kind, Vector2(r.position.x + 34.0, cy), 15.0, ra)
 	# the name and what it does
 	var nx := r.position.x + 60.0
-	UITheme.text(self, Vector2(nx, cy + 2.0), String(m.get("name", id)).to_upper(), "display", 25, fg)
+	var nw := UITheme.text(self, Vector2(nx, cy + 2.0), String(m.get("name", id)).to_upper(), "display", 25, fg)
+	var rt: String = ROLE_TAG.get(String(m.get("role", "offense")), "")
+	if rt != "":
+		var rc: Color = ROLE_COL.get(String(m.get("role", "")), UITheme.SKY)
+		UITheme.chip(self, Vector2(nx + nw + 8.0, cy - 17.0), rt, Color(rc, ra), UITheme.INK, 11, 17.0, 1.0)
 	var line := _subline(m, st)
 	UITheme.text(self, Vector2(nx + 1.0, cy + 21.0), line, "label", 13, sub if st != "locked" else Color(UITheme.ORANGE, ra))
 	# the cost: icons from the right
@@ -249,15 +261,25 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 	elif UIInput.device == "keys" and i < 9:
 		UITheme.text_mid(self, Vector2(r.position.x + 48.0, r.position.y + 12.0), str(i + 1), "label", 12, Color(fg, ra * 0.6), 1)
 
+const ROLE_TAG := {"reaction": "REACTION", "two_phase": "2 TURNS", "disruption": "DISRUPT", "utility": "UTILITY"}
+const ROLE_COL := {"reaction": Color("9d6cf0"), "two_phase": Color("ff9a1f"), "disruption": Color("ee3b33"), "utility": Color("3fb6f5")}
+
 func _subline(m: Dictionary, st: String) -> String:
 	if st == "locked":
-		var need := BattleEnergy.cost_of(m.get("cost", [])).size()
-		var lv := BattleEnergy.level_for_slot(need, energy.species if energy else "")
-		return "NEEDS %d SLOTS  ·  LV %d" % [need, lv] if lv > 0 else "NEEDS %d SLOTS" % need
+		if energy == null: return "LOCKED"
+		var nl := BattleEnergy.next_slot_level(energy.level, energy.species)
+		var used := "SLOTS FULL %d/%d" % [energy.equipped.size(), energy.slots]
+		return "LOCKED  ·  %s  ·  NEXT SLOT LV %d" % [used, nl] if nl > 0 else "LOCKED  ·  %s" % used
 	var bits := []
+	if String(m.get("role", "")) == "reaction":
+		var r: Dictionary = m.get("reaction", {})
+		var trig := {"any": "ANY MOVE", "attack": "ANY ATTACK", "physical": "PHYSICAL ONLY", "special": "SPECIAL ONLY"}
+		bits.append("LOCKS ITS CHIPS: %s" % trig.get(String(r.get("trigger", "any")), "ANY"))
+	if String(m.get("role", "")) == "two_phase":
+		bits.append("PAY NOW, STRIKE NEXT TURN")
 	if int(m.get("power", 0)) > 0: bits.append("POW %d" % int(m.power))
 	if int(m.get("priority", 0)) > 0: bits.append("FIRST")
-	if int(m.get("accuracy", 100)) < 100: bits.append("ACC %d" % int(m.accuracy))
+	if int(m.get("accuracy", 100)) < 100 and int(m.get("accuracy", 100)) > 0: bits.append("ACC %d" % int(m.accuracy))
 	if bits.is_empty() or int(m.get("power", 0)) <= 0:
 		bits.append(String(m.get("desc", "")).trim_suffix(".").to_upper())
 	return "  ·  ".join(bits)

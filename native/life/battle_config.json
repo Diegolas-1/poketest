@@ -1,0 +1,191 @@
+{
+  "_doc": "Every tunable number of the energy system and the Pokemon-vs-Pokemon battle, in one place (read through battle/battle_config.gd; design/energy_system.md explains each). Change numbers here, not in code. Species overrides under focus.species.<id> win over the defaults.",
+
+  "focus": {
+    "_doc": "Focus is a 0-100 meter per Pokemon. chips = min(floor(focus / step), chip_cap): the bar and the chip count always agree. gain: points per undisturbed turn. start: focus at the first battle of a fresh Pokemon. wild_start: a wild one's focus by its state when the battle starts. typed_pool_cap: chips a typed pool holds (Colorless holds the rest). auto_fill_single_type: a Pokemon with one typed pool sends new chips there until it is full (zero taps); otherwise new chips go to the default pool unless the player picks.",
+    "max": 100,
+    "gain": 10,
+    "step": 20,
+    "chip_cap": 5,
+    "start": 20,
+    "wild_start": {"hidden": 20, "startled": 30, "attacking": 40, "fleeing": 10, "default": 20},
+    "trainer_start": 30,
+    "typed_pool_cap": 3,
+    "default_pool": "colorless",
+    "auto_fill_single_type": true,
+    "gain_on_first_turn": true,
+    "disruption_skips_gain": true,
+    "by_type": {
+      "psychic": {"gain": 14, "disrupt_resist": 0.5},
+      "ghost": {"disrupt_resist": 0.25},
+      "fighting": {"gain": 12},
+      "electric": {"gain": 11},
+      "normal": {}
+    },
+    "species": {
+      "snorlax": {"gain": 5, "step": 12.5, "chip_cap": 8, "start": 0, "alert": false},
+      "slowpoke": {"gain": 6, "alert": false},
+      "abra": {"gain": 15, "disrupt_resist": 0.6},
+      "pikachu": {"alert": true},
+      "pidgey": {"gain": 10, "alert": true},
+      "diglett": {"gain": 12},
+      "sandshrew": {"gain": 9, "alert": false}
+    }
+  },
+
+  "disruption": {
+    "_doc": "Disruption lowers focus by a fixed step, never a full reset. step: the default. moves: per-move steps (overrides). flinch / confusion: the step when that status lands. sleep_blocks_gain: no focus gain while asleep.",
+    "step": 15,
+    "moves": {"leer": 10, "growl": 10, "screech": 20, "hypnosis": 15, "confusion": 15, "roar": 20, "whirlwind": 15, "mean_look": 15},
+    "flinch": 12,
+    "confusion": 15,
+    "sleep_blocks_gain": true,
+    "faint_to_zero": true
+  },
+
+  "locked_in": {
+    "_doc": "At max focus the Pokemon is Locked In. mode: acc_crit (acc_bonus to accuracy, crit_stages more crit), wild_chip (one extra chip that counts as any type), or both. Any disrupting hit removes it.",
+    "mode": "acc_crit",
+    "acc_bonus": 10,
+    "crit_stages": 1,
+    "wild_chip": 1
+  },
+
+  "locks": {
+    "_doc": "Reaction chips. expiry_turns: a lock not triggered releases at the end of the turn after the one it was set in (1). Released chips go back to the pool.",
+    "expiry_turns": 1,
+    "max_locks": 2
+  },
+
+  "slots": {
+    "_doc": "Energy slots: how many moves a Pokemon can have equipped (usable). level -> slots; the highest key at or below its level wins. Moves are never forgotten: known moves beyond the slots show locked in the move list.",
+    "table": {"1": 4, "9": 5, "18": 6, "27": 7, "36": 8, "46": 9, "57": 10, "70": 11, "85": 12},
+    "max": 12
+  },
+
+  "costs": {
+    "_doc": "Move cost overrides (move id -> list of energy kinds); empty means the cost in moves.json. Two-phase moves are paid on the commit turn only.",
+    "overrides": {}
+  },
+
+  "damage": {
+    "_doc": "damage = ((2L/5 + 2) * power * A/D / 50 + 2) * stab * type * crit * random * scale. scale keeps several moves a turn from ending fights too fast.",
+    "scale": 0.55,
+    "stab": 1.5,
+    "crit": 1.5,
+    "crit_base": 0.0625,
+    "crit_per_stage": 0.0625,
+    "random_min": 0.85,
+    "stage_step": 0.5,
+    "acc_stage_step": 0.34,
+    "para_speed": 0.5,
+    "para_skip": 0.25,
+    "confuse_self_hit": 0.33,
+    "confuse_turns": [1, 3],
+    "sleep_turns": [1, 3],
+    "poison_tick": 0.0625,
+    "burn_tick": 0.0625,
+    "burn_atk": 0.5,
+    "drain_tick": 0.0625,
+    "recoil": 0.25,
+    "status_effect_chance": 0.3,
+    "flinch_chance": 0.3
+  },
+
+  "counters": {
+    "_doc": "The interaction table. vs: the target's state (underground, airborne, underwater, charging, dodge, protect, ghost, evasion). hits: true lets the move through that state. mult: damage multiplier. pull_out: chance to end the target's two-phase move. breaks: removes that state. force_out: ends the target's two-phase move. disrupt: extra focus loss. ignores: the states this move ignores (Swift).",
+    "rows": [
+      {"move": "earthquake", "vs": "underground", "hits": true, "mult": 2.0},
+      {"move": "magnitude", "vs": "underground", "hits": true, "mult": 2.0},
+      {"move": "ground_pound", "vs": "underground", "hits": true, "mult": 2.0, "pull_out": 0.3},
+      {"move": "swift", "vs": "underground", "hits": true, "mult": 1.0},
+      {"move": "thunder", "vs": "airborne", "hits": true, "mult": 1.0},
+      {"move": "gust", "vs": "airborne", "hits": true, "mult": 2.0},
+      {"move": "twister", "vs": "airborne", "hits": true, "mult": 2.0},
+      {"move": "sky_uppercut", "vs": "airborne", "hits": true, "mult": 1.0},
+      {"move": "swift", "vs": "airborne", "hits": true, "mult": 1.0},
+      {"move": "surf", "vs": "underwater", "hits": true, "mult": 2.0},
+      {"move": "whirlpool", "vs": "underwater", "hits": true, "mult": 2.0},
+      {"move": "swift", "vs": "underwater", "hits": true, "mult": 1.0},
+      {"move": "swift", "vs": "dodge", "hits": true},
+      {"move": "swift", "vs": "evasion", "hits": true},
+      {"move": "feint", "vs": "protect", "hits": true, "breaks": true},
+      {"move": "roar", "vs": "underground", "hits": true, "force_out": true},
+      {"move": "roar", "vs": "airborne", "hits": true, "force_out": true},
+      {"move": "roar", "vs": "underwater", "hits": true, "force_out": true},
+      {"move": "roar", "vs": "charging", "hits": true, "force_out": true},
+      {"move": "whirlwind", "vs": "underground", "hits": true, "force_out": true},
+      {"move": "whirlwind", "vs": "airborne", "hits": true, "force_out": true},
+      {"move": "whirlwind", "vs": "underwater", "hits": true, "force_out": true},
+      {"move": "whirlwind", "vs": "charging", "hits": true, "force_out": true}
+    ],
+    "cancel_dodge": ["mind_reader", "lock_on"],
+    "identify": ["foresight"],
+    "identify_hits_ghost": ["normal", "fighting"]
+  },
+
+  "decay": {
+    "_doc": "Focus between battles, by game time (GameClock minutes), never real time. An alert Pokemon keeps its focus for grace_minutes, then loses per_hour; a relaxed one loses relaxed_per_hour and never keeps more than relaxed_floor_cap after a rest. locked_in_grace_minutes: the Locked In buff fades much sooner. rests: focus multipliers for story rests. center_keep: a Pokemon Center keeps this fraction (a partial relax). in_gym_per_hour: decay inside a gym (warm-up keeps).",
+    "grace_minutes": 60,
+    "per_hour": 4,
+    "relaxed_per_hour": 12,
+    "relaxed_floor_cap": 10,
+    "locked_in_grace_minutes": 15,
+    "rests": {"rest_stop": 0.6, "camp_night": 0.25, "home_night": 0.1, "travel_hour": 0.9},
+    "center_keep": 0.4,
+    "in_gym_per_hour": 0
+  },
+
+  "gym_warmup": {
+    "_doc": "Gym trainers before the leader warm a Pokemon up: after each won gym-trainer battle it keeps its end focus (keep) plus bonus, up to max_carry. The leader's Pokemon start at leader_start. Tuned so two or three trainers (which cost HP and items) give about 2 extra chips on the leader's turn 1.",
+    "bonus_per_trainer": 10,
+    "keep": 1.0,
+    "max_carry": 80,
+    "leader_start": 30,
+    "trainer_start": 20
+  },
+
+  "perks": {
+    "_doc": "Items, abilities and trainer bonuses that shape focus: start (added to the starting focus), gain (added per turn), chip_cap (more chips), disrupt_resist (0-1 of each disruption ignored).",
+    "focus_band": {"start": 10},
+    "calm_bell": {"disrupt_resist": 0.3},
+    "zen_charm": {"gain": 3},
+    "boulder_badge": {"gain": 1},
+    "inner_focus": {"disrupt_resist": 1.0},
+    "trainer_coach": {"start": 15}
+  },
+
+  "items": {
+    "_doc": "The energy restore category: rare and expensive. chips: chips added now (focus rises to match, so the bar and the count agree), pool: where they go (colorless, own = the Pokemon's first type, or a kind), focus: a burst of focus points, focus_to: focus set to at least this. price in Pokedollars, rarity: shop | rare | unique. All placeholders.",
+    "energy_shard": {"name": "Energy Shard", "chips": 1, "pool": "colorless", "price": 1500, "rarity": "rare", "desc": "A sliver of crystal that hums. One Colorless chip, now."},
+    "focus_crystal": {"name": "Focus Crystal", "chips": 2, "pool": "own", "price": 4000, "rarity": "rare", "desc": "A rare crystal from Mt. Moon. Two chips of the Pokemon's own type."},
+    "focus_tonic": {"name": "Focus Tonic", "focus": 30, "price": 2500, "rarity": "rare", "desc": "A bitter drink. A burst of focus."},
+    "full_charge": {"name": "Full Charge", "focus_to": 100, "price": 12000, "rarity": "unique", "desc": "Extremely rare. Straight to max focus."}
+  },
+
+  "ai": {
+    "_doc": "Planner weights. wild_styles: the wild planner (damage, status, per_action, big, force_out, repeat). personalities: trainer AI multipliers on each role's value and how often it sets a reaction when it can (reaction_rate), answers a two-phase foe with a counter (counter_rate), commits to its own two-phase moves (two_phase_rate). waste: the cost of an unspent chip. status_value: what an effect is worth.",
+    "waste": 20.0,
+    "repeat_turn": 0.75,
+    "repeat_battle": 0.94,
+    "max_actions": 6,
+    "jitter": 0.1,
+    "status_value": {"acc_down": 30.0, "atk_down": 20.0, "def_down": 20.0, "speed_down": 14.0, "def_up": 18.0, "evasion_up": 26.0,
+      "para": 34.0, "sleep": 40.0, "poison": 28.0, "drain": 26.0, "burn": 12.0, "flinch": 8.0, "trap": 10.0, "high_crit": 6.0,
+      "force_out": 12.0, "clear_field": 4.0, "fixed_40": 40.0, "disrupt": 18.0, "confuse": 30.0, "sure_hit": 14.0, "identify": 6.0},
+    "wild_styles": {
+      "aggressive": {"dmg": 1.0, "status": 0.3, "per_action": -4.0, "big": 12.0, "force_out": 0.0, "repeat": 0.92},
+      "strategic": {"dmg": 0.9, "status": 1.3, "per_action": 8.0, "big": 0.0, "force_out": 0.5, "repeat": 0.75},
+      "evasive": {"dmg": 0.55, "status": 1.6, "per_action": 6.0, "big": 0.0, "force_out": 5.0, "repeat": 0.75}
+    },
+    "personalities": {
+      "cautious": {"style": "strategic", "reaction_rate": 0.7, "counter_rate": 0.9, "two_phase_rate": 0.3, "disruption": 1.3, "offense": 0.9},
+      "aggressive": {"style": "aggressive", "reaction_rate": 0.1, "counter_rate": 0.5, "two_phase_rate": 0.6, "disruption": 0.6, "offense": 1.2},
+      "balanced": {"style": "strategic", "reaction_rate": 0.35, "counter_rate": 0.7, "two_phase_rate": 0.45, "disruption": 1.0, "offense": 1.0},
+      "tricky": {"style": "evasive", "reaction_rate": 0.45, "counter_rate": 0.8, "two_phase_rate": 0.8, "disruption": 1.6, "offense": 0.8}
+    },
+    "reaction_value": 30.0,
+    "counter_bonus": 40.0,
+    "two_phase_value": 1.15
+  }
+}
