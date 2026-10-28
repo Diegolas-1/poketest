@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>People preview</title>
+<script type="importmap">{ "imports": { "three": "../../lib/three/three.module.min.js", "three/addons/": "../../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#dfe9ee}canvas{display:block}#i{position:fixed;left:8px;top:6px;font:12px monospace;color:#234}</style></head>
+<body><div id="i"></div><script type="module">
+// Preview of generated people (people/*.js) in the game's light, cel bands and ink.
+//   ?p=<json params>            one person (anatomy.js sliders, look.js look)
+//   ?row=age:4,7,11|sex:0,1     a row of people, each value of each key
+//   ?view=full|head|hands|feet|turn   &yaw=<rad> &ink=0
+//   &anim=idle|walk|run&t=<s> poses everyone in a clip; &direct meshes the field itself (no base)
+// window.ready is set when drawn; window.shot(view, yaw) redraws.
+import * as THREE from 'three';
+import { createOutline } from '../outline.js';
+import { buildSky } from '../nature.js';
+import { makePerson } from './person.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#dfe9ee');
+const sunDir = new THREE.Vector3(-0.5, 0.75, 0.6).normalize();
+scene.add(new THREE.HemisphereLight('#dff0ff', '#9aa58a', 1.25));
+const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(10); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, far: 30 }); sun.shadow.bias = -0.0004; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 64).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#a9c98c' }));
+ground.receiveShadow = true; ground.userData.outline = 'ground'; scene.add(ground);
+const ink = createOutline(r, { scale: 1 }); if (q.get('ink') === '0') ink.enabled = false;
+
+const people = [];
+const base = q.has('p') ? JSON.parse(q.get('p')) : {};
+let rows = [base];
+if (q.has('row')) {
+  rows = [{}];
+  for (const part of q.get('row').split('|')) {
+    const [k, vs] = part.split(':'), out = [];
+    for (const r0 of rows) for (const v of vs.split(',')) out.push({ ...r0, [k]: isNaN(+v) ? v : +v });
+    rows = out;
+  }
+  rows = rows.map((o) => ({ ...base, ...o }));
+}
+const t0 = performance.now();
+let x = 0;
+for (const prm of rows) {
+  const person = await makePerson(prm, { cell: +(q.get('res') || 0.005), direct: q.has('direct'), anim: q.has('anim') });
+  if (q.has('anim')) { person.play(q.get('anim')); person.mixer.setTime(+(q.get('t') || 0)); }
+  person.root.position.x = x; x += Math.max(0.6, person.H * 0.42);
+  scene.add(person.root); people.push(person);
+}
+const span = x - Math.max(0.6, people[people.length - 1].H * 0.42);
+for (const p of people) p.root.position.x -= span / 2;
+document.getElementById('i').textContent = `${people.length} people, ${(performance.now() - t0).toFixed(0)} ms` + (q.get('label') === '0' ? '' : '  ' + people.map((p) => p.stats).join(' | '));
+
+const cam = new THREE.PerspectiveCamera(20, innerWidth / innerHeight, 0.05, 100);
+function frame(view = q.get('view') || 'full', yaw = +(q.get('yaw') || 0)) {
+  const p0 = people[0], L = p0.anat.L, H = Math.max(...people.map((p) => p.H));
+  let tgt, dist;
+  const wide = people.length > 1 ? span + 1 : 0;
+  if (view === 'head') { tgt = new THREE.Vector3(0, L.chinY + L.hh * 0.55, 0); const tf = Math.tan(cam.fov * Math.PI / 360); dist = Math.max(L.hh * 0.85 / tf, (span + 0.6) * 0.5 / (tf * cam.aspect)); }
+  else if (view === 'hands') { tgt = new THREE.Vector3(L.sh / 2 + L.Lua * 0.9, L.shY - L.Lua * 0.9, 0); dist = L.H * 1.3; }
+  else if (view === 'feet') { tgt = new THREE.Vector3(0, L.H * 0.08, 0); dist = L.H * 1.4; }
+  else { tgt = new THREE.Vector3(0, H * 0.52, 0); const tf = Math.tan(cam.fov * Math.PI / 360); dist = Math.max(H * 0.6 / tf, (span + 0.8) * 0.5 / (tf * cam.aspect)); }
+  const pitch = view === 'hands' ? 0.9 : view === 'feet' ? 0.5 : 0.06;
+  cam.position.set(tgt.x + Math.sin(yaw) * Math.cos(pitch) * dist, tgt.y + Math.sin(pitch) * dist, tgt.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+  cam.lookAt(tgt);
+  r.render(scene, cam); ink.render(scene, cam);
+}
+window.shot = frame;
+frame();
+window.people = people;
+window.ready = true;
+</script></body></html>
