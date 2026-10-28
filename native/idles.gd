@@ -199,8 +199,20 @@ static func _defs() -> Dictionary:
 				[2.25, {"at": CH(-0.2, 0.1, 0.15), "pole": [-1, -0.3, 0.1], "wf": 0.1, "wt": 0.3, "cu": 0.0}], [2.7, null]],
 			"body": [[0, {}], [0.45, {"lean": -0.05, "hp": -0.05, "sh": -0.01}], [1.95, {"lean": -0.05, "hp": -0.04, "sh": -0.01}], [2.7, {}]],
 			"gaze": [[0, {"y": 0, "p": 0}], [2.7, {"y": 0, "p": 0}]]},
+		# hungry (hunger.gd forces it with a tummy growl): a hand to his tummy, a little
+		# rub, a glance down at it, a sigh
+		"tummy": {"dur": 3.0, "talk": true, "player": true,
+			"armR": [[0, null], [0.45, TUM], [0.85, TUM2], [1.25, TUM], [1.65, TUM2], [2.05, TUM], [2.55, null]],
+			"armL": [[0, null], [0.6, TUML], [2.2, TUML], [2.7, null]],
+			"body": [[0, {}], [0.5, {"lean": 0.12, "hp": 0.3, "sh": 0.01}], [2.0, {"lean": 0.14, "hp": 0.28, "sh": 0.015}], [2.5, {"lean": 0.04, "hp": 0.05}], [3.0, {}]],
+			"gaze": [[0, {"y": 0, "p": 0}], [0.5, {"y": 0, "p": 0.45}], [2.0, {"y": 0, "p": 0.4}], [3.0, {"y": 0, "p": 0}]]},
 	}
 	return ACTIONS
+
+# the hand on the tummy (the front of the belly, over the jacket), and a little to the side
+const TUM := {"at": ["Hips", -0.02, 0.13, 0.16], "pole": [-1, -0.5, -0.3], "wf": 0.1, "cu": 0.15}
+const TUM2 := {"at": ["Hips", 0.03, 0.15, 0.165], "pole": [-1, -0.5, -0.3], "wf": 0.15, "cu": 0.15}
+const TUML := {"at": ["Hips", 0.06, 0.09, 0.15], "pole": [1, -0.5, -0.3], "wf": -0.1, "cu": 0.1}
 
 # ---------- stances: a way of standing held while idle (people.json "stance") ----------
 # Arms held with the same IK as the actions (targets on the body, metres), body bends

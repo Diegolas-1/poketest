@@ -84,6 +84,7 @@ var rounds := 0
 var _end_talk := false
 var log: Array = []         # (tests) every item shown
 var _tags := {}             # "OLD TOM" -> "tom"
+var food_request := ""      # "Could I get something to eat?": the place whose menu cast.gd opens after the talk
 
 func _ready() -> void:
 	_ensure()
@@ -423,9 +424,21 @@ func _pet_chime() -> void:
 	var e = pool[rng.randi() % pool.size()]
 	_push_lines(e if e is Array else [e])
 
+# the place whose food the one Ash is talking to serves right now ("" none):
+# Hana at her tea stop; Mom at Pallet House while it's open
+func food_place() -> String:
+	if Conditions.I == null and not test_mode: return ""
+	for pid in ["inn", "tea_house"]:
+		var P := FoodData.place(pid)
+		if String(P.get("host_id", "")) != who: continue
+		if pid == "tea_house": return pid
+		var act := String(ctx.get("activity", ""))
+		if act in ["open", "cook", "serve", "garden", "break"] and String(ctx.get("place", "pallet_house")).begins_with("pallet_house"): return pid
+	return ""
+
 func _cond_reply() -> void:
 	if Conditions.I == null: return
-	for k in ["wet", "fatigue"]:
+	for k in ["wet", "fatigue", "hungry", "stuffed", "well_fed"]:
 		if Conditions.I.has(k):
 			var r := _ash_bit("cond_" + k)
 			if not r.is_empty(): _push_lines([{"who": "ash", "text": r[0]}])
@@ -542,6 +555,11 @@ func _topics_for() -> Array:
 		own.append({"key": tid, "kind": "topic", "topic": tp, "label": String(tp.label), "tone": String(tp.get("tone", "curious")),
 			"dim": last > -999, "pri": 1 if last == -999 else 0})
 	out += own
+	# someone who serves food, at work (life/food.json host_id): Ash can ask for the menu
+	var fp := food_place()
+	if fp != "" and not asked.has("food"):
+		var hungry: bool = Conditions.I != null and Conditions.I.has("hungry")
+		out.append({"key": "food", "kind": "food", "place": fp, "label": "Could I get something to eat?" if fp != "home" else "What's to eat, Mom?", "tone": "kind", "pri": 3.5 if hungry else 1.5})
 	if kind == "person" and not asked.has("doing") and quests and not quests.activity_lines(who, ctx).is_empty():
 		var lab := "Where are you off to?" if String(ctx.get("state", "")) in ["walk", "wait_path"] else "What are you up to?"
 		out.append({"key": "doing", "kind": "doing", "label": lab, "tone": "curious", "pri": 0.5, "dim": asked.has("doing")})
@@ -588,6 +606,15 @@ func _answer(e: Dictionary) -> void:
 			if String(e.get("ash", "")) != "": _push_lines([{"who": "ash", "text": String(e.ash)}])
 			_push_lines(parse_lines(quests.tell_rumor(who, String(e.rid)), who))
 			_know("rumor:" + String(e.rid), quests.rumor_title(String(e.rid)))
+		"food":
+			var fa := _ash_bit("ask_food")
+			_push_lines([{"who": "ash", "text": fa[0] if not fa.is_empty() else "Could I get something to eat?"}])
+			var ml: Array = FoodData.place(String(e.place)).get("lines", {}).get("menu", ["Of course! Here's the menu."])
+			_push_lines(parse_lines([String(ml[rng.randi() % ml.size()])], who))
+			food_request = String(e.place)
+			queue.append({"t": "end"})
+			_dirty()
+			return
 		"doing":
 			var askl := "Where are you headed?" if String(e.label).begins_with("Where") else "What are you up to?"
 			_push_lines([{"who": "ash", "text": askl}])

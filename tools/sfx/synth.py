@@ -577,3 +577,40 @@ def roof_drips(L=20.0, rate=40.0, seed=0):
         np.add.at(out[:, 0], idx, tap * (1 - pan))
         np.add.at(out[:, 1], idx, tap * pan)
     return out
+
+
+def tummy_growl(seed=0, d=1.5):
+    # a hungry stomach: a low, wobbling, bubbly rumble that rises and gurgles off.
+    # Band-limited noise gated by irregular bubbles, over a sliding low tone with a
+    # fast vibrato (numpy only)
+    r = np.random.default_rng(300 + seed)
+    n = int(d * SR)
+    t = np.arange(n) / SR
+    u = t / d
+    env = np.sin(np.pi * np.clip(u, 0, 1)) ** 0.7 * (1.0 - 0.4 * u)
+    f0 = 70.0 + 25.0 * seed + 90.0 * np.sin(np.pi * u * (0.8 + 0.2 * seed)) ** 2
+    vib = 1.0 + 0.12 * np.sin(2 * np.pi * (11.0 + 3 * seed) * t) + 0.05 * r.standard_normal(n).cumsum() / np.sqrt(SR)
+    ph = 2 * np.pi * np.cumsum(f0 * vib) / SR
+    tone = np.sin(ph) + 0.45 * np.sin(2 * ph + 0.3) + 0.2 * np.sin(3 * ph + 1.1)
+    # bubbles: short random swells
+    gate = np.zeros(n)
+    k = 0
+    while k < n:
+        w = int(r.uniform(0.03, 0.09) * SR)
+        a = r.uniform(0.3, 1.0)
+        seg = np.sin(np.linspace(0, np.pi, min(w, n - k))) * a
+        gate[k:k + len(seg)] += seg
+        k += int(w * r.uniform(0.6, 1.3))
+    noise = r.standard_normal(n)
+    spec = np.fft.rfft(noise)
+    fr = np.fft.rfftfreq(n, 1.0 / SR)
+    band = np.exp(-((fr - 180.0) / 120.0) ** 2) + 0.4 * np.exp(-((fr - 420.0) / 160.0) ** 2)
+    noise = np.fft.irfft(spec * band, n)
+    noise /= np.max(np.abs(noise)) + 1e-9
+    x = (tone * 0.55 * (0.4 + 0.6 * gate) + noise * 0.8 * gate) * env
+    # a soft low pass, then normalise
+    spec = np.fft.rfft(x)
+    spec *= 1.0 / (1.0 + (fr / 900.0) ** 4)
+    x = np.fft.irfft(spec, n)
+    x /= np.max(np.abs(x)) + 1e-9
+    return (x * 0.8).astype(np.float32)

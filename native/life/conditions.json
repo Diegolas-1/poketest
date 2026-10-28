@@ -1,5 +1,5 @@
 {
- "_doc": "Ash's conditions (conditions.gd). conditions.<id>: name, levels [[from strength, name, description]], desc, icon (a drawn glyph: drop, sweat, bolt, heart, sun, snow, dot, or a res:// picture), color, order (badge order), stack (max | add | replace: how a new apply combines), duration {kind: decay (full_minutes: game minutes a full strength lasts) | timer (minutes, refresh) | manual (until: the badge's line)}, left / held (the badge's time line), by_strength (effects scale with strength), effects {speed, stamina_drain, stamina_regen, no_run, blocks_entry}, remark {key, strong_key, strong_at, min, cooldown (game minutes)}: the townspeople's lines are in dialogue.json people.<id>.remarks.<key>. entry.<place>: speaker, voice, open, refuse.<condition> {above, lines, never}; 'default' covers places without their own entry. remarks_per_talk: how many conditions one talk may comment on.",
+ "_doc": "Ash's conditions (conditions.gd). conditions.<id>: name, levels [[from strength, name, description]], desc, icon (a drawn glyph: drop, sweat, bolt, heart, sun, snow, dot, or a res:// picture), color, order (badge order), stack (max | add | replace: how a new apply combines), duration {kind: decay (full_minutes: game minutes a full strength lasts) | timer (minutes, refresh) | manual (until: the badge's line)}, left / held (the badge's time line), by_strength (effects scale with strength), effects {speed, stamina_drain, stamina_regen, no_run, blocks_entry}, remark {key, strong_key, strong_at, min, cooldown (game minutes)}: the townspeople's lines are in dialogue.json people.<id>.remarks.<key>. entry.<place>: speaker, voice, open, refuse.<condition> {above, lines, never}; 'default' covers places without their own entry. remarks_per_talk: how many conditions one talk may comment on. Levels may carry their own effects as a fourth entry ([from, name, description, {effects}]), used instead of effects while that level shows (hunger: its levels set by hunger.gd). meter: 'fullness' shows Ash's fullness (hunger.gd) in the badge's bar. More effects: stamina_max (the stamina bar's size: running drains it 1/x as fast), run_speed (running only), jump (jump height), dry_rate (how fast the wet dries).",
  "remarks_per_talk": 1,
  "conditions": {
   "wet": {
@@ -14,7 +14,7 @@
    "order": 10,
    "stack": "max",
    "by_strength": true,
-   "duration": {"kind": "decay", "full_minutes": 60, "left": "Dry in %s", "held": "Still in the water"},
+   "duration": {"kind": "decay", "full_minutes": 60, "left": "Dry in %s", "held": "Still in the water", "rate": "dry_rate"},
    "effects": {"speed": 0.97, "stamina_drain": 1.1, "blocks_entry": 0.5},
    "remark": {"key": "wet", "strong_key": "soaked", "strong_at": 0.6, "min": 0.12, "cooldown": 90}
   },
@@ -28,6 +28,74 @@
    "duration": {"kind": "manual", "until": "Rest until stamina is full"},
    "effects": {"no_run": true, "speed": 0.88, "stamina_regen": 0.85},
    "remark": {"key": "tired", "min": 0.0, "cooldown": 30}
+  },
+  "hungry": {
+   "name": "Hungry",
+   "_note": "hunger.gd sets the strength from Ash's fullness (tunables/hunger.json levels): Peckish 0.34, Hungry 0.67, Starving 1.0. Gentle on purpose: it never stops him running.",
+   "levels": [
+    [0.0, "Peckish", "Your tummy's starting to rumble. A snack would be nice.", {"stamina_regen": 0.95}],
+    [0.5, "Hungry", "Your stomach growls. Your stamina comes back a little slower until you eat.", {"stamina_regen": 0.87, "stamina_max": 0.97}],
+    [0.9, "Starving", "So hungry! Your stamina refills slowly and runs out a bit sooner. Eat at home, the inn or the tea house.", {"stamina_regen": 0.75, "stamina_max": 0.92}]
+   ],
+   "icon": "hungry",
+   "color": "#e0902a",
+   "order": 30,
+   "stack": "replace",
+   "meter": "fullness",
+   "duration": {"kind": "manual", "until": "Eat something"},
+   "remark": {"key": "hungry", "strong_key": "starving", "strong_at": 0.9, "min": 0.5, "cooldown": 120}
+  },
+  "well_fed": {
+   "name": "Well fed",
+   "levels": [
+    [0.0, "Well fed", "A good meal in your belly. Your stamina comes back faster and lasts longer, and you run and jump a little better."]
+   ],
+   "icon": "bowl",
+   "color": "#3fcf72",
+   "order": 32,
+   "stack": "replace",
+   "meter": "fullness",
+   "duration": {"kind": "manual", "until": "While you're full"},
+   "effects": {"stamina_regen": 1.08, "stamina_max": 1.08, "run_speed": 1.03, "jump": 1.04},
+   "remark": {"key": "well_fed", "min": 0.0, "cooldown": 240}
+  },
+  "stuffed": {
+   "name": "Stuffed",
+   "levels": [
+    [0.0, "Stuffed", "You ate a LOT. Running feels a bit heavy until it settles. Your stamina still comes back nicely."]
+   ],
+   "icon": "stuffed",
+   "color": "#c46ad8",
+   "order": 31,
+   "stack": "replace",
+   "meter": "fullness",
+   "duration": {"kind": "manual", "until": "Settles as you digest"},
+   "effects": {"stamina_regen": 1.05, "run_speed": 0.93, "jump": 0.96},
+   "remark": {"key": "stuffed", "min": 0.0, "cooldown": 240}
+  },
+  "sugar_rush": {
+   "name": "Sugar rush",
+   "levels": [
+    [0.0, "Sugar rush", "Something sweet! A burst of energy: your stamina comes back faster for a little while."]
+   ],
+   "icon": "bolt",
+   "color": "#ff7fb0",
+   "order": 34,
+   "stack": "max",
+   "duration": {"kind": "timer", "minutes": 25, "refresh": true, "left": "%s left"},
+   "effects": {"stamina_regen": 1.25}
+  },
+  "warm": {
+   "name": "Warmed up",
+   "levels": [
+    [0.0, "Warmed up", "Something hot inside you. Warm right through: you dry off twice as fast."]
+   ],
+   "icon": "sun",
+   "color": "#ff9a1f",
+   "order": 36,
+   "stack": "max",
+   "duration": {"kind": "timer", "minutes": 30, "refresh": true, "left": "%s left"},
+   "effects": {"dry_rate": 2.0}
   }
  },
  "entry": {

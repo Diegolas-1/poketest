@@ -14,6 +14,11 @@ extends Node
 #             stamina bar is full again)
 # and effects (each a number at full strength, or a flag):
 #   speed           run / walk speed multiplier (by_strength: 1 + (v - 1) * strength)
+#   run_speed       the same, running only
+#   jump            jump height multiplier
+#   stamina_max     the stamina bar's size: running drains it 1 / x as fast
+#   dry_rate        how fast a decaying condition with duration.rate "dry_rate" runs down
+# (a level may carry its own effects: levels [[from, name, desc, {effects}]], the hunger levels)
 #   stamina_drain   multiplier on running's stamina cost
 #   stamina_regen   multiplier on the refill
 #   no_run          true: walking only
@@ -207,10 +212,16 @@ func hold(id: String) -> void:
 	if active.has(id): active[id].hold = true
 
 # ---------- effects ----------
+# the effects in play for a condition: its level's own (a fourth entry in levels), else its effects
+func effects(id: String) -> Dictionary:
+	var L := _level(id)
+	if L.size() >= 4 and L[3] is Dictionary: return L[3]
+	return def(id).get("effects", {})
+
 func mult(effect: String) -> float:
 	var m := 1.0
 	for id in active:
-		var e: Dictionary = def(id).get("effects", {})
+		var e: Dictionary = effects(id)
 		if not e.has(effect) or not (e[effect] is float or e[effect] is int): continue
 		var v := float(e[effect])
 		if def(id).get("by_strength", false): v = 1.0 + (v - 1.0) * float(active[id].s)
@@ -219,7 +230,7 @@ func mult(effect: String) -> float:
 
 func flag(effect: String) -> bool:
 	for id in active:
-		if def(id).get("effects", {}).get(effect, false) == true: return true
+		if effects(id).get(effect, false) == true: return true
 	return false
 
 # a place (an interior's id, or a house) that won't let him in like this: the first
@@ -279,7 +290,8 @@ func _process(dt: float) -> void:
 		match String(dur.get("kind", "manual")):
 			"decay":
 				if not a.hold and dm > 0.0:
-					a.s -= dm / maxf(0.01, float(dur.get("full_minutes", 60.0)))
+					var rk := String(dur.get("rate", ""))   # (an effect that hurries it: warm food dries you faster)
+					a.s -= dm * (mult(rk) if rk != "" else 1.0) / maxf(0.01, float(dur.get("full_minutes", 60.0)))
 					_dirty = true
 					if a.s <= 0.0: gone.append(id)
 			"timer":

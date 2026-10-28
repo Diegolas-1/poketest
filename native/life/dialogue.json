@@ -1,10 +1,14 @@
 {
-  "_doc": "remarks.<key> (comments on Ash's conditions, said first: wet, soaked, tired; conditions.gd / conditions.json pick when). Townspeople's voices for native/quests.gd. Each person: greet[period] (first talk of the day), period, activity, place (house ids, 'home' = their own house), ash (said to Ash's face), town, about[other id], after[flag] (unlocked by quest flags), sleep, bark (overheard one-liners by activity/period/any), chat (NPC-to-NPC: open[topic] / reply[topic] / close; {b} = the partner's short name). An entry is a line or a list of lines shown together. Unknown keys are fine: quests.gd falls back period -> any.",
+  "_doc": "remarks.<key> (comments on Ash's conditions, said first: wet, soaked, tired, hungry, starving, well_fed, stuffed; conditions.gd / conditions.json pick when). Townspeople's voices for native/quests.gd. Each person: greet[period] (first talk of the day), period, activity, place (house ids, 'home' = their own house), ash (said to Ash's face), town, about[other id], after[flag] (unlocked by quest flags), sleep, bark (overheard one-liners by activity/period/any), chat (NPC-to-NPC: open[topic] / reply[topic] / close; {b} = the partner's short name). An entry is a line or a list of lines shown together. Unknown keys are fine: quests.gd falls back period -> any.",
   "people": {
     "delia": {
       "name": "Delia Ketchum", "tag": "MOM", "short": "Delia", "label": "Mom", "home": "red",
       "voice": "Warm, a little anxious, quietly proud; worries out loud and then talks herself into being brave for him.",
       "remarks": {
+        "hungry": [["Ash, was that your stomach? Have you eaten anything today?", "Come by the house, sweetie. I'll fix you something."], ["You've got that hungry look again. Just like your father.", "Pallet House always has a plate for you, you know."]],
+        "starving": [["ASH. When did you last eat? You're pale as a Ponyta's tail!", "Home. Table. Now. I'm not having you fainting in the grass."]],
+        "well_fed": [["Look at you, all rosy-cheeked. A good meal does wonders, doesn't it?"]],
+        "stuffed": [["Oh my, you look like you swallowed a Snorlax! Take it slow, sweetie."]],
         "wet": [["Ash! Look at you, you're all wet!", "Don't you dare catch a cold before your big journey. Go stand in the sun."], ["Were you splashing in the stream again? Your poor shoes..."]],
         "soaked": [["ASH KETCHUM. You are soaked to the bone!", "You'll catch your death of cold! Dry off this minute, young man."]],
         "tired": [["Sweetie, you're all out of breath. Slow down a little, the world will wait."]]
@@ -284,6 +288,10 @@
       "name": "Bram Hollis", "tag": "BRAM", "short": "Bram", "label": "Bram", "home": "hollis",
       "voice": "Big, jolly, booming baker; laughs at his own bread puns, up at four, floured to the elbows, soft as dough underneath.",
       "remarks": {
+        "hungry": [["Was that thunder? No, that was you! When did you last eat, lad?", "Go on up to Pallet House. Your mother's stew'll sort you out."], ["Your belly's louder than my oven door, Ash. Get something in you."]],
+        "starving": [["Lad, you're running on fumes. Here, sniff this crust and then go EAT.", "A trainer who doesn't eat is a trainer who faints. Off you go!"]],
+        "well_fed": [["Now that's a boy who's eaten properly. Good. Bread's for tomorrow, then!"]],
+        "stuffed": [["Ha! Look at the size of you! Somebody went back for thirds!"]],
         "wet": [["HO HO! Somebody went for a swim!", "Stand by my oven a minute, lad, you'll be toast by noon!"]],
         "soaked": [["Ha! Dripping like a fresh-washed Seel!", "If you came for bread, I'll have to sell you a sponge cake."]],
         "tired": [["Huffing like my old bellows! Sit down before you fall down, lad."]]
@@ -369,6 +377,10 @@
       "name": "Ada Hollis", "tag": "ADA", "short": "Ada", "label": "Ada", "home": "hollis",
       "voice": "Fast-talking, warm-hearted gossip who runs the bread stall and round; passes every story along, usually slightly wrong.",
       "remarks": {
+        "hungry": [["Ash, dear, your tummy's rumbling all the way over here!", "Pop into the inn. Your mum'll never let you leave hungry."], ["You look peaky. Have you had lunch? I'd give you a roll if I had one on me."]],
+        "starving": [["Goodness, you're as thin as a Pidgey's leg! When did you eat last?", "Straight to your mother's. Or the tea house, if you're heading up the road."]],
+        "well_fed": [["You're glowing, dear! Somebody's had a lovely meal."]],
+        "stuffed": [["Oh dear, are you all right? You're walking like Granny Mae after the harvest supper!"]],
         "wet": [["Oh dear, you're all damp! Did Timmy push you in?"]],
         "soaked": [["Ash, you're soaking! Not near the flour, dear, please!", "Wet hands and flour make glue, and I've no time for glue today."]],
         "tired": [["You look worn out, dear. Have a rest before you run off again."]]

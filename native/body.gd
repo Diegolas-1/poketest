@@ -26,7 +26,9 @@ extends Node3D
 # refills it after a moment. Down in the lowest tenth he is fatigued (the
 # "fatigue" condition): no running, a little slower, hunched and panting
 # (CastActor.tired), until the bar is full again. Above that, a short stop to get
-# some back and he runs on. Values: res://tunables/body.json.
+# some back and he runs on. Values: res://tunables/body.json. How full he is
+# (hunger.gd) nudges it: the conditions' stamina_regen, stamina_max (the bar's
+# size) and run_speed.
 
 const T := preload("res://tunables.gd")
 
@@ -106,7 +108,7 @@ func can_run() -> bool: return not cond.flag("no_run")
 func speed_mult(run: bool) -> float:
 	var f := depth_frac()
 	var m := lerpf(1.0, RUN_WATER_MIN if run else WALK_WATER_MIN, f)
-	return m * cond.mult("speed")
+	return m * cond.mult("speed") * (cond.mult("run_speed") if run else 1.0)   # (run_speed: well fed, stuffed)
 
 # ---------- the frame (cast.gd, after placing him) ----------
 func update(dt: float) -> void:
@@ -131,13 +133,14 @@ func _stamina(dt: float, spd: float) -> void:
 		# riding: the bike says what it costs (pedalling a little, climbing more, coasting refills)
 		if ride_rate > 0.0:
 			_run_t = 0.0
-			stamina -= dt * ride_rate * cond.mult("stamina_drain")
+			stamina -= dt * ride_rate * cond.mult("stamina_drain") / maxf(0.5, cond.mult("stamina_max"))
 		else:
 			_run_t += dt
 			if _run_t > REGEN_DELAY: stamina -= dt * ride_rate * cond.mult("stamina_regen")
 	elif run_now:
 		_run_t = 0.0
-		stamina -= dt * RUN_DRAIN * (1.0 + WATER_DRAIN * depth_frac()) * cond.mult("stamina_drain")
+		# (stamina_max: the bar's size, a bigger one lasting longer: well fed; a smaller one starving)
+		stamina -= dt * RUN_DRAIN * (1.0 + WATER_DRAIN * depth_frac()) * cond.mult("stamina_drain") / maxf(0.5, cond.mult("stamina_max"))
 	else:
 		_run_t += dt
 		if _run_t > REGEN_DELAY:

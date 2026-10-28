@@ -1,0 +1,545 @@
+{
+ "_doc": "What Ash can eat and where (food_data.gd, food_menu.gd, meal.gd). items.<id>: name, desc (short and tasty), kcal (fills kcal / tunables/hunger.json kcal_per_pct %), minutes (game minutes it takes to eat; the moment's bites), model (food/dishes.gd), utensil (fork | spoon | chopsticks | cup | hand), hot (steam; a warm one: the 'warm' condition), effect (optional: sugar_rush | warm | refresh, with stamina: how much of the bar it gives back), tags (shown as chips). meals: the hours of breakfast, lunch and supper (supper runs past midnight to breakfast). places.<id>: name, sub (a line under it), host (who serves: the speaker in lines), host_id (a person in people.json), voice, accent (the menu's colour), pay: free | tab (the price goes on Ash's tab there, paid 'when you're a famous trainer'), categories [{id, name, items: [{id, price, when: [meals]}]}], lines: what the host says when Ash orders (order), as he finishes (done; by meal for home), and when Ash asks for the menu in a talk (menu). Ash has no money of his own yet: Mom's cooking is free, the inn and the tea house keep a tab.",
+ "currency": "₽",
+ "meals": {
+  "breakfast": [
+   5.0,
+   10.5
+  ],
+  "lunch": [
+   10.5,
+   15.5
+  ],
+  "supper": [
+   15.5,
+   29.0
+  ]
+ },
+ "items": {
+  "pancakes": {
+   "name": "Mom's fluffy pancakes",
+   "desc": "A tall stack, golden and soft, with melting butter, berry syrup running down the sides and fresh oran berries.",
+   "kcal": 620,
+   "minutes": 15,
+   "model": "pancakes",
+   "utensil": "fork",
+   "hot": true,
+   "effect": "sugar_rush",
+   "tags": [
+    "sweet",
+    "hot"
+   ]
+  },
+  "breakfast_set": {
+   "name": "Rice, miso and tamagoyaki",
+   "desc": "A proper Pallet breakfast: fluffy rice, miso soup with tofu and scallion, and sweet rolled omelette.",
+   "kcal": 560,
+   "minutes": 15,
+   "model": "breakfast_set",
+   "utensil": "chopsticks",
+   "hot": true,
+   "effect": "warm",
+   "tags": [
+    "hot",
+    "hearty"
+   ]
+  },
+  "cocoa": {
+   "name": "Hot cocoa",
+   "desc": "Rich and chocolatey, with marshmallows bobbing on top and a cookie on the side.",
+   "kcal": 260,
+   "minutes": 8,
+   "model": "cocoa",
+   "utensil": "cup",
+   "hot": true,
+   "effect": "warm",
+   "tags": [
+    "sweet",
+    "warm"
+   ]
+  },
+  "onigiri": {
+   "name": "Onigiri plate",
+   "desc": "Two rice balls wrapped in crisp nori, one with a sour plum, one with sesame. Pickles on the side.",
+   "kcal": 440,
+   "minutes": 10,
+   "model": "onigiri",
+   "utensil": "hand",
+   "tags": [
+    "light"
+   ]
+  },
+  "curry": {
+   "name": "Curry rice",
+   "desc": "Glossy, mild-and-sweet curry with soft potato, carrot and beef over a mountain of rice.",
+   "kcal": 780,
+   "minutes": 18,
+   "model": "curry",
+   "utensil": "spoon",
+   "hot": true,
+   "tags": [
+    "hearty",
+    "hot"
+   ]
+  },
+  "hamburg": {
+   "name": "Hamburg steak",
+   "desc": "A juicy hand-made patty in shiny demi-glace, with buttery carrots, broccoli and mash.",
+   "kcal": 820,
+   "minutes": 18,
+   "model": "hamburg",
+   "utensil": "fork",
+   "hot": true,
+   "tags": [
+    "hearty",
+    "hot"
+   ]
+  },
+  "cream_stew": {
+   "name": "Cream stew",
+   "desc": "Chicken and vegetables simmered in a smooth, milky stew, with a crusty roll to dunk.",
+   "kcal": 640,
+   "minutes": 16,
+   "model": "cream_stew",
+   "utensil": "spoon",
+   "hot": true,
+   "effect": "warm",
+   "tags": [
+    "warm",
+    "hearty"
+   ]
+  },
+  "seafood_stew": {
+   "name": "Pallet seafood stew",
+   "desc": "The house special: shrimp, clams and mussels from the morning boats in a bright tomato broth.",
+   "kcal": 600,
+   "minutes": 16,
+   "model": "seafood_stew",
+   "utensil": "spoon",
+   "hot": true,
+   "effect": "warm",
+   "tags": [
+    "special",
+    "warm"
+   ]
+  },
+  "omurice": {
+   "name": "Omurice",
+   "desc": "Ketchup rice tucked inside a soft, buttery omelette, with a zigzag of ketchup on top.",
+   "kcal": 720,
+   "minutes": 15,
+   "model": "omurice",
+   "utensil": "spoon",
+   "hot": true,
+   "tags": [
+    "hearty",
+    "hot"
+   ]
+  },
+  "pecha_tart": {
+   "name": "Pecha berry tart",
+   "desc": "Crisp pastry, pink pecha cream and a crown of glazed pecha slices and berries.",
+   "kcal": 380,
+   "minutes": 8,
+   "model": "pecha_tart",
+   "utensil": "fork",
+   "effect": "sugar_rush",
+   "tags": [
+    "sweet"
+   ]
+  },
+  "lemonade": {
+   "name": "Fresh lemonade",
+   "desc": "Squeezed this morning, ice-cold, with a slice of lemon and a sprig of mint.",
+   "kcal": 140,
+   "minutes": 5,
+   "model": "lemonade",
+   "utensil": "cup",
+   "effect": "refresh",
+   "stamina": 0.3,
+   "tags": [
+    "cold"
+   ]
+  },
+  "green_tea": {
+   "name": "Green tea",
+   "desc": "Hana's own sencha with spring water. A tea stalk is standing up in it: good luck!",
+   "kcal": 5,
+   "minutes": 5,
+   "model": "green_tea",
+   "utensil": "cup",
+   "hot": true,
+   "effect": "warm",
+   "stamina": 0.15,
+   "tags": [
+    "warm"
+   ]
+  },
+  "matcha": {
+   "name": "Whisked matcha",
+   "desc": "Bright, frothy matcha whisked to a fine foam, served with a little flower sweet.",
+   "kcal": 90,
+   "minutes": 7,
+   "model": "matcha",
+   "utensil": "cup",
+   "hot": true,
+   "effect": "warm",
+   "stamina": 0.2,
+   "tags": [
+    "warm"
+   ]
+  },
+  "dango": {
+   "name": "Hanami dango",
+   "desc": "Chewy pink, white and green rice dumplings on skewers. Sweet, soft and a bit springy.",
+   "kcal": 250,
+   "minutes": 7,
+   "model": "dango",
+   "utensil": "hand",
+   "effect": "sugar_rush",
+   "tags": [
+    "sweet"
+   ]
+  },
+  "daifuku": {
+   "name": "Strawberry daifuku",
+   "desc": "Pillowy mochi around sweet red bean, one with a whole strawberry peeking out.",
+   "kcal": 240,
+   "minutes": 7,
+   "model": "daifuku",
+   "utensil": "hand",
+   "effect": "sugar_rush",
+   "tags": [
+    "sweet"
+   ]
+  },
+  "taiyaki": {
+   "name": "Taiyaki",
+   "desc": "Crispy fish-shaped cakes, hot from the iron, filled to the tail with red bean.",
+   "kcal": 230,
+   "minutes": 6,
+   "model": "taiyaki",
+   "utensil": "hand",
+   "hot": true,
+   "effect": "sugar_rush",
+   "tags": [
+    "sweet",
+    "hot"
+   ]
+  }
+ },
+ "places": {
+  "home": {
+   "name": "Home",
+   "sub": "Mom's kitchen",
+   "host": "MOM",
+   "host_id": "delia",
+   "voice": "high",
+   "accent": "#ee3b33",
+   "pay": "free",
+   "categories": [
+    {
+     "id": "meal",
+     "name": "Mom's cooking",
+     "items": [
+      {
+       "id": "pancakes",
+       "when": [
+        "breakfast"
+       ]
+      },
+      {
+       "id": "breakfast_set",
+       "when": [
+        "breakfast"
+       ]
+      },
+      {
+       "id": "onigiri",
+       "when": [
+        "lunch"
+       ]
+      },
+      {
+       "id": "curry",
+       "when": [
+        "lunch",
+        "supper"
+       ]
+      },
+      {
+       "id": "hamburg",
+       "when": [
+        "supper"
+       ]
+      },
+      {
+       "id": "cream_stew",
+       "when": [
+        "supper"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "treat",
+     "name": "Treats",
+     "items": [
+      {
+       "id": "cocoa"
+      },
+      {
+       "id": "lemonade",
+       "when": [
+        "lunch"
+       ]
+      }
+     ]
+    }
+   ],
+   "lines": {
+    "order": {
+     "breakfast": [
+      "Good morning, sleepyhead! Sit down, breakfast is nearly ready."
+     ],
+     "lunch": [
+      "Lunch already? Coming right up, sweetie."
+     ],
+     "supper": [
+      "Wash your hands, supper's on the table!"
+     ]
+    },
+    "done": {
+     "breakfast": [
+      [
+       "Every bite? Good boy. Now you've got the energy for a big day."
+      ],
+      [
+       "A trainer runs on a good breakfast, Ash. Remember that out there."
+      ]
+     ],
+     "lunch": [
+      [
+       "There. Now you won't be grumbling at Professor Oak all afternoon."
+      ],
+      [
+       "Full? Good. Don't run straight after, you'll get a stitch!"
+      ]
+     ],
+     "supper": [
+      [
+       "Clean plate! Your father had an appetite like that, you know."
+      ],
+      [
+       "Mmm, I'm glad you liked it. There's always more where that came from."
+      ]
+     ],
+     "treat": [
+      [
+       "A little treat never hurt anyone. Just don't tell Professor Oak."
+      ]
+     ]
+    },
+    "menu": [
+     "Hungry? Let's see what I can make you."
+    ]
+   }
+  },
+  "inn": {
+   "name": "Pallet House",
+   "sub": "The inn on the cliff",
+   "host": "MOM",
+   "host_id": "delia",
+   "voice": "high",
+   "accent": "#2f6fd6",
+   "pay": "tab",
+   "categories": [
+    {
+     "id": "breakfast",
+     "name": "Breakfast",
+     "items": [
+      {
+       "id": "pancakes",
+       "price": 380,
+       "when": [
+        "breakfast"
+       ]
+      },
+      {
+       "id": "breakfast_set",
+       "price": 420,
+       "when": [
+        "breakfast"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "mains",
+     "name": "Mains",
+     "items": [
+      {
+       "id": "seafood_stew",
+       "price": 480,
+       "when": [
+        "lunch",
+        "supper"
+       ]
+      },
+      {
+       "id": "curry",
+       "price": 420,
+       "when": [
+        "lunch",
+        "supper"
+       ]
+      },
+      {
+       "id": "omurice",
+       "price": 450,
+       "when": [
+        "lunch",
+        "supper"
+       ]
+      },
+      {
+       "id": "hamburg",
+       "price": 520,
+       "when": [
+        "supper"
+       ]
+      },
+      {
+       "id": "cream_stew",
+       "price": 440,
+       "when": [
+        "supper"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "sweets",
+     "name": "Sweets",
+     "items": [
+      {
+       "id": "pecha_tart",
+       "price": 280
+      }
+     ]
+    },
+    {
+     "id": "drinks",
+     "name": "Drinks",
+     "items": [
+      {
+       "id": "lemonade",
+       "price": 150
+      },
+      {
+       "id": "cocoa",
+       "price": 180
+      }
+     ]
+    }
+   ],
+   "lines": {
+    "order": {
+     "_any": [
+      "One {item}, coming right up! For my favourite customer.",
+      "Good choice, honey. Find a seat, I'll bring it out."
+     ]
+    },
+    "done": {
+     "_any": [
+      [
+       "How was it? Honestly, now. I'm trying a new recipe for the guests."
+      ],
+      [
+       "I've put it on your tab, sweetie. You can pay me back when you're a famous trainer."
+      ]
+     ]
+    },
+    "menu": [
+     "For you? Always! Here's today's menu, sweetie.",
+     "Of course, honey. Take a seat, have a look."
+    ]
+   }
+  },
+  "tea_house": {
+   "name": "Route 1 Tea House",
+   "sub": "Hana's tea stop",
+   "host": "HANA",
+   "host_id": "tea_keeper",
+   "voice": "high",
+   "accent": "#3f9a3a",
+   "pay": "tab",
+   "categories": [
+    {
+     "id": "tea",
+     "name": "Tea",
+     "items": [
+      {
+       "id": "green_tea",
+       "price": 0
+      },
+      {
+       "id": "matcha",
+       "price": 200
+      }
+     ]
+    },
+    {
+     "id": "sweets",
+     "name": "Sweets",
+     "items": [
+      {
+       "id": "dango",
+       "price": 180
+      },
+      {
+       "id": "daifuku",
+       "price": 200
+      },
+      {
+       "id": "taiyaki",
+       "price": 160
+      }
+     ]
+    },
+    {
+     "id": "bites",
+     "name": "Light bites",
+     "items": [
+      {
+       "id": "onigiri",
+       "price": 220
+      }
+     ]
+    }
+   ],
+   "lines": {
+    "order": {
+     "_any": [
+      "Sit down, sit down. One {item} for the young traveller.",
+      "Ah, a fine choice. The kettle's already singing."
+     ]
+    },
+    "done": {
+     "_any": [
+      [
+       "There now. Rested legs and a full belly: Viridian isn't so far after all."
+      ],
+      [
+       "Don't worry about paying, dear. I'll write it in my little book. Pay me when you're a famous trainer!"
+      ]
+     ]
+    },
+    "menu": [
+     "Of course, dear. Here, have a look at what's on today.",
+     "Sit, sit. A traveller needs feeding. Here's what I have."
+    ]
+   }
+  }
+ }
+}

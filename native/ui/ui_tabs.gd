@@ -15,6 +15,7 @@ var counts: Array = []       # optional numbers (-1 / null = none)
 var selected := 0
 var font_size := 21
 var light := false           # on a light panel (selected tab = ink)
+var show_ends := true        # the L / R glyphs at the ends (pad / keys)
 var _sel_x := -1.0           # the selection's animated position
 var _sel_w := 0.0
 var _rects: Array = []
@@ -50,7 +51,7 @@ func _kick() -> void:
 	set_process(true)
 	queue_redraw()
 
-func _ends() -> bool: return UIInput.device != "touch"
+func _ends() -> bool: return UIInput.device != "touch" and show_ends
 
 func _layout() -> void:
 	_rects.clear()

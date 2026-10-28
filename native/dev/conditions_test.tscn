@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://dev/conditions_test_scene.gd" id="1"]
+
+[node name="ConditionsTest" type="Node"]
+script = ExtResource("1")

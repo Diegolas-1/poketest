@@ -1,20 +1,28 @@
 extends SceneTree
 # Dev test for conditions.gd (headless, no game): data, apply / stack rules,
 # decay on a fake clock, effects, entry refusals, remarks once per episode,
-# save and load. Exits 0 when green:
+# save and load; and hunger.gd: the calorie maths, the levels and what they do to
+# his stamina, the badges they show, eating, save and load. Exits 0 when green:
 #   godot --headless --path native -s res://dev/conditions_test.gd
+#   godot --headless --path native res://dev/conditions_test.tscn   (the same, as a scene, with the hunger checks)
 
 class FakeClock extends Object:
 	var minutes := 1440.0 + 480.0
 
-var fails := 0
+static var fails := 0
 
-func check(ok: bool, what: String) -> void:
+static func check(ok: bool, what: String) -> void:
 	if not ok:
 		fails += 1
 		print("FAIL ", what)
 
 func _init() -> void:
+	quit(run(root, false))
+
+# the checks, under any node (the scene version calls this, with the hunger checks:
+# those need the game's autoloads, which a -s script doesn't have); returns the exit code
+static func run(root: Node, hunger := true) -> int:
+	fails = 0
 	var clk := FakeClock.new()
 	var C := Conditions.new()
 	C.save_path = "user://conditions_test.save"
@@ -67,7 +75,11 @@ func _init() -> void:
 	check(absf(D.strength("wet") - 0.6) < 1e-4 and absf(float(D.body.stamina) - 0.42) < 1e-4, "save / load")
 	D.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(C.save_path))
+	C.reset()
+	if hunger: load("res://dev/hunger_checks.gd").run(root, C, clk, check)
+	else: print("(the hunger checks run in the scene: res://dev/conditions_test.tscn)")
 	print("conditions_test: %d failures" % fails)
 	print("CONDITIONS TEST GREEN" if fails == 0 else "CONDITIONS TEST RED")
+	C.queue_free()
 	clk.free()
-	quit(1 if fails else 0)
+	return 1 if fails else 0

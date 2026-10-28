@@ -142,6 +142,10 @@
       "Can I ask you about something I'm doing?",
       "I'm helping someone. Do you know anything?"
     ],
+    "cond_hungry": ["Heh... I guess I forgot to eat again.", "I'm so hungry I could eat a Snorlax's lunch!", "Sorry. My stomach's got a mind of its own."],
+    "cond_stuffed": ["Ugh... I think I had one helping too many.", "I'm so full I could roll home."],
+    "cond_well_fed": ["I just had the best meal! I could run all the way to Viridian!", "Yeah! A full belly and I'm ready for anything!"],
+    "ask_food": ["Could I get something to eat?", "I'm starving! What's on the menu?", "Got anything good to eat?"],
     "cond_wet": [
       "Heh. I sort of fell in. Sort of on purpose.",
       "It's just water! It'll dry. Probably.",

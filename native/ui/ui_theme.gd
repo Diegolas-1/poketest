@@ -476,6 +476,39 @@ static func icon(ci: CanvasItem, id: String, c: Vector2, r: float, col := Color.
 			for i in 8:
 				var t2 := i * TAU / 8.0
 				ci.draw_line(c + Vector2(cos(t2), sin(t2)) * 9.0 * k, c + Vector2(cos(t2), sin(t2)) * 13.0 * k, col, 2.4 * k, true)
+		"bowl":
+			# a rice bowl, heaped, with two wisps of steam (meals, well fed)
+			var bw := PackedVector2Array()
+			for i in 13:
+				var t4 := PI * i / 12.0
+				bw.append(c + Vector2(cos(t4) * 12.0, 1.0 + sin(t4) * 9.5) * k)
+			ci.draw_colored_polygon(bw, col)
+			ci.draw_arc(c + Vector2(0, 1.5) * k, 9.0 * k, PI * 1.08, PI * 1.92, 10, col, 3.0 * k, true)
+			ci.draw_line(c + Vector2(-5, 11) * k, c + Vector2(5, 11) * k, col, 2.4 * k, true)
+			for sx in [-4.0, 3.0]:
+				ci.draw_polyline(PackedVector2Array([c + Vector2(sx, -6) * k, c + Vector2(sx + 2.2, -9) * k, c + Vector2(sx, -12) * k, c + Vector2(sx + 2.2, -15) * k]), col, 2.0 * k, true)
+		"hungry":
+			# a fork and a spoon, crossed
+			ci.draw_line(c + Vector2(-8, -10) * k, c + Vector2(8, 11) * k, col, 2.8 * k, true)
+			for i in 3:
+				var fx := -11.0 + i * 3.0
+				ci.draw_line(c + Vector2(fx, -13) * k, c + Vector2(fx + 3.0, -8.5) * k, col, 1.8 * k, true)
+			ci.draw_line(c + Vector2(8, -6) * k, c + Vector2(-8, 11) * k, col, 2.8 * k, true)
+			ci.draw_set_transform(c + Vector2(9.5, -8.5) * k, -0.75, Vector2(1.0, 1.45))
+			ci.draw_circle(Vector2.ZERO, 4.0 * k, col, true, -1.0, true)
+			ci.draw_set_transform(Vector2.ZERO)
+		"stuffed":
+			# a round, full belly with a happy pat
+			ci.draw_arc(c + Vector2(-1, 1) * k, 10.0 * k, -PI * 0.5, PI * 0.75, 18, col, 3.0 * k, true)
+			ci.draw_line(c + Vector2(-1, -9) * k, c + Vector2(-7, -9) * k, col, 3.0 * k, true)
+			ci.draw_circle(c + Vector2(2, 2) * k, 1.8 * k, col, true, -1.0, true)
+			ci.draw_arc(c + Vector2(12, -8) * k, 3.0 * k, PI, TAU, 6, col, 2.0 * k, true)
+			ci.draw_arc(c + Vector2(13, 6) * k, 3.0 * k, 0.0, PI, 6, col, 2.0 * k, true)
+		"coin":
+			ci.draw_arc(c, 11.0 * k, 0.0, TAU, 24, col, 2.6 * k, true)
+			ci.draw_line(c + Vector2(-3, -6) * k, c + Vector2(-3, 7) * k, col, 2.6 * k, true)
+			ci.draw_arc(c + Vector2(-0.5, -2.5) * k, 3.6 * k, -PI * 0.5, PI * 0.5, 8, col, 2.6 * k, true)
+			ci.draw_line(c + Vector2(-6, 3) * k, c + Vector2(3, 3) * k, col, 2.0 * k, true)
 		"snow":
 			for i in 3:
 				var t3 := i * PI / 3.0

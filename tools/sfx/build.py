@@ -320,6 +320,7 @@ def character():
         src=['original', 'Kenney RPG Audio: cloth'], lic=LIC_KENNEY + '; ' + LIC_ORIG, target=-22, **C)
     add('scuff', 'character', [dsp.hp(load(p), 300) for p in kens('impact-sounds', 'footstep_carpet_', 3)] + ogl('100-cc0-sfx-2', 'sfx100v2_footstep_0*')[:2],
         tags=('scuff', 'shoe'), src=['Kenney Impact Sounds: footstep_carpet'] + credit('100-cc0-sfx-2'), lic=LIC_KENNEY + '; ' + LIC_OGA, target=-23, **C)
+    add('tummy_growl', 'character', [synth.tummy_growl(i, d) for i, d in enumerate((1.5, 1.2, 1.8))], tags=('stomach', 'hungry', 'growl'), src=['original'], lic=LIC_ORIG, **C)
 
 
 # =====================================================================

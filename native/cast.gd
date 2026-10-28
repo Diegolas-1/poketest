@@ -22,6 +22,8 @@ var life: TownLife
 var conditions: Conditions   # Ash's conditions (conditions.gd): wet, fatigued
 var body: AshBody            # his body: wading, wetness, stamina (body.gd)
 var cond_ui: ConditionsUI    # their badges and the stamina bar (conditions_ui.gd)
+var hunger: Hunger           # how full he is (hunger.gd)
+var meal: Meal               # eating: the menu, the walk to a seat, the meal itself (meal.gd)
 var bike: AshBike            # his bicycle (bike/bike.gd)
 var convo: Conversation      # the conversation mode (conversation.gd)
 var uses: Array = []
@@ -92,6 +94,9 @@ func setup(g: Node3D) -> void:
 	body = AshBody.new()
 	add_child(body)
 	body.setup(game, self, player, conditions)
+	hunger = Hunger.new()
+	add_child(hunger)
+	hunger.setup(conditions, body)
 	cond_ui = ConditionsUI.new()
 	cond_ui.conditions = conditions
 	cond_ui.body = body
@@ -108,6 +113,11 @@ func setup(g: Node3D) -> void:
 	add_child(convo)
 	convo.setup(life.quests, clock)
 	convo.attach(game, self, layer)
+	# eating: the menus and the meals (meal.gd, food_menu.gd)
+	meal = Meal.new()
+	meal.name = "Meal"
+	add_child(meal)
+	meal.setup(game, self, self)
 
 # the actions worker settings define in project.godot; added here only when missing
 func _actions() -> void:
@@ -124,7 +134,7 @@ func _actions() -> void:
 			InputMap.action_add_event(a, jb)
 
 func busy() -> bool:
-	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy())
+	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy()) or (meal != null and meal.busy())
 
 # someone is being talked to (the text box or a conversation): people stand still
 func talking() -> bool:
@@ -270,14 +280,14 @@ func update(dt: float) -> void:
 	elif dialog.open:
 		if use or jmp or back: dialog.next()
 		use = false; jmp = false
-	elif script_phase < 0 and not convo.busy():
+	elif script_phase < 0 and not convo.busy() and not meal.busy():
 		if bike.riding():
 			# on the bike: the jump hops (a pad's X / Y ring the bell, its R hops)
 			if jmp and _pad_xy(): bell = true
 			elif jmp or (rjust and _pad_r()): bike.hop()
 			if bell: bike.ring()
 		elif jmp and ground:
-			vy = 5.2; ground = false
+			vy = 5.2 * sqrt(conditions.mult("jump")); ground = false   # (jump: a little higher well fed; the height goes as vy squared)
 		if use:
 			var n := nearby()
 			if bike.riding():
@@ -319,6 +329,10 @@ func update(dt: float) -> void:
 					c.target = null; c.wait = 3.0; c.speed = 0.0
 					c.face = atan2(me.x - c.pos.x, me.z - c.pos.z)
 					convo.begin_npc(c)
+				elif n.has("u") and String(n.u.get("food_place", "")) != "" and FoodData.has_place(String(n.u.food_place)):
+					# a place to eat (an interior's "Eat" seat or "Order" counter): the menu
+					face = atan2(n.at.x - me.x, n.at.z - me.z)
+					meal.begin(String(n.u.food_place), n.u)
 				else:
 					# signs and things to read: the plain text box
 					face = atan2(n.at.x - me.x, n.at.z - me.z)
@@ -331,6 +345,11 @@ func update(dt: float) -> void:
 	if not dialog.open: face = NAN
 	if script_phase >= 0: _oak_scene(dt)
 	convo.update(dt)   # placing the two, their faces, the schedule's interruptions
+	# "Could I get something to eat?": the menu once the talk is over
+	if convo.food_request != "" and not convo.busy() and not dialog.open:
+		var fr := convo.food_request
+		convo.food_request = ""
+		meal.begin(fr)
 	# gravity (pos.y was set to the ground by main; keep the height while in the air)
 	var g: float = game.world.ash_ground(game.pos.x, game.pos.z)   # in the water: the raised bed (world_data.gd)
 	vy -= 16.0 * dt
@@ -355,7 +374,7 @@ func update(dt: float) -> void:
 	_villagers(dt)
 	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
 	if indoors:
-		var n3 := nearby() if not dialog.open and not convo.busy() else {}
+		var n3 := nearby() if not dialog.open and not convo.busy() and not meal.busy() else {}
 		var cam3: Camera3D = game.cam
 		dialog.prompt = {"pos": cam3.unproject_position(n3.at), "label": n3.label} if not n3.is_empty() and not cam3.is_position_behind(n3.at) else {}
 		return
@@ -382,7 +401,7 @@ func update(dt: float) -> void:
 		vy = 3.2; ground = false
 	_on_ledge = fl != 255 and (fl & 32) != 0
 	# the prompt over whatever is in reach
-	var n2 := nearby() if not dialog.open and script_phase < 0 and not convo.busy() else {}
+	var n2 := nearby() if not dialog.open and script_phase < 0 and not convo.busy() and not meal.busy() else {}
 	var cam: Camera3D = game.cam
 	if not n2.is_empty() and not cam.is_position_behind(n2.at):
 		dialog.prompt = {"pos": cam.unproject_position(n2.at), "label": n2.label}
@@ -566,6 +585,49 @@ func _test_step(dt: float) -> void:
 			game.cam_dist = 6.0
 		"convo":
 			_convo_test(dt, t)
+		"meal":
+			_meal_test(dt, t)
+
+# ---------- eating: --cast-test=meal -- --meal=home:pancakes [--meal-hour=7.5] [--meal-full=30]
+# [--meal-menu] (open the menu first) [--meal-stand] (no seat: standing) [--meal-terrace] (at Pallet
+# House's terrace tables). A stand-in table and chair (the interiors' "Eat" usable contract) go
+# down in front of him unless --meal-terrace or --meal-stand.
+var _mt := {}
+func _meal_test(_dt: float, t: float) -> void:
+	if _mt.is_empty():
+		_mt = {"place": "home", "item": "pancakes", "hour": 7.5, "full": 30.0, "menu": false, "stand": false, "terrace": false, "phase": 0}
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--meal="):
+				var kv := a.substr(7).split(":")
+				_mt.place = kv[0]
+				if kv.size() > 1: _mt.item = kv[1]
+			elif a.begins_with("--meal-hour="): _mt.hour = float(a.substr(12))
+			elif a.begins_with("--meal-full="): _mt.full = float(a.substr(12))
+			elif a == "--meal-menu": _mt.menu = true
+			elif a == "--meal-stand": _mt.stand = true
+			elif a == "--meal-terrace": _mt.terrace = true
+		clock.real = false; clock.ff = 1.0
+		clock.set_time(float(_mt.hour))
+		hunger.set_fullness(float(_mt.full))
+	if clock.real: clock.real = false; clock.set_time(float(_mt.hour))
+	if int(_mt.phase) == 0 and t > 0.4:
+		_mt.phase = 1
+		var u := {}
+		if _mt.terrace:
+			var tb: Array = life.places.get("pallet_house", {}).get("tables", [])[0].table
+			game.pos = Vector3(tb[0] + 2.2, 0, tb[1] + 0.5); game.pos.y = game.world.height_at(game.pos.x, game.pos.z)
+		elif not _mt.stand:
+			var fwd := Vector3(sin(game.yaw), 0, cos(game.yaw))
+			var at: Vector3 = game.pos + fwd * 2.2
+			at.y = game.world.height_at(at.x, at.z)
+			u = Meal.standin(self, at, game.yaw + PI * 0.5, String(_mt.place))
+			uses.append(u)
+		_air_y = game.pos.y
+		if _mt.menu: meal.begin(String(_mt.place), u)
+		else: meal.begin_now(String(_mt.place), String(_mt.item), u)
+	# after the menu, the first dish is ordered
+	if _mt.menu and meal.menu.is_open and t > 2.5:
+		meal.menu.order()
 
 # ---------- conversation filmstrips: --cast-test=convo -- --convo-who=delia|oak|ada...
 # --convo-hour=7.6 --convo-picks=0,2,1 (choices in order; then the goodbye)

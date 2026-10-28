@@ -1,0 +1,11 @@
+{
+ "_doc": "Ash's fullness (hunger.gd), 0..100 %. It empties by drain_per_hour per game hour standing about, times activity[...] walking, running, riding his bike or wading. kcal_per_pct: the calories (food.json kcal) that fill 1 % (100 % = 1600 kcal, a hungry boy's day between meals). levels: the fullness at which each level starts (stuffed at 92 and up; full 70..92 is Well fed; satisfied 45..70 nothing; peckish 28..45; hungry 12..28; starving under 12): the effects are in life/conditions.json (hungry's levels, well_fed, stuffed). start: a new game's fullness. growl: seconds (real) between tummy growls while hungry / starving, tummy_hand: the chance one comes with his hand on his tummy (standing still). eat: the eating moment, seconds a bite (bite_s) and bites per 10 game minutes of the item's minutes (bites_per_10, between bites_min and bites_max).",
+ "start": 62,
+ "kcal_per_pct": 16,
+ "drain_per_hour": 7.5,
+ "activity": {"rest": 1.0, "walk": 1.15, "run": 1.8, "bike": 1.5, "wade": 1.6},
+ "levels": {"stuffed": 92, "full": 70, "satisfied": 45, "peckish": 28, "hungry": 12},
+ "growl": {"hungry": [70, 130], "starving": [38, 70]},
+ "tummy_hand": 0.6,
+ "eat": {"bite_s": 2.4, "bites_per_10": 2.0, "bites_min": 3, "bites_max": 7}
+}

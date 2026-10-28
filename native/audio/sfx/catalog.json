@@ -470,6 +470,37 @@
    ]
   },
   {
+   "id": "tummy_growl",
+   "category": "character",
+   "vol": 0.0,
+   "pitch": [
+    0.92,
+    1.08
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 18.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "stomach",
+    "hungry",
+    "growl"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/synth.py)",
+   "files": [
+    "character/tummy_growl_1.ogg",
+    "character/tummy_growl_2.ogg",
+    "character/tummy_growl_3.ogg"
+   ]
+  },
+  {
    "id": "creature_call",
    "category": "creatures",
    "vol": 0.0,

@@ -109,6 +109,7 @@ func _process(dt: float) -> void:
 		sig += conditions.active.size() * 1000.0
 		for id in conditions.active: sig += roundf(conditions.strength(id) * 200.0) + id.length() * 7.0
 	if body: sig += roundf(body.stamina * 300.0) * 0.001
+	if Hunger.I: sig += roundf(Hunger.I.fullness) * 0.0007
 	sig += (17.0 if _open != "" else 0.0) + (31.0 if _hover != "" else 0.0) + _open.length() * 0.37 + _hover.length() * 0.53
 	var vs := canvas.get_viewport_rect().size
 	sig += vs.x * 0.0001 + vs.y * 0.00001
@@ -137,6 +138,7 @@ func _draw() -> void:
 		var dur: Dictionary = conditions.def(id).get("duration", {})
 		if String(dur.get("kind", "")) == "decay": f = conditions.strength(id)
 		elif id == "fatigue" and body: f = body.stamina
+		elif String(conditions.def(id).get("meter", "")) == "fullness" and Hunger.I: f = Hunger.I.frac()
 		var ic := conditions.icon(id)
 		var r := UIWidgets.badge(canvas, Vector2(x, o.y), ic, conditions.label(id), _accent(id), f, _open == id or _hover == id, 1.0, _tex(ic), BADGE_H)
 		_rects[id] = r
@@ -165,10 +167,17 @@ func _card(id: String) -> void:
 	var sr := safe_rect()
 	var w := minf(360.0, sr.end.x - b.position.x - 16.0)
 	var rows := UITheme.wrap(conditions.description(id), "body", 19, w - 44.0)
-	var tt := conditions.time_text(id)
+	var tt := _time_text(id)
 	var k := UITheme.ease_out(clampf(_card_t / UITheme.BASE, 0.0, 1.0))
 	var r := Rect2(b.position.x, b.end.y + 14.0 - (1.0 - k) * 10.0, w, UIWidgets.card_height(rows.size(), tt != ""))
 	UIWidgets.card(canvas, r, conditions.label(id), rows, tt, conditions.color(id), b.position.x + 26.0, k)
+
+# the card's footer: the time left, and how full he is for the hunger badges
+func _time_text(id: String) -> String:
+	var tt := conditions.time_text(id)
+	if String(conditions.def(id).get("meter", "")) == "fullness" and Hunger.I:
+		tt = "Fullness %d%%  ·  %s" % [roundi(Hunger.I.fullness), tt]
+	return tt
 
 # "NEW CONDITION": slides out from behind the badges
 func _pop(id: String, at: Vector2) -> void:
