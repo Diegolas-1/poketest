@@ -104,8 +104,14 @@ func _base_species(P: Dictionary, _dt: float, _v: float) -> void:
 	P.merge({"fan": 0.0, "spread": 0.0}, true)
 	P.fan += 0.2 * battle_w
 
-# the fan of tails: each its own lift and sway (a slow drift, out of step with its
-# neighbours), the act's wave across them, streamed back and down when it runs
+# the fan of tails. Each rises from the rump in a crown (species.json "crown": base,
+# the lift at the root; bend, each bone after it arcing back over; curl, the tips
+# turned up; fan, the outer ones splayed out to the sides; outer, how much lower the
+# outer ones ride), and moves on its own: a slow drift out of step with its neighbours,
+# the act's wave running across the fan, swishing when it is pleased or on edge. It
+# lowers them to stream behind it when it runs, and wraps them round itself asleep.
+# Each tail is lifted about its own side axis (across its line), so the fan opens up
+# like a peacock's rather than twisting.
 func _tails(P: Dictionary, dt: float, v: float) -> void:
 	if _tail_kick != 0.0:
 		tail_y.y += _tail_kick * 5.0
@@ -113,27 +119,49 @@ func _tails(P: Dictionary, dt: float, v: float) -> void:
 	tail_p = spring(tail_p, float(P.tp) - _acc.length() * 0.02, 9.0, dt, 0.5)
 	tail_y = spring(tail_y, float(P.ty), 8.0, dt, 0.45)
 	fan_w = spring(fan_w, float(P.fan), 5.0, dt, 0.7)
-	var shape: Array = I.get("tail_shape", [])
+	var cr: Dictionary = I.get("crown", {})
+	var c_base := float(cr.get("base", 0.4))
+	var c_bend := float(cr.get("bend", 0.0))
+	var c_curl := float(cr.get("curl", 0.0))
+	var c_fan := float(cr.get("fan", 0.2))
+	var c_outer := float(cr.get("outer", 0.2))
 	var lag := float(gait.tail_lag)
 	var drift := 1.0 - 0.6 * run_w
+	var down := clampf(run_w * 0.85 + sleep_w * 0.9 + faint_w * 0.9 + hide_w * 0.6, 0.0, 1.0)
 	for tl in fan:
 		var k: float = tl.k
+		var side := (k - 0.5) * 2.0
 		var ph := k * 2.4
 		var wave := sin(t * 2.2 - ph * 1.6)
-		var lift := tail_p.x + 0.12 * drift * sin(t * 1.3 + ph * 2.1) + 0.35 * fan_w.x * maxf(0.0, wave) - 0.3 * run_w
-		var sway := tail_y.x + 0.1 * drift * sin(t * 0.9 + ph * 1.7) + 0.35 * fan_w.x * wave
-		# spread: the fan opened (each tail turned out to its side)
-		sway += float(P.get("spread", 0.0)) * (k - 0.5) * 1.5
+		var lift := tail_p.x + 0.14 * drift * sin(t * 1.3 + ph * 2.1) + 0.4 * fan_w.x * maxf(0.0, wave)
+		var sway := tail_y.x + 0.12 * drift * sin(t * 0.9 + ph * 1.7) + 0.35 * fan_w.x * wave
+		sway += float(P.get("spread", 0.0)) * side * 0.8
 		sway += float(P.wag) * sin(t * float(P.wagf) - ph) * 0.4
 		var buf: Array = tl.buf
 		buf.push_front(Vector2(lift, sway))
 		var ch: PackedInt32Array = tl.chain
 		var maxn := int(ceil(lag * ch.size() / maxf(dt, 0.008))) + 2
 		while buf.size() > maxn: buf.pop_back()
-		for j in ch.size():
+		var axis: Vector3 = tl.get("axis", Vector3.ZERO)
+		if axis == Vector3.ZERO:
+			var d := rest_at(ch[ch.size() - 1]) - rest_at(ch[0])
+			d.y = 0.0
+			if d.length() < 1e-4: d = Vector3(0, 0, -1)
+			axis = d.normalized().cross(Vector3.UP).normalized()
+			tl["axis"] = axis
+		var n := ch.size()
+		for j in n:
 			var dd := mini(buf.size() - 1, int(round(j * lag / maxf(dt, 0.008))))
 			var s: Vector2 = buf[dd]
-			var w := (1.0 + 0.6 * float(j) / ch.size()) / (ch.size() * 1.3)
-			var base := float(shape[j]) if j < shape.size() else 0.0
-			turn_rest(ch[j], Vector3.RIGHT, base + s.x * w + float(P.curl) * 0.2)
-			turn_rest(ch[j], Vector3.UP, s.y * w * 1.8 + float(P.curl) * 0.3)
+			var w := (1.0 + 0.6 * float(j) / n) / (n * 1.3)
+			# the crown's shape: up at the root, arcing back over, the tip curled up
+			var shape := 0.0
+			if j == 0: shape = c_base * (1.0 - c_outer * absf(side)) * (1.0 - down)
+			else: shape = c_bend * (1.0 - 0.6 * down)
+			if j >= n - 2: shape += c_curl * (1.0 - 0.5 * down)
+			if j == 0: shape -= 0.35 * run_w
+			var splay := (-c_fan * side * (1.0 - 0.5 * down) if j == 0 else 0.0)
+			# (the turn about the up axis first: it acts last, so the tail is lifted along its
+			# own line and then swung out, never twisted)
+			turn_rest(ch[j], Vector3.UP, splay + s.y * w * 1.8 + float(P.curl) * 0.35 * (1.0 if j > 0 else 0.5))
+			turn_rest(ch[j], axis, shape + s.x * w)

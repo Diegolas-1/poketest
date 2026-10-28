@@ -20,6 +20,8 @@ var BALL := -1
 var ball_r := 0.2
 var roll_a := 0.0
 var rolled := false
+var spines := []                  # Sandslash: [bone, axis] each spike on its back
+var bristle_s := Vector2.ZERO
 
 func _rig_ready() -> void:
 	durs.merge({"dig_idle": 1.6, "defense_curl": 2.0, "roll": 2.2, "rollout": 2.6, "slash": 1.0, "fury_swipes": 1.8, "sand_attack": 1.5}, true)
@@ -29,6 +31,18 @@ func _rig_ready() -> void:
 	BALL = b("Feeler") if roll_mesh else -1
 	ball_r = float(I.get("ball_r", sz * 0.78))
 	_show_ball(false)
+	if roll_mesh == null:
+		# each spike stands up (out from the body's middle, about its own side axis)
+		var mid := rest_at(W) + Vector3(0, sz * 0.25, 0)
+		for i in skel.get_bone_count():
+			var nm := skel.get_bone_name(i)
+			if nm.contains("Feeler") and not nm.begins_with("End"):
+				var out := (rest_at(i) - mid)
+				var k := _kids(i)
+				var d := (rest_at(k[0]) - rest_at(i)).normalized() if not k.is_empty() else out.normalized()
+				var ax := d.cross(out.normalized())
+				if ax.length() < 0.1: ax = d.cross(Vector3.UP)
+				spines.append([i, ax.normalized(), rng.randf() * TAU])
 
 func _show_ball(on: bool) -> void:
 	rolled = on
@@ -121,6 +135,14 @@ func _base_species(P: Dictionary, _dt: float, _v: float) -> void:
 	P.merge({"ball": 0.0, "ballroll": 0.0}, true)
 
 func _after(P: Dictionary, dt: float) -> void:
+	# Sandslash's spikes: a little raised always, bristling when it fights or curls up,
+	# shivering when it is hit
+	if not spines.is_empty():
+		var br := 0.12 + 0.5 * battle_w + 0.6 * float(P.ball) + (0.7 if act in ["angry", "hurt", "flinch", "poison_sting", "startle"] else 0.0) * sm(0.0, 0.15, act_t)
+		bristle_s = spring(bristle_s, br, 18.0, dt, 0.5)
+		for sp in spines:
+			var j := sin(t * 40.0 + float(sp[2])) * 0.04 * (1.0 if act in ["hurt", "flinch"] else 0.0)
+			turn_rest(sp[0], sp[1], -(bristle_s.x * 0.45 + j))
 	var c := float(P.ball)
 	var want := c > 0.85
 	if want != rolled: _show_ball(want and roll_mesh != null)

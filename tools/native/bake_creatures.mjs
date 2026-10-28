@@ -62,8 +62,8 @@ const SPECIES = {
   arbok: { dir: '0024/Pokemon XY/Arbok', smd: 'Arbok.SMD', scale: 0.0100 },
   pikachu: { dir: '0025/Pokemon XY/Pikachu', smd: 'PikachuM.SMD', scale: 0.0084 },
   pikachu_f: { dir: '0025/Pokemon XY/Pikachu', smd: 'PikachuF.SMD', scale: 0.0084 },
-  raichu: { dir: '0026/Pokemon XY/Raichu', smd: 'RaichuM.SMD', scale: 0.0095, swap: { 'pm0026_00_BodyBInc.png': 'pm0026_00_BodyBInc_NoAlpha.png' } },
-  raichu_f: { dir: '0026/Pokemon XY/Raichu', smd: 'RaichuF.SMD', scale: 0.0095, swap: { 'pm0026_00_BodyBInc.png': 'pm0026_00_BodyBInc_NoAlpha.png' } },
+  raichu: { dir: '0026/Pokemon XY/Raichu', smd: 'RaichuM.SMD', scale: 0.0095 },
+  raichu_f: { dir: '0026/Pokemon XY/Raichu', smd: 'RaichuF.SMD', scale: 0.0095 },
   // Sandshrew rolled up is another file on the same skeleton: the mesh "roll"
   sandshrew: { dir: '0027/Pokemon XY/Sandshrew', smd: 'Sandshrew.SMD', scale: 0.0102, alt: [{ file: 'SandshrewRoll.SMD', part: 'roll' }] },
   sandslash: { dir: '0028/Pokemon XY/Sandslash', smd: 'Sandslash.SMD', scale: 0.0097 },
@@ -312,6 +312,28 @@ async function bake(id) {
     sp.drop = [...(sp.drop || []), pre + '_Iris1.png'];
   }
   const tris = all.filter((t) => !(sp.drop || []).includes(t.mat));
+  // the face sheets (eyes, mouth, the cheeks' overlay) are their own shells laid over
+  // the body, with flatter normals of their own: lit by those, the cel bands put a
+  // lighter (or darker) box round the eyes. Each face corner takes the normal of the
+  // nearest body corner instead, so the face shades as one surface with the head.
+  if (!['caterpie', 'doduo', 'mrmime', 'pidgey'].includes(id)) {
+    const face = (m) => /(Eye|Mouth|Iris|Inc)/i.test(m);
+    const body = [];
+    for (const t of tris) if (!face(t.mat) && !t.part) for (const v of t.v) body.push(v);
+    let n = 0;
+    for (const t of tris) {
+      if (!face(t.mat)) continue;
+      for (const v of t.v) {
+        let best = null, bd = 1e18;
+        for (const q of body) {
+          const d = (q.p[0] - v.p[0]) ** 2 + (q.p[1] - v.p[1]) ** 2 + (q.p[2] - v.p[2]) ** 2;
+          if (d < bd) { bd = d; best = q; }
+        }
+        if (best && best.n[0] * v.n[0] + best.n[1] * v.n[1] + best.n[2] * v.n[2] > -0.2) { v.n = [...best.n]; n++; }
+      }
+    }
+    if (n) console.log(`  ${n} face corners shaded with the head`);
+  }
   const s = sp.scale;
   // world bind matrices in the rip's frame, then in the game's (rotation by M, translation scaled)
   const W = [];

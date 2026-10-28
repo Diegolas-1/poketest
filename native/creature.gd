@@ -22,6 +22,7 @@ extends Node3D
 # targets into local rotations, and writes only the bones touched.
 
 const SHADER := preload("res://shaders/creature.gdshader")
+const SHADER_CUT := preload("res://shaders/creature_cutout.gdshader")
 
 static var _scenes := {}
 
@@ -35,7 +36,8 @@ var rest_g: Array[Transform3D] = []  # rest in skeleton space
 var G: Array[Transform3D] = []       # this frame's pose in skeleton space (after apply)
 var meshes: Array[MeshInstance3D] = []
 var mats: Array[ShaderMaterial] = []
-var mat_by := {}                     # material name -> ShaderMaterial
+var mat_by := {}                     # material name -> ShaderMaterial (the last surface with it)
+var mat_names: Array[String] = []    # each of mats' material name
 var look_at_pos := Vector3(NAN, NAN, NAN)
 var sleep := false
 # counters for sfx_world.gd (a sound each time one goes up): feet put down, pecks, hops
@@ -105,9 +107,59 @@ func _build(sp: String) -> void:
 			if src is BaseMaterial3D and src.albedo_texture: m.set_shader_parameter("albedo_tex", src.albedo_texture)
 			m3.set_surface_override_material(s, m)
 			mats.append(m)
-			mat_by[String(src.resource_name) if src else "m%d" % s] = m
+			mat_names.append(String(src.resource_name) if src else "m%d" % s)
+			mat_by[mat_names[mat_names.size() - 1]] = m
+	_looks(species_info(sp).get("materials", {}))
 	add_to_group("characters")
 	_setup()
+
+# ---------- the look of the materials (creatures/species.json "materials") ----------
+static var _db := {}
+
+static func species_db() -> Dictionary:
+	if _db.is_empty():
+		var f := FileAccess.open("res://creatures/species.json", FileAccess.READ)
+		if f:
+			var d = JSON.parse_string(f.get_as_text())
+			if d is Dictionary: _db = d
+	return _db
+
+static func species_info(sp: String) -> Dictionary:
+	return species_db().get("species", {}).get(sp, {})
+
+# per material (by the texture's name: "bodya1", "eye1", "mouth1" .., or "*" for all; a
+# material's own entry over "*"): tint, brightness, saturation, texture (another
+# image, res:// path), blend ("opaque" / "cutout") with alpha_cut, masks
+# ([{"rect": [u0, v0, u1, v1], "tint": [r, g, b]}], two at most). See species.json's _schema.
+func _looks(cfg: Dictionary) -> void:
+	if cfg.is_empty(): return
+	for i in mats.size():
+		var nm := mat_names[i]
+		var o: Dictionary = (cfg.get("*", {}) as Dictionary).duplicate()
+		for k in cfg:
+			if k != "*" and (nm == String(k) or nm.ends_with("_" + String(k))): o.merge(cfg[k], true)
+		if o.is_empty(): continue
+		var m := mats[i]
+		if String(o.get("blend", "opaque")) == "cutout":
+			var tex = m.get_shader_parameter("albedo_tex")
+			m.shader = SHADER_CUT
+			m.set_shader_parameter("albedo_tex", tex)
+			m.set_shader_parameter("alpha_cut", float(o.get("alpha_cut", 0.5)))
+		if o.has("texture") and ResourceLoader.exists(String(o.texture)):
+			m.set_shader_parameter("albedo_tex", load(String(o.texture)))
+		if o.has("tint"): m.set_shader_parameter("tint", _v3(o.tint))
+		if o.has("brightness"): m.set_shader_parameter("brightness", float(o.brightness))
+		if o.has("saturation"): m.set_shader_parameter("saturation", float(o.saturation))
+		var masks: Array = o.get("masks", [])
+		for k in mini(2, masks.size()):
+			var r: Array = masks[k].get("rect", [0, 0, 0, 0])
+			m.set_shader_parameter("mask%d" % k, Vector4(float(r[0]), float(r[1]), float(r[2]), float(r[3])))
+			m.set_shader_parameter("mask%d_tint" % k, _v3(masks[k].get("tint", [1, 1, 1])))
+
+static func _v3(a) -> Vector3:
+	if a is Array and a.size() >= 3: return Vector3(float(a[0]), float(a[1]), float(a[2]))
+	if a is float or a is int: return Vector3.ONE * float(a)
+	return Vector3.ONE
 
 # ---------- for the species ----------
 func _root_ready(_root: Node3D) -> void: pass   # the model is in, before the skeleton is read (its scale)

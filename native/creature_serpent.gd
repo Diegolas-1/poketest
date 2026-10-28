@@ -119,8 +119,13 @@ func _lay(P: Dictionary, _dt: float, v: float) -> void:
 		var yw := wave_a * env * sin(wave_k * (sm0 + travel))
 		# coiled: the ground part winding round, tighter inward
 		var cs := maxf(0.0, sm0 - rise_len * 0.9)
-		var rr := maxf(R0 * 0.35, R0 - cs * radius * 0.9 / (TAU * R0) * 2.0)
+		var rr := maxf(R0 * 0.35, R0 - cs * radius * 0.9 / (TAU * R0) * 2.0 * float(I.get("coil_shrink", 1.0)))
 		var cyaw := ccw * cs / rr
+		# a coil stacked up (Ekans): the loops climb, so going down the body they descend
+		var cw := clampf(coil_w, 0.0, 1.0)
+		if cs > 0.0: ph += float(I.get("coil_stack", 0.0)) * cw * (1.0 - sm(total * 0.82, total * 0.9, sm0))
+		# the tail's tip turned up off the ground (its rattle)
+		ph -= float(I.get("tip_up", 0.0)) * sm(total * (1.0 - float(I.get("tip_len", 0.12))), total, sm0) * (0.5 + 0.5 * cw)
 		var yc := lerpf(yw, cyaw, clampf(coil_w, 0.0, 1.0))
 		yc += float(sway_s.x) * (1.0 - u) * sin(t * 1.6) * 0.5
 		yaw = yc
@@ -227,7 +232,7 @@ func _look(P: Dictionary, dt: float) -> void:
 
 # ---------- moods ----------
 func _base(dt: float, v: float) -> Dictionary:
-	var P := {"rise": float(I.get("rise_base", 1.0)), "lunge": 0.0, "hood": 0.0, "coil": 0.0, "sway": 0.25, "y": 0.0, "fwd": 0.0, "flat": 0.0,
+	var P := {"rise": float(I.get("rise_base", 1.0)), "lunge": 0.0, "hood": float(I.get("hood_base", 0.0)), "coil": 0.0, "sway": 0.25, "y": 0.0, "fwd": 0.0, "flat": 0.0,
 		"hy": NAN, "hp": NAN, "ht": NAN, "hk": 1.0, "jaw": 0.0, "tongue": 0.0, "eye": "", "mouth": ""}
 	P.rise += sin(t * 1.3) * 0.04
 	# the tongue: a flick now and then, tasting the air

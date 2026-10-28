@@ -13,6 +13,8 @@ var cs: Array[Creature] = []
 var t := 0.0
 var dur := 1.5
 var cam: Camera3D
+var _us := 0
+var _frames := 0
 const DT := 1.0 / 30.0
 
 func _ready() -> void:
@@ -101,7 +103,10 @@ func _process(_dt: float) -> void:
 		if ov and "visible" in ov: ov.visible = false
 	t += DT
 	if not A.has("bind"):
+		var t0 := Time.get_ticks_usec()
 		for c in cs: c.animate(DT, 0.0)
+		_us += Time.get_ticks_usec() - t0
+		_frames += 1
 	Ink.set_focus(cam.global_position)
 	if t >= dur:
 		set_process(false)
@@ -110,4 +115,5 @@ func _process(_dt: float) -> void:
 		var f: String = A.get("out", "user://lineup.png")
 		img.save_png(f)
 		print("saved ", f)
+		if _frames > 0: print("animate: %d creatures, %.2f ms a frame (all), %.3f ms each" % [cs.size(), _us / 1000.0 / _frames, _us / 1000.0 / _frames / cs.size()])
 		get_tree().quit()

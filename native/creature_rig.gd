@@ -52,16 +52,11 @@ signal impact(act: String)
 signal fx(what: String, at: Vector3)
 signal act_done(act: String)
 
-static var _db := {}
-
 static func db() -> Dictionary:
-	if _db.is_empty():
-		var f := FileAccess.open("res://creatures/species.json", FileAccess.READ)
-		if f: _db = JSON.parse_string(f.get_as_text())
-	return _db
+	return Creature.species_db()
 
 static func info(sp: String) -> Dictionary:
-	return db().get("species", {}).get(sp, {})
+	return Creature.species_info(sp)
 
 static func create(sp: String) -> Creature:
 	match sp:
@@ -218,12 +213,6 @@ func _setup() -> void:
 	for m in mat_by:
 		if String(m).ends_with("_eye1"): eye_mat = mat_by[m]
 		elif String(m).ends_with("_mouth1"): mouth_mat = mat_by[m]
-	var tint: Dictionary = I.get("tint", {})
-	for m in mat_by:
-		for k in tint:
-			if String(m).ends_with("_" + String(k)):
-				var c: Array = tint[k]
-				(mat_by[m] as ShaderMaterial).set_shader_parameter("tint", Vector3(float(c[0]), float(c[1]), float(c[2])))
 	_rig_ready()
 
 # for the species: after the rig is found
@@ -1436,8 +1425,11 @@ func _head(P: Dictionary, dt: float, v: float) -> void:
 	var gy: float = _hg.x if is_nan(float(P.hy)) else float(P.hy)
 	var gp: float = _hg.y if is_nan(float(P.hp)) else float(P.hp)
 	var gt: float = _hg.z if is_nan(float(P.ht)) else float(P.ht)
+	# (a head that is the whole body, Clefairy's: it turns a little, not all the way round)
+	var la := float(I.get("look_amp", 1.0))
+	gy *= la; gp *= la; gt *= la
 	# the head kept level against the body's pitch and lean (a little)
-	gp += body_p.x * lerpf(0.6, 0.9, quad_w) + lean_s.x * 0.5
+	gp += (body_p.x * lerpf(0.6, 0.9, quad_w) + lean_s.x * 0.5) * float(I.get("head_level", 1.0))
 	var om: float = 14.0 * float(P.hk) * float(gait.look_k)
 	hy = spring(hy, gy, om, dt, 0.75)
 	hp = spring(hp, gp, om, dt, 0.75)
@@ -1499,14 +1491,16 @@ func _tail_chain(tl: Dictionary, P: Dictionary, dt: float, lift: float, sway: fl
 	var maxn := int(ceil(lag * ch.size() / maxf(dt, 0.008))) + 2
 	while buf.size() > maxn: buf.pop_back()
 	var shape: Array = I.get("tail_shape", [])
+	var bend: Array = I.get("tail_curve", [])
 	var amp := float(gait.tail_sway)
 	for k in ch.size():
 		var d := mini(buf.size() - 1, int(round(k * lag / maxf(dt, 0.008))))
 		var s: Vector2 = buf[d]
 		var w := (1.0 + 0.6 * float(k) / ch.size()) / (ch.size() * 1.3)
 		var base := float(shape[k]) if k < shape.size() else 0.0
+		var side := float(bend[k]) if k < bend.size() else 0.0
+		turn_rest(ch[k], Vector3.UP, side + s.y * w * (1.0 + amp * 4.0) + curl * 0.35)
 		turn_rest(ch[k], Vector3.RIGHT, base + s.x * w + curl * 0.25)
-		turn_rest(ch[k], Vector3.UP, s.y * w * (1.0 + amp * 4.0) + curl * 0.35)
 
 # ---------- the face: eyes and mouth from their sheets ----------
 # every X/Y sheet is the same 2 x 4 atlas (offsets from the first cell)

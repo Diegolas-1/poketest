@@ -163,6 +163,11 @@ func _process(_dt: float) -> void:
 	c.position = Vector3(x, 0, 0)
 	c.rotation.y = yaw
 	c.animate(DT, v)
+	for k in ["eyeoff", "mouthoff"]:
+		# (dev) a face sheet's cell forced (uv offset), to find a rip's layout
+		if A.has(k) and c.get("eye_mat" if k == "eyeoff" else "mouth_mat"):
+			var o := Array(String(A[k]).split(",")).map(func(s): return float(s))
+			(c.get("eye_mat" if k == "eyeoff" else "mouth_mat") as ShaderMaterial).set_shader_parameter("uv_off", Vector2(o[0], o[1]))
 	if A.has("debug") and Engine.get_process_frames() % 6 == 0:
 		var out := "t=%.2f" % t
 		for k in String(A.debug).split(";"):
