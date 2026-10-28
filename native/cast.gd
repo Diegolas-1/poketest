@@ -349,7 +349,8 @@ func update(dt: float) -> void:
 		var rel := wrapf(game.cam_yaw + PI - game.yaw, -PI, PI)
 		if not convo.active:   # (in a conversation he looks at whoever he's talking to)
 			player.look_yaw = clampf(rel, -1.0, 1.0) if absf(rel) < 2.2 and not dialog.open else 0.0
-	player.animate(dt, absf(game.speed), not ground and not bike.riding())
+	# in the air: jumping, or walked off a drop (ground stays set then, but he falls)
+	player.animate(dt, absf(game.speed), (not ground or _air_y - g > 0.3) and not bike.riding())
 	body.update(dt)
 	_villagers(dt)
 	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)

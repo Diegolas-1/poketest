@@ -94,7 +94,8 @@ var L := {}
 # jump
 var air_w := 0.0
 var was_air := false
-var jump := {"t": 0.0, "vy": 0.0, "y": NAN, "run": 0.0, "lead": 0, "impact": 0.0, "land": 1.0}
+var jump := {"t": 0.0, "vy": 0.0, "y": NAN, "run": 0.0, "lead": 0, "impact": 0.0, "land": 1.0, "kind": "jump", "var": "", "ld": "",
+	"y0": 0.0, "top": 0.0, "vy0": 0.0, "air_t": 0.6, "spin": 0.0, "sa": 0.0}
 
 func _exit_tree() -> void:
 	if cloth: cloth.finish()
@@ -473,67 +474,311 @@ func _tired(_speed: float) -> void:
 		bend(s[0] + "Foot", 1, 0, 0, -0.10 * st * tk)
 
 # ---------- jumps and landings ----------
-const J := {
-	"take": {"th": [-0.1, 0.05], "kn": [0.15, 0.1], "ft": [0.55, 0.5], "sw": [-0.45, -0.4], "ab": [0.25, 0.25], "el": [0.6, 0.6], "sp": -0.04, "hd": -0.06},
-	"rise": {"th": [-0.85, -0.6], "kn": [1.35, 1.15], "ft": [0.35, 0.3], "sw": [-0.5, -0.4], "ab": [0.4, 0.4], "el": [1.2, 1.1], "sp": 0.06, "hd": -0.06},
-	"fall": {"th": [-0.35, -0.15], "kn": [0.5, 0.35], "ft": [0.15, 0.1], "sw": [-0.2, -0.1], "ab": [0.7, 0.65], "el": [0.5, 0.45], "sp": 0.08, "hd": 0.06},
-	"riseR": {"th": [-0.95, 0.3], "kn": [1.2, 0.75], "ft": [0.2, 0.45], "sw": [0.55, -0.9], "ab": [0.25, 0.25], "el": [0.9, 1.0], "sp": 0.12, "hd": -0.06},
-	"fallR": {"th": [-0.6, 0.1], "kn": [0.55, 0.45], "ft": [0.05, 0.3], "sw": [0.2, -0.4], "ab": [0.45, 0.4], "el": [0.6, 0.6], "sp": 0.1, "hd": 0.02},
+# All posed from the tables below. A pose is a dict of channels (missing ones take
+# JDEF's value); the per-side ones are [lead, trail]: the leg that pushes off or leads
+# (and the arm on its side), then the other. Angles in radians:
+#   th thigh pitch (- = forward / up)   ta thigh out to the side   kn knee bend
+#   ft foot pitch (+ = toe down; -(th + kn) keeps the sole flat)
+#   sw arm swing (- = forward, -PI = straight up)   ab arm out from the side (PI/2 = level)
+#   tz upper arm twist (- turns the elbow's bend upward)   el elbow bend   fs fist (0..1)
+#   sp / ch chest pitch (Spine2 / Spine3, + = forward)   tw torso twist toward the lead side
+#   rl torso lean toward the lead side   hd head pitch (- = up)   hr head tilt
+#   wp / wr the whole body's pitch (+ = forward) / roll toward the lead side, at the waist
+# A jump picks a variant (JSETS: standing, running, a ledge hop, stepping off a drop),
+# never the one it had last time, and blends its poses: crouch (the anticipation, feet
+# kept on the ground) -> push (the take-off) -> rise -> top (the apex) -> fall, by
+# time and the vertical speed; "spin" turns him round in the air. A long fall flails
+# (JFLAIL). The landing (LANDS: by the drop from the apex and the speed) plays a
+# timeline of [u, pose, weight, {channel overrides}] keys over its duration.
+const JDEF := {"th": [0.0, 0.0], "ta": [0.04, 0.04], "kn": [0.0, 0.0], "ft": [0.0, 0.0], "sw": [0.0, 0.0], "ab": [0.2, 0.2], "tz": [0.0, 0.0],
+	"el": [0.3, 0.3], "fs": [0.0, 0.0], "sp": 0.0, "ch": 0.0, "tw": 0.0, "rl": 0.0, "hd": 0.0, "hr": 0.0, "wp": 0.0, "wr": 0.0}
+const JP := {
+	# anticipation: knees bent, arms swung back, chest over the knees
+	"crouch": {"th": [-0.95, -0.9], "kn": [1.75, 1.7], "ft": [-0.8, -0.8], "sw": [0.85, 0.8], "ab": [0.3, 0.3], "el": [0.35, 0.35], "sp": 0.4, "ch": 0.15, "hd": -0.35, "wp": 0.12},
+	"crouch_run": {"th": [-0.6, 0.15], "kn": [1.05, 0.9], "ft": [-0.45, -0.2], "sw": [0.7, -0.7], "ab": [0.25, 0.25], "el": [0.5, 0.9], "sp": 0.3, "ch": 0.1, "hd": -0.25, "wp": 0.12},
+	# take-offs: everything extends, toes last off the ground
+	"push": {"th": [0.05, 0.08], "kn": [0.1, 0.1], "ft": [0.7, 0.7], "sw": [-2.3, -2.2], "ab": [0.45, 0.45], "el": [0.3, 0.3], "sp": -0.08, "ch": -0.05, "hd": -0.2, "wp": -0.04},
+	"push_run": {"th": [-0.7, 0.35], "kn": [0.7, 0.2], "ft": [0.3, 0.75], "sw": [0.7, -1.3], "ab": [0.3, 0.3], "el": [0.6, 1.1], "sp": 0.08, "hd": -0.15, "tw": -0.12},
+	# standing: a tuck
+	"tuck_rise": {"th": [-1.55, -1.5], "kn": [2.1, 2.05], "ft": [0.4, 0.4], "sw": [-0.95, -0.9], "ab": [0.45, 0.45], "el": [1.35, 1.3], "fs": [0.8, 0.8], "sp": 0.28, "ch": 0.12, "hd": 0.05},
+	"tuck_top": {"th": [-1.75, -1.7], "kn": [2.3, 2.25], "ft": [0.5, 0.5], "sw": [-0.8, -0.75], "ab": [0.55, 0.55], "el": [1.6, 1.55], "fs": [1.0, 1.0], "sp": 0.35, "ch": 0.15, "hd": 0.12},
+	"tuck_fall": {"th": [-0.45, -0.3], "kn": [0.6, 0.5], "ft": [0.1, 0.1], "sw": [-0.4, -0.3], "ab": [1.0, 1.05], "el": [0.45, 0.4], "sp": 0.05, "hd": 0.08},
+	# standing: one knee up, the other leg hanging, the arms opposite
+	"knee_rise": {"th": [-1.45, 0.12], "kn": [1.95, 0.55], "ft": [0.45, 0.6], "sw": [0.75, -1.1], "ab": [0.5, 0.35], "el": [0.5, 0.8], "fs": [0.6, 0.8], "sp": 0.06, "tw": -0.2, "rl": 0.06, "hd": -0.15},
+	"knee_top": {"th": [-1.6, 0.2], "kn": [2.05, 0.8], "ft": [0.5, 0.65], "sw": [0.95, -1.35], "ab": [0.6, 0.4], "el": [0.45, 0.7], "fs": [0.7, 1.0], "sp": 0.04, "tw": -0.26, "rl": 0.08, "hd": -0.22},
+	"knee_fall": {"th": [-0.6, -0.15], "kn": [0.75, 0.45], "ft": [0.15, 0.2], "sw": [0.1, -0.5], "ab": [0.9, 0.8], "el": [0.5, 0.6], "sp": 0.06, "tw": -0.06, "hd": 0.04},
+	# standing: arms flung up in a V, heels kicked back to the seat, back arched
+	"cheer_rise": {"th": [0.15, 0.2], "kn": [1.3, 1.25], "ft": [0.7, 0.7], "sw": [-0.4, -0.35], "ab": [2.2, 2.15], "el": [0.3, 0.3], "fs": [0.2, 0.2], "sp": -0.15, "ch": -0.1, "hd": -0.35, "wp": -0.06},
+	"cheer_top": {"th": [0.3, 0.35], "kn": [1.85, 1.8], "ft": [0.8, 0.8], "sw": [-0.3, -0.25], "ab": [2.55, 2.5], "el": [0.15, 0.15], "fs": [0.0, 0.0], "sp": -0.25, "ch": -0.15, "hd": -0.45, "wp": -0.1, "hr": 0.1},
+	"cheer_fall": {"th": [-0.35, -0.25], "kn": [0.6, 0.5], "ft": [0.15, 0.15], "sw": [-0.3, -0.25], "ab": [1.5, 1.45], "el": [0.4, 0.4], "sp": 0.0, "hd": -0.1},
+	# standing: the excited fist pump, one fist punched at the sky, the other pulled down
+	"pump_rise": {"th": [-1.1, 0.3], "kn": [1.6, 1.5], "ft": [0.4, 0.65], "sw": [-2.5, 0.15], "ab": [0.2, 0.45], "el": [0.5, 1.7], "fs": [1.0, 1.0], "sp": -0.1, "ch": -0.06, "tw": 0.12, "rl": -0.08, "hd": -0.45},
+	"pump_top": {"th": [-1.3, 0.4], "kn": [1.85, 1.9], "ft": [0.5, 0.7], "sw": [-2.95, 0.25], "ab": [0.12, 0.5], "el": [0.12, 1.95], "fs": [1.0, 1.0], "sp": -0.16, "ch": -0.1, "tw": 0.15, "rl": -0.12, "hd": -0.55, "hr": -0.1},
+	"pump_fall": {"th": [-0.5, -0.2], "kn": [0.7, 0.5], "ft": [0.15, 0.2], "sw": [-1.2, -0.2], "ab": [0.6, 0.7], "el": [0.8, 0.9], "fs": [1.0, 1.0], "sp": 0.02, "hd": -0.15},
+	# standing: a spin, arms pulled in, then flung out
+	"spin_rise": {"th": [-0.25, -0.2], "kn": [0.6, 0.55], "ft": [0.6, 0.6], "sw": [-0.7, -0.7], "ab": [0.25, 0.25], "el": [1.9, 1.9], "fs": [0.6, 0.6], "sp": -0.04, "hd": -0.1},
+	"spin_top": {"th": [-0.6, 0.05], "kn": [1.1, 0.7], "ft": [0.5, 0.6], "sw": [-0.3, -0.5], "ab": [2.15, 1.5], "el": [0.35, 0.7], "sp": -0.1, "hd": -0.25},
+	"spin_fall": {"th": [-0.4, -0.25], "kn": [0.6, 0.5], "ft": [0.15, 0.15], "sw": [-0.2, -0.2], "ab": [1.3, 1.25], "el": [0.4, 0.4], "sp": 0.04, "hd": 0.0},
+	# running: a stride, the legs split, the arms swinging opposite
+	"stride_rise": {"th": [-1.25, 0.55], "kn": [1.0, 1.05], "ft": [0.25, 0.65], "sw": [0.85, -1.35], "ab": [0.3, 0.3], "el": [0.65, 1.15], "fs": [0.5, 0.5], "sp": 0.16, "tw": -0.18, "hd": -0.08},
+	"stride_top": {"th": [-1.35, 0.65], "kn": [0.9, 1.25], "ft": [0.2, 0.7], "sw": [0.95, -1.5], "ab": [0.35, 0.35], "el": [0.6, 1.2], "fs": [0.6, 0.6], "sp": 0.14, "tw": -0.2, "hd": -0.1},
+	"stride_fall": {"th": [-0.95, 0.3], "kn": [0.55, 0.85], "ft": [0.05, 0.4], "sw": [0.4, -0.7], "ab": [0.5, 0.45], "el": [0.6, 0.9], "sp": 0.1, "tw": -0.08, "hd": 0.0},
+	# running: a big split leap, legs straight, one arm reaching on ahead
+	"leap_rise": {"th": [-1.35, 0.85], "kn": [0.3, 0.45], "ft": [0.45, 0.8], "sw": [0.4, -2.1], "ab": [0.9, 0.4], "el": [0.35, 0.3], "sp": 0.0, "ch": -0.08, "tw": -0.1, "hd": -0.3, "wp": -0.04},
+	"leap_top": {"th": [-1.5, 1.0], "kn": [0.12, 0.25], "ft": [0.55, 0.85], "sw": [0.5, -2.5], "ab": [1.1, 0.35], "el": [0.2, 0.15], "sp": -0.05, "ch": -0.1, "tw": -0.12, "hd": -0.4, "wp": -0.06},
+	"leap_fall": {"th": [-1.0, 0.45], "kn": [0.35, 0.7], "ft": [0.1, 0.5], "sw": [0.1, -1.1], "ab": [1.0, 0.6], "el": [0.4, 0.4], "sp": 0.06, "hd": -0.1},
+	# running: a hurdle, lead leg reaching ahead, the trailing knee out to the side
+	"hurdle_rise": {"th": [-1.4, 0.0], "kn": [0.35, 1.7], "ta": [0.04, 0.75], "ft": [0.2, 0.6], "sw": [0.6, -1.7], "ab": [0.45, 0.3], "el": [0.8, 0.5], "fs": [0.4, 0.3], "sp": 0.4, "ch": 0.15, "tw": -0.22, "hd": -0.3},
+	"hurdle_top": {"th": [-1.5, -0.1], "kn": [0.2, 1.85], "ta": [0.04, 0.9], "ft": [0.2, 0.6], "sw": [0.7, -1.9], "ab": [0.5, 0.3], "el": [0.75, 0.4], "fs": [0.4, 0.3], "sp": 0.45, "ch": 0.18, "tw": -0.26, "hd": -0.35},
+	"hurdle_fall": {"th": [-0.9, 0.0], "kn": [0.45, 1.0], "ta": [0.04, 0.3], "ft": [0.05, 0.35], "sw": [0.3, -0.8], "ab": [0.55, 0.45], "el": [0.6, 0.7], "sp": 0.15, "tw": -0.08, "hd": -0.05},
+	# running: a bounding knee drive, the fist punched up and ahead
+	"bound_rise": {"th": [-1.6, 0.5], "kn": [1.9, 0.35], "ft": [0.45, 0.8], "sw": [0.8, -2.3], "ab": [0.35, 0.2], "el": [0.9, 0.5], "fs": [1.0, 1.0], "sp": 0.0, "ch": -0.08, "tw": -0.22, "hd": -0.35},
+	"bound_top": {"th": [-1.75, 0.6], "kn": [2.05, 0.45], "ft": [0.5, 0.85], "sw": [0.9, -2.6], "ab": [0.4, 0.15], "el": [0.85, 0.3], "fs": [1.0, 1.0], "sp": -0.05, "ch": -0.1, "tw": -0.25, "hd": -0.45},
+	"bound_fall": {"th": [-0.9, 0.2], "kn": [0.8, 0.6], "ft": [0.1, 0.4], "sw": [0.35, -1.0], "ab": [0.5, 0.4], "el": [0.7, 0.8], "fs": [0.7, 0.7], "sp": 0.08, "tw": -0.08, "hd": -0.05},
+	# hopping down a ledge: a little stride, the arms out for balance
+	"hop_rise": {"th": [-0.9, 0.35], "kn": [0.9, 0.7], "ft": [0.25, 0.5], "sw": [0.3, -0.7], "ab": [1.25, 1.05], "el": [0.6, 0.7], "sp": 0.06, "hd": 0.1},
+	"hop_fall": {"th": [-0.55, -0.15], "kn": [0.6, 0.5], "ft": [0.1, 0.2], "sw": [-0.1, -0.4], "ab": [1.45, 1.25], "el": [0.5, 0.6], "sp": 0.0, "hd": 0.12},
+	# stepping off a drop: a startle (arms flung up, legs reaching down), then the fall
+	"drop_top": {"th": [-0.75, 0.2], "kn": [0.9, 0.7], "ft": [0.3, 0.4], "sw": [-0.7, -0.6], "ab": [1.75, 1.7], "el": [0.5, 0.5], "sp": -0.05, "hd": 0.3, "wp": -0.05},
+	"drop_fall": {"th": [-0.45, -0.1], "kn": [0.5, 0.4], "ft": [0.15, 0.2], "sw": [-0.3, -0.6], "ab": [2.3, 1.4], "el": [0.9, 0.6], "sp": -0.08, "hd": 0.2, "wp": -0.04},
+	# landings
+	"l_soft": {"th": [-0.3, -0.25], "kn": [0.6, 0.55], "ft": [-0.3, -0.3], "sw": [-0.25, -0.2], "ab": [0.4, 0.4], "el": [0.55, 0.5], "sp": 0.12, "hd": -0.08},
+	"l_crouch": {"th": [-0.95, -0.85], "kn": [1.65, 1.55], "ft": [-0.7, -0.7], "sw": [-0.75, -0.7], "ab": [0.55, 0.55], "el": [0.55, 0.5], "sp": 0.38, "ch": 0.12, "hd": -0.35, "wp": 0.14},
+	"l_wide": {"th": [-0.85, -0.6], "ta": [0.3, 0.3], "kn": [1.5, 1.3], "ft": [-0.65, -0.7], "sw": [-0.2, -0.15], "ab": [1.2, 1.15], "el": [0.35, 0.35], "sp": 0.3, "ch": 0.1, "rl": 0.08, "hd": -0.3, "wp": 0.1},
+	"l_pop": {"th": [-0.08, -0.06], "kn": [0.15, 0.12], "ft": [0.05, 0.05], "sw": [-0.15, -0.1], "ab": [0.35, 0.35], "el": [0.45, 0.45], "sp": -0.06, "ch": -0.04, "hd": -0.12},
+	# the three-point landing: lead foot planted, trailing knee down, a hand to the ground
+	"l_heavy": {"th": [-1.45, -0.3], "kn": [2.35, 2.05], "ta": [0.12, 0.08], "ft": [-0.9, 0.35], "sw": [0.9, -0.55], "ab": [0.95, 0.35], "el": [0.45, 0.05], "fs": [0.7, 0.0], "sp": 0.5, "ch": 0.18, "tw": 0.12, "hd": -0.6, "wp": 0.3},
+	"l_rise": {"th": [-0.5, -0.3], "kn": [0.85, 0.65], "ft": [-0.35, -0.35], "sw": [0.1, -0.2], "ab": [0.5, 0.45], "el": [0.5, 0.5], "sp": 0.2, "hd": -0.15, "wp": 0.05},
+	# stumbling on: lurched forward, the arms flung ahead, then caught and thrown back
+	"l_lurch": {"th": [-1.0, 0.35], "kn": [1.05, 0.65], "ft": [-0.2, 0.3], "sw": [-2.3, -1.2], "ab": [1.1, 0.8], "el": [0.4, 0.6], "sp": 0.6, "ch": 0.25, "tw": 0.15, "hd": -0.55, "wp": 0.4},
+	"l_catch": {"th": [0.25, -0.75], "kn": [0.5, 1.1], "ft": [0.25, -0.3], "sw": [0.6, 0.3], "ab": [1.4, 1.3], "el": [0.3, 0.35], "sp": 0.15, "tw": -0.12, "hd": -0.2, "wp": 0.05, "rl": 0.08},
+	# the roll: tucked into a ball, the chin on the chest
+	"l_tuck": {"th": [-1.85, -1.8], "kn": [2.4, 2.35], "ft": [0.3, 0.3], "sw": [-0.9, -0.85], "ab": [0.35, 0.35], "el": [1.6, 1.6], "fs": [0.8, 0.8], "sp": 0.6, "ch": 0.3, "hd": 0.55},
 }
-const JUMP_BONES := ["LThigh", "RThigh", "LLeg", "RLeg", "LFoot", "RFoot", "LArmA", "RArmA", "LForeArm", "RForeArm", "Spine2", "Head"]
+# the variants: w (how often, against the others in its set), the poses of its phases,
+# spin (turns in the air); and the sets they come from
+const JV := {
+	"tuck": {"w": 1.0, "crouch": "crouch", "push": "push", "rise": "tuck_rise", "top": "tuck_top", "fall": "tuck_fall"},
+	"knee": {"w": 1.0, "crouch": "crouch", "push": "push", "rise": "knee_rise", "top": "knee_top", "fall": "knee_fall"},
+	"cheer": {"w": 1.0, "crouch": "crouch", "push": "push", "rise": "cheer_rise", "top": "cheer_top", "fall": "cheer_fall"},
+	"pump": {"w": 0.7, "crouch": "crouch", "push": "push", "rise": "pump_rise", "top": "pump_top", "fall": "pump_fall"},
+	"spin": {"w": 0.4, "crouch": "crouch", "push": "push", "rise": "spin_rise", "top": "spin_top", "fall": "spin_fall", "spin": 1.0},
+	"stride": {"w": 1.2, "crouch": "crouch_run", "push": "push_run", "rise": "stride_rise", "top": "stride_top", "fall": "stride_fall"},
+	"leap": {"w": 1.0, "crouch": "crouch_run", "push": "push_run", "rise": "leap_rise", "top": "leap_top", "fall": "leap_fall"},
+	"hurdle": {"w": 0.8, "crouch": "crouch_run", "push": "push_run", "rise": "hurdle_rise", "top": "hurdle_top", "fall": "hurdle_fall"},
+	"bound": {"w": 0.8, "crouch": "crouch_run", "push": "push_run", "rise": "bound_rise", "top": "bound_top", "fall": "bound_fall"},
+	"hop": {"w": 1.0, "push": "hop_rise", "rise": "hop_rise", "top": "hop_rise", "fall": "hop_fall"},
+	"drop": {"w": 1.0, "push": "drop_top", "rise": "drop_top", "top": "drop_top", "fall": "drop_fall"},
+}
+const JSETS := {"stand": ["tuck", "knee", "cheer", "pump", "spin"], "run": ["stride", "leap", "hurdle", "bound"], "hop": ["hop"], "drop": ["drop"]}
+# a long fall: the arms windmill, the legs pedal (amplitudes; rate in cycles a second)
+const JFLAIL := {"rate": 2.6, "sw": 1.3, "ab": 1.5, "th": 0.55, "kn": 0.7, "vy0": -6.0, "vy1": -9.5}
+# landings: picked by the drop (m, apex to ground); "run" when moving faster than RUN_FROM
+const LANDS := [
+	{"max": 0.45, "pick": ["soft"]},
+	{"max": 1.5, "pick": ["land", "wide"]},
+	{"max": 2.8, "pick": ["heavy"], "run": "stumble"},
+	{"max": 1e9, "pick": ["heavy"], "run": "roll"},
+]
+const RUN_FROM := 3.5
+# dur (s); keep: how much of it stays on at a run (the clip takes the rest)
+const LAND := {
+	"soft": {"dur": 0.24, "keep": 0.5, "keys": [[0.0, "l_soft", 0.0], [0.2, "l_soft", 1.0], [1.0, "l_soft", 0.0]]},
+	"land": {"dur": 0.46, "keep": 0.5, "keys": [[0.0, "l_crouch", 0.0], [0.12, "l_crouch", 1.0], [0.5, "l_pop", 0.8], [1.0, "l_pop", 0.0]]},
+	"wide": {"dur": 0.5, "keep": 0.5, "keys": [[0.0, "l_wide", 0.0], [0.12, "l_wide", 1.0], [0.3, "l_wide", 1.0], [0.62, "l_pop", 0.7], [1.0, "l_pop", 0.0]]},
+	"heavy": {"dur": 0.95, "keep": 0.7, "keys": [[0.0, "l_heavy", 0.0], [0.07, "l_heavy", 1.0], [0.45, "l_heavy", 1.0], [0.75, "l_rise", 0.85], [1.0, "l_rise", 0.0]]},
+	"stumble": {"dur": 0.75, "keep": 1.0, "keys": [[0.0, "l_crouch", 0.0], [0.08, "l_crouch", 1.0], [0.32, "l_lurch", 1.0], [0.6, "l_catch", 0.9], [1.0, "l_pop", 0.0]]},
+	"roll": {"dur": 0.7, "keep": 1.0, "keys": [[0.0, "l_crouch", 0.0], [0.06, "l_crouch", 1.0], [0.18, "l_tuck", 1.0, {"wp": 1.0}], [0.62, "l_tuck", 1.0, {"wp": 1.0 + TAU}],
+		[0.8, "l_rise", 1.0, {"wp": 0.1 + TAU}], [1.0, "l_pop", 0.0, {"wp": TAU}]]},
+}
+const JGRAV := 16.0      # cast.gd's gravity: the spin's timing from the take-off speed
+const JUMP_BONES := ["Waist", "Spine1", "Spine2", "Spine3", "Head", "LThigh", "RThigh", "LLeg", "RLeg", "LFoot", "RFoot", "LArmA", "RArmA", "LForeArm", "RForeArm"]
+const FIST := ["B", "C", "D"]
+const LOW_PTS := [["LToe", 0.03], ["RToe", 0.03], ["LFoot", 0.083], ["RFoot", 0.083], ["LLeg", 0.06], ["RLeg", 0.06], ["LHand", 0.03], ["RHand", 0.03], ["Head", 0.13]]
+static var _jn := {}
+# dev: force every jump's variant / landing (dev/jump_shot.gd)
+var jump_pick := ""
+var land_pick := ""
+
+static func _jpose(n: String) -> Dictionary:
+	if not _jn.has(n):
+		var o: Dictionary = JDEF.duplicate(true)
+		for key in JP[n]: o[key] = JP[n][key]
+		_jn[n] = o
+	return _jn[n]
 
 static func _jmix(a: Dictionary, b: Dictionary, u: float) -> Dictionary:
+	if u <= 0.0: return a
+	if u >= 1.0: return b
 	var o := {}
 	for key in a:
 		if a[key] is Array: o[key] = [lerpf(a[key][0], b[key][0], u), lerpf(a[key][1], b[key][1], u)]
 		else: o[key] = lerpf(a[key], b[key], u)
 	return o
 
-func _jump_pose(P: Dictionary) -> void:
-	var sides := ["L", "R"] if jump.lead == 0 else ["R", "L"]
+func _jump_pose(P: Dictionary, lead: int, spin: float) -> void:
+	var sides := ["L", "R"] if lead == 0 else ["R", "L"]
+	var ls := 1.0 if lead == 0 else -1.0     # + = toward the lead side
 	for i in 2:
 		var s: String = sides[i]
 		var sg := 1.0 if s == "L" else -1.0
-		pose(s + "Thigh", [[1, 0, 0, P.th[i]], [0, 0, 1, sg * 0.04]])
+		pose(s + "Thigh", [[1, 0, 0, P.th[i]], [0, 0, 1, sg * P.ta[i]]])
 		pose(s + "Leg", [[1, 0, 0, P.kn[i]]])
 		pose(s + "Foot", [[1, 0, 0, P.ft[i]]])
-		pose(s + "ArmA", [[1, 0, 0, P.sw[i]], [0, 0, 1, sg * P.ab[i]], [0, 0, 1, -sg * PI / 2.0]])
+		pose(s + "ArmA", [[1, 0, 0, P.sw[i]], [0, 0, 1, sg * P.ab[i]], [0, 0, 1, -sg * PI / 2.0], [1, 0, 0, P.tz[i]]])
 		pose(s + "ForeArm", [[0, 1, 0, -sg * P.el[i]]])
-	pose("Spine2", [[1, 0, 0, P.sp]])
-	pose("Head", [[1, 0, 0, P.hd]])
+	pose("Waist", [[0, 1, 0, spin], [1, 0, 0, P.wp], [0, 0, 1, -ls * P.wr]])
+	pose("Spine1", [[0, 1, 0, ls * P.tw * 0.4], [0, 0, 1, -ls * P.rl * 0.5]])
+	pose("Spine2", [[1, 0, 0, P.sp], [0, 1, 0, ls * P.tw * 0.6], [0, 0, 1, -ls * P.rl * 0.5]])
+	pose("Spine3", [[1, 0, 0, P.ch]])
+	pose("Head", [[1, 0, 0, P.hd], [0, 0, 1, -ls * P.hr]])
+
+# the pose P over the bones as they are, by wt (and the fists closed by its fs)
+func _jump_apply(P: Dictionary, wt: float, lead: int, spin := 0.0) -> void:
+	if wt < 0.002: return
+	var saved := []
+	for n in JUMP_BONES: saved.append(q[bones[n]] if bones.has(n) else Quaternion())
+	_jump_pose(P, lead, spin)
+	for i in JUMP_BONES.size():
+		var bi: int = bones.get(JUMP_BONES[i], -1)
+		if bi >= 0: q[bi] = saved[i].slerp(q[bi], wt)
+	for i in 2:
+		var cu: float = P.fs[i] * wt
+		if cu < 0.01: continue
+		var s := ("L" if i == 0 else "R") if lead == 0 else ("R" if i == 0 else "L")
+		var sg := 1.0 if s == "L" else -1.0
+		for f in FIST:
+			for j in range(1, 4): bend("%sFinger%s%d" % [s, f, j], 0, 0, 1, -sg * cu * (1.1 if j == 1 else 1.3))
+
+# the lowest point of the body (feet, knees, hands, head; skeleton space)
+func _low_pt() -> float:
+	var lo := INF
+	for p in LOW_PTS:
+		var bi: int = bones.get(p[0], -1)
+		if bi >= 0: lo = minf(lo, gxf(bi).origin.y - float(p[1]))
+	return lo
+
+func _jpick(set_name: String) -> String:
+	if jump_pick != "" and JV.has(jump_pick): return jump_pick
+	var names: Array = JSETS[set_name]
+	var tot := 0.0
+	for n in names: if n != jump.var or names.size() == 1: tot += float(JV[n].w)
+	var r := _rng.randf() * tot
+	for n in names:
+		if n == jump.var and names.size() > 1: continue
+		r -= float(JV[n].w)
+		if r <= 0.0: return n
+	return names[-1]
+
+func _lpick(drop: float, speed: float) -> String:
+	if land_pick != "" and LAND.has(land_pick): return land_pick
+	for L in LANDS:
+		if drop > float(L.max): continue
+		if speed > RUN_FROM and L.has("run"): return L.run
+		var p: Array = L.pick
+		if p.size() == 1: return p[0]
+		var c: String = p[_rng.randi() % p.size()]
+		return c if c != jump.ld else p[(p.find(c) + 1) % p.size()]
+	return "land"
+
+# the landing's timeline at u: [pose, weight]
+func _land_at(u: float) -> Array:
+	var K: Array = LAND[jump.ld].keys
+	for i in range(1, K.size()):
+		if u > float(K[i][0]) and i < K.size() - 1: continue
+		var a: Array = K[i - 1]
+		var b: Array = K[i]
+		var f := _sm(float(a[0]), float(b[0]), u)
+		var P := _jmix(_jpose(a[1]), _jpose(b[1]), f)
+		if a.size() > 3 or b.size() > 3:
+			P = P.duplicate()
+			for key in ["wp"]:
+				var va: float = a[3].get(key, _jpose(a[1])[key]) if a.size() > 3 else _jpose(a[1])[key]
+				var vb: float = b[3].get(key, _jpose(b[1])[key]) if b.size() > 3 else _jpose(b[1])[key]
+				P[key] = lerpf(va, vb, f)
+		return [P, lerpf(float(a[2]), float(b[2]), f)]
+	return [_jpose(K[-1][1]), 0.0]
 
 func _jump(dt: float, speed: float, air: bool) -> void:
 	var y := position.y
-	if not is_nan(jump.y) and dt > 0.0: jump.vy += ((y - jump.y) / dt - jump.vy) * minf(1.0, dt * 30.0)
+	var raw: float = (y - float(jump.y)) / dt if not is_nan(jump.y) and dt > 0.0 else 0.0
+	if not is_nan(jump.y) and dt > 0.0: jump.vy += (raw - jump.vy) * minf(1.0, dt * 30.0)
 	jump.y = y
 	if air and not was_air:
-		jump.t = 0.0; jump.run = _sm(1.5, WALK_V, speed); jump.lead = 0 if phase < 0.5 else 1
+		jump.t = 0.0; jump.y0 = y; jump.top = y; jump.vy0 = raw
+		jump.kind = "jump" if raw > 3.8 else ("hop" if raw > 1.0 else "drop")
+		var running := speed > 2.0
+		var st: String = jump.kind if jump.kind != "jump" else ("run" if running else "stand")
+		jump.var = _jpick(st)
+		jump.run = 1.0 if st == "run" else 0.0
+		jump.lead = (0 if phase < 0.5 else 1) if speed > 0.8 else _rng.randi() % 2
+		jump.spin = float(JV[jump.var].get("spin", 0.0)) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		jump.air_t = maxf(0.3, 2.0 * maxf(raw, 0.0) / JGRAV)
+	if air: jump.top = maxf(jump.top, y)
 	if not air and was_air:
-		jump.land = 0.0; jump.impact = minf(1.0, maxf(0.25, -jump.vy / 6.0))
+		var drop: float = jump.top - y
+		jump.ld = _lpick(drop, speed)
+		jump.land = 0.0
+		jump.impact = clampf(drop / 1.2, 0.35, 1.0)
 	was_air = air
-	air_w += ((1.0 if air else 0.0) - air_w) * (1.0 - exp(-dt * (18.0 if air else 12.0)))
+	# (a jump snaps into its crouch: the anticipation is only a few frames)
+	air_w += ((1.0 if air else 0.0) - air_w) * (1.0 - exp(-dt * ((40.0 if jump.kind == "jump" else 18.0) if air else 12.0)))
+	var landing: bool = jump.land < 1.0
+	if air_w < 0.002 and not landing and absf(jump.sa) < 1e-4:
+		holder.position.y = y0
+		return
+	var lo0 := _low_pt()
+	var V: Dictionary = JV.get(jump.var, JV.tuck)
+	var t: float = jump.t
+	# the spin: through the air, and finished off quickly after a landing
+	var full: float = jump.spin * TAU
+	if air and full != 0.0: jump.sa = full * _sm(0.08, 0.9, t / jump.air_t)
+	elif absf(jump.sa) > 0.0:
+		jump.sa = move_toward(jump.sa, full, dt * 16.0)
+		if absf(jump.sa - full) < 1e-4: jump.sa = 0.0; jump.spin = 0.0
+	var plant := 0.0
 	if air_w > 0.002:
 		if air: jump.t += dt
-		var ext: float = _sm(0.04, 0.2, jump.t)
-		var fall: float = _sm(1.5, -2.5, jump.vy)
-		var rise := _jmix(_jmix(J.take, J.rise, ext), _jmix(J.take, J.riseR, ext), jump.run)
-		var P := _jmix(rise, _jmix(J.fall, J.fallR, jump.run), fall)
-		var saved := []
-		for n in JUMP_BONES: saved.append(q[bones[n]] if bones.has(n) else Quaternion())
-		_jump_pose(P)
-		for i in JUMP_BONES.size():
-			var bi: int = bones.get(JUMP_BONES[i], -1)
-			if bi >= 0: q[bi] = saved[i].slerp(q[bi], air_w)
-	jump.land = minf(1.0, jump.land + dt / (0.32 + jump.impact * 0.12))
-	var u: float = jump.land
-	var cr: float = (minf(1.0, u / 0.12) * pow(1.0 - _sm(0.12, 1.0, u), 1.3) if u < 1.0 else 0.0) * jump.impact * (1.0 - air_w) * (1.0 - 0.5 * _sm(2.0, WALK_V, speed))
-	if cr > 0.001:
-		for s in ["L", "R"]:
-			bend(s + "Thigh", 1, 0, 0, -0.5 * cr); bend(s + "Leg", 1, 0, 0, 1.0 * cr); bend(s + "Foot", 1, 0, 0, -0.5 * cr)
-		bend("Spine2", 1, 0, 0, 0.22 * cr); bend("Head", 1, 0, 0, -0.14 * cr)
-		for s in [["L", 1.0], ["R", -1.0]]:
-			bend(s[0] + "ArmA", 1, 0, 0, -0.35 * cr); bend(s[0] + "ArmA", 0, 0, 1, s[1] * 0.15 * cr)
-	holder.position.y = y0 - cr * 0.1 * k / 1.3
+		var jk: bool = jump.kind == "jump"
+		var P: Dictionary
+		if jk:
+			P = _jmix(_jpose(V.crouch), _jpose(V.push), _sm(0.05, 0.12, t))
+			P = _jmix(P, _jpose(V.rise), _sm(0.12, 0.26, t))
+			plant = 1.0 - _sm(0.06, 0.13, t)
+		else:
+			P = _jmix(_jpose(V.push), _jpose(V.rise), _sm(0.0, 0.12, t))
+		P = _jmix(P, _jpose(V.top), _sm(2.4, 0.2, jump.vy) * (_sm(0.14, 0.28, t) if jk else 1.0))
+		P = _jmix(P, _jpose(V.fall), _sm(-0.2, -3.4, jump.vy))
+		var fl := _sm(JFLAIL.vy0, JFLAIL.vy1, jump.vy)
+		if fl > 0.001:
+			P = P.duplicate(true)
+			var ph: float = t * TAU * JFLAIL.rate
+			for i in 2:
+				var o := PI * i
+				P.sw[i] += (sin(ph + o) * JFLAIL.sw - 0.6) * fl
+				P.ab[i] += (JFLAIL.ab - P.ab[i] * 0.5) * fl
+				P.th[i] += sin(ph * 0.8 + o) * JFLAIL.th * fl
+				P.kn[i] += (0.5 + 0.5 * sin(ph * 0.8 + o + 1.2)) * JFLAIL.kn * fl
+			P.hd += 0.2 * fl
+		_jump_apply(P, air_w, jump.lead, jump.sa)
+	elif jump.sa != 0.0:
+		var bi: int = bones.get("Waist", -1)
+		if bi >= 0: q[bi] = Quaternion(Vector3.UP, jump.sa) * q[bi]
+	# the landing
+	if landing:
+		var D: Dictionary = LAND[jump.ld]
+		jump.land = minf(1.0, jump.land + dt / (float(D.dur) * (0.8 + 0.3 * jump.impact)))
+		var r := _land_at(jump.land)
+		var lw: float = r[1] * (1.0 - air_w) * (1.0 - (1.0 - float(D.keep)) * _sm(2.0, WALK_V, speed))
+		if jump.ld in ["soft", "land", "wide"]: lw *= 0.6 + 0.4 * jump.impact
+		_jump_apply(r[0], lw, jump.lead, jump.sa)
+	# the feet stay where the clips put them: on the ground through the anticipation and
+	# the landing (the body comes down instead of the feet up), off it in the air
+	var lo1 := _low_pt()
+	var off := 0.0
+	if not air: off = -(lo1 - lo0) * k
+	elif plant > 0.0: off = ((float(jump.y0) - y) - (lo1 - lo0) * k) * plant
+	holder.position.y = y0 + off
 
 # ---------- head look and blinking ----------
 func _head_look(dt: float) -> void:
