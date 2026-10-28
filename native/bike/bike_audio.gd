@@ -46,11 +46,11 @@ func _make_all() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var out := {}
-	out.roll_dirt = _noise_loop(rng, 1.6, 900.0, 0.55, 46.0, 2600.0, 0.85)
-	out.roll_grass = _noise_loop(rng, 1.6, 520.0, 0.75, 12.0, 1800.0, 0.35)
-	out.roll_sand = _noise_loop(rng, 1.6, 380.0, 0.9, 80.0, 1400.0, 0.7)
-	out.roll_hard = _noise_loop(rng, 1.6, 1500.0, 0.4, 4.0, 3000.0, 0.15)
-	out.wind = _noise_loop(rng, 2.0, 240.0, 1.0, 0.0, 0.0, 0.0)
+	out.roll_dirt = _noise_loop(rng, 1.6, 380.0, 0.85, 26.0, 1400.0, 0.45)
+	out.roll_grass = _noise_loop(rng, 1.6, 300.0, 0.9, 8.0, 1100.0, 0.2)
+	out.roll_sand = _noise_loop(rng, 1.6, 260.0, 0.95, 40.0, 900.0, 0.4)
+	out.roll_hard = _noise_loop(rng, 1.6, 520.0, 0.8, 3.0, 1600.0, 0.1)
+	out.wind = _noise_loop(rng, 3.0, 170.0, 1.0, 0.0, 0.0, 0.0)
 	out.scrub = _noise_loop(rng, 1.0, 1400.0, 0.8, 120.0, 3200.0, 0.5)
 	out.chain = _chain_loop(rng)
 	out.free = _click_loop(rng)
@@ -192,7 +192,7 @@ func _process(dt: float) -> void:
 	if not active and _quiet: return   # (off the bike: nothing to do until he rides again)
 	var v := speed if active else 0.0
 	var on := clampf(v / 1.2, 0.0, 1.0)
-	var vk := clampf(v / 9.0, 0.0, 1.4)
+	var vk := clampf(v / 14.0, 0.0, 1.3)   # (cruise is 13.5)
 	var surf_map := {"dirt": "roll_dirt", "sand": "roll_sand", "grass": "roll_grass", "tallgrass": "roll_grass", "stone": "roll_hard", "wood": "roll_hard", "water": "roll_sand"}
 	var roll: String = surf_map.get(surface, "roll_dirt")
 	var want := {}
@@ -200,12 +200,13 @@ func _process(dt: float) -> void:
 	var rv := on * (0.25 + 0.75 * pow(vk, 0.9))
 	if skid > 0.0: rv *= 1.0 - skid * 0.6
 	want[roll] = rv * (1.15 if roll == "roll_sand" else 1.0)
-	want.chain = (0.0 if coasting or not active else clampf(cadence / 0.6, 0.0, 1.0)) * 0.55
+	want.chain = (0.0 if coasting or not active else clampf(cadence / 0.6, 0.0, 1.0)) * 0.35
 	want.free = (on * clampf(wheel_rps / 1.0, 0.0, 1.0) * 0.6) if coasting and active and skid < 0.1 else 0.0
 	want.squeal = skid * clampf(v / 3.0, 0.0, 1.0)
 	want.scrub = skid * clampf(v / 2.0, 0.0, 1.0) * 0.9
-	want.wind = minf(1.0, clampf((v - 3.0) / 8.0, 0.0, 1.0) * 0.8 + flow * 0.3) if active else 0.0
-	var base_db := {"roll_dirt": -15.0, "roll_grass": -17.0, "roll_sand": -14.0, "roll_hard": -19.0, "chain": -24.0, "free": -32.0, "squeal": -15.0, "scrub": -14.0, "wind": -20.0}
+	want.wind = minf(1.0, clampf((v - 2.0) / 12.0, 0.0, 1.0) * 0.85 + flow * 0.2) if active else 0.0
+	# soft and airy: the wind leads, the tyres a quiet low rumble under it, the chain and freewheel faint
+	var base_db := {"roll_dirt": -29.0, "roll_grass": -31.0, "roll_sand": -28.0, "roll_hard": -32.0, "chain": -33.0, "free": -37.0, "squeal": -20.0, "scrub": -22.0, "wind": -17.0}
 	_quiet = true
 	for n in LOOPS:
 		var p: AudioStreamPlayer = players[n]
@@ -222,9 +223,9 @@ func _process(dt: float) -> void:
 		match n:
 			"chain": p.pitch_scale = clampf(maxf(cadence, 0.2), 0.3, 3.0)
 			"free": p.pitch_scale = clampf(wheel_rps * 24.0 / 60.0, 0.5, 2.5)
-			"wind": p.pitch_scale = 0.8 + vk * 0.4 + flow * 0.12
+			"wind": p.pitch_scale = 0.85 + vk * 0.22 + flow * 0.06
 			"squeal": p.pitch_scale = 0.96 + v * 0.01
-			_: if n.begins_with("roll"): p.pitch_scale = 0.75 + vk * 0.45
+			_: if n.begins_with("roll"): p.pitch_scale = 0.85 + vk * 0.15
 
 func stop_all() -> void:
 	active = false
