@@ -174,7 +174,8 @@
         }
         const c = V(); bbox(p).getCenter(c);
         const gy = T.height(c.x, c.z);
-        if (maxY < gy + 0.05) add('ground', 'high', c, p, `buried: its top is ${(gy - maxY).toFixed(2)} m under the ground`, 'raise it to the ground (height(x, z))');
+        // (a piece tagged 'ground' is an earth face under a turf lip: below the brim by design)
+        if (maxY < gy + 0.05 && !skip(p, 'ground', 'ground')) add('ground', 'high', c, p, `buried: its top is ${(gy - maxY).toFixed(2)} m under the ground`, 'raise it to the ground (height(x, z))');
         else if (minGap !== Infinity && minGap > 0.05) add('ground', minGap > 0.25 ? 'high' : 'med', at, p, `floats ${minGap.toFixed(2)} m above whatever is under it`, 'set its y from the ground under its footprint (lowest point, or sink it a little)');
         else if (fl.length >= 3 && airFeet && airFeet >= fl.length / 3 && maxGap > 0.15 && H < 6) add('ground', 'low', at || c, p, `${airFeet} of ${fl.length} feet are up to ${maxGap.toFixed(2)} m off the ground (on a slope)`, 'level it on the lowest point of its footprint, or tilt its legs to the slope');
       }

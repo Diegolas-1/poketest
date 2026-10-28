@@ -44,21 +44,7 @@ func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 		rng[0] = (rng[0] * 1664525 + 1013904223) & 0xFFFFFFFF
 		return rng[0] / 4294967296.0
 	# the clump: blade records first (same random order as the web build)
-	var blades: Array = []
-	var blade_at := func(rx: float, rz: float, ang: float, lean: float, ln: float, wid: float, notch: bool, layer: float, curl: float, role: int) -> void:
-		blades.append([rx, rz, ang, lean, ln, wid, notch, layer, curl, role, (r.call() - 0.5) * 0.6])
-	var tuft := func(cx: float, cz: float, sc: float) -> void:
-		var R := func(k: float) -> float: return (r.call() - 0.5) * k
-		for k in 6: blade_at.call(cx + R.call(0.08) * sc, cz + R.call(0.08) * sc, r.call() * 6.28, 0.12, (0.32 + r.call() * 0.15) * sc, 0.07 * sc, false, 0.55, 0.0, 1)
-		for k in 7: blade_at.call(cx + R.call(0.12) * sc, cz + R.call(0.12) * sc, r.call() * 6.28, 0.22 + r.call() * 0.2, (0.65 + r.call() * 0.3) * sc, 0.09 * sc, r.call() < 0.3, 0.8, 0.0, 0)
-		for k in 8: blade_at.call(cx + R.call(0.14) * sc, cz + R.call(0.14) * sc, (k / 8.0) * 6.28 + R.call(0.6), 0.45 + r.call() * 0.35, (0.85 + r.call() * 0.4) * sc, 0.1 * sc, r.call() < 0.4, 1.0, 0.0, 0)
-		for k in 4: blade_at.call(cx + R.call(0.1) * sc, cz + R.call(0.1) * sc, r.call() * 6.28, 0.5 + r.call() * 0.6, (0.8 + r.call() * 0.4) * sc, 0.014 * sc, false, 0.9, 0.0, 2)
-		for k in 2: blade_at.call(cx + R.call(0.2) * sc, cz + R.call(0.2) * sc, r.call() * 6.28, 1.6, 0.28 * sc, 0.045 * sc, false, 0.85, 1.0, 3)
-	tuft.call(0.0, 0.0, 1.0)
-	for k in 3:
-		var a: float = k * 2.1 + r.call()
-		var d: float = 0.3 + r.call() * 0.15
-		tuft.call(cos(a) * d, sin(a) * d, 0.55 + r.call() * 0.3)
+	var blades := make_blades(rng)
 	var near := _clump(blades, 5, 3)
 	var mid := _clump(blades, 4, 1)
 	var far := _clump(blades, 2, 0)   # (2 segments: a third fewer triangles where a blade is a few pixels)
@@ -119,12 +105,38 @@ func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 			t.node = mi
 			tiles.append(t)
 
+
+# The blades of one clump, as records [rx, rz, ang, lean, len, wid, notch,
+# layer, curl, role, twist] (web assets.js grassBlades, the same random order
+# from the shared state rng = [seed]); the grass lips (grass_lip.gd) build their
+# clusters from these same blades.
+static func make_blades(rng: Array) -> Array:
+	var r := func() -> float:
+		rng[0] = (rng[0] * 1664525 + 1013904223) & 0xFFFFFFFF
+		return rng[0] / 4294967296.0
+	var blades: Array = []
+	var blade_at := func(rx: float, rz: float, ang: float, lean: float, ln: float, wid: float, notch: bool, layer: float, curl: float, role: int) -> void:
+		blades.append([rx, rz, ang, lean, ln, wid, notch, layer, curl, role, (r.call() - 0.5) * 0.6])
+	var tuft := func(cx: float, cz: float, sc: float) -> void:
+		var R := func(k: float) -> float: return (r.call() - 0.5) * k
+		for k in 6: blade_at.call(cx + R.call(0.08) * sc, cz + R.call(0.08) * sc, r.call() * 6.28, 0.12, (0.32 + r.call() * 0.15) * sc, 0.07 * sc, false, 0.55, 0.0, 1)
+		for k in 7: blade_at.call(cx + R.call(0.12) * sc, cz + R.call(0.12) * sc, r.call() * 6.28, 0.22 + r.call() * 0.2, (0.65 + r.call() * 0.3) * sc, 0.09 * sc, r.call() < 0.3, 0.8, 0.0, 0)
+		for k in 8: blade_at.call(cx + R.call(0.14) * sc, cz + R.call(0.14) * sc, (k / 8.0) * 6.28 + R.call(0.6), 0.45 + r.call() * 0.35, (0.85 + r.call() * 0.4) * sc, 0.1 * sc, r.call() < 0.4, 1.0, 0.0, 0)
+		for k in 4: blade_at.call(cx + R.call(0.1) * sc, cz + R.call(0.1) * sc, r.call() * 6.28, 0.5 + r.call() * 0.6, (0.8 + r.call() * 0.4) * sc, 0.014 * sc, false, 0.9, 0.0, 2)
+		for k in 2: blade_at.call(cx + R.call(0.2) * sc, cz + R.call(0.2) * sc, r.call() * 6.28, 1.6, 0.28 * sc, 0.045 * sc, false, 0.85, 1.0, 3)
+	tuft.call(0.0, 0.0, 1.0)
+	for k in 3:
+		var a: float = k * 2.1 + r.call()
+		var d: float = 0.3 + r.call() * 0.15
+		tuft.call(cos(a) * d, sin(a) * d, 0.55 + r.call() * 0.3)
+	return blades
+
 # one clump mesh: segs per blade; roles kept: 3 = all, 1 = no wisps or curls, 0 = main blades;
 # outer > 0: only each tuft's outer ring of tall blades (layer 1), that much wider
 # (the same cover from half the blades, where a blade is a pixel or two wide).
 # A one-segment blade is drawn twice as wide: it loses the bulge of its middle
 # vertex, so it covers what the two-segment blade does
-func _clump(blades: Array, segs: int, max_role: int, outer := 0.0) -> ArrayMesh:
+static func _clump(blades: Array, segs: int, max_role: int, outer := 0.0) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var base := 0

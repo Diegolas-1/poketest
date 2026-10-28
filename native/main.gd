@@ -7,6 +7,10 @@ extends Node3D
 const TOON := preload("res://shaders/toon.gdshader")
 const TOON_DS := preload("res://shaders/toon_ds.gdshader")
 const TERRAIN := preload("res://shaders/terrain.gdshader")
+const EARTH := preload("res://shaders/earth.gdshader")   # earth faces: banks, ledges (web props/earth.js)
+const GrassLip := preload("res://grass_lip.gd")
+var earth_tex: Texture2D   # the earth atlas (world/base/earth.webp)
+var lips: Node3D          # the fluffy grass lips over banks, walls and ledges (grass_lip.gd)
 const SEA := preload("res://shaders/sea.gdshader")
 const FRESH := preload("res://shaders/fresh.gdshader")
 const FRESH_FALL := preload("res://shaders/fresh_fall.gdshader")
@@ -90,6 +94,10 @@ func _ready() -> void:
 	grass = Grass.new()
 	add_child(grass)
 	grass.build(world, int(Settings.get_value("grass")), float(Settings.get_value("grass_size")), SUN_DIR.normalized())
+	lips = GrassLip.new()
+	lips.name = "GrassLips"
+	add_child(lips)
+	lips.build(SUN_DIR.normalized())
 	_player()
 	_hud()
 	_settings_hook()
@@ -175,6 +183,8 @@ func _terrain() -> void:
 	m.shader = TERRAIN
 	m.set_shader_parameter("grass_tex", load(WorldRegions.BASE + "grass.png"))
 	m.set_shader_parameter("dirt_tex", load(WorldRegions.BASE + "dirt.webp"))
+	if earth_tex == null: earth_tex = load(WorldRegions.BASE + "earth.webp")
+	m.set_shader_parameter("earth_tex", earth_tex)
 	m.set_shader_parameter("path_map", world.path_tex)
 	var pm: Dictionary = world.meta.pathmap
 	m.set_shader_parameter("pm_origin", Vector2(pm.x0, pm.z0))
@@ -195,6 +205,14 @@ func toon_for(src: Material) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = TOON
 	var nm := String(src.resource_name) if src else ""
+	# earth faces: painted soils from the earth atlas (shaders/earth.gdshader)
+	if nm.begins_with("earth"):
+		m.shader = EARTH
+		if earth_tex == null: earth_tex = load(WorldRegions.BASE + "earth.webp")
+		m.set_shader_parameter("earth_tex", earth_tex)
+		mats[src] = m
+		mats[key] = m
+		return m
 	if src is BaseMaterial3D:
 		m.set_shader_parameter("albedo", src.albedo_color)
 		if src.albedo_texture:
@@ -373,6 +391,7 @@ func _process(dt: float) -> void:
 	elif indoors: _camera_in(dt)
 	else: _camera(dt)
 	if not indoors: scenery.update(cam.global_position)
+	if not indoors and lips: lips.update(cam.global_position)
 	if not indoors and route1: route1.update(dt)
 	fps_acc += dt; fps_n += 1; fps_worst = maxf(fps_worst, dt)
 	if fps_acc >= 0.5:
@@ -457,7 +476,7 @@ func _trans_step(dt: float) -> void:
 	fader.queue_redraw()
 
 func _outdoor_shown(on: bool) -> void:
-	for n in [terrain_root, town_root, water_root, scenery, sun]:
+	for n in [terrain_root, town_root, water_root, scenery, sun, lips]:
 		if n: n.visible = on
 	if cast and cast.bike: cast.bike.set_shown(on)   # (it waits outside)
 	for n in outdoor_ink:

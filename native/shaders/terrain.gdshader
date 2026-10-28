@@ -10,6 +10,10 @@ render_mode ambient_light_disabled;
 uniform sampler2D grass_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D path_map : filter_linear_mipmap, repeat_disable;
 uniform sampler2D dirt_tex : filter_linear_mipmap_anisotropic, repeat_enable;
+// the earth atlas (world/base/earth.webp: eight CC0 soils as painted detail
+// around 0.5, 4 x 2 tiles of 512 px with a 16 px wrapped border; web
+// props/earth.js): the steep earth's strata and the paths' soils
+uniform sampler2D earth_tex : filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec2 pm_origin;
 uniform vec2 pm_size;
 uniform vec3 sun_dir = vec3(-0.55, 0.75, 0.45);
@@ -30,6 +34,12 @@ float p_hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx +
 float pvn(vec2 p) {
 	vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
 	return mix(mix(p_hash(i), p_hash(i + vec2(1, 0)), f.x), mix(p_hash(i + vec2(0, 1)), p_hash(i + vec2(1, 1)), f.x), f.y);
+}
+vec3 e_tile(vec2 p, float k) {
+	vec2 cell = vec2(mod(k, 4.0), floor(k / 4.0));
+	vec2 sc = vec2(480.0 / 2048.0, 480.0 / 1024.0);
+	vec2 q = (cell * 512.0 + 16.0) / vec2(2048.0, 1024.0) + fract(p) * sc;
+	return textureGrad(earth_tex, q, dFdx(p) * sc, dFdy(p) * sc).rgb;
 }
 float p_sd(vec2 w) { return texture(path_map, (w - pm_origin) / pm_size).r * 8.0 - 4.0; }
 
@@ -72,6 +82,15 @@ vec3 steep_ground(vec3 w, vec3 n, vec3 vc, vec3 flat_grass, out float earth) {
 	k *= smoothstep(0.3, 0.55, pvn(w.xz * 0.5 + w.y * 0.4) + k * 0.45);
 	float sx = bw.x / max(bw.x + bw.z, 1e-4);
 	vec3 e = mix(earth_col(w.x, w.y), earth_col(w.z, w.y), sx);
+	// the soil's own detail from the earth atlas: each stratum its soil
+	// (loam, clay, eroded silt or dark clay), two soils blended over the face
+	float ea = mix(w.x, w.z, sx);
+	float band = floor((w.y + (pvn(vec2(ea * 0.25, 1.7)) - 0.5) * 0.9) / 1.05);
+	float bt = p_hash(vec2(band, 3.7));
+	float t0 = bt < 0.3 ? 2.0 : bt < 0.52 ? 0.0 : bt < 0.68 ? 5.0 : 6.0;
+	vec2 ep = vec2(ea, w.y) / 1.6;
+	vec3 ed = mix(e_tile(ep, t0), e_tile(ep * 0.83 + vec2(0.37, 0.61), t0 == 0.0 ? 4.0 : 3.0), smoothstep(0.4, 0.6, pvn(w.xz * 0.45 + w.y * 0.3)));
+	e *= mix(vec3(1.0), ed * 2.0, 0.8);
 	// grass darker where it hangs on over the earth (a soft edge, no line)
 	grass *= mix(1.0, 0.8, k);
 	earth = k;
@@ -165,6 +184,13 @@ void fragment() {
 		c = mix(c, d_light * 1.04, 0.4 * rk * (1.0 - smoothstep(0.03, 0.09, abs(lat - 0.83))));
 		float pn = pvn(wp * 0.32 + 11.0) * 0.65 + pvn(wp * 0.9 + 3.0) * 0.35;
 		c *= 0.86 + smoothstep(0.25, 0.75, pn) * 0.22;
+		// the soils of the track: sandy and gravelly patches from the earth atlas
+		// (a seeded blend, so no stretch of path repeats), faint far off
+		if (far_k < 0.99) {
+			vec2 sp = wp / 2.2;
+			vec3 sd2 = mix(e_tile(sp, 1.0), e_tile(sp * 0.83 + vec2(0.3, 0.7), 3.0), smoothstep(0.35, 0.65, pvn(wp * 0.12 + 5.0)));
+			c *= mix(vec3(1.0), sd2 * 2.0, 0.3 * (1.0 - far_k));
+		}
 		float dq = mix(det, floor(det * 4.0 + 0.5) / 4.0, 0.65 * (1.0 - far_k));
 		c *= 0.66 + dq * 0.72;
 		vec2 nn = dt.gb * 2.0 - 1.0;

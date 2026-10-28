@@ -1,228 +1,186 @@
-# Energy: moves paid for like Trading Card Game energy
+# Energy: TCG chips, persistent focus
 
-The battle mechanic for every Pokémon (wild ones now, Ash's own later). It's inspired by the energy cards of the Pokémon Trading Card Game, used like mana. Ash has no energy: his fatigue bar is his battle health (the battle owns that).
+The battle mechanic for every Pokémon. It borrows the energy cards of the Pokémon Trading Card Game and adds persistent focus. Battles should feel like the show: fluid and tactical, with Pokémon using many moves, not four. Ash has no energy: in the prologue his fatigue bar is his health, and the hook only ever gives the wild side a bar.
 
-Code: `native/battle/energy.gd` (`BattleEnergy`, the rules, headless), `native/battle/energy_hook.gd` (`EnergyHook`, the plug into the battle), `native/ui/energy_icon.gd`, `energy_bar.gd`, `energy_move_list.gd` (the look). Data: `native/life/pokemon.json`, `native/life/moves.json`. Test: `dev/energy_test.tscn`. Look: `dev/energy_shot.tscn`.
+**Code**
+- `native/battle/energy.gd` (`BattleEnergy`): focus, pools, locks, slots, learning, items, between-battle life, the wild planner. Headless.
+- `native/battle/pkmn_battle.gd` (`PkmnBattle`): the Pokémon-vs-Pokémon rules engine. Its header documents the hosting calls.
+- `native/battle/pkmn_ai.gd` (`PkmnAI`): wild and trainer opponents.
+- `native/battle/energy_hook.gd` (`EnergyHook`): the plug into the prologue battle (battle.gd).
+- `native/battle/battle_config.gd` (`BattleConfig`): reads the one config file.
+- UI: `native/ui/energy_icon.gd`, `energy_bar.gd`, `energy_move_list.gd`, `pkmn_hud.gd`.
 
-## The rules
+**Data**
+- `native/life/battle_config.json`: every tunable number.
+- `native/life/pokemon.json`: species, type chart.
+- `native/life/moves.json`: moves.
+- Both data files define their schema in a `_schema` key.
 
-1. **Each turn a Pokémon focuses a little more.** On turn *n* of a battle it has `min(n, capacity)` energy chips. Turn 1 has 1 chip, turn 2 has 2, and so on until the bar is full. A fight that drags on gets more dangerous.
-2. **Energy resets each turn.** Unspent chips don't carry over, so there's nothing to hoard. The choice is how to spend this turn's chips.
-3. **Several actions a turn.** A move costs chips. A Pokémon can use as many moves as its chips pay for: one big move, or several cheap ones. Repeats are allowed.
-4. **Chips have types, as in the TCG.** Each chip is an energy kind. A typed cost (Fire) is paid only by a chip of that kind. A Colorless cost is paid by any chip. Matching works TCG-style: every typed cost is matched first, and each Colorless cost is then paid from what's left, using real Colorless chips first and then the kind it has most of, so the rarer kinds stay for typed costs.
-5. **Which kinds come.** Each species has a focus order: the kinds its chips come in, cycled from the first chip of every turn. It's mostly the Pokémon's own types, plus Colorless. Normal folds into Colorless, as in the TCG. Pidgey's order is Flying, Colorless; Pikachu's is Lightning, Lightning, Colorless; Bulbasaur's is Grass, Grass, Poison, Colorless, Grass. Turn 1 is always the Pokémon's own type. The order is deterministic, so the player can read a foe's bar and plan against it.
-6. **No four-move cap.** Moves are learned by level and never forgotten. The real limit is the bar: a move costs at most `capacity` chips. A move can be learned once the level is reached *and* the bar at that level can pay its cost. A known move that is bigger than the bar shows as locked, with the level its slots open. This happens with a TM, or with a Pokémon that knows a move from elsewhere.
-7. **Levelling unlocks slots.** New slots come at fixed levels (the table below). Each new slot opens the moves that need it.
-8. **Items (the hook only).** Rare, expensive items restore chips during a turn, up to capacity: `restore(n, kind)` and `use_item(id)`. Three are sketched in `pokemon.json energy_items`.
+**Dev**
+- Tests: `dev/energy_test.tscn` and `dev/pkmn_battle_test.tscn`.
+- Playable: `dev/pkmn_battle.tscn` (`--fight=wild|trainer`, `--auto`, `--state=...`, `--safe=L,T,R,B`, `--show-safe`, `--shot=path`).
+- Old look: `dev/energy_shot.tscn`.
 
-### Why it fits the show
+## The terms (separate fields in `BattleEnergy`)
 
-- Pokémon in the anime don't have four moves. Pikachu knows a lot, and Ash calls whichever fits the moment. Here the bar is the limit, not the list.
-- Fights build. A fresh Pokémon is limited to quick jabs. A few turns in, it can unload a Thunderbolt or a Gust. That's the anime's rhythm: feints first, then the big move. It's also why even a Pidgey is scary: a kid who stays in the fight lets it build up to its best moves.
-- The choice is real every turn: one big hit, or a Sand-Attack and a Quick Attack. The TCG's "attach energy, then attack" becomes "focus, then spend".
-- Charge-up moves such as Solar Beam and Skull Bash need no special charge-turn rule. They cost 4 chips, which can't come before turn 4.
-
-## Balance numbers
-
-### Slots by level (`pokemon.json capacity`)
-
-| Level | 1 | 3 | 8 | 14 | 21 | 29 | 38 | 48 | 60 | 75 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Slots | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 (max) |
-
-A species can shift this with `capacity_shift` (in slots). None does yet.
-
-- Route 1 Pidgey (Lv 2–5) have 1–2 slots.
-- A starter at Lv 5 has 2 slots.
-- 4-chip moves arrive in the Lv 25–34 band.
-
-### Power per cost (`moves.json`)
-
-| Cost | 1 chip | 2 chips | 3 chips | 4 chips |
-|---|---|---|---|---|
-| Power | 35–40 | 70–80 | 115–125 | 170–185 |
-| Per chip | ~37 | ~37 | ~40 | ~44 |
-
-- **Big moves pay a little more per chip.** This rewards waiting for a full bar.
-- **Cheap moves win on flexibility.** You get more actions, priority (Quick Attack), status effects, and you can finish a weak foe without wasting a big move.
-- **Off-type moves cost Colorless only, plus one extra chip.** Examples: Iron Tail is 3 Colorless for 115, Bite is 2 Colorless for 65, Dragon Rage is 2 Colorless.
-
-### Pidgey (Normal / Flying; focus Flying, Colorless; wild Lv 2–5)
-
-| Move | Learned | Cost | Power | Acc | Effects |
-|---|---|---|---|---|---|
-| Tackle | 1 | Colorless | 35 | 95 | – |
-| Sand-Attack | 2 | Colorless | – | 100 | lowers accuracy |
-| Gust | 3 | Flying + Colorless | 75 | 100 | wind, hits airborne |
-| Quick Attack | 3 | Colorless | 30 | 100 | priority +1 |
-| Whirlwind | 9 | Colorless ×2 | – | 100 | blows the foe away (ends a wild fight), priority −1 |
-| Wing Attack | 15 | Flying ×2 + Colorless | 120 | 100 | – |
-
-A Lv 3 Pidgey has 2 slots. Turn 1 gives it one chip (a jab or sand). From turn 2 on it either Gusts or makes two cheap moves.
-
-### The starters (5 species, 35 moves in `moves.json`)
-
-- **Pikachu** (focus Lightning, Lightning, Colorless):
-  - Lv 1: Thunder Shock (Lightning, 40, may paralyse) and Growl
-  - Lv 3: Tail Whip
-  - Lv 5: Quick Attack
-  - Lv 7: Thunder Wave (Lightning)
-  - Lv 10: Double Team (Colorless ×2)
-  - Lv 16: Thunderbolt (Lightning ×2 + Colorless, 120)
-  - Lv 22: Iron Tail (Colorless ×3, 115, acc 75)
-  - Lv 30: Thunder (Lightning ×3 + Colorless, 175, acc 70)
-- **Bulbasaur** (focus Grass, Grass, Poison, Colorless, Grass):
-  - Lv 1: Tackle and Growl
-  - Lv 3: Vine Whip (Grass + Colorless, 70)
-  - Lv 7: Leech Seed (Grass)
-  - Lv 11: PoisonPowder (Poison) and Sleep Powder (Grass + Colorless)
-  - Lv 15: Razor Leaf (Grass ×2, 75)
-  - Lv 19: Take Down (Colorless ×3, 115, recoil)
-  - Lv 30: Solar Beam (Grass ×3 + Colorless, 180)
-- **Charmander** (focus Fire, Fire, Colorless):
-  - Lv 1: Scratch and Growl
-  - Lv 4: Ember (Fire, 40)
-  - Lv 8: Smokescreen
-  - Lv 12: Dragon Rage (Colorless ×2, always 40)
-  - Lv 17: Slash (Colorless ×2, 70)
-  - Lv 22: Flamethrower (Fire ×2 + Colorless, 120)
-  - Lv 28: Fire Spin (Fire ×2)
-- **Squirtle** (focus Water, Water, Colorless):
-  - Lv 1: Tackle and Tail Whip
-  - Lv 4: Bubble (Water, 35)
-  - Lv 7: Withdraw (Water)
-  - Lv 10: Water Gun (Water + Colorless, 70)
-  - Lv 13: Bite (Colorless ×2)
-  - Lv 16: Rapid Spin
-  - Lv 25: Skull Bash (Colorless ×4, 170)
-  - Lv 34: Hydro Pump (Water ×3 + Colorless, 185, acc 80)
-
-`dev/energy_test` checks every learnset row: the move exists, its kinds are real, and a full bar at its level pays it.
-
-### The wild one's planner (`plan_turn(known, style, ctx)`)
-
-`plan_turn` searches every ordered set of moves this turn's chips can pay for, with repeats and up to 6 actions, and keeps the best by style. Each move is valued as follows:
-
-- **Damage:** power × accuracy × the style's damage weight.
-- **Status:** a value per effect, for example acc_down 30, para 34, sleep 40, poison 28, atk_down / def_down 20. On a damaging move a side effect counts 30 %. Each earlier use this battle halves a status move's value, so the second Sand-Attack is worth half the first.
-- **Variety:** the same attack again in one turn is worth ×0.75 (×0.92 for the aggressive style). Each earlier use this battle costs ×0.94, up to 4 uses.
-- **Priority:** +6, for the first priority move only.
-- **Per action:** the style's bonus. **A chip left unspent:** −20.
-
-| Style | Damage | Status | Per action | Biggest cost | Whirlwind | Temper |
-|---|---|---|---|---|---|---|
-| aggressive | ×1.0 | ×0.3 | −4 | +12 per chip | off | aggressive |
-| strategic | ×0.9 | ×1.3 | +8 | – | ×0.5 | flighty, curious |
-| evasive | ×0.55 | ×1.6 | +6 | – | ×5 | timid |
-
-The order to act in:
-
-- Priority moves go first.
-- Aggressive: the biggest moves next.
-- Strategic and evasive: status moves first, then the cheap attacks.
-- Whirlwind (priority −1) goes last.
-
-`ctx.rng` + `ctx.jitter` add a little noise, for variety. The hook uses 0.1.
-
-What a Lv 3 Pidgey does over turns 1–5 (no jitter):
-
-| Style | Turns 1–5 |
-|---|---|
-| aggressive | Quick Attack · Gust · Gust · Gust · Gust |
-| strategic (flighty, curious) | Sand-Attack · Quick Attack + Tackle · Quick Attack + Tackle · Gust · Quick Attack + Tackle |
-| evasive (timid) | Sand-Attack · Quick Attack + Sand-Attack · Quick Attack + Tackle · Quick Attack + Tackle · … |
-
-A Lv 9 timid Pidgey plays Whirlwind on turn 2.
-
-### Damage guidance for the battle (BATTLE owns the numbers)
-
-A Pidgey can now make 2 moves a turn, so damage should scale with cost. That way one full turn still costs Ash about one "hit", and he survives 3–4 turns of it.
-
-- **Per chip:** about 13–16 of Ash's 100 HP.
-- **Pidgey's moves:**
-  - Tackle (1 chip): 12–16
-  - Quick Attack (1 chip): 10–14
-  - Gust (2 chips): 27–33, as battle.gd has it now
-  - Sand-Attack: no damage
-- **The suggested formula:** `dmg = wild.json dmg × power / 75`, with Gust as the reference.
-
-Turn 1 being a single chip gives the build-up: the first hit is a nip, then it gets serious.
-
-### Items (the hook)
-
-| Item | Restores | Price |
+| Term | Field | What it is |
 |---|---|---|
-| Energy Shard | 1 Colorless | ₽1,500 |
-| Focus Crystal | 2 of its own kinds | ₽4,000 |
-| Full Charge | the whole bar | ₽12,000 |
+| Focus | `focus` | 0 to 100, persistent per Pokémon. The engine that makes chips. |
+| Chips | in `pools` | The spendable units. `chips = min(floor(focus / step), chip_cap)`, so the bar and the count always agree. |
+| Pools | `pools` | `{kind: {ready, spent}}`: one per energy type the Pokémon has (Normal folds into Colorless), plus Colorless, the default. At most four. |
+| Locked chips | `locks` | Chips set aside by a reaction move until it triggers or expires. They count against the total. |
+| Energy slots | `slots`, `equipped` | Level-gated: how many moves can be equipped (usable). Distinct from chips. |
 
-They're meant to be rare: shop prices like this, or found once.
+## Focus
+
+- **Gain.** Each undisturbed turn focus rises by the species' gain (default +10). A chip comes at each threshold (default every 20%).
+  - Step, cap and gain are per type and per species (`focus.by_type`, `focus.species`). Psychic types gain faster and resist disruption. Snorlax starts at 0, gains +5 and holds 8 chips.
+- **Disruption** lowers focus by a step (default 15; per move in `disruption.moves`), never a full reset. The next turn gains nothing.
+  - The disruption moves are Leer, Growl, Screech, Hypnosis, Confusion, Roar, Whirlwind and Mean Look. Flinch and confusion also disrupt.
+  - A chip over the new threshold is lost. Pending chips go first, then spent ones, then ready Colorless, then ready typed, then locks.
+- **Sleep:** no gain while asleep.
+- **Locked In** at 100%. `locked_in.mode` picks the buff: `acc_crit` (+10 accuracy, +1 crit stage), `wild_chip` (one extra chip that counts as any type), or `both`. Any disrupting hit removes it.
+- **Perks** (`perks`) raise the start, the gain, the cap or the disruption resistance. Examples: Focus Band, Calm Bell, Zen Charm.
+
+## The turn
+
+1. **Start.** Spent chips come back. Focus gains. New chips go to a pool.
+   - One typed pool, or only Colorless: the rule decides (fill the typed pool to `typed_pool_cap`, then Colorless). Zero taps.
+   - Two or more typed pools (Bulbasaur): the player makes one choice for the turn's new chips by tapping a tray. No choice puts them in the default pool (Colorless).
+   - The AI sends each chip to where its moves' typed costs need it.
+2. **Queue moves** while the chips last. Paying is TCG matching: typed costs are matched first, and Colorless costs are paid by any chip. Spent chips dim until the next turn. Cheap moves chain, big moves take most of the chips.
+3. **Resolve.** Actions interleave by Speed: one action each in turn, the faster side first, the higher priority head first. This is one swappable function, `PkmnBattle.order_fn` (default `speed_interleave`).
+4. **End.** Status ticks. Locks past their expiry release.
+
+**No four-move cap.** Moves are learned by level, TM or tutor (`teach`) and never forgotten. Slots limit what is equipped. Known moves outside the slots show locked in the move list ("LOCKED · SLOTS FULL 5/5 · NEXT SLOT LV 18"), sorted to the bottom.
+
+## Move roles and tiers
+
+Every move has a `role` and a `tier`.
+
+**Roles**
+- **Offense:** damage now. Big moves pay a little more per chip.
+- **Reaction** (Dodge, Detect, Protect, Counter, Mirror Coat): the chip is locked and triggers on the opponent's next move.
+  - Dodge evades anything.
+  - Detect blocks the next attack. Protect blocks every attack for the turn.
+  - Counter returns a physical hit doubled. Mirror Coat returns a special hit doubled. The wrong category wastes the chip.
+  - An untriggered lock releases at the end of the following turn (`locks.expiry_turns`).
+  - The opponent sees it face down, in a trap tray of its own, with a "TRAP SET" tag. The owner sees "DODGE SET".
+- **Two-phase** (Dig, Fly, Bounce, Dive, Solar Beam, Skull Bash): pay on turn one to commit, then strike free on turn two. They give more per chip.
+  - Underground, airborne or underwater, the user is untargetable except by the counter table. Solar Beam and Skull Bash only charge, so the user can still be hit.
+  - A dodge locked before going under or up is wasted.
+- **Disruption** and **Utility** (status, stats, Mind Reader, Foresight...).
+
+**Tiers**
+- `opener`: about 1 chip.
+- `mid`: 2 to 3 chips, 4 for the heaviest.
+- `finisher`: costs every unlocked chip. Its cost is `{"all": true, "min": N, "type": kind | "any"}` and its power is `power + power_per_chip × chips` (`finisher` in the config).
+  - Examples: Volt Tackle, Flare Blitz, Frenzy Plant, Hydro Cannon, Brave Bird, Giga Impact, Fissure Slam.
+  - In the move list it shows ALL plus its minimum.
+
+## The counter table (`counters.rows`, data, not code)
+
+| Move | Interaction |
+|---|---|
+| Earthquake, Magnitude | Hit a digger for ×2. |
+| Ground Pound | Hits a digger for ×2, with a 30% chance to pull it out (no strike). Ground, physical, 2 chips. |
+| Thunder, Sky Uppercut | Hit a flyer. |
+| Gust, Twister | Hit a flyer for ×2. |
+| Surf, Whirlpool | Hit a diver for ×2. |
+| Swift | Reaches every semi-invulnerable state and ignores dodges and evasion. |
+| Feint | Breaks Protect and Detect. |
+| Roar, Whirlwind | Force the target out of any two-phase move, and disrupt its focus. |
+| Mind Reader, Lock-On (1 chip) | Cancel the target's dodge for the user's next attack (`cancel_dodge`). |
+| Foresight | Removes evasion boosts and lets Normal and Fighting moves hit Ghosts. |
+
+Adding a row changes the battle with no code. A test checks this.
+
+## Type matchups
+
+The type chart is in `pokemon.json type_chart`. A species whose data names `weakness` and `resistance` (energy kinds, from the Kanto 151 dataset) uses TCG matchups instead (`matchups` in the config):
+- weakness ×2
+- resistance ×0.6, plus an optional flat `resistance_sub`
+
+The chart's immunities still hold. `mode` is `auto`, `chart` or `tcg`.
+
+## Between battles (game time only)
+
+Focus is saved per Pokémon (`to_dict` / `from_dict`: focus, chips per pool, Locked In, equipped).
+
+- **Decay** follows GameClock minutes, never real time (`elapse(minutes)`):
+  - Alert Pokémon keep their focus for 60 minutes, then lose 4 an hour.
+  - Relaxed ones lose 12 an hour and, after a rest, start at 10 at most.
+  - Locked In fades after 15 minutes.
+- **Rests** (`rest(kind)`): rest stop ×0.6, camp night ×0.25, home night ×0.1.
+- **Pokémon Center** (`center()`): keeps 40%. Healing costs warmth.
+- **Fainting:** zero.
+- **Gym warm-up** (`after_battle({kind: "gym_trainer", won})`): it keeps its end focus, plus 10, up to 80, with no decay inside the gym.
+  - The leader's Pokémon start at 30.
+  - Two or three trainers, which cost HP and items, give about 2 extra chips on the leader's turn 1. A test checks this.
+- **Wild ones** start by how they were found (`focus.wild_start`): hidden 20, startled 30, attacking 40, fleeing 10.
+
+## Items (`items`, the energy restore category)
+
+| Item | Effect | Price |
+|---|---|---|
+| Energy Shard | 1 Colorless chip | ₽1,500 |
+| Focus Crystal | 2 chips of its own type | ₽4,000 |
+| Focus Tonic | +30 focus | ₽2,500 |
+| Full Charge | Straight to 100 | ₽12,000 |
+
+Chip items raise focus to match, so the bar agrees. All the numbers are placeholders.
+
+## AI (`ai` in the config)
+
+- **Wild ones** use the simple planner (`plan_turn` by the species' style: aggressive, strategic or evasive). It searches every ordered set of moves the chips pay for and scores damage, status, variety, the chips left unspent, and so on. It sets a reaction only now and then.
+- **Trainers** have personalities: cautious, aggressive, balanced, tricky. Each sets a reaction rate, a counter rate, a two-phase rate and role weights.
+  - A foe out of reach gets the moves that reach it (or a reaction for its strike), never a blind attack.
+  - A face-down trap gets Swift, Feint or Mind Reader.
+  - A known physical strike coming gets Counter.
 
 ## The look
 
-- **Symbols (`EnergyIcon`):** each kind is a flat coloured disc with a white glyph, drawn in code, in the spirit of the TCG's energy symbols. They're original drawings, not card art:
-  - Colorless star, Grass leaf, Fire flame, Water drop, Lightning bolt, Psychic eye, Fighting fist
-  - Darkness crescent, Metal nut, Dragon head, Fairy butterfly, Ice flake
-  - Poison bubbles, Ground peaks, Flying wing, Bug beetle, Rock boulder, Ghost
+- **Symbols (`EnergyIcon`):** flat TCG-style discs with a white glyph, kept as inline SVG strings. They're rasterised with `Image.load_svg_from_string` and cached per kind, variant and size bucket.
+  - All 18 kinds, plus `any` (the wild chip) and `hidden` (face down).
+  - The variants are disc, flat, glyph and a spent grey.
+  - `draw_icon(ci, kind, centre, radius, alpha, opts)` is unchanged.
+- **Panel (`EnergyBar`):** a slim FOCUS bar with a tick at each chip threshold and the percentage (gold and pulsing when Locked In). Under it, one tray per pool, its glyph at the head.
+  - Ready chips are in full colour. Spent chips are grey and smaller.
+  - Own locked chips show dim with a small lock and a purple ring. The opponent's locked chips go face down in a separate trap tray.
+  - A two-phase commitment shows as a tag (DIG: UNDERGROUND).
+  - During a pool pick the trays pulse with "+" slots under a "NEW CHIP: TAP A POOL" tag.
+  - Disruption shakes the bar, flashes the lost part red, and fades the lost chips. Spent chips fly out to the target.
+- **HUD (`PkmnHud`, iPhone landscape, inside `UITheme.safe_rect`):**
+  - The player's nameplate is bottom left: HP bar and numbers, status, UNDERGROUND and LOCKED IN badges.
+  - The opponent's nameplate and panel are top right.
+  - The player's panel is bottom right. Above it sits the menu (FIGHT, POKéMON, ITEMS, FLEE) or the move list with its costs and role tags, plus a THIS TURN strip. Moves that can't reach a hidden foe say so in orange; the ones that can say so in green.
 
-  They're crisp at any size from 6 px. Options are `dim` (spent), `flat` and `glyph_only`.
-- **The bar (`EnergyBar`):** the UI kit's dark skewed plate. It shows the turn tag, ENERGY with the count ("2/3"), and a row of sockets:
-  - **Filled:** a chip.
-  - **Empty:** a recess with a faint glyph of the kind due there next.
-  - **Locked:** hatched. The first locked socket shows the level that opens it.
+## Wiring
 
-  It animates by itself from the engine's signals:
-  - **A new turn:** last turn's leftovers fade. Each new chip charges up (a ring converges, sparks are drawn in, a blip) and pops (a white flash, a burst, a sparkle with rising pitch, staggered). A "+n" rises off the count.
-  - **Spending:** the chips lift and fly out along an arc to the move's target with a trail and a whoosh, then burst there.
-  - **Preview:** the chips a hovered move would use rise and get a pulsing yellow ring, and the rest dim. A move it can't pay shows the missing kinds as red-ringed ghosts in the sockets it would need.
-- **The move list (`EnergyMoveList`):** one skewed row per move: type disc, name, what it does, and its cost as icons (typed first, then Colorless, as on the cards). Rows have three states:
-  - **ready**
-  - **short:** dimmed, with the missing chips ringed red
-  - **locked:** a lock and "NEEDS n SLOTS · LV x"
+**The prologue (BATTLE owns battle.gd).** The API is unchanged:
+- `EnergyHook.attach(battle, {species, level, temper})` (optional `state`)
+- `wild_pick(state)` returns `[{kind, move, first, cost, name, anim, power, accuracy, effects}]`
+- `on_move(move_id, screen_pos[, side])`
+- `detach()`
+- The battle offers `energy_anchor(side)` and `energy_moves()`.
 
-  The selected row turns white and drives the bar's preview. There's an END TURN row. Controls:
-  - **Touch:** tap to select and preview, tap again to use.
-  - **Pad and keys:** up/down, then A/E/Enter. 1–9 picks a row, and B/Esc ends the turn.
-  - **Mouse:** hover to select, click to use.
+The wild side runs the new rules. Optional extras: `disrupt(side, amount)` (Ash startles it), `set_asleep`, `end_turn`, `use_item`.
 
-  The list scrolls when it's long, since there's no cap.
-
-## Wiring (what BATTLE calls)
-
-The hook has no hard dependency on battle.gd. Every call into the battle is guarded, so either side can land first.
+**A Pokémon battle.** See the header of `pkmn_battle.gd`:
 
 ```gdscript
-# battle.gd, once the HUD is up (after the intro, before the first turn):
-EnergyHook.attach(self, {"species": species, "level": R.level(), "temper": String(opts.get("temper", "flighty"))})
-
-# the wild side's choice: one function returning the moves for its turn
-func _wild_pick(state: Dictionary) -> Array:
-	var h := get_node_or_null("EnergyHook")
-	if h and h.has_method("wild_pick"): return h.wild_pick(state)   # [{kind:"move", move, first, cost, name, anim, power, accuracy, effects}, ...]
-	return [R.decide()]
-
-# _foe_turn: after the battle's own flee / disengage roll says "attack":
-#   var plan := _wild_pick({"turn": R.turn + 1, "temper": opts.temper})
-#   for p in plan:                       # in order; p.first = Quick Attack's priority
-#       var h := get_node_or_null("EnergyHook")
-#       if h: h.on_move(p.move, cam.unproject_position(ash_pos + Vector3(0, 1, 0)))   # chips fly at Ash
-#       await <play p.move>               # R.foe_turn(p) per move, as now
-#   (an empty plan: nothing it can pay for; it gathers itself)
-
-# when the battle ends:
-var h := get_node_or_null("EnergyHook"); if h: h.detach()
+var B := PkmnBattle.new({"a": {...}, "b": {...}, "kind": "wild"})
+B.start()
+B.begin_turn()
+# the player's pick, if needed:
+B.pick_pool("a", kind)
+B.queue("a", id)   # repeat while the chips last
+B.ai_queue("b")
+B.begin_resolve()
+while B.resolving():
+	animate(B.step())
+# until B.over, then:
+B.finish()
 ```
 
-- **The anchor.** Give the battle (or `battle.ui`) `func energy_anchor(side: String) -> Rect2`, or a `energy_anchors := {"foe": Rect2, "ally": Rect2}` property, in HUD coordinates. The foe's anchor goes right under the foe plate: `Rect2(safe.end.x - 422, safe.position.y + 182, 400, 50)`. Without one, the hook uses that rect. The bar fits the rect's height (58 is scale 1) and right-aligns in it.
-- **Where the bar lives.** It goes on `battle.layer` (a CanvasLayer), else on `battle.ui`, else on a layer of its own. It slides in and out with `battle.ui.hud_on`.
-- **Which moves.** The hook plans only with moves the battle can stage: `battle.energy_moves() -> Array`, else the keys of `R.S.moves` (wild.json's battle moves), else all known moves. Each move dict carries `cost` from moves.json.
-- **The fly target.** `on_move(id, to)` takes a screen point. Without one, it unprojects `battle.ash_pos` with `battle.cam`.
-- **Later, an ally Pokémon.** `h.add_ally("pikachu", 16)` adds its bar at the "ally" anchor. `h.make_move_list()` returns a list wired to that bar's preview. On a pick, call `h.on_move(id, foe_screen_pos, "ally")`.
-- **Items.** `h.use_item("energy_shard")` (side "foe" or "ally").
-- **Dev check.** `dev/energy_fake_battle.gd` is the smallest battle that satisfies all of this. `dev/energy_test` runs the hook against it and against no battle at all.
-
-## Open questions
-
-- **Status effects.** Whether the battle uses Sand-Attack as "accuracy −1 per use" (wild.json) or the moves.json tags. The tags are there to be read.
-- **Energy-type folding.** Whether the 18 kinds should fold to the original 7 TCG kinds (plus Darkness, Metal, Dragon) for a "classic" option. The data allows it through `type_energy`.
-- **The player's own Pokémon.** The order of play (player first, or speed) and whether the player sees the foe's plan or only its bar. The bar alone already tells a lot: a full Pidgey bar on turn 2 means Gust is coming.
+The engine returns events. The host animates them; the rules never touch the presentation.

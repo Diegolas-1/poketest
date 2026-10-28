@@ -83,7 +83,7 @@ func _h(at_: Vector2, s: String, size_ := 20) -> void:
 # ---------- gallery ----------
 func _gallery(vs: Vector2) -> void:
 	_h(Vector2(40, 46), "Energy types", 30)
-	UITheme.text(self, Vector2(250, 44), "ORIGINAL VECTOR SYMBOLS · A COLOURED DISC, A WHITE GLYPH · DRAWN WITH draw_*", "label", 14, UITheme.TEXT_DIM)
+	UITheme.text(self, Vector2(250, 44), "ORIGINAL FLAT SYMBOLS · A COLOURED DISC, A WHITE GLYPH · INLINE SVG, CACHED PER SIZE", "label", 14, UITheme.TEXT_DIM)
 	var kinds := EnergyIcon.KINDS
 	var cols := 9
 	var cell := Vector2(136, 140)
@@ -142,7 +142,7 @@ func _states() -> void:
 	# 2: charging and popping (frozen mid-gain)
 	var e2 := BattleEnergy.make("pikachu", 16)
 	var b2 := _bar(Vector2(x0, y + dy), e2, "Pikachu · turn 3 gain: charging, popping, settled", "ally")
-	e2.begin_turn(); e2.begin_turn(); e2.begin_turn()
+	e2.set_focus(0.0, "shot"); e2.set_focus(60.0, "shot")
 	b2.vis[0].t = b2.vis[0].delay + 0.9
 	b2.vis[1].t = b2.vis[1].delay + EnergyBar.CHARGE_T + 0.07
 	b2.vis[2].t = b2.vis[2].delay + EnergyBar.CHARGE_T * 0.55
@@ -151,13 +151,13 @@ func _states() -> void:
 	# 3: full bar
 	var e3 := BattleEnergy.make("bulbasaur", 30)
 	var b3 := _bar(Vector2(x0, y + dy * 2), e3, "Bulbasaur Lv 30 · full: 6 of 6", "ally")
-	for i in 6: e3.begin_turn()
+	e3.set_focus(100.0, "shot")
 	for v in b3.vis: v.t = 9.0
 	_freeze(b3)
 	# 4: preview, payable (Razor Leaf)
 	var e4 := BattleEnergy.make("bulbasaur", 30)
 	var b4 := _bar(Vector2(x0, y + dy * 3), e4, "Preview: Razor Leaf (2 Grass) lights its chips", "ally")
-	for i in 4: e4.begin_turn()
+	e4.set_focus(80.0, "shot")
 	for v in b4.vis: v.t = 9.0
 	b4.preview_cost(BattleEnergy.cost_of("razor_leaf"))
 	b4.t = 0.2
@@ -165,7 +165,7 @@ func _states() -> void:
 	# 5: preview, short (Thunderbolt with 2 chips)
 	var e5 := BattleEnergy.make("pikachu", 16)
 	var b5 := _bar(Vector2(x0, y + dy * 4), e5, "Preview: Thunderbolt, 1 short (red ghost)", "ally")
-	e5.begin_turn(); e5.begin_turn()
+	e5.set_focus(40.0, "shot")
 	for v in b5.vis: v.t = 9.0
 	b5.preview_cost(BattleEnergy.cost_of("thunderbolt"))
 	b5.t = 0.2
@@ -173,7 +173,7 @@ func _states() -> void:
 	# 6: spending: chips in flight (to the right, up)
 	var e6 := BattleEnergy.make("charmander", 22)
 	var b6 := _bar(Vector2(x0, y + dy * 5), e6, "Spending Flamethrower: the chips fly out", "foe")
-	for i in 5: e6.begin_turn()
+	e6.set_focus(100.0, "shot")
 	for v in b6.vis: v.t = 9.0
 	b6.fly_target = Vector2(700, 380)
 	e6.use_move("flamethrower")
@@ -183,7 +183,7 @@ func _states() -> void:
 	var e7 := BattleEnergy.make("pikachu", 12)
 	e7.known.append("thunderbolt")    # (known early, say by a TM: the bar's too small yet, so they show locked)
 	e7.known.append("thunder")
-	e7.begin_turn(); e7.begin_turn()
+	e7.set_focus(40.0, "shot")
 	ml = EnergyMoveList.new()
 	ml.position = Vector2(790, 24)
 	ml.size = Vector2(460, 672)
