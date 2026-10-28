@@ -45,6 +45,7 @@
 		"flee_launch": {"s": 0.5, "drift": 0.7},
 		"burst_gap": [2.0, 4.5],
 		"burst_gap_wary": [3.5, 7.0],
-		"burst_len": [0.5, 0.9]
+		"burst_len": [0.7, 1.2],
+		"twitch_amp": 1.5
 	}
 }

@@ -37,7 +37,7 @@ extends Node
 
 const STANDIN := preload("res://wild/wild_standin.gd")
 const STUB := preload("res://wild/wild_battle_stub.gd")
-const PUSH_W := 0.6        # a twitch's push radius (m)
+const PUSH_W := 0.75       # a twitch's push radius (m)
 
 var game: Node
 var cast: Node
@@ -362,7 +362,8 @@ func _burst(e: Dictionary, amp: float) -> void:
 	var lr: Array = brain.t("burst_len", [0.5, 0.9])
 	e.burst_len = _rng.randf_range(float(lr[0]), float(lr[1]))
 	e.burst = float(e.burst_len)
-	e.amp = 1.0 * amp
+	e.amp = float(brain.t("twitch_amp", 1.5)) * amp
+	if debug: print("wild: burst at t %.2f" % t)
 	var pts := []
 	for i in 2 + _rng.randi() % 2:
 		var a := _rng.randf() * TAU
