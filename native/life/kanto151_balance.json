@@ -1,0 +1,2054 @@
+{
+  "_schema": {
+    "_doc": "The one global set of design numbers for the Kanto 151 under energy v2. gen.py writes the move numbers from it; the battle simulator reads it. The engine's own numbers (focus defaults, slots, damage, matchups, the counter table) stay in battle_config.json; this file never repeats them. Change a number here and rerun tools/native/kanto151/gen.py, or tune a single move in moves_kanto.json.",
+    "power_per_chip": "power per chip by tier and rarity: a fixed-cost move's power = chips x power_per_chip[tier][rarity] x chip_scaling x the move's power_mods product; a finisher's power (its base) = finisher_base[rarity] x mods and its power_per_chip = power_per_chip.finisher[rarity] x mods",
+    "finisher_base": "a finisher's base power by rarity (x mods)",
+    "chip_scaling": "a little more per chip as the cost grows",
+    "game_power_ref": "the game power each chip count stands for",
+    "game_power_blend": "how much of the game power's spread inside a chip bracket survives (an exponent), clamped by game_power_clamp",
+    "accuracy_k": "power x (1 + (100 - accuracy) x k): less accurate moves hit harder (a never-miss move, accuracy 0, counts as 100)",
+    "priority_mult": "power multiplier by priority (reactions excluded)",
+    "two_phase_mult": "two-phase moves are stronger per chip",
+    "hits_state_mult": "per unreachable state a move can hit",
+    "role_power_mult": "damage from non-offense roles",
+    "round_power_to": "powers are rounded to this",
+    "tolerance": "how far a move's power may drift from the formula before the test fails (hand tuning room)",
+    "shared_power_mult": "species efficiency: a shared (non-signature) move's power x this for the user's rarity (signature moves already carry their rarity); for the engine and simulator to apply",
+    "off_pool": "a typed cost the user has no pool for: paid in Colorless at this power (for the engine to add; until then such moves are unpayable)",
+    "disrupt_per_chip": "focus points a disruption move takes per chip, by rarity (install() writes each move's into battle_config disruption.moves)",
+    "disrupt_damaging_mult": "for damaging disruption moves",
+    "reaction": "reaction numbers: return_mult (a counter's mult by rarity), bide_mult, guard_reduce, default_chance (percent)",
+    "combo_power_pct": "the extra power a combo gives, by the move's rarity",
+    "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
+    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier",
+    "type_map": "main-series type -> energy kind (also kanto151.json type_energy)",
+    "tcg_energy_ids": "TCG energy name -> kind",
+    "energy_names": "kind -> shown name",
+    "effects": "every effect tag (engine names): power_mult (the weight on a damaging move's power), doc, and its numbers",
+    "chance_scaled_tags": "for these tags the weight is scaled by the move's chance: w' = 1 - (1 - power_mult) x chance; power_mods.effects is the product of the (scaled) weights",
+    "counter_rows_extra": "rows the design adds to battle_config counters.rows (install() appends them): Smack Down, Dimensional Hand, Multishot Lightning, Hurricane; Feint reaches a charging foe",
+    "matchups": "attacker energy -> defender card type, counted from the species data: weak (has that Weakness), resist, of (species with that card type)",
+    "matchup_summary": "the same, read off: x2 when most of that type are weak to it, resisted when most resist it, else the counts",
+    "sim_targets": "what the battle simulator checks the meta against"
+  },
+  "_notes": [
+    "TCG data: the Pokémon TCG API's Scarlet & Violet 151 set (sv3pt5, 2023), which prints every one of the 151 with current types, weakness, resistance and rarity. Older eras differ; see each species' _notes.",
+    "Game data: PokeAPI, every move each species can learn in any main-series game (level-up, TM/HM, tutor, egg). Learn levels come from the Kanto-era games first (Yellow, Red/Blue, FireRed/LeafGreen, Let's Go), then the newest game.",
+    "The TCG weakness chain is followed: Water beats Fire, Lightning beats Water, Fire beats Grass, Grass beats Fighting, Fighting beats Lightning, Darkness and Colorless, Darkness beats Psychic, Metal beats the Psychic-type fairies."
+  ],
+  "rarities": [
+    "common",
+    "uncommon",
+    "rare",
+    "very_rare",
+    "legendary"
+  ],
+  "power_per_chip": {
+    "opener": {
+      "common": 38,
+      "uncommon": 40,
+      "rare": 42.5,
+      "very_rare": 45,
+      "legendary": 48
+    },
+    "mid": {
+      "common": 39,
+      "uncommon": 41,
+      "rare": 43.5,
+      "very_rare": 46,
+      "legendary": 49
+    },
+    "finisher": {
+      "common": 38,
+      "uncommon": 40,
+      "rare": 42.5,
+      "very_rare": 45,
+      "legendary": 48
+    }
+  },
+  "finisher_base": {
+    "common": 20,
+    "uncommon": 25,
+    "rare": 30,
+    "very_rare": 35,
+    "legendary": 40
+  },
+  "chip_scaling": {
+    "1": 1.0,
+    "2": 1.0,
+    "3": 1.03
+  },
+  "game_power_ref": {
+    "1": 40,
+    "2": 70,
+    "3": 100,
+    "finisher": 130
+  },
+  "game_power_blend": 0.3,
+  "game_power_clamp": [
+    0.85,
+    1.15
+  ],
+  "accuracy_k": 0.008,
+  "priority_mult": {
+    "-1": 1.05,
+    "0": 1.0,
+    "1": 0.85,
+    "2": 0.75,
+    "3": 0.65
+  },
+  "two_phase_mult": 1.3,
+  "hits_state_mult": 0.97,
+  "role_power_mult": {
+    "offense": 1.0,
+    "two_phase": 1.0,
+    "disruption": 0.75,
+    "reaction": 0.8,
+    "utility": 0.8
+  },
+  "round_power_to": 5,
+  "round_finisher_ppc_to": 1,
+  "tolerance": {
+    "pct": 0.1,
+    "abs": 5
+  },
+  "shared_power_mult": {
+    "common": 1.0,
+    "uncommon": 1.04,
+    "rare": 1.08,
+    "very_rare": 1.12,
+    "legendary": 1.16
+  },
+  "off_pool": {
+    "typed_to": "colorless",
+    "power_mult": 0.85
+  },
+  "disrupt_per_chip": {
+    "common": 10,
+    "uncommon": 11,
+    "rare": 12,
+    "very_rare": 13,
+    "legendary": 15
+  },
+  "disrupt_damaging_mult": 0.5,
+  "reaction": {
+    "lock": "the move's chips stay locked until the foe's next attack or the next turn",
+    "return_mult": {
+      "common": 1.5,
+      "uncommon": 1.6,
+      "rare": 1.75,
+      "very_rare": 1.9,
+      "legendary": 2.0
+    },
+    "bide_mult": 2.0,
+    "guard_reduce": 0.4,
+    "default_chance": 100
+  },
+  "combo_power_pct": {
+    "common": 15,
+    "uncommon": 20,
+    "rare": 30,
+    "very_rare": 40,
+    "legendary": 50
+  },
+  "focus": {
+    "rarity_gain_bonus": {
+      "common": 0,
+      "uncommon": 0,
+      "rare": 1,
+      "very_rare": 2,
+      "legendary": 3
+    },
+    "rarity_resist_bonus": {
+      "common": 0.0,
+      "uncommon": 0.05,
+      "rare": 0.1,
+      "very_rare": 0.15,
+      "legendary": 0.2
+    },
+    "resist_cap": 0.6,
+    "focus_up_amount": 15,
+    "focus_down_self_amount": 30,
+    "focus_drain_amount": 10
+  },
+  "learn_levels": {
+    "opener": 3,
+    "mid": 12,
+    "finisher": 24,
+    "other": 8
+  },
+  "type_map": {
+    "normal": "colorless",
+    "flying": "colorless",
+    "fire": "fire",
+    "water": "water",
+    "ice": "water",
+    "grass": "grass",
+    "bug": "grass",
+    "electric": "electric",
+    "psychic": "psychic",
+    "ghost": "psychic",
+    "fairy": "psychic",
+    "fighting": "fighting",
+    "rock": "fighting",
+    "ground": "fighting",
+    "poison": "dark",
+    "dark": "dark",
+    "steel": "steel",
+    "dragon": "dragon"
+  },
+  "tcg_energy_ids": {
+    "Grass": "grass",
+    "Fire": "fire",
+    "Water": "water",
+    "Lightning": "electric",
+    "Psychic": "psychic",
+    "Fighting": "fighting",
+    "Darkness": "dark",
+    "Metal": "steel",
+    "Dragon": "dragon",
+    "Colorless": "colorless"
+  },
+  "energy_names": {
+    "colorless": "Colorless",
+    "grass": "Grass",
+    "fire": "Fire",
+    "water": "Water",
+    "electric": "Lightning",
+    "psychic": "Psychic",
+    "fighting": "Fighting",
+    "dark": "Darkness",
+    "steel": "Metal",
+    "dragon": "Dragon"
+  },
+  "chance_scaled_tags": [
+    "acc_down",
+    "acc_down_aura",
+    "acc_down_big",
+    "acc_up",
+    "acc_up_big",
+    "all_up_chance",
+    "atk_down",
+    "atk_down_big",
+    "atk_up",
+    "atk_up_big",
+    "bad_poison",
+    "burn",
+    "chip_drain",
+    "coin_bonus",
+    "confuse",
+    "crit_up",
+    "def_down",
+    "def_down2",
+    "def_up",
+    "def_up_big",
+    "effect_chance_up",
+    "evasion_down",
+    "evasion_down_big",
+    "evasion_up",
+    "evasion_up_big",
+    "flinch",
+    "focus_drain",
+    "focus_gain_up",
+    "focus_up",
+    "foe_atk_up",
+    "foe_cost_up",
+    "foe_def_up",
+    "foe_spatk_up",
+    "foe_spdef_up",
+    "freeze",
+    "hp_up",
+    "infatuate",
+    "luck_up",
+    "para",
+    "poison",
+    "random_stat_up_big",
+    "recoil",
+    "sleep",
+    "spatk_down",
+    "spatk_down_big",
+    "spatk_up",
+    "spatk_up_big",
+    "spdef_down",
+    "spdef_down_big",
+    "spdef_up",
+    "spdef_up_big",
+    "speed_down",
+    "speed_down_big",
+    "speed_up",
+    "speed_up_big",
+    "stab_up",
+    "trap",
+    "tri_status"
+  ],
+  "effects": {
+    "absorb_type": {
+      "power_mult": 1.0,
+      "doc": "Skill: one energy type's moves heal or power it instead of hurting.",
+      "heal_pct": 25
+    },
+    "acc_down": {
+      "power_mult": 0.95,
+      "doc": "Lowers the foe's accuracy one stage.",
+      "stages": -1
+    },
+    "acc_down_aura": {
+      "power_mult": 1.0,
+      "doc": "Skill: foes are a little less accurate.",
+      "acc": -10
+    },
+    "acc_down_big": {
+      "power_mult": 0.92,
+      "doc": "Sharply lowers the foe's accuracy (two stages).",
+      "stages": -2
+    },
+    "acc_guard": {
+      "power_mult": 1.0,
+      "doc": "Skill: its accuracy can't be lowered."
+    },
+    "acc_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own accuracy one stage.",
+      "stages": 1
+    },
+    "acc_up_big": {
+      "power_mult": 0.88,
+      "doc": "Sharply raises its own accuracy (two stages).",
+      "stages": 2
+    },
+    "all_up_chance": {
+      "power_mult": 0.9,
+      "doc": "May raise all its stats one stage."
+    },
+    "atk_down": {
+      "power_mult": 0.95,
+      "doc": "Lowers the foe's attack one stage.",
+      "stages": -1
+    },
+    "atk_down_big": {
+      "power_mult": 0.92,
+      "doc": "Sharply lowers the foe's attack (two stages).",
+      "stages": -2
+    },
+    "atk_down_self": {
+      "power_mult": 1.12,
+      "doc": "Lowers its own attack after the attack.",
+      "stages": -1
+    },
+    "atk_max": {
+      "power_mult": 1.0,
+      "doc": "Maxes its attack at the cost of half its HP.",
+      "hp_cost_pct": 50
+    },
+    "atk_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own attack one stage.",
+      "stages": 1
+    },
+    "atk_up_big": {
+      "power_mult": 0.88,
+      "doc": "Sharply raises its own attack (two stages).",
+      "stages": 2
+    },
+    "average_hp": {
+      "power_mult": 1.0,
+      "doc": "Averages its HP with the foe's."
+    },
+    "average_stats": {
+      "power_mult": 1.0,
+      "doc": "Averages its stats with the foe's."
+    },
+    "bad_poison": {
+      "power_mult": 0.88,
+      "doc": "Bad poison: damage that grows each turn.",
+      "dot_pct_start": 6,
+      "dot_pct_step": 6
+    },
+    "barrier_both": {
+      "power_mult": 1.0,
+      "doc": "Halves all damage for 5 turns.",
+      "turns": 5,
+      "mult": 0.5
+    },
+    "barrier_phys": {
+      "power_mult": 1.0,
+      "doc": "Halves physical damage for 5 turns.",
+      "turns": 5,
+      "mult": 0.5
+    },
+    "barrier_spec": {
+      "power_mult": 1.0,
+      "doc": "Halves special damage for 5 turns.",
+      "turns": 5,
+      "mult": 0.5
+    },
+    "bonus_if_matched": {
+      "power_mult": 0.85,
+      "doc": "Far stronger when its chip count matches the foe's.",
+      "bonus_pct": 100
+    },
+    "bonus_per_foe_chip": {
+      "power_mult": 0.88,
+      "doc": "Stronger for every chip the foe holds.",
+      "bonus_pct_per_chip": 15
+    },
+    "bonus_per_own_pool": {
+      "power_mult": 0.9,
+      "doc": "Stronger for every chip it holds in its own type's pool.",
+      "bonus_pct_per_chip": 12
+    },
+    "bonus_vs_boosted": {
+      "power_mult": 0.95,
+      "doc": "Stronger against a foe with raised stats."
+    },
+    "bonus_vs_damaged": {
+      "power_mult": 0.9,
+      "doc": "Much stronger against a damaged foe.",
+      "bonus_pct": 50
+    },
+    "bonus_vs_healthy": {
+      "power_mult": 0.9,
+      "doc": "Stronger the healthier the foe."
+    },
+    "bonus_vs_rarer": {
+      "power_mult": 0.9,
+      "doc": "Stronger against a rarer foe.",
+      "bonus_pct": 50
+    },
+    "bonus_vs_type": {
+      "power_mult": 0.9,
+      "doc": "Stronger against one energy type (bonus_type).",
+      "bonus_pct": 75
+    },
+    "breaks_barrier": {
+      "power_mult": 0.95,
+      "doc": "Shatters Reflect and Light Screen."
+    },
+    "break_protect": {
+      "power_mult": 0.9,
+      "doc": "Breaks Protect and Detect."
+    },
+    "burn": {
+      "power_mult": 0.92,
+      "doc": "Burn: damage each turn; physical power down.",
+      "dot_pct": 6,
+      "atk_mult": 0.5
+    },
+    "sure_hit": {
+      "power_mult": 1.0,
+      "doc": "Mind Reader / Lock-On: the foe's next Dodge (or evasion) fails."
+    },
+    "chip_drain": {
+      "power_mult": 0.88,
+      "doc": "The foe loses one unspent chip.",
+      "chips": 1
+    },
+    "chip_gain": {
+      "power_mult": 0.9,
+      "doc": "Gains a chip now, into its primary pool.",
+      "chips": 1
+    },
+    "chip_gain_any": {
+      "power_mult": 1.0,
+      "doc": "Gains a chip now, into any pool it picks.",
+      "chips": 1
+    },
+    "chip_gift": {
+      "power_mult": 1.0,
+      "doc": "Gives the foe a chip (a trick for combos that need the foe's chips).",
+      "chips": 1
+    },
+    "chip_on_evolve": {
+      "power_mult": 1.0,
+      "doc": "Skill: gains chips when it evolves mid-battle.",
+      "chips": 2
+    },
+    "chip_on_faint": {
+      "power_mult": 1.0,
+      "doc": "Skill: when a teammate faints it keeps one of its chips."
+    },
+    "cleanse": {
+      "power_mult": 1.0,
+      "doc": "Wipes every stat change on both sides."
+    },
+    "cleanse_foe": {
+      "power_mult": 0.92,
+      "doc": "Removes the foe's stat boosts."
+    },
+    "clear_field": {
+      "power_mult": 0.95,
+      "doc": "Clears traps, seeds and hazards on its side."
+    },
+    "coin_bonus": {
+      "power_mult": 0.85,
+      "doc": "On a coin flip, much more damage.",
+      "chance": 50,
+      "bonus_pct": 100
+    },
+    "coins": {
+      "power_mult": 0.97,
+      "doc": "Scatters coins (money after the battle)."
+    },
+    "confuse": {
+      "power_mult": 0.93,
+      "doc": "Confusion: may hit itself for 2 to 5 turns.",
+      "self_hit_chance": 33,
+      "turns": [
+        2,
+        5
+      ]
+    },
+    "confuse_self": {
+      "power_mult": 1.12,
+      "doc": "Leaves itself confused."
+    },
+    "contact_status": {
+      "power_mult": 1.0,
+      "doc": "Skill: a physical hit on it may give the attacker a status condition.",
+      "chance": 30
+    },
+    "copy_boosts": {
+      "power_mult": 1.0,
+      "doc": "Copies the foe's stat changes."
+    },
+    "copy_move": {
+      "power_mult": 1.0,
+      "doc": "Uses the foe's last move (or one of its moves)."
+    },
+    "copy_skill": {
+      "power_mult": 1.0,
+      "doc": "Copies the foe's skill."
+    },
+    "counter_on_hit": {
+      "power_mult": 1.0,
+      "doc": "Skill: when hit, deals a little damage back.",
+      "damage_pct": 10
+    },
+    "crash": {
+      "power_mult": 1.12,
+      "doc": "Hurts itself if it misses.",
+      "crash_pct": 50
+    },
+    "crit_immune": {
+      "power_mult": 1.0,
+      "doc": "Skill: no critical hits against it."
+    },
+    "crit_next": {
+      "power_mult": 1.0,
+      "doc": "Its next move is a sure critical hit."
+    },
+    "crit_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own critical-hit rate one stage.",
+      "stages": 1
+    },
+    "cure_status": {
+      "power_mult": 1.0,
+      "doc": "Cures its status conditions."
+    },
+    "cure_status_out": {
+      "power_mult": 1.0,
+      "doc": "Skill: its status conditions heal after the battle or when it disengages."
+    },
+    "damage_reduce": {
+      "power_mult": 1.0,
+      "doc": "Skill: takes less damage from every attack.",
+      "reduce_pct": 15
+    },
+    "def_down": {
+      "power_mult": 0.95,
+      "doc": "Lowers the foe's defense one stage.",
+      "stages": -1
+    },
+    "def_down2": {
+      "power_mult": 0.92,
+      "doc": "Sharply lowers the foe's defense (two stages).",
+      "stages": -2
+    },
+    "def_down_self": {
+      "power_mult": 1.12,
+      "doc": "Lowers its own defense after the attack.",
+      "stages": -1
+    },
+    "def_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own defense one stage.",
+      "stages": 1
+    },
+    "def_up_big": {
+      "power_mult": 0.88,
+      "doc": "Sharply raises its own defense (two stages).",
+      "stages": 2
+    },
+    "delayed_damage": {
+      "power_mult": 0.9,
+      "doc": "Extra damage at the end of the foe's next turn.",
+      "extra_pct": 30
+    },
+    "disable": {
+      "power_mult": 1.0,
+      "doc": "Disables the foe's last move.",
+      "turns": [
+        1,
+        4
+      ]
+    },
+    "disable_lite": {
+      "power_mult": 1.0,
+      "doc": "Saps the foe: its last move costs a chip more next turn."
+    },
+    "disrupt": {
+      "power_mult": 1.0,
+      "doc": "Disruption: lowers the foe's focus by the move's disrupt (battle_config disruption.moves), less its disrupt_resist."
+    },
+    "disrupt_guard": {
+      "power_mult": 1.0,
+      "doc": "Skill: disruption and flinching rattle it less.",
+      "disrupt_resist": 0.25
+    },
+    "download": {
+      "power_mult": 1.0,
+      "doc": "Skill: raises attack or special attack to beat the foe's weaker defense."
+    },
+    "absorb": {
+      "power_mult": 0.85,
+      "doc": "Heals by half the damage dealt.",
+      "drain_pct": 50
+    },
+    "drowsy": {
+      "power_mult": 1.0,
+      "doc": "Drowsy: falls asleep at the end of the next turn."
+    },
+    "effect_chance_up": {
+      "power_mult": 1.0,
+      "doc": "Skill: side effect chances doubled.",
+      "mult": 2.0
+    },
+    "effect_immune": {
+      "power_mult": 1.0,
+      "doc": "Skill: immune to the side effects of attacks."
+    },
+    "encore": {
+      "power_mult": 1.0,
+      "doc": "Encore: the foe repeats its last move.",
+      "turns": 3
+    },
+    "endure_chance": {
+      "power_mult": 1.0,
+      "doc": "Skill: may survive a knockout with 1 HP.",
+      "chance": 50
+    },
+    "evasion_aura": {
+      "power_mult": 1.0,
+      "doc": "Skill: harder to hit in its weather.",
+      "acc": -20
+    },
+    "evasion_down": {
+      "power_mult": 0.95,
+      "doc": "Lowers the foe's evasion one stage.",
+      "stages": -1
+    },
+    "evasion_down_big": {
+      "power_mult": 0.92,
+      "doc": "Sharply lowers the foe's evasion (two stages).",
+      "stages": -2
+    },
+    "evasion_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own evasion one stage.",
+      "stages": 1
+    },
+    "evasion_up_big": {
+      "power_mult": 0.88,
+      "doc": "Sharply raises its own evasion (two stages).",
+      "stages": 2
+    },
+    "faint_blast": {
+      "power_mult": 1.0,
+      "doc": "Skill: on fainting, may damage the foe heavily.",
+      "chance": 50,
+      "damage_pct": 30
+    },
+    "first_turn": {
+      "power_mult": 1.25,
+      "doc": "Only on its first action of the battle."
+    },
+    "fixed_40": {
+      "power_mult": 1.0,
+      "doc": "Always 40 damage.",
+      "damage": 40
+    },
+    "flinch": {
+      "power_mult": 0.94,
+      "doc": "Flinch: if it moves first, the foe loses its next action."
+    },
+    "focus_down_self": {
+      "power_mult": 1.15,
+      "doc": "Its focus drops after."
+    },
+    "focus_drain": {
+      "power_mult": 0.9,
+      "doc": "Lowers the foe's focus (balance focus.focus_drain_amount), on top of any disrupt."
+    },
+    "focus_gain_up": {
+      "power_mult": 1.0,
+      "doc": "Skill: gains focus faster.",
+      "amount": 3
+    },
+    "focus_start": {
+      "power_mult": 1.0,
+      "doc": "Skill: starts the battle with extra focus.",
+      "amount": 20
+    },
+    "focus_up": {
+      "power_mult": 0.9,
+      "doc": "Raises its own focus (balance focus.focus_up_amount)."
+    },
+    "foe_atk_up": {
+      "power_mult": 1.0,
+      "doc": "Raises the foe's attack (a gamble).",
+      "stages": 2
+    },
+    "foe_cost_up": {
+      "power_mult": 0.9,
+      "doc": "The foe's moves cost a chip more next turn."
+    },
+    "foe_def_up": {
+      "power_mult": 1.0,
+      "doc": "Raises the foe's defense (a gamble).",
+      "stages": 2
+    },
+    "foe_spatk_up": {
+      "power_mult": 1.0,
+      "doc": "Raises the foe's special attack (a gamble).",
+      "stages": 2
+    },
+    "foe_spdef_up": {
+      "power_mult": 1.0,
+      "doc": "Raises the foe's special defense (a gamble).",
+      "stages": 2
+    },
+    "force_out": {
+      "power_mult": 0.95,
+      "doc": "Drives the foe off: a wild one flees or disengages; Roar and Whirlwind also pull it out of a two-phase move."
+    },
+    "identify": {
+      "power_mult": 1.0,
+      "doc": "Normal and Fighting moves can hit Ghosts; evasion is ignored."
+    },
+    "foresight_skill": {
+      "power_mult": 1.0,
+      "doc": "Skill: its Normal and Fighting moves always hit Ghosts."
+    },
+    "free_retreat": {
+      "power_mult": 1.0,
+      "doc": "Skill: it can always disengage."
+    },
+    "freeze": {
+      "power_mult": 0.9,
+      "doc": "Freeze: can't act until it thaws.",
+      "thaw_chance": 20
+    },
+    "friendship_scaling": {
+      "power_mult": 1.0,
+      "doc": "Power scales with friendship."
+    },
+    "gravity": {
+      "power_mult": 1.0,
+      "doc": "Grounds everything for 5 turns: Fly and Bounce can't be used.",
+      "turns": 5
+    },
+    "grounds": {
+      "power_mult": 0.95,
+      "doc": "Knocks a flyer out of the sky and ends Fly or Bounce."
+    },
+    "hazard": {
+      "power_mult": 1.0,
+      "doc": "Lays a hazard that hurts the foe when it comes back in."
+    },
+    "heal": {
+      "power_mult": 1.0,
+      "doc": "Restores half its max HP.",
+      "heal_pct": 50
+    },
+    "heal_delayed": {
+      "power_mult": 1.0,
+      "doc": "Restores half its max HP at the end of the next turn.",
+      "heal_pct": 50
+    },
+    "heal_from_food": {
+      "power_mult": 1.0,
+      "doc": "Skill: food heals it more."
+    },
+    "heal_next": {
+      "power_mult": 1.0,
+      "doc": "Fully heals the next Pokémon to come in."
+    },
+    "heal_over_time": {
+      "power_mult": 1.0,
+      "doc": "Restores a little HP every turn.",
+      "heal_pct": 6
+    },
+    "heal_per_turn": {
+      "power_mult": 1.0,
+      "doc": "Skill: heals a little every turn.",
+      "heal_pct": 6
+    },
+    "high_crit": {
+      "power_mult": 0.94,
+      "doc": "High critical-hit rate.",
+      "crit_chance": 12.5
+    },
+    "hits_fleeing": {
+      "power_mult": 1.0,
+      "doc": "Double power on a foe that tries to flee or disengage."
+    },
+    "hp_up": {
+      "power_mult": 1.0,
+      "doc": "Skill: more HP.",
+      "hp_pct": 20
+    },
+    "ignores_dodge": {
+      "power_mult": 0.95,
+      "doc": "Hits through Dodge."
+    },
+    "ignores_resistance": {
+      "power_mult": 0.95,
+      "doc": "Resistance doesn't reduce it."
+    },
+    "indirect_immune": {
+      "power_mult": 1.0,
+      "doc": "Skill: only direct attacks hurt it."
+    },
+    "infatuate": {
+      "power_mult": 0.93,
+      "doc": "Infatuation: often can't attack.",
+      "skip_chance": 50
+    },
+    "intimidate": {
+      "power_mult": 1.0,
+      "doc": "Skill: as the battle opens, the foe's attack and focus drop.",
+      "stages": -1,
+      "focus": 10
+    },
+    "item_play": {
+      "power_mult": 1.0,
+      "doc": "A held-item trick (held items are a later hook; until then it is just a hit)."
+    },
+    "justified": {
+      "power_mult": 1.0,
+      "doc": "Skill: a Darkness hit raises its attack."
+    },
+    "ko_boost": {
+      "power_mult": 1.0,
+      "doc": "Skill: attack up after it knocks a foe out."
+    },
+    "last_mover_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: x1.3 when it acts after the foe.",
+      "mult": 1.3
+    },
+    "drain": {
+      "power_mult": 0.9,
+      "doc": "Leech Seed: drains HP each turn.",
+      "dot_pct": 12
+    },
+    "levitate": {
+      "power_mult": 1.0,
+      "doc": "Immune to Ground moves for 5 turns.",
+      "turns": 5
+    },
+    "low_hp_boost": {
+      "power_mult": 0.8,
+      "doc": "Stronger the lower its HP (up to double).",
+      "max_mult": 2.0
+    },
+    "luck_up": {
+      "power_mult": 1.0,
+      "doc": "Skill: coin flips go its way more often.",
+      "chance": 60
+    },
+    "marvel_scale": {
+      "power_mult": 1.0,
+      "doc": "Skill: defense x1.5 with a status condition.",
+      "mult": 1.5
+    },
+    "mist": {
+      "power_mult": 1.0,
+      "doc": "Its stats can't be lowered for 5 turns.",
+      "turns": 5
+    },
+    "multi_hit": {
+      "power_mult": 1.0,
+      "doc": "Hits several times; power is the total for the usual number of hits.",
+      "hits": [
+        2,
+        5
+      ]
+    },
+    "multiscale": {
+      "power_mult": 1.0,
+      "doc": "Skill: half damage while at full HP.",
+      "mult": 0.5
+    },
+    "needs_others": {
+      "power_mult": 1.15,
+      "doc": "Only after it has used every other equipped move."
+    },
+    "needs_stockpile": {
+      "power_mult": 1.2,
+      "doc": "Needs Stockpile first; scales with it."
+    },
+    "never_miss": {
+      "power_mult": 0.9,
+      "doc": "Never misses (a Dodge still works)."
+    },
+    "nightmare": {
+      "power_mult": 0.9,
+      "doc": "Nightmare: a sleeping foe loses HP each turn.",
+      "dot_pct": 25
+    },
+    "no_crit": {
+      "power_mult": 1.0,
+      "doc": "No critical hits against it for 5 turns.",
+      "turns": 5
+    },
+    "no_guard": {
+      "power_mult": 1.0,
+      "doc": "Skill: every move hits, its own and the foe's."
+    },
+    "none": {
+      "power_mult": 1.0,
+      "doc": "Nothing happens."
+    },
+    "ohko": {
+      "power_mult": 1.0,
+      "doc": "A one-hit knockout if it lands (it fails on a higher-level foe); accuracy rises 1 per level above the foe."
+    },
+    "para": {
+      "power_mult": 0.9,
+      "doc": "Paralysis: may lose its turn; speed down.",
+      "skip_chance": 25
+    },
+    "partner_cost_discount": {
+      "power_mult": 1.0,
+      "doc": "Skill: with its partner on the team, typed costs drop by one."
+    },
+    "partner_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: its partner's attacks hit harder.",
+      "bonus_pct": 20
+    },
+    "pass_boosts": {
+      "power_mult": 1.0,
+      "doc": "Keeps its stat changes for the next Pokémon (or the next battle phase)."
+    },
+    "pass_status": {
+      "power_mult": 1.0,
+      "doc": "Passes its status condition to the foe."
+    },
+    "perish": {
+      "power_mult": 1.0,
+      "doc": "Perish Song: both faint in 3 turns unless they leave.",
+      "turns": 3
+    },
+    "pinch_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: its own-type moves x1.5 below a third of its HP.",
+      "hp_pct": 33,
+      "mult": 1.5
+    },
+    "pivot": {
+      "power_mult": 0.92,
+      "doc": "Hits, then it may disengage or swap out."
+    },
+    "poison": {
+      "power_mult": 0.93,
+      "doc": "Poison: damage each turn.",
+      "dot_pct": 12
+    },
+    "power_grows": {
+      "power_mult": 0.85,
+      "doc": "Grows stronger with each use in a row (up to double).",
+      "step_pct": 25,
+      "max_mult": 2.0
+    },
+    "power_up_next": {
+      "power_mult": 1.0,
+      "doc": "Its next move does half again more.",
+      "mult": 1.5
+    },
+    "pressure": {
+      "power_mult": 1.0,
+      "doc": "Skill: the foe gains less focus each turn.",
+      "gain": -2
+    },
+    "protect_if_matched": {
+      "power_mult": 1.0,
+      "doc": "Skill: no damage from attacks when its chips match the foe's."
+    },
+    "punch_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: punching moves x1.2.",
+      "mult": 1.2
+    },
+    "rage": {
+      "power_mult": 0.95,
+      "doc": "Attack rises each time it is hit while raging."
+    },
+    "random_move": {
+      "power_mult": 1.0,
+      "doc": "Uses a random move."
+    },
+    "random_own": {
+      "power_mult": 1.0,
+      "doc": "Uses one of its own moves at random."
+    },
+    "random_power": {
+      "power_mult": 1.0,
+      "doc": "Power varies at random (half to one and a half).",
+      "min_mult": 0.5,
+      "max_mult": 1.5
+    },
+    "random_stat_up_big": {
+      "power_mult": 1.0,
+      "doc": "Sharply raises a random stat."
+    },
+    "recharge": {
+      "power_mult": 1.25,
+      "doc": "Must rest next turn: its chips don't refresh."
+    },
+    "recoil": {
+      "power_mult": 1.15,
+      "doc": "Takes a share of the damage dealt.",
+      "recoil_pct": 33
+    },
+    "recoil_immune": {
+      "power_mult": 1.0,
+      "doc": "Skill: no recoil damage."
+    },
+    "recoil_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: recoil moves x1.2.",
+      "mult": 1.2
+    },
+    "rest": {
+      "power_mult": 1.0,
+      "doc": "Sleeps two turns and heals fully.",
+      "turns": 2
+    },
+    "retype": {
+      "power_mult": 1.0,
+      "doc": "Changes its own type."
+    },
+    "retype_foe": {
+      "power_mult": 1.0,
+      "doc": "Changes the foe's type."
+    },
+    "retype_resist": {
+      "power_mult": 1.0,
+      "doc": "Changes to a type that resists the foe's last move."
+    },
+    "reveal_plan": {
+      "power_mult": 1.0,
+      "doc": "Skill: sees the foe's planned moves each turn."
+    },
+    "rival_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: stronger against its own species line.",
+      "mult": 1.25
+    },
+    "seal": {
+      "power_mult": 0.9,
+      "doc": "Seals the foe: it can't use attack moves next turn (taunt, torment, embargo and the like).",
+      "turns": 1
+    },
+    "self_confused_only": {
+      "power_mult": 1.4,
+      "doc": "Only works while it is confused."
+    },
+    "self_faint": {
+      "power_mult": 1.6,
+      "doc": "Faints itself."
+    },
+    "set_weakness": {
+      "power_mult": 1.0,
+      "doc": "Sets the foe's weakness to an energy type of the user's choice."
+    },
+    "shed_skin": {
+      "power_mult": 1.0,
+      "doc": "Skill: a third of the time it sheds a status condition each turn.",
+      "chance": 33
+    },
+    "sheer_force": {
+      "power_mult": 1.0,
+      "doc": "Skill: moves with side effects drop them for power.",
+      "mult": 1.3
+    },
+    "sleep": {
+      "power_mult": 0.85,
+      "doc": "Sleep: can't act for 1 to 3 turns.",
+      "turns": [
+        1,
+        3
+      ]
+    },
+    "sleep_on_evolve": {
+      "power_mult": 1.0,
+      "doc": "Skill: the foe falls asleep when it evolves."
+    },
+    "sleep_only": {
+      "power_mult": 1.3,
+      "doc": "Only works on (or while) a sleeping Pokémon."
+    },
+    "sleep_self": {
+      "power_mult": 1.0,
+      "doc": "Puts itself to sleep too."
+    },
+    "sleep_short": {
+      "power_mult": 1.0,
+      "doc": "Skill: sleeps half as long."
+    },
+    "sound": {
+      "power_mult": 1.0,
+      "doc": "A sound move."
+    },
+    "sound_immune": {
+      "power_mult": 1.0,
+      "doc": "Skill: immune to sound moves."
+    },
+    "spatk_down": {
+      "power_mult": 0.95,
+      "doc": "Lowers the foe's special attack one stage.",
+      "stages": -1
+    },
+    "spatk_down_big": {
+      "power_mult": 0.92,
+      "doc": "Sharply lowers the foe's special attack (two stages).",
+      "stages": -2
+    },
+    "spatk_down_self": {
+      "power_mult": 1.12,
+      "doc": "Lowers its own special attack after the attack.",
+      "stages": -1
+    },
+    "spatk_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own special attack one stage.",
+      "stages": 1
+    },
+    "spatk_up_big": {
+      "power_mult": 0.88,
+      "doc": "Sharply raises its own special attack (two stages).",
+      "stages": 2
+    },
+    "spdef_down": {
+      "power_mult": 0.95,
+      "doc": "Lowers the foe's special defense one stage.",
+      "stages": -1
+    },
+    "spdef_down_big": {
+      "power_mult": 0.92,
+      "doc": "Sharply lowers the foe's special defense (two stages).",
+      "stages": -2
+    },
+    "spdef_down_self": {
+      "power_mult": 1.12,
+      "doc": "Lowers its own special defense after the attack.",
+      "stages": -1
+    },
+    "spdef_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own special defense one stage.",
+      "stages": 1
+    },
+    "spdef_up_big": {
+      "power_mult": 0.88,
+      "doc": "Sharply raises its own special defense (two stages).",
+      "stages": 2
+    },
+    "speed_aura": {
+      "power_mult": 1.0,
+      "doc": "Skill: rarely caught by the foe's first strike."
+    },
+    "speed_down": {
+      "power_mult": 0.95,
+      "doc": "Lowers the foe's speed one stage.",
+      "stages": -1
+    },
+    "speed_down_big": {
+      "power_mult": 0.92,
+      "doc": "Sharply lowers the foe's speed (two stages).",
+      "stages": -2
+    },
+    "speed_down_self": {
+      "power_mult": 1.12,
+      "doc": "Lowers its own speed after the attack.",
+      "stages": -1
+    },
+    "speed_scaling": {
+      "power_mult": 1.0,
+      "doc": "Power scales with the speed difference."
+    },
+    "speed_up": {
+      "power_mult": 0.92,
+      "doc": "Raises its own speed one stage.",
+      "stages": 1
+    },
+    "speed_up_big": {
+      "power_mult": 0.88,
+      "doc": "Sharply raises its own speed (two stages).",
+      "stages": 2
+    },
+    "stab_up": {
+      "power_mult": 1.0,
+      "doc": "Skill: its own-type bonus is x2 instead of x1.5.",
+      "stab": 2.0
+    },
+    "start_damage": {
+      "power_mult": 1.0,
+      "doc": "Skill: chips the foe as the battle opens.",
+      "damage_pct": 8
+    },
+    "start_sun": {
+      "power_mult": 1.0,
+      "doc": "Skill: brings the sun as the battle opens.",
+      "turns": 5
+    },
+    "status_immune_one": {
+      "power_mult": 1.0,
+      "doc": "Skill: immune to one status condition."
+    },
+    "status_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: attack x1.5 with a status condition.",
+      "mult": 1.5
+    },
+    "status_shield": {
+      "power_mult": 1.0,
+      "doc": "No status conditions for 5 turns.",
+      "turns": 5
+    },
+    "status_speed": {
+      "power_mult": 1.0,
+      "doc": "Skill: speed x1.5 with a status condition.",
+      "mult": 1.5
+    },
+    "stockpile": {
+      "power_mult": 1.0,
+      "doc": "Stores power for Spit Up and Swallow (up to 3).",
+      "max": 3
+    },
+    "sturdy": {
+      "power_mult": 1.0,
+      "doc": "Skill: survives one knockout blow from full HP with 1 HP."
+    },
+    "substitute": {
+      "power_mult": 1.0,
+      "doc": "A decoy with a quarter of its HP takes the hits.",
+      "hp_cost_pct": 25
+    },
+    "swap_defenses": {
+      "power_mult": 1.0,
+      "doc": "Swaps defense and special defense for 5 turns."
+    },
+    "swap_focus": {
+      "power_mult": 1.0,
+      "doc": "Swaps focus meters with the foe."
+    },
+    "swap_stats": {
+      "power_mult": 1.0,
+      "doc": "Swaps stats or stat changes with the foe."
+    },
+    "taunt": {
+      "power_mult": 1.0,
+      "doc": "Taunt: the foe can only attack for 3 turns.",
+      "turns": 3
+    },
+    "terrain_electric": {
+      "power_mult": 1.0,
+      "doc": "Electric terrain: Lightning moves up, no sleep.",
+      "turns": 5
+    },
+    "terrain_grassy": {
+      "power_mult": 1.0,
+      "doc": "Grassy terrain: heals a little each turn, Grass moves up.",
+      "turns": 5
+    },
+    "terrain_misty": {
+      "power_mult": 1.0,
+      "doc": "Misty terrain: no status conditions, Dragon moves down.",
+      "turns": 5
+    },
+    "terrain_psychic": {
+      "power_mult": 1.0,
+      "doc": "Psychic terrain: no priority moves, Psychic moves up.",
+      "turns": 5
+    },
+    "thick_fat": {
+      "power_mult": 1.0,
+      "doc": "Skill: Fire and Ice moves do half.",
+      "mult": 0.5
+    },
+    "transform": {
+      "power_mult": 1.0,
+      "doc": "Becomes a copy of the foe: moves, pools and stats."
+    },
+    "transform_start": {
+      "power_mult": 1.0,
+      "doc": "Skill: may transform for free on its first turn."
+    },
+    "trap": {
+      "power_mult": 0.93,
+      "doc": "Trapped: can't flee or disengage; bound moves deal damage each turn.",
+      "turns": [
+        4,
+        5
+      ],
+      "dot_pct": 6
+    },
+    "trap_self": {
+      "power_mult": 1.0,
+      "doc": "It can't flee or disengage."
+    },
+    "tri_status": {
+      "power_mult": 0.9,
+      "doc": "One in five each: burn, freeze or paralysis."
+    },
+    "trick_room": {
+      "power_mult": 1.0,
+      "doc": "For 5 turns the slower one acts first.",
+      "turns": 5
+    },
+    "trip": {
+      "power_mult": 1.0,
+      "doc": "Heavier foes take more."
+    },
+    "weak_armor": {
+      "power_mult": 1.0,
+      "doc": "Skill: a physical hit lowers its defense and raises its speed."
+    },
+    "weak_move_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: openers x1.5.",
+      "mult": 1.5
+    },
+    "weaken_type": {
+      "power_mult": 1.0,
+      "doc": "Halves one type's damage (Mud Sport: Lightning; Water Sport: Fire).",
+      "turns": 5
+    },
+    "weakness_bonus": {
+      "power_mult": 1.0,
+      "doc": "Skill: the foe's weakness counts double again.",
+      "mult": 4.0
+    },
+    "weakness_reduce": {
+      "power_mult": 1.0,
+      "doc": "Skill: its weakness does a quarter less.",
+      "mult": 0.75
+    },
+    "weather_cure": {
+      "power_mult": 1.0,
+      "doc": "Skill: rain cures its status conditions."
+    },
+    "weather_heal": {
+      "power_mult": 1.0,
+      "doc": "Skill: heals in the rain.",
+      "heal_pct": 6
+    },
+    "weather_power": {
+      "power_mult": 1.0,
+      "doc": "Skill: special power x1.5 in the sun, losing a little HP each turn.",
+      "mult": 1.5,
+      "hp_pct": 12
+    },
+    "weather_rain": {
+      "power_mult": 1.0,
+      "doc": "Rain for 5 turns: Water up, Fire down; Thunder never misses.",
+      "turns": 5
+    },
+    "weather_sand": {
+      "power_mult": 1.0,
+      "doc": "Sandstorm for 5 turns.",
+      "turns": 5
+    },
+    "weather_snow": {
+      "power_mult": 1.0,
+      "doc": "Snow or hail for 5 turns; Blizzard never misses.",
+      "turns": 5
+    },
+    "weather_speed": {
+      "power_mult": 1.0,
+      "doc": "Skill: speed x2 in its weather.",
+      "mult": 2.0
+    },
+    "weather_sun": {
+      "power_mult": 1.0,
+      "doc": "Sun for 5 turns: Fire up, Water down; Solar Beam skips its commit.",
+      "turns": 5
+    },
+    "weight_scaling": {
+      "power_mult": 1.0,
+      "doc": "Power scales with weight."
+    },
+    "wind": {
+      "power_mult": 1.0,
+      "doc": "A wind move (whirls up leaves and grass)."
+    }
+  },
+  "counter_rows_extra": [
+    {
+      "move": "smack_down",
+      "vs": "airborne",
+      "hits": true,
+      "mult": 1.5,
+      "pull_out": 1.0
+    },
+    {
+      "move": "dimensional_hand",
+      "vs": "underground",
+      "hits": true,
+      "mult": 1.0
+    },
+    {
+      "move": "dimensional_hand",
+      "vs": "airborne",
+      "hits": true,
+      "mult": 1.0
+    },
+    {
+      "move": "dimensional_hand",
+      "vs": "underwater",
+      "hits": true,
+      "mult": 1.0
+    },
+    {
+      "move": "multishot_lightning",
+      "vs": "airborne",
+      "hits": true,
+      "mult": 1.0
+    },
+    {
+      "move": "hurricane",
+      "vs": "airborne",
+      "hits": true,
+      "mult": 1.0
+    },
+    {
+      "move": "feint",
+      "vs": "charging",
+      "hits": true
+    }
+  ],
+  "matchups": {
+    "colorless": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "grass": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 14,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "fire": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 24,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "water": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 11,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "electric": {
+      "colorless": {
+        "weak": 9,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 1,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 29,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 1,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 2,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "psychic": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 7,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "fighting": {
+      "colorless": {
+        "weak": 14,
+        "resist": 9,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 1,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 1,
+        "of": 30
+      },
+      "electric": {
+        "weak": 8,
+        "resist": 1,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 13,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 12,
+        "resist": 2,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "dark": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 13,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "steel": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 1,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 2,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    },
+    "dragon": {
+      "colorless": {
+        "weak": 0,
+        "resist": 0,
+        "of": 23
+      },
+      "grass": {
+        "weak": 0,
+        "resist": 0,
+        "of": 24
+      },
+      "fire": {
+        "weak": 0,
+        "resist": 0,
+        "of": 12
+      },
+      "water": {
+        "weak": 0,
+        "resist": 0,
+        "of": 30
+      },
+      "electric": {
+        "weak": 0,
+        "resist": 0,
+        "of": 9
+      },
+      "psychic": {
+        "weak": 0,
+        "resist": 0,
+        "of": 15
+      },
+      "fighting": {
+        "weak": 0,
+        "resist": 0,
+        "of": 21
+      },
+      "dark": {
+        "weak": 0,
+        "resist": 0,
+        "of": 14
+      },
+      "steel": {
+        "weak": 0,
+        "resist": 0,
+        "of": 0
+      },
+      "dragon": {
+        "weak": 0,
+        "resist": 0,
+        "of": 3
+      }
+    }
+  },
+  "matchup_summary": {
+    "colorless": {},
+    "grass": {
+      "fighting": "x2"
+    },
+    "fire": {
+      "grass": "x2"
+    },
+    "water": {
+      "fire": "x2"
+    },
+    "electric": {
+      "colorless": "x2 (9 of 23)",
+      "fire": "x2 (1 of 12)",
+      "water": "x2",
+      "electric": "x2 (1 of 9)",
+      "dark": "x2 (2 of 14)"
+    },
+    "psychic": {
+      "fighting": "x2 (7 of 21)"
+    },
+    "fighting": {
+      "colorless": "x2",
+      "fire": "resisted (1 of 12)",
+      "water": "resisted (1 of 30)",
+      "electric": "x2",
+      "psychic": "resisted",
+      "dark": "x2"
+    },
+    "dark": {
+      "psychic": "x2"
+    },
+    "steel": {
+      "water": "x2 (1 of 30)",
+      "psychic": "x2 (2 of 15)"
+    },
+    "dragon": {}
+  },
+  "sim_targets": {
+    "_doc": "Targets for the text battle simulator (many battles on the real energy v2 rules). Rarer is allowed to win; peers must stay close; Ash should feel stronger with every level, evolution and slot.",
+    "rarity_step_winrate": {
+      "min": 0.55,
+      "max": 0.68,
+      "doc": "a species one rarity step up, at the same level and stage, wins this share against the step below (a clear, not absurd, step)"
+    },
+    "within_tier_winrate": {
+      "min": 0.4,
+      "max": 0.6,
+      "level_band": 5,
+      "applies_to": [
+        "common",
+        "uncommon"
+      ],
+      "doc": "within one rarity at a similar level, no common or uncommon's average win rate against its peers leaves this band"
+    },
+    "within_tier_spread_max": 0.2,
+    "within_tier_spread_doc": "the gap between the best and worst average win rate in a tier and level band",
+    "evolution_step_winrate": {
+      "min": 0.62,
+      "max": 0.8,
+      "doc": "an evolved form against its previous stage at the evolution level"
+    },
+    "level_step_winrate": {
+      "per_levels": 10,
+      "min": 0.6,
+      "max": 0.78,
+      "doc": "a species against itself ten levels lower"
+    },
+    "slot_unlock_winrate": {
+      "min": 0.52,
+      "doc": "the same species with one more equip slot"
+    },
+    "legendary_vs_common_max": 0.97,
+    "first_mover_max": 0.56,
+    "doc_first_mover": "the side that acts first should not win much more than half",
+    "move_pick_share_max": 0.35,
+    "doc_move_pick": "no single move should be more than this share of a species' picks across battles (choice stays real)",
+    "dodge_success": {
+      "min": 0.35,
+      "max": 0.65,
+      "doc": "a Dodge against an attack that doesn't ignore it"
+    },
+    "battle_turns": {
+      "min": 3,
+      "max": 12,
+      "doc": "a typical wild battle's length in turns"
+    }
+  }
+}
