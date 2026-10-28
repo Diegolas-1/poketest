@@ -17,6 +17,9 @@ extends Node
 #   cyclists   a townsperson's bike ride in view (--who=ben|ada|timmy)
 #   paths      QA: the road assist's graph (bike/paths.json) against the walk grid: every
 #              point of every edge rideable, the junctions joined; prints PASS / FAIL
+#   call       the island menu's Bike: it rolls in from behind him fading in, he gets on;
+#              off and left, it fades away (fade_after cut short); called again it comes
+#              back to him; PASS / FAIL
 #   assist     the road assist and flow test: town -> the Route 1 gate holding forward only,
 #              the forks (straight, a nudge each way, the goal), steering over and back,
 #              cruise, the stepping stones, flow building and draining, the cost; PASS / FAIL
@@ -141,6 +144,7 @@ func _process(dt: float) -> void:
 				_follow(dt)
 				main.stick_vec *= float(_arg("tilt", "0.85"))
 		"cyclists": _cyclists()
+		"call": _call(dt)
 	if cam_v.size() == 6:
 		main.cam.look_at_from_position(Vector3(cam_v[0], cam_v[1], cam_v[2]), Vector3(cam_v[3], cam_v[4], cam_v[5]))
 	elif _arg("chase", "") != "" and B().riding():
@@ -190,6 +194,55 @@ func _mount(_dt: float) -> void:
 		if ph_t > 0.4:
 			var go := _toward(Vector3(-21.0, 0, -12.0), 0.7) if main.pos.z < -15.0 else _toward(Vector3(-25.0, 0, 0.0), 0.9)
 			main.stick_vec = go
+
+func _call(dt: float) -> void:
+	var b := B()
+	ph_t += dt
+	match phase:
+		0:
+			if frame == 4:
+				_fresh_state()
+				var o := _open_spot(5.0)
+				main.pos = Vector3(o.x, main.world.height_at(o.x, o.z), o.z)
+				main.yaw = 0.3
+				main.cast.land(main.pos.y)
+				main.cam_yaw = main.yaw + PI + float(_arg("cam_off", "0.5"))
+				main.cam_pitch = 0.2
+			if frame == 8:
+				b.menu_toggle()
+				_check(b.state == "arrive", "called: rolling in (state %s)" % b.state)
+				_check(b.at.distance_to(main.pos) > 3.0, "it starts behind him (%.1f m)" % b.at.distance_to(main.pos))
+				_check(b._fade < 0.05, "it starts faded out")
+				ph_t = 0.0
+			if frame > 8 and b.state == "ride":
+				_check(ph_t < 4.0, "rolled in and he got on (%.1f s)" % ph_t)
+				_check(b._fade >= 1.0, "solid once there")
+				b.request_dismount()
+				phase = 1; ph_t = 0.0
+			elif frame > 8 and ph_t > 5.0: _check(false, "rolled in (state %s)" % b.state); phase = 9
+		1:
+			if b.state == "parked":
+				b.FADE_AFTER = 1.0
+				var f := Vector3(sin(main.yaw), 0, cos(main.yaw))
+				var q: Vector3 = main.pos + f * 8.0
+				main.pos = Vector3(q.x, main.world.height_at(q.x, q.z), q.z)
+				main.cast.land(main.pos.y)
+				phase = 2; ph_t = 0.0
+			elif ph_t > 4.0: _check(false, "got off (state %s)" % b.state); phase = 9
+		2:
+			if b.away:
+				_check(not b.visible and b.near_prompt(b.at).is_empty(), "faded away, gone from the world (%.1f s)" % ph_t)
+				b.menu_toggle()
+				phase = 3; ph_t = 0.0
+			elif ph_t > 5.0: _check(false, "faded away (fade %.2f idle %.1f)" % [b._fade, b._idle_t]); phase = 9
+		3:
+			if b.state == "ride":
+				_check(b.at.distance_to(main.pos) < 1.0, "called back to him")
+				phase = 9
+			elif ph_t > 5.0: _check(false, "called back (state %s)" % b.state); phase = 9
+		9:
+			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
+			get_tree().quit(0 if fails.is_empty() else 1)
 
 func _cyclists() -> void:
 	var life = main.cast.life

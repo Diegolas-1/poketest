@@ -27,10 +27,9 @@ const EDGE_PT := 11.0          # island's distance from the screen edge, points
 const ENTRIES := [["quests", "Quest log", true], ["settings", "Settings", true],
 	["dex", "Pokédex", false], ["bag", "Bag", false], ["map", "Map", false]]
 
-# the menu's rows: with the setting "Call the bike" on, a Bike row (bike/bike.gd menu_toggle)
-# brings his bike to him outdoors, or puts it away when he is on it
+# the menu's rows: a Bike row (bike/bike.gd menu_toggle) calls his bike to him outdoors,
+# or gets him off when he is on it
 func _entries() -> Array:
-	if int(Settings.get_value("bike_call")) != 1: return ENTRIES
 	var e := ENTRIES.duplicate()
 	var on: bool = main != null and not main.indoors and main.cast != null and main.cast.bike != null
 	var riding: bool = on and main.cast.bike.riding()

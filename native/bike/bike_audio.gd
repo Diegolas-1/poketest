@@ -205,7 +205,7 @@ func _process(dt: float) -> void:
 	want.squeal = skid * clampf(v / 3.0, 0.0, 1.0)
 	want.scrub = skid * clampf(v / 2.0, 0.0, 1.0) * 0.9
 	want.wind = minf(1.0, clampf((v - 3.0) / 8.0, 0.0, 1.0) * 0.8 + flow * 0.3) if active else 0.0
-	var base_db := {"roll_dirt": -15.0, "roll_grass": -17.0, "roll_sand": -14.0, "roll_hard": -19.0, "chain": -21.0, "free": -20.0, "squeal": -15.0, "scrub": -14.0, "wind": -20.0}
+	var base_db := {"roll_dirt": -15.0, "roll_grass": -17.0, "roll_sand": -14.0, "roll_hard": -19.0, "chain": -24.0, "free": -32.0, "squeal": -15.0, "scrub": -14.0, "wind": -20.0}
 	_quiet = true
 	for n in LOOPS:
 		var p: AudioStreamPlayer = players[n]

@@ -9,9 +9,11 @@ extends Node3D
 # it: Ash steps to its left side, takes the bars, swings his right leg over the back
 # and rides. A again, stopped: he gets off on the left and flicks the kickstand down;
 # the bike stays there (saved). A moving: he brakes to a stop first. A door while
-# riding: he parks it outside and goes in. The island menu's Bike entry (with the
-# setting "Call the bike" on, off by default) brings it to him outdoors, or puts it
-# away when he is on it.
+# riding: he parks it outside and goes in. The island menu's Bike entry calls it to
+# him outdoors (it rolls in from behind him, fading in, and he gets on), or gets him
+# off when he is on it. Left parked and unridden a few minutes (fade_after, not with
+# him beside it, not at home by the gate) it fades away; calling it brings it back.
+# There is only ever the one bike: calling it moves it.
 #
 # Riding (all numbers tunable): the stick's tilt is the pedalling (its direction
 # where to go); pedalling pulls him up to cruise speed (sprint holding Run, standing
@@ -107,6 +109,13 @@ var _clock := 0.0
 var _fwd_was := false
 var _fwd_at := -9.0
 var _cruise_said := false
+var away := false          # faded out of the world (until he calls it)
+var _idle_t := 0.0         # seconds parked unridden
+var _fade := 1.0           # the model's opacity
+var _fading_out := false
+var _roll_a := Vector3.ZERO
+var _roll_b := Vector3.ZERO
+var _home_at := Vector3.ZERO
 
 # tunables
 var CRUISE := T.num("bike", "cruise_speed", 9.0)
@@ -165,6 +174,10 @@ var CAM_FOV := T.num("bike", "cam_fov", 0.0)
 var CAM_FOV_FROM := T.num("bike", "cam_fov_from", 8.5)
 var LINES_V: Array = T.file("bike").get("speed_lines", [99.0, 100.0])
 var BELL_GAP := T.num("bike", "bell_gap", 0.35)
+var CALL_T := T.num("bike", "call_roll_time", 1.2)
+var CALL_FROM := T.num("bike", "call_from", 6.0)
+var FADE_AFTER := T.num("bike", "fade_after", 180.0)
+var FADE_T := T.num("bike", "fade_time", 1.0)
 var FL := T.dict("bike", "flow", {})
 var FLOW_GAIN := float(FL.get("gain", 0.18))
 var FLOW_VMAX := float(FL.get("max_speed", 13.0))
@@ -208,7 +221,9 @@ func setup(g: Node3D, c: Node) -> void:
 	var home: Array = T.file("bike").get("parked", [-18.0, -18.45, -1.69])
 	var pk: Array = sv.get("at", home)
 	# the game ended with him riding: he rode it home (he starts the day at home)
-	if bool(sv.get("riding", false)): pk = home
+	# (or it had faded away: it is back by the gate)
+	if bool(sv.get("riding", false)) or bool(sv.get("away", false)): pk = home
+	_home_at = Vector3(float(home[0]), 0.0, float(home[1]))
 	at = Vector3(float(pk[0]), 0.0, float(pk[1]))
 	yaw = float(pk[2])
 	crank = float(sv.get("crank", 0.9))
@@ -231,7 +246,7 @@ func save() -> void:
 	if f == null: return
 	var lk := look.duplicate()
 	f.store_string(JSON.stringify({"v": 1, "at": [snappedf(at.x, 0.01), snappedf(at.z, 0.01), snappedf(yaw, 0.001)],
-		"crank": snappedf(crank, 0.01), "steer": snappedf(parked_steer, 0.01), "riding": riding(), "look": lk}))
+		"crank": snappedf(crank, 0.01), "steer": snappedf(parked_steer, 0.01), "riding": riding(), "away": away, "look": lk}))
 
 # ---------- what others ask ----------
 func riding() -> bool: return state in ["mount", "ride", "dismount"]
@@ -280,6 +295,8 @@ func near_prompt(me: Vector3) -> Dictionary:
 # ---------- getting on ----------
 func start_mount() -> void:
 	if state != "parked": return
+	_fading_out = false
+	if _fade < 1.0: _set_fade(1.0)
 	state = "approach"
 	st_t = 0.0
 	v = 0.0
@@ -334,6 +351,7 @@ func _start_dismount() -> void:
 
 func _end_dismount() -> void:
 	state = "parked"
+	_idle_t = 0.0
 	Sfx.bed("bike_whir", "bike_whir", 0.0, null, 0.3)
 	if cast.body: cast.body.ride_rate = NAN
 	rider.on = 0.0
@@ -372,33 +390,90 @@ func menu_toggle() -> void:
 		request_dismount()
 		return
 	if state != "parked": return
-	if int(Settings.get_value("bike_call")) != 1: return
 	var me: Vector3 = game.pos
-	# put the bike where his mounting spot is right here, facing the way he faces
+	# its stop: his mounting spot right here, facing the way he faces
 	for k in [0.0, 0.6, -0.6, 1.2, -1.2, PI]:
 		var y: float = game.yaw + k
 		var root := me - Basis(Vector3.UP, y) * rider.side_spot
-		if _room_for(root, y):
-			at = root
-			at.y = _ground(at)
-			yaw = y
-			kick = 1.0
-			_pose_parked()
-			Sfx.play("whoosh", null, {"vol": -12.0, "pitch": 1.3})
-			Sfx.play("bike_bell", at, {"vol": 2.0})
-			start_mount()
-			return
+		if not _room_for(root, y): continue
+		# it rolls in along its own line from behind, from as far back as is clear
+		var f := Vector3(sin(y), 0, cos(y))
+		var from := root
+		for d in [CALL_FROM, CALL_FROM * 0.6, CALL_FROM * 0.3]:
+			if _line_clear(root - f * d, root):
+				from = root - f * d
+				break
+		_roll_a = from
+		_roll_b = root
+		at = from
+		at.y = _ground(at)
+		yaw = y
+		away = false
+		_fading_out = false
+		_idle_t = 0.0
+		visible = true
+		model.visible = true
+		_set_fade(0.0)
+		state = "arrive"
+		st_t = 0.0
+		Sfx.play("bike_bell", null, {"vol": 0.0})
+		return
 	say("No room for the bike here")
+
+# rolling in, riderless: upright, onto its stand at the end, then he gets on
+func _step_arrive(dt: float) -> void:
+	st_t += dt
+	game.speed = 0.0
+	var u := minf(st_t / CALL_T, 1.0)
+	var prev := at
+	at = _roll_a.lerp(_roll_b, 1.0 - pow(1.0 - u, 2.2))
+	at.y = _ground(at)
+	var dw := Vector2(at.x - prev.x, at.z - prev.z).length() / model.R
+	wheel_f += dw
+	wheel_r += dw
+	var f := Vector3(sin(yaw), 0, cos(yaw))
+	var hf: float = game.world.height_at(at.x + f.x * model.WB * 0.5, at.z + f.z * model.WB * 0.5)
+	var hb: float = game.world.height_at(at.x - f.x * model.WB * 0.5, at.z - f.z * model.WB * 0.5)
+	pitch = atan2(hf - hb, model.WB)
+	var k := smoothstep(0.8, 1.0, u)
+	lean = parked_lean * k
+	kick = k
+	model.global_transform = Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -pitch) * Basis(Vector3.BACK, lean), at)
+	model.pose(parked_steer * k, wheel_f, wheel_r, crank, kick, 0.0, 0.0)
+	_set_fade(smoothstep(0.0, 0.45, u))
+	Sfx.bed("bike_whir", "bike_whir", 0.35 * (1.0 - u) if u < 1.0 else 0.0, null, 0.2)
+	if u >= 1.0:
+		state = "parked"
+		_set_fade(1.0)
+		_pose_parked()
+		start_mount()
+
+func _spot_ok(p: Vector3) -> bool:
+	var W = game.world
+	var fl: int = W.flag(p.x, p.z)
+	if fl == 255 or (fl & 1 and not fl & 4) or (fl & 2): return false
+	var c: Vector3 = W.collide(p, 0.22)
+	return Vector2(c.x - p.x, c.z - p.z).length() <= 0.01
 
 func _room_for(root: Vector3, y: float) -> bool:
 	var W = game.world
 	var f := Vector3(sin(y), 0, cos(y))
 	for p in [root, root + f * model.WB * 0.5, root - f * model.WB * 0.5]:
-		var fl: int = W.flag(p.x, p.z)
-		if fl == 255 or (fl & 1 and not fl & 4) or (fl & 2): return false
-		var c: Vector3 = W.collide(p, 0.22)
-		if Vector2(c.x - p.x, c.z - p.z).length() > 0.01: return false
+		if not _spot_ok(p): return false
 	return absf(W.height_at(root.x + f.x * 0.5, root.z + f.z * 0.5) - W.height_at(root.x - f.x * 0.5, root.z - f.z * 0.5)) < 0.3
+
+# nothing in the way from a to b (every half metre), no big drop
+func _line_clear(a: Vector3, b: Vector3) -> bool:
+	var n := int(ceilf(a.distance_to(b) / 0.5))
+	for i in n + 1:
+		if not _spot_ok(a.lerp(b, float(i) / float(maxi(n, 1)))): return false
+	return absf(game.world.height_at(a.x, a.z) - game.world.height_at(b.x, b.z)) < 1.5
+
+# the whole bike's opacity (0 gone .. 1 solid)
+func _set_fade(a: float) -> void:
+	_fade = a
+	for g in model.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).transparency = 1.0 - a
 
 # ---------- the bell, the hop ----------
 func ring() -> void:
@@ -418,6 +493,7 @@ func control(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	bell_t += dt
 	if cast and cast.body: cast.body.ride_rate = NAN if state != "ride" else 0.0
 	match state:
+		"arrive": _step_arrive(dt)
 		"approach": _step_approach(dt)
 		"mount":
 			st_t += dt
@@ -940,6 +1016,7 @@ func _skid_marks(dt: float) -> void:
 		_mark_im.surface_end()
 
 func _process(dt: float) -> void:
+	_idle(dt)
 	if state != "ride" and not _marks.is_empty(): _skid_marks(dt)   # (they fade while he is off)
 	if state != "ride" and (_glow_a > 0.0 or _chev_a > 0.0 or _lines_a > 0.0): _assist_fx(dt)
 
@@ -1174,8 +1251,25 @@ func say(text: String, kind := "warn") -> void:
 func _toast_fade(_dt: float) -> void:
 	pass
 
-# indoors: the bike waits outside, unseen
+# parked and left: after fade_after seconds it fades away (he coming back cancels it)
+func _idle(dt: float) -> void:
+	if state != "parked" or away or not visible: return
+	var near := Vector2(game.pos.x - at.x, game.pos.z - at.z).length() < 4.0
+	var home := Vector2(at.x - _home_at.x, at.z - _home_at.z).length() < 2.0
+	_idle_t = 0.0 if near or home else _idle_t + dt
+	_fading_out = _fading_out and not near
+	if _idle_t > FADE_AFTER: _fading_out = true
+	var want := 0.0 if _fading_out else 1.0
+	if _fade != want: _set_fade(move_toward(_fade, want, dt / FADE_T))
+	if _fading_out and _fade <= 0.0:
+		away = true
+		_fading_out = false
+		visible = false
+		model.visible = false
+		save()
+
+# indoors: the bike waits outside, unseen (and stays gone once faded away)
 func set_shown(on: bool) -> void:
-	visible = on
-	model.visible = on
+	visible = on and not away
+	model.visible = visible
 	if not on: audio.stop_all()

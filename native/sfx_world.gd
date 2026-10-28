@@ -263,8 +263,6 @@ func _player(_dt: float) -> void:
 			if s2 != "tallgrass" and not game.indoors and _rustle_t <= t and in_plant(pos):
 				Sfx.play("bush_rustle", null, {"vol": -4.0 if run else -7.0})
 				_rustle_t = t + 0.25
-			elif run and _rng.randf() < 0.12:
-				Sfx.play("cloth_rustle", null, {"vol": -14.0})
 
 # the jump / land sets cover the main surfaces
 func _jl(s: String) -> String:

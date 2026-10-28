@@ -16,8 +16,7 @@ extends Node
 # outlines, outline_q, shadow, shadow_dist, shadow_soft, grass, grass_size,
 # lod (view distance), trees, plants, fog (haze distance), exposure, fps, perf,
 # face, cam_speed, invert_y, deadzone, clock ("game" | "real"), day_len (real
-# minutes per game day), clock_hud, town_debug (clock.gd, life.gd), bike_call (the island
-# menu's Bike button: bike/bike.gd menu_toggle), bike_assist / bike_goal / bike_cruise
+# minutes per game day), clock_hud, town_debug (clock.gd, life.gd), bike_assist / bike_goal / bike_cruise
 # (the road assist, its routing to the compass's goal, double-tap cruise: bike/assist.gd), auto_update
 # (updater.gd), music, music_vol (music.gd), sfx_vol, amb_vol, ui_sfx (sfx.gd).
 #
@@ -59,7 +58,7 @@ static func _presets() -> Dictionary:
 const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
 	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
-	"bike_call": 0, "bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
+	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
@@ -101,7 +100,6 @@ const ROWS := {
 		["cam_speed", "Camera speed", [0.5, 0.75, 1.0, 1.25, 1.5, 2.0], "stick and arrow keys"],
 		["invert_y", "Invert camera up/down", [0, 1], ""],
 		["deadzone", "Stick deadzone", [0.05, 0.1, 0.15, 0.2, 0.25, 0.3], "raise if the camera drifts"],
-		["bike_call", "Call the bike", [0, 1], "a Bike button in the island menu brings it to you outdoors"],
 		["bike_assist", "Road assist", [0, 1], "on a road or trail, hold forward and the bike follows it"],
 		["bike_goal", "Follow the road to my goal", [0, 1], "at a fork the assist takes the way toward the compass's goal"],
 		["bike_cruise", "Bike cruise", [0, 1], "double tap forward to ride on without holding; brake or pull back stops"],
