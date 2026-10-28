@@ -25,6 +25,16 @@ extends Node
 # An empty list: it has nothing it can pay for (it gathers itself).
 # The battle still decides fleeing and disengaging by its moods before asking.
 #
+# The foe's focus and chips follow the energy rules (focus gain per turn, chips
+# at focus thresholds into pools, spent chips back next turn): its starting
+# focus comes from how the battle found it (opts.state: hidden | startled |
+# attacking | fleeing; battle_config focus.wild_start). Ash himself has no
+# energy: the hook only ever makes the wild side's bar (an ally only through
+# add_ally, for a battle that has one).
+#
+# Optional extras (new; the battle may ignore them): disrupt(side, amount)
+# when Ash startles it (focus down a step), set_asleep(side, on), end_turn().
+#
 # The bars: the foe's goes in the battle's anchor for it: battle.energy_anchor("foe")
 # -> Rect2, or battle.energy_anchors["foe"], or the same on battle.ui; else under
 # the foe's plate (top right). It goes on battle.layer (a CanvasLayer) or
@@ -88,7 +98,12 @@ func _setup() -> void:
 	jitter = float(o.get("jitter", 0.1))
 	if o.has("seed"): rng.seed = int(o.seed)
 	else: rng.randomize()
-	foe = BattleEnergy.make(sp, lv, o.get("known", null))
+	var st := String(o.get("state", bo.get("state", "default")))
+	foe = BattleEnergy.make_wild(sp, lv, st)
+	if o.get("known", null) is Array:
+		var f := foe.focus
+		foe = BattleEnergy.make(sp, lv, o.known)
+		foe.set_focus(f, "wild")
 	# the moves the battle can stage
 	if o.get("moves", null) is Array: supported = o.moves.duplicate()
 	elif battle and battle.has_method("energy_moves"): supported = battle.energy_moves()
@@ -118,6 +133,7 @@ func _make_bar(side: String, e: BattleEnergy, host: Node) -> EnergyBar:
 	b.side = side
 	b.align_right = side == "foe"
 	b.title = BattleEnergy.species_data(e.species).get("name", e.species)
+	b.owner_view = side == "ally"     # the foe's locks show face down to the player
 	host.add_child(b)
 	b.bind(e)
 	b.fit(anchor(side))
@@ -159,15 +175,18 @@ func plan_style() -> String:
 	return style if style != "" else temper_style(temper)
 
 func usable_moves() -> Array:
-	if supported.is_empty(): return foe.known.duplicate()
-	return foe.known.filter(func(id): return id in supported)
+	var ids := foe.usable()
+	if supported.is_empty(): return ids
+	return ids.filter(func(id): return id in supported)
 
 # begins its turn (catching up to state.turn when given) and returns its plan
 func wild_pick(state := {}) -> Array:
 	if foe == null: return []
 	var want := int(state.get("turn", foe.turn + 1))
 	if want > foe.turn:
-		while foe.turn < want: foe.begin_turn()
+		while foe.turn < want:
+			if foe.turn > 0: foe.end_turn()
+			foe.begin_turn()
 	var st := String(state.get("style", ""))
 	if st == "": st = temper_style(String(state.get("temper", temper))) if style == "" else style
 	var plan := foe.plan_turn(usable_moves(), st, {"uses": uses, "rng": rng, "jitter": jitter})
@@ -176,7 +195,7 @@ func wild_pick(state := {}) -> Array:
 		uses[id] = int(uses.get(id, 0)) + 1
 		var m := BattleEnergy.move(id)
 		out.append({"kind": "move", "move": id, "first": int(m.get("priority", 0)) > 0, "cost": BattleEnergy.cost_of(id),
-			"name": String(m.get("name", id)).to_upper(), "anim": String(m.get("anim", id)), "power": int(m.get("power", 0)),
+			"name": String(m.get("name", id)).to_upper(), "anim": String(m.get("anim", id)), "power": int(BattleEnergy.move_power(id, foe.available())),
 			"accuracy": int(m.get("accuracy", 100)), "effects": m.get("effects", []).duplicate()})
 	return out
 
@@ -187,7 +206,7 @@ func on_move(move_id: String, to = null, side := "foe") -> bool:
 	var b := bar if side == "foe" else ally_bar
 	if e == null: return false
 	var cost := BattleEnergy.cost_of(move_id)
-	if cost.is_empty() or not e.can_pay(cost): return false
+	if cost.is_empty() or not e.can_pay(move_id): return false
 	if b and is_instance_valid(b): b.fly_target = to if to is Vector2 else _default_target(side)
 	return not e.pay(cost, move_id).is_empty()
 
@@ -198,7 +217,22 @@ func _default_target(side: String) -> Vector2:
 		return cam.unproject_position(at + Vector3(0, 1.0, 0))
 	return Vector2(-1, -1)
 
-# an item used in battle (pokemon.json energy_items): chips restored
+# (optional) Ash startled it, or a hit shook it: its focus drops a step (amount < 0: the config's)
+func disrupt(side := "foe", amount := -1.0) -> Array:
+	var e := foe if side == "foe" else ally
+	return e.disrupt(amount) if e else []
+
+# (optional) asleep: no focus gain
+func set_asleep(side := "foe", on := true) -> void:
+	var e := foe if side == "foe" else ally
+	if e: e.asleep = on
+
+# (optional) the end of a turn: locks past their expiry release
+func end_turn() -> void:
+	for e in [foe, ally]:
+		if e: e.end_turn()
+
+# an item used in battle (battle_config items): chips restored
 func use_item(item_id: String, side := "foe") -> int:
 	var e := foe if side == "foe" else ally
 	return e.use_item(item_id) if e else 0

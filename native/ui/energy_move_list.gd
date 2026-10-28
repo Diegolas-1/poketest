@@ -1,13 +1,16 @@
 class_name EnergyMoveList
 extends Control
 # A Pokémon's moves for the energy system (battle/energy.gd): one skewed row
-# per move with its type disc, its name, a line of what it does, and its cost
-# as energy icons on the right. No four-move cap: the list scrolls with the
-# selection when there are more rows than fit. States:
+# per move with its type disc, its name, its role (a small tag: REACTION,
+# 2 TURNS, DISRUPT...), a line of what it does, and its cost as energy icons on
+# the right. No four-move cap: the list scrolls with the selection when there
+# are more rows than fit; every known move is listed (never forgotten), the
+# ones in its slots first. States:
 #   ready    it can pay now
-#   short    known and fits the bar, but not enough chips this turn: dimmed,
-#            the chips it lacks ringed red
-#   locked   bigger than the bar: a lock and the level its slots open
+#   short    in a slot, but not enough chips this turn: dimmed, the chips it
+#            lacks ringed red
+#   locked   known but not in a slot (the slots are full, or the move is too
+#            big): a lock, and the level the next slot opens
 # The selected row turns white with a slide; a bar bound with bar_preview
 # lights the chips it would use. Touch: tap a row to select it (the preview),
 # tap it again to use it. Pad / keys: up / down, A (E / Enter), 1-9; B / Esc
@@ -33,6 +36,7 @@ var selected := 0
 var input_enabled := true
 var show_end := true
 var bar_preview: EnergyBar
+var reach_fn: Callable           # optional (id) -> "" or a warning (the foe is out of reach of this move)
 var _anim := {}
 var _appear := 0.0
 var _flash := -1
@@ -52,6 +56,11 @@ func bind(e: BattleEnergy, moves = null) -> void:
 	if energy and energy.changed.is_connected(_on_changed): energy.changed.disconnect(_on_changed)
 	energy = e
 	ids = (moves if moves is Array else (e.known if e else [])).duplicate()
+	# the moves in its slots first, then the locked ones (same order otherwise)
+	if e:
+		var on := ids.filter(func(id): return not e.locked(id))
+		var off := ids.filter(func(id): return e.locked(id))
+		ids = on + off
 	if e: e.changed.connect(_on_changed)
 	selected = clampi(selected, 0, maxi(0, count() - 1))
 	_appear = 0.0
@@ -96,8 +105,8 @@ func _preview() -> void:
 	_hold = false
 	if bar_preview == null or not is_instance_valid(bar_preview): return
 	var id := id_at(selected)
-	if id == END_ID or count() == 0 or not is_visible_in_tree(): bar_preview.clear_preview()
-	else: bar_preview.preview_cost(BattleEnergy.cost_of(id))
+	if id == END_ID or count() == 0 or not is_visible_in_tree() or state_of(id) == "locked": bar_preview.clear_preview()
+	else: bar_preview.preview_cost(id)
 
 func pick(i: int) -> void:
 	if i < 0 or i >= count(): return
@@ -221,12 +230,23 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 	EnergyIcon.draw_icon(self, kind, Vector2(r.position.x + 34.0, cy), 15.0, ra)
 	# the name and what it does
 	var nx := r.position.x + 60.0
-	UITheme.text(self, Vector2(nx, cy + 2.0), String(m.get("name", id)).to_upper(), "display", 25, fg)
+	var nw := UITheme.text(self, Vector2(nx, cy + 2.0), String(m.get("name", id)).to_upper(), "display", 25, fg)
+	var rt: String = ROLE_TAG.get(String(m.get("role", "offense")), "")
+	if rt != "":
+		var rc: Color = ROLE_COL.get(String(m.get("role", "")), UITheme.SKY)
+		UITheme.chip(self, Vector2(nx + nw + 8.0, cy - 17.0), rt, Color(rc, ra), UITheme.INK, 11, 17.0, 1.0)
+	m = m.duplicate()
+	m["_id"] = id
 	var line := _subline(m, st)
-	UITheme.text(self, Vector2(nx + 1.0, cy + 21.0), line, "label", 13, sub if st != "locked" else Color(UITheme.ORANGE, ra))
+	var warn := String(reach_fn.call(id)) if reach_fn.is_valid() and st != "locked" else ""
+	var lc: Color = sub if st != "locked" else Color(UITheme.ORANGE, ra)
+	if warn != "": line = warn; lc = (Color(UITheme.GREEN, ra).lerp(Color("1d7a40", ra), k)) if warn.begins_with("REACHES") else Color(UITheme.ORANGE, ra).lerp(Color("b4560b", ra), k)
+	var cost_w := BattleEnergy.cost_of(id).size() * 27.0 + (60.0 if BattleEnergy.is_all(id) else 0.0) + 30.0
+	UITheme.text(self, Vector2(nx + 1.0, cy + 21.0), line, "label", 13, lc, 0, maxf(60.0, r.end.x - nx - cost_w))
 	# the cost: icons from the right
 	var cost := BattleEnergy.cost_of(id)
-	var miss: Array = energy.missing(cost) if energy and st == "short" else []
+	var miss: Array = energy.missing(id) if energy and st == "short" else []
+	var all_cost := BattleEnergy.is_all(id)
 	var cr := 12.0
 	var step := 27.0
 	var gw := 40.0 if (UIInput.device == "pad" and k > 0.5) else 10.0
@@ -241,23 +261,50 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 		if lacking: mm.erase(kd)
 		EnergyIcon.draw_icon(self, kd, c, cr, a * (0.45 if lacking or st == "locked" else 1.0), {"dim": 0.5 if lacking or st == "locked" else 0.0})
 		if lacking: draw_arc(c, cr + 2.5, 0.0, TAU, 24, Color(UITheme.RED, a * (0.7 + 0.3 * sin(t * 7.0))), 2.2, true)
+	var left := x - (shown.size() - 1) * step - cr
+	if all_cost:
+		# a finisher: ALL, then its minimum
+		var at := Vector2(left - 46.0, cy - 13.0)
+		UITheme.chip(self, at, "ALL", Color(UITheme.YELLOW, a * (0.5 if st == "locked" else 1.0)), UITheme.INK, 14, 22.0, 1.0)
+		UITheme.text_mid(self, Vector2(left - 4.0, cy + 15.0), "MIN", "label", 9, Color(UITheme.TEXT_DIM, a * 0.8).lerp(Color(UITheme.INK_SOFT, a), k), 2)
+		left -= 52.0
 	if st == "locked":
-		var lx := x - (shown.size() - 1) * step - cr - 22.0
+		var lx := left - 22.0
 		_lock(Vector2(lx, cy - 2.0), 9.0, Color(UITheme.ORANGE, a))
 	if UIInput.device == "pad" and k > 0.5:
 		UITheme.glyph(self, Vector2(r.end.x - 24.0, cy), "use", 26.0, a * (1.0 if st == "ready" else 0.4))
 	elif UIInput.device == "keys" and i < 9:
 		UITheme.text_mid(self, Vector2(r.position.x + 48.0, r.position.y + 12.0), str(i + 1), "label", 12, Color(fg, ra * 0.6), 1)
 
+const ROLE_TAG := {"reaction": "REACTION", "two_phase": "2 TURNS", "disruption": "DISRUPT", "utility": "UTILITY"}
+const ROLE_COL := {"reaction": Color("9d6cf0"), "two_phase": Color("ff9a1f"), "disruption": Color("ee3b33"), "utility": Color("3fb6f5")}
+
 func _subline(m: Dictionary, st: String) -> String:
 	if st == "locked":
-		var need := BattleEnergy.cost_of(m.get("cost", [])).size()
-		var lv := BattleEnergy.level_for_slot(need, energy.species if energy else "")
-		return "NEEDS %d SLOTS  ·  LV %d" % [need, lv] if lv > 0 else "NEEDS %d SLOTS" % need
+		if energy == null: return "LOCKED"
+		var nl := BattleEnergy.next_slot_level(energy.level, energy.species)
+		var used := "SLOTS FULL %d/%d" % [energy.equipped.size(), energy.slots]
+		return "LOCKED  ·  %s  ·  NEXT SLOT LV %d" % [used, nl] if nl > 0 else "LOCKED  ·  %s" % used
 	var bits := []
+	var mid := String(m.get("_id", ""))
+	if mid != "" and BattleEnergy.is_all(mid):
+		var sp := BattleEnergy.all_spec(mid)
+		var ppc := float(m.get("power_per_chip", BattleConfig.num("finisher", "power_per_chip_default", 35.0)))
+		var now := energy.available() if energy else int(sp.min)
+		bits.append("FINISHER: EVERY CHIP")
+		bits.append("POW %d + %d A CHIP" % [int(m.get("power", 0)), int(ppc)])
+		if energy and now >= int(sp.min): bits.append("NOW %d" % int(BattleEnergy.move_power(mid, now)))
+		return "  ·  ".join(bits)
+	if String(m.get("role", "")) == "reaction":
+		var r: Dictionary = m.get("reaction", {})
+		var trig := {"any": "ANY MOVE", "attack": "ANY ATTACK", "physical": "PHYSICAL ONLY", "special": "SPECIAL ONLY"}
+		bits.append("LOCKS ITS CHIPS: %s" % trig.get(String(r.get("trigger", "any")), "ANY"))
+		return "  ·  ".join(bits)
+	if String(m.get("role", "")) == "two_phase":
+		bits.append("PAY NOW, STRIKE NEXT TURN")
 	if int(m.get("power", 0)) > 0: bits.append("POW %d" % int(m.power))
-	if int(m.get("priority", 0)) > 0: bits.append("FIRST")
-	if int(m.get("accuracy", 100)) < 100: bits.append("ACC %d" % int(m.accuracy))
+	if int(m.get("priority", 0)) > 0 and String(m.get("role", "")) != "reaction": bits.append("FIRST")
+	if int(m.get("accuracy", 100)) < 100 and int(m.get("accuracy", 100)) > 0: bits.append("ACC %d" % int(m.accuracy))
 	if bits.is_empty() or int(m.get("power", 0)) <= 0:
 		bits.append(String(m.get("desc", "")).trim_suffix(".").to_upper())
 	return "  ·  ".join(bits)
