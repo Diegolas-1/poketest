@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dok1aq4rro0ui"
-path="res://.godot/imported/13c48e63bb7b9390.png-f7fffd2f0d985341c92126c93320e68d.ctex"
+uid="uid://doatae0bc4rjw"
+path="res://.godot/imported/178647bc962128b3.png-69dd482057f83e7662488113171f7436.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://world/r/pallet_house_trail/13c48e63bb7b9390.png"
-dest_files=["res://.godot/imported/13c48e63bb7b9390.png-f7fffd2f0d985341c92126c93320e68d.ctex"]
+source_file="res://world/r/viridian_outskirts/178647bc962128b3.png"
+dest_files=["res://.godot/imported/178647bc962128b3.png-69dd482057f83e7662488113171f7436.ctex"]
 
 [params]
 
