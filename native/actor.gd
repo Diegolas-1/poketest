@@ -71,6 +71,14 @@ var ground: Callable
 # on a bicycle (bike/rider.gd): the riding pose goes on top of the idle clip; the
 # speed given to animate() then moves only the cloth's air
 var rider: BikeRider = null
+# crouching (cast.gd sets crouch for Ash): 0 / 1 wanted; crouch_w is the eased weight
+# of the crouch layer (the sneak gait and the crouched idle, _crouch below)
+var crouch := 0.0
+var crouch_w := 0.0
+var _crouch_v := 0.0
+var CR := {}                # its numbers (CROUCH, with the world editor's tunables over them)
+var _cr := {"look": 0.0, "lv": 0.0, "lt": 1.5, "lgoal": 0.0, "shift": 0.0, "sv": 0.0, "side": 1.0, "swap": 4.0,
+	"peek": -1.0, "t": 0.0, "pitch": 0.0, "pv": 0.0, "pgoal": 0.0}
 
 var phase := 0.0
 var steps := 0              # feet put down so far (sfx_world.gd: one footstep sound each)
@@ -321,7 +329,13 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var tempo := lerpf(1.0 / dW, 1.0 / dR, rb)
 	var cad := lerpf(cad_walk, cad_run, rb)
 	gait = clampf(maxf(speed, 0.8) / (cad * stride), 0.35, 1.0) if cad > 0.0 else 1.0
-	if not air: phase = fmod(phase + dt * minf(maxf(speed, 0.8) / (stride * gait), tempo * TEMPO_MAX), 1.0)
+	# the crouch: eased in and out (a critically damped spring), and its own step rate
+	var cs := Creature.spring(Vector2(crouch_w, _crouch_v), clampf(crouch, 0.0, 1.0), float(_crn("ease", 9.0)), dt)
+	crouch_w = clampf(cs.x, 0.0, 1.0); _crouch_v = cs.y
+	if crouch_w < 0.001 and crouch <= 0.0: crouch_w = 0.0; _crouch_v = 0.0
+	var rate := minf(maxf(speed, 0.8) / (stride * gait), tempo * TEMPO_MAX)
+	if crouch_w > 0.0: rate = lerpf(rate, crouch_rate(speed), _sm(0.0, 0.6, crouch_w))
+	if not air: phase = fmod(phase + dt * rate, 1.0)
 	# a foot comes down at phase 0 (the left, as the clip's lead) and at 0.5 (the right)
 	var half := int(phase * 2.0)
 	if half != _half:
@@ -379,7 +393,8 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var lean := _sm(run_v * 1.1, run_v * 1.8, speed) * (1.0 - air_w)
 	if lean > 0.001:
 		bend("Spine2", 1, 0, 0, lean * 0.14); bend("Spine3", 1, 0, 0, lean * 0.07); bend("Head", 1, 0, 0, -lean * 0.12)
-	_idle_life(dt, w.idle * (1.0 - air_w), (w.idle + w.walk * 0.6) * (1.0 - air_w))
+	var ncw := 1.0 - crouch_w   # (crouched: the crouch layer has the idle's place)
+	_idle_life(dt, w.idle * (1.0 - air_w) * ncw, (w.idle + w.walk * 0.6) * (1.0 - air_w) * ncw)
 	# feet a little apart at a walk, soles flat; arms a touch out from the sides
 	var wwk: float = w.walk * (1.0 - air_w)
 	if wwk > 0.001:
@@ -390,6 +405,7 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 		for s in [["L", 1.0], ["R", -1.0]]: bend(s[0] + "ArmA", 0, 0, 1, s[1] * wa)
 	if tired > 0.001: _tired(speed)
 	_jump(dt, speed, air)
+	if crouch_w > 0.0: _crouch(dt, speed)
 	idles.post(dt)
 
 # a bone's transform in the skeleton's space, from the pose being built this frame
@@ -779,6 +795,176 @@ func _jump(dt: float, speed: float, air: bool) -> void:
 	if not air: off = -(lo1 - lo0) * k
 	elif plant > 0.0: off = ((float(jump.y0) - y) - (lo1 - lo0) * k) * plant
 	holder.position.y = y0 + off
+
+# ---------- crouching: the sneak and the crouched idle ----------
+# Low, knees bent and a little out, the chest over the knees, the head up and
+# forward, the arms in. Each leg is a two-bone IK (idles.gd _ik) to a foot the
+# gait places: the stance carries the planted foot back at the body's own speed
+# (so it never slides), the swing lifts it high and sets the ball of the foot
+# down first, the heel peeling off at the end of the stance. Standing still the
+# feet settle staggered, the weight shifts from leg to leg, the head scans, and
+# now and then he rises a little to peek. Blended in by crouch_w: the feet go
+# from where the clips put them to the crouch's spots, so they stay on the
+# ground through the change. Skeleton space throughout (skel units = m / k).
+const CROUCH := {
+	"ease": 9.0,                 # the spring in and out (rad/s, critically damped)
+	"hip_walk": 0.66,            # the hip's height above the ankle, as a part of the leg: sneaking
+	"hip_idle": 0.53,            # and crouched still
+	"cad0": 0.8, "cad1": 0.35,   # step cycles a second: cad0 + cad1 * speed (1.29 at 1.4 m/s)
+	"stance": 0.62,              # the part of a cycle a foot is down
+	"lift": 0.11,                # how high the swinging foot comes up (skel units)
+	"width": 0.084,              # the feet from the middle (skel units)
+	"bob": 0.011, "sway": 0.017, # the hips down at each footfall, and over the planted foot
+	"lean": [0.32, 0.44, 0.15],  # Spine1..3 pitched forward, sneaking
+	"lean_idle": [0.34, 0.44, 0.16],
+	"hips": 0.34,                # the pelvis tipped forward
+	"arm_walk": [-0.5, 0.26, 1.3, 0.14],   # upper arm swing (- forward), out from the side, elbow, swing amplitude
+	"arm_idle": [-0.78, 0.34, 0.98, 0.0],
+}
+var _cg := {}   # the leg's geometry from the rest pose (once)
+
+func _crn(key: String, d):
+	if CR.is_empty():
+		CR = CROUCH.duplicate(true)
+		var o = preload("res://tunables.gd").dict("cast", "crouch", {})
+		if o is Dictionary: for kk in o: CR[kk] = o[kk]
+	return CR.get(key, d)
+
+# step cycles a second while crouched (main.gd: the step rate is the actor's phase)
+func crouch_rate(speed: float) -> float:
+	return float(_crn("cad0", 0.8)) + float(_crn("cad1", 0.35)) * maxf(speed, 0.0)
+
+func _crouch_geo() -> void:
+	var g := func(n: String) -> Vector3: return skel.get_bone_global_rest(bones[n]).origin
+	var th: Vector3 = g.call("LThigh")
+	var kn: Vector3 = g.call("LLeg")
+	var an: Vector3 = g.call("LFoot")
+	_cg = {"thigh_y": th.y, "leg": th.distance_to(kn) + kn.distance_to(an), "ankle": an.y, "toe": g.call("LToe") - an,
+		"fq": [skel.get_bone_global_rest(bones.LFoot).basis.get_rotation_quaternion(), skel.get_bone_global_rest(bones.RFoot).basis.get_rotation_quaternion()]}
+
+# a foot through the sneak: (z forward of the hips, lift, pitch + = toe down), u the leg's
+# own phase (0 = its foot comes down), ss the length of a cycle (skel units)
+func _sneak_foot(u: float, ss: float) -> Vector3:
+	var b := float(CR.stance)
+	if u < b:
+		var s := u / b
+		return Vector3(ss * b * (0.5 - s), 0.0, 0.12 * (1.0 - _sm(0.0, 0.14, s)) + 0.3 * _sm(0.72, 1.0, s))
+	var s2 := (u - b) / (1.0 - b)
+	var z := ss * b * (_sm(0.0, 0.86, s2) - 0.5)
+	var lift := float(CR.lift) * pow(sin(PI * clampf(s2 / 0.94, 0.0, 1.0)), 0.85)
+	var p := lerpf(0.3, -0.2, _sm(0.0, 0.4, s2))
+	p = lerpf(p, 0.12, _sm(0.62, 1.0, s2))
+	return Vector3(z, lift, p)
+
+const CROUCH_BONES := ["Waist", "Hips", "Spine1", "Spine2", "Spine3", "Neck", "Head", "LArmA", "RArmA", "LForeArm", "RForeArm"]
+func _crouch(dt: float, speed: float) -> void:
+	var W := crouch_w * (1.0 - air_w)
+	if W < 0.002: return
+	_crn("ease", 9.0)
+	if _cg.is_empty(): _crouch_geo()
+	var C := _cr
+	C.t += dt
+	var mv := _sm(0.12, 0.9, speed)
+	var ph := phase
+	var ss := speed / crouch_rate(speed) / k       # a cycle's length, skel units
+	# the clips' feet (actor-local), their turn, which way their knees point
+	var hp0 := holder.position
+	var clip_f := []; var clip_q := []; var clip_p := []
+	for s in ["L", "R"]:
+		var tf := gxf(bones[s + "Thigh"]); var lf := gxf(bones[s + "Leg"]); var ff := gxf(bones[s + "Foot"])
+		clip_f.append(hp0 + ff.origin * k)
+		clip_q.append(ff.basis.get_rotation_quaternion())
+		var kp := lf.origin - (tf.origin + ff.origin) * 0.5
+		clip_p.append(kp.normalized() if kp.length() > 1e-4 else Vector3.BACK)
+	# the head: scanning about (wider when still), and the weight from leg to leg
+	C.lt -= dt
+	if C.lt <= 0.0:
+		C.lt = _rng.randf_range(1.2, 3.6)
+		var wide := lerpf(0.75, 0.32, mv)
+		C.lgoal = _rng.randf_range(-wide, wide) if _rng.randf() < 0.75 else 0.0
+		C.pgoal = _rng.randf_range(-0.12, 0.06)
+	var sp := Creature.spring(Vector2(C.look, C.lv), C.lgoal, 5.0, dt, 0.8)
+	C.look = sp.x; C.lv = sp.y
+	var pp := Creature.spring(Vector2(C.pitch, C.pv), C.pgoal, 4.0, dt)
+	C.pitch = pp.x; C.pv = pp.y
+	C.swap -= dt
+	if C.swap <= 0.0:
+		C.swap = _rng.randf_range(2.8, 6.0); C.side = -C.side
+		if mv < 0.2 and C.peek < 0.0 and _rng.randf() < 0.35: C.peek = 0.0   # a peek over the grass
+	var sh := Creature.spring(Vector2(C.shift, C.sv), C.side * (1.0 - mv), 3.0, dt)
+	C.shift = sh.x; C.sv = sh.y
+	var peek := 0.0
+	if C.peek >= 0.0:
+		C.peek += dt
+		peek = _sm(0.0, 0.45, C.peek) * (1.0 - _sm(1.5, 2.1, C.peek)) * (1.0 - mv)
+		if C.peek > 2.1: C.peek = -1.0
+	# ---- the body: hips, spine, head, arms (posed, then blended in by W) ----
+	var saved := []
+	for n in CROUCH_BONES: saved.append(q[bones[n]] if bones.has(n) else Quaternion())
+	var tw := cos(TAU * (ph - 0.31))     # + while the left foot carries him
+	var br := sin(C.t * 2.1)
+	var la: Array = CR.lean_idle; var lw: Array = CR.lean
+	var l0 := lerpf(la[0], lw[0], mv) - peek * 0.08
+	var l1 := lerpf(la[1], lw[1], mv) - peek * 0.1
+	var l2 := lerpf(la[2], lw[2], mv)
+	pose("Waist", [[0, 1, 0, -0.06 * tw * mv], [0, 0, 1, 0.025 * tw * mv - 0.03 * C.shift]])
+	pose("Hips", [[1, 0, 0, float(CR.hips) * (1.0 - peek * 0.4)]])
+	pose("Spine1", [[1, 0, 0, l0 + 0.01 * br], [0, 1, 0, 0.05 * tw * mv], [0, 0, 1, 0.02 * C.shift]])
+	pose("Spine2", [[1, 0, 0, l1 + 0.02 * br], [0, 1, 0, 0.04 * tw * mv]])
+	pose("Spine3", [[1, 0, 0, l2 + 0.01 * br], [0, 1, 0, C.look * 0.15]])
+	var tot := l0 + l1 + l2
+	pose("Neck", [[1, 0, 0, 0.06 - tot * 0.15], [0, 1, 0, C.look * 0.35]])
+	pose("Head", [[1, 0, 0, -tot * 0.78 + C.pitch - peek * 0.12 - 0.015 * br], [0, 1, 0, C.look * 0.5], [0, 0, 1, -0.04 * C.shift]])
+	var aw: Array = CR.arm_walk; var ai: Array = CR.arm_idle
+	for i in 2:
+		var s := "L" if i == 0 else "R"
+		var sg := 1.0 if i == 0 else -1.0
+		# the arm swings with the opposite leg, a little; out, the elbows bent, hands loose
+		var swing := float(aw[3]) * cos(TAU * (ph - (0.5 if i == 0 else 0.0))) * mv
+		var sw := lerpf(ai[0], aw[0], mv) - swing + peek * 0.25
+		var ab := lerpf(ai[1], aw[1], mv)
+		var el := lerpf(ai[2], aw[2], mv) + 0.08 * br * (1.0 - mv) - peek * 0.2
+		pose(s + "ArmA", [[1, 0, 0, sw], [0, 0, 1, sg * ab], [0, 0, 1, -sg * PI / 2.0], [1, 0, 0, -0.25]])
+		pose(s + "ForeArm", [[0, 1, 0, -sg * el]])
+	for i in CROUCH_BONES.size():
+		var bi: int = bones.get(CROUCH_BONES[i], -1)
+		if bi >= 0: q[bi] = (saved[i] as Quaternion).slerp(q[bi], W)
+	for s in ["L", "R"]:
+		var sg := 1.0 if s == "L" else -1.0
+		for f in FIST:
+			for j in range(1, 4): bend("%sFinger%s%d" % [s, f, j], 0, 0, 1, -sg * 0.45 * W * (0.8 if j == 1 else 1.0))
+	if waist >= 0:
+		var swx: float = float(CR.sway) * tw * mv + 0.02 * C.shift
+		waist_pos = waist_pos.lerp(rest_waist + Vector3(swx, 0.0, 0.0), W)
+		skel.set_bone_pose_position(waist, waist_pos)
+	# ---- the height: the hips over the bent legs, down a little at each footfall ----
+	var L: float = _cg.leg
+	var hf := lerpf(float(CR.hip_idle), float(CR.hip_walk), mv) + peek * 0.11
+	var bob := -float(CR.bob) * cos(TAU * 2.0 * ph) * mv
+	var hc := y0 + (float(_cg.ankle) + hf * L + bob - float(_cg.thigh_y)) * k
+	holder.position.y = lerpf(hp0.y, hc, W)
+	# ---- the legs ----
+	var toe: Vector3 = _cg.toe
+	for i in 2:
+		var s := "L" if i == 0 else "R"
+		var sg := 1.0 if i == 0 else -1.0
+		var u := fmod(ph + (0.0 if i == 0 else 0.5), 1.0)
+		var gf := _sneak_foot(u, ss)
+		var zi: float = (0.075 if i == 0 else -0.055) + 0.012 * C.shift * sg
+		var z := lerpf(zi, gf.x, mv)
+		var lift := gf.y * mv
+		var pitch := gf.z * mv
+		# a pitched foot turns about the ball while it is down (the toe keeps its place)
+		var rq := Quaternion(Vector3.RIGHT, pitch)
+		var piv := (toe - rq * toe) * (1.0 - _sm(0.0, 0.03, lift))
+		var x := sg * float(CR.width) * lerpf(1.18, 1.0, mv)
+		var tc := Vector3(x * k, y0 + (float(_cg.ankle) + lift + piv.y) * k, (z + piv.z) * k)
+		var T: Vector3 = (clip_f[i] as Vector3).lerp(tc, W)
+		var pole: Vector3 = (clip_p[i] as Vector3).lerp(Vector3(sg * 0.32, 0.0, 1.0).normalized(), W).normalized()
+		idles._ik(s + "Thigh", s + "Leg", s + "Foot", (T - holder.position) / k, pole, [1, 0, 0, 1], 1.0)
+		var cq: Quaternion = Quaternion(Vector3.UP, sg * 0.14) * rq * (_cg.fq[i] as Quaternion)
+		idles._orient(s + "Foot", (clip_q[i] as Quaternion).slerp(cq, W), 1.0)
+		if pitch > 0.02 and lift < 0.02: bend(s + "Toe", 1, 0, 0, -pitch * W * (1.0 - _sm(0.0, 0.02, lift)))
 
 # ---------- head look and blinking ----------
 func _head_look(dt: float) -> void:

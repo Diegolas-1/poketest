@@ -165,6 +165,9 @@ const TRAIL_STEP := 0.22          # metres between trail points
 const TRAIL_LIFE := 1.3           # seconds a point takes to settle
 var _trails := {}                 # id -> {"last": Vector2, "pts": [[Vector2, age, r]]}
 var _push := PackedVector4Array()
+# other things that stir the grass this frame (wild/wild.gd: a Pokémon hiding in it
+# twitches its blades): [x, z, radius, strength], strength may swing below 0
+var extra: Array = []
 var _sent_n := -1
 
 static func _spring(age: float) -> float:
@@ -204,6 +207,8 @@ func set_walkers(list: Array, dt: float, cam_pos: Vector3, focus: Vector3) -> vo
 		var tr: Dictionary = _trails[id]
 		if tr.has("cur") and tr.d < NEAR and _push.size() < PUSH_MAX:
 			_push.append(Vector4(tr.cur.x, tr.cur.y, tr.r, 1.0))
+	for e in extra:
+		if _push.size() < PUSH_MAX: _push.append(e)
 	for id in order:
 		var tr: Dictionary = _trails[id]
 		if tr.get("d", 1e9) > NEAR: continue

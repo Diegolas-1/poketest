@@ -334,6 +334,7 @@ func _process(dt: float) -> void:
 	var rs := T.num("player", "run_stick", 0.85)
 	var run := Input.is_action_pressed("run") or stick_vec.length() > rs or pad.length() > rs
 	run = run and cast.body.can_run()   # worn out: walking only (body.gd, the fatigue condition)
+	var crouched: bool = cast.crouching and not run   # (cast.gd: running stands him up)
 	if cast.busy() or trans_busy: mv = Vector2.ZERO
 	# move relative to the camera (as in Legends: Arceus)
 	var f := Vector2(-sin(cam_yaw), -cos(cam_yaw))
@@ -346,6 +347,7 @@ func _process(dt: float) -> void:
 		cast.body.running = false
 	else:
 		var want := (T.num("player", "run_speed", 8.5) if run else T.num("player", "walk_speed", 4.5)) * m if m > 0.05 else 0.0
+		if crouched: want = T.num("player", "crouch_speed", 1.4) * m if m > 0.05 else 0.0   # crouch-walking: slow and quiet
 		want *= cast.body.speed_mult(run)   # slower in the water (deeper, slower), and by his conditions
 		cast.body.running = run and m > 0.05 and not cast.busy() and not trans_busy
 		if not cast.busy() and not trans_busy: speed += (want - speed) * (1.0 - exp(-dt * T.num("player", "accel", 10.0)))
@@ -384,7 +386,9 @@ func _process(dt: float) -> void:
 func _camera(dt: float) -> void:
 	# on the bike: further back and a little lower with speed, swinging in behind sooner
 	var bk = cast.bike if cast and cast.bike and cast.bike.riding() else null
-	var dist: float = cam_dist + (bk.cam_pull() if bk else 0.0)
+	# crouched: the camera comes down with him and a little closer
+	var cw: float = cast.player.crouch_w if cast and cast.player else 0.0
+	var dist: float = cam_dist + (bk.cam_pull() if bk else 0.0) - T.num("camera", "crouch_pull", 1.1) * cw
 	var pitch_eff: float = cam_pitch - (bk.cam_drop() if bk else 0.0)
 	if cam_recenter > 0.0:   # L / ZL / C: swing in behind the player
 		cam_recenter -= dt
@@ -399,7 +403,7 @@ func _camera(dt: float) -> void:
 	var k := 1.0 - exp(-dt * (bk.CAM_LAG if bk else T.num("camera", "target_follow", 10.0)))
 	cam_target.x += (pos.x - cam_target.x) * k
 	cam_target.z += (pos.z - cam_target.z) * k
-	cam_target.y = cam_ty + T.num("camera", "eye_height", 1.45)
+	cam_target.y = cam_ty + T.num("camera", "eye_height", 1.45) - T.num("camera", "crouch_drop", 0.5) * cw
 	var cp := cos(pitch_eff)
 	var want := cam_target + Vector3(sin(cam_yaw) * cp, sin(pitch_eff), cos(cam_yaw) * cp) * dist
 	var gc := T.num("camera", "ground_clear", 0.4)
@@ -709,7 +713,7 @@ func _rebuild_grass() -> void:
 # who walks through the grass this frame (grass.gd set_walkers): Ash, the
 # townspeople out and about, their Pokémon; [id, position, radius]
 func _walkers() -> Array:
-	var out := [["ash", pos, 0.5]]
+	var out := [["ash", pos, 0.5 if not cast.crouching else 0.42]]
 	# on the bike: its wheels part the grass too
 	if cast and cast.bike and cast.bike.riding() and not indoors:
 		var f := Vector3(sin(yaw), 0, cos(yaw)) * cast.bike.model.WB * 0.5
