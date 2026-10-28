@@ -38,7 +38,7 @@ var input_enabled := true
 var anchor_rect := Rect2()      # empty = automatic
 var safe_override := Rect2()
 var choices: UIChoiceList
-var choices_left := false       # the choice list on the left of the box (kept off a speaker's face)
+var choices_left := false       # the choice list in the screen's left two thirds (Ash on the right third line), else the right two
 
 var _t := 0.0
 var _in := 0.0                  # 0 hidden .. 1 shown
@@ -151,8 +151,13 @@ func _process(dt: float) -> void:
 func _layout_choices() -> void:
 	var r := box_rect()
 	var h := choices.content_height()
-	choices.size = Vector2(minf(520.0, r.size.x * 0.56), h)
-	choices.position = Vector2(r.position.x + 10.0 if choices_left else r.end.x - choices.size.x - 10.0, r.position.y - h - 34.0)
+	# the two thirds of the screen Ash isn't on, clear of his shoulders on the third line
+	var sr := UITheme.safe_rect(self, safe_override)
+	var vw := get_viewport_rect().size.x
+	var x0 := sr.position.x + 12.0 if choices_left else vw * 0.43
+	var x1 := vw * 0.57 if choices_left else sr.end.x - 12.0
+	choices.size = Vector2(x1 - x0, h)
+	choices.position = Vector2(x0, r.position.y - h - 34.0)
 	choices.modulate.a = UITheme.ease_out(_in)
 	choices.visible = _in > 0.01 and not is_typing() and choices.count() > 0
 

@@ -1011,15 +1011,27 @@ func camera(dt: float) -> void:
 		# a slow push-in while they speak
 		pos = pos.lerp(look, minf(_line_t * 0.025, 0.1))
 	pos = _clear_pos(look, pos)
+	# the rule of thirds: Ash's body on the third line on his side of the frame (the
+	# camera keeps to one side of the pair, so he stays on that side); the choices take
+	# the other two thirds. Turned about the vertical only.
+	var fwd := _flat(look - pos)
+	var right := fwd.cross(Vector3.UP)
+	var toA := _flat(A - pos)
+	var ash_left := toA.dot(right) < _flat(B - pos).dot(right)
+	var vp := cam.get_viewport().get_visible_rect().size
+	var tan_h := tan(deg_to_rad(cam.fov) * 0.5) * vp.x / maxf(vp.y, 1.0)
+	var want := atan((-1.0 if ash_left else 1.0) / 3.0 * tan_h)
+	var now := atan2(toA.dot(right), toA.dot(fwd))
+	look = pos + (look - pos).rotated(Vector3.UP, want - now)
 	var kp := 1.0 - exp(-dt * 2.0)
 	var kl := 1.0 - exp(-dt * 2.6)
 	_cam_pos = _cam_pos.lerp(pos, kp)
 	_cam_look = _cam_look.lerp(look, kl)
 	cam.global_position = _cam_pos
 	if _cam_pos.distance_to(_cam_look) > 0.05: cam.look_at(_cam_look)
-	# Ash's choices go on the side of the screen he isn't on
-	if ui and ui.dp and not cam.is_position_behind(A):
-		var left := cam.unproject_position(A).x > cam.get_viewport().get_visible_rect().size.x * 0.5
+	# Ash's choices: the two thirds he isn't on
+	if ui and ui.dp:
+		var left := not ash_left
 		if left != ui.dp.choices_left:
 			ui.dp.choices_left = left
 			ui.dp.queue_redraw()
