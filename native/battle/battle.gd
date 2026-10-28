@@ -81,7 +81,9 @@ extends Node3D
 signal finished(result: Dictionary)
 
 const ARENA_R := 5.6           # the floor kept clear (m): a ~11 m circle (the 10 x 10 m arena)
-const GAP := 4.6               # Ash to the Pokémon (m)
+const GAP := 4.4               # Ash to the Pokémon (m)
+const PARTNER_AHEAD := 1.4     # mode "pkmn": his Pokémon this far ahead of him
+const FOE_SCALE := 1.7        # the wild one's battle presence: it swells to this as the arena opens (a 40 cm bird reads from the high camera), back after
 const OPEN_T := 1.35           # the spread (s)
 const CLOSE_T := 1.1
 
@@ -128,6 +130,7 @@ var foe_lift := 0.0
 var foe_speed := 0.0
 var _foe_vel := Vector3.ZERO
 var _foe_last := Vector3.ZERO
+var _foe_scale0 := Vector3.ONE
 
 # the camera
 var cam_on := false
@@ -148,7 +151,12 @@ var _rng := RandomNumberGenerator.new()
 
 # scripted runs (dev/battle_dev.gd: renders)
 var script_acts: Array = []
-var mode := BattleRules.MODE_PROLOGUE   # see _setup: the prologue (no partner Pokémon) or, later, the partner battle
+const MODE_PKMN := "pkmn"
+var mode := BattleRules.MODE_PROLOGUE   # see _begin: "prologue" (no partner Pokémon) or "pkmn"
+var pk: BattlePkmn                      # the Pokémon battle's host (mode "pkmn")
+var partner: Node3D                     # his Pokémon, in front of him (mode "pkmn")
+var partner_pos := Vector3.ZERO
+var partner_yaw := 0.0
 var script_moves: Array = []
 var force_hit := -1             # 1 every attack lands, 0 every attack misses, -1 the dice
 var auto_delay := 0.9
@@ -179,15 +187,18 @@ func _begin(g: Node3D, o: Dictionary) -> void:
 	R = BattleRules.new(species, String(o.get("temper", "flighty")), String(o.get("state", "hidden")), sd)
 	if sd >= 0: _rng.seed = sd + 1
 	if body: R.ash_sta = body.stamina * R.ash_sta_max   # (his stamina is what a battle wears down: no HP)
-	# THE MODE SWITCH. "prologue": Ash has no partner Pokémon (no has_starter flag),
-	# so he can only run, hide or throw something (battle_rules.gd). The partner
-	# battle (Fight / Pokémon / Items / Flee) is a mode of its own, still to come;
-	# until it lands every battle runs the prologue's rules.
+	# THE MODE SWITCH. One stage (the arena, the camera, the effects), the rules by mode:
+	#   "prologue"  Ash has no partner Pokémon (no has_starter flag): he can only
+	#               run, hide or throw something (battle_rules.gd, BattleUI's menu)
+	#   "pkmn"      Pokémon against Pokémon (battle/pkmn_battle.gd, ui/pkmn_hud.gd:
+	#               FIGHT, POKéMON, ITEMS, FLEE), his partner in front of him, Ash
+	#               behind it as its trainer (battle_pkmn.gd hosts it here)
+	# opts.mode picks one; else a "partner" in opts, or the has_starter flag, means "pkmn".
 	mode = String(o.get("mode", ""))
 	if mode == "":
 		var q := _quests()
-		mode = BattleRules.MODE_PROLOGUE if q == null or not q.flag("has_starter") else "partner"
-	R.mode = BattleRules.MODE_PROLOGUE   # (TODO(partner battle): R.mode = mode once that mode exists)
+		mode = MODE_PKMN if o.has("partner") or (q != null and q.flag("has_starter")) else BattleRules.MODE_PROLOGUE
+	R.mode = BattleRules.MODE_PROLOGUE
 	script_acts = Array(o.get("script_acts", []))
 	script_moves = Array(o.get("script_moves", []))
 	force_hit = int(o.get("force_hit", -1))
@@ -211,6 +222,11 @@ func _begin(g: Node3D, o: Dictionary) -> void:
 	ui.foe_max = R.foe_max; ui.foe_hp = R.foe_hp; ui.foe_show = R.foe_hp
 	ui.set_mood(R.mood())
 	_place()
+	if mode == MODE_PKMN:
+		pk = BattlePkmn.new()
+		pk.name = "Pkmn"
+		add_child(pk)
+		pk.setup(self)
 	_make_foe()
 	_run()
 
@@ -240,9 +256,11 @@ func _make_foe() -> void:
 	else:
 		own_foe = true
 		if ResourceLoader.exists("res://creatures/%s.glb" % species): foe = Creature.make(species)
-		else: foe = PidgeyStandin.new()
+		elif species == "pidgey": foe = PidgeyStandin.new()
+		else: foe = PkmnStandin.make(species)
 		add_child(foe)
 	foe.set_meta("battle", true)
+	_foe_scale0 = foe.scale
 	if "battle" in foe: foe.battle = true          # (CreaturePidgey: a fighting stance, no idle pecks)
 	if "auto" in foe: foe.auto = false
 	if "act_reach" in foe: foe.act_reach = 0.0     # (the battle carries it to Ash itself)
@@ -276,6 +294,7 @@ func _process(dt: float) -> void:
 	game.speed = ash_anim_speed
 	game.cam_yaw = ash_yaw + PI   # (his head looks ahead, not round at the camera)
 	_put_foe(dt)
+	_put_partner(dt)
 	_lie(dt)
 	_menu_input()
 	fx.update(dt)
@@ -318,6 +337,7 @@ func _put_foe(dt: float) -> void:
 	foe_pos.y = _gy(foe_pos)
 	foe.global_position = foe_pos + Vector3(0, foe_lift, 0)
 	foe.rotation = Vector3(0, foe_yaw, 0)
+	foe.scale = _foe_scale0 * lerpf(1.0, FOE_SCALE, clampf(arena_k, 0.0, 1.0))
 	_foe_vel = (foe_pos - _foe_last) / maxf(dt, 1e-4)
 	_foe_last = foe_pos
 	if foe.has_method("animate"): foe.animate(dt, foe_speed)
@@ -351,10 +371,44 @@ func _arena(dt: float) -> void:
 		var e := UITheme.ease_back(u, 1.4) if _arena_to > _arena_from else u * u * (3.0 - 2.0 * u)
 		arena_k = lerpf(_arena_from, _arena_to, e)
 		if u >= 1.0: _arena_t = -1.0
+		# the parting ring: dust and torn blades thrown off the edge as it sweeps out (and in)
+		if fx and u < 0.85: _ring_fx(clampf(arena_k, 0.05, 1.0) * ARENA_R, 1.0 - u, _arena_to > _arena_from)
 	var v := (arena_k - _arena_last) / maxf(dt, 1e-4)
 	_arena_last = arena_k
 	RenderingServer.global_shader_parameter_set("battle_arena", Vector4(c.x, c.z, ARENA_R, arena_k))
 	RenderingServer.global_shader_parameter_set("battle_arena_v", v + wind)
+
+func _ring_fx(r: float, k: float, out: bool) -> void:
+	for i in 3:
+		var a := _rng.randf() * TAU
+		var d := Vector3(cos(a), 0, sin(a))
+		var p := c + d * r
+		p.y = _gy(p)
+		var v := d * _rng.randf_range(1.5, 3.5) * (1.0 if out else -0.6) + Vector3(0, _rng.randf_range(0.8, 2.0), 0)
+		fx.spawn("soft", p + Vector3(0, 0.15, 0), v * 0.5, {"life": _rng.randf_range(0.6, 1.0), "size": 0.35, "size_end": 0.9, "col": Color(Color("cdb68a"), 0.4 * k), "drag": 2.5})
+		if _rng.randf() < 0.8:
+			fx.spawn("blade", p + Vector3(0, 0.3, 0), v, {"life": _rng.randf_range(0.7, 1.2), "size": _rng.randf_range(0.6, 1.0), "col": Color(Color("4f9a2c").lerp(Color("a6d860"), _rng.randf()), 1.0), "grav": 3.0, "drag": 1.5, "tumble_k": 6.0, "floor": true})
+		if _rng.randf() < 0.25:
+			fx.spawn("leaf", p + Vector3(0, 0.5, 0), v * 0.8, {"life": 1.2, "size": 1.0, "col": Color(Color("6aa83a").lerp(Color("c9b36a"), _rng.randf()), 1.0), "grav": 1.0, "drag": 2.0, "tumble_k": 5.0, "floor": true})
+
+# the camera on a crane: from wherever it is up and round to a shot over secs,
+# rising above the straight line on the way (then the shot holds it)
+func _crane(n: String, secs: float, rise := 1.6) -> void:
+	_shot = {}
+	var p0 := cam_pos
+	var l0 := cam_look
+	var f0 := cam_fov
+	var t := 0.0
+	while t < secs:
+		t += get_process_delta_time()
+		var u := clampf(t / secs, 0.0, 1.0)
+		var e := u * u * (3.0 - 2.0 * u)
+		var to := _shot_xf(n)
+		cam_pos = p0.lerp(to.pos, e) + Vector3(0, sin(e * PI) * rise, 0)
+		cam_look = l0.lerp(to.look, e)
+		cam_fov = lerpf(f0, float(to.fov), e)
+		await get_tree().process_frame
+	shot(n, 3.0)
 
 # ---------- the camera ----------
 # the shots, in the arena's frame
@@ -362,7 +416,8 @@ func _shot_xf(n: String) -> Dictionary:
 	var up := Vector3.UP
 	var foe_p := foe_pos
 	match n:
-		"overview": return {"pos": c - fwd * 4.3 + side * 3.3 + up * 4.4, "look": c + fwd * 0.3 + up * 0.35, "fov": 50.0}
+		# the high diagonal: up behind Ash's right shoulder, looking down across the arena at it
+		"overview": return {"pos": c - fwd * 3.9 + side * 2.9 + up * 5.0, "look": c + fwd * 0.45 + up * 0.2, "fov": 46.0}
 		"overview2": return {"pos": c - fwd * 3.6 - side * 4.8 + up * 6.0, "look": c + up * 0.4, "fov": 50.0}
 		"gust_side": return {"pos": c + side * 6.0 - fwd * 2.2 + up * 2.6, "look": c + fwd * 0.2 + up * 0.9, "fov": 58.0}
 		"ash_front": return {"pos": ash_pos + fwd * 3.0 + side * 1.4 + up * 1.35, "look": ash_pos + up * 1.15, "fov": 44.0}
@@ -371,6 +426,9 @@ func _shot_xf(n: String) -> Dictionary:
 		"qa": return {"pos": c + side * 5.0 - fwd * 0.8 + up * 2.2, "look": c - fwd * 0.6 + up * 0.6, "fov": 52.0}
 		"impact": return {"pos": ash_pos + fwd * 2.6 + side * 2.6 + up * 1.6, "look": ash_pos + up * 0.9, "fov": 50.0}
 		"run": return {"pos": ash_spot - fwd * 4.6 + side * 3.4 + up * 2.4, "look": ash_pos - fwd * 0.4 + up * 0.7, "fov": 50.0}
+		# mode "pkmn": over his partner's shoulder at the foe, and over the foe's at his partner
+		"pk_a": return {"pos": partner_pos - fwd * 2.4 + side * 1.7 + up * 1.7, "look": foe_p + up * 0.3 - fwd * 0.6, "fov": 46.0}
+		"pk_b": return {"pos": foe_p + fwd * 1.8 - side * 2.2 + up * 1.8, "look": partner_pos + up * 0.3 + fwd * 0.6, "fov": 48.0}
 		"hide": return {"pos": ash_pos + fwd * 2.3 + side * 1.3 + up * 1.0, "look": ash_pos + up * 0.45, "fov": 44.0}
 		"down": return {"pos": ash_pos - side * 2.0 + fwd * 1.4 + up * 1.1, "look": ash_pos + up * 0.3, "fov": 46.0}
 		"flee": return {"pos": c - fwd * 5.5 + side * 3.0 + up * 3.2, "look": foe_p + up * 1.2, "fov": 52.0}
@@ -468,6 +526,9 @@ func _run() -> void:
 	if cast:
 		if cast.btn_ui: _hide(cast.btn_ui)
 		if cast.cond_ui: _hide(cast.cond_ui)
+		# the world HUD's top right (the clock, the quest log button) gives way to the plates
+		if cast.clock and cast.clock.hud: _hide(cast.clock.hud)
+		if cast.life and cast.life.quests and cast.life.quests.ui and cast.life.quests.ui.get("btn"): _hide(cast.life.quests.ui.btn)
 		if cast.dialog: cast.dialog.prompt = {}; cast.dialog._ban_t = 99.0   # (the area's banner gives way to the intro)
 	game.speed = 0.0
 	if player and player.idles:
@@ -478,25 +539,33 @@ func _run() -> void:
 	cam_on = true
 	_shot = {}
 	# ---- the intro ----
+	# a flash and the banner over the live scene; under the flash the two square up
 	Sfx.play("encounter", null, {"vol": -1.0})
-	ui.intro(R.display_name(), "LV. %d  ·  %s" % [R.level(), String(opts.get("temper", "flighty")).to_upper()])
-	await _wait(0.45)
-	# under the ink: the two square up
+	ui.intro_wild = not opts.has("trainer")
+	ui.intro(_intro_name(), _intro_sub())
 	ash_yaw = atan2(fwd.x, fwd.z)
 	if player and player.idles: player.idles.stance = "battle"
 	foe_pos = foe_spot
 	foe_yaw = atan2(-fwd.x, -fwd.z)
-	await _wait(1.05)
-	# the bands sweep on: the swoop and the spread
-	shot("overview", 2.2)
-	await _wait(0.15)
+	_stage_partner()
+	await _wait(0.3)
+	# the rise: the camera cranes up and round to the high diagonal while the
+	# world parts round them in a ring (grass, bushes, trees sliding outward)
+	_crane("overview", 1.5)
 	_arena_go(1.0, OPEN_T)
 	Sfx.play("wind_gust", c, {"vol": -4.0})
 	Sfx.play("whoosh", null, {"vol": -6.0, "pitch": 0.7})
-	await _wait(0.6)
+	await _wait(0.85)
+	# revealed in the middle of it: wings thrown wide
 	_mood("wings_spread")
 	_cry()
-	await _wait(0.9)
+	await _wait(0.85)
+	if pk:
+		# the Pokémon battle plays out on this stage, then the arena closes
+		Sfx.ui("ui_banner")
+		await pk.run()
+		await _close()
+		return
 	ui.show_hud(true)
 	Sfx.ui("ui_banner")
 	# the energy system (battle/energy_hook.gd): the foe's bar, and its turn plans
@@ -539,6 +608,33 @@ func _run() -> void:
 		if R.hiding and R.outcome == "": await _unhide()
 		R.end_turn()
 	await _outcome()
+
+# the banner: "WILD PIDGEY!" (or a trainer's name), and a line under it
+func _intro_name() -> String:
+	if pk: return pk.intro_name()
+	return R.display_name()
+
+func _intro_sub() -> String:
+	if pk: return pk.intro_sub()
+	return "LV. %d  ·  %s" % [R.level(), String(opts.get("temper", "flighty")).to_upper()]
+
+# mode "pkmn": his Pokémon steps out in front of him (Ash stays back, its trainer)
+func _stage_partner() -> void:
+	if pk == null: return
+	partner = pk.make_partner()
+	if partner == null: return
+	partner_pos = ash_spot + fwd * PARTNER_AHEAD
+	partner_pos.y = _gy(partner_pos)
+	partner_yaw = atan2(fwd.x, fwd.z)
+	partner.global_position = partner_pos
+	partner.rotation = Vector3(0, partner_yaw, 0)
+	fx.dust(partner_pos, 6, Color("cdb68a"), 0.6, 0.4, 0.35)
+
+func _put_partner(dt: float) -> void:
+	if partner == null or not is_instance_valid(partner): return
+	partner.global_position = partner_pos + Vector3(0, pk.lift("a") if pk else 0.0, 0)
+	partner.rotation = Vector3(0, partner_yaw, 0)
+	if partner.has_method("animate"): partner.animate(dt, 0.0)
 
 # ---------- the wild side's mind: the hooks for the energy system ----------
 # what the battle looks like to the wild side when it picks its moves
@@ -1177,7 +1273,9 @@ func _finish() -> void:
 	fx.clear()
 	var h := get_node_or_null("EnergyHook")
 	if h: h.detach()
+	if partner and is_instance_valid(partner): partner.queue_free()
 	if foe and is_instance_valid(foe):
+		foe.scale = _foe_scale0
 		foe.remove_meta("battle")
 		if own_foe: foe.queue_free()
 	active = false

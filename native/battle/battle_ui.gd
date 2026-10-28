@@ -2,9 +2,10 @@ class_name BattleUI
 extends Control
 # The battle's screen, in the UI kit's look (ui/README.md: dark skewed plates,
 # red and yellow accents, big italic condensed type, snappy eases):
-#   intro     a white flash, ink bands sweeping across (red and yellow leading
-#             edges) with streaks racing over them, the species slammed in on a
-#             red slash, the bands sweeping on off the far side
+#   intro     a quick white flash over the live scene, an ink band across the
+#             lower part of the screen (red and yellow edges, streaks racing along it) with the
+#             species slammed in on a red slash; off to the left after 1.3 s
+#             (the world stays in view: the spread plays on camera)
 #   plates    Ash's (bottom left: his STAMINA, the same bar the world shows: in
 #             a battle it is what wears down, he has no HP; his aim when sand
 #             got in his eyes) and the wild one's (top right: its HP bar, its
@@ -47,6 +48,7 @@ var t := 0.0
 var intro_t := -1.0
 var intro_name := "PIDGEY"
 var intro_sub := ""
+var intro_wild := true      # "WILD PIDGEY!" (false: the name as given, a trainer's)
 var banner_t := -1.0
 # plates
 var hud_k := 0.0
@@ -189,7 +191,7 @@ func tick(dt: float) -> void:
 	t += dt
 	if intro_t >= 0.0:
 		intro_t += dt
-		if intro_t > 3.2: intro_t = -1.0
+		if intro_t > 1.8: intro_t = -1.0
 	hud_k = move_toward(hud_k, 1.0 if hud_on else 0.0, dt / UITheme.SLOW)
 	menu_k = move_toward(menu_k, 1.0 if menu_on else 0.0, dt / UITheme.BASE)
 	if _press_t >= 0.0: _press_t += dt
@@ -251,55 +253,56 @@ func _draw() -> void:
 # ---------- the intro ----------
 func _intro(vs: Vector2) -> void:
 	var it := intro_t
-	# the flash
-	if it < 0.22:
-		draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 1, 1, 1.0 - it / 0.22))
-	var lean := vs.y * 0.45
-	var span := vs.x + lean * 2.0
-	# the bands in (0.06 .. 0.42) and out (1.5 .. 1.9): ink with red and yellow leading edges, right to left
-	var cover := UITheme.ease_out_expo(clampf((it - 0.06) / 0.36, 0.0, 1.0))
-	var uncover := UITheme.ease_in(clampf((it - 1.5) / 0.4, 0.0, 1.0))
+	# a quick white flash over the live scene (the world stays in view: the spread
+	# and the camera's rise play on camera under the banner)
+	if it < 0.4:
+		draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 1, 1, 0.85 * (1.0 - UITheme.ease_out(it / 0.4))))
+	var cy := vs.y * 0.78   # (the lower part of the screen: the Pokémon is revealed up ahead, above it)
+	var lean := 60.0
+	# an ink band behind the name, in from the right and out to the left (0.04 .. 0.3, 1.25 .. 1.55)
+	var cover := UITheme.ease_out_expo(clampf((it - 0.04) / 0.26, 0.0, 1.0))
+	var uncover := UITheme.ease_in(clampf((it - 1.25) / 0.3, 0.0, 1.0))
 	if uncover < 1.0 and cover > 0.0:
-		var lead := vs.x + lean - cover * span          # the leading edge's x at the top
-		var trail := vs.x + lean - uncover * span        # the trailing edge's x at the top
-		var ink := PackedVector2Array([Vector2(lead, 0), Vector2(trail + lean * 3.0, 0), Vector2(trail + lean * 2.0, vs.y), Vector2(lead - lean, vs.y)])
-		if uncover > 0.0: ink = PackedVector2Array([Vector2(lead, 0), Vector2(trail, 0), Vector2(trail - lean, vs.y), Vector2(lead - lean, vs.y)])
-		draw_colored_polygon(ink, UITheme.INK)
-		# streaks racing across the ink
+		var h := 150.0
+		var span := vs.x + lean * 2.0
+		var lead := vs.x + lean - cover * span
+		var trail := vs.x + lean - uncover * span
+		var top := cy - h * 0.5
+		var bot := cy + h * 0.5
+		var band := PackedVector2Array([Vector2(lead + lean, top), Vector2(vs.x + lean * 2.0, top), Vector2(vs.x + lean, bot), Vector2(lead, bot)])
+		if uncover > 0.0: band = PackedVector2Array([Vector2(-lean, top), Vector2(trail + lean, top), Vector2(trail, bot), Vector2(-lean * 2.0, bot)])
+		draw_colored_polygon(band, Color(UITheme.INK, 0.88))
+		# its edges: red and yellow
+		draw_rect(Rect2(-lean * 2.0, top - 6, vs.x + lean * 4.0, 5), Color(UITheme.RED, 0.95 * cover * (1.0 - uncover)))
+		draw_rect(Rect2(-lean * 2.0, bot + 2, vs.x + lean * 4.0, 4), Color(UITheme.YELLOW, 0.9 * cover * (1.0 - uncover)))
+		# streaks racing along it
 		var rr := RandomNumberGenerator.new(); rr.seed = 7
-		for i in 26:
-			var y := rr.randf() * vs.y
+		for i in 14:
+			var y := top + rr.randf() * h
 			var x := fmod(rr.randf() * vs.x * 2.0 - it * rr.randf_range(1800, 3200), vs.x * 1.6) + vs.x * 0.2
 			var ln := rr.randf_range(80, 260)
-			draw_line(Vector2(x, y), Vector2(x + ln, y - ln * 0.12), Color(1, 1, 1, 0.08 + 0.1 * rr.randf()), rr.randf_range(1.5, 4.0), true)
-		if uncover <= 0.0:
-			draw_colored_polygon(PackedVector2Array([Vector2(lead - 26, 0), Vector2(lead, 0), Vector2(lead - lean, vs.y), Vector2(lead - lean - 26, vs.y)]), UITheme.RED)
-			draw_colored_polygon(PackedVector2Array([Vector2(lead - 40, 0), Vector2(lead - 33, 0), Vector2(lead - lean - 33, vs.y), Vector2(lead - lean - 40, vs.y)]), UITheme.YELLOW)
-		else:
-			draw_colored_polygon(PackedVector2Array([Vector2(trail, 0), Vector2(trail + 26, 0), Vector2(trail - lean + 26, vs.y), Vector2(trail - lean, vs.y)]), UITheme.RED)
-			draw_colored_polygon(PackedVector2Array([Vector2(trail + 33, 0), Vector2(trail + 40, 0), Vector2(trail - lean + 40, vs.y), Vector2(trail - lean + 33, vs.y)]), UITheme.YELLOW)
-	# the name slammed in (0.42 ..), held over the ink, then up out of the way with the reveal
-	if it > 0.38 and it < 3.2:
-		var k_in := UITheme.ease_back(clampf((it - 0.38) / 0.24, 0.0, 1.0), 2.2)
-		var k_out := UITheme.ease_in(clampf((it - 2.7) / 0.4, 0.0, 1.0))
-		var cy := lerpf(vs.y * 0.46, vs.y * 0.22, UITheme.ease_out(clampf((it - 1.5) / 0.5, 0.0, 1.0)))
+			draw_line(Vector2(x, y), Vector2(x + ln, y), Color(1, 1, 1, 0.08 + 0.1 * rr.randf()), rr.randf_range(1.5, 3.0), true)
+	# the name slammed in, held, then off to the left with the band
+	if it > 0.1 and it < 1.7:
+		var k_in := UITheme.ease_back(clampf((it - 0.1) / 0.22, 0.0, 1.0), 2.2)
+		var k_out := UITheme.ease_in(clampf((it - 1.25) / 0.35, 0.0, 1.0))
 		var a := 1.0 - k_out
-		var title := "WILD " + intro_name + "!"
-		var fs := 92
+		var title := "WILD " + intro_name + "!" if intro_wild else intro_name
+		var fs := 80
 		var tw := UITheme.text_w(title, "display", fs)
-		var w := tw + 140.0
-		var x0 := vs.x * 0.5 - w * 0.5 + (1.0 - k_in) * vs.x * 0.6 - k_out * vs.x * 0.4
-		var slash := Rect2(x0, cy - 56, w, 104)
+		var w := tw + 120.0
+		var x0 := vs.x * 0.5 - w * 0.5 + (1.0 - k_in) * vs.x * 0.6 - k_out * vs.x * 0.7
+		var slash := Rect2(x0, cy - 48, w, 90)
 		UITheme.shadow(self, UITheme.para_points(slash, UITheme.SKEW), a, Vector2(0, 8))
 		UITheme.para(self, slash, Color(UITheme.RED, a))
 		UITheme.para(self, Rect2(slash.position + Vector2(10, slash.size.y - 10), Vector2(w - 20, 6)), Color(UITheme.RED_DEEP, a))
-		UITheme.chevrons(self, Vector2(x0 - 40, cy - 4), 40.0, Color(UITheme.YELLOW, a), 3, 1.0)
-		UITheme.chevrons(self, Vector2(x0 + w + 40, cy - 4), 40.0, Color(UITheme.YELLOW, a), 3, -1.0)
-		UITheme.text(self, Vector2(x0 + w * 0.5 + 4, cy + 32 + 4), title, "display", fs, Color(0, 0, 0, 0.25 * a), 1)
-		UITheme.text(self, Vector2(x0 + w * 0.5, cy + 32), title, "display", fs, Color(UITheme.WHITE, a), 1)
+		UITheme.chevrons(self, Vector2(x0 - 40, cy - 4), 36.0, Color(UITheme.YELLOW, a), 3, 1.0)
+		UITheme.chevrons(self, Vector2(x0 + w + 40, cy - 4), 36.0, Color(UITheme.YELLOW, a), 3, -1.0)
+		UITheme.text(self, Vector2(x0 + w * 0.5 + 4, cy + 28 + 4), title, "display", fs, Color(0, 0, 0, 0.25 * a), 1)
+		UITheme.text(self, Vector2(x0 + w * 0.5, cy + 28), title, "display", fs, Color(UITheme.WHITE, a), 1)
 		if intro_sub != "":
 			var sw := UITheme.text_w(intro_sub, "label", 22) + 40.0
-			var sub := Rect2(vs.x * 0.5 - sw * 0.5 - (1.0 - k_in) * vs.x * 0.3, cy + 58, sw, 36)
+			var sub := Rect2(vs.x * 0.5 - sw * 0.5 - (1.0 - k_in) * vs.x * 0.3 - k_out * vs.x * 0.7, cy + 50, sw, 34)
 			UITheme.plate(self, sub, a)
 			UITheme.text_mid(self, Vector2(sub.get_center().x, sub.get_center().y), intro_sub, "label", 22, Color(UITheme.TEXT, a), 1)
 
@@ -381,18 +384,18 @@ func _menu(safe: Rect2) -> void:
 	var gap := 10.0
 	var bw := 372.0
 	var n := items.size()
-	var top := safe.end.y - 22 - n * bh - (n - 1) * gap
+	var top := safe.end.y - 34 - n * bh - (n - 1) * gap
 	_rects.clear()
 	var dev: String = UIInput.device if UIInput.I else "touch"
 	# the header
-	var hx := safe.end.x - bw - 30 + (1.0 - k) * 300.0
+	var hx := safe.end.x - bw - 48 + (1.0 - k) * 300.0
 	UITheme.text(self, Vector2(hx + 8, top - 14), "THROW WHAT?" if sub == "throw" else "WHAT WILL ASH DO?", "heading", 22, Color(UITheme.TEXT, k), 0, -1.0, 4, Color(0, 0, 0, 0.45 * k))
 	for i in n:
 		var it: Dictionary = items[i]
 		var on := i == sel and dev != "touch"
 		var stag := clampf(k * 1.3 - i * 0.1, 0.0, 1.0)
 		var sk := UITheme.ease_back(stag)
-		var x := safe.end.x - bw - 22 - (18.0 if on else 0.0) + (1.0 - sk) * 420.0 - i * bh * UITheme.SKEW * 0.5
+		var x := safe.end.x - bw - 40 - (18.0 if on else 0.0) + (1.0 - sk) * 420.0 - i * bh * UITheme.SKEW * 0.5
 		var r := Rect2(x, top + i * (bh + gap), bw, bh)
 		_rects.append(UITheme.touch_rect(self, r))
 		var pressed := _press_i == i and _press_t >= 0.0 and _press_t < 0.2

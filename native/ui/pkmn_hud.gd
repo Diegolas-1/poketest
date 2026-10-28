@@ -36,6 +36,7 @@ var safe_override := Rect2()
 var bar_a: EnergyBar
 var bar_b: EnergyBar
 var moves: EnergyMoveList
+var moves_clip: Control          # clips the move list to its rect (a long list scrolls; it never runs over the bar below)
 var mode := "busy"               # busy | menu | fight | pick
 var sel := 0                     # the menu's selection
 var t := 0.0
@@ -65,7 +66,11 @@ func _ready() -> void:
 	moves.show_end = true
 	moves.visible = false
 	moves.input_enabled = false
-	add_child(moves)
+	moves_clip = Control.new()
+	moves_clip.clip_contents = true
+	moves_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(moves_clip)
+	moves_clip.add_child(moves)
 	moves.picked.connect(func(id): move_picked.emit(id))
 	moves.end_turn.connect(func(): end_turn.emit())
 
@@ -140,7 +145,11 @@ func _layout() -> void:
 	var R := _rects()
 	bar_a.fit(R.bar_a)
 	bar_b.fit(R.bar_b)
-	moves.position = R.moves.position
+	# the clip: room at the sides for the selected row's nudge and the shadows,
+	# none at the bottom (the player's bar starts 22 px below)
+	moves_clip.position = R.moves.position - Vector2(48, 8)
+	moves_clip.size = R.moves.size + Vector2(96, 8 + 14)
+	moves.position = Vector2(48, 8)
 	moves.size = R.moves.size
 
 func menu_rect(i: int) -> Rect2:

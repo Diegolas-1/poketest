@@ -15,6 +15,7 @@ extends Node
 #   --start=f         the frame the battle starts on (default 20)
 #   --stamina=f       Ash's stamina at the start (0..1)
 #   --hour=h          the clock
+#   --frames=DIR      save the whole viewport each frame (--every=n: each n-th), with --fixed-fps 15
 #   --auto=s          how long a scripted choice takes on the menu
 #   --talk=s          the defeat's lines go on by themselves after s seconds
 #   --fresh-conditions (conditions.gd) start clean, leave the save alone
@@ -57,6 +58,10 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	frame += 1
+	# --frames=DIR [--every=n]: the whole viewport saved every n-th frame (with
+	# --fixed-fps 15 and no --write-movie, which crops a wide viewport to 16:9)
+	if Array(OS.get_cmdline_user_args()).any(func(a): return String(a).begins_with("--frames=")) and frame % _every() == 0:
+		_grab.call_deferred(frame)
 	if frame == 3:
 		main.cast.clock.real = false; main.cast.clock.ff = 1.0; main.cast.clock.set_time(hour)
 	if frame < start_f:
@@ -93,3 +98,13 @@ func _process(dt: float) -> void:
 			_talk_t += dt
 			if _talk_t > talk: _talk_t = 0.0; dlg.next()
 		else: _talk_t = 0.0
+
+func _every() -> int:
+	for a in OS.get_cmdline_user_args(): if a.begins_with("--every="): return maxi(1, int(a.get_slice("=", 1)))
+	return 1
+
+func _grab(f: int) -> void:
+	await RenderingServer.frame_post_draw
+	var dir := ""
+	for a in OS.get_cmdline_user_args(): if a.begins_with("--frames="): dir = a.get_slice("=", 1)
+	get_viewport().get_texture().get_image().save_png("%s/f%05d.png" % [dir, f])
