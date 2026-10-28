@@ -37,6 +37,7 @@ const LEFT := 18.0
 const TRAY_PAD := 7.0
 const TRAY_GAP := 10.0
 const HEAD := 22.0               # the pool's glyph at the head of its tray
+const CNT_W := 30.0              # the tray's count at its end ("2/3")
 const FADE_T := 0.3
 const CHARGE_T := 0.24
 const POP_T := 0.22
@@ -248,7 +249,11 @@ func clear_preview() -> void:
 	hi = []; ghosts = []
 
 # ---------- geometry ----------
-func _s() -> float: return scale_k
+# the scale: from the rect's height, and smaller when the fixed-width trays (a
+# socket per chip each pool holds) wouldn't fit the rect's width
+func _s() -> float:
+	if size.x <= 0.0 or energy == null: return scale_k
+	return minf(scale_k, size.x / maxf(_content_w(), 1.0))
 
 func _pools() -> Array:
 	if energy == null: return ["colorless"]
@@ -271,10 +276,18 @@ func _trays() -> Array:
 		if pool == "colorless" and preview_on:
 			for gk in ghosts:
 				if not gk in _pools(): g += 1
-		var w := TRAY_PAD * 2.0 + HEAD + maxi(1, n + g) * PITCH
-		out.append({"pool": pool, "x0": x, "x1": x + w, "n": n})
+		# a fixed width: a socket for every chip the pool can hold (the opponent's
+		# face-down trap tray: one per trap)
+		var cap := _cap_of(pool)
+		var slots := maxi(maxi(1, cap), n + g)
+		var w := TRAY_PAD * 2.0 + HEAD + slots * PITCH + (CNT_W if pool != TRAP else 0.0)
+		out.append({"pool": pool, "x0": x, "x1": x + w, "n": n, "slots": slots, "cap": cap})
 		x += w + TRAY_GAP
 	return out
+
+func _cap_of(pool: String) -> int:
+	if pool == TRAP or pool == BattleEnergy.ANY or energy == null: return 0
+	return energy.pool_cap(pool)
 
 func _content_w() -> float:
 	var tr := _trays()
@@ -530,11 +543,18 @@ func _draw_pools(r: Rect2, s: float, a: float) -> void:
 		var hc := Vector2(trr.position.x + (TRAY_PAD + HEAD * 0.5) * s, cy)
 		if pool == TRAP: _lock_badge(hc, 8.0 * s, a)
 		else: EnergyIcon.draw_icon(self, pool, hc, 11.0 * s, a, {"glyph_only": true, "col": col.lightened(0.35)})
-		if int(tr.n) == 0 and not (preview_on and ghosts.has(pool)):
-			var ec := _slot_in(pool, 0)
-			draw_arc(ec, R, 0.0, TAU, 24, Color(1, 1, 1, 0.16 * a), 1.2 * s, true)
-			if pick and energy.pool_room(pool) > 0: UITheme.text_mid(self, ec + Vector2(0, 1), "+", "display", int(18 * s), Color(UITheme.YELLOW, a), 1)
-		elif pick and energy.pool_room(pool) > 0:
+		# empty sockets: a faint chip of the pool's own type in each, so it reads what it holds
+		if pool != TRAP:
+			for i in range(int(tr.n), int(tr.cap)):
+				var ec := _slot_in(pool, i)
+				EnergyIcon.draw_icon(self, pool, ec, R * 0.92, 0.22 * a, {"flat": true, "dim": 0.55})
+				draw_arc(ec, R, 0.0, TAU, 24, Color(1, 1, 1, 0.14 * a), 1.2 * s, true)
+			# the count at the tray's end: chips in it over what it holds
+			var cnt := "%d/%d" % [int(tr.n), int(tr.cap)]
+			var full := int(tr.n) >= int(tr.cap)
+			var cc := Vector2(trr.end.x - (TRAY_PAD + CNT_W * 0.5) * s, cy + 1.0 * s)
+			UITheme.text_mid(self, cc, cnt, "label", int(13 * s), Color(UITheme.YELLOW if full else Color(1, 1, 1, 0.85), a), 1)
+		if pick and energy.pool_room(pool) > 0:
 			var nc := _slot_in(pool, int(tr.n))
 			draw_arc(nc, R, 0.0, TAU, 24, Color(UITheme.YELLOW, a * (0.5 + 0.4 * sin(t * 6.0))), 2.0 * s, true)
 			UITheme.text_mid(self, nc + Vector2(0, 1), "+", "display", int(18 * s), Color(UITheme.YELLOW, a), 1)
