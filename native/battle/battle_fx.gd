@@ -13,7 +13,7 @@ extends Node3D
 #   sand      a spray of sand grains (kicked by Ash, or Sand-Attack's)
 #   trails    speed lines (Tackle) and white streak afterimages (Quick Attack)
 #   rock      the stone Ash throws, its chips
-#   shout     rings off Ash's shout (Startle)
+#   shout     rings off a shout (unused in the prologue's menu, kept for later)
 #   flash     a hit's white flash on a character (its overlay chain, before the ink)
 # Positions are world space. update(dt) once a frame (battle.gd, with its own
 # time scale for the hit-stop).
@@ -25,7 +25,7 @@ const FLASH := preload("res://shaders/battle_flash.gdshader")
 
 const SHAPES := {
 	# shape: [shader shape id, additive, capacity, mesh]
-	"soft": [0, false, 420, "quad"],
+	"soft": [0, false, 600, "quad"],
 	"streak": [1, true, 360, "quad"],
 	"star": [2, true, 12, "quad"],
 	"ring": [3, true, 16, "quad"],
@@ -228,6 +228,25 @@ func sand(from: Vector3, dir: Vector3, n: int, speed := 6.0, cone := 0.35, col :
 	for i in n / 6:
 		var d2 := (d0 + s * rng.randf_range(-cone, cone)).normalized()
 		spawn("soft", from + Vector3(0, 0.05, 0), d2 * speed * rng.randf_range(0.2, 0.5) + Vector3(0, 0.4, 0), {"life": rng.randf_range(0.8, 1.4), "size": 0.25, "size_end": 0.8, "col": Color(col, 0.35), "drag": 2.0})
+
+# Sand-Attack's spray: grains thrown on arcs that really arrive at `to` (his face),
+# fat enough to read from the battle's cameras, streaks along them, and a brown
+# cloud rolling after them; spread widens the scatter round the target (a miss)
+func sand_blast(from: Vector3, to: Vector3, n: int, spread := 0.35, col := Color("e2c98f")) -> void:
+	var g := 6.0
+	for i in n:
+		var tt := rng.randf_range(0.28, 0.5)
+		var aim := to + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.6, 0.8), rng.randf_range(-1, 1)) * spread
+		var v := (aim - from) / tt + Vector3(0, 0.5 * g * tt, 0)
+		var c := col.lerp(Color("a7834f"), rng.randf())
+		spawn("soft", from + Vector3(rng.randf_range(-0.08, 0.08), 0.0, rng.randf_range(-0.08, 0.08)), v,
+			{"life": tt + rng.randf_range(0.15, 0.4), "size": rng.randf_range(0.05, 0.1), "size_end": 0.035, "col": Color(c, 1.0), "grav": g, "floor": true})
+		if i % 2 == 0:
+			spawn("streak", from, v, {"life": tt * 0.9, "size": 0.0, "len": 0.06, "w": 0.02, "col": Color(c.lightened(0.35), 0.8), "grav": g})
+	for i in maxi(2, n / 8):
+		var tt2 := rng.randf_range(0.5, 0.8)
+		var v2 := (to - from) / tt2 * rng.randf_range(0.6, 0.95)
+		spawn("soft", from + Vector3(0, 0.1, 0), v2 + Vector3(0, 0.3, 0), {"life": tt2 + 0.4, "size": 0.3, "size_end": 1.1, "col": Color(col.darkened(0.1), 0.42), "drag": 1.4})
 
 # a hit: the star, the ring, sparks out along dir, dust at the feet
 func impact(p: Vector3, dir: Vector3, power := 1.0, col := Color(1.0, 0.95, 0.7)) -> void:

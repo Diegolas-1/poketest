@@ -6,9 +6,11 @@ extends Node
 #   --yaw=a           which way he faces (the Pokémon is ahead of him)
 #   --temper=flighty|aggressive|curious|timid   --state=hidden|startled|fleeing|attacking
 #   --first=ash|wild  who goes first
-#   --acts=kick_sand,rock,...   Ash's choices in order (picked by themselves)
-#   --moves=gust,tackle,...     the Pokémon's moves in order (flee / disengage too)
+#   --acts=sand,hide,rock,run   Ash's choices in order (picked by themselves; rock and sand through THROW SOMETHING)
+#   --moves=gust,tackle,...     the Pokémon's moves in order, a turn each ("a+b": two in one turn; flee / disengage too)
 #   --hit=1|0         every aimed hit lands (1) or misses (0)
+#   --run=1|0         Run gets him away (1) or it cuts him off (0)
+#   --found=1|0       hiding, it finds him (1) or not (0)
 #   --seed=n          the dice
 #   --start=f         the frame the battle starts on (default 20)
 #   --stamina=f       Ash's stamina at the start (0..1)
@@ -28,6 +30,7 @@ var talk := 1.6
 var _talk_t := 0.0
 var battle: Battle
 var result := {}
+var _beat := ""
 
 func _ready() -> void:
 	process_priority = 100
@@ -41,6 +44,8 @@ func _ready() -> void:
 		elif a.begins_with("--acts="): o.script_acts = Array(v.split(","))
 		elif a.begins_with("--moves="): o.script_moves = Array(v.split(","))
 		elif a.begins_with("--hit="): o.force_hit = int(v)
+		elif a.begins_with("--run="): o.force_run = int(v)
+		elif a.begins_with("--found="): o.force_found = int(v)
 		elif a.begins_with("--seed="): o.seed = int(v)
 		elif a.begins_with("--start="): start_f = int(v)
 		elif a.begins_with("--stamina="): sta = float(v)
@@ -71,7 +76,15 @@ func _process(dt: float) -> void:
 		battle = Battle.start(main, o)
 		battle.finished.connect(func(r: Dictionary):
 			result = r
-			print("BATTLE finished: ", {"outcome": r.outcome, "stamina": r.stamina, "foe_hp": r.foe_hp, "turns": r.turns}))
+			print("BATTLE finished f%d: " % frame, {"outcome": r.outcome, "stamina": r.stamina, "foe_hp": r.foe_hp, "turns": r.turns}))
+	# the beats, for picking render frames (--beats)
+	if battle and is_instance_valid(battle) and o.has("script_acts"):
+		var sn := String(battle._shot.get("name", ""))
+		var cl := String(battle.ui.callout.get("text", "")) if battle.ui else ""
+		var key := sn + "|" + cl
+		if key != _beat:
+			_beat = key
+			print("beat f%d shot=%s %s sta=%.0f" % [frame, sn, cl, battle.R.ash_sta if battle.R else -1.0])
 	# scripted runs: the text box goes on by itself
 	var dlg: DialogBox = main.cast.dialog
 	if dlg.open and o.has("script_acts"):

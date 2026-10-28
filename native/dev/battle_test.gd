@@ -3,8 +3,9 @@ extends Node
 # battle/battle_defeat.gd, life/wild.json), headless. Exits 0 when green:
 #   godot --headless --path native res://dev/battle_test.tscn
 # What it checks: the data; Ash's stamina (no HP) worn down by three or four of
-# a Pidgey's hits and by his own actions; each action's effect (Kick Sand's aim
-# drop, Startle by temper, the rock's damage and anger, Back Away's chance);
+# a Pidgey's hits and by his own actions (the first ones cost the most); each
+# prologue action's effect (sand's aim drop, the rock's damage and anger, Hide's
+# lost hits and lost interest, Run's chance);
 # the wild side's reactions (flight when hurt or scared, losing interest when
 # not threatened); whole battles to their end for every temper (a table of
 # outcomes); the defeat's aftermath (the Scraped & Dirty condition, the flag);
@@ -33,10 +34,10 @@ func _ready() -> void:
 	_data()
 	_hits_to_down()
 	_costs()
-	_kick()
-	_startle()
+	_sand()
+	_hide()
 	_rock()
-	_back_away()
+	_run()
 	_reactions()
 	_whole_battles()
 	_aftermath()
@@ -54,33 +55,53 @@ func _data() -> void:
 	for a in BattleRules.ACTIONS: check(R.action_cost(a) > 0.0, "%s costs Ash stamina" % a)
 	check(R.display_name() == "PIDGEY" and R.level() == 3, "name and level")
 
-# a Pidgey's hits (every one landing): three or four of them leave Ash down
+# a Pidgey's hits (every one landing), as the energy system paces them (1 chip
+# on turn 1, 2 a turn after at Lv 3: a Gust, or two Tackles), with Ash spending
+# a rock's worth of stamina on his own action each turn: a fight lasts 3-5 turns
+# and three to five hits leave him down
 func _hits_to_down() -> void:
 	var counts := []
+	var turns := []
+	var known := ["tackle", "sand_attack", "gust", "quick_attack"]
 	for sd in 300:
 		var R := BattleRules.new("pidgey", "aggressive", "attacking", sd)
 		R.force = 1
+		var E := BattleEnergy.make("pidgey", R.level())
+		var rng := RandomNumberGenerator.new(); rng.seed = sd
 		var n := 0
-		while R.outcome == "" and n < 20:
-			var m := R.pick_move()
-			var e := R.foe_turn({"kind": "move", "move": m})
-			if int(e.dmg) > 0: n += 1
+		var t := 0
+		while R.outcome == "" and t < 20:
+			t += 1
+			E.begin_turn()
+			R.ash_sta = maxf(0.0, R.ash_sta - R.action_cost("rock"))
+			for m in E.plan_turn(known, "aggressive", {"rng": rng, "jitter": 0.3}):
+				E.use_move(m)
+				var e := R.foe_turn({"kind": "move", "move": m})
+				if int(e.dmg) > 0: n += 1
+				if R.outcome != "": break
 			R.end_turn()
-		counts.append(n)
-	var mn: int = counts.min(); var mx: int = counts.max()
+		counts.append(n); turns.append(t)
 	var avg := 0.0
 	for c in counts: avg += c
 	avg /= counts.size()
-	print("     hits to put Ash down: min %d max %d mean %.2f" % [mn, mx, avg])
-	check(mn >= 3 and mx <= 5 and avg >= 3.0 and avg <= 4.5, "Ash goes down after about 3-4 hits (mean %.2f)" % avg)
-	# one hit is a big chunk: a quarter to a third of the bar
+	var tav := 0.0
+	for c in turns: tav += c
+	tav /= turns.size()
+	print("     hits to put Ash down: min %d max %d mean %.2f; turns min %d max %d mean %.2f" % [counts.min(), counts.max(), avg, turns.min(), turns.max(), tav])
+	check(avg >= 3.0 and avg <= 5.0 and int(counts.max()) <= 7, "Ash goes down after about 3-5 hits (mean %.2f)" % avg)
+	check(tav >= 3.0 and tav <= 5.0 and int(turns.min()) >= 3, "a losing fight lasts 3-5 turns (mean %.2f)" % tav)
+	# damage scales with the move's cost: about 13-16 points a chip
 	var R2 := BattleRules.new("pidgey", "flighty", "hidden", 5)
 	R2.force = 1
 	var e2 := R2.foe_turn({"kind": "move", "move": "tackle"})
-	check(int(e2.dmg) >= 25 and int(e2.dmg) <= 31, "a Tackle takes 25-31 of his 100 (%d)" % int(e2.dmg))
+	check(int(e2.dmg) >= 12 and int(e2.dmg) <= 16, "a Tackle (1 chip) takes 12-16 of his 100 (%d)" % int(e2.dmg))
+	var eg := R2.foe_turn({"kind": "move", "move": "gust"})
+	check(int(eg.dmg) >= 27 and int(eg.dmg) <= 33, "a Gust (2 chips) takes 27-33 (%d)" % int(eg.dmg))
+	var eq := R2.foe_turn({"kind": "move", "move": "quick_attack"})
+	check(int(eq.dmg) >= 10 and int(eq.dmg) <= 14, "a Quick Attack takes 10-14 (%d)" % int(eq.dmg))
 	R2.enraged = true
 	var e3 := R2.foe_turn({"kind": "move", "move": "tackle"})
-	check(int(e3.dmg) >= 31, "enraged it hits harder (%d)" % int(e3.dmg))
+	check(int(e3.dmg) >= 15, "enraged it hits harder (%d)" % int(e3.dmg))
 	# a miss takes nothing
 	var R3 := BattleRules.new("pidgey", "flighty", "hidden", 5)
 	R3.force = 0
@@ -90,8 +111,15 @@ func _hits_to_down() -> void:
 func _costs() -> void:
 	var R := BattleRules.new("pidgey", "aggressive", "hidden", 3)
 	R.force = 0
-	var e := R.ash_act("startle")
-	check(absf(R.ash_sta - (100.0 - R.action_cost("startle"))) < 1e-4 and float(e.cost) > 0.0, "Startle tires him (%.0f left)" % R.ash_sta)
+	check(R.mode == BattleRules.MODE_PROLOGUE, "no partner Pokémon: the prologue's rules")
+	var c1 := R.action_cost("hide")
+	var e := R.ash_act("hide")
+	check(absf(R.ash_sta - (100.0 - c1)) < 1e-4 and float(e.cost) > 0.0, "Hide tires him a little (%.1f left)" % R.ash_sta)
+	var c2 := R.action_cost("hide")
+	R.ash_act("hide")
+	var c3 := R.action_cost("hide")
+	var base := float(BattleRules.data().ash_battle.actions.hide.cost)
+	check(c1 > c2 and c2 > c3 and absf(c3 - base) < 1e-4, "his first actions cost the most (%.1f, %.1f, then %.1f)" % [c1, c2, c3])
 	# worn out by his own effort alone
 	var R2 := BattleRules.new("pidgey", "aggressive", "hidden", 3)
 	R2.force = 0
@@ -101,16 +129,16 @@ func _costs() -> void:
 	var R3 := BattleRules.new("pidgey", "flighty", "hidden", 3)
 	R3.ash_sta = 2.0
 	R3.rng.seed = 11
-	R3.ash_act("back_away")
-	check(R3.outcome == "ash_down", "no slipping away with an empty bar")
+	R3.ash_act("run")
+	check(R3.outcome == "ash_down", "no running away with an empty bar")
 
-func _kick() -> void:
+func _sand() -> void:
 	var R := BattleRules.new("pidgey", "curious", "hidden", 2)
 	R.force = 1
-	var e := R.ash_act("kick_sand")
-	check(e.hit and R.foe_acc_stage == -1 and "acc_down" in e.notes, "Kick Sand: its aim falls a stage")
-	R.ash_act("kick_sand")
-	check(R.foe_acc_stage == -2 and absf(BattleRules.stage_mult(-2) - 0.6) < 1e-4, "two kicks: aim x0.6")
+	var e := R.ash_act("sand")
+	check(e.hit and R.foe_acc_stage == -1 and "acc_down" in e.notes, "a handful of sand: its aim falls a stage")
+	R.ash_act("sand")
+	check(R.foe_acc_stage == -2 and absf(BattleRules.stage_mult(-2) - 0.6) < 1e-4, "two handfuls: aim x0.6")
 	# a blinded one misses more
 	var hits := 0
 	for sd in 400:
@@ -129,19 +157,30 @@ func _kick() -> void:
 			if Q.reaction().get("kind", "") == "disengage": dis[k] += 1
 	check(dis[0] > dis[1] * 3, "blinded, a curious one gives up far more than an aggressive one (%d vs %d)" % dis)
 
-func _startle() -> void:
-	var fled := {"timid": 0, "flighty": 0, "curious": 0, "aggressive": 0}
-	var enr := 0
+func _hide() -> void:
+	# hidden in the grass: it often can't find him
+	var found := [0, 0]
 	for sd in 400:
-		for tp in fled:
-			var R := BattleRules.new("pidgey", tp, "hidden", sd)
-			var e := R.ash_act("startle")
-			if e.flee or R.reaction().get("kind", "") == "flee": fled[tp] += 1
-			if tp == "aggressive" and "enraged" in e.notes and R.anger > 0.6: enr += 1
-	print("     startle -> it flees (of 400): %s" % str(fled))
-	check(fled.timid > 400 * 0.3 and fled.flighty > 400 * 0.25, "Startle may make a timid or flighty one flee")
-	check(fled.aggressive < 400 * 0.05, "an aggressive one hardly ever flees from a shout")
-	check(enr == 400, "an aggressive one gets enraged and angrier")
+		for k in 2:
+			var R := BattleRules.new("pidgey", "flighty", "hidden", sd)
+			R.foe_acc_stage = 0
+			if k == 1: R.ash_act("hide")
+			if R.foe_turn({"kind": "move", "move": "tackle"}).hit: found[k] += 1
+	check(found[1] < found[0] * 0.6, "hiding, it lands far fewer hits (%d vs %d of 400)" % [found[1], found[0]])
+	# and loses interest more
+	var dis := [0, 0]
+	for sd in 600:
+		for k in 2:
+			var R := BattleRules.new("pidgey", "flighty", "hidden", sd)
+			R.turn = 1
+			R.anger = 0.5; R.threat = 0.5
+			if k == 1: R.hiding = true
+			if R.reaction().get("kind", "") == "disengage": dis[k] += 1
+	check(dis[1] > dis[0] + 100, "hiding, it loses interest more often (%d vs %d of 600)" % [dis[1], dis[0]])
+	var R2 := BattleRules.new("pidgey", "flighty", "hidden", 5)
+	R2.ash_act("hide")
+	R2.end_turn()
+	check(not R2.hiding, "he comes out of hiding when the turn ends")
 
 func _rock() -> void:
 	var R := BattleRules.new("pidgey", "flighty", "hidden", 8)
@@ -156,21 +195,21 @@ func _rock() -> void:
 	R2.ash_act("rock")
 	check(R2.outcome == "ash_won", "a rock on a worn-out one drives it off (ash_won)")
 
-func _back_away() -> void:
+func _run() -> void:
 	var slips := 0
 	for sd in 400:
 		var R := BattleRules.new("pidgey", "flighty", "hidden", sd)
-		var e := R.ash_act("back_away")
+		var e := R.ash_act("run")
 		if e.slip:
 			slips += 1
 			if R.outcome != "ran": check(false, "a slip is the outcome ran")
 		if float(e.chance) < 0.12 or float(e.chance) > 0.9: check(false, "the chance stays in its bounds")
-	check(slips > 80 and slips < 300, "Back Away gets him out some of the time (%d / 400)" % slips)
-	# backing off makes it feel less threatened
+	check(slips > 80 and slips < 300, "Run gets him away some of the time, not always (%d / 400)" % slips)
+	# running makes it feel less threatened
 	var R2 := BattleRules.new("pidgey", "curious", "startled", 4)
 	var th := R2.threat
-	R2.ash_act("back_away")
-	check(R2.threat < th, "backing off lowers the threat")
+	R2.ash_act("run")
+	check(R2.threat < th, "running lowers the threat")
 
 func _reactions() -> void:
 	var flee := 0

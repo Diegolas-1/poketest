@@ -12,7 +12,8 @@ extends Control
 #   slots     energy_slot("foe") / energy_slot("ally"): the anchor rects kept
 #             free for the energy bars (battle/energy.gd's widget: the foe's
 #             above its name plate, an ally Pokémon's above Ash's later)
-#   menu      Ash's four actions, stacked skewed buttons with an icon, a line of
+#   menu      Ash's choices (RUN, HIDE, THROW SOMETHING > a rock / sand), stacked
+#             skewed buttons with an icon, a line of
 #             what it does and the pad's glyph on the selected one; touch, pad
 #             (up / down, A) and keys (arrows, E / Enter, 1-4)
 #   callouts  "PIDGEY USED GUST!" and Ash's own on a skewed plate up top
@@ -24,12 +25,20 @@ extends Control
 
 signal picked(id: String)
 
+# the prologue's menu (Ash with no Pokémon: battle_rules.gd's mode "prologue"):
+# three choices, THROW SOMETHING opening a second list
 const ITEMS := [
-	{"id": "kick_sand", "label": "KICK SAND", "desc": "Dirt in its eyes: it may miss, or give up", "icon": "sweat", "col": Color("e0a84a")},
-	{"id": "startle", "label": "STARTLE", "desc": "A big shout: scares the timid, riles the bold", "icon": "bang", "col": Color("ffcb05")},
-	{"id": "rock", "label": "THROW A ROCK", "desc": "A little damage, and it gets angry", "icon": "bolt", "col": Color("ee3b33")},
-	{"id": "back_away", "label": "BACK AWAY", "desc": "Ease off and try to slip away", "icon": "jump", "col": Color("3fb6f5")},
+	{"id": "run", "label": "RUN", "desc": "Try to get away. It may cut you off", "icon": "jump", "col": Color("3fb6f5")},
+	{"id": "hide", "label": "HIDE", "desc": "Duck down in the grass and keep still", "icon": "drop", "col": Color("3fcf72")},
+	{"id": "throw", "label": "THROW SOMETHING", "desc": "A rock, or a handful of sand", "icon": "bolt", "col": Color("ee3b33"), "sub": "throw"},
 ]
+const SUBS := {
+	"throw": [
+		{"id": "rock", "label": "A ROCK", "desc": "A little damage, and it gets angry", "icon": "bolt", "col": Color("ee3b33")},
+		{"id": "sand", "label": "A HANDFUL OF SAND", "desc": "Right in its eyes: it may miss, or give up", "icon": "sweat", "col": Color("e0a84a")},
+		{"id": "", "label": "BACK", "desc": "", "icon": "close", "col": Color("8a94a6")},
+	],
+}
 const MOOD := {"calm": ["CALM", Color("3fcf72")], "wary": ["WARY", Color("ffcb05")], "angry": ["ANGRY", Color("ee3b33")], "scared": ["SCARED", Color("9d6cf0")]}
 
 var cam: Camera3D
@@ -56,6 +65,8 @@ var mood := "calm"
 var mood_t := 9.0
 # the menu
 var menu_on := false
+var items: Array = ITEMS     # the list showing (ITEMS, or one of SUBS)
+var sub := ""                # which of SUBS is open ("" = the top list)
 var menu_k := 0.0
 var sel := 0
 var _rects: Array = []     # touch rects, one per item
@@ -96,6 +107,19 @@ func show_hud(on: bool) -> void: hud_on = on
 func open_menu() -> void:
 	menu_on = true
 	_press_t = -1.0
+	_open_sub("")
+
+func _open_sub(id: String) -> void:
+	sub = id
+	items = SUBS.get(id, ITEMS)
+	sel = 0
+	menu_k = minf(menu_k, 0.35) if menu_on and id != "" else menu_k   # (the new list slides in)
+
+# B / Esc: out of a second list
+func back() -> void:
+	if not menu_on or sub == "": return
+	Sfx.ui("ui_cursor")
+	_open_sub("")
 
 func close_menu() -> void: menu_on = false
 
@@ -118,7 +142,7 @@ func set_mood(m: String) -> void:
 # ---------- input (battle.gd calls these from its own polling) ----------
 func move(d: int) -> void:
 	if not menu_on: return
-	sel = wrapi(sel + d, 0, ITEMS.size())
+	sel = wrapi(sel + d, 0, items.size())
 	Sfx.ui("ui_cursor")
 
 func confirm() -> void:
@@ -130,8 +154,16 @@ func _pick(i: int) -> void:
 	_press_t = 0.0
 	_press_i = i
 	Sfx.ui("ui_confirm")
+	var it: Dictionary = items[i]
+	if it.has("sub"):
+		_open_sub(String(it.sub))
+		return
+	if String(it.id) == "":
+		_open_sub("")
+		menu_k = minf(menu_k, 0.35)
+		return
 	menu_on = false
-	picked.emit(ITEMS[i].id)
+	picked.emit(String(it.id))
 
 func _input(e: InputEvent) -> void:
 	if not menu_on or menu_k < 0.6: return
@@ -289,10 +321,14 @@ func _foe_rect(safe: Rect2) -> Rect2:
 	return Rect2(safe.end.x - 422, safe.position.y + 104, 400, 92)
 
 # where the energy bars go (battle/energy.gd's widget draws there; nothing here yet):
-# "foe" just above the wild one's plate, "ally" just above Ash's (a Pokémon of his, later)
+# "foe" just under the wild one's plate (above it is the world HUD's clock), "ally"
+# just above Ash's (a Pokémon of his, later)
 func energy_slot(who: String) -> Rect2:
 	var safe := UITheme.safe_rect(self)
-	var r := _foe_rect(safe) if who == "foe" else _ash_rect(safe)
+	if who == "foe":
+		var f := _foe_rect(safe)
+		return Rect2(f.position.x + 18, f.end.y + 6, f.size.x - 18, 48)
+	var r := _ash_rect(safe)
 	return Rect2(r.position.x, r.position.y - 54, r.size.x, 48)
 
 func _ash_plate(safe: Rect2) -> void:
@@ -344,15 +380,15 @@ func _menu(safe: Rect2) -> void:
 	var bh := 66.0
 	var gap := 10.0
 	var bw := 372.0
-	var n := ITEMS.size()
+	var n := items.size()
 	var top := safe.end.y - 22 - n * bh - (n - 1) * gap
 	_rects.clear()
 	var dev: String = UIInput.device if UIInput.I else "touch"
 	# the header
 	var hx := safe.end.x - bw - 30 + (1.0 - k) * 300.0
-	UITheme.text(self, Vector2(hx + 8, top - 14), "WHAT WILL ASH DO?", "heading", 22, Color(UITheme.TEXT, k), 0, -1.0, 4, Color(0, 0, 0, 0.45 * k))
+	UITheme.text(self, Vector2(hx + 8, top - 14), "THROW WHAT?" if sub == "throw" else "WHAT WILL ASH DO?", "heading", 22, Color(UITheme.TEXT, k), 0, -1.0, 4, Color(0, 0, 0, 0.45 * k))
 	for i in n:
-		var it: Dictionary = ITEMS[i]
+		var it: Dictionary = items[i]
 		var on := i == sel and dev != "touch"
 		var stag := clampf(k * 1.3 - i * 0.1, 0.0, 1.0)
 		var sk := UITheme.ease_back(stag)
@@ -369,7 +405,9 @@ func _menu(safe: Rect2) -> void:
 		if on:
 			UITheme.outline(self, UITheme.para_points(rr, UITheme.SKEW), Color(UITheme.YELLOW, a), 2.5)
 		UIWidgets.icon_disc(self, rr.position + Vector2(44, rr.size.y * 0.5), 20.0, col, String(it.icon), a)
-		UITheme.text(self, rr.position + Vector2(78, 31), String(it.label), "display", 28, Color(UITheme.TEXT, a))
+		var fs := 28
+		while fs > 20 and UITheme.text_w(String(it.label), "display", fs) > rr.size.x - 128.0: fs -= 1
+		UITheme.text(self, rr.position + Vector2(78, 31), String(it.label), "display", fs, Color(UITheme.TEXT, a))
 		UITheme.text(self, rr.position + Vector2(80, 53), String(it.desc), "body", 16, Color(UITheme.TEXT_DIM, a))
 		if on:
 			UITheme.glyph(self, rr.position + Vector2(rr.size.x - 34, rr.size.y * 0.5), "use", 30.0, a)

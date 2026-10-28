@@ -92,13 +92,14 @@ func run(b: Battle) -> void:
 	# the camera low behind him, the two of them running in through the grass
 	battle._shot = {"pos": ash - from_dir * 2.6 + side * 1.2 + Vector3(0, 1.1, 0), "look": ash + from_dir * 6.0 + Vector3(0, 0.9, 0), "fov": 46.0, "rate": 3.0, "name": "_fixed"}
 	var chest := battle._bone("Spine3", 0.3)
-	# kneeling one each side of him
-	jenny.kneel_by(chest + side * 0.15, 4.4)
+	# he lies on his left side facing the way he faced it: Jenny kneels at his back,
+	# Joy comes round his legs to kneel in front of him, where she can see his face
+	jenny.kneel_by(chest - fwd * 0.05, 4.4)
 	await _wait(0.35)
-	joy.kneel_by(chest - side * 0.15 + fwd * 0.1, 4.0)
+	_joy_round(chest)
 	var t := 0.0
 	var steps := 0.0
-	while t < 6.0 and (jenny.state != "kneel" or joy.state != "kneel"):
+	while t < 8.0 and (jenny.state != "kneel" or joy.state != "kneel"):
 		t += get_process_delta_time()
 		steps += get_process_delta_time()
 		if steps > 0.3 and jenny.speed > 1.0:
@@ -106,21 +107,28 @@ func run(b: Battle) -> void:
 			Sfx.play("step_grass_run", jenny.global_position, {"vol": -6.0})
 		await get_tree().process_frame
 	Sfx.play("cloth_rustle", ash, {"vol": -4.0})
-	jenny.look_at_point(chest); joy.look_at_point(chest)
+	jenny.look_at_point(chest); joy.look_at_point(battle._bone("Head", 0.3))
 	await _wait(0.5)
-	battle._shot = {"pos": ash + fwd * 2.4 + side * 0.5 + Vector3(0, 1.3, 0), "look": ash + Vector3(0, 0.45, 0), "fov": 48.0, "rate": 2.0, "name": "_fixed"}
+	# the two-shot from his head's end: Jenny on one side of him, Joy on the other
+	battle._shot = {"pos": chest - side * 2.4 + fwd * 0.35 + Vector3(0, 1.25, 0), "look": chest + Vector3(0, 0.35, 0), "fov": 46.0, "rate": 2.0, "name": "_fixed"}
 	# the talk
 	await _say([
-		"JENNY: Ash! Ash, can you hear me? Don't try to get up.",
-		"JOY: Easy now. Let me have a look at you…",
+		"JENNY{worry}: Ash! Ash, can you hear me? Don't try to get up.",
+		"JOY{reach}: Easy now. Let me have a look at you…",
 		"ASH: Officer Jenny…? Nurse Joy…? I don't feel so good… Everything's really sore…",
-		"JOY: Scratches all over, and you're covered in dirt. That Pidgey's Gust whips the grass up sharp as razors.",
-		"JENNY: What were you thinking, walking into the tall grass all by yourself? That's where wild Pokémon live!",
-		"JOY: Even a little Pidgey will fight hard to protect its home. And you didn't have a Pokémon of your own to stand with you.",
-		"JENNY: Trainers only go in there with a partner Pokémon, and once they know how to read a wild one. Promise me you won't go in alone again.",
+		"JOY{worry}: Scratches all over, and you're covered in dirt. That Pidgey's Gust whips the grass up sharp as razors.",
+		"JENNY{explain}: What were you thinking, walking into the tall grass all by yourself? That's where wild Pokémon live!",
+		"JOY{explain}: Even a little Pidgey will fight hard to protect its home. And you didn't have a Pokémon of your own to stand with you.",
+		"JENNY{explain}: Trainers only go in there with a partner Pokémon, and once they know how to read a wild one. Promise me you won't go in alone again.",
 		"ASH: I… I promise.",
-		"JOY: Good. Nothing's broken, you're just worn out and banged up. Let's get you home to your mom.",
+		"JOY{nod}: Good. Nothing's broken, you're just worn out and banged up. Let's get you home to your mom.",
 	])
+	# they help him up between them: Jenny gets up first, Joy too, hands clasped
+	jenny.stand_up()
+	await _wait(0.5)
+	joy.stand_up()
+	await _wait(0.8)
+	joy.clasp(true)
 	# dark: taken home
 	var ui := battle.ui
 	ui.caption = "Later, at home…"
@@ -150,6 +158,21 @@ func run(b: Battle) -> void:
 		cast.dialog.voice = "high"
 		cast.dialog.say(["MOM: Oh, Ash… Officer Jenny and Nurse Joy brought you all the way home.",
 			"MOM: You get some rest, sweetie. And no more tall grass without a Pokémon, OK?"])
+
+# Joy's way round: past his feet to his front, then down beside him
+func _joy_round(chest: Vector3) -> void:
+	var fwd: Vector3 = battle.fwd
+	var side: Vector3 = battle.side
+	for wp in [chest + side * 1.4 - fwd * 0.2, chest + side * 0.9 + fwd * 1.2, chest + fwd * 0.75]:
+		if joy == null or not is_instance_valid(joy): return
+		var p: Vector3 = wp
+		p.y = game.world.height_at(p.x, p.z)
+		joy.run_to(p, 3.6)
+		var t := 0.0
+		while t < 4.0 and joy.global_position.distance_to(p) > 0.25:
+			t += get_process_delta_time()
+			await get_tree().process_frame
+	if joy and is_instance_valid(joy): joy.kneel_by(chest + fwd * 0.05, 2.0)
 
 func _person(look: String, at: Vector3, yaw: float) -> ScenePerson:
 	var p := ScenePerson.make(look)
@@ -183,12 +206,21 @@ func _process(_dt: float) -> void:
 func _say(lines: Array) -> void:
 	for ln in lines:
 		var s := String(ln)
-		_speaker = s.get_slice(":", 0)
+		# "WHO{gesture}: text" (the gesture: ScenePerson.emote's explain, worry, nod, reach)
+		var who := s.get_slice(":", 0)
+		var gesture := ""
+		if "{" in who:
+			gesture = who.get_slice("{", 1).trim_suffix("}")
+			who = who.get_slice("{", 0)
+		_speaker = who
 		var text := s.substr(s.find(":") + 1).strip_edges()
+		s = who + ": " + text
+		var sp: ScenePerson = jenny if who == "JENNY" else (joy if who == "JOY" else null)
 		cast.dialog.voice = "mid" if _speaker == "ASH" else "high"
 		cast.dialog.voice_pitch = 1.08 if _speaker == "ASH" else (1.0 if _speaker == "JENNY" else 1.12)
 		if _speaker == "JENNY" and jenny: jenny.say(text)
 		elif _speaker == "JOY" and joy: joy.say(text)
+		if sp and gesture != "": sp.emote(gesture)   # (after say: its own guess from the words gives way)
 		var fin := [false]
 		cast.dialog.say([s], func(): fin[0] = true)
 		while not fin[0]:

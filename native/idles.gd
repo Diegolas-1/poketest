@@ -272,6 +272,9 @@ static func _battle_defs() -> Dictionary:
 	var EYE_L := {"at": HD(0.035, 0.07, 0.13), "pole": [1, -0.9, 0.0], "wt": 0.4, "wf": 0.3, "cu": 0.7}
 	var UP_R := func(x, z): return {"at": CH(-x * 0.75, -0.12, z + 0.26), "pole": [-1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
 	var UP_L := func(x, z): return {"at": CH(x * 0.75, -0.12, z + 0.26), "pole": [1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
+	var HIDE := {"dy": -0.58, "dz": -0.1, "wp": 0.3, "lean": 0.55, "ko": 0.4, "heel": 0.55, "hp": 0.42, "sh": 0.08, "eye": 0}
+	var HIDE_R := {"at": HD(-0.1, 0.16, 0.06), "pole": [-1, 0.2, -0.4], "wt": 0.6, "wf": -0.3, "cu": 0.5}
+	var HIDE_L := {"at": HD(0.1, 0.17, 0.04), "pole": [1, 0.2, -0.4], "wt": 0.6, "wf": -0.3, "cu": 0.5}
 	var KNEEL := {"dy": -0.52, "dz": -0.08, "wp": 0.35, "lean": 0.28, "ko": 0.42, "heel": 0.6, "hp": 0.15}
 	var SLUMP := {"dy": -0.63, "dz": -0.54, "wp": 0.2, "lean": 0.42, "ko": 0.35, "seat": 1, "gap": 0, "hp": 0.42, "side": 0.08, "sh": 0.04}
 	return {
@@ -295,6 +298,13 @@ static func _battle_defs() -> Dictionary:
 				[1.25, {"at": CH(0.0, -0.4, -0.02), "pole": [-1, -0.6, 0], "cu": 0.1}], [1.7, null]],
 			"armL": [[0, null], [0.4, {"at": KN("L", -0.02, 0.06, 0.1), "pole": [0.6, -0.6, -0.5], "wf": 0.4}], [0.85, {"at": CH(0.22, -0.38, 0.26), "pole": [1, -0.5, -0.1], "cu": 0.1}],
 				[1.1, {"at": CH(0.26, 0.05, 0.05), "pole": [1, -0.5, -0.4], "cu": 0.3}], [1.7, null]]},
+		# Hide: down in the grass as small as he can get, on his heels, arms wrapped
+		# over his head, peeking out under them and trembling (held: battle.gd releases it)
+		"b_hide": {"dur": 30.0, "stretch": [1.0, 28.0], "talk": true, "player": true, "legs": true, "fx": "shield",
+			"body": [[0, {}], [0.3, {"dy": -0.3, "dz": -0.04, "lean": 0.4, "ko": 0.3, "heel": 0.3, "hp": 0.25}], [0.7, HIDE], [28.0, HIDE], [29.0, {"dy": -0.3, "lean": 0.3, "ko": 0.3, "heel": 0.3}], [30.0, {}]],
+			"armR": [[0, null], [0.4, SHIELD_R], [0.75, HIDE_R], [28.0, HIDE_R], [29.0, null]],
+			"armL": [[0, null], [0.45, SHIELD_L], [0.8, HIDE_L], [28.0, HIDE_L], [29.0, null]],
+			"gaze": [[0, {"y": 0, "p": 0}], [0.8, {"y": 0, "p": -0.15}], [28.0, {"y": 0.1, "p": -0.15}], [30.0, {"y": 0, "p": 0}]]},
 		# a flinch: hands up in front of the face, a duck of the head
 		"b_flinch": {"dur": 0.75, "talk": true, "player": true,
 			"armR": [[0, null], [0.12, GUARD_R], [0.45, GUARD_R], [0.75, null]],

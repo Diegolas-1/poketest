@@ -13,6 +13,17 @@ extends RefCounted
 # battle lasts. At 0 he is exhausted, sore and overwhelmed, and goes down
 # (outcome ash_down). The Pokémon keep real HP.
 #
+# mode: "prologue" (the only one for now). Ash with no partner Pokémon (no
+# quest flag has_starter) has three things he can do, and none of them is a fight:
+#   run     try to get away (costs stamina; it may cut him off)
+#   hide    duck down into the grass (costs a little; it may not find him this
+#           turn, and it may lose interest)
+#   throw   something: "rock" (a little damage, it gets angry) or "sand" (a
+#           handful in its eyes: its aim falls, it may give up)
+# His first actions cost the most (a frightened kid, all adrenaline, no idea how
+# to pace himself: early_k). Once he has a Pokémon of his own, the partner battle
+# (Fight / Pokémon / Items / Flee) takes over and these rules retire.
+#
 # Moods (0..1): anger, fear, threat (how dangerous Ash seems to it). They ease
 # back a little at each turn's end. The wild side:
 #   reaction()  after Ash's action: flees when hurt below flee_hp, or when
@@ -34,7 +45,8 @@ extends RefCounted
 #   R.outcome                         # "" while it goes on: fled | disengaged | ash_won | ash_down | ran
 
 const PATH := "res://life/wild.json"
-const ACTIONS := ["kick_sand", "startle", "rock", "back_away"]
+const MODE_PROLOGUE := "prologue"
+const ACTIONS := ["run", "hide", "rock", "sand"]     # the prologue's (the menu: RUN, HIDE, THROW SOMETHING > rock / sand)
 
 static var _data := {}
 
@@ -57,7 +69,12 @@ var turn := 0
 var uses := {}               # move -> times used
 var outcome := ""
 var force := -1              # renders: 1 every aimed hit lands, 0 every one misses, -1 the dice
+var force_run := -1          # renders: 1 Run gets him away, 0 it cuts him off, -1 the dice
+var force_found := -1        # renders: 1 it finds him hiding, 0 it doesn't, -1 the dice
 var events: Array = []       # every event, in order (tests)
+var mode := MODE_PROLOGUE
+var acts_done := 0           # Ash's actions so far (the early ones cost more)
+var hiding := false          # he ducked into the grass this turn (end_turn clears it)
 
 static func data() -> Dictionary:
 	if _data.is_empty():
@@ -88,7 +105,11 @@ func level() -> int: return int(S.get("level", 3))
 func move_name(id: String) -> String: return String(move_data(id).get("name", id.to_upper()))
 func move_data(id: String) -> Dictionary: return S.get("moves", {}).get(id, {})
 func is_first(id: String) -> bool: return bool(move_data(id).get("first", false))
-func action_cost(act: String) -> float: return float(A.get("actions", {}).get(act, {}).get("cost", 0.0))
+# what his next action of this kind takes out of him: its cost, more for the first
+# ones (early_k: the first x(1 + k), the second x(1 + k/2), then the plain cost)
+func action_cost(act: String) -> float:
+	var base := float(A.get("actions", {}).get(act, {}).get("cost", 0.0))
+	return base * (1.0 + float(A.get("early_k", 0.5)) * maxf(0.0, 2.0 - acts_done) * 0.5)
 
 # accuracy stages as the games have them: below 0, 3 / (3 - s)
 static func stage_mult(s: int) -> float:
@@ -119,10 +140,11 @@ func ash_act(act: String) -> Dictionary:
 	var d: Dictionary = A.get("actions", {}).get(act, {})
 	var aim := float(A.get("acc", 0.92)) * stage_mult(ash_acc_stage)
 	# what it takes out of him
-	e.cost = float(d.get("cost", 0.0))
+	e.cost = action_cost(act)
+	acts_done += 1
 	ash_sta = maxf(0.0, ash_sta - e.cost)
 	match act:
-		"kick_sand":
+		"sand":
 			e.hit = _hit(float(d.get("acc", 0.86)) * aim)
 			if e.hit:
 				foe_acc_stage = maxi(-6, foe_acc_stage + int(d.get("foe_acc_stage", -1)))
@@ -130,21 +152,6 @@ func ash_act(act: String) -> Dictionary:
 				e.notes.append("acc_down")
 			else:
 				_mood({"threat": 0.05})
-		"startle":
-			var bt: Dictionary = d.get("by_temper", {}).get(temper, {})
-			e.hit = true
-			_mood({"threat": float(d.get("threat", 0.2)), "fear": float(bt.get("fear", 0.2)), "anger": float(bt.get("anger", 0.0))})
-			if bt.get("enrage", false) and not enraged:
-				enraged = true
-				e.notes.append("enraged")
-			elif float(bt.get("anger", 0.0)) > float(bt.get("fear", 0.0)):
-				e.notes.append("angrier")
-			else:
-				e.notes.append("scared")
-			# a timid or flighty one may bolt there and then
-			if _roll(float(bt.get("flee_now", 0.0)) * (0.5 + fear)):
-				e.flee = true
-				outcome = "fled"
 		"rock":
 			e.hit = _hit(float(d.get("acc", 0.78)) * aim)
 			if e.hit:
@@ -156,16 +163,25 @@ func ash_act(act: String) -> Dictionary:
 					e.notes.append("down")
 				else:
 					e.notes.append("angrier")
+				# a bold one hit twice gets furious
+				if temper == "aggressive" and anger >= float(d.get("enrage_at", 0.85)) and not enraged:
+					enraged = true
+					e.notes.append("enraged")
 			else:
 				_mood({"anger": 0.08, "threat": 0.08})
-		"back_away":
-			_mood({"threat": float(d.get("threat", -0.35)), "anger": float(d.get("anger", -0.12))})
+		"hide":
+			hiding = true
+			e.hit = true
+			_mood({"threat": float(d.get("threat", -0.25)), "anger": float(d.get("anger", -0.08))})
+		"run":
+			_mood({"threat": float(d.get("threat", -0.2)), "anger": float(d.get("anger", -0.05))})
 			var p := float(d.get("base", 0.38)) - float(d.get("per_acc_stage", 0.12)) * foe_acc_stage + float(d.get("fear_k", 0.3)) * fear + float(d.get("anger_k", -0.3)) * anger
 			p = clampf(p, float(d.get("min", 0.12)), float(d.get("max", 0.9)))
 			e.chance = p
-			e.slip = _roll(p)
+			e.slip = _roll(p) if force_run < 0 else force_run == 1
 			e.hit = e.slip
 			if e.slip: outcome = "ran"
+			else: e.notes.append("cut_off")
 	# worn out by his own effort (even backing off: he has nothing left to run with)
 	if ash_sta <= 0.0 and outcome in ["", "ran"]:
 		outcome = "ash_down"
@@ -194,6 +210,8 @@ func reaction() -> Dictionary:
 		p_dis = float(dg.get(temper, 0.25)) * (1.0 - threat)
 	if foe_acc_stage <= -2 and temper != "aggressive": p_dis += float(dg.get("blind_bonus", 0.22))
 	if turn == 0: p_dis *= 0.3   # (it came to fight: not on the first turn)
+	# he's gone down into the grass: out of sight, out of mind (a bold one less so)
+	if hiding: p_dis += float(A.get("actions", {}).get("hide", {}).get("disengage", 0.3)) * (0.3 if temper == "aggressive" else 1.0)
 	if _roll(clampf(p_dis, 0.0, 0.9)): return {"kind": "disengage"}
 	return {}
 
@@ -229,6 +247,11 @@ func foe_turn(plan := {}) -> Dictionary:
 			e.name = move_name(plan.move)
 			uses[plan.move] = int(uses.get(plan.move, 0)) + 1
 			e.hit = _hit(float(m.get("acc", 0.9)) * stage_mult(foe_acc_stage))
+			# hiding: it has to find him in the grass first
+			var found := _roll(float(A.get("actions", {}).get("hide", {}).get("found", 0.45))) if force_found < 0 else force_found == 1
+			if hiding and e.hit and not found:
+				e.hit = false
+				e.notes.append("lost_him")
 			if e.hit:
 				var dmg := _range(m.get("dmg", [20, 25]))
 				if enraged and dmg > 0.0: dmg *= float(S.get("enrage_mult", 1.25))
@@ -248,6 +271,7 @@ func foe_turn(plan := {}) -> Dictionary:
 # the turn is over: the moods ease back a little
 func end_turn() -> void:
 	turn += 1
+	hiding = false
 	var dc: Dictionary = S.get("decay", {})
 	anger = maxf(0.0, anger - float(dc.get("anger", 0.08)))
 	fear = maxf(0.0, fear - float(dc.get("fear", 0.12)))

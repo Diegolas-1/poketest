@@ -1,47 +1,29 @@
 {
- "_doc_battle": "The battle part (battle/battle.gd, battle/battle_rules.gd): ash_battle is Ash's own side; species.<id>.battle is each Pokemon's (HP, speed, how each temper takes Ash's actions, when it flees or loses interest, its moves keyed by move id, each with a type and room for an energy cost {type: n} later). Ash has no HP: his stamina (body.gd's bar) is what a battle wears down, in points (stamina_points = a full bar). Each of his actions costs some (cost), a Pokemon's hit takes dmg points off it (a Pidgey's hit is a quarter to a third of a full bar), and nothing comes back during a battle. Moods are 0..1: anger, fear, threat. Accuracy stages work as in the games: stage s < 0 multiplies accuracy by 3 / (3 - s). The spawning and temper part of this file belongs to wild/wild.gd.",
+ "_doc_battle": "The battle part (battle/battle.gd, battle/battle_rules.gd): ash_battle is Ash's own side; species.<id>.battle is each Pokemon's (HP, speed, how each temper takes Ash's actions, when it flees or loses interest, its moves keyed by move id, each with a type and its energy cost in life/moves.json). Ash has no HP: his stamina (body.gd's bar) is what a battle wears down, in points (stamina_points = a full bar). Each of his actions costs some (cost), a Pokemon's hit takes dmg points off it (scaled to the move's energy cost: about 13 to 16 points a chip, so a Tackle takes 12 to 16 and a Gust 27 to 33), and nothing comes back during a battle. Moods are 0..1: anger, fear, threat. Accuracy stages work as in the games: stage s < 0 multiplies accuracy by 3 / (3 - s). The spawning and temper part of this file belongs to wild/wild.gd.",
  "ash_battle": {
   "stamina_points": 100,
   "acc": 0.92,
   "actions": {
-   "kick_sand": {
-    "cost": 6,
-    "acc": 0.86,
-    "foe_acc_stage": -1,
-    "fear": 0.12,
-    "anger": 0.1,
-    "threat": 0.18
+   "run": {
+    "cost": 7,
+    "threat": -0.2,
+    "anger": -0.05,
+    "base": 0.38,
+    "per_acc_stage": 0.12,
+    "fear_k": 0.3,
+    "anger_k": -0.3,
+    "min": 0.12,
+    "max": 0.9
    },
-   "startle": {
-    "cost": 8,
-    "acc": 1.0,
-    "threat": 0.22,
-    "by_temper": {
-     "flighty": {
-      "fear": 0.5,
-      "anger": 0.0,
-      "flee_now": 0.35
-     },
-     "timid": {
-      "fear": 0.6,
-      "anger": 0.0,
-      "flee_now": 0.45
-     },
-     "curious": {
-      "fear": 0.25,
-      "anger": 0.12,
-      "flee_now": 0.1
-     },
-     "aggressive": {
-      "fear": 0.04,
-      "anger": 0.45,
-      "flee_now": 0.0,
-      "enrage": true
-     }
-    }
+   "hide": {
+    "cost": 3,
+    "threat": -0.25,
+    "anger": -0.08,
+    "found": 0.45,
+    "disengage": 0.3
    },
    "rock": {
-    "cost": 7,
+    "cost": 6,
     "acc": 0.78,
     "dmg": [
      3,
@@ -49,20 +31,21 @@
     ],
     "anger": 0.32,
     "fear": 0.12,
-    "threat": 0.3
+    "threat": 0.3,
+    "enrage_at": 0.85
    },
-   "back_away": {
-    "cost": 4,
-    "threat": -0.35,
-    "anger": -0.12,
-    "base": 0.38,
-    "per_acc_stage": 0.12,
-    "fear_k": 0.3,
-    "anger_k": -0.3,
-    "min": 0.12,
-    "max": 0.9
+   "sand": {
+    "cost": 5,
+    "acc": 0.86,
+    "foe_acc_stage": -1,
+    "fear": 0.12,
+    "anger": 0.1,
+    "threat": 0.18
    }
-  }
+  },
+  "mode": "prologue",
+  "early_k": 0.5,
+  "_doc_prologue": "The prologue (no has_starter): Ash's menu is RUN, HIDE, THROW SOMETHING (rock / sand). cost: stamina points (100 = his full bar), his first action x(1 + early_k), the second x(1 + early_k/2). hide.found: the chance it finds him in the grass for each of its moves that turn; hide.disengage: added to its chance to lose interest (x0.3 for an aggressive one). run: base + fear_k x fear + anger_k x anger - per_acc_stage x its aim stage, clamped to min..max."
  },
  "species": {
   "pidgey": {
@@ -122,8 +105,8 @@
       "name": "GUST",
       "acc": 0.92,
       "dmg": [
-       24,
-       28
+       27,
+       33
       ],
       "w": 3.0,
       "w_anger": 0.5
@@ -134,8 +117,8 @@
       "name": "TACKLE",
       "acc": 0.9,
       "dmg": [
-       11,
-       14
+       12,
+       16
       ],
       "w": 3.0,
       "w_anger": 2.0
@@ -146,8 +129,8 @@
       "name": "QUICK ATTACK",
       "acc": 0.96,
       "dmg": [
-       9,
-       12
+       10,
+       14
       ],
       "w": 2.0,
       "w_anger": 3.0,
@@ -194,7 +177,7 @@
       "learned": 15
      }
     },
-    "_note_energy": "How often it acts and with what: the energy system (battle/energy.gd, life/moves.json costs: Tackle, Quick Attack and Sand-Attack 1 chip, Gust 2, Whirlwind 2, Wing Attack 3). dmg here is per move, scaled to its cost (about 11-14 stamina points a chip), so a fight lasts 3 to 5 turns. w / w_anger: the pick without the energy system."
+    "_note_energy": "How often it acts and with what: the energy system (battle/energy.gd, life/moves.json costs: Tackle, Quick Attack and Sand-Attack 1 chip, Gust 2, Whirlwind 2, Wing Attack 3). dmg here is per move, scaled by its power in moves.json (about dmg x power / 75: 13-16 stamina points a chip; Tackle 12-16, Quick Attack 10-14, Gust 27-33), so with Pidgey's 2 chips a turn from turn 2 a fight lasts 3 to 5 turns and Ash takes 3 to 5 hits. w / w_anger: the pick without the energy system."
    }
   }
  }

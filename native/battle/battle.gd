@@ -25,8 +25,9 @@ extends Node3D
 # everything slides back and the gameplay camera glides home.
 #
 # ---- the battle ----
-# Ash has no Pokémon, so he fights himself (battle_ui.gd's menu): Kick Sand,
-# Startle, Throw a Rock, Back Away. The rules are battle_rules.gd's (data in
+# Ash has no Pokémon (mode "prologue": no has_starter flag), so he can't fight
+# it; all he can do (battle_ui.gd's menu) is RUN, HIDE in the grass, or THROW
+# SOMETHING at it (a rock, or a handful of sand). The rules are battle_rules.gd's (data in
 # life/wild.json): the wild one's moods drive it, it may lose interest when it
 # feels no threat, it flees when hurt or scared. Ash has no HP: his stamina
 # (body.gd's bar, shown in the battle HUD) is what wears down. Nothing refills
@@ -147,6 +148,7 @@ var _rng := RandomNumberGenerator.new()
 
 # scripted runs (dev/battle_dev.gd: renders)
 var script_acts: Array = []
+var mode := BattleRules.MODE_PROLOGUE   # see _setup: the prologue (no partner Pokémon) or, later, the partner battle
 var script_moves: Array = []
 var force_hit := -1             # 1 every attack lands, 0 every attack misses, -1 the dice
 var auto_delay := 0.9
@@ -177,10 +179,21 @@ func _begin(g: Node3D, o: Dictionary) -> void:
 	R = BattleRules.new(species, String(o.get("temper", "flighty")), String(o.get("state", "hidden")), sd)
 	if sd >= 0: _rng.seed = sd + 1
 	if body: R.ash_sta = body.stamina * R.ash_sta_max   # (his stamina is what a battle wears down: no HP)
+	# THE MODE SWITCH. "prologue": Ash has no partner Pokémon (no has_starter flag),
+	# so he can only run, hide or throw something (battle_rules.gd). The partner
+	# battle (Fight / Pokémon / Items / Flee) is a mode of its own, still to come;
+	# until it lands every battle runs the prologue's rules.
+	mode = String(o.get("mode", ""))
+	if mode == "":
+		var q := _quests()
+		mode = BattleRules.MODE_PROLOGUE if q == null or not q.flag("has_starter") else "partner"
+	R.mode = BattleRules.MODE_PROLOGUE   # (TODO(partner battle): R.mode = mode once that mode exists)
 	script_acts = Array(o.get("script_acts", []))
 	script_moves = Array(o.get("script_moves", []))
 	force_hit = int(o.get("force_hit", -1))
 	R.force = force_hit
+	R.force_run = int(o.get("force_run", -1))
+	R.force_found = int(o.get("force_found", -1))
 	auto_delay = float(o.get("auto_delay", 0.9))
 	fx = BattleFx.new()
 	fx.name = "Fx"
@@ -315,12 +328,13 @@ func _menu_input() -> void:
 	if Input.is_action_just_pressed("move_up") or Input.is_action_just_pressed("ui_up"): ui.move(-1)
 	if Input.is_action_just_pressed("move_down") or Input.is_action_just_pressed("ui_down"): ui.move(1)
 	if Input.is_action_just_pressed("use") or Input.is_action_just_pressed("ui_accept"): ui.confirm()
+	if Input.is_action_just_pressed("back") or Input.is_action_just_pressed("ui_cancel"): ui.back()
 
 func _unhandled_key_input(e: InputEvent) -> void:
 	if not ui or not ui.menu_on: return
 	if e is InputEventKey and e.pressed and not e.echo:
 		var k: int = e.physical_keycode - KEY_1
-		if k >= 0 and k < 4:
+		if k >= 0 and k < ui.items.size():
 			ui.sel = k
 			ui.confirm()
 
@@ -356,6 +370,7 @@ func _shot_xf(n: String) -> Dictionary:
 		"foe_close": return {"pos": ash_pos - fwd * 0.9 + side * 2.0 + up * 1.9, "look": foe_p + up * 0.4 - side * 0.3, "fov": 38.0}
 		"qa": return {"pos": c + side * 5.0 - fwd * 0.8 + up * 2.2, "look": c - fwd * 0.6 + up * 0.6, "fov": 52.0}
 		"impact": return {"pos": ash_pos + fwd * 2.6 + side * 2.6 + up * 1.6, "look": ash_pos + up * 0.9, "fov": 50.0}
+		"hide": return {"pos": ash_pos + fwd * 2.3 + side * 1.3 + up * 1.0, "look": ash_pos + up * 0.45, "fov": 44.0}
 		"down": return {"pos": ash_pos - side * 2.0 + fwd * 1.4 + up * 1.1, "look": ash_pos + up * 0.3, "fov": 46.0}
 		"flee": return {"pos": c - fwd * 5.5 + side * 3.0 + up * 3.2, "look": foe_p + up * 1.2, "fov": 52.0}
 	return _shot_xf("overview")
@@ -487,8 +502,8 @@ func _run() -> void:
 	EnergyHook.attach(self, {"species": species, "level": R.level(), "temper": String(opts.get("temper", "flighty"))})
 	await _wait(0.5)
 	# ---- the turns ----
-	# A turn: the wild side's picks for it (_wild_pick: one move now; the energy
-	# system will give it as many as its energy pays for), those that go first
+	# A turn: the wild side's picks for it (_wild_pick: as many as its energy
+	# pays for, through the EnergyHook; one a turn without it), those that go first
 	# (Quick Attack) before Ash, then Ash's action, then whether it bolts or loses
 	# interest, then the rest of its picks; then the turn ends (the moods ease).
 	var first: String = String(opts.get("first_strike", "ash"))
@@ -520,6 +535,7 @@ func _run() -> void:
 		for p in picks:
 			await _foe_act(p)
 			if R.outcome != "": break
+		if R.hiding and R.outcome == "": await _unhide()
 		R.end_turn()
 	await _outcome()
 
@@ -573,18 +589,26 @@ func _choose() -> String:
 	if not script_acts.is_empty():
 		ui.open_menu()
 		var want := String(script_acts.pop_front())
-		var idx := 0
+		# (a throw goes through THROW SOMETHING's list, as a player would)
+		var path: Array = [want]
 		for i in BattleUI.ITEMS.size():
-			if BattleUI.ITEMS[i].id == want: idx = i
-		await _wait(auto_delay * 0.5)
-		ui.sel = idx
-		await _wait(auto_delay * 0.5)
-		ui._pick(idx)
+			var sub_id := String(BattleUI.ITEMS[i].get("sub", ""))
+			if sub_id != "":
+				for it in BattleUI.SUBS[sub_id]:
+					if String(it.id) == want: path = [String(BattleUI.ITEMS[i].id), want]
+		for step in path:
+			var idx := 0
+			for i in ui.items.size():
+				if String(ui.items[i].id) == step: idx = i
+			await _wait(auto_delay * 0.5)
+			ui.sel = idx
+			await _wait(auto_delay * 0.5)
+			ui._pick(idx)
 		return want
 	ui.open_menu()
 	while _choice == "":
 		await get_tree().process_frame
-		if done: return "back_away"
+		if done: return "run"
 	return _choice
 
 # ---------- Ash's actions ----------
@@ -593,37 +617,51 @@ func _ash_turn(act: String) -> void:
 	# (each action takes it out of him: the bar drops as he acts)
 	get_tree().create_timer(0.5).timeout.connect(_show_sta)
 	match act:
-		"kick_sand": e = await _do_kick()
-		"startle": e = await _do_startle()
+		"sand": e = await _do_sand()
+		"hide": e = await _do_hide()
 		"rock": e = await _do_rock()
-		_: e = await _do_back_away()
+		_: e = await _do_run()
 	ui.set_mood(R.mood())
 	await _wait(0.4)
 
-func _do_kick() -> Dictionary:
-	ui.say("ASH", "KICK SAND!", Color("e0a84a"))
+# Throw something: a handful of sand. Down for a fistful of dirt, the arm back,
+# and the lot flung at its face
+func _do_sand() -> Dictionary:
+	ui.say("ASH", "THROW SAND!", Color("e0a84a"))
 	shot("ash_side", 5.0)
-	await _wait(0.25)
-	var e := R.ash_act("kick_sand")
-	_act("b_kick")
+	await _wait(0.2)
+	var e := R.ash_act("sand")
+	_act("b_throw")
 	Sfx.play("cloth_rustle", ash_pos, {"vol": -6.0})
-	await _wait(0.42)
-	# the foot through the dirt: a fan of sand at it
-	var foot := _bone("RToe", 0.1)
-	var to := foe_pos + Vector3(0, 0.35, 0)
-	var d := (to - foot).normalized()
-	fx.sand(foot + Vector3(0, 0.05, 0), d + Vector3(0, 0.22, 0), 220, 8.5 if e.hit else 5.0, 0.3)
-	fx.sand(foot + Vector3(0, 0.05, 0), d + Vector3(0, 0.4, 0), 80, 6.0 if e.hit else 3.5, 0.45)
-	fx.dust(foot, 10, Color("cdb68a"), 1.0, 0.6, 0.5)
-	Sfx.play("scuff", ash_pos, {"vol": 2.0})
-	Sfx.play("dig", ash_pos, {"vol": -2.0, "pitch": 1.2})
-	Sfx.play("sand_spray", ash_pos, {"vol": -2.0})
-	shake = 0.25
-	await _wait(0.35)
+	var t := 0.0
+	var scooped := false
+	while t < 0.98:
+		t += get_process_delta_time()
+		if t > 0.42 and not scooped:
+			# the scoop: his fingers through the dirt
+			scooped = true
+			var g := _bone("RHand", 0.1)
+			fx.dust(g, 5, Color("cdb68a"), 0.4, 0.3, 0.28)
+			fx.sand(g + Vector3(0, 0.05, 0), Vector3(0, 1, 0) + fwd * 0.3, 14, 1.4, 0.6)
+			Sfx.play("dig", ash_pos, {"vol": -2.0, "pitch": 1.2})
+		await get_tree().process_frame
+	# the fling: a fan of sand off his hand at its face
+	var hand := _bone("RHand", 1.2)
+	var to := foe_pos + Vector3(0, 0.3, 0)
+	if not e.hit: to += side * (0.9 if _rng.randf() < 0.5 else -0.9) + Vector3(0, 0.4, 0)
+	fx.sand_blast(hand, to, 90, 0.3 if e.hit else 0.55)
+	fx.sand(hand, (to - hand).normalized() + Vector3(0, 0.15, 0), 60, 6.5, 0.32)
+	fx.dust(hand, 4, Color("d8bf88"), 0.5, 0.2, 0.35)
+	Sfx.play("throw", ash_pos, {"vol": -2.0})
+	Sfx.play("sand_spray", ash_pos, {"vol": 0.0})
+	shake = 0.2
+	await _wait(0.3)
 	shot("foe_close", 6.0)
+	await _wait(0.1)
 	if e.hit:
 		_mood("flinch")
-		fx.sand(foe_pos + Vector3(0, 0.4, 0), -fwd + Vector3(0, 0.4, 0), 24, 2.0, 0.8)
+		fx.sand(foe_pos + Vector3(0, 0.35, 0), -fwd + Vector3(0, 0.5, 0), 30, 2.0, 0.8)
+		fx.dust(foe_pos + Vector3(0, 0.3, 0), 5, Color("d8bf88"), 0.5, 0.3, 0.3)
 		Sfx.play("hit_soft", foe_pos, {"vol": -6.0})
 		await _wait(0.2)
 		_cry(1.25)
@@ -634,43 +672,42 @@ func _do_kick() -> Dictionary:
 	await _wait(0.8)
 	return e
 
-func _do_startle() -> Dictionary:
-	ui.say("ASH", "STARTLE!", UITheme.YELLOW)
-	shot("ash_front", 6.0)
-	await _wait(0.2)
-	var e := R.ash_act("startle")
-	_act("b_startle")
-	ui.speak(["HYAAAH! Get outta here!", "RAAAH! Shoo! SHOO!", "HEY!! Back off!"][_rng.randi() % 3], _bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.6)
+# Hide: he scrambles back into the tall grass at the clearing's edge and gets as
+# small as he can, arms over his head. For this turn it may not find him, and it
+# may lose interest. He comes out once its turn is over (_unhide).
+func _do_hide() -> Dictionary:
+	ui.say("ASH", "HIDE!", UITheme.GREEN)
+	shot("overview", 3.0)
+	var e := R.ash_act("hide")
+	ui.speak(["Gotta hide, gotta hide…", "Don't see me, don't see me…", "Please go away…"][_rng.randi() % 3], _bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.6)
+	# turned away and scrambling for the grass
+	ash_yaw = atan2(-fwd.x, -fwd.z)
+	var spot := c - fwd * (ARENA_R + 0.35)
+	spot.y = _gy(spot)
+	await _ash_move(spot, 0.75)
+	# into it: the blades thrash round him and he drops, facing it again
+	ash_yaw = atan2(fwd.x, fwd.z)
+	_act("b_hide", 1e6)
+	Sfx.play("step_grass_run", ash_pos, {"vol": 0.0})
 	Sfx.play("cloth_rustle", ash_pos, {"vol": -2.0})
-	Sfx.play("whoosh", ash_pos, {"vol": -4.0, "pitch": 0.6})
-	for i in 3:
-		fx.shout(_bone("Head", 1.5) + fwd * 0.12, fwd)
-		shake = 0.3
-		ui.speed_k = 0.6
-		ui.speed_focus = cam.unproject_position(_bone("Head", 1.5))
-		await _wait(0.36)
-	shot("foe_close", 6.0)
-	await _wait(0.15)
-	if e.flee:
-		_mood("startle")
-		_cry(1.4)
-		ui.pop("IT PANICKED!", foe_pos + Vector3(0, 0.9, 0), UITheme.PURPLE, 22, "word")
-	elif "enraged" in e.notes:
-		_mood("taunt")
-		_cry(0.8)
-		shake = 0.2
-		ui.pop("IT'S ENRAGED!", foe_pos + Vector3(0, 0.9, 0), UITheme.RED, 22, "word")
-	elif "angrier" in e.notes:
-		_mood("wings_spread")
-		_cry(0.9)
-		ui.pop("IT'S GETTING ANGRY!", foe_pos + Vector3(0, 0.9, 0), UITheme.RED, 22, "word")
-	else:
-		_mood("startle")
-		await _foe_move(foe_pos + fwd * 0.6, 0.25, 0.15)
-		_cry(1.3)
-		ui.pop("IT'S SCARED!", foe_pos + Vector3(0, 0.9, 0), UITheme.PURPLE, 22, "word")
+	for i in 7:
+		var d := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(0.6, 1.4), _rng.randf_range(-1, 1)).normalized()
+		fx.spawn("blade", ash_pos + Vector3(0, 0.3, 0), d * _rng.randf_range(1.0, 2.2), {"life": _rng.randf_range(0.8, 1.3), "size": _rng.randf_range(0.6, 1.0), "col": Color(Color("4f9a2c").lerp(Color("9fd45a"), _rng.randf()), 1.0), "grav": 1.5, "drag": 2.5, "tumble_k": 4.0, "floor": true})
+	fx.dust(ash_pos, 4, Color("cdb68a"), 0.5, 0.2, 0.3)
+	shot("hide", 2.5)
+	await _wait(0.9)
+	ui.pop("HIDING…", ash_pos + Vector3(0, 1.4, 0), UITheme.GREEN, 22, "word")
+	_mood("look")   # (where did he go?)
 	await _wait(0.9)
 	return e
+
+# out of the grass again once its turn is over, back to his spot
+func _unhide() -> void:
+	if player and player.idles and player.idles.acting() == "b_hide": player.idles.release()
+	await _wait(0.35)
+	if R.outcome != "": return
+	await _ash_move(Vector3(ash_spot.x, _gy(ash_spot), ash_spot.z), 0.8)
+	ash_yaw = atan2(fwd.x, fwd.z)
 
 func _do_rock() -> Dictionary:
 	ui.say("ASH", "THROW A ROCK!", UITheme.RED)
@@ -749,30 +786,55 @@ func _do_rock() -> Dictionary:
 	await _wait(0.7)
 	return e
 
-func _do_back_away() -> Dictionary:
-	ui.say("ASH", "BACK AWAY…", UITheme.SKY)
+# Run: he turns and bolts for the way he came. It may let him go, or come over
+# his head and land in his path, and he skids and backs up to where he was.
+func _do_run() -> Dictionary:
+	ui.say("ASH", "RUN!", UITheme.SKY)
 	shot("overview", 3.0)
-	var e := R.ash_act("back_away")
-	ui.speak(["Easy… easy now…", "Nice Pidgey… I'm going…", "Okay, okay, I'm leaving…"][_rng.randi() % 3], _bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.6)
-	await _ash_move(ash_pos - fwd * 1.1, 1.3)
-	if R.outcome == "ran":
-		# away he goes: turn and run for it, out of the clearing
-		ash_yaw = atan2(-fwd.x, -fwd.z)
+	var e := R.ash_act("run")
+	ui.speak(["I gotta get outta here!", "Nope, nope, nope!", "Run, run, RUN!"][_rng.randi() % 3], _bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.4)
+	ash_yaw = atan2(-fwd.x, -fwd.z)
+	await _wait(0.12)
+	Sfx.play("step_grass_run", ash_pos, {"vol": -2.0})
+	var from := ash_pos
+	var out := ash_pos - fwd * (5.5 if R.outcome == "ran" else 2.0)
+	var dur := 1.1 if R.outcome == "ran" else 0.5
+	var t := 0.0
+	while t < dur:
+		t += get_process_delta_time()
+		ash_pos = from.lerp(out, clampf(t / dur, 0.0, 1.0))
+		ash_pos.y = _gy(ash_pos)
+		ash_anim_speed = 6.0
+		await get_tree().process_frame
+	ash_anim_speed = 0.0
+	if R.outcome == "":
+		# cut off: it comes in low over him and drops into his path
+		var block := ash_pos - fwd * 1.3
+		block.y = _gy(block)
+		_mood("fly")
+		_cry(1.0)
+		Sfx.play("wing_flap_large", foe_pos, {"vol": 0.0})
+		foe_yaw = atan2(-fwd.x, -fwd.z)
+		await _foe_move(block, 0.55, 1.6, _qa_trail, 1)
+		_mood("land")
+		fx.dust(block, 6, Color("cdb68a"), 0.6, 0.3, 0.35)
+		foe_yaw = atan2(fwd.x, fwd.z)
+		ash_yaw = atan2(fwd.x, fwd.z) + PI
+		_act("b_flinch")
+		Sfx.play("scuff", ash_pos, {"vol": 0.0})
+		shake = 0.3
 		await _wait(0.15)
-		var out := ash_pos - fwd * 5.5
-		var from := ash_pos
-		var t := 0.0
-		while t < 1.1:
-			t += get_process_delta_time()
-			ash_pos = from.lerp(out, clampf(t / 1.1, 0.0, 1.0))
-			ash_anim_speed = 6.0
-			await get_tree().process_frame
-		ash_anim_speed = 0.0
-	elif R.outcome == "":
-		_mood("taunt")
-		_cry(0.9)
-		ui.pop("IT WON'T LET YOU GO!", foe_pos + Vector3(0, 0.9, 0), UITheme.ORANGE, 22, "word")
+		_mood("wings_spread")
+		ui.pop("IT CUT YOU OFF!", block + Vector3(0, 0.9, 0), UITheme.ORANGE, 22, "word")
 		await _wait(0.6)
+		# he backs off it, it hops back to its spot
+		await _ash_move(Vector3(ash_spot.x, _gy(ash_spot), ash_spot.z), 0.8)
+		ash_yaw = atan2(fwd.x, fwd.z)
+		_mood("fly")
+		await _foe_move(Vector3(foe_spot.x, _gy(foe_spot), foe_spot.z), 0.6, 1.0, Callable(), 1)
+		_mood("land")
+		foe_yaw = atan2(-fwd.x, -fwd.z)
+		await _wait(0.3)
 	return e
 
 # ---------- the wild side's turn ----------
@@ -788,6 +850,8 @@ func _foe_act(p) -> void:
 	if h and h.has_method("on_move") and cam: h.on_move(id, cam.unproject_position(ash_pos + Vector3(0, 1.0, 0)))
 	var e := R.foe_turn({"kind": "move", "move": id})
 	ui.set_mood(R.mood())
+	if "lost_him" in e.notes:
+		ui.pop("IT CAN'T FIND YOU!", ash_pos + Vector3(0, 1.5, 0), UITheme.GREEN, 22, "word")
 	match id:
 		"gust", "whirlwind": await _gust(e)
 		"tackle", "wing_attack": await _tackle(e, false)
@@ -856,7 +920,7 @@ func _gust(e: Dictionary) -> void:
 		fx.gust_move(g, at, clampf(u * 2.5, 0.0, 1.0), pulse, (target - start).normalized())
 		wind = sin(_t * 9.0) * 1.2 * clampf(u * 2.0, 0.0, 1.0) + pulse * 1.5
 		shake = maxf(shake, 0.08 + 0.25 * travel)
-		if not shielded and u > 0.35:
+		if not shielded and u > 0.35 and (e.hit or not R.hiding):
 			shielded = true
 			_act("b_shield", 2.4)
 			shot("impact", 2.2)
@@ -927,7 +991,7 @@ func _tackle(e: Dictionary, quick: bool) -> void:
 		foe_yaw = atan2(-fwd.x, -fwd.z)
 		await _foe_move(home, 0.5, 0.6, Callable(), 1)
 	else:
-		_act("b_flinch")
+		if not R.hiding: _act("b_flinch")
 		_miss_word(ash_pos)
 		await _wait(0.2)
 		foe_yaw = atan2(home.x - foe_pos.x, home.z - foe_pos.z)
@@ -969,10 +1033,12 @@ func _sand_attack(e: Dictionary) -> void:
 			acc = 0.0
 			var face := ash_pos + Vector3(0, 1.45 if e.hit else 0.6, 0) + (side * 1.2 if not e.hit else Vector3.ZERO)
 			var from := foe_pos + Vector3(0, 0.12, 0) - fwd * 0.1
-			fx.sand(from, (face - from).normalized(), 30, 9.0, 0.22)
+			fx.sand_blast(from, face, 22, 0.22 if e.hit else 0.6)
+			fx.sand(from, (face - from).normalized(), 8, 5.0, 0.5)
 			Sfx.play("dig", foe_pos, {"vol": -8.0, "pitch": 1.3})
 		if t > 0.55 and e.hit and ui.sand_k < 0.9:
 			ui.sand_k = 1.0
+			fx.dust(_bone("Head", 1.5), 6, Color("d8bf88"), 0.5, 0.3, 0.3)   # (it bursts on his face)
 			_act("b_rub")
 			ui.speak(["Agh! My eyes!", "Ow! I can't see!", "Pfft! Sand!"][_rng.randi() % 3], _bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.6)
 		await get_tree().process_frame
@@ -986,13 +1052,14 @@ func _sand_attack(e: Dictionary) -> void:
 		ui.pop("AIM FELL!", ash_pos + Vector3(0, 2.0, 0), UITheme.ORANGE, 22, "word")
 		Sfx.play("hit_soft", ash_pos, {"vol": -8.0})
 	else:
-		_act("b_flinch")
+		if not R.hiding: _act("b_flinch")
 		_miss_word(ash_pos)
 	await _wait(1.0)
 
 # back on his spot after being pushed, facing it
 func _recover() -> void:
 	if R.outcome == "ash_down": return
+	if R.hiding: return   # (he stays down in the grass till its turn is over: _unhide)
 	var spot := ash_spot
 	if ash_pos.distance_to(Vector3(spot.x, ash_pos.y, spot.z)) > 0.3:
 		await _ash_move(Vector3(spot.x, ash_pos.y, spot.z), 0.7)
@@ -1052,8 +1119,7 @@ func _ash_down() -> void:
 	_mood("taunt")
 	_cry(0.8)
 	await _wait(1.6)
-	# the bird has made its point: off it goes
-	shot("flee", 2.0)
+	# the bird has made its point: off it goes, over him (the camera stays on him)
 	_mood("flee")
 	Sfx.play("wing_flap_large", foe_pos, {"vol": 0.0})
 	await _foe_move(foe_pos + fwd * 9.0, 1.5, 3.0, Callable(), 2)
