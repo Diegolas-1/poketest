@@ -105,7 +105,7 @@ func _preview() -> void:
 	if bar_preview == null or not is_instance_valid(bar_preview): return
 	var id := id_at(selected)
 	if id == END_ID or count() == 0 or not is_visible_in_tree(): bar_preview.clear_preview()
-	else: bar_preview.preview_cost(BattleEnergy.cost_of(id))
+	else: bar_preview.preview_cost(id)
 
 func pick(i: int) -> void:
 	if i < 0 or i >= count(): return
@@ -234,11 +234,14 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 	if rt != "":
 		var rc: Color = ROLE_COL.get(String(m.get("role", "")), UITheme.SKY)
 		UITheme.chip(self, Vector2(nx + nw + 8.0, cy - 17.0), rt, Color(rc, ra), UITheme.INK, 11, 17.0, 1.0)
+	m = m.duplicate()
+	m["_id"] = id
 	var line := _subline(m, st)
 	UITheme.text(self, Vector2(nx + 1.0, cy + 21.0), line, "label", 13, sub if st != "locked" else Color(UITheme.ORANGE, ra))
 	# the cost: icons from the right
 	var cost := BattleEnergy.cost_of(id)
-	var miss: Array = energy.missing(cost) if energy and st == "short" else []
+	var miss: Array = energy.missing(id) if energy and st == "short" else []
+	var all_cost := BattleEnergy.is_all(id)
 	var cr := 12.0
 	var step := 27.0
 	var gw := 40.0 if (UIInput.device == "pad" and k > 0.5) else 10.0
@@ -253,8 +256,15 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 		if lacking: mm.erase(kd)
 		EnergyIcon.draw_icon(self, kd, c, cr, a * (0.45 if lacking or st == "locked" else 1.0), {"dim": 0.5 if lacking or st == "locked" else 0.0})
 		if lacking: draw_arc(c, cr + 2.5, 0.0, TAU, 24, Color(UITheme.RED, a * (0.7 + 0.3 * sin(t * 7.0))), 2.2, true)
+	var left := x - (shown.size() - 1) * step - cr
+	if all_cost:
+		# a finisher: ALL, then its minimum
+		var at := Vector2(left - 46.0, cy - 13.0)
+		UITheme.chip(self, at, "ALL", Color(UITheme.YELLOW, a * (0.5 if st == "locked" else 1.0)), UITheme.INK, 14, 22.0, 1.0)
+		UITheme.text_mid(self, Vector2(left - 4.0, cy + 15.0), "MIN", "label", 9, Color(UITheme.TEXT_DIM, a * 0.8).lerp(Color(UITheme.INK_SOFT, a), k), 2)
+		left -= 52.0
 	if st == "locked":
-		var lx := x - (shown.size() - 1) * step - cr - 22.0
+		var lx := left - 22.0
 		_lock(Vector2(lx, cy - 2.0), 9.0, Color(UITheme.ORANGE, a))
 	if UIInput.device == "pad" and k > 0.5:
 		UITheme.glyph(self, Vector2(r.end.x - 24.0, cy), "use", 26.0, a * (1.0 if st == "ready" else 0.4))
@@ -271,6 +281,15 @@ func _subline(m: Dictionary, st: String) -> String:
 		var used := "SLOTS FULL %d/%d" % [energy.equipped.size(), energy.slots]
 		return "LOCKED  ·  %s  ·  NEXT SLOT LV %d" % [used, nl] if nl > 0 else "LOCKED  ·  %s" % used
 	var bits := []
+	var mid := String(m.get("_id", ""))
+	if mid != "" and BattleEnergy.is_all(mid):
+		var sp := BattleEnergy.all_spec(mid)
+		var ppc := float(m.get("power_per_chip", BattleConfig.num("finisher", "power_per_chip_default", 35.0)))
+		var now := energy.available() if energy else int(sp.min)
+		bits.append("FINISHER: EVERY CHIP")
+		bits.append("POW %d + %d A CHIP" % [int(m.get("power", 0)), int(ppc)])
+		if energy and now >= int(sp.min): bits.append("NOW %d" % int(BattleEnergy.move_power(mid, now)))
+		return "  ·  ".join(bits)
 	if String(m.get("role", "")) == "reaction":
 		var r: Dictionary = m.get("reaction", {})
 		var trig := {"any": "ANY MOVE", "attack": "ANY ATTACK", "physical": "PHYSICAL ONLY", "special": "SPECIAL ONLY"}

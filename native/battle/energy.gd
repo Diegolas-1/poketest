@@ -31,7 +31,13 @@ extends RefCounted
 # spent(indices, types, move_id) (indices into chip_list()), restored(first, types),
 # changed(), focus_changed(old, new, reason), pick_needed(n), lock_set(lock),
 # lock_ended(lock, how), locked_in_changed(on).
-# Costs are Arrays of energy kinds; a Dictionary {kind: n} works too.
+# Costs are Arrays of energy kinds; a Dictionary {kind: n} works too. A finisher
+# costs every unlocked chip: {"all": true, "min": N, "type": kind | "any"} (at
+# least N chips, N of that kind unless "any"); its power is base power +
+# power_per_chip for each chip spent (move_power(id, chips)). Pass the move id
+# (not cost_of(id), which is only the minimum, for display) to can_pay, pay,
+# preview, missing, match_cost and partial_match so the "all" rule applies.
+# The schema of moves.json and pokemon.json is in their _schema keys.
 
 signal turn_started(turn: int, lost: Array, gained: Array)
 signal spent(indices: Array, types: Array, move_id: String)
@@ -165,8 +171,53 @@ static func level_for_slot(n: int, sp := "") -> int:
 		if slots_for(kl, sp) >= n: return kl
 	return -1
 
-# a cost as an Array of kinds (from an Array, a {kind: n} Dictionary, a move id or a move)
+# a finisher's cost spec {all, min, type} (or {} for an ordinary cost): from a move id, a move or a cost
+static func all_spec(c) -> Dictionary:
+	if c is String:
+		var ov = BattleConfig.sect("costs").get("overrides", {}).get(c, null)
+		if ov != null and not (ov is Array and ov.is_empty()): return all_spec(ov)
+		return all_spec(move(c).get("cost", []))
+	if c is Dictionary:
+		if c.has("cost") and not c.has("all"): return all_spec(c.cost)
+		if c.get("all", false):
+			return {"all": true, "min": maxi(1, int(c.get("min", BattleConfig.num("finisher", "min_default", 3)))), "type": String(c.get("type", "any")).to_lower()}
+	return {}
+
+static func is_all(c) -> bool:
+	return not all_spec(c).is_empty()
+
+# the kind a finisher's minimum needs ("colorless" for any)
+static func _all_kind(spec: Dictionary) -> String:
+	var k := String(spec.get("type", "any"))
+	return COLORLESS if k in ["any", "", COLORLESS] else k
+
+# a move's power: a finisher's grows with the chips spent (battle_config finisher)
+static func move_power(id: String, chips := 0) -> float:
+	var m := move(id)
+	var spec := all_spec(id)
+	if spec.is_empty(): return float(m.get("power", 0))
+	var F := BattleConfig.sect("finisher")
+	var n := maxi(chips, int(spec.min))
+	var cap := int(F.get("max_chips", 0))
+	if cap > 0: n = mini(n, cap)
+	var ppc := float(m.get("power_per_chip", F.get("power_per_chip_default", 35.0)))
+	return float(m.get("power", 0)) + ppc * n
+
+# opener (about 1 chip) | mid (2 to 3 or more) | finisher (all chips): the move's tier, or by its cost
+static func tier_of(id: String) -> String:
+	var t := String(move(id).get("tier", ""))
+	if t != "": return t
+	if is_all(id): return "finisher"
+	return "opener" if cost_of(id).size() <= 1 else "mid"
+
+# a cost as an Array of kinds (from an Array, a {kind: n} Dictionary, a move id or a move);
+# a finisher's: its minimum (min chips of its kind)
 static func cost_of(c) -> Array:
+	var spec := all_spec(c)
+	if not spec.is_empty():
+		var out0 := []
+		for i in int(spec.min): out0.append(_all_kind(spec))
+		return out0
 	if c is String:
 		var ov = BattleConfig.sect("costs").get("overrides", {}).get(c, null)
 		if ov is Array and not ov.is_empty(): return cost_of(ov)
@@ -561,6 +612,17 @@ func start_battle(_kind := "wild") -> void:
 # Colorless cost from what is left, real Colorless chips first, then the kind it
 # has most of (the rarer kinds stay for the typed costs), wild chips last.
 static func match_cost(have: Array, cost) -> Variant:
+	var spec := all_spec(cost)
+	if not spec.is_empty():
+		# a finisher: at least min of its kind (any: any chips), then every chip
+		var k := String(spec.type)
+		var n := 0
+		for x in have:
+			if k in ["any", "", COLORLESS] or String(x) == k or String(x) == ANY: n += 1
+		if n < int(spec.min) or have.size() < int(spec.min): return null
+		var all_i := []
+		for i in have.size(): all_i.append(i)
+		return all_i
 	var need := cost_of(cost)
 	var free := []
 	for i in have.size(): free.append(i)
@@ -604,6 +666,18 @@ func preview(cost) -> Array:
 
 # as far as these chips go toward a cost: {used: chip indices, missing: the kinds it lacks}
 static func partial_match(have: Array, cost) -> Dictionary:
+	var spec := all_spec(cost)
+	if not spec.is_empty():
+		var k := String(spec.type)
+		var used := []
+		for i in have.size():
+			if k in ["any", "", COLORLESS] or String(have[i]) == k or String(have[i]) == ANY: used.append(i)
+		var miss := []
+		for i in maxi(0, int(spec.min) - used.size()): miss.append(_all_kind(spec))
+		if miss.is_empty():
+			used = []
+			for i in have.size(): used.append(i)
+		return {"used": used, "missing": miss}
 	var need := cost_of(cost)
 	var free := []
 	for i in have.size(): free.append(i)
@@ -664,7 +738,7 @@ func _take(cost) -> Dictionary:
 # pays cost: the chips used (indices into chips before paying, ascending), or [] if it can't.
 # The chips stay in their pools, spent (dim) until the next turn.
 func pay(cost, move_id := "") -> Array:
-	var t := _take(cost)
+	var t := _take(move_id if move_id != "" and is_all(move_id) else cost)
 	if t.is_empty(): return []
 	for k in t.kinds:
 		if k == ANY: bonus.ready -= 1; bonus.spent += 1
@@ -683,7 +757,7 @@ func refund(kinds: Array) -> void:
 
 func use_move(id: String) -> bool:
 	if not id in known or locked(id): return false
-	return not pay(cost_of(id), id).is_empty()
+	return not pay(id, id).is_empty()
 
 # ---------- locks (reaction moves) ----------
 # pays a reaction's cost with locked chips: they wait, out of play, for the
@@ -693,7 +767,7 @@ func lock(move_id: String) -> Dictionary:
 	var m := move(move_id)
 	var r: Dictionary = m.get("reaction", {})
 	if locks.size() >= int(BattleConfig.num("locks", "max_locks", 2)): return {}
-	var t := _take(cost_of(move_id))
+	var t := _take(move_id)
 	if t.is_empty(): return {}
 	for k in t.kinds:
 		if k == ANY: bonus.ready -= 1
@@ -940,9 +1014,8 @@ func affordable_moves(known_moves = null) -> Array:
 	var ids: Array = usable() if known_moves == null else known_moves
 	var out := []
 	for id in ids:
-		var c := cost_of(id)
-		if c.is_empty() or locked(id): continue
-		if can_pay(c): out.append(id)
+		if cost_of(id).is_empty() or locked(id): continue
+		if can_pay(id): out.append(id)
 	return out
 
 # (old callers) the kind its i-th new chip goes to by the auto rule
@@ -966,7 +1039,7 @@ func _style_k(style: String) -> Dictionary:
 	var S: Dictionary = _AI().get("wild_styles", {})
 	return S.get(style, S.get("strategic", {"dmg": 0.9, "status": 1.3, "per_action": 8.0, "big": 0.0, "force_out": 0.5, "repeat": 0.75}))
 
-func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {}) -> float:
+func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {}, n_chips := 0) -> float:
 	var m := move(id)
 	var K := _style_k(style)
 	var A := _AI()
@@ -974,7 +1047,7 @@ func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {})
 	var role := role_of(id)
 	var acc := float(m.get("accuracy", 100)) / 100.0
 	if acc <= 0.0: acc = 1.0
-	var pw := float(m.get("power", 0))
+	var pw := move_power(id, n_chips)
 	if role == "two_phase": pw *= float(A.get("two_phase_value", 1.15))
 	var v := pw * acc * float(K.get("dmg", 1.0))
 	v *= pow(float(K.get("repeat", 0.75)), in_turn) * pow(float(A.get("repeat_battle", 0.94)), mini(times - in_turn, 4))
@@ -1012,6 +1085,8 @@ func plan_turn(known_moves = null, style := "strategic", ctx := {}) -> Array:
 	var noise := {}
 	for id in ids: noise[id] = (rng.randf_range(-1.0, 1.0) * jitter * 25.0) if rng != null else 0.0
 	var room := int(ctx.get("max_actions", int(_AI().get("max_actions", 6))))
+	ctx = ctx.duplicate()
+	ctx["_start"] = chips.size()
 	_search(chips.duplicate(), ids, 0, [], style, uses, noise, room, best, ctx)
 	return _order(best.seq, style)
 
@@ -1020,12 +1095,13 @@ func _search(have: Array, ids: Array, from: int, seq: Array, style: String, uses
 	if s > best.score or (is_equal_approx(s, best.score) and seq.size() < best.seq.size()):
 		best.score = s; best.seq = seq.duplicate()
 	if room <= 0 or have.is_empty(): return
-	var phased := seq.any(func(x): return role_of(x) == "two_phase")   # one commitment a plan (it goes last)
+	var phased := seq.any(func(x): return role_of(x) == "two_phase" or is_all(x))   # one commitment or finisher a plan (it goes last)
 	var reacts := seq.filter(func(x): return role_of(x) == "reaction").size() + locks.size()
 	for i in range(from, ids.size()):
 		var id: String = ids[i]
 		if role_of(id) == "reaction" and (reacts >= int(BattleConfig.num("locks", "max_locks", 2)) or id in seq): continue
 		if role_of(id) == "two_phase" and (phased or not commit.is_empty()): continue
+		if is_all(id) and phased: continue
 		var m = match_cost(have, id)
 		if m == null: continue
 		var rest := have.duplicate()
@@ -1041,11 +1117,15 @@ func _score(seq: Array, left: int, style: String, uses: Dictionary, noise: Dicti
 	var s := -float(_AI().get("waste", 20.0)) * left
 	var count := {}
 	var big := 0
+	var spent_n := 0
 	for id in seq:
 		var n := int(count.get(id, 0)) + int(uses.get(id, 0))
-		s += _move_value(id, style, n, int(count.get(id, 0)), ctx) + float(K.get("per_action", 0.0)) + float(noise.get(id, 0.0))
+		var nc := cost_of(id).size()
+		if is_all(id): nc = int(ctx.get("_start", nc)) - spent_n
+		s += _move_value(id, style, n, int(count.get(id, 0)), ctx, nc) + float(K.get("per_action", 0.0)) + float(noise.get(id, 0.0))
 		count[id] = int(count.get(id, 0)) + 1
-		big = maxi(big, cost_of(id).size())
+		spent_n += nc
+		big = maxi(big, nc)
 	return s + float(K.get("big", 0.0)) * big
 
 # the order to act in: reactions and priority moves first; then status before
@@ -1060,7 +1140,7 @@ func _order(seq: Array, style: String) -> Array:
 		var k: float
 		if style == "aggressive": k = -pri * 100.0 - cost_of(seq[i]).size() * 10.0
 		else: k = -pri * 100.0 - status * 10.0 + cost_of(seq[i]).size()
-		if role_of(seq[i]) == "two_phase": k += 10000.0
+		if role_of(seq[i]) == "two_phase" or is_all(seq[i]): k += 10000.0
 		rows.append([k, i, seq[i]])
 	rows.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
 	return rows.map(func(r): return r[2])

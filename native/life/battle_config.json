@@ -63,6 +63,21 @@
     "max": 12
   },
 
+  "finisher": {
+    "_doc": "Finisher moves cost every unlocked chip ({all, min, type} in moves.json). power = the move's power (its base) + power_per_chip (the move's own, else power_per_chip_default) per chip spent. max_chips caps the chips that count (0 = no cap). min_default: the minimum when a move leaves it out.",
+    "power_per_chip_default": 35,
+    "max_chips": 0,
+    "min_default": 3
+  },
+
+  "matchups": {
+    "_doc": "Type matchups, TCG style, for species whose data names a weakness and a resistance (energy kinds; the Kanto 151 dataset): weakness_mult (the card game's x2), resistance_mult (a reduction, multiplied) and resistance_sub (subtracted after the damage, the card game's -20 / -30; 0 = off). The type chart's immunities still hold. mode: auto (TCG for species with the data, the chart otherwise) | chart | tcg.",
+    "mode": "auto",
+    "weakness_mult": 2.0,
+    "resistance_mult": 0.6,
+    "resistance_sub": 0
+  },
+
   "costs": {
     "_doc": "Move cost overrides (move id -> list of energy kinds); empty means the cost in moves.json. Two-phase moves are paid on the commit turn only.",
     "overrides": {}

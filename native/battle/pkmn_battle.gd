@@ -183,17 +183,17 @@ func can_queue(s: String, id: String) -> bool:
 	if BattleEnergy.role_of(id) == "reaction":
 		var n := f.e.locks.size() + f.queue.filter(func(q): return BattleEnergy.role_of(q.move) == "reaction").size()
 		if n >= int(BattleConfig.num("locks", "max_locks", 2)): return false
-	return f.e.can_pay(BattleEnergy.cost_of(id))
+	return f.e.can_pay(id)
 
 func queue(s: String, id: String) -> bool:
 	if not can_queue(s, id): return false
 	var f: Fighter = F[s]
 	var have := f.e.chips
-	var m = BattleEnergy.match_cost(have, BattleEnergy.cost_of(id))
+	var m = BattleEnergy.match_cost(have, id)
 	var kinds := []
 	for i in m: kinds.append(have[i])
-	f.e.pay(BattleEnergy.cost_of(id), id)
-	f.queue.append({"move": id, "kinds": kinds, "free": false})
+	f.e.pay(id, id)
+	f.queue.append({"move": id, "kinds": kinds, "free": false, "chips": kinds.size()})
 	return true
 
 func unqueue(s: String) -> String:
@@ -304,9 +304,9 @@ func _act(s: String, q: Dictionary) -> Array:
 	if q.get("free", false):
 		u.e.clear_commit()
 		out.append(_ev({"t": "strike", "side": s, "move": id, "text": "%s strikes with %s!" % [_nm(u), String(m.name).to_upper()]}))
-		out.append_array(_use_on(u, tg, id))
+		out.append_array(_use_on(u, tg, id, int(q.get("chips", 0))))
 		return out
-	out.append(_ev({"t": "move", "side": s, "move": id, "role": role, "text": "%s used %s!" % [_nm(u), String(m.name).to_upper()]}))
+	out.append(_ev({"t": "move", "side": s, "move": id, "role": role, "chips": int(q.get("chips", 0)), "text": "%s used %s!" % [_nm(u), String(m.name).to_upper()]}))
 	if role == "two_phase":
 		var dodges := u.e.locks.filter(func(l): return l.effect == "evade").map(func(l): return l.move)
 		u.e.commit_to(id)
@@ -331,7 +331,7 @@ func _act(s: String, q: Dictionary) -> Array:
 			out.append(_ev({"t": "lock", "side": s, "move": id, "lock": L.id, "face_down": true,
 				"text": "%s is ready for something..." % _nm(u), "text_owner": "%s set %s (%d locked)." % [_nm(u), String(m.name).to_upper(), L.kinds.size()]}))
 		return out
-	out.append_array(_use_on(u, tg, id))
+	out.append_array(_use_on(u, tg, id, int(q.get("chips", 0))))
 	return out
 
 func _lose_commit(u: Fighter, out: Array) -> void:
@@ -357,7 +357,7 @@ static func targets_self(id: String) -> bool:
 	var fx: Array = m.get("effects", [])
 	return not fx.is_empty() and fx.all(func(x): return x in SELF_TAGS)
 
-func _use_on(u: Fighter, tg: Fighter, id: String) -> Array:
+func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 	var out := []
 	var m := mv(id)
 	if targets_self(id):
@@ -417,9 +417,9 @@ func _use_on(u: Fighter, tg: Fighter, id: String) -> Array:
 			return out
 	# 4. type immunity (Foresight lets Normal and Fighting hit a Ghost)
 	var mt := String(m.get("type", "normal"))
-	var tm := BattleEnergy.type_mult(mt, tg.types)
+	var tm := type_factor(mt, tg)
 	if tm == 0.0 and tg.identified and mt in C.get("identify_hits_ghost", []) and "ghost" in tg.types:
-		tm = BattleEnergy.type_mult(mt, tg.types.filter(func(x): return x != "ghost"))
+		tm = type_factor(mt, tg, true)
 	if (attack or id == "thunder_wave") and tm == 0.0:
 		out.append(_ev({"t": "no_effect", "side": tg.side, "move": id, "text": "It doesn't affect %s..." % _nm(tg)}))
 		if attack: u.sure_hit = false
@@ -430,7 +430,9 @@ func _use_on(u: Fighter, tg: Fighter, id: String) -> Array:
 		var mult := float(row.get("mult", 1.0)) if row.get("hits", false) else 1.0
 		var crit := _crit(u, id)
 		if "fixed_40" in m.get("effects", []): dealt = 40
-		else: dealt = _damage_raw(u, tg, float(m.power), String(m.category), tm * mult, crit, mt)
+		else:
+			dealt = _damage_raw(u, tg, BattleEnergy.move_power(id, chips), String(m.category), tm * mult, crit, mt)
+			if resisted(mt, tg): dealt = maxi(1, dealt - int(BattleConfig.num("matchups", "resistance_sub", 0.0)))
 		_hurt(tg, dealt)
 		u.sure_hit = false
 		out.append(_ev({"t": "hit", "side": tg.side, "move": id, "dmg": dealt, "hp": tg.hp, "max_hp": tg.max_hp, "eff": tm, "crit": crit, "mult": mult,
@@ -473,6 +475,31 @@ func _use_on(u: Fighter, tg: Fighter, id: String) -> Array:
 		out.append_array(_effect(u, tg, String(tag), id, not attack))
 		if over: break
 	return out
+
+# ---------- type matchups ----------
+# The type chart (pokemon.json type_chart), or TCG style for a species whose data
+# names its weakness and resistance (energy kinds; the Kanto 151 dataset):
+# battle_config matchups: weakness x weakness_mult, resistance x resistance_mult
+# (and - resistance_sub after the damage); the chart's immunities still hold.
+# mode: auto (TCG when the species has the data) | chart | tcg.
+func type_factor(mt: String, tg: Fighter, ignore_ghost := false) -> float:
+	var M := BattleConfig.sect("matchups")
+	var types: Array = tg.types.filter(func(x): return not (ignore_ghost and x == "ghost"))
+	var chart := BattleEnergy.type_mult(mt, types)
+	var S := BattleEnergy.species_data(tg.species)
+	var mode := String(M.get("mode", "auto"))
+	var has_tcg: bool = S.has("weakness") or S.has("resistance")
+	if mode == "chart" or (mode == "auto" and not has_tcg): return chart
+	if chart == 0.0: return 0.0
+	var k := BattleEnergy.energy_of(mt)
+	var f := 1.0
+	if k in S.get("weakness", []): f *= float(M.get("weakness_mult", 2.0))
+	if k in S.get("resistance", []): f *= float(M.get("resistance_mult", 0.6))
+	return f
+
+func resisted(mt: String, tg: Fighter) -> bool:
+	var S := BattleEnergy.species_data(tg.species)
+	return BattleEnergy.energy_of(mt) in S.get("resistance", []) and String(BattleConfig.val("matchups", "mode", "auto")) != "chart"
 
 func _hit_text(tm: float, crit: bool, mult: float) -> String:
 	var bits := []

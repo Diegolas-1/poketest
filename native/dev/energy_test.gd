@@ -39,6 +39,7 @@ func _run() -> void:
 	_slots()
 	_persistence()
 	_items()
+	_finishers()
 	_plans()
 	_icons()
 	await _widgets()
@@ -344,7 +345,7 @@ func _slots() -> void:
 	ok(up.slots == 1 and e.equipped.size() == 6, "Lv 18: a sixth slot, filled from known moves")
 	e.set_level(40)
 	for id in e.learnable_at(40): e.learn(id)
-	ok(e.known.size() == 12 and e.known.slice(0, 2) == ["thunder_shock", "growl"], "old moves stay, in learned order")
+	ok(e.known.size() == 13 and e.known.slice(0, 2) == ["thunder_shock", "growl"], "old moves stay, in learned order")
 	ok(e.teach("swift") and "swift" in e.known, "a TM teaches Swift")
 	ok(not e.teach("surf"), "not a move it can be taught")
 	ok(e.teach("surf", true), "a tutor can force it")
@@ -433,6 +434,42 @@ func _items() -> void:
 	ok(fc.focus == 100.0 and fc.locked_in, "Full Charge: straight to max, Locked In")
 	ok(e.use_item("nonsense") == 0, "an unknown item does nothing")
 
+# ---- finishers (every chip), tiers ----
+func _finishers() -> void:
+	var sp := BattleEnergy.all_spec("volt_tackle")
+	ok(sp.all and int(sp.min) == 3 and sp.type == "electric", "Volt Tackle: all chips, min 3 Lightning (%s)" % [sp])
+	ok(BattleEnergy.cost_of("volt_tackle") == ["electric", "electric", "electric"], "cost_of: its minimum, for display")
+	ok(BattleEnergy.tier_of("volt_tackle") == "finisher" and BattleEnergy.tier_of("thunder_shock") == "opener" and BattleEnergy.tier_of("thunderbolt") == "mid", "tiers")
+	for id in BattleEnergy.moves_data():
+		ok(String(BattleEnergy.move(id).get("tier", "")) in ["opener", "mid", "finisher"], "%s has a tier" % id)
+		if BattleEnergy.is_all(id): ok(BattleEnergy.move(id).has("power_per_chip"), "%s: a finisher has power_per_chip" % id)
+	var e := _fresh("pikachu", 30, 40.0, ["volt_tackle", "thunder_shock", "quick_attack"])
+	ok(not e.can_pay("volt_tackle"), "2 chips: under the minimum")
+	e.set_focus(100.0, "test")
+	ok(e.chips.count("electric") == 3 and e.can_pay("volt_tackle"), "5 chips with 3 Lightning: payable")
+	ok(e.preview("volt_tackle").size() == 5, "the preview lights every chip")
+	ok(BattleEnergy.move_power("volt_tackle", 5) == 5.0 + 39.0 * 5, "power: base + per chip (%s)" % BattleEnergy.move_power("volt_tackle", 5))
+	ok(BattleEnergy.move_power("volt_tackle", 3) < BattleEnergy.move_power("volt_tackle", 5), "more chips, more power")
+	var paid := e.pay("volt_tackle", "volt_tackle")
+	ok(paid.size() == 5 and e.available() == 0, "it consumes every unlocked chip")
+	var e2 := _fresh("pikachu", 30, 100.0, ["volt_tackle", "dodge"])
+	e2.lock("dodge")
+	e2.pay(BattleEnergy.cost_of("volt_tackle"), "volt_tackle")
+	ok(e2.locks.size() == 1 and e2.available() == 0 and e2.chip_list().filter(func(c): return c.state == "spent").size() == 4, "a locked chip is left alone")
+	var e3 := _fresh("pikachu", 30, 100.0)
+	e3.pools.electric = {"ready": 1, "spent": 0}
+	e3.pools.colorless = {"ready": 4, "spent": 0}
+	ok(not e3.can_pay("volt_tackle") and e3.missing("volt_tackle") == ["electric", "electric"], "too few Lightning: two missing (%s)" % [e3.missing("volt_tackle")])
+	ok(BattleEnergy.match_cost(["fire", "water", "grass", "colorless"], {"all": true, "min": 4, "type": "any"}) == [0, 1, 2, 3], "an any-type finisher takes any chips")
+	ok(BattleEnergy.match_cost(["fire", "water"], {"all": true, "min": 3, "type": "any"}) == null, "but needs its minimum")
+	# the planner keeps a finisher last, one a plan, and values it by the chips it gets
+	var p := _fresh("pikachu", 30, 100.0, ["volt_tackle", "quick_attack", "thunder_shock"])
+	var plan := p.plan_turn(p.usable(), "aggressive")
+	ok(plan.filter(func(id): return BattleEnergy.is_all(id)).size() <= 1 and (not "volt_tackle" in plan or plan.back() == "volt_tackle"), "a finisher closes the plan (%s)" % [plan])
+	ok(plan == ["volt_tackle"], "aggressive at five chips: all in (%s)" % [plan])
+	var low := _fresh("pikachu", 30, 60.0, ["volt_tackle", "quick_attack", "thunder_shock"])
+	ok(not "volt_tackle" in low.plan_turn(low.usable(), "strategic"), "at three chips the strategic one keeps them for cheap moves")
+
 # ---- the wild planner: several actions a turn, by style ----
 func _plans() -> void:
 	var e := BattleEnergy.make_wild("pidgey", 3)
@@ -451,7 +488,7 @@ func _plans() -> void:
 	p.begin_turn()
 	var pa := p.plan_turn(p.usable(), "aggressive")
 	var cost := 0
-	for id in pa: cost += BattleEnergy.cost_of(id).size()
+	for id in pa: cost += p.available() if BattleEnergy.is_all(id) else BattleEnergy.cost_of(id).size()
 	ok(cost == p.available() and pa.any(func(id): return BattleEnergy.cost_of(id).size() >= 3), "aggressive at full: a big one, every chip used (%s)" % [pa])
 	var ps := p.plan_turn(p.usable(), "strategic")
 	ok(ps.size() >= pa.size(), "strategic takes as many actions or more (%d vs %d)" % [ps.size(), pa.size()])

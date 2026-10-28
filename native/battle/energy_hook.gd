@@ -195,7 +195,7 @@ func wild_pick(state := {}) -> Array:
 		uses[id] = int(uses.get(id, 0)) + 1
 		var m := BattleEnergy.move(id)
 		out.append({"kind": "move", "move": id, "first": int(m.get("priority", 0)) > 0, "cost": BattleEnergy.cost_of(id),
-			"name": String(m.get("name", id)).to_upper(), "anim": String(m.get("anim", id)), "power": int(m.get("power", 0)),
+			"name": String(m.get("name", id)).to_upper(), "anim": String(m.get("anim", id)), "power": int(BattleEnergy.move_power(id, foe.available())),
 			"accuracy": int(m.get("accuracy", 100)), "effects": m.get("effects", []).duplicate()})
 	return out
 
@@ -206,7 +206,7 @@ func on_move(move_id: String, to = null, side := "foe") -> bool:
 	var b := bar if side == "foe" else ally_bar
 	if e == null: return false
 	var cost := BattleEnergy.cost_of(move_id)
-	if cost.is_empty() or not e.can_pay(cost): return false
+	if cost.is_empty() or not e.can_pay(move_id): return false
 	if b and is_instance_valid(b): b.fly_target = to if to is Vector2 else _default_target(side)
 	return not e.pay(cost, move_id).is_empty()
 

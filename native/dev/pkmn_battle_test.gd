@@ -35,6 +35,7 @@ func _run() -> void:
 	_disruption()
 	_locked_in()
 	_persistence()
+	_finisher_and_matchups()
 	BattleConfig.reset()
 	_ai()
 	_whole()
@@ -406,6 +407,39 @@ func _persistence() -> void:
 	var mine := lead.fighter("a").e.total()
 	var theirs := lead.fighter("b").e.total()
 	ok(mine >= theirs + 2, "after three gym trainers: %d chips on the leader's turn 1 vs %d" % [mine, theirs])
+
+# ---- finishers in battle, TCG matchups ----
+func _finisher_and_matchups() -> void:
+	var B := _b({"species": "pikachu", "level": 30, "focus": 100.0, "known": ["volt_tackle", "quick_attack"]},
+		{"species": "snorlax", "level": 30, "focus": 0.0, "known": ["tackle"], "ai": "balanced"})
+	B.begin_turn()
+	ok(B.queue("a", "volt_tackle") and B.fighter("a").e.available() == 0, "a finisher queued takes every chip")
+	ok(not B.queue("a", "quick_attack"), "nothing left after it")
+	var r := B.resolve()
+	var big: int = _find(r, "hit", "b").get("dmg", 0)
+	var B2 := _b({"species": "pikachu", "level": 30, "focus": 60.0, "known": ["volt_tackle", "quick_attack"]},
+		{"species": "snorlax", "level": 30, "focus": 0.0, "known": ["tackle"], "ai": "balanced"})
+	B2.begin_turn()
+	B2.fighter("a").e.pools.electric = {"ready": 3, "spent": 0}
+	B2.fighter("a").e.pools.colorless = {"ready": 0, "spent": 0}
+	B2.queue("a", "volt_tackle")
+	var small: int = _find(B2.resolve(), "hit", "b").get("dmg", 0)
+	ok(big > small, "more chips spent, more damage (%d vs %d)" % [big, small])
+	# TCG-style weakness and resistance for a species with the data
+	var sd := BattleEnergy.species_data("sandshrew")
+	sd["weakness"] = ["water"]
+	sd["resistance"] = ["electric"]
+	var M := _b({"species": "squirtle", "level": 20, "focus": 60.0, "known": ["water_gun"]}, {"species": "sandshrew", "level": 20, "focus": 0.0, "ai": "balanced"})
+	ok(M.type_factor("water", M.fighter("b")) == 2.0, "weakness: x2 (the config's)")
+	ok(M.type_factor("electric", M.fighter("b")) == 0.0, "the chart's immunity still holds")
+	ok(is_equal_approx(M.type_factor("fire", M.fighter("b")), 1.0), "TCG mode: no chart double for Fire on Ground")
+	sd["resistance"] = ["fire"]
+	ok(is_equal_approx(M.type_factor("fire", M.fighter("b")), 0.6), "resistance: the config's reduction")
+	BattleConfig.override({"matchups": {"mode": "chart"}})
+	ok(is_equal_approx(M.type_factor("fire", M.fighter("b")), 1.0), "chart mode: the type chart (no resistance)")
+	BattleConfig.override({"matchups": {"mode": "auto"}})
+	sd.erase("weakness"); sd.erase("resistance")
+	ok(M.type_factor("water", M.fighter("b")) == 2.0 and is_equal_approx(M.type_factor("fire", M.fighter("b")), 1.0), "no dataset entry: the chart")
 
 # ---- AI personalities ----
 func _ai() -> void:
