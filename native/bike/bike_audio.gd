@@ -9,12 +9,15 @@ extends Node
 #   free     the freewheel's ticking as he coasts (pitched by the wheel)
 #   squeal   the brake on a hard stop, with the tyre scrubbing (scrub)
 #   wind     the air at speed
+#   water    riding in the water: a soft, low swish of the tyres through it (filtered
+#            noise with slow swells and a few soft bubbles, nothing hissy), louder with
+#            speed and depth; the splashes, sloshes and drips are bike_water.gd's
 # plus one-shots from the sound library: the bell, the recorded freewheel now and
 # then while coasting, plank thumps on the pier and bridges, the landing's clunk.
 # Everything plays on the SFX bus (the Sound effects volume).
 
 const RATE := 22050
-const LOOPS := ["roll_dirt", "roll_grass", "roll_sand", "roll_hard", "chain", "free", "squeal", "scrub", "wind"]
+const LOOPS := ["roll_dirt", "roll_grass", "roll_sand", "roll_hard", "chain", "free", "squeal", "scrub", "wind", "water"]
 
 var players := {}        # name -> AudioStreamPlayer
 var loaded := false
@@ -30,6 +33,7 @@ var skid := 0.0          # 0..1
 var wheel_rps := 0.0     # wheel turns a second
 var active := false      # riding (else everything fades out)
 var flow := 0.0          # 0..1 the steady-riding speed-up (bike.gd): more air, a little higher
+var water := 0.0         # 0..1 the water at the tyres (0 dry .. 1 a quarter metre deep)
 var _lvl := {}
 var _quiet := false
 
@@ -55,6 +59,7 @@ func _make_all() -> void:
 	out.chain = _chain_loop(rng)
 	out.free = _click_loop(rng)
 	out.squeal = _squeal_loop()
+	out.water = _water_loop(rng)
 	_mx.lock()
 	_bufs = out
 	_mx.unlock()
@@ -156,6 +161,43 @@ static func _squeal_loop() -> PackedFloat32Array:
 		o[i] = sin(ph1) * 0.7 + sin(ph2) * 0.25 + sin(ph1 * 0.5) * 0.08
 	return _norm(o, 0.6)
 
+# the tyres through water: soft brown-ish noise under 700 Hz, swelling twice a loop like
+# the water piling up and falling off the wheel, a few soft low bubbles; the ends
+# crossfaded so it never clicks
+static func _water_loop(rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var n := int(2.4 * RATE)
+	var o := PackedFloat32Array()
+	o.resize(n)
+	var lo := 0.0
+	var bp := 0.0
+	var f := 2.0 * sin(PI * 520.0 / RATE)
+	var lo2 := 0.0
+	var f2 := 2.0 * sin(PI * 160.0 / RATE)
+	var bub := 0.0
+	var bph := 0.0
+	var bfr := 300.0
+	for i in n:
+		var t := float(i) / n
+		var x := rng.randf() * 2.0 - 1.0
+		var hp := x - lo - 0.55 * bp
+		bp += f * hp
+		lo += f * bp
+		lo2 += f2 * (x - lo2)
+		var swell := 0.62 + 0.38 * (0.5 - 0.5 * cos(t * TAU * 2.0)) * (0.8 + 0.2 * sin(t * TAU * 3.0))
+		if bub < 0.01 and rng.randf() < 9.0 / RATE:
+			bub = rng.randf_range(0.25, 0.6)
+			bfr = rng.randf_range(220.0, 420.0)
+		bub *= 0.9988
+		bph += TAU * bfr * (1.0 + (0.6 - bub) * 0.5) / RATE
+		o[i] = (lo * 0.75 + lo2 * 0.9) * swell + sin(bph) * bub * 0.12
+	# seamless: fade the start over the end
+	var fade := int(0.2 * RATE)
+	for i in fade:
+		var k := float(i) / fade
+		o[i] = o[i] * k + o[n - fade + i] * (1.0 - k)
+	o.resize(n - fade)
+	return _norm(o, 0.7)
+
 static func _norm(o: PackedFloat32Array, to: float) -> PackedFloat32Array:
 	var peak := 1e-6
 	for v in o: peak = maxf(peak, absf(v))
@@ -193,13 +235,14 @@ func _process(dt: float) -> void:
 	var v := speed if active else 0.0
 	var on := clampf(v / 1.2, 0.0, 1.0)
 	var vk := clampf(v / 14.0, 0.0, 1.3)   # (cruise is 13.5)
-	var surf_map := {"dirt": "roll_dirt", "sand": "roll_sand", "grass": "roll_grass", "tallgrass": "roll_grass", "stone": "roll_hard", "wood": "roll_hard", "water": "roll_sand"}
+	var surf_map := {"dirt": "roll_dirt", "sand": "roll_sand", "grass": "roll_grass", "tallgrass": "roll_grass", "stone": "roll_hard", "wood": "roll_hard", "water": "water"}
 	var roll: String = surf_map.get(surface, "roll_dirt")
 	var want := {}
 	for n in LOOPS: want[n] = 0.0
 	var rv := on * (0.25 + 0.75 * pow(vk, 0.9))
 	if skid > 0.0: rv *= 1.0 - skid * 0.6
-	want[roll] = rv * (1.15 if roll == "roll_sand" else 1.0)
+	if roll != "water": want[roll] = rv * (1.15 if roll == "roll_sand" else 1.0) * (1.0 - water)
+	want.water = (on * clampf(v / 7.0, 0.0, 1.0) * (0.35 + 0.65 * water)) if active and water > 0.02 else 0.0
 	want.chain = (0.0 if coasting or not active else clampf(cadence / 0.6, 0.0, 1.0)) * 0.35
 	want.free = (on * clampf(wheel_rps / 1.0, 0.0, 1.0) * 0.6) if coasting and active and skid < 0.1 else 0.0
 	want.squeal = skid * clampf(v / 3.0, 0.0, 1.0)
@@ -207,7 +250,7 @@ func _process(dt: float) -> void:
 	want.wind = minf(1.0, clampf((v - 2.0) / 12.0, 0.0, 1.0) * 0.85 + flow * 0.2) if active else 0.0
 	# just the ratchet's soft clicks coasting and a subtle rush of wind; the tyres and chain
 	# barely there (any rolling hiss read as a vacuum cleaner)
-	var base_db := {"roll_dirt": -42.0, "roll_grass": -44.0, "roll_sand": -40.0, "roll_hard": -45.0, "chain": -40.0, "free": -36.0, "squeal": -20.0, "scrub": -22.0, "wind": -19.0}
+	var base_db := {"roll_dirt": -42.0, "roll_grass": -44.0, "roll_sand": -40.0, "roll_hard": -45.0, "chain": -40.0, "free": -36.0, "squeal": -20.0, "scrub": -22.0, "wind": -19.0, "water": -27.0}
 	_quiet = true
 	for n in LOOPS:
 		var p: AudioStreamPlayer = players[n]
@@ -225,6 +268,7 @@ func _process(dt: float) -> void:
 			"chain": p.pitch_scale = clampf(maxf(cadence, 0.2), 0.3, 3.0)
 			"free": p.pitch_scale = clampf(wheel_rps * 24.0 / 60.0, 0.5, 2.5)
 			"wind": p.pitch_scale = 0.85 + vk * 0.22 + flow * 0.06
+			"water": p.pitch_scale = 0.8 + vk * 0.2 + water * 0.05
 			"squeal": p.pitch_scale = 0.96 + v * 0.01
 			_: if n.begins_with("roll"): p.pitch_scale = 0.85 + vk * 0.15
 

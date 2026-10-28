@@ -8,7 +8,7 @@ extends Node
 #   turn       riding a circle (--at), a side camera to see the lean
 #   ledge      Route 1: riding south off a ledge
 #   test       the scripted ride test: town -> Route 1 -> the gate and back (faster than
-#              running), ledges down, the shoreline stop, the lab's stairs ridden slowly, a door
+#              running), ledges down, into the sea up to the wade limit, the lab's stairs ridden slowly, a door
 #              (Oak's lab) dismounts, the turn radius, a u-turn, pinned against a wall, flow
 #              draining in a hard turn, every bridge and the steepest paths never locking him in
 #              place (--only=<label part>), stamina on the flat and climbing, worn out; prints
@@ -20,9 +20,14 @@ extends Node
 #   call       the island menu's Bike: it rolls in from behind him fading in, he gets on;
 #              off and left, it fades away (fade_after cut short); called again it comes
 #              back to him; PASS / FAIL
+#   water      riding into the water: the beach's shallows (stops at the wade limit, never
+#              deeper), across the town stream and the tea house creek beside the stepping
+#              stones, the speed falling with the depth, the splash pools busy in the water
+#              and idle out of it, the bike wet and dripping after, the cost; PASS / FAIL
+#              (rendered with --chase=d,h,side --snap=...: the bow wave, spray and wake)
 #   assist     the road assist and flow test: town -> the Route 1 gate holding forward only,
 #              the forks (straight, a nudge each way, the goal), steering over and back,
-#              cruise, the stepping stones, flow building and draining, the cost; PASS / FAIL
+#              cruise, the ford at the stepping stones, flow building and draining, the cost; PASS / FAIL
 # --cam=px,py,pz,tx,ty,tz  a fixed camera   --side=d  a camera d m off the bike's left, following
 
 var main: Node
@@ -84,7 +89,7 @@ func _fresh_state() -> void:
 # put Ash on the bike at once, there
 func _ride_at(x: float, z: float, y: float) -> void:
 	var b := B()
-	b.at = Vector3(x, main.world.height_at(x, z), z)
+	b.at = Vector3(x, main.world.ash_ground(x, z), z)
 	b.yaw = y
 	b.v = 0.0; b.om = 0.0; b._away_t = 0.0; b._blocked_t = 0.0; b._bumping = false
 	b._pose_parked()
@@ -145,6 +150,7 @@ func _process(dt: float) -> void:
 				main.stick_vec *= float(_arg("tilt", "0.85"))
 		"cyclists": _cyclists()
 		"call": _call(dt)
+		"water": _water_test(dt)
 	if cam_v.size() == 6:
 		main.cam.look_at_from_position(Vector3(cam_v[0], cam_v[1], cam_v[2]), Vector3(cam_v[3], cam_v[4], cam_v[5]))
 	elif _arg("chase", "") != "" and B().riding():
@@ -448,14 +454,16 @@ func _test(dt: float) -> void:
 				_check(res.l_up == 0 and res.l_near > 5, "head on at the ledge, weaving: never through a ledge cell (%d crossings; %d frames right below it; now at %.1f, %.1f)" % [res.l_up, res.l_near, b.at.x, b.at.z])
 				phase = 3; ph_t = 0.0; ph_f = 0
 		3:
-			# the shoreline: from the beach, ride south into the sea
-			if ph_f == 1: _ride_at(20.0, 98.0, 0.0)
+			# the shoreline: from the beach, ride south into the sea: into the shallows,
+			# stopped at the wade limit, never deeper
+			if ph_f == 1:
+				_ride_at(20.0, 98.0, 0.0)
+				_wt = {"deep": 0, "real": 0.0}
 			main.stick_vec = _toward(Vector3(20.0, 0, 140.0), 1.0)
+			_wt.real = maxf(_wt.real, _wd_max())
+			if b._wd > 0.3 and absf(b.v) < 0.3 and not _wt.has("stop_z"): _wt.stop_z = b.at.z
 			if ph_t > 6.0:
-				var fl: int = W.flag(b.at.x, b.at.z)
-				var front := b.at + Vector3(sin(b.yaw), 0, cos(b.yaw)) * 0.5
-				var ff: int = W.flag(front.x, front.z)
-				_check(fl != 255 and not (fl & 1 and not fl & 4) and absf(b.v) < 0.3, "stopped at the shoreline (z %.1f, flag %d, front flag %d, v %.2f)" % [b.at.z, fl, ff, b.v])
+				_check(_wt.has("stop_z") and _wt.deep == 0 and _wt.real <= W.WADE_SEA + 0.005, "rode into the sea's shallows and stopped at the wade limit (stopped at z %.1f, %.2f m deep at most, the limit %.2f; %d frames a tyre deeper)" % [_wt.get("stop_z", 0.0), _wt.real, W.WADE_SEA, _wt.deep])
 				_next()
 		4:
 			# stairs: Oak's lab stairs from the bottom
@@ -1118,14 +1126,26 @@ func _assist_test(dt: float) -> void:
 				_check(not b.cruise and b.v < 0.5, "pulling back ended cruise and stopped (v %.2f)" % b.v)
 				_next()
 		7:
-			# the stepping stones on the tea house trail: the bike stops before them
+			# the ford at the stepping stones on the tea house trail: the assist rides on
+			# over them, slowly from stone to stone (or through the creek beside them),
+			# and out the other side
 			if ph_f == 1:
 				_start_on(-38.0, -233.0, Vector2(-48.0, -242.0))
-				_as = {"min": 99.0}
+				_as = {"min": 99.0, "vdry": 0.0, "vwet": 99.0, "wet": 0, "on": 0}
 			main.stick_vec = Vector2(0, -0.85)
 			for q in A.walk_pts: _as.min = minf(_as.min, q.distance_to(p2))
-			if ph_t > 8.0:
-				_check(_as.min > 0.4 and b.v < 0.5, "stopped before the stepping stones (%.2f m from the nearest, v %.2f)" % [_as.min, b.v])
+			var on_ford: bool = b.water.in_water or A.walk_only(p2, 0.5)
+			if on_ford:
+				_as.wet += 1
+				_as.vwet = minf(_as.vwet, b.v)
+				if b.assisting: _as.on += 1
+			elif _as.wet == 0: _as.vdry = maxf(_as.vdry, b.v)
+			var last: Vector2 = A.walk_pts[A.walk_pts.size() - 1]
+			var dd: Vector2 = (last - A.walk_pts[0]).normalized()
+			var past: float = (p2 - last).dot(dd)
+			if ph_t > 10.0 or past > 5.0:
+				_check(past > 3.0 and _as.wet > 5, "the ford at the stepping stones: the assist rode on across (%.1f m past the last stone, %d frames on the stones or in the water, steering %d of them)" % [past, _as.wet, _as.on])
+				_check(_as.vwet < _as.vdry * 0.75, "slower over the ford: %.1f m/s on the trail, %.1f at the slowest on it" % [_as.vdry, _as.vwet])
 				_next()
 		8:
 			Settings.set_value("bike_goal", 1)
@@ -1134,3 +1154,150 @@ func _assist_test(dt: float) -> void:
 			get_tree().quit(0 if fails.is_empty() else 1)
 			phase = 99
 
+
+# ---------- --case=water: riding into the water ----------
+var _wt := {}
+func _wd_max() -> float:
+	# the real water depth at the deeper tyre, and whether either tyre is deeper than Ash may wade
+	var b := B()
+	var W = main.world
+	var f := Vector3(sin(b.yaw), 0, cos(b.yaw))
+	var d := 0.0
+	for p in [b.at + f * b.model.WB * 0.5, b.at - f * b.model.WB * 0.5]:
+		var fl: int = W.flag(p.x, p.z)
+		if fl != 255 and (fl & 1) and not (fl & 4):
+			d = maxf(d, W.water_depth(p.x, p.z))
+			if not W.can_wade(p.x, p.z): _wt.deep += 1
+	return d
+
+func _wt_sample(dt: float) -> void:
+	var b := B()
+	var rd := _wd_max()
+	_wt.real = maxf(_wt.real, rd)
+	_wt.vis = maxf(_wt.vis, b._wd)
+	var bw = b.water
+	if bw.in_water:
+		_wt.wet_frames += 1
+		_wt.live_in = maxf(_wt.live_in, bw.pools_live())
+		_wt.us += bw.stats.us; _wt.usn += 1
+		_wt.us_max = maxf(_wt.us_max, bw.stats.us)
+		_wt.bus += b.stats.us
+		_wt.drops = maxi(_wt.drops, bw.fx._live_d)
+		_wt.foam = maxi(_wt.foam, bw._flive)
+		if bw.bow.visible: _wt.bow += 1
+		if bw._part_set: _wt.part += 1
+		var nd: int = (1 if bw.fx._live_d > 0 else 0) + (1 if bw.fx._live_r > 0 else 0) + (1 if bw._flive > 0 else 0) + (1 if bw.bow.visible else 0)
+		_wt.fxd = maxi(_wt.get("fxd", 0), nd)
+		var bd = main.cast.body
+		if b.pedalling and b._wd > 0.3: _wt.rr = maxf(_wt.get("rr", 0.0), bd.ride_rate)
+		_wt.legs = maxf(_wt.get("legs", 0.0), bd.wet_line)
+	# the speed by depth (pedalling flat out, no braking)
+	if b.pedalling and main.stick_vec.length() > 0.9 and ph_t > 0.3:
+		var k := clampi(int(b._wd / 0.1), 0, 5)
+		_wt.vb[k] = maxf(_wt.vb[k], b.v) if _wt.vb[k] >= 0.0 else b.v
+	var R := RenderingServer
+	if bw.in_water and b.v > 4.0 and not _wt.has("draws_in"):
+		_wt.draws_in = R.get_rendering_info(R.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+
+func _water_test(dt: float) -> void:
+	var b := B()
+	var W = main.world
+	ph_t += dt
+	ph_f += 1
+	if frame == 4:
+		_fresh_state()
+		Settings.set_value("bike_assist", 0)
+		ph_f = 1; ph_t = 0.0
+		if _arg("phase", "") != "": phase = int(_arg("phase", "0"))   # (renders: one part)
+		_wt = {"deep": 0, "real": 0.0, "vis": 0.0, "wet_frames": 0, "live_in": 0, "us": 0.0, "usn": 0, "us_max": 0.0, "bus": 0.0, "drops": 0, "foam": 0, "bow": 0, "part": 0, "vb": [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]}
+	if frame < 4: return
+	if phase in [0, 2, 3]: _wt_sample(dt)
+	if OS.get_cmdline_user_args().has("--trace") and frame % 6 == 0:
+		var RS := RenderingServer
+		print("wt %d t %.2f at (%.2f %.2f %.2f) v %.2f wd %.2f in %s live %d draws %d fx %.0f us" % [phase, ph_t, b.at.x, b.at.z, b.at.y, b.v, b._wd, b.water.in_water, b.water.pools_live(), RS.get_rendering_info(RS.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME), b.water.stats.us])
+	match phase:
+		0:
+			# the beach: ride south into the sea, flat out
+			if ph_f == 1:
+				_ride_at(20.0, 98.0, 0.0)
+				_wt.vb = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+			main.stick_vec = _toward(Vector3(20.0, 0, 140.0), 1.0)
+			if b._wd > 0.3 and absf(b.v) < 0.3 and not _wt.has("stop_z"): _wt.stop_z = b.at.z
+			if ph_t > 8.0:
+				_check(_wt.vis > 0.35 and _wt.get("stop_z", 0.0) > 0.0, "into the sea: rode into the shallows and stopped at the wade limit (water %.2f m at the tyres as the bike sits, %.2f m real; stopped at z %.1f, then nosed along it to z %.1f)" % [_wt.vis, _wt.real, _wt.get("stop_z", 0.0), b.at.z])
+				_check(_wt.deep == 0 and _wt.real <= W.WADE_SEA + 0.02, "never deeper than Ash may wade (%.2f m real, sea limit %.2f; %d frames a tyre past it)" % [_wt.real, W.WADE_SEA, _wt.deep])
+				var vb: Array = _wt.vb
+				var mono := true
+				var last := 99.0
+				var txt := ""
+				for k in vb.size():
+					if vb[k] < 0.0: continue
+					txt += "%.1f-%.1f m: %.1f m/s; " % [k * 0.1, k * 0.1 + 0.1, vb[k]]
+					if vb[k] > last + 0.6: mono = false
+					last = vb[k]
+				_check(mono and vb[0] > 0.0 and last < vb[0] * 0.6, "the speed falls with the depth (" + txt + ")")
+				_check(_wt.live_in > 20 and _wt.bow > 10 and _wt.part > 10, "splashing in the water: up to %d drops, %d foam patches live (%d in all), the bow wave %d frames, the water parted %d frames" % [_wt.drops, _wt.foam, _wt.live_in, _wt.bow, _wt.part])
+				_check(_wt.get("rr", 0.0) > b.ST_FLAT + 0.5 * b.W_STAMINA, "pedalling deep in the water costs more stamina: %.4f a second (on the flat %.4f)" % [_wt.get("rr", 0.0), b.ST_FLAT])
+				_check(_wt.get("legs", 0.0) > 0.3, "Ash's legs and shoes got wet (the wet line %.2f m up)" % _wt.get("legs", 0.0))
+				_wt.wet0 = b.water.wet
+				_next()
+		1:
+			# back out and on up the beach: wet, dripping, then everything idle
+			if ph_f == 1: _wt.drip_seen = 0; _wt.out_at = -1.0
+			main.stick_vec = _toward(Vector3(20.0, 0, 60.0), 0.8)
+			if not b.water.in_water and b.water.drip_t > 0.0 and b.water.fx._live_d > 0: _wt.drip_seen += 1
+			if ph_t > 14.0:
+				_check(_wt.wet0 > 0.2 and _wt.drip_seen > 10, "out of the water the bike is wet (line %.2f m) and dripped (%d frames of drops)" % [_wt.wet0, _wt.drip_seen])
+				var R := RenderingServer
+				_check(not b.water.in_water and b.water.pools_live() == 0 and not b.water._part_set and b.water.stats.us < 30.0, "dry land: the splash pools idle (%d live, parting %s, %.0f us a frame while the wet line dries)" % [b.water.pools_live(), b.water._part_set, b.water.stats.us])
+				_wt.draws_out = R.get_rendering_info(R.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+				_next()
+		2:
+			# the town stream: across it, west to east, at z 0
+			if ph_f == 1:
+				var x0 := 99.0; var x1 := -99.0
+				for xi in range(-30, 50):
+					var x := float(xi) * 0.5
+					var fl: int = W.flag(x, 0.0)
+					if fl != 255 and (fl & 1) and not (fl & 4): x0 = minf(x0, x); x1 = maxf(x1, x)
+				_wt.sx = [x0, x1]
+				_ride_at(x0 - 16.0, 0.0, PI * 0.5)
+				_wt.vin = 99.0; _wt.ventry = 0.0; _wt.real = 0.0; _wt.vis = 0.0; _wt.deep = 0
+			main.stick_vec = _toward(Vector3(_wt.sx[1] + 20.0, 0, 0.0), 1.0)
+			var fl2: int = W.flag(b.at.x, b.at.z)
+			if fl2 != 255 and (fl2 & 1) and not (fl2 & 4):
+				_wt.inside = true
+				_wt.vin = minf(_wt.vin, b.v)
+			elif not _wt.get("inside", false): _wt.ventry = maxf(_wt.ventry, b.v)
+			if ph_t > 7.0 or b.at.x > _wt.sx[1] + 8.0:
+				_check(b.at.x > _wt.sx[1] + 2.0 and _wt.deep == 0, "the town stream (x %.1f .. %.1f at z 0): rode across it (x %.1f), never deeper than Ash may wade (%.2f m real at the tyres, %.2f as it sits)" % [_wt.sx[0], _wt.sx[1], b.at.x, _wt.real, _wt.vis])
+				_check(_wt.vin < _wt.ventry * 0.7, "slowed in the stream: %.1f m/s riding up to it, %.1f at the slowest in it" % [_wt.ventry, _wt.vin])
+				_next()
+		3:
+			# the tea house creek, beside the stepping stones (1.6 m off them), along the trail
+			if ph_f == 1:
+				var A: BikeAssist = b.assist
+				var a: Vector2 = A.walk_pts[0]
+				var c: Vector2 = A.walk_pts[A.walk_pts.size() - 1]
+				var dd := (c - a).normalized()
+				var pp := Vector2(dd.y, -dd.x)
+				_wt.ford = [a, c, dd]
+				var st := a - dd * 7.0 + pp * 1.6
+				_ride_at(st.x, st.y, atan2(dd.x, dd.y))
+				_wt.real = 0.0; _wt.vis = 0.0; _wt.deep = 0; _wt.wet_frames = 0
+			var fd: Array = _wt.ford
+			var fdd: Vector2 = fd[2]
+			var tgt: Vector2 = (fd[1] as Vector2) + fdd * 12.0 + Vector2(fdd.y, -fdd.x) * 1.6
+			main.stick_vec = _toward(Vector3(tgt.x, 0, tgt.y), 1.0)
+			var along: float = (Vector2(b.at.x, b.at.z) - (fd[1] as Vector2)).dot(fd[2] as Vector2)
+			if ph_t > 8.0 or along > 4.0:
+				_check(along > 2.0 and _wt.wet_frames > 5 and _wt.deep == 0, "the tea house creek beside the stepping stones: rode through it (%.1f m past the last stone, %d frames in the water, %.2f m deep at most)" % [along, _wt.wet_frames, _wt.real])
+				_next()
+		4:
+			var n: float = maxf(1.0, _wt.usn)
+			print("cost in the water (avg of %d frames): splash fx %.0f us a frame (max %.0f), the bike's control %.0f us; the effects' draw calls at most %d (frame draws %s in the water, %s on the beach)" % [_wt.usn, _wt.us / n, _wt.us_max, _wt.bus / n, _wt.get("fxd", 0), str(_wt.get("draws_in", "-")), str(_wt.get("draws_out", "-"))])
+			Settings.set_value("bike_assist", 1)
+			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
+			for nn in notes: print("  " + nn)
+			get_tree().quit(0 if fails.is_empty() else 1)
+			phase = 99

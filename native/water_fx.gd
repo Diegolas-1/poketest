@@ -9,9 +9,9 @@ extends Node3D
 # in a fixed pool, the rings' growth and fade done in their shader from an age
 # in the instance's custom data.
 
-const DROPS := 96
-const RINGS := 14
 const RING_LIFE := 1.25
+var DROPS := 96            # the pools' sizes (Ash's legs; the bike's wheels make a bigger one)
+var RINGS := 14
 
 var drops: MultiMesh
 var rings: MultiMesh
@@ -27,10 +27,13 @@ var _next_d := 0
 var _next_r := 0
 var _live_d := 0
 var _live_r := 0
+var _fresh := false        # something added since the pools last emptied
 var rng := RandomNumberGenerator.new()
 
-func _init() -> void:
+func _init(n_drops := 96, n_rings := 14) -> void:
 	name = "WaterFx"
+	DROPS = n_drops
+	RINGS = n_rings
 	top_level = true
 	rng.randomize()
 	# the drops: little stretched spheres, light and a touch see-through
@@ -74,11 +77,18 @@ func _init() -> void:
 	_rp.resize(RINGS); _ra.resize(RINGS); _rs.resize(RINGS)
 	for i in RINGS: _ra[i] = RING_LIFE
 
+func live() -> int: return _live_d + _live_r
+
+# the drops' colour (the bike's splashes: white water)
+func tint(c: Color) -> void:
+	((drops.mesh as SphereMesh).material as StandardMaterial3D).albedo_color = c
+
 # a drop thrown from p at velocity v, ending (gone) when it falls below floor
 func drop(p: Vector3, v: Vector3, floor_y: float, size := 0.022, life := 1.2) -> void:
 	var i := _next_d
 	_next_d = (_next_d + 1) % DROPS
 	_dp[i] = p; _dv[i] = v; _dl[i] = life; _dfloor[i] = floor_y; _ds[i] = size
+	_fresh = true
 
 # spray at the feet: n drops round p on the surface y, kicked up by speed (m/s)
 # along dir (the way he goes)
@@ -95,8 +105,11 @@ func ring(p: Vector3, radius: float) -> void:
 	var i := _next_r
 	_next_r = (_next_r + 1) % RINGS
 	_rp[i] = p; _ra[i] = 0.0; _rs[i] = radius
+	_fresh = true
 
 func update(dt: float) -> void:
+	if not _fresh and _live_d == 0 and _live_r == 0: return   # (nothing in the air or on the water)
+	_fresh = false
 	# drops
 	var n := 0
 	var g := Vector3(0, -9.8, 0)
