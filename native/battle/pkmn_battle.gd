@@ -120,9 +120,10 @@ func _make(s: String, d: Dictionary) -> Fighter:
 	var base: Array = S.get("base", [50, 50, 50, 50, 50, 50])
 	# battle_config stats.level_offset flattens the level curve (0 = the games' formula)
 	var le := float(lv) + BattleConfig.num("stats", "level_offset", 0.0)
-	f.max_hp = int(floor(2.0 * float(base[0]) * le / 100.0)) + lv + 10
+	var rm := rarity_stat_mult(String(S.get("rarity", "")), lv)
+	f.max_hp = int(floor(2.0 * float(base[0]) * rm * le / 100.0)) + lv + 10
 	var keys := ["atk", "def", "spa", "spd", "spe"]
-	for i in 5: f.stats[keys[i]] = int(floor(2.0 * float(base[i + 1]) * le / 100.0)) + 5
+	for i in 5: f.stats[keys[i]] = int(floor(2.0 * float(base[i + 1]) * rm * le / 100.0)) + 5
 	f.hp = int(d.get("hp", f.max_hp))
 	f.ai = String(d.get("ai", "player" if s == "a" else "wild"))
 	f.e.pick_mode = "player" if f.ai == "player" else "auto"
@@ -385,6 +386,25 @@ func _lock_works(f: Fighter, L: Dictionary, out: Array) -> bool:
 
 # species efficiency (battle_config rarity.shared_power_mult): a shared move used by a
 # rarer species hits a little harder; a signature move already carries its rarity
+# battle_config rarity.level_stat: base stats x (1 + the rarity's bonus at this level), the bonus
+# read off its points at levels (straight lines between them, flat past the ends), so the
+# step between rarities can be held level across the game
+static func rarity_stat_mult(r: String, lv: int) -> float:
+	var R = BattleConfig.sect("rarity").get("level_stat", {})
+	if not R is Dictionary or R.is_empty(): return 1.0
+	var lvls: Array = R.get("levels", [])
+	var pts = R.get("bonus", {}).get(r, [])
+	var add := 0.0
+	if pts is Array and pts.size() == lvls.size() and not lvls.is_empty():
+		add = float(pts[0])
+		for i in lvls.size():
+			if float(lv) >= float(lvls[i]): add = float(pts[i])
+			if i + 1 < lvls.size() and float(lv) > float(lvls[i]) and float(lv) < float(lvls[i + 1]):
+				var t := (float(lv) - float(lvls[i])) / (float(lvls[i + 1]) - float(lvls[i]))
+				add = lerpf(float(pts[i]), float(pts[i + 1]), t)
+				break
+	return clampf(1.0 + add, float(R.get("min", 0.6)), float(R.get("max", 1.6)))
+
 static func rarity_mult(u: Fighter, id: String) -> float:
 	if bool(mv(id).get("signature", false)): return 1.0
 	var r := String(BattleEnergy.species_data(u.species).get("rarity", ""))

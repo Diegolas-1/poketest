@@ -20,7 +20,7 @@
     "reaction": "reaction numbers: return_mult (a counter's mult by rarity), bide_mult, guard_reduce, default_chance (percent)",
     "combo_power_pct": "the extra power a combo gives, by the move's rarity",
     "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, stage_gain_bonus (by evolution stage), rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
-    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier",
+    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier; finisher_by and two_phase_by: a species' first level-up finisher and two-phase move come at most this many levels after its stage's first level (moved earlier, marked moved_from)",
     "stats": "battle stats: shape (each stat pulled toward the species' own average: 1 = the games' shape), spread (how much of a species' distance from its group's mean total survives: 1 = the games' stats, 0 = all equal), rarity_bonus and group_bonus (shares on top), evolution_floor (an evolved form's total is at least this share above the stage before, whatever the tuning), group_mean_total (written by gen.py)",
     "type_map": "main-series type -> energy kind (also kanto151.json type_energy)",
     "tcg_energy_ids": "TCG energy name -> kind",
@@ -46,25 +46,25 @@
   ],
   "power_per_chip": {
     "opener": {
-      "common": 28.5,
-      "uncommon": 30.5,
-      "rare": 33.0,
-      "very_rare": 35.5,
-      "legendary": 38.5
+      "common": 34.0,
+      "uncommon": 36.0,
+      "rare": 38.5,
+      "very_rare": 41.0,
+      "legendary": 44.0
     },
     "mid": {
-      "common": 50.0,
-      "uncommon": 52.0,
-      "rare": 54.5,
-      "very_rare": 57.0,
-      "legendary": 60.0
+      "common": 46.0,
+      "uncommon": 48.0,
+      "rare": 50.5,
+      "very_rare": 53.0,
+      "legendary": 56.0
     },
     "finisher": {
-      "common": 57.0,
-      "uncommon": 59.0,
-      "rare": 61.5,
-      "very_rare": 64.0,
-      "legendary": 67.0
+      "common": 44.0,
+      "uncommon": 46.0,
+      "rare": 48.5,
+      "very_rare": 51.0,
+      "legendary": 54.0
     }
   },
   "finisher_base": {
@@ -182,7 +182,9 @@
     "opener": 3,
     "mid": 12,
     "finisher": 24,
-    "other": 8
+    "other": 8,
+    "finisher_by": 12,
+    "two_phase_by": 14
   },
   "stats": {
     "spread": 0.3,
@@ -190,15 +192,15 @@
     "evolution_floor": 0.08,
     "rarity_bonus": {
       "common": 0.0,
-      "uncommon": 0.005,
-      "rare": 0.01,
-      "very_rare": 0.015,
+      "uncommon": 0.0,
+      "rare": 0.0,
+      "very_rare": 0.0,
       "legendary": 0.12
     },
     "group_bonus": {
       "basic": 0.0,
-      "middle": -0.28,
-      "final": -0.42,
+      "middle": -0.36,
+      "final": -0.54,
       "single": 0.0
     },
     "group_mean_total": {
@@ -2068,8 +2070,8 @@
       "doc": "a species against itself ten levels lower: a clear step up (new moves, a slot, more HP), not quite a wall"
     },
     "slot_unlock_winrate": {
-      "min": 0.52,
-      "doc": "the same species with one more equip slot"
+      "min": 0.6,
+      "doc": "the same species with one more equip slot (the 'Ash gets stronger' lever)"
     },
     "legendary_vs_common_max": 0.97,
     "first_mover_max": 0.56,
@@ -2087,9 +2089,25 @@
       "doc": "a typical battle's length in turns (the mean)"
     },
     "role_share_min": 0.03,
-    "doc_role_share": "every role (offense, reaction, two-phase, disruption, utility) is at least this share of all actions",
+    "doc_role_share": "every role (offense, reaction, two-phase, disruption, utility) is at least this share of all actions; role_share sets a role's own min or max",
+    "role_share": {
+      "offense": {
+        "max": 0.6
+      },
+      "reaction": {
+        "min": 0.08
+      },
+      "two_phase": {
+        "min": 0.05
+      }
+    },
     "tier_share_min": 0.08,
-    "doc_tier_share": "every tier (opener, mid, finisher) is at least this share of all actions",
+    "doc_tier_share": "every tier (opener, mid, finisher) is at least this share of all actions; tier_share sets a tier's own min",
+    "tier_share": {
+      "finisher": {
+        "min": 0.15
+      }
+    },
     "exempt": [
       "magikarp",
       "metapod",

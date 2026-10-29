@@ -47,7 +47,7 @@ func _ready() -> void:
 
 func _args() -> void:
 	opt = {"suite": "all", "n": "12", "seed": "1", "bands": "6,14,22,32,45", "tiers": ",".join(RARITIES), "ai": "balanced",
-		"policies": "balanced,cautious,aggressive,tricky,greedy,combo,reaction", "max_turns": "30", "species": "", "opponents": "0", "overstay": "3",
+		"policies": "balanced,cautious,aggressive,tricky,greedy,combo,reaction", "max_turns": "30", "species": "", "opponents": "0", "overstay": "3", "cross_pairs": "70",
 		"report": "res://dev/sim_report.json", "quiet": "false"}
 	for a in OS.get_cmdline_user_args():
 		var s := String(a).trim_prefix("--")
@@ -358,14 +358,20 @@ func _suite_cross() -> Dictionary:
 				for b0 in lo_ids:
 					if String(S[a0].get("stat_group", "")) == String(S[b0].get("stat_group", "")): pairs_ok.append([a0, b0])
 			if pairs_ok.is_empty(): continue
-			var k := mini(24, pairs_ok.size())
+			# every like-for-like pair, or a seeded sample of cross_pairs of them
+			var k := mini(int(opt.cross_pairs), pairs_ok.size())
+			var prs := []
+			for j in range(pairs_ok.size() - 1, 0, -1):
+				var x := rng.randi() % (j + 1)
+				var tmp: Array = pairs_ok[j]; pairs_ok[j] = pairs_ok[x]; pairs_ok[x] = tmp
 			for j in k:
-				var pp: Array = pairs_ok[rng.randi() % pairs_ok.size()]
+				var pp: Array = pairs_ok[j]
 				var a: String = pp[0]
 				var b: String = pp[1]
 				var r := pair(spec(a, lv), spec(b, lv), maxi(2, n / 2))
 				w += r.x_rate * r.n; g += r.n
-			bo["%s>%s" % [RARITIES[i + 1], RARITIES[i]]] = {"rate": w / g, "ci": wilson(w, g), "games": g}
+				prs.append([a, b, r.x_rate])
+			bo["%s>%s" % [RARITIES[i + 1], RARITIES[i]]] = {"rate": w / g, "ci": wilson(w, g), "games": g, "pairs": prs}
 			say("cross Lv %d %s vs %s: %.2f" % [lv, RARITIES[i + 1], RARITIES[i], w / g])
 		out[str(lv)] = bo
 	return out
@@ -538,7 +544,7 @@ func _checks(rep: Dictionary) -> Dictionary:
 		var ls: Dictionary = T.get("level_step_winrate", {})
 		add.call("level step", su.level.rate, float(ls.get("min", 0.6)), float(ls.get("max", 0.78)))
 	if su.has("slots"):
-		add.call("slot unlock", su.slots.rate, float(T.get("slot_unlock_winrate", {}).get("min", 0.52)), 1.0)
+		add.call("slot unlock", su.slots.rate, float(T.get("slot_unlock_winrate", {}).get("min", 0.6)), 1.0)
 	if su.has("starters"):
 		var st: Dictionary = T.get("starter_triangle", {"min": 0.55, "max": 0.85})
 		for lv in su.starters:
@@ -546,6 +552,8 @@ func _checks(rep: Dictionary) -> Dictionary:
 	var bt: Dictionary = T.get("battle_turns", {})
 	if rep.turns.has("mean"): add.call("battle turns (mean)", rep.turns.mean, float(bt.get("min", 3)), float(bt.get("max", 8)))
 	add.call("top move share (median species)", float(rep.moves.species_top_share.get("median", 0.0)), 0.0, float(T.get("move_pick_share_max", 0.35)))
-	for r in ROLES: add.call("role share %s" % r, float(rep.moves.role_share[r]), float(T.get("role_share_min", 0.03)), 1.0)
-	for t in TIERS: add.call("tier share %s" % t, float(rep.moves.tier_share[t]), float(T.get("tier_share_min", 0.08)), 1.0)
+	var RT: Dictionary = T.get("role_share", {})
+	var TT: Dictionary = T.get("tier_share", {})
+	for r in ROLES: add.call("role share %s" % r, float(rep.moves.role_share[r]), float(RT.get(r, {}).get("min", T.get("role_share_min", 0.03))), float(RT.get(r, {}).get("max", 1.0)))
+	for t in TIERS: add.call("tier share %s" % t, float(rep.moves.tier_share[t]), float(TT.get(t, {}).get("min", T.get("tier_share_min", 0.08))), float(TT.get(t, {}).get("max", 1.0)))
 	return out

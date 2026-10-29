@@ -338,7 +338,11 @@ func thresholds() -> Array:
 		if v <= fmax() + 0.001: out.append(v)
 	return out
 
-func gain_per_turn() -> float: return float(params.get("gain", 10.0))
+# battle_config slots.gain_per_slot: each move equipped past slots.gain_from adds focus a turn
+func gain_per_turn() -> float:
+	var S := BattleConfig.sect("slots")
+	var extra := maxi(0, equipped.size() - int(S.get("gain_from", 4)))
+	return float(params.get("gain", 10.0)) + float(S.get("gain_per_slot", 0.0)) * extra
 
 func set_focus(f: float, reason := "set") -> void:
 	var old := focus
@@ -988,7 +992,8 @@ func balanced_loadout(n_slots: int) -> Array:
 		var role := String(m.get("role", "offense"))
 		var dmg := float(m.get("power", 0)) > 0.0
 		var key := ""
-		if dmg and role in ["offense", "two_phase", "disruption"]: key = tier_of(id)
+		if role == "two_phase": key = "two_phase"
+		elif dmg and role in ["offense", "disruption"]: key = tier_of(id)
 		elif role == "reaction": key = "reaction"
 		elif role == "disruption": key = "disruption"
 		elif role == "utility": key = "utility"
@@ -996,7 +1001,7 @@ func balanced_loadout(n_slots: int) -> Array:
 		var v := _per_chip(id) if dmg else _status_worth_of(m)
 		if off_pool(id): v *= 0.7
 		if not by.has(key) or v > by[key][0]: by[key] = [v, id]
-	for key in ["opener", "mid", "finisher", "reaction", "disruption", "utility"]:
+	for key in ["opener", "mid", "finisher", "reaction", "two_phase", "disruption", "utility"]:
 		if by.has(key) and pick.size() < n_slots and not by[key][1] in pick: pick.append(by[key][1])
 	var rest: Array = known.filter(func(id): return not id in pick and not move(id).is_empty())
 	rest.sort_custom(func(a, b): return _per_chip(a) > _per_chip(b))
@@ -1171,6 +1176,7 @@ func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {},
 	if acc <= 0.0: acc = 1.0
 	var pw := move_power(id, n_chips)
 	if role == "two_phase": pw *= float(A.get("two_phase_value", 1.15))
+	if is_all(id): pw *= float(A.get("finisher_value", 1.0))
 	var v := pw * acc * float(K.get("dmg", 1.0))
 	v *= pow(float(K.get("repeat", 0.75)), in_turn) * pow(float(A.get("repeat_battle", 0.94)), mini(times - in_turn, 4))
 	var st := 0.0
@@ -1186,7 +1192,7 @@ func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {},
 		st *= pow(0.5, times)
 		# the same status move twice in one plan is next to worthless (it lands once)
 		st *= pow(float(A.get("status_repeat_turn", 0.2)), in_turn)
-	v += st * float(K.get("status", 1.0))
+	v += st * float(K.get("status", 1.0)) * float(A.get("status_scale", 1.0))
 	if role == "reaction":
 		v = float(ctx.get("reaction_value", float(A.get("reaction_value", 30.0)) * 0.5)) * pow(0.4, in_turn)
 	if int(m.get("priority", 0)) > 0 and in_turn == 0 and role != "reaction": v += 6.0
@@ -1234,6 +1240,8 @@ func _pointless(id: String, ctx: Dictionary) -> bool:
 		if "sleep_only" in fx0 and String(fs.get("status", "")) != "sleep" and String(ms.get("status", "")) != "sleep": return true
 		if "self_confused_only" in fx0 and not bool(ms.get("confused", false)): return true
 	if "first_turn" in fx0 and int(uses.get(id, 0)) > 0: return true
+	# fainting itself (Self-Destruct, Explosion, Memento, Final Gambit): only as a last stand
+	if "self_faint" in fx0 and float(ms.get("hp_ratio", 0.0)) > float(_AI().get("self_faint_hp", 0.33)): return true
 	if "needs_others" in fx0:
 		for o in equipped:
 			if o != id and int(uses.get(o, 0)) <= 0: return true

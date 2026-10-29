@@ -729,6 +729,25 @@ for s in sorted(species_order, key=lambda x: (stage_of(x), dex_of[x])):
                 if m not in C["rows"] and not any(m in C[o] for o in ("tm", "tutor", "egg")):
                     C[k].add(m)
 
+# the signature mechanics early enough to be played (balance learn_levels finisher_by, two_phase_by):
+# a species whose first level-up finisher (or two-phase move) comes more than N levels after its
+# stage's first level learns that move at that level instead (its evolutions keep the earlier level)
+for s in sorted(species_order, key=lambda x: (stage_of(x), dex_of[x])):
+    rows_ = learn[s]["rows"]
+    if s in parent:
+        for m, row in learn[parent[s]]["rows"].items():
+            if m in rows_ and row["level"] < rows_[m]["level"]: rows_[m]["level"] = row["level"]
+    for kind, test in (("finisher_by", lambda mm: isinstance(mm["chips"], str)), ("two_phase_by", lambda mm: mm["role"] == "two_phase")):
+        n = B["learn_levels"].get(kind)
+        if n is None: continue
+        cand = sorted((r["level"], m) for m, r in rows_.items() if test(moves[m]))
+        if not cand: continue
+        lv0, m0 = cand[0]
+        cap = stage_level(s) + int(n)
+        if lv0 > cap:
+            rows_[m0]["level"] = cap
+            rows_[m0]["moved_from"] = lv0
+
 # ======================================================================== signature detection
 learners = {}
 for s in species_order:
@@ -1244,7 +1263,7 @@ BAL_SCHEMA = {
     "reaction": "reaction numbers: return_mult (a counter's mult by rarity), bide_mult, guard_reduce, default_chance (percent)",
     "combo_power_pct": "the extra power a combo gives, by the move's rarity",
     "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, stage_gain_bonus (by evolution stage), rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
-    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier",
+    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier; finisher_by and two_phase_by: a species' first level-up finisher and two-phase move come at most this many levels after its stage's first level (moved earlier, marked moved_from)",
     "stats": "battle stats: shape (each stat pulled toward the species' own average: 1 = the games' shape), spread (how much of a species' distance from its group's mean total survives: 1 = the games' stats, 0 = all equal), rarity_bonus and group_bonus (shares on top), evolution_floor (an evolved form's total is at least this share above the stage before, whatever the tuning), group_mean_total (written by gen.py)",
     "type_map": "main-series type -> energy kind (also kanto151.json type_energy)", "tcg_energy_ids": "TCG energy name -> kind", "energy_names": "kind -> shown name",
     "effects": "every effect tag (engine names): power_mult (the weight on a damaging move's power), doc, and its numbers",
@@ -1264,14 +1283,16 @@ SIM = {
     "starter_triangle": {"min": 0.55, "max": 0.85, "doc": "each starter against the one it is strong against, at the same level and stage"},
     "evolution_step_winrate": {"min": 0.62, "max": 0.8, "doc": "an evolved form against its previous stage at the evolution level"},
     "level_step_winrate": {"per_levels": 10, "min": 0.7, "max": 0.93, "doc": "a species against itself ten levels lower: a clear step up (new moves, a slot, more HP), not quite a wall"},
-    "slot_unlock_winrate": {"min": 0.52, "doc": "the same species with one more equip slot"},
+    "slot_unlock_winrate": {"min": 0.6, "doc": "the same species with one more equip slot (the 'Ash gets stronger' lever)"},
     "legendary_vs_common_max": 0.97,
     "first_mover_max": 0.56, "doc_first_mover": "the side that acts first should not win much more than half",
     "move_pick_share_max": 0.35, "doc_move_pick": "no single move should be more than this share of a species' picks across battles (choice stays real)",
     "dodge_success": {"min": 0.35, "max": 0.65, "doc": "a Dodge against an attack that doesn't ignore it"},
     "battle_turns": {"min": 3, "max": 8, "doc": "a typical battle's length in turns (the mean)"},
-    "role_share_min": 0.03, "doc_role_share": "every role (offense, reaction, two-phase, disruption, utility) is at least this share of all actions",
-    "tier_share_min": 0.08, "doc_tier_share": "every tier (opener, mid, finisher) is at least this share of all actions",
+    "role_share_min": 0.03, "doc_role_share": "every role (offense, reaction, two-phase, disruption, utility) is at least this share of all actions; role_share sets a role's own min or max",
+    "role_share": {"offense": {"max": 0.6}, "reaction": {"min": 0.08}, "two_phase": {"min": 0.05}},
+    "tier_share_min": 0.08, "doc_tier_share": "every tier (opener, mid, finisher) is at least this share of all actions; tier_share sets a tier's own min",
+    "tier_share": {"finisher": {"min": 0.15}},
     "exempt": ["magikarp", "metapod", "kakuna"], "doc_exempt": "weak by design (the joke fish and the cocoons, whose whole point is to evolve): left out of the peer band and spread checks; a design decision for the user",
 }
 
