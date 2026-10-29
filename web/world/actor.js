@@ -10,6 +10,7 @@ import { toon } from './toon.js';
 import { dressAsh } from './ashcloth.js';
 import { addNeck } from './cast.js';
 import { makeIdleActions } from './idles.js';
+import { drawEyes } from './eyes.js';
 
 const V2 = (x, y) => new THREE.Vector2(x, y), V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const DS = THREE.DoubleSide;
@@ -696,7 +697,8 @@ function prepCalem(scene, SU) {
     if (!o.isMesh) return;
     const m0 = o.material, name = m0.name || o.name;
     if (!mats.has(name)) {
-      const m = toon('#ffffff', { map: m0.map, side: m0.side, cel: SKIN_PARTS.has(name) ? SKIN : CLOTH });
+      const map = name === 'face_on_0' && m0.map ? vectorEyes(m0.map) : m0.map;   // the eyes redrawn as vector art (eyes.js)
+      const m = toon('#ffffff', { map, side: m0.side, cel: SKIN_PARTS.has(name) ? SKIN : CLOTH });
       if (m0.alphaTest) { m.alphaTest = m0.alphaTest; m.side = THREE.DoubleSide; }
       m.name = name; mats.set(name, m);
     }
@@ -712,6 +714,14 @@ function prepCalem(scene, SU) {
   const rest = new Map();
   scene.traverse((b) => { if (b.isBone) rest.set(b.name, { q: b.quaternion.clone(), p: b.position.clone(), w: b.getWorldQuaternion(new THREE.Quaternion()) }); });
   return { scene, SU, rest, k: CALEM_H / (box.max.y - box.min.y), minY: box.min.y };
+}
+
+// the eye atlas drawn by eyes.js at 4x the game's bitmap, in its place (same layout and sampling)
+function vectorEyes(src) {
+  const t = new THREE.CanvasTexture(drawEyes({ scale: 4 }));
+  t.flipY = src.flipY; t.colorSpace = src.colorSpace; t.wrapS = src.wrapS; t.wrapT = src.wrapT;
+  t.anisotropy = 8; t.name = src.name;
+  return t;
 }
 
 function calemActor(look) {

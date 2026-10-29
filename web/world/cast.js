@@ -24,6 +24,7 @@ import { toon } from './toon.js';
 import { labCoat } from './labcoat.js';
 import { Build, slab, hangGrid, gridWeights, gridChains, paintGrid, clothSim, trisOf, nearW, mixW, ringOf, cast, fixRing, ZC, ARM_Y, ARM_Z } from './garments.js';
 import { townsfolk } from './cast2.js';
+import { drawEyes, EYE_COLOURS } from './eyes.js';
 
 const V3 = THREE.Vector3, M4 = THREE.Matrix4;
 const hex = (c) => { const n = parseInt(c.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
@@ -139,11 +140,22 @@ const isSkinTexel = (o) => o[0] > 150 && o[0] > o[2] + 10 && o[0] - o[2] < 90;
 // a flat colour with a little of the original's light and dark (folds, painted shading)
 const keepShade = (col, o, ref, amt = 0.5) => mul(col, 1 + (clamp(lum(o) / ref, 0.6, 1.25) - 1) * amt);
 
-// eyes: the atlas (512x128 as the game had it, 2048x512 redrawn: tools/world/hd_eyes.py) holds
-// 4x2 cells of two eyes; recolour skin, brows and irises. Strokes added here are sized for the
+// eyes: the atlas (512x128 as the game had it, or drawn as vector art at 4x that: eyes.js) holds
+// 4x2 cells of two eyes. The vector atlas is drawn again in the person's colours (skin, brows,
+// irises, lashes, forehead); the bitmap is recoloured texel by texel, its strokes sized for the
 // 512-wide atlas and scaled by sc
+const css = (c) => `rgb(${c.map((x) => Math.round(clamp(x, 0, 255))).join(',')})`;
 function eyeTex(src, L) {
   const skin = hex(L.skin), brow = hex(L.face.brow), iris = hex(L.face.iris);
+  if (src.image.dataset?.eyes === 'vector') {
+    const F = L.face, irisOf = (o) => { const l = lum(o); return l < 0.16 ? mix([22, 16, 18], iris, (l / 0.16) ** 2 * 0.35) : mul(iris, 0.5 + l * 1.4); };
+    const cv = drawEyes({ scale: src.image.width / 512, skin: EYE_COLOURS.skin.map((c) => css(toneSkin(hex(c), skin))), brow: L.face.brow, browW: 1 + 0.3 * (F.browThick || 0),
+      iris: EYE_COLOURS.iris.map((c) => css(irisOf(hex(c)))), lashes: F.lashes, forehead: F.forehead });
+    const { c, g, d } = imageData(cv, cv.width, cv.height), w = c.width, cw = w / 4, ch = c.height / 2, px = d.data;
+    // grown-ups: the narrower eyes (cell 1) as the open eyes (cell 0)
+    if (F.mature) for (let y = 0; y < ch; y++) px.copyWithin(y * w * 4, (y * w + cw) * 4, (y * w + 2 * cw) * 4);
+    return finish(c, g, d, src);
+  }
   const { c, g, d } = imageData(src.image, src.image.width, src.image.height);
   const w = c.width, h = c.height, px = d.data, cw = w / 4, ch = h / 2, sc = Math.max(1, Math.round(w / 512));
   const orig = new Uint8ClampedArray(px);
