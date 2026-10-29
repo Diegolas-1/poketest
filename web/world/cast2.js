@@ -460,8 +460,9 @@ export function townsfolk(K) {
   CAST.jenny = { height: 1.86, edits: body({ ...WOMAN, trunk: [0.94, 1.03, 0.95], hips: [1.0, 1, 1.0], arm: 0.9, leg: 0.92, legLen: 1.08 }),
     face: { iris: '#8a4a26', brow: '#1f6a5c', lashes: '#141418', mouth: 'smile', blush: '#f2a0a0', forehead: 'smooth', lips: '#d46a6c', mature: true } };
   for (const k in CAST) CAST[k].drop = ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'];
-  // a boy of Ash's age: Ash's body as it is, at Ash's scale
-  CAST.gary = { height: 0, edits: {}, drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
+  // a boy of Ash's age: Ash's body at Ash's scale, the head set lower on a shorter neck (Ash's
+  // tall collar hides his; Gary's neckline is low)
+  CAST.gary = { height: 0, edits: { Head: { t: [0, -0.024, 0] } }, drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
     face: { iris: '#3a2a22', brow: '#6a3016', browThick: 1, mature: true, forehead: 'smooth' } };   // (mature: the atlas's narrower, cooler eyes)
 
   // bare forearms and hands, the rest of the arm as the sleeve's colour (it shows only in gaps)
@@ -1228,6 +1229,16 @@ export function townsfolk(K) {
     g.setAttribute('normal', smooth.attributes.normal.clone());
     g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     v.flat(g, c.hair, head1);
+    // the head's underside: skin from just inside the hairline at the sides and the back (behind
+    // the jaw, under the ears, the nape) down and in to the top of the neck, so nothing shows
+    // through the head there; it goes with the head at the top and the neck at the bottom
+    const NU = 6, A0 = 1.0, NJ = 60, neck = (az, y) => V(Math.sin(az) * 0.031, y, -0.008 + Math.cos(az) * 0.031 * 0.95);
+    const ug = sheet(NU, NJ, (t, u) => {
+      const az = A0 + u * (TAU2 - 2 * A0), d = dirOf2(az, elAt(az, base(az))), top = C0.clone().addScaledVector(d, skull(d) - 0.003);
+      const bot = neck(az, 1.09), p = top.clone().lerp(bot, t), out = V(Math.sin(az), 0, Math.cos(az));
+      return p.addScaledVector(out, 0.016 * Math.sin(Math.PI * t) * sstep(1.3, 1.9, Math.abs(Math.atan2(Math.sin(az), Math.cos(az))))).toArray();
+    }, false);
+    v.add(ug, K.flatMat(c.skin, v.SKIN, { name: 'cast_skull', side: THREE.DoubleSide }), (p) => { const t = sstep(1.13, 1.095, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'skull');
   }
 
   // spiky hair as separate locks that bounce: each a chunky tapered lock rising from the head in
