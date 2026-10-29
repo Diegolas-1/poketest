@@ -82,8 +82,9 @@ signal finished(result: Dictionary)
 
 const ARENA_R := 5.6           # the floor kept clear (m): a ~11 m circle (the 10 x 10 m arena)
 const GAP := 4.4               # Ash to the Pokémon (m)
-const PARTNER_AHEAD := 1.4     # mode "pkmn": his Pokémon this far ahead of him
-const FOE_SCALE := 1.7        # the wild one's battle presence: it swells to this as the arena opens (a 40 cm bird reads from the high camera), back after
+const PARTNER_AHEAD := 1.8     # mode "pkmn": his Pokémon this far ahead of him
+const PARTNER_SIDE := 0.7      # and this far to his right (he stands behind and beside it)
+const FOE_SCALE := 1.7        # the Pokémon's battle presence (the foe's, a partner's): it swells to this as the arena opens (a 40 cm bird reads from the high camera), back after
 const OPEN_T := 1.35           # the spread (s)
 const CLOSE_T := 1.1
 
@@ -417,7 +418,12 @@ func _shot_xf(n: String) -> Dictionary:
 	var foe_p := foe_pos
 	match n:
 		# the high diagonal: up behind Ash's right shoulder, looking down across the arena at it
-		"overview": return {"pos": c - fwd * 3.9 + side * 2.9 + up * 5.0, "look": c + fwd * 0.45 + up * 0.2, "fov": 46.0}
+		"overview":
+			if pk:
+				# mode "pkmn": over the two Pokémon (Ash small, back by his partner's side)
+				var m := partner_pos.lerp(foe_p, 0.5)
+				return {"pos": m - fwd * 3.7 + side * 3.3 + up * 4.4, "look": m + up * 0.15, "fov": 44.0}
+			return {"pos": c - fwd * 3.9 + side * 2.9 + up * 5.0, "look": c + fwd * 0.45 + up * 0.2, "fov": 46.0}
 		"overview2": return {"pos": c - fwd * 3.6 - side * 4.8 + up * 6.0, "look": c + up * 0.4, "fov": 50.0}
 		"gust_side": return {"pos": c + side * 6.0 - fwd * 2.2 + up * 2.6, "look": c + fwd * 0.2 + up * 0.9, "fov": 58.0}
 		"ash_front": return {"pos": ash_pos + fwd * 3.0 + side * 1.4 + up * 1.35, "look": ash_pos + up * 1.15, "fov": 44.0}
@@ -427,7 +433,7 @@ func _shot_xf(n: String) -> Dictionary:
 		"impact": return {"pos": ash_pos + fwd * 2.6 + side * 2.6 + up * 1.6, "look": ash_pos + up * 0.9, "fov": 50.0}
 		"run": return {"pos": ash_spot - fwd * 4.6 + side * 3.4 + up * 2.4, "look": ash_pos - fwd * 0.4 + up * 0.7, "fov": 50.0}
 		# mode "pkmn": over his partner's shoulder at the foe, and over the foe's at his partner
-		"pk_a": return {"pos": partner_pos - fwd * 2.4 + side * 1.7 + up * 1.7, "look": foe_p + up * 0.3 - fwd * 0.6, "fov": 46.0}
+		"pk_a": return {"pos": partner_pos - fwd * 1.1 + side * 2.3 + up * 1.6, "look": foe_p + up * 0.3 - fwd * 0.9, "fov": 46.0}
 		"pk_b": return {"pos": foe_p + fwd * 1.8 - side * 2.2 + up * 1.8, "look": partner_pos + up * 0.3 + fwd * 0.6, "fov": 48.0}
 		"hide": return {"pos": ash_pos + fwd * 2.3 + side * 1.3 + up * 1.0, "look": ash_pos + up * 0.45, "fov": 44.0}
 		"down": return {"pos": ash_pos - side * 2.0 + fwd * 1.4 + up * 1.1, "look": ash_pos + up * 0.3, "fov": 46.0}
@@ -623,7 +629,7 @@ func _stage_partner() -> void:
 	if pk == null: return
 	partner = pk.make_partner()
 	if partner == null: return
-	partner_pos = ash_spot + fwd * PARTNER_AHEAD
+	partner_pos = ash_spot + fwd * PARTNER_AHEAD + side * PARTNER_SIDE
 	partner_pos.y = _gy(partner_pos)
 	partner_yaw = atan2(fwd.x, fwd.z)
 	partner.global_position = partner_pos
@@ -634,6 +640,7 @@ func _put_partner(dt: float) -> void:
 	if partner == null or not is_instance_valid(partner): return
 	partner.global_position = partner_pos + Vector3(0, pk.lift("a") if pk else 0.0, 0)
 	partner.rotation = Vector3(0, partner_yaw, 0)
+	partner.scale = Vector3.ONE * lerpf(1.0, FOE_SCALE, clampf(arena_k, 0.0, 1.0))   # (the same battle presence as the foe's)
 	if partner.has_method("animate"): partner.animate(dt, 0.0)
 
 # ---------- the wild side's mind: the hooks for the energy system ----------

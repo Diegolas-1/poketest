@@ -82,9 +82,31 @@ func _set_pos(side: String, p: Vector3) -> void:
 	if side == "a": battle.partner_pos = p
 	else: battle.foe_pos = p
 func _home(side: String) -> Vector3:
-	var h := battle.ash_spot + battle.fwd * Battle.PARTNER_AHEAD if side == "a" else battle.foe_spot
+	var h := battle.ash_spot + battle.fwd * Battle.PARTNER_AHEAD + battle.side * Battle.PARTNER_SIDE if side == "a" else battle.foe_spot
 	h.y = battle._gy(h)
 	return h
+
+# the act a creature plays for a move: creatures/species.json's "acts" (and its
+# "alias": a move's id to the act that stands for it), tried as the move id, its
+# alias, its anim key, then the fallback; a creature with its own script (Pidgey)
+# says what it has with acts()
+static var _species := {}
+
+func _act(side: String, id: String, anim: String, fallback := "tackle") -> String:
+	var n := _node(side)
+	var acts: Array = []
+	var alias := {}
+	if _species.is_empty() and FileAccess.file_exists("res://creatures/species.json"):
+		var v = JSON.parse_string(FileAccess.get_file_as_string("res://creatures/species.json"))
+		_species = v.get("species", {}) if v is Dictionary else {}
+	var d: Dictionary = _species.get(String(B.fighter(side).species), {})
+	acts = d.get("acts", [])
+	alias = d.get("alias", {})
+	if acts.is_empty() and n and n.has_method("acts"): acts = n.acts()
+	if acts.is_empty(): return fallback
+	for c in [id, String(alias.get(id, "")), anim, String(alias.get(anim, "")), fallback, "tackle", "taunt"]:
+		if c != "" and c in acts: return c
+	return fallback
 
 func _mood(side: String, m: String) -> void:
 	var n := _node(side)
@@ -263,14 +285,14 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 	var d := (to - from); d.y = 0.0; d = d.normalized()
 	if anim in CONTACT:
 		var quick := anim == "quick_attack"
-		_mood(s, "quick_attack" if quick else "tackle")
+		_mood(s, _act(s, id, anim, "quick_attack" if quick else "tackle"))
 		Sfx.play("whoosh", from, {"vol": 0.0, "pitch": 1.4 if quick else 1.0})
 		await _wait(0.12 if quick else 0.3)
 		var hit_at := to - d * 0.45
 		await _move(s, hit_at, 0.12 if quick else 0.24, 0.0, func(): battle.fx.afterimage(_pos(s), d * 12.0, 0.4) if quick else battle.fx.speed_lines(_pos(s), d * 10.0, 3))
 		await _move(s, from, 0.45, 0.4)
 	elif anim in ["gust", "whirlwind"]:
-		_mood(s, "gust")
+		_mood(s, _act(s, id, anim, "gust"))
 		await _wait(0.35)
 		var g := battle.fx.gust_begin(from)
 		Sfx.play("gust_vortex", from, {"vol": 2.0})
@@ -286,13 +308,13 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 		battle.fx.gust_hit(g, to)
 		battle.fx.gust_end(g)
 	elif anim in ["sand_attack", "smokescreen"]:
-		_mood(s, "sand_attack")
+		_mood(s, _act(s, id, anim, "sand_attack"))
 		Sfx.play("sand_spray", from, {"vol": 0.0})
 		for i in 8:
 			battle.fx.sand_blast(from + Vector3(0, 0.1, 0), to + Vector3(0, 0.35, 0), 18, 0.25, Color("e2c98f") if anim == "sand_attack" else Color("6a6a70"))
 			await _wait(0.08)
 	elif anim in BOLT:
-		_mood(s, "thunder")
+		_mood(s, _act(s, id, anim, "thunder"))
 		Sfx.play("whoosh", from, {"vol": -4.0, "pitch": 1.8})
 		await _wait(0.3)
 		var top := to + Vector3(0, 7.0, 0) if anim == "thunder" else from + Vector3(0, 0.5, 0)
@@ -301,13 +323,13 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 			battle.shake = 0.35
 			await _wait(0.07)
 	elif anim in SELF:
-		_mood(s, "taunt")
+		_mood(s, _act(s, id, anim, "taunt"))
 		for k in 3:
 			battle.fx.spawn("ring", from + Vector3(0, 0.5, 0), Vector3.ZERO, {"life": 0.45, "size": 0.3, "size_end": 1.4 + k * 0.3, "col": Color(col, 0.8)})
 			await _wait(0.12)
 	else:
 		# a stream of motes at it in the move's colour
-		_mood(s, "tackle")
+		_mood(s, _act(s, id, anim, "tackle"))
 		for k in 14:
 			var p := from + Vector3(0, 0.45, 0)
 			var v := ((to + Vector3(0, 0.35, 0)) - p) / 0.35 + Vector3(randf_range(-0.6, 0.6), randf_range(-0.3, 0.6), randf_range(-0.6, 0.6))
