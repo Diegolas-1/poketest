@@ -62,6 +62,7 @@ var near_sea := PackedVector2Array()
 var near_fresh := PackedVector2Array()
 # plants to brush through: 4 m buckets of [x, z, r]
 var plants := {}
+var trees := PackedVector3Array()   # (x, radius, z) of every tree
 # the player
 var _p_steps := 0
 var _p_ground := true
@@ -198,7 +199,11 @@ func _plants() -> void:
 		var m: Dictionary = meta.mats[int(s.parts[0].mat)]
 		if m.kind == "rock" or m.kind == "stone": continue
 		var r := float(s.radius)
-		if r > 2.5 and s.impostor != null: continue    # trees: you walk round them
+		if r > 2.5 and s.impostor != null:
+			# trees: you walk round them (wild.gd: a fled Pokémon may hide in one)
+			var ipt := bin.slice(int(s.ip[0]), int(s.ip[0]) + int(s.ip[1]) * 4).to_float32_array()
+			for i in int(s.n): trees.append(Vector3(ipt[i * 5], r * ipt[i * 5 + 4], ipt[i * 5 + 2]))
+			continue
 		if r < 0.3: continue
 		var ip := bin.slice(int(s.ip[0]), int(s.ip[0]) + int(s.ip[1]) * 4).to_float32_array()
 		for i in int(s.n):
@@ -258,10 +263,12 @@ func _player(_dt: float) -> void:
 			var s2 := surface_at(pos)
 			var run := sp > 6.0
 			var id := "step_" + s2 + ("_run" if run else "")
-			Sfx.play(id, null, {"vol": -15.0 + (1.5 if run else 0.0) - (3.0 if sp < 2.5 else 0.0)})
+			# crouch-walking: careful steps, much quieter (the tall grass's rustle too)
+			var hush: float = (9.0 if s2 == "tallgrass" else 7.0) if c.crouching else 0.0
+			Sfx.play(id, null, {"vol": -15.0 + (1.5 if run else 0.0) - (3.0 if sp < 2.5 else 0.0) - hush, "pitch": 0.94 if c.crouching else 1.0})
 			# brushing through a bush, a fern or flowers (the tall grass steps rustle already)
 			if s2 != "tallgrass" and not game.indoors and _rustle_t <= t and in_plant(pos):
-				Sfx.play("bush_rustle", null, {"vol": -4.0 if run else -7.0})
+				Sfx.play("bush_rustle", null, {"vol": (-4.0 if run else -7.0) - (8.0 if c.crouching else 0.0)})
 				_rustle_t = t + 0.25
 
 # the jump / land sets cover the main surfaces

@@ -4,7 +4,8 @@ extends CanvasLayer
 # pure black drawn right against it reads as the same shape, so the game makes
 # the island seem to grow:
 #   - a compass while Ash is on the move: a black halo hugging the island and
-#     a marker orbiting it toward the active quest's next person (else north),
+#     a marker orbiting it toward the wild Pokémon he is tracking (wild.gd
+#     track_hint), else the active quest's next person (else north),
 #     with an N tick and the distance; fades out when idle, talking, indoors
 #   - the menu's expansion point: a tap just beside the island (or on its
 #     halo) grows a black panel out of it (quest log, settings, and "coming
@@ -288,6 +289,13 @@ func _find_goal() -> void:
 	has_goal = false
 	goal_name = ""
 	if main == null or main.cast == null or main.cast.life == null: return
+	# tracking a wild Pokémon that fled (wild/wild.gd): the compass points to where it went
+	var w = main.cast.get("wild")
+	if w and w.has_method("track_hint"):
+		var tg: Dictionary = w.track_hint()
+		if not tg.is_empty():
+			has_goal = true; _goal_pos = tg.pos; goal_name = String(tg.name)
+			return
 	var life = main.cast.life
 	var g: Array = life.quests.goal_people() if life.quests and life.quests.has_method("goal_people") else []
 	if g.is_empty(): return
