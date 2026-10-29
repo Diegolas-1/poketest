@@ -462,7 +462,7 @@ export function townsfolk(K) {
   for (const k in CAST) CAST[k].drop = ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'];
   // a boy of Ash's age: Ash's body as it is, at Ash's scale
   CAST.gary = { height: 0, edits: {}, drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
-    face: { iris: '#3a2a22', brow: '#6a3016', browThick: 1, mature: true } };   // (mature: the atlas's narrower, cooler eyes)
+    face: { iris: '#3a2a22', brow: '#6a3016', browThick: 1, mature: true, forehead: 'smooth' } };   // (mature: the atlas's narrower, cooler eyes)
 
   // bare forearms and hands, the rest of the arm as the sleeve's colour (it shows only in gaps)
   const armsUnder = (skin, col, x) => (p, part) => (part === 'hand' || (isArm(part) && ax(p) > x) ? skin : col);
@@ -1066,32 +1066,11 @@ export function townsfolk(K) {
       const t = sstep(1.04, 1.05, p.y), r = Math.hypot(p.x, p.z + 0.008); if (!t || isArm(part) || r < 0.033) return;
       const k = 1 + (0.033 / r - 1) * t; p.x *= k; p.z = -0.008 + (p.z + 0.008) * k;
     });
-    v.hair(c.hair);
-    // the base hair's fringe and thin wisps taken up short, at the forehead, the nape and in
-    // front of the ears (the chunky locks below are the hair's shape)
-    v.shape('hair01_on', (p) => {
-      if (p.z > 0.035 && Math.abs(p.x) < 0.085 && p.y < 1.27) p.y = 1.27 - (1.27 - p.y) * 0.3;   // the fringe, up under the bangs' wedges
-      else if (p.z < -0.02 && p.y < 1.14) p.y = 1.14 - (1.14 - p.y) * 0.3;
-      else if (Math.abs(p.x) > 0.06 && p.y < 1.15) p.y = 1.15 - (1.15 - p.y) * 0.45;
-    });
+    // none of Ash's hair: his hair mesh (which is also the back and top of his head) folded away
+    // inside the head, and Gary's own scalp in its place (garyScalp)
+    v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
     v.neck();
-    v.crown({ top: 1.318, back: 0.02, bulge: 1.05, rimY: 1.232, front: 0.035, strands: false });
-    // the bangs: broad wedges from up on the crown, swooping down over the forehead and across to
-    // his right, their points at the brows (over the line where Ash's cap sat)
-    {
-      const hc = new V3(0, 1.17, -0.005), parts = [];
-      for (const [x, dx, ty, r] of [[0.09, -0.028, 1.222, 0.034], [0.064, -0.04, 1.205, 0.04], [0.036, -0.048, 1.196, 0.042], [0.008, -0.05, 1.19, 0.043],
-        [-0.02, -0.05, 1.198, 0.042], [-0.048, -0.048, 1.205, 0.04], [-0.074, -0.04, 1.212, 0.038], [-0.098, -0.03, 1.222, 0.032]]) {
-        const tx = x + dx, zt = 0.112 - Math.abs(tx) * 0.3, z0 = 0.045 - Math.abs(x) * 0.15;
-        parts.push(lock([[x, 1.315, z0], [x + dx * 0.35, 1.29, 0.09 - Math.abs(x) * 0.2], [x + dx * 0.75, 1.245, zt + 0.006], [tx, ty, zt]], r, 0.32, 0.002, 12, 10, hc));
-      }
-      // chunky locks down in front of the ears, over the base hair's thin strands there
-      for (const s of [1, -1]) {
-        parts.push(lock([[s * 0.078, 1.25, 0.06], [s * 0.094, 1.21, 0.058], [s * 0.1, 1.17, 0.048], [s * 0.097, 1.14, 0.04]], 0.034, 0.42, 0.003, 12, 10, hc));
-        parts.push(lock([[s * 0.095, 1.25, 0.02], [s * 0.108, 1.21, 0.012], [s * 0.111, 1.17, 0.0], [s * 0.106, 1.14, -0.01]], 0.033, 0.42, 0.003, 12, 10, hc));
-      }
-      v.flat(mergeGeos(parts), c.hair, head1);
-    }
+    garyScalp(v, c);
     v.garment((G) => {
       // the sweatshirt: hung from the shoulders, big and loose like a long-sleeved shirt, falling
       // wide past the waist to low on the hips, the undershirt's orange hem just showing under it;
@@ -1178,6 +1157,66 @@ export function townsfolk(K) {
       ]);
     });
   };
+
+  // Gary's scalp: the whole back and top of the head as hair (the base head is only a face mask,
+  // the forehead the eye patch's flat-topped block), a shell round a head-shaped volume kept
+  // outside the face and the eye patch, standing off it more at the top and back. Its edge is
+  // the hairline all round: across the forehead a row of points leaning over to his right (each
+  // drops gently from his left and rises steeply on his right), down in front of the ears as
+  // pointed sideburns, arching over the ears, and down the back to a pointed nape
+  function garyScalp(v, c) {
+    const C0 = V(0, 1.18, -0.01), T = [...trisOf(v.meshes.get('face_on_1')), ...trisOf(v.meshes.get('face_on_0'))];
+    const NA = 144, NE = 30, TAU2 = TAU;
+    const dirOf2 = (az, el) => V(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+    // the skull: an egg a little longer at the back, narrowing below into the neck, never inside
+    // the face or the eye patch
+    const skull = (d) => {
+      const lo = Math.max(0, -d.y), rz = d.z > 0 ? 0.106 : 0.118 * (1 - 0.45 * lo), rx = 0.1 * (1 - 0.4 * lo), ry = d.y > 0 ? 0.128 : 0.11;
+      const e = 1 / Math.hypot(d.x / rx, d.y / ry, d.z / rz), h = cast(T, C0, d, 0.25);
+      return h == null ? e : Math.max(e, h + 0.004);
+    };
+    // the hairline's height round the head (|azimuth|), then its points
+    const base = (az) => table([[0, 1.238], [0.62, 1.238], [0.92, 1.2], [1.2, 1.155], [1.38, 1.168], [1.5, 1.19], [1.66, 1.165], [1.85, 1.135], [2.2, 1.11], [Math.PI, 1.1]], Math.abs(az));
+    const teeth = (az) => {
+      const a = Math.abs(az);
+      // [count over the whole circle, depth, where in each the point is (0..1)]
+      const [n, depth] = a < 0.8 ? [26, 0.042] : a < 1.35 ? [22, 0.034] : a < 1.7 ? [22, 0.008] : [30, 0.026];
+      const f = ((az / TAU2 * n + 0.15) % 1 + 1) % 1, fp = 0.3;
+      return depth * (f < fp ? f / fp : (1 - f) / (1 - fp)) ** 1.4;
+    };
+    // the edge's elevation where the skull reaches height y (a few steps of refinement)
+    const elAt = (az, y) => {
+      let el = -0.5;
+      for (let it = 0; it < 12; it++) { const d = dirOf2(az, el), r = skull(d); el += (y - (C0.y + d.y * r)) / Math.max(0.04, r * Math.cos(el)); el = clamp(el, -1.3, 1.5); }
+      return el;
+    };
+    const vol = (el, t) => lerp(0.004, 0.014 + 0.012 * Math.max(0, Math.sin(el)), sstep(0, 0.35, t));   // (t: 0 at the edge, 1 at the top)
+    // the sheet from the crown's point (row 0) to the hairline (row NE); pointed, or smooth (for
+    // its shading: the points change the outline, not the light on it)
+    const sheetOf = (pointed) => {
+      const pos = [];
+      for (let i = 0; i <= NE; i++) for (let j = 0; j <= NA; j++) {
+        const az = (j % NA) / NA * TAU2 - Math.PI, t = 1 - i / NE;
+        // the points shape only the band near the edge; above it the hair is smooth
+        const el0 = elAt(az, base(az)), el1 = pointed ? elAt(az, base(az) - teeth(az)) : el0, w = 1 - sstep(0, 0.3, t);
+        const e = lerp(lerp(el0, el1, w), Math.PI / 2 - 0.001, 1 - (1 - t) ** 1.25), d = dirOf2(az, e), p = C0.clone().addScaledVector(d, skull(d) + vol(e, t));
+        pos.push(p.x, p.y, p.z);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      return g;
+    };
+    const idx = [];
+    for (let i = 0; i < NE; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b2 = a + NA + 1; idx.push(a, a + 1, b2, a + 1, b2 + 1, b2); }
+    // facing out: flip if the normals point in
+    let smooth = sheetOf(false), dot = 0;
+    { const N = smooth.attributes.normal, P = smooth.attributes.position; for (let k = 0; k < N.count; k++) dot += N.getX(k) * (P.getX(k) - C0.x) + N.getY(k) * (P.getY(k) - C0.y) + N.getZ(k) * (P.getZ(k) - C0.z); }
+    if (dot < 0) { for (let k = 0; k < idx.length; k += 3) [idx[k + 1], idx[k + 2]] = [idx[k + 2], idx[k + 1]]; smooth = sheetOf(false); }
+    const g = sheetOf(true);
+    g.setAttribute('normal', smooth.attributes.normal.clone());
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    v.flat(g, c.hair, head1);
+  }
 
   // spiky hair as separate locks that bounce: each a chunky tapered lock rising from the head in
   // one direction and arcing over into another, on a chain of two cloth bones from the head
