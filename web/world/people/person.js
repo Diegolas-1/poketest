@@ -145,6 +145,9 @@ export async function assemble(d, look, o = {}) {
     hairMs = Math.round(performance.now() - t);
   }
   person.bones = bones; person.skeleton = skeleton;
+  // the A pose with relaxed hands (fingers a little curled, the thumb in): what to show when no clip plays
+  person.restPose = (curl = 1) => restPose(person, curl);
+  restPose(person);
   person.stats = `${(A.H * 100).toFixed(0)}cm ${d.body.pos.length / 3}v body ${d.ms.body}ms` + (d.ms.dress !== undefined ? ` +${d.worn.length} pieces ${d.ms.dress}ms` : '') + (look.hair ? ` hair ${d.ms.hair ?? hairMs}ms` : '');
   if (o.anim) {
     await loadClips();
@@ -155,6 +158,20 @@ export async function assemble(d, look, o = {}) {
   person.dispose = () => { for (const m of person.meshes) { m.geometry.dispose(); m.material.dispose(); } };
   return person;
 }
+// fingers curl about their own z axis (towards the palm: - on the left hand, + on the right)
+const CURL = { 1: 0.22, 2: 0.32, 3: 0.24 }, FINGER = /^(L|R)Finger([A-D])([123])$/;
+const _q = new THREE.Quaternion(), _z = new THREE.Vector3(0, 0, 1), _y = new THREE.Vector3(0, 1, 0);
+export function restPose(person, curl = 1) {
+  const aq = person.anat.aq;
+  person.bones.forEach((b, i) => {
+    b.quaternion.fromArray(aq[i]);
+    const m = FINGER.exec(b.name); if (!m || !curl) return;
+    const s = m[1] === 'L' ? -1 : 1, seg = +m[3];
+    if (m[2] === 'A') b.quaternion.multiply(_q.setFromAxisAngle(_y, s * -0.12 * curl * seg));
+    else b.quaternion.multiply(_q.setFromAxisAngle(_z, s * CURL[seg] * curl * (m[2] === 'B' ? 0.8 : m[2] === 'D' ? 1.15 : 1)));
+  });
+}
+
 function contextFromData(d, look) {
   const anat = anatomy(look.body || {}), field = compile(posed(anat.tree, anat.ad));
   const mesh = { ...d.body };
