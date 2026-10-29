@@ -11,7 +11,8 @@
 // town's people get theirs drawn in (cast.js eyeTex): their skin, brows, irises and lashes.
 //   drawEyes({ scale, skin: [4 colours: EYE_COLOURS.skin's], brow, browW, iris: [3 colours: top
 //     to bottom], lashes: a colour (a girl's lashes), forehead: true | 'smooth' (swept-back hair:
-//     the forehead lit skin, with lines unless smooth), happy (brows raised and arched, no frown) })
+//     the forehead lit skin, with lines unless smooth), happy (brows raised and arched, no frown),
+//     clear (no skin: transparent round the eyes and brows) })
 //     -> canvas
 const SKIN = ['#cdaca4', '#ffdcd5', '#c5a49c', '#eed0c5'];   // the bands above and below, the strip's two
 const INK = '#1b1418', BROW = '#2a2024', LID_SHADE = 'rgba(70,46,72,0.24)';
@@ -112,18 +113,20 @@ function brow(g, C, col, k, happy) {
   taper(g, [21.5, yo], [31, (yo + yi) / 2 - lift], [40.5, yi], 0.5 * k, 2.6 * k, 1.5 * k);
 }
 
-export function drawEyes({ scale = 4, lashes = null, skin = SKIN, brow: browCol = BROW, browW = 1, iris = IRIS, forehead = false, happy = false } = {}) {
+export function drawEyes({ scale = 4, lashes = null, skin = SKIN, brow: browCol = BROW, browW = 1, iris = IRIS, forehead = false, happy = false, clear = false } = {}) {
   const c = document.createElement('canvas'); c.width = 512 * scale; c.height = 128 * scale;
   const g = c.getContext('2d');
   CELLS.forEach((C, i) => {
     const ox = (i % 4) * 128, oy = Math.floor(i / 4) * 64;
     g.setTransform(scale, 0, 0, scale, ox * scale, oy * scale);
     // the skin: the bands and the strip (a hair over the cell's edges, so no seams show)
-    g.fillStyle = skin[0]; g.fillRect(-0.1, -0.1, 99.6, 34.2);
-    g.fillStyle = skin[1]; g.fillRect(-0.1, 34, 99.6, 30.1);
-    g.fillStyle = skin[2]; g.fillRect(99.4, -0.1, 28.7, 34.2);
-    g.fillStyle = skin[3]; g.fillRect(99.4, 34, 28.7, 30.1);
-    if (forehead) {
+    if (!clear) {   // (clear: no skin, just the eyes and brows, for a head that has its own)
+      g.fillStyle = skin[0]; g.fillRect(-0.1, -0.1, 99.6, 34.2);
+      g.fillStyle = skin[1]; g.fillRect(-0.1, 34, 99.6, 30.1);
+      g.fillStyle = skin[2]; g.fillRect(99.4, -0.1, 28.7, 34.2);
+      g.fillStyle = skin[3]; g.fillRect(99.4, 34, 28.7, 30.1);
+    }
+    if (forehead && !clear) {
       // swept-back hair: the band above lit like the skin below, easing into it over the brows,
       // and (unless smooth) two lines across the forehead
       const fg = g.createLinearGradient(0, 26.9, 0, 32);

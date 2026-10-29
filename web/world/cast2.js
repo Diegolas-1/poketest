@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { slab, paintGrid, trisOf, nearW, mixW, cast, fixRing, hullRing, ZC, ARM_Y, ARM_Z } from './garments.js';
 import { SKULL } from './heads/skull.js';
+import { HEAD } from './heads/anime_head.js';
 
 const TAU = Math.PI * 2;
 const V3 = THREE.Vector3;
@@ -464,7 +465,7 @@ export function townsfolk(K) {
   // a boy of Ash's age: Ash's body at Ash's scale, the head set lower on a shorter neck (Ash's
   // tall collar hides his; Gary's neckline is low)
   CAST.gary = { height: 0, edits: { Head: { t: [0, -0.024, 0] } }, drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
-    face: { iris: '#3a2a22', brow: '#6a3016', browThick: 1, mature: true, forehead: 'smooth' } };   // (mature: the atlas's narrower, cooler eyes)
+    face: { iris: '#3a2a22', brow: '#6a3016', browThick: 1, mature: true, forehead: 'smooth', clear: true } };   // (clear: the sculpted head's eyes, animeHead)   // (mature: the atlas's narrower, cooler eyes)
 
   // bare forearms and hands, the rest of the arm as the sleeve's colour (it shows only in gaps)
   const armsUnder = (skin, col, x) => (p, part) => (part === 'hand' || (isArm(part) && ax(p) > x) ? skin : col);
@@ -1070,9 +1071,8 @@ export function townsfolk(K) {
     });
     // none of Ash's hair: his hair mesh (which is also the back and top of his head) folded away
     // inside the head, and Gary's own scalp in its place (garyScalp)
-    v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
-    v.neck();
-    const scalp = hairCap(v, c, { base: GARY_LINE, teeth: garyTeeth });
+    animeHead(v, c);
+    const scalp = hairCap(v, c, { base: GARY_LINE, teeth: garyTeeth, anime: true });
     v.garment((G) => {
       // the sweatshirt: hung from the shoulders, big and loose like a long-sleeved shirt, falling
       // wide past the waist to low on the hips, the undershirt's orange hem just showing under it;
@@ -1184,6 +1184,82 @@ export function townsfolk(K) {
   // the hairline all round: across the forehead a row of points leaning over to his right (each
   // drops gently from his left and rises steeply on his right), down in front of the ears as
   // pointed sideburns, arching over the ears, and down the back to a pointed nape
+  // ---------- the sculpted head ----------
+  // a whole head (heads/anime_head.js: a sculpt fitted by tools/world/head_from_obj.py) in place
+  // of the base's: its low-poly face mask folded away, the eye decal (face_on_0: the eye atlas,
+  // blinking, the person's eye colours) laid onto the sculpt's eye sockets, and a face drawn on
+  // it in the person's colours (a mouth, a hint of a nose, blush) by a projection from the front
+  let _headT = null;
+  const HEAD_T = () => {
+    if (_headT) return _headT;
+    _headT = [];
+    const P = HEAD.pos, I = HEAD.idx;
+    for (let k = 0; k < I.length; k += 3) _headT.push({ v: [0, 1, 2].map((q) => V(P[I[k + q] * 3], P[I[k + q] * 3 + 1], P[I[k + q] * 3 + 2])) });
+    return _headT;
+  };
+  function animeHead(v, c, o = {}) {
+    const T = HEAD_T();
+    v.shape('face_on_1', (p) => p.set(0, 1.17, 0));   // (Ash's face mask: folded away inside)
+    v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
+    // the eyes: the sculpt's own eye area (so they lie in its sockets), a hair in front of it,
+    // mapped into the eye atlas as the base's eye decal was (an affine fit of its uvs to its
+    // positions); the decal's mesh gets this geometry, so its material (the person's eye
+    // colours, blinking, the native bake's "eyes") stays; the atlas drawn on a clear ground
+    // (face.clear), cut out, so the head's own skin is the only skin
+    const em = v.meshes.get('face_on_0'), eg = em.geometry, EP = eg.attributes.position, EU = eg.attributes.uv;
+    let n = 0, sx = 0, sy = 0, su = 0, sv = 0, sxx = 0, syy = 0, sxu = 0, syv = 0;
+    for (let i = 0; i < EP.count; i++) {
+      if (EP.getZ(i) < 0.045 || Math.abs(EP.getX(i)) > 0.058) continue;   // (the front between the eyes' outer corners: past them the sides wrap round to a strip at the cell's edge, its seam's vertices doubled)
+      const x = EP.getX(i), y = EP.getY(i), u = EU.getX(i), w = EU.getY(i);
+      n++; sx += x; sy += y; su += u; sv += w; sxx += x * x; syy += y * y; sxu += x * u; syv += y * w;
+    }
+    const au = (sxu - sx * su / n) / (sxx - sx * sx / n), bu = (su - au * sx) / n, av = (syv - sy * sv / n) / (syy - sy * sy / n), bv = (sv - av * sy) / n;
+    const pos = [], nrm = [], uvs = [], HP = HEAD.pos, HN = HEAD.nrm, HI = HEAD.idx;
+    for (let k = 0; k < HI.length; k += 3) {
+      const ids = [HI[k], HI[k + 1], HI[k + 2]], uv3 = ids.map((i) => [au * HP[i * 3] + bu, av * HP[i * 3 + 1] + bv]);
+      if (!ids.every((i) => HP[i * 3 + 2] > 0.02) || !uv3.every(([u, w]) => u > 0.003 && u < 0.247 && ((w % 1) + 1) % 1 > 0.003 && ((w % 1) + 1) % 1 < 0.497)) continue;   // (its uvs run 1..1.5: the atlas repeats)
+      ids.forEach((i, q) => {
+        pos.push(HP[i * 3] + HN[i * 3] * 0.0008, HP[i * 3 + 1] + HN[i * 3 + 1] * 0.0008, HP[i * 3 + 2] + HN[i * 3 + 2] * 0.0008);
+        nrm.push(HN[i * 3], HN[i * 3 + 1], HN[i * 3 + 2]); uvs.push(...uv3[q]);
+      });
+    }
+    const ng = new THREE.BufferGeometry();
+    ng.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); ng.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); ng.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    const hi = em.skeleton.bones.findIndex((b) => b.name === 'Head'), cnt = pos.length / 3;
+    ng.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(cnt * 4).map((_, j) => (j % 4 ? 0 : hi)), 4));
+    ng.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Float32Array(cnt * 4).map((_, j) => (j % 4 ? 0 : 1)), 4));
+    em.geometry = ng; em.userData.parts = new Array(cnt).fill('head');
+    em.material.alphaTest = 0.5;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(HEAD.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(HEAD.nrm, 3));
+    g.setIndex(HEAD.idx);
+    // uvs: the front by a projection from the front; behind the ears one skin texel
+    const P = HEAD.pos, uv = new Float32Array(P.length / 3 * 2);
+    for (let i = 0; i < P.length / 3; i++) {
+      const front = P[i * 3 + 2] > 0.0;
+      uv[i * 2] = front ? 0.5 + P[i * 3] / 0.2 : 0.5; uv[i * 2 + 1] = front ? (1.3 - P[i * 3 + 1]) / 0.3 : 0.02;
+    }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    const U = (x) => (0.5 + x / 0.2), Vv = (y) => (1.3 - y) / 0.3;
+    const mat = K.canvasMat(512, 512, (x, w, h) => {
+      x.fillStyle = c.skin; x.fillRect(0, 0, w, h);
+      // blush under the eyes
+      for (const s of [-1, 1]) {
+        const cx = U(s * 0.047) * w, cy = Vv(1.142) * h, gr = x.createRadialGradient(cx, cy, 1, cx, cy, 0.075 * w);
+        gr.addColorStop(0, o.blush || 'rgba(240,140,140,0.45)'); gr.addColorStop(1, 'rgba(240,140,140,0)');
+        x.fillStyle = gr; x.fillRect(cx - 0.08 * w, cy - 0.08 * h, 0.16 * w, 0.16 * h);
+      }
+      // a hint of a nose: a short soft stroke under its tip
+      x.strokeStyle = 'rgba(170,100,90,0.55)'; x.lineWidth = 2.2; x.lineCap = 'round';
+      x.beginPath(); x.moveTo(U(-0.004) * w, Vv(1.137) * h); x.lineTo(U(0.003) * w, Vv(1.135) * h); x.stroke();
+      // the mouth: a smile
+      x.strokeStyle = o.lips || '#5a2a2e'; x.lineWidth = 3;
+      x.beginPath(); x.moveTo(U(-0.012) * w, Vv(1.1195) * h); x.quadraticCurveTo(U(0) * w, Vv(1.1145) * h, U(0.012) * w, Vv(1.1195) * h); x.stroke();
+    }, v.SKIN, { name: 'cast_head' });
+    v.add(g, mat, (p) => { const t = sstep(1.1, 1.06, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'head');
+  }
+
   // Gary's hairline: high over the forehead, dipping before the ears, low at the nape; and its
   // points: across the front small, choppy and uneven, every point a different depth
   const GARY_LINE = [[0, 1.238], [0.62, 1.238], [0.92, 1.2], [1.2, 1.155], [1.38, 1.168], [1.5, 1.19], [1.66, 1.165], [1.85, 1.135], [2.2, 1.11], [Math.PI, 1.1]];
@@ -1196,8 +1272,9 @@ export function townsfolk(K) {
   }
   // a head of hair's cap, for anyone (Gary, the cheerleaders): o.base, the hairline's height round
   // the head ([|azimuth|, y] rows); o.teeth(az), how far its edge is cut into points there
+  // o.anime: the head is the sculpted one (animeHead), not the base's face mask and a skull
   function hairCap(v, c, o = {}) {
-    const C0 = V(0, 1.18, -0.01), T = [...trisOf(v.meshes.get('face_on_1')), ...trisOf(v.meshes.get('face_on_0'))];
+    const C0 = V(0, 1.18, -0.01), T = o.anime ? HEAD_T() : [...trisOf(v.meshes.get('face_on_1')), ...trisOf(v.meshes.get('face_on_0'))];
     const NA = 144, NE = 30, TAU2 = TAU;
     const dirOf2 = (az, el) => V(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
     // the skull: an egg a little longer at the back, narrowing below into the neck, never inside
@@ -1221,8 +1298,8 @@ export function townsfolk(K) {
     }
     const skullGeo = new THREE.BufferGeometry();
     skullGeo.setAttribute('position', new THREE.Float32BufferAttribute(tucked, 3)); skullGeo.setIndex(SKULL.idx); skullGeo.computeVertexNormals();
-    const ST = [];
-    for (let k = 0; k < SKULL.idx.length; k += 3) ST.push({ v: [0, 1, 2].map((q) => V(SKULL.pos[SKULL.idx[k + q] * 3], SKULL.pos[SKULL.idx[k + q] * 3 + 1], SKULL.pos[SKULL.idx[k + q] * 3 + 2])) });
+    const ST = o.anime ? T : [];
+    if (!o.anime) for (let k = 0; k < SKULL.idx.length; k += 3) ST.push({ v: [0, 1, 2].map((q) => V(SKULL.pos[SKULL.idx[k + q] * 3], SKULL.pos[SKULL.idx[k + q] * 3 + 1], SKULL.pos[SKULL.idx[k + q] * 3 + 2])) });
     // the hair's cap sits on that head (and outside the face and the eye patch); where neither
     // is there (the top, under his band), on the egg
     const skull0 = (d) => {
@@ -1282,9 +1359,12 @@ export function townsfolk(K) {
     const g = sheetOf(true);
     g.setAttribute('normal', smooth.attributes.normal.clone());
     g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-    v.flat(g, c.hair, head1);
-    skullGeo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(SKULL.pos.length / 3 * 2), 2));
-    v.add(skullGeo, K.flatMat(c.skin, v.SKIN, { name: 'cast_skull' }), (p) => { const t = sstep(1.12, 1.085, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'skull');
+    // its own material, the hair's colour (vertex colours come out darker in the native build)
+    v.add(g, K.flatMat(c.hair, v.CLOTH, { name: 'cast_cap', side: THREE.DoubleSide }), head1, 'cap');
+    if (!o.anime) {
+      skullGeo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(SKULL.pos.length / 3 * 2), 2));
+      v.add(skullGeo, K.flatMat(c.skin, v.SKIN, { name: 'cast_skull' }), (p) => { const t = sstep(1.12, 1.085, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'skull');
+    }
     // (for locks lying on the cap: a point on its surface in a direction, off it by lift)
     return { on: (az, el, lift) => { const d = dirOf2(az, el); return C0.clone().addScaledVector(d, skull(d) + 0.012 + lift); } };
   }
@@ -1395,7 +1475,7 @@ export function townsfolk(K) {
     // (the head set lower on a shorter neck, as Gary's: no gap under it)
     CAST[id] = { height: h.height, edits: { ...body({ ...WOMAN, head: 0.97, trunk: [0.93, 1.02, 0.95], arm: 0.9, legLen: 1.07 }), Head: { t: [0, -0.024, 0] } },
       drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
-      face: { iris: h.iris, brow: h.hair2, lashes: '#1e141a', mouth: 'smile', blush: '#f49aa2', lips: '#e07a82', forehead: 'smooth', happy: true } };
+      face: { iris: h.iris, brow: h.hair2, lashes: '#1e141a', mouth: 'smile', blush: '#f49aa2', lips: '#e07a82', forehead: 'smooth', happy: true, clear: true } };
     BUILD[id] = (v) => cheerleader(v, C[id]);
   }
 
@@ -1432,10 +1512,9 @@ export function townsfolk(K) {
       const t = sstep(1.04, 1.05, p.y), r = Math.hypot(p.x, p.z + 0.008); if (!t || isArm(part) || r < 0.033) return;
       const k = 1 + (0.033 / r - 1) * t; p.x *= k; p.z = -0.008 + (p.z + 0.008) * k;
     });
-    // none of Ash's hair: her own on a real head (hairCap)
-    v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
-    v.neck();
-    const scalp = hairCap(v, c, { base: GIRL_LINE });
+    // none of Ash's head or hair: the sculpted head (animeHead), her own hair on it (hairCap)
+    animeHead(v, c, { lips: '#c0505a', blush: 'rgba(244,140,150,0.5)' });
+    const scalp = hairCap(v, c, { base: GIRL_LINE, anime: true });
     pomPoms(v, c);
     const onHead = [], flat0 = v.flat;   // (the head's rigid parts in one mesh: paletted)
     v.flat = (geo, col) => onHead.push([geo, col]);
