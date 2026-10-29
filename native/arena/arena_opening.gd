@@ -389,8 +389,9 @@ func _flip(face: String) -> void:
 	var cp := Vector3.ZERO
 	var follow := func() -> Dictionary:
 		var q: Vector3 = coin.global_position
-		return {"pos": q + Vector3(0.95, 0.05, 0.75), "look": q, "fov": 36.0}
-	shot({"f": follow}, 7.0)
+		# from the clay beside where it will land, a long lens tracking it up and down
+		return {"pos": land + Vector3(2.3, 0.75, 1.7), "look": q, "fov": 30.0 if q.y - land.y > 0.6 else 36.0}
+	shot({"f": follow}, 0.0)
 	var t := 0.0
 	while t < T:
 		if skipping: break

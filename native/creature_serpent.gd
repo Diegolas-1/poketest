@@ -391,6 +391,9 @@ func _act(P: Dictionary, dt: float, u: float, d: float) -> void:
 		"hide":
 			pass
 		_:
+			# the legged rig's acts (dig, blast...) bend its body scalars: a serpent's pose has none
+			for key in ["crouch", "lean", "pitch", "earf", "tp", "hfwd", "sq", "rise", "y", "wag", "hood"]:
+				if not P.has(key): P[key] = 0.0
 			super._act(P, dt, u, d)
 
 # a strike: drawn back and up (the S loaded), then the head shot out at the target
