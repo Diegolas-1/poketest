@@ -185,6 +185,10 @@ func _process(_dt: float) -> void:
 	if A.has("headcam") and c.has_method("point"):
 		# (dev) the face close up: the head at the middle, a third of its size away
 		focus = c.call("point", "head")
+	if A.has("focus") and c.has_method("point"):
+		# (dev) close on a named point (a bone's name works too)
+		var bi := c.b(String(A.focus))
+		focus = c.to_world(c.G[bi].origin) if bi >= 0 else c.call("point", A.focus)
 	var ang := deg_to_rad(cv[2])
 	if A.has("views"):
 		var vs := Array(String(A.views).split(","))
