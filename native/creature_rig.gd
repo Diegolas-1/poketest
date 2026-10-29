@@ -1654,6 +1654,12 @@ func _face(P: Dictionary, dt: float) -> void:
 	if e != _eye and eye_mat:
 		_eye = e
 		eye_mat.set_shader_parameter("uv_off", _cell(EYES, "eyes", e))
+		# a pupil sheet of its own (a rip without a merged eye sheet: its iris a card over
+		# the eye whites): shown while the eyes are open, cut away when they shut
+		var shut := e in ["closed", "happy", "squeeze"]
+		for m in mat_by:
+			if String(m).contains("_iris"):
+				(mat_by[m] as ShaderMaterial).set_shader_parameter("alpha_cut", 1.1 if shut else 0.5)
 	var m: String = P.mouth
 	if m == "": m = "smile" if emote == "happy" else ("frown" if emote in ["angry", "sad"] else "closed")
 	if m != _mouth and mouth_mat:
