@@ -143,6 +143,14 @@ var _test_wheelie := false
 var _wh_lock := 0.0
 var _wh_t := 0.0
 var dust: WaterFx
+var _latch := false        # the stick held through a 180: read as before the camera swung
+var _latch_a := 0.0        # its angle in the camera's frame then
+var _latch_cam := 0.0      # the camera's yaw then
+var _spin_dir_in := Vector2.ZERO
+var _cam0 := 0.0
+var _as_in := 0.0
+var stick_rel_now := 0.0
+var stick_held_now := false          # the assist's share of the steering, eased in when it takes over
 var _clock := 0.0
 var _fwd_was := false
 var _fwd_at := -9.0
@@ -264,6 +272,12 @@ var TR_DEPTH := float(TR.get("max_depth", 0.1))
 var TR_LEAN := float(TR.get("lean", 0.35))
 var TR_TUCK := float(TR.get("tuck", 0.16))
 var TR_DUST := int(TR.get("dust", 26))
+var TR_CAM := float(TR.get("cam_time", 0.4))
+var LATCH_M := float(TR.get("latch_tilt", 0.25))
+var LATCH_ANG := float(TR.get("latch_ang", 0.7))
+var AS_BLEND := float(AS.get("blend_in", 0.3))
+var AS_OVERRIDE := float(AS.get("override", 0.42))
+var AS_HAND := float(AS.get("hand_from", 0.12))
 var WH := T.dict("bike", "wheelie", {})
 var WH_ANG := float(WH.get("angle", 0.52))
 var WH_POP := float(WH.get("pop", 0.2))
@@ -607,6 +621,14 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	if _spin_cd > 0.0: _spin_cd -= dt
 	if _wh_lock > 0.0: _wh_lock -= dt
 	wheelie_in = (_test_wheelie or _wheelie_input()) and not busy
+	# after a 180 the camera has swung round with him: the stick still held where the flick
+	# left it means "on along the new way" (read as it was before the swing) until it is let
+	# go or moved well away
+	if _latch and m > LATCH_M and absf(wrapf(atan2(dir.x, dir.y) - game.cam_yaw - _latch_a, -PI, PI)) < LATCH_ANG:
+		var w: float = atan2(dir.x, dir.y) - (game.cam_yaw - _latch_cam)
+		dir = Vector2(sin(w), cos(w)) * dir.length()
+	elif spin_t < 0.0:
+		_latch = false
 	if spin_t >= 0.0:
 		_spin_step(dt)
 		return
@@ -618,6 +640,7 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		_fl_side = true
 	elif m > TR_M and absf(ef) >= PI - TR_BACK and _clock - _fl_fwd_t < TR_FLICK and not _fl_side:
 		if cast.ground and not busy and not dismount_want and v > TR_VMIN and _wd < TR_DEPTH and not _bumping and _spin_cd <= 0.0 and skid_t <= 0.0:
+			_spin_dir_in = dir
 			_spin_start(signf(ef) if absf(ef) < PI - 0.05 else (signf(om) if absf(om) > 0.05 else 1.0))
 			_spin_step(dt)
 			return
@@ -699,6 +722,9 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		assisting = assist.update(dt, at, yaw, v, sw, 0.0 if (cruise and not stick_held) else stick_rel, m if stick_held else 0.0, cruise)
 	elif assist.active:
 		assist.active = false
+	if not assisting: _as_in = 0.0
+	stick_rel_now = 0.0 if (cruise and not stick_held) else stick_rel
+	stick_held_now = stick_held
 	if assisting:
 		target = minf(target, assist.v_limit)
 	# in the water (the assist's pace through a ford too)
@@ -801,7 +827,17 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		var rmin := R_MIN + R_K * v * v
 		var om_max := minf(absf(v) / rmin, OM_MAX)
 		om_t = clampf(e * TURN_GAIN, -om_max, om_max) * signf(v)
-		if assisting and v > 0.0: om_t = clampf(assist.om_target, -om_max, om_max)
+		if assisting and v > 0.0:
+			# the assist eases in when it takes over (no yank onto the path), and inside its
+			# override band the stick's own turn blends in by how far it is pushed, so a turn
+			# on a path answers at once (not toward a branch the stick picked: the assist rides that)
+			_as_in = move_toward(_as_in, 1.0, dt / maxf(0.01, AS_BLEND))
+			var hand := 0.0
+			var srel := absf(stick_rel_now)
+			if stick_held_now and srel < AS_OVERRIDE and not assist._choice_stick:
+				hand = clampf((srel - AS_HAND) / maxf(0.01, AS_OVERRIDE - AS_HAND), 0.0, 1.0)
+				hand = hand * hand * (3.0 - 2.0 * hand)
+			om_t = lerpf(om_t, clampf(assist.om_target, -om_max, om_max), _as_in * (1.0 - hand))
 		if skid_t > 0.0: om_t *= 0.4
 		om_t *= lerpf(1.0, WH_STEER, wheelie)
 	om += (om_t - om) * (1.0 - exp(-dt * (10.0 if pivot else TURN_RESP)))
@@ -887,6 +923,12 @@ func _spin_start(sd: float) -> void:
 	spin_v0 = v
 	spins += 1
 	cruise = false
+	assisting = false
+	if assist: assist.active = false   # (it picks the path up again the new way)
+	_cam0 = game.cam_yaw
+	_latch_cam = game.cam_yaw
+	_latch = true
+	_latch_a = wrapf(atan2(_spin_dir_in.x, _spin_dir_in.y) - game.cam_yaw, -PI, PI)
 	cast.vy = TR_VY
 	cast.ground = false
 	Sfx.play("whoosh", null, {"vol": -15.0, "pitch": 1.25})
@@ -900,6 +942,11 @@ func _spin_step(dt: float) -> void:
 	var k := clampf(spin_t / TR_T, 0.0, 1.0)
 	var ke := k * k * (3.0 - 2.0 * k)
 	yaw = wrapf(spin_y0 + spin_dir * PI * ke, -PI, PI)
+	# the camera swings round with him, the same way, behind the new heading by the landing
+	var kc := clampf(spin_t / maxf(0.05, TR_CAM), 0.0, 1.0)
+	kc = kc * kc * (3.0 - 2.0 * kc)
+	var cam_turn := spin_dir * PI + wrapf(spin_y0 + PI - _cam0, -PI, PI)
+	game.cam_yaw = _cam0 + cam_turn * kc
 	om = spin_dir * PI / TR_T * 6.0 * k * (1.0 - k)
 	var fo := Vector3(sin(spin_y0), 0, cos(spin_y0))
 	v = spin_v0 * (1.0 - ke * (1.0 + TR_KEEP))

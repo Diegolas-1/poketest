@@ -20,7 +20,7 @@ extends RefCounted
 # Junctions (lazy: it wants to keep rolling straight): the branch is picked before
 # the fork (signal_t seconds of riding ahead, at least signal_min m). Near a fork
 # the stick may go up to fork_override off straight ahead without taking the
-# steering back, and a clear push toward a branch (at least fork_tilt of tilt, more
+# steering back, and a push toward a branch (at least fork_tilt of tilt, more
 # than nudge rad off straight ahead, the stick within fork_align rad of that
 # branch's way out) picks it; a slight drift never does. Else, with the setting
 # "Follow the road to my goal" on and a goal on the compass, the branch on the
@@ -62,8 +62,8 @@ var SIGNAL_MIN := 12.0
 var MIN_V := 0.8
 var GAIN := 1.0
 var FORK_OVERRIDE := 1.75  # rad: near a fork the stick may go this far off straight ahead
-var FORK_TILT := 0.3       # the tilt a branch pick needs
-var FORK_ALIGN := 0.8      # rad: the stick within this of a branch's way out picks it
+var FORK_TILT := 0.15      # the tilt a branch pick needs
+var FORK_ALIGN := 1.05     # rad: the stick within this of a branch's way out picks it
 var STRAIGHT_ANG := 0.6    # rad: a branch this close to straight on wins over the goal
 var FORK_LA := 1.4         # the lookahead x this near a junction node
 

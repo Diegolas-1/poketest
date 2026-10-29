@@ -1092,8 +1092,8 @@ func _assist_test(dt: float) -> void:
 				var tgt_e := left_e if phase == 2 else (e2 if left_e == e1 else e1)
 				var od := A._out_dir(fork, tgt_e, 1 if A.E[tgt_e].a == fork else -1)
 				var tp := A.nodes[fork] + od * 14.0
-				sv = _toward(Vector3(tp.x, 0, tp.y), 0.5)
-			if phase == 9: sv = Vector2(-0.22, -0.85)   # (a slight drift toward the left)
+				sv = _toward(Vector3(tp.x, 0, tp.y), 0.25)
+			if phase == 9: sv = Vector2(-0.85 * tan(deg_to_rad(10.0)), -0.85)   # (a slight drift toward the left: 10 degrees)
 			main.stick_vec = sv
 			if not A.choice.is_empty() and A.nodes[A.choice[0]].distance_to(A.nodes[fork]) < 4.0: _as.picked = A.choice[1]; _as.why = A.why
 			if OS.get_cmdline_user_args().has("--log") and ph_f % 30 == 0: print("fork %d t %.1f at %s e %d dir %d choice %s why %s active %s fork %d end %.1f" % [phase, ph_t, str(p2), A.e, A.dir, str(A.choice), A.why, A.active, fork, A.to_end() if A.e >= 0 else -1.0])
@@ -1106,7 +1106,7 @@ func _assist_test(dt: float) -> void:
 				var o1 := A._out_dir(fork, e1, 1 if A.E[e1].a == fork else -1)
 				var o2 := A._out_dir(fork, e2, 1 if A.E[e2].a == fork else -1)
 				var want := -1
-				var label: String = ["", "straight on", "half the stick toward the left branch", "half the stick toward the right branch", "toward the goal", "", "", "", "", "a slight drift of the stick (14 degrees)"][phase]
+				var label: String = ["", "straight on", "a quarter of the stick toward the left branch", "a quarter of the stick toward the right branch", "toward the goal", "", "", "", "", "a slight drift of the stick (10 degrees)"][phase]
 				var straight := e1 if o1.dot(tin) > o2.dot(tin) else e2
 				match phase:
 					1, 9: want = straight
@@ -1175,6 +1175,25 @@ func _assist_test(dt: float) -> void:
 				_check(past > 3.0 and _as.wet > 5, "the ford at the stepping stones: the assist rode on across (%.1f m past the last stone, %d frames on the stones or in the water, steering %d of them)" % [past, _as.wet, _as.on])
 				_check(_as.vwet < _as.vdry * 0.75, "slower over the ford: %.1f m/s on the trail, %.1f at the slowest on it" % [_as.vdry, _as.vwet])
 				phase = 9; ph_t = 0.0; ph_f = 0
+		11:
+			# a quick turn on a path: the stick pushed 45 degrees over at speed, the assist on;
+			# the bike answers within a few frames (it does not fight the stick)
+			if ph_f == 1:
+				Settings.set_value("bike_assist", 1)
+				var rd := _straight_road()
+				_ride_at(rd.x, rd.z, rd.y)
+				b.v = 12.0
+				_as = {"t0": -1.0, "f0": 0, "fr": -1, "on": false}
+			if ph_t < 1.5:
+				main.stick_vec = Vector2(0, -0.85)
+				_as.on = b.assisting
+			else:
+				if _as.t0 < 0.0: _as.t0 = ph_t; _as.f0 = ph_f
+				main.stick_vec = Vector2(0.62, -0.62)
+				if _as.fr < 0 and b.om < -0.6: _as.fr = ph_f - _as.f0
+			if ph_t > 2.3:
+				_check(_as.on and _as.fr >= 0 and _as.fr <= 6, "a quick turn on a path (assist on): the bike turned within %d frames of the stick going over" % _as.fr)
+				phase = 8; ph_t = 0.0; ph_f = 0
 		10:
 			# lazy at junctions: through real junctions of the graph (a branch running on
 			# straight), the stick held forward, the goal off: straight on every time
@@ -1191,7 +1210,7 @@ func _assist_test(dt: float) -> void:
 				if _as.i >= _as.list.size():
 					Settings.set_value("bike_goal", 1)
 					_check(_as.n >= 3 and _as.bad.is_empty(), "lazy at junctions: %d junctions ridden straight through with the stick forward (wrong: %s)" % [_as.n, ", ".join(_as.bad)])
-					phase = 8; ph_t = 0.0; ph_f = 0
+					phase = 11; ph_t = 0.0; ph_f = 0
 					return
 				var J2: Array = _as.list[_as.i]
 				var st: Vector2 = J2[5]
@@ -1515,9 +1534,14 @@ func _tricks(dt: float) -> void:
 			match phase:
 				0:
 					# forward 0.15 s, then straight back 0.25 s, then along the new way
+					# (the back stick then held just as it was, as a player would: the camera swings
+					# round with him, and the held stick must still mean straight on)
 					if tt < 0.15: main.stick_vec = _toward(b.at + f0 * 6.0, 1.0)
-					elif tt < 0.4: main.stick_vec = _toward(b.at + bk * 6.0, 1.0)
-					else: main.stick_vec = _toward(b.at + bk * 8.0, 0.9)
+					else:
+						if not _tk.has("sv"): _tk.sv = _toward(b.at + bk * 6.0, 1.0)
+						main.stick_vec = _tk.sv if tt < 0.4 else _tk.sv * 0.9
+					if b.spins > _tk.n0 and b.spin_t < 0.0 and not _tk.has("cam"):
+						_tk.cam = absf(wrapf(main.cam_yaw - (b.yaw + PI), -PI, PI))
 				1:
 					# swept round the left side over 0.9 s, held right out
 					var a := clampf(tt / 0.9, 0.0, 1.0) * PI * 0.97
@@ -1533,7 +1557,9 @@ func _tricks(dt: float) -> void:
 			if tt > 1.6:
 				var turned := absf(wrapf(b.yaw - (_tk.y0 + PI), -PI, PI))
 				match phase:
-					0: _check(b.spins == _tk.n0 + 1 and turned < 0.35 and b.v >= _tk.v0 * 0.55, "the 180: a quick flick forward -> back spun him round (%d spin, facing %.2f rad off the reverse) and he rode on at %.1f m/s (from %.1f)" % [b.spins - _tk.n0, turned, b.v, _tk.v0])
+					0:
+						_check(b.spins == _tk.n0 + 1 and turned < 0.35 and b.v >= _tk.v0 * 0.55, "the 180: a quick flick forward -> back spun him round (%d spin), and with the stick still held back he rode straight on the new way (facing %.2f rad off the reverse, no second spin or u-turn) at %.1f m/s (from %.1f)" % [b.spins - _tk.n0, turned, b.v, _tk.v0])
+						_check(_tk.get("cam", 9.0) < deg_to_rad(15.0), "the camera swung round with the spin: %.1f degrees off behind him as he landed" % rad_to_deg(_tk.get("cam", 9.0)))
 					1: _check(b.spins == _tk.n0, "a slow sweep of the stick round the side: no spin (%d)" % [b.spins - _tk.n0])
 					2: _check(b.spins == _tk.n0, "letting go, then pulling back: no spin (%d)" % [b.spins - _tk.n0])
 				phase += 1; ph_t = 0.0; ph_f = 0
