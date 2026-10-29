@@ -218,7 +218,8 @@
     "energy_shard": {"name": "Energy Shard", "chips": 1, "pool": "colorless", "price": 1500, "rarity": "rare", "desc": "A sliver of crystal that hums. One Colorless chip, now."},
     "focus_crystal": {"name": "Focus Crystal", "chips": 2, "pool": "own", "price": 4000, "rarity": "rare", "desc": "A rare crystal from Mt. Moon. Two chips of the Pokemon's own type."},
     "focus_tonic": {"name": "Focus Tonic", "focus": 30, "price": 2500, "rarity": "rare", "desc": "A bitter drink. A burst of focus."},
-    "full_charge": {"name": "Full Charge", "focus_to": 100, "price": 12000, "rarity": "unique", "desc": "Extremely rare. Straight to max focus."}
+    "full_charge": {"name": "Full Charge", "focus_to": 100, "price": 12000, "rarity": "unique", "desc": "Extremely rare. Straight to max focus."},
+    "bright_powder": {"name": "Bright Powder", "held": true, "dodge_bonus": 0.1, "price": 3000, "rarity": "rare", "desc": "A held powder that glitters in the foe's eyes. Dodges come off more often. A placeholder."}
   },
 
   "trainer_moves": {
@@ -228,6 +229,27 @@
     "places": ["opener", "mid", "finisher", "two_phase", "reaction", "disruption", "utility"],
     "sources": ["tm", "tutor"],
     "min_level": {"opener": 1, "mid": 10, "finisher": 20, "two_phase": 12, "reaction": 5, "other": 5}
+  },
+
+  "dodge": {
+    "_doc": "Dodge (and the other dodge-kind reactions: Teleport, Ally Switch, Swim Freely) is a chance, not a sure thing: base + by_type (each of the dodger's types) + weight (heavy_kg or more: heavy; light_kg or less: light; weight_kg from kanto151.json, else heavy_list) + the speed ratio against the attacker ((ratio - 1) x per_ratio, capped at +-cap) + status (para, confused; asleep it can't dodge when sleep_cancels) + locked_in + a held item's dodge_bonus (items) + per_evasion_stage x its evasion stage - per_accuracy_stage x the attacker's accuracy stage, clamped to min..max. Swift and Mind Reader / Lock-On still get through. A failed dodge spends its chip. The AI rates a Dodge at its chance.",
+    "base": 0.375,
+    "by_type": {"flying": 0.06, "psychic": 0.05, "ghost": 0.05, "bug": 0.02, "rock": -0.06, "steel": -0.06, "ground": -0.03},
+    "weight": {"heavy_kg": 100.0, "heavy": -0.06, "light_kg": 10.0, "light": 0.04, "heavy_list": ["snorlax", "onix", "golem", "rhydon", "lapras", "gyarados", "dragonite"]},
+    "speed": {"per_ratio": 0.2, "cap": 0.12},
+    "status": {"para": -0.15, "confused": -0.1},
+    "sleep_cancels": true,
+    "locked_in": 0.05,
+    "per_evasion_stage": 0.05,
+    "per_accuracy_stage": 0.05,
+    "min": 0.1,
+    "max": 0.7
+  },
+
+  "protect_repeat": {
+    "_doc": "Protect and Detect (protect-kind reactions) set on turns in a row: the chance is x mult for each turn in a row (1, then 1/2, then 1/4), not below min.",
+    "mult": 0.5,
+    "min": 0.0
   },
 
   "prologue": {
@@ -275,5 +297,5 @@
     "reaction_rate_scale": 1.0,
     "status_scale": 1.0
   },
-  "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.4, "tcg_chart_resist_mult": 0.8, "weakness_by_level": {"levels": [8, 22, 40], "mult": [1.4, 1.3, 1.7]}, "tcg_chart_super_mult": 1.15}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}, "level_stat": {"levels": [8, 20, 35], "min": 0.6, "max": 1.6, "bonus": {"common": [0.0, 0.0, 0.0], "uncommon": [-0.2048, -0.0298, 0.2062], "rare": [-0.3224, -0.03, 0.3094], "very_rare": [-0.3424, 0.0199, 0.2225], "legendary": [-0.3424, 0.0199, 0.2225]}}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.258, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6, "disruption": 1.25}}, "min_action_value": 4.0, "wild_styles": {"evasive": {"status": 1.3}}, "finisher_value": 1.23, "two_phase_value": 0.9, "reaction_value": 40.0, "status_scale": 1.35, "reaction_rate_scale": 1.818}, "slots": {"wild_equip": "balanced", "gain_per_slot": 2.75}, "trainer_moves": {"fill": [], "places": ["opener", "mid", "finisher", "two_phase", "reaction"]}}}
+  "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.4, "tcg_chart_resist_mult": 0.8, "weakness_by_level": {"levels": [8, 22, 40], "mult": [1.4, 1.3, 1.7]}, "tcg_chart_super_mult": 1.15}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}, "level_stat": {"levels": [8, 20, 35], "min": 0.6, "max": 1.6, "bonus": {"common": [0.0, 0.0, 0.0], "uncommon": [-0.1895, 0.0347, 0.2142], "rare": [-0.3439, 0.0345, 0.2861], "very_rare": [-0.3639, 0.0844, 0.1926], "legendary": [-0.3639, 0.0844, 0.1926]}}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.253, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6, "disruption": 1.25}}, "min_action_value": 4.0, "wild_styles": {"evasive": {"status": 1.3}}, "finisher_value": 1.23, "two_phase_value": 0.9, "reaction_value": 40.0, "status_scale": 1.75, "reaction_rate_scale": 1.818}, "slots": {"wild_equip": "balanced", "gain_per_slot": 2.75}, "trainer_moves": {"fill": [], "places": ["opener", "mid", "finisher", "two_phase", "reaction"]}}}
 }

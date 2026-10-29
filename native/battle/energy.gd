@@ -1252,6 +1252,7 @@ func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {},
 	v += st * float(K.get("status", 1.0)) * float(A.get("status_scale", 1.0))
 	if role == "reaction":
 		v = float(ctx.get("reaction_value", float(A.get("reaction_value", 30.0)) * 0.5)) * pow(0.4, in_turn)
+		v *= float(ctx.get("reaction_mult", {}).get(id, 1.0))      # its odds of working (PkmnAI.reaction_odds)
 	if int(m.get("priority", 0)) > 0 and in_turn == 0 and role != "reaction": v += 6.0
 	v *= float(ctx.get("role_w", {}).get(role, 1.0))
 	v += float(ctx.get("move_bonus", {}).get(id, 0.0))

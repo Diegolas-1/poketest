@@ -27,6 +27,18 @@ static func state_ctx(b: PkmnBattle, side: String) -> Dictionary:
 		"me": {"sure_hit": me.sure_hit, "status": me.status, "confused": me.confused > 0, "stages": me.stages.duplicate(),
 			"hp_ratio": float(me.hp) / maxf(1.0, float(me.max_hp))}}
 
+# what a reaction is worth by its odds of working now: a Dodge its dodge chance against
+# this foe, Protect or Detect after one last turn its lowered chance
+static func reaction_odds(b: PkmnBattle, side: String, ids: Array) -> Dictionary:
+	var me = b.fighter(side)
+	var foe = b.fighter(b.other(side))
+	var out := {}
+	for id in ids:
+		var kind := String(BattleEnergy.move(id).get("reaction", {}).get("kind", ""))
+		if kind == "dodge": out[id] = b.dodge_chance(me, foe)
+		elif kind in ["protect", "protect_priority"]: out[id] = b.guard_chance(me)
+	return out
+
 static func plan(b: PkmnBattle, side: String) -> Array:
 	var me = b.fighter(side)
 	var foe = b.fighter(b.other(side))
@@ -39,10 +51,11 @@ static func plan(b: PkmnBattle, side: String) -> Array:
 	var state := state_ctx(b, side)
 	if String(me.ai) == "wild":
 		var st := String(BattleEnergy.species_data(e.species).get("ai", "strategic"))
-		return e.plan_turn(ids, st, {"uses": me.uses, "rng": b.rng, "jitter": jitter, "foe": state.foe, "me": state.me})
+		return e.plan_turn(ids, st, {"uses": me.uses, "rng": b.rng, "jitter": jitter, "foe": state.foe, "me": state.me, "reaction_mult": reaction_odds(b, side, ids)})
 	var P := personality(String(me.ai))
 	var ctx := {"uses": me.uses, "rng": b.rng, "jitter": jitter, "move_bonus": {}, "exclude": [], "foe": state.foe, "me": state.me,
-		"role_w": {"offense": float(P.get("offense", 1.0)), "disruption": float(P.get("disruption", 1.0))}}
+		"role_w": {"offense": float(P.get("offense", 1.0)), "disruption": float(P.get("disruption", 1.0))},
+		"reaction_mult": reaction_odds(b, side, ids)}
 	var rv := float(A.get("reaction_value", 30.0))
 	var foe_threat: bool = foe.e.available() > 0 or not foe.e.commit.is_empty()
 	# reactions: set one when the foe can attack, by temperament

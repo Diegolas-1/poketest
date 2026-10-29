@@ -73,6 +73,9 @@ class Fighter:
 	var barrier := {}            # physical | special -> the last turn it holds (Reflect, Light Screen)
 	var regen := false           # heals a little each turn (Ingrain, Aqua Ring)
 	var drowsy := 0              # Yawn: falls asleep when this counts down to 0
+	var item := ""               # a held item (battle_config items: dodge_bonus ...)
+	var guard_last := -99        # the last turn it set Protect or Detect (battle_config protect_repeat)
+	var guard_streak := 0        # Protect / Detect set on turns in a row before this one
 	var last_move := ""          # its last move (Mimic, Mirror Move, Copycat)
 	var para_turn := -1          # the turn its paralysis was last rolled (damage.para_scope turn)
 	var para_blocked := false
@@ -129,6 +132,7 @@ func _make(s: String, d: Dictionary) -> Fighter:
 	var keys := ["atk", "def", "spa", "spd", "spe"]
 	for i in 5: f.stats[keys[i]] = int(floor(2.0 * float(base[i + 1]) * rm * le / 100.0)) + 5
 	f.hp = int(d.get("hp", f.max_hp))
+	f.item = String(d.get("item", ""))
 	f.ai = String(d.get("ai", "player" if s == "a" else "wild"))
 	f.e.pick_mode = "player" if f.ai == "player" else "auto"
 	return f
@@ -366,6 +370,10 @@ func _act(s: String, q: Dictionary) -> Array:
 	if role == "reaction":
 		u.e.refund(q.kinds)
 		var L := u.e.lock(id)
+		if not L.is_empty() and String(mv(id).get("reaction", {}).get("kind", "")) in ["protect", "protect_priority"]:
+			L.chance = float(L.get("chance", 1.0)) * guard_chance(u)
+			u.guard_streak = u.guard_streak + 1 if u.guard_last == turn - 1 else 0
+			u.guard_last = turn
 		if not L.is_empty() and String(L.effect) == "evade" and u.semi() in ["underground", "airborne", "underwater"]:
 			u.e.release_lock(int(L.id), "wasted")
 			out.append(_ev({"t": "wasted", "side": s, "move": id, "why": "semi", "text": "%s is out of reach already: the dodge is wasted." % _nm(u)}))
@@ -378,6 +386,42 @@ func _act(s: String, q: Dictionary) -> Array:
 		return out
 	out.append_array(_use_on(u, tg, id, int(q.get("chips", 0))))
 	return out
+
+# a Dodge's chance against this attacker (battle_config dodge): base + its types, its weight,
+# the speed ratio, its status, Locked In, a held item, evasion and the attacker's accuracy
+# stages, clamped; asleep it can't dodge at all
+func dodge_chance(f: Fighter, att: Fighter) -> float:
+	var D := BattleConfig.sect("dodge")
+	if D.is_empty(): return 1.0
+	if f.status == "sleep" and bool(D.get("sleep_cancels", true)): return 0.0
+	var p := float(D.get("base", 0.375))
+	var bt: Dictionary = D.get("by_type", {})
+	for t in f.types: p += float(bt.get(String(t), 0.0))
+	var S := BattleEnergy.species_data(f.species)
+	var W: Dictionary = D.get("weight", {})
+	var kg := float(S.get("weight_kg", -1.0))
+	if kg < 0.0: kg = float(W.get("heavy_kg", 100.0)) if f.species in W.get("heavy_list", []) else float(W.get("mid_kg", 30.0))
+	if kg >= float(W.get("heavy_kg", 100.0)): p += float(W.get("heavy", -0.08))
+	elif kg <= float(W.get("light_kg", 10.0)): p += float(W.get("light", 0.04))
+	var Sp: Dictionary = D.get("speed", {})
+	var ratio := speed(f.side) / maxf(1.0, speed(att.side))
+	p += clampf((ratio - 1.0) * float(Sp.get("per_ratio", 0.2)), -float(Sp.get("cap", 0.12)), float(Sp.get("cap", 0.12)))
+	var St: Dictionary = D.get("status", {})
+	if f.status == "para": p += float(St.get("para", -0.15))
+	if f.confused > 0: p += float(St.get("confused", -0.1))
+	if f.e.locked_in: p += float(D.get("locked_in", 0.05))
+	var I: Dictionary = BattleConfig.sect("items").get(f.item, {}) if f.item != "" else {}
+	if I is Dictionary: p += float(I.get("dodge_bonus", 0.0))
+	p += float(D.get("per_evasion_stage", 0.05)) * int(f.stages.eva)
+	p -= float(D.get("per_accuracy_stage", 0.05)) * int(att.stages.acc)
+	return clampf(p, float(D.get("min", 0.1)), float(D.get("max", 0.7)))
+
+# Protect and Detect set on turns in a row: each one's chance x battle_config
+# protect_repeat.mult again (1, then 1/2, then 1/4)
+func guard_chance(f: Fighter) -> float:
+	var R := BattleConfig.sect("protect_repeat")
+	if R.is_empty() or f.guard_last != turn - 1: return 1.0
+	return maxf(float(R.get("min", 0.0)), pow(float(R.get("mult", 0.5)), f.guard_streak + 1))
 
 # a set reaction with a chance (a coin flip, e.g. Defensive Posture): does it work this time?
 # A failed one is spent (released) with an event.
@@ -489,13 +533,19 @@ func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 			out.append(_ev({"t": "trigger", "side": tg.side, "move": L.move, "text": "%s bounced %s back!" % [_nm(tg), String(m.name).to_upper()]}))
 			for tag in m.get("effects", []): out.append_array(_effect(tg, u, String(tag), id, true))
 			return out
-		if (eff == "evade" or (eff == "block" and attack)) and not _lock_works(tg, L, out): continue
+		if eff == "block" and attack and not _lock_works(tg, L, out): continue
 		if eff == "evade":
 			if interaction(id, "dodge").get("hits", false): continue      # Swift: it can't be dodged
 			if id in C.get("cancel_dodge", []): continue                  # Mind Reader reads it, it doesn't dodge it
 			if u.sure_hit and attack:
 				tg.e.release_lock(int(L.id), "cancelled")
 				out.append(_ev({"t": "wasted", "side": tg.side, "move": L.move, "why": "read", "text": "%s read the dodge!" % _nm(u)}))
+				continue
+			# a dodge is a chance, not a sure thing (battle_config dodge): a failed one is spent
+			var dc := dodge_chance(tg, u) if String(mv(String(L.move)).get("reaction", {}).get("kind", "")) == "dodge" else float(L.get("chance", 1.0))
+			if rng.randf() >= dc:
+				tg.e.release_lock(int(L.id), "failed")
+				out.append(_ev({"t": "wasted", "side": tg.side, "move": L.move, "why": "chance", "chance": dc, "text": "%s tried to dodge... but was hit!" % _nm(tg)}))
 				continue
 			tg.e.release_lock(int(L.id), "triggered")
 			out.append(_ev({"t": "dodged", "side": tg.side, "move": id, "lock": L.move, "text": "%s dodged it!" % _nm(tg)}))
