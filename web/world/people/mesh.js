@@ -131,14 +131,15 @@ export function normals(mesh) {
 }
 
 // Newton steps of every vertex onto the zero set of f (steps clamped to maxStep)
-export function project(mesh, f, iters = 4, maxStep = 0.02, e = 2e-4) {
+export function project(mesh, f, iters = 4, maxStep = 0.02, e = 2e-4, tol = 2e-5) {
   const P = mesh.pos;
   for (let v = 0; v < P.length; v += 3) {
     let x = P[v], y = P[v + 1], z = P[v + 2];
     for (let it = 0; it < iters; it++) {
       const d = f(x, y, z);
-      if (Math.abs(d) < 1e-6) break;
-      const gx = (f(x + e, y, z) - f(x - e, y, z)) / (2 * e), gy = (f(x, y + e, z) - f(x, y - e, z)) / (2 * e), gz = (f(x, y, z + e) - f(x, y, z - e)) / (2 * e);
+      if (Math.abs(d) < tol) break;
+      // forward differences (the value at the point is reused)
+      const gx = (f(x + e, y, z) - d) / e, gy = (f(x, y + e, z) - d) / e, gz = (f(x, y, z + e) - d) / e;
       const g2 = gx * gx + gy * gy + gz * gz;
       if (g2 < 1e-12) break;
       let s = d / g2;

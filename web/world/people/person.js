@@ -13,6 +13,7 @@ import { skinMaterial } from './skin.js';
 import { clothMaterial } from './paint.js';
 import { context } from './wear.js';
 import { dress } from './outfit.js';
+import { buildHair } from './hair.js';
 
 // bones for a skeleton (local positions sk.t, rotations q)
 export function makeBones(sk, q) {
@@ -77,7 +78,7 @@ export async function makePerson(input = {}, o = {}) {
   let worn = [];
   const hide = new Float32Array(b.mesh.pos.length / 3);
   if (!o.direct && look.outfit && look.outfit.length) {
-    const cat = await loadCatalog(), ctx = context(b, base());
+    const cat = await loadCatalog(), ctx = person.ctx = context(b, base());
     const t0 = performance.now();
     worn = dress(ctx, look.outfit, cat);
     person.dressMs = Math.round(performance.now() - t0);
@@ -105,6 +106,14 @@ export async function makePerson(input = {}, o = {}) {
     const mat = clothMaterial({ colors: w.paint.colors, glsl: w.paint.glsl, params: w.paint.params, double: w.piece.double, inside: w.paint.inside });
     const m = add(geometryOf(w.piece.mesh), mat, w.item.id);
     m.userData.item = w.item; m.userData.slot = w.slot;
+  }
+  // hair (hair.js): pieces with their own materials; flattened under a hat
+  if (!o.direct && look.hair) {
+    const ctx = person.ctx || context(b, base());
+    const hatOn = worn.some((w) => w.slot === 'hat' && w.piece);
+    let hair = [];
+    try { hair = buildHair(ctx, look.hair, { hatOn, look }) || []; } catch (e) { console.warn('hair', e); }
+    for (const h of hair) if (h && h.piece) { const m = add(geometryOf(h.piece.mesh), h.material, 'hair'); m.userData.slot = 'hair'; }
   }
   person.bones = bones; person.skeleton = skeleton;
   person.stats = `${(A.H * 100).toFixed(0)}cm ${b.mesh.pos.length / 3}v ${b.ms}ms` + (person.dressMs !== undefined ? ` +${worn.length} pieces ${person.dressMs}ms` : '');

@@ -218,30 +218,41 @@ function addRim(mesh, border, N, depth, out) {
 // o: { top, hem (canonical heights), off, flare (m of extra radius at the hem), pleats (count), pleatDepth (m),
 // fullness (0..1: how much it stands off the legs), follow (0..1 how much the hem follows the thighs), back (extra at the back), rim, layer }
 export function tube(ctx, o) {
-  const f = ctx.f, yTop = fy(ctx, o.top), yHem = fy(ctx, o.hem), off = o.off ?? 0.008;
+  const yTop = fy(ctx, o.top), yHem = fy(ctx, o.hem), off = o.off ?? 0.008;
   const NR = o.segments || 72, step = o.step || 0.012, rows = Math.max(3, Math.ceil((yTop - yHem) / step));
   // the trunk's axis (front-back) from the body round the hips
   let zc = 0, cnt = 0;
   for (let v = 0; v < ctx.n; v++) { const y = ctx.body.pos[3 * v + 1]; if (Math.abs(y - yTop) < 0.03 && ctx.body.part[4 * v] === 0) { zc += ctx.body.pos[3 * v + 2]; cnt++; } }
   zc = cnt ? zc / cnt : 0;
-  const outer = (y, th) => {   // outermost body surface at this height and angle (both legs together), from outside in
-    const dx = Math.sin(th), dz = Math.cos(th);
-    let r = 0.6;
-    for (let i = 0; i < 120; i++) { const d = f(dx * r, y, zc + dz * r); if (d < off) break; r -= Math.max(d - off, 0.002); if (r < 0.01) return 0.01; }
-    return r;
+  // the outline of the hips and both legs at a height (not the arms hanging beside them),
+  // from the body's vertices: per angle the farthest one out
+  const B = ctx.body, tl = [];
+  for (let v = 0; v < ctx.n; v++) { const l = B.part[4 * v]; if ((l === 0 || l === 2) && B.share[4 * v] < 0.3) tl.push(v); }
+  const outerRing = (y, ring) => {
+    ring.fill(0);
+    for (const v of tl) {
+      const py = B.pos[3 * v + 1]; if (Math.abs(py - y) > 0.015) continue;
+      const x = B.pos[3 * v], z = B.pos[3 * v + 2] - zc, r = Math.hypot(x, z);
+      const i = ((Math.round((Math.atan2(x, z) / TAU) * NR) % NR) + NR) % NR;
+      if (r + off > ring[i]) ring[i] = r + off;
+    }
+    // fill gaps (a bin no vertex fell in) from the neighbours
+    for (let it = 0; it < NR; it++) { let gap = false; for (let i = 0; i < NR; i++) if (!ring[i]) { const a = ring[(i + NR - 1) % NR], b = ring[(i + 1) % NR]; if (a || b) ring[i] = Math.max(a, b); else gap = true; } if (!gap) break; }
+    for (let i = 0; i < NR; i++) if (!ring[i]) ring[i] = 0.05;
   };
   const R = [], Y = [];
   let prev = null;
   for (let j = 0; j <= rows; j++) {
     const t = j / rows, y = lerp(yTop, yHem, t), ring = new Float32Array(NR);
-    for (let i = 0; i < NR; i++) ring[i] = outer(y, (i / NR) * TAU);
+    outerRing(y, ring);
     // smooth round (no notch between the legs), then flare and never narrower than the ring above
     for (let it = 0; it < 6; it++) { const c = ring.slice(); for (let i = 0; i < NR; i++) ring[i] = Math.max(c[i], (c[(i + NR - 1) % NR] + 2 * c[i] + c[(i + 1) % NR]) / 4); }
     for (let i = 0; i < NR; i++) {
       const th = (i / NR) * TAU, back = Math.max(0, -Math.cos(th));
       let r = ring[i] + (o.flare ?? 0.04) * Math.pow(t, 1.3) + (o.back ?? 0.01) * back * t;
       if (prev) r = Math.max(r, prev[i] - 0.002 + (o.fullness ?? 0.4) * (r - prev[i]) * 0);
-      if (o.pleats) r += (o.pleatDepth ?? 0.008) * (0.3 + 0.7 * t) * Math.abs(((i / NR) * o.pleats * 2) % 2 - 1);
+      // pleats open out from nothing at the waistband to their full depth at the hem
+      if (o.pleats) r += (o.pleatDepth ?? 0.008) * sstep(0, 0.45, t) * Math.abs(((i / NR) * o.pleats * 2) % 2 - 1);
       ring[i] = r;
     }
     R.push(ring); Y.push(y); prev = ring;
