@@ -137,7 +137,7 @@ func _rects() -> Dictionary:
 	var bar_a_r := Rect2(S.end.x - M - RIGHT_W - 60.0, S.end.y - M - 84.0, RIGHT_W + 60.0, 84.0)
 	var menu := Rect2(S.end.x - M - RIGHT_W, bar_a_r.position.y - 20.0 - 122.0, RIGHT_W, 122.0)
 	var mv_top := bar_b_r.end.y + 44.0
-	var mlist := Rect2(S.end.x - M - RIGHT_W, mv_top, RIGHT_W, bar_a_r.position.y - 22.0 - mv_top)
+	var mlist := Rect2(S.end.x - M - RIGHT_W, mv_top, RIGHT_W, bar_a_r.position.y - 40.0 - mv_top)   # (clear of the bar's TURN tag above it)
 	var line := Rect2(S.position.x + M, S.position.y + M + 4.0, minf(560.0, S.size.x - PLATE_W - 3 * M - 20.0), 46.0)
 	return {"plate_a": plate_a, "plate_b": plate_b, "bar_a": bar_a_r, "bar_b": bar_b_r, "menu": menu, "moves": mlist, "line": line, "safe": S}
 
@@ -146,9 +146,9 @@ func _layout() -> void:
 	bar_a.fit(R.bar_a)
 	bar_b.fit(R.bar_b)
 	# the clip: room at the sides for the selected row's nudge and the shadows,
-	# none at the bottom (the player's bar starts 22 px below)
+	# next to none at the bottom (the player's bar and its tag start just below)
 	moves_clip.position = R.moves.position - Vector2(48, 8)
-	moves_clip.size = R.moves.size + Vector2(96, 8 + 14)
+	moves_clip.size = R.moves.size + Vector2(96, 8 + 4)
 	moves.position = Vector2(48, 8)
 	moves.size = R.moves.size
 
