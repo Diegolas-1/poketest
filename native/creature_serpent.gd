@@ -34,6 +34,7 @@ var tongue_t := 0.0
 var hood := PackedInt32Array()
 var TONGUE := PackedInt32Array()
 var _J: Array[Vector3] = []       # this frame's joints (skeleton space)
+var _rdir: Array[Vector3] = []    # each chain bone's rest direction
 var _Y := PackedFloat32Array()    # the heading of the body at each joint (its side axis: never lost when upright)
 
 func _rig_ready() -> void:
@@ -60,6 +61,19 @@ func _rig_ready() -> void:
 	for tn in ["Tongue1", "Tongue2", "Tongue3"]:
 		if b(tn) >= 0: TONGUE.append(b(tn))
 	_J.resize(chain.size() + 1)
+	# each bone's rest direction along the body: a spine bone toward the head, a tail bone toward the tip
+	_rdir.resize(chain.size())
+	for k in chain.size():
+		var bi := chain[k]
+		var d := Vector3.UP
+		if skel.get_bone_name(bi).begins_with("Tail"):
+			if k + 1 < chain.size(): d = rest_at(chain[k + 1]) - rest_at(bi)
+			else:
+				var ek := _kids(bi)
+				d = (rest_at(ek[0]) - rest_at(bi)) if not ek.is_empty() else (rest_at(bi) - rest_at(chain[k - 1]))
+		elif k > 0:
+			d = rest_at(chain[k - 1]) - rest_at(bi)
+		_rdir[k] = d.normalized() if d.length() > 1e-5 else Vector3.UP
 	_Y.resize(chain.size() + 1)
 	tails.clear()
 	legs.clear()
@@ -80,7 +94,9 @@ func _frame(P: Dictionary, dt: float, v: float) -> void:
 	var k := skel.global_transform.basis.get_scale().x
 	travel += v * dt / maxf(0.01, k)
 	move_w = damp(move_w, sm(0.03, 0.25, v), 4.0, dt)
-	coil_w = damp(coil_w, clampf((1.0 - move_w) * (1.0 - P.get("flat", 0.0)) + float(P.get("coil", 0.0)), 0.0, 1.4), 3.0, dt)
+	# (a caterpillar, a seal: species.json "coils": false, it lies out at rest instead of coiling)
+	var rest_coil: float = (1.0 - move_w) * (1.0 - P.get("flat", 0.0)) * (1.0 if bool(I.get("coils", true)) else 0.0)
+	coil_w = damp(coil_w, clampf(rest_coil + float(P.get("coil", 0.0)), 0.0, 1.4), 3.0, dt)
 	rise_s = spring(rise_s, float(P.get("rise", 1.0)), 9.0, dt, 0.7)
 	lunge_s = spring(lunge_s, float(P.get("lunge", 0.0)), 26.0, dt, 0.8)
 	hood_s = spring(hood_s, float(P.get("hood", 0.0)), 14.0, dt, 0.6)
@@ -171,10 +187,13 @@ func _place(P: Dictionary, dt: float) -> void:
 		var yw := (_Y[k - 1] + _Y[k]) * 0.5
 		var lat := Vector3(cos(yw), 0, -sin(yw))
 		var belly := lat.cross(head_ward.normalized()).normalized()
+		# (each bone's own rest line: the rips lay a serpent upright (Ekans) or flat (Onix))
+		var rd: Vector3 = _rdir[k]
+		var ru := Vector3.RIGHT.cross(-rd if is_tail else rd).normalized()
 		if is_tail:
-			aim(bi, _J[k + 1] - _J[k], belly, Vector3.DOWN, Vector3(0, 0, 1))
+			aim(bi, _J[k + 1] - _J[k], belly, rd, ru)
 		else:
-			aim(bi, _J[k - 1] - _J[k], belly, Vector3.UP, Vector3(0, 0, 1))
+			aim(bi, _J[k - 1] - _J[k], belly, rd, ru)
 		# the tail's root hangs off the Hips (at the waist): the Hips turned to reach it
 		if is_tail and parent[bi] == HIPS and HIPS >= 0:
 			aim(HIPS, _J[k] - wpos, belly, rest_dir(HIPS, bi), Vector3(0, 0, 1))

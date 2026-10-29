@@ -97,7 +97,7 @@ func _width(c: Creature) -> Vector2:
 			var p: Vector3 = c.rest_g[i].origin
 			lo = minf(lo, -p.z); hi = maxf(hi, -p.z)
 	var h := float(Creature.species_info(c.species).get("height", 0.0))
-	if c.species in ["ekans", "arbok"]: h *= 0.35
+	if String(Creature.species_info(c.species).get("family", "")) == "serpent": h *= 0.35
 	return Vector2(maxf(maxf(0.15, hi - lo), 0.55 * h), back)
 
 func _process(_dt: float) -> void:

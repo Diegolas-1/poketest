@@ -96,7 +96,9 @@ func _start() -> void:
 	add_child(c)
 	var info := CreatureRig.info(id)
 	size = float(info.get("height", 0.4))
-	if id in ["ekans", "arbok"]: size *= 0.35
+	if String(info.get("family", "")) == "serpent": size *= 0.35
+	# (species.json "frame": the size to frame it by, where its height misleads)
+	size = float(info.get("frame", size))
 	x = 0.0
 	yaw = PI / 2.0 if not A.has("yaw") else deg_to_rad(float(A.yaw))
 	var g: Dictionary = c.get("gait") if c.get("gait") != null else {}
