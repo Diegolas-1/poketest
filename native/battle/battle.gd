@@ -532,7 +532,8 @@ func _run() -> void:
 	if cast:
 		if cast.btn_ui: _hide(cast.btn_ui)
 		if cast.cond_ui: _hide(cast.cond_ui)
-		# the world HUD's top right (the clock, the quest log button) gives way to the plates
+		# the world HUD's corners (the clock, the quest log button, the settings cog) give way to the battle's
+		if Settings.menu and Settings.menu.get("cog"): _hide(Settings.menu.cog)
 		if cast.clock and cast.clock.hud: _hide(cast.clock.hud)
 		if cast.life and cast.life.quests and cast.life.quests.ui and cast.life.quests.ui.get("btn"): _hide(cast.life.quests.ui.btn)
 		if cast.dialog: cast.dialog.prompt = {}; cast.dialog._ban_t = 99.0   # (the area's banner gives way to the intro)

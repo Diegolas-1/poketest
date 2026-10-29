@@ -317,7 +317,7 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 		_mood(s, _act(s, id, anim, "thunder"))
 		Sfx.play("whoosh", from, {"vol": -4.0, "pitch": 1.8})
 		await _wait(0.3)
-		var top := to + Vector3(0, 7.0, 0) if anim == "thunder" else from + Vector3(0, 0.5, 0)
+		var top := to + Vector3(0, 7.0, 0) if anim == "thunder" else from + Vector3(0, 0.55, 0) + d * 0.2
 		for k in 3:
 			_bolt(top, to + Vector3(0, 0.3, 0), col)
 			battle.shake = 0.35
@@ -347,9 +347,12 @@ func _bolt(a: Vector3, b: Vector3, col: Color) -> void:
 		var seg := p - prev
 		# (a streak's length is its speed x len: crawling, with a long len, it stays put)
 		var mid := prev.lerp(p, 0.5)
-		battle.fx.spawn("streak", mid, seg.normalized() * 0.01, {"life": 0.16, "size": 0.0, "len": seg.length() / 0.01, "w": 0.05, "col": Color(1, 1, 0.92, 1.0)})
-		battle.fx.spawn("streak", mid, seg.normalized() * 0.01, {"life": 0.2, "size": 0.0, "len": seg.length() / 0.01, "w": 0.2, "col": Color(col, 0.55)})
+		battle.fx.spawn("streak", mid, seg.normalized() * 0.01, {"life": 0.22, "size": 0.0, "len": seg.length() / 0.01, "w": 0.09, "col": Color(1, 1, 0.95, 1.0)})
+		battle.fx.spawn("streak", mid, seg.normalized() * 0.01, {"life": 0.26, "size": 0.0, "len": seg.length() / 0.01, "w": 0.36, "col": Color(col, 0.6)})
 		prev = p
+	battle.fx.spawn("star", a, Vector3.ZERO, {"life": 0.18, "size": 0.5, "size_end": 0.9, "col": Color(col.lightened(0.3), 1.0)})
+	battle.fx.spawn("star", b, Vector3.ZERO, {"life": 0.22, "size": 0.9, "size_end": 1.6, "col": Color(col.lightened(0.3), 1.0)})
+	battle.fx.spawn("ring", b, Vector3.ZERO, {"life": 0.3, "size": 0.4, "size_end": 1.8, "col": Color(col, 0.9)})
 	for i in 8:
 		battle.fx.spawn("star", b, Vector3(randf_range(-3, 3), randf_range(0.5, 4), randf_range(-3, 3)), {"life": 0.25, "size": 0.25, "size_end": 0.05, "col": Color(col, 1.0), "rot": randf() * TAU})
 
