@@ -4,6 +4,7 @@
 // player (node position); INSTANCE_CUSTOM = clump x, z in the tile, two randoms.
 shader_type spatial;
 render_mode unshaded, cull_disabled;
+#include "res://shaders/arena.gdshaderinc"
 
 uniform sampler2D height_map : filter_linear, repeat_disable;   // R height, G density
 uniform vec4 area;   // x0, z0, w, d
@@ -70,6 +71,13 @@ void vertex() {
 				wp.xz += dir * sin(th) * h;
 				wp.y -= (1.0 - cos(th)) * h;
 			}
+		}
+		// a battle: the clumps round the spot slide out of the way (arena.gdshaderinc),
+		// onto the ground where they end up
+		if (arena_on()) {
+			vec3 o = arena_push(vec3(p.x, hm.r, p.y), max(lp.y, 0.0));
+			wp += o;
+			wp.y += texture(height_map, (p + o.xz - area.xy) / area.zw).r - hm.r;
 		}
 		float n = hash(floor(p * 0.3));
 		vec3 root = vec3(0.03, 0.2, 0.1), body = mix(vec3(0.2, 0.52, 0.08), vec3(0.26, 0.58, 0.08), n);

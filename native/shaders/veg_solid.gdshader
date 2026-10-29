@@ -22,7 +22,7 @@ void vertex() {
 	v_k = fade_k(ip);
 	v_mp = VERTEX; v_mn = NORMAL;
 	if (v_k >= 0.999) VERTEX = vec3(0.0);
-	else VERTEX = sway(VERTEX, ip, TIME) * mix(1.0, shrink, v_k);
+	else VERTEX = arena_vertex(sway(VERTEX, ip, TIME) * mix(1.0, shrink, v_k), MODEL_MATRIX);
 }
 
 void fragment() {

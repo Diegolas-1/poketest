@@ -311,6 +311,66 @@
    ]
   },
   {
+   "id": "gust_vortex",
+   "category": "battle",
+   "vol": -2.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.0,
+   "mode": "3d",
+   "dist": 40.0,
+   "unit": 6.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "wind",
+    "gust",
+    "vortex"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/battle_sfx.py)",
+   "files": [
+    "battle/gust_vortex_1.ogg"
+   ]
+  },
+  {
+   "id": "sand_spray",
+   "category": "battle",
+   "vol": -4.0,
+   "pitch": [
+    0.9,
+    1.15
+   ],
+   "vjit": 2.0,
+   "mode": "3d",
+   "dist": 25.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "battle",
+    "sand",
+    "spray",
+    "grit"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/battle_sfx.py)",
+   "files": [
+    "battle/sand_spray_1.ogg"
+   ]
+  },
+  {
    "id": "bag_jostle",
    "category": "character",
    "vol": 0.0,

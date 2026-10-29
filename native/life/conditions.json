@@ -85,6 +85,21 @@
    "duration": {"kind": "timer", "minutes": 25, "refresh": true, "left": "%s left"},
    "effects": {"stamina_regen": 1.25}
   },
+  "scraped": {
+   "name": "Scraped & Dirty",
+   "_note": "battle/battle_defeat.gd: knocked down by a wild Pokemon. Dirt and scratches show on his clothes and skin (body.gd: the actor shader's dirt), he limps (actor.gd limp), runs slower and tires sooner. Wears off with time, faster resting (standing still, sitting down: body.gd); Nurse Joy patches it right up (BattleDefeat.joy_heals).",
+   "levels": [
+    [0.0, "A bit scuffed", "Still a little sore and grubby. Nearly better."],
+    [0.4, "Scraped & Dirty", "Scratched up and covered in dirt from that Pidgey. You limp a bit, run slower and tire sooner. Rest, or see Nurse Joy."]
+   ],
+   "icon": "bang",
+   "color": "#b0603a",
+   "order": 15,
+   "stack": "replace",
+   "by_strength": true,
+   "duration": {"kind": "decay", "full_minutes": 480, "left": "Better in %s"},
+   "effects": {"speed": 0.9, "run_speed": 0.85, "stamina_max": 0.75, "stamina_regen": 0.85, "jump": 0.85}
+  },
   "warm": {
    "name": "Warmed up",
    "levels": [

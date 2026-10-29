@@ -4,6 +4,7 @@
 // cel bands. veg_cam is the player's camera (a global, so the shadow pass
 // fades the same plants as the picture).
 global uniform vec3 veg_cam;
+#include "res://shaders/arena.gdshaderinc"
 uniform vec2 fade = vec2(1000000.0, 1000001.0);   // start, end (metres from the camera)
 uniform float shrink = 1.0;                 // a fading plant shrinks to this toward its root
 uniform float wind = 0.0;
@@ -42,4 +43,13 @@ vec3 cel(vec3 base, float t) {
 	c = mix(c, base, s1);
 	c = mix(c, base * lit + lit_add, s2);
 	return c * gain;
+}
+
+// a battle's arena (arena.gdshaderinc): the whole plant slides out, the vertex
+// given in the instance's space, moved by a world offset
+vec3 arena_vertex(vec3 v, mat4 model) {
+	if (!arena_on()) return v;
+	mat3 m = mat3(model);
+	vec3 o = arena_push(model[3].xyz, (m * v).y);
+	return v + inverse(m) * o;
 }

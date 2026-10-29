@@ -60,6 +60,8 @@ var meshes: Array[MeshInstance3D] = []
 var mat_src := {}           # ShaderMaterial -> its cast.json material name (body.gd: the wet look per material)
 # worn out (body.gd, fatigue): 0..1, a hunched, panting posture on top of the clips
 var tired := 0.0
+# hurt (body.gd, the "scraped" condition): 0..1, favouring the right leg as he walks
+var limp := 0.0
 # cloth and hair: the garments' cloth bones and the hair chains, simulated (cloth.gd)
 var cloth: ClothSim
 var cloth_far := false      # set by the owner: far off, the cloth just hangs
@@ -404,6 +406,7 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	if wa > 0.001:
 		for s in [["L", 1.0], ["R", -1.0]]: bend(s[0] + "ArmA", 0, 0, 1, s[1] * wa)
 	if tired > 0.001: _tired(speed)
+	if limp > 0.001: _limp()
 	_jump(dt, speed, air)
 	if crouch_w > 0.0: _crouch(dt, speed)
 	idles.post(dt)
@@ -470,6 +473,21 @@ func _idle_life(dt: float, wI: float, wP: float) -> void:
 	bend("Neck", 1, 0, 0, pt * 0.4); bend("Head", 1, 0, 0, pt * 0.6)
 
 # ---------- worn out: hunched, panting (body.gd sets tired) ----------
+# the limp: on the sore right leg's step (phase 0.5 .. 1) he lurches onto it and off
+# again quickly: the trunk tips to the left over the good leg, the hip drops, the
+# sore knee kept stiffer, the head bobbing down with the hitch
+func _limp() -> void:
+	var lk := limp * clampf(w.walk + w.run * 0.7, 0.0, 1.0) * (1.0 - air_w)
+	if lk < 0.001: return
+	var sore := maxf(0.0, sin((phase - 0.5) * TAU))   # the right foot's stance
+	var good := maxf(0.0, sin(phase * TAU))
+	bend("Spine1", 0, 0, 1, (0.1 * sore - 0.03 * good) * lk)
+	bend("Spine2", 0, 0, 1, 0.05 * sore * lk)
+	bend("Hips", 0, 0, 1, -0.07 * sore * lk)
+	bend("RLeg", 1, 0, 0, -0.18 * sore * lk)
+	bend("Head", 1, 0, 0, 0.08 * sore * lk)
+	bend("Spine2", 1, 0, 0, 0.06 * lk)
+
 func _tired(_speed: float) -> void:
 	var tk := tired * (1.0 - air_w)
 	var st: float = w.idle   # standing: bent over further, hands toward the knees

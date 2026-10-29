@@ -1,51 +1,329 @@
 {
-	"_doc": "Wild Pokémon (wild/wild.gd, wild/wild_brain.gd). species.<id>: the tracking worker's keys (where it lives and when, how it settles into cover, its temperaments and how each reacts when startled, how well it hears and sees, how it flees and where it hides, how long it remembers) sit beside the battle worker's (hp, moves, damage). tracking: the hunt's tuning (spawn rates, noise, alertness, the A-mash, the flight).",
-	"species": {
-		"pidgey": {
-			"name": "Pidgey",
-			"sources": {"tall_grass": {"regions": ["route1"], "rate": 1.0}},
-			"hours": [5.0, 20.5],
-			"temper": {"flighty": 0.45, "curious": 0.22, "aggressive": 0.18, "timid": 0.15},
-			"react": {
-				"flighty": {"flee": 0.85, "curious": 0.15},
-				"curious": {"curious": 0.7, "flee": 0.3},
-				"aggressive": {"attack": 0.75, "flee": 0.25},
-				"timid": {"flee": 0.9, "attack": 0.1}
-			},
-			"senses": {"hearing": 1.0, "sight": 1.0},
-			"temper_senses": {"flighty": 1.25, "curious": 0.8, "aggressive": 1.0, "timid": 1.15},
-			"flee": {"speed": 10.0, "fly": true, "height": 4.5, "range": [30.0, 60.0], "safe": {"tall_grass": 1.0, "bush": 0.55, "tree": 0.8}},
-			"forget": 150.0,
-			"tells": {"feather": 0.3, "bob": 0.45}
-		}
-	},
-	"tracking": {
-		"cover_near": 1.0,
-		"cover_far": 7.0,
-		"spawn_still_s": 9.0,
-		"lure": {"still": 1.0, "crouch": 0.75, "walk": 0.12, "run": 0.0, "bike": 0.0},
-		"spawn_d": [3.5, 9.0],
-		"cooldown_s": 15.0,
-		"leave_d": 40.0,
-		"life_s": 120.0,
-		"noise": {"crouch": 0.22, "walk0": 0.35, "walk1": 1.0, "run": 2.4, "bike": 1.6},
-		"hear_d": 3.0,
-		"sight": {"crouch": 0.15, "stand": 0.45, "moving": 0.8, "d": 2.5},
-		"quiet": 0.12,
-		"quiet_wary": 0.08,
-		"rise": 2.0,
-		"rise_wary": 2.6,
-		"decay": 0.12,
-		"bump_d": 0.9,
-		"wary_at": 0.45,
-		"peek": {"height": 1.7, "hover_min": 1.4, "hover_max": 2.6, "gap": [2.5, 5.5]},
-		"engage_d": 2.0,
-		"mash": {"press": 0.36, "decay": 0.45, "alert": 0.07},
-		"grab": {"d": 3.5, "window": 1.3, "press": 0.6, "decay": 0.5},
-		"flee_launch": {"s": 0.5, "drift": 0.7},
-		"burst_gap": [2.0, 4.5],
-		"burst_gap_wary": [3.5, 7.0],
-		"burst_len": [0.7, 1.2],
-		"twitch_amp": 1.5
-	}
+ "_doc": "Wild Pokémon (wild/wild.gd, wild/wild_brain.gd). species.<id>: the tracking worker's keys (where it lives and when, how it settles into cover, its temperaments and how each reacts when startled, how well it hears and sees, how it flees and where it hides, how long it remembers) sit beside the battle worker's (hp, moves, damage). tracking: the hunt's tuning (spawn rates, noise, alertness, the A-mash, the flight).",
+ "species": {
+  "pidgey": {
+   "name": "Pidgey",
+   "sources": {
+    "tall_grass": {
+     "regions": [
+      "route1"
+     ],
+     "rate": 1.0
+    }
+   },
+   "hours": [
+    5.0,
+    20.5
+   ],
+   "temper": {
+    "flighty": 0.45,
+    "curious": 0.22,
+    "aggressive": 0.18,
+    "timid": 0.15
+   },
+   "react": {
+    "flighty": {
+     "flee": 0.85,
+     "curious": 0.15
+    },
+    "curious": {
+     "curious": 0.7,
+     "flee": 0.3
+    },
+    "aggressive": {
+     "attack": 0.75,
+     "flee": 0.25
+    },
+    "timid": {
+     "flee": 0.9,
+     "attack": 0.1
+    }
+   },
+   "senses": {
+    "hearing": 1.0,
+    "sight": 1.0
+   },
+   "temper_senses": {
+    "flighty": 1.25,
+    "curious": 0.8,
+    "aggressive": 1.0,
+    "timid": 1.15
+   },
+   "flee": {
+    "speed": 10.0,
+    "fly": true,
+    "height": 4.5,
+    "range": [
+     30.0,
+     60.0
+    ],
+    "safe": {
+     "tall_grass": 1.0,
+     "bush": 0.55,
+     "tree": 0.8
+    }
+   },
+   "forget": 150.0,
+   "tells": {
+    "feather": 0.3,
+    "bob": 0.45
+   },
+   "battle": {
+    "name": "PIDGEY",
+    "level": 3,
+    "hp": 16,
+    "speed": 56,
+    "flee_hp": 0.35,
+    "flee_k": {
+     "flighty": 1.3,
+     "timid": 1.2,
+     "curious": 0.9,
+     "aggressive": 0.35
+    },
+    "disengage": {
+     "flighty": 0.28,
+     "timid": 0.32,
+     "curious": 0.3,
+     "aggressive": 0.04,
+     "threat_below": 0.3,
+     "anger_below": 0.35,
+     "blind_bonus": 0.22
+    },
+    "start": {
+     "hidden": {
+      "anger": 0.15,
+      "fear": 0.1,
+      "threat": 0.3
+     },
+     "startled": {
+      "anger": 0.3,
+      "fear": 0.3,
+      "threat": 0.5
+     },
+     "fleeing": {
+      "anger": 0.05,
+      "fear": 0.55,
+      "threat": 0.5
+     },
+     "attacking": {
+      "anger": 0.6,
+      "fear": 0.05,
+      "threat": 0.5
+     }
+    },
+    "decay": {
+     "anger": 0.08,
+     "fear": 0.12,
+     "threat": 0.15
+    },
+    "enrage_mult": 1.25,
+    "moves": {
+     "gust": {
+      "id": "gust",
+      "type": "flying",
+      "name": "GUST",
+      "acc": 0.92,
+      "dmg": [
+       27,
+       33
+      ],
+      "w": 3.0,
+      "w_anger": 0.5
+     },
+     "tackle": {
+      "id": "tackle",
+      "type": "normal",
+      "name": "TACKLE",
+      "acc": 0.9,
+      "dmg": [
+       12,
+       16
+      ],
+      "w": 3.0,
+      "w_anger": 2.0
+     },
+     "quick_attack": {
+      "id": "quick_attack",
+      "type": "normal",
+      "name": "QUICK ATTACK",
+      "acc": 0.96,
+      "dmg": [
+       10,
+       14
+      ],
+      "w": 2.0,
+      "w_anger": 3.0,
+      "first": true
+     },
+     "sand_attack": {
+      "id": "sand_attack",
+      "type": "ground",
+      "name": "SAND-ATTACK",
+      "acc": 0.95,
+      "dmg": [
+       0,
+       0
+      ],
+      "ash_acc_stage": -1,
+      "w": 1.6,
+      "w_anger": -1.0,
+      "max_uses": 2
+     },
+     "whirlwind": {
+      "id": "whirlwind",
+      "type": "normal",
+      "name": "WHIRLWIND",
+      "acc": 0.9,
+      "dmg": [
+       5,
+       8
+      ],
+      "w": 0.5,
+      "w_anger": 0.0,
+      "learned": 9
+     },
+     "wing_attack": {
+      "id": "wing_attack",
+      "type": "flying",
+      "name": "WING ATTACK",
+      "acc": 0.9,
+      "dmg": [
+       30,
+       35
+      ],
+      "w": 0.5,
+      "w_anger": 1.0,
+      "learned": 15
+     }
+    },
+    "_note_energy": "How often it acts and with what: the energy system (battle/energy.gd, life/moves.json costs: Tackle, Quick Attack and Sand-Attack 1 chip, Gust 2, Whirlwind 2, Wing Attack 3). dmg here is per move, scaled by its power in moves.json (about dmg x power / 75: 13-16 stamina points a chip; Tackle 12-16, Quick Attack 10-14, Gust 27-33), so with Pidgey's 2 chips a turn from turn 2 a fight lasts 3 to 5 turns and Ash takes 3 to 5 hits. w / w_anger: the pick without the energy system."
+   }
+  }
+ },
+ "tracking": {
+  "cover_near": 1.0,
+  "cover_far": 7.0,
+  "spawn_still_s": 9.0,
+  "lure": {
+   "still": 1.0,
+   "crouch": 0.75,
+   "walk": 0.12,
+   "run": 0.0,
+   "bike": 0.0
+  },
+  "spawn_d": [
+   3.5,
+   9.0
+  ],
+  "cooldown_s": 15.0,
+  "leave_d": 40.0,
+  "life_s": 120.0,
+  "noise": {
+   "crouch": 0.22,
+   "walk0": 0.35,
+   "walk1": 1.0,
+   "run": 2.4,
+   "bike": 1.6
+  },
+  "hear_d": 3.0,
+  "sight": {
+   "crouch": 0.15,
+   "stand": 0.45,
+   "moving": 0.8,
+   "d": 2.5
+  },
+  "quiet": 0.12,
+  "quiet_wary": 0.08,
+  "rise": 2.0,
+  "rise_wary": 2.6,
+  "decay": 0.12,
+  "bump_d": 0.9,
+  "wary_at": 0.45,
+  "peek": {
+   "height": 1.7,
+   "hover_min": 1.4,
+   "hover_max": 2.6,
+   "gap": [
+    2.5,
+    5.5
+   ]
+  },
+  "engage_d": 2.0,
+  "mash": {
+   "press": 0.36,
+   "decay": 0.45,
+   "alert": 0.07
+  },
+  "grab": {
+   "d": 3.5,
+   "window": 1.3,
+   "press": 0.6,
+   "decay": 0.5
+  },
+  "flee_launch": {
+   "s": 0.5,
+   "drift": 0.7
+  },
+  "burst_gap": [
+   2.0,
+   4.5
+  ],
+  "burst_gap_wary": [
+   3.5,
+   7.0
+  ],
+  "burst_len": [
+   0.7,
+   1.2
+  ],
+  "twitch_amp": 1.5
+ },
+ "_doc_battle": "The battle part (battle/battle.gd, battle/battle_rules.gd): ash_battle is Ash's own side; species.<id>.battle is each Pokemon's (HP, speed, how each temper takes Ash's actions, when it flees or loses interest, its moves keyed by move id, each with a type and its energy cost in life/moves.json). Ash has no HP: his stamina (body.gd's bar) is what a battle wears down, in points (stamina_points = a full bar). Each of his actions costs some (cost), a Pokemon's hit takes dmg points off it (scaled to the move's energy cost: about 13 to 16 points a chip, so a Tackle takes 12 to 16 and a Gust 27 to 33), and nothing comes back during a battle. Moods are 0..1: anger, fear, threat. Accuracy stages work as in the games: stage s < 0 multiplies accuracy by 3 / (3 - s). The spawning and temper part of this file belongs to wild/wild.gd.",
+ "ash_battle": {
+  "stamina_points": 100,
+  "acc": 0.92,
+  "actions": {
+   "run": {
+    "cost": 7,
+    "threat": -0.2,
+    "anger": -0.05,
+    "base": 0.38,
+    "per_acc_stage": 0.12,
+    "fear_k": 0.3,
+    "anger_k": -0.3,
+    "min": 0.12,
+    "max": 0.9
+   },
+   "hide": {
+    "cost": 3,
+    "threat": -0.25,
+    "anger": -0.08,
+    "found": 0.45,
+    "disengage": 0.3
+   },
+   "rock": {
+    "cost": 6,
+    "acc": 0.78,
+    "dmg": [
+     3,
+     5
+    ],
+    "anger": 0.32,
+    "fear": 0.12,
+    "threat": 0.3,
+    "enrage_at": 0.85
+   },
+   "sand": {
+    "cost": 5,
+    "acc": 0.86,
+    "foe_acc_stage": -1,
+    "fear": 0.12,
+    "anger": 0.1,
+    "threat": 0.18
+   }
+  },
+  "mode": "prologue",
+  "early_k": 0.5,
+  "_doc_prologue": "The prologue (no has_starter): Ash's menu is RUN, HIDE, THROW SOMETHING (rock / sand). cost: stamina points (100 = his full bar), his first action x(1 + early_k), the second x(1 + early_k/2). hide.found: the chance it finds him in the grass for each of its moves that turn; hide.disengage: added to its chance to lose interest (x0.3 for an aggressive one). run: base + fear_k x fear + anger_k x anger - per_acc_stage x its aim stage, clamped to min..max."
+ }
 }

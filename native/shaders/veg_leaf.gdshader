@@ -30,7 +30,7 @@ void vertex() {
 		vec3 v = sway(VERTEX, ip, TIME);
 		float fl = UV2.x;
 		v += NORMAL * sin(TIME * 4.0 + fl * 30.0) * 0.03 * fl;
-		VERTEX = v * mix(1.0, shrink, v_k);
+		VERTEX = arena_vertex(v * mix(1.0, shrink, v_k), MODEL_MATRIX);
 	}
 	v_ao = COLOR.r;
 }

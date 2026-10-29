@@ -42,6 +42,7 @@ void vertex() {
 		// the quad's corners come in as UV (0..1, v down)
 		vec2 q = vec2((UV.x - 0.5) * size.x, (1.0 - UV.y) * size.y + size.z);
 		VERTEX = (right * q.x + vec3(0.0, q.y, 0.0)) * scl;
+		if (arena_on()) VERTEX += arena_push(c, q.y * scl);   // a battle's arena (arena.gdshaderinc)
 		float cam_az = atan(to_cam.x, to_cam.z);
 		float f = mod(floor((cam_az - rot) / 6.2831853 * views + 0.5), views);
 		float rs = mod((sun_az - cam_az) / 6.2831853 * rows, rows);
