@@ -104,56 +104,9 @@ func _run() -> void:
 func make_energy(sp: String, lv: int, slot_delta := 0) -> BattleEnergy:
 	var e := BattleEnergy.make(sp, lv)
 	var slots := maxi(1, e.slots + slot_delta)
-	e.equipped = loadout(e, slots)
+	e.equipped = e.balanced_loadout(slots)
 	e.set_focus(float(e.params.get("start", 20.0)), "start")
 	return e
-
-func _ppc(e: BattleEnergy, id: String) -> float:
-	var m := BattleEnergy.move(id)
-	var n := maxi(1, BattleEnergy.cost_of(e.cost_for(id)).size())
-	var acc := float(m.get("accuracy", 100))
-	if acc <= 0.0: acc = 100.0
-	var pw := BattleEnergy.move_power(id, 4 if BattleEnergy.is_all(id) else 0)
-	if BattleEnergy.is_all(id): n = 4
-	return pw / n * acc / 100.0
-
-# a status move's worth to a trainer picking a loadout: what the planner thinks its
-# effects are worth (battle_config ai.status_value), times its accuracy, plus its disruption
-func _status_worth(m: Dictionary) -> float:
-	var SV: Dictionary = BattleConfig.sect("ai").get("status_value", {})
-	var v := 0.0
-	for t in m.get("effects", []): v += float(SV.get(String(t), 4.0))
-	var acc := float(m.get("accuracy", 100))
-	if acc <= 0.0: acc = 100.0
-	return v * acc / 100.0 + float(m.get("disrupt", 0)) + 1.0
-
-# what a sensible trainer equips: the best opener, mid and finisher it can pay,
-# a reaction and a disruption move if it has them, then the best of the rest
-func loadout(e: BattleEnergy, slots: int) -> Array:
-	var pick := []
-	var cands: Array = e.known.duplicate()
-	var by := {}
-	for id in cands:
-		var m := BattleEnergy.move(id)
-		var role := String(m.get("role", "offense"))
-		var dmg := float(m.get("power", 0)) > 0.0
-		var key := ""
-		if dmg and role in ["offense", "two_phase", "disruption"]: key = BattleEnergy.tier_of(id)
-		elif role == "reaction": key = "reaction"
-		elif role == "disruption": key = "disruption"
-		elif role == "utility": key = "utility"
-		if key == "": continue
-		var v := _ppc(e, id) if dmg else _status_worth(m)
-		if e.off_pool(id): v *= 0.7
-		if not by.has(key) or v > by[key][0]: by[key] = [v, id]
-	for key in ["opener", "mid", "finisher", "reaction", "disruption", "utility"]:
-		if by.has(key) and pick.size() < slots and not by[key][1] in pick: pick.append(by[key][1])
-	var rest := cands.filter(func(id): return not id in pick)
-	rest.sort_custom(func(a, b): return _ppc(e, a) > _ppc(e, b))
-	for id in rest:
-		if pick.size() >= slots: break
-		pick.append(id)
-	return pick
 
 class Spec:
 	var sp := ""
@@ -215,7 +168,8 @@ func _queue(bt: PkmnBattle, s: String, policy: String) -> void:
 	if me.fainted() or me.status == "sleep": return
 	var ids: Array = e.usable().filter(func(id): return bt.can_queue(s, id))
 	if ids.is_empty(): return
-	var ctx := {"uses": me.uses, "rng": bt.rng, "jitter": 0.1, "move_bonus": {}, "exclude": []}
+	var stx := PkmnAI.state_ctx(bt, s)
+	var ctx := {"uses": me.uses, "rng": bt.rng, "jitter": 0.1, "move_bonus": {}, "exclude": [], "foe": stx.foe, "me": stx.me}
 	var style := "strategic"
 	match policy:
 		"greedy":

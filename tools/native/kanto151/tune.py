@@ -30,6 +30,7 @@ ap.add_argument("--final-n", type=int, default=8)
 ap.add_argument("--report", default=os.path.join(NATIVE, "dev", "sim_report.json"))
 ap.add_argument("--work", default="/tmp")
 ap.add_argument("--dry", action="store_true", help="measure only, change nothing")
+ap.add_argument("--apply-only", action="store_true", help="write tuning.json into the config and regenerate, no battles")
 ap.add_argument("--label", default=time.strftime("%Y-%m-%d %H:%M"), help="the run label written on every log entry")
 A = ap.parse_args()
 
@@ -208,6 +209,11 @@ def apply_config(tune):
 
 def main():
     tune = load_tune()
+    if A.apply_only:
+        apply_config(tune)
+        gen()
+        print("applied tuning.json to battle_config.json and regenerated the data")
+        return
     os.makedirs(A.work, exist_ok=True)
     history = []
     for rnd in range(1, A.rounds + 1):

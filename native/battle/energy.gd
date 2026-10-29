@@ -946,12 +946,64 @@ func set_level(lv: int) -> Dictionary:
 func auto_equip(latest := false) -> void:
 	equipped = equipped.filter(func(id): return id in known)
 	if latest and equipped.is_empty():
+		# battle_config slots.wild_equip: latest (its newest moves, as in the games) | balanced
+		# (an opener, a mid and a finisher it can pay, a reaction, a disruption and a support
+		# move if it knows them, then the strongest of the rest)
+		if String(BattleConfig.val("slots", "wild_equip", "latest")) == "balanced":
+			equipped = balanced_loadout(slots)
+			return
 		var n := mini(slots, known.size())
 		equipped = known.slice(known.size() - n)
 		return
 	for id in known:
 		if equipped.size() >= slots: break
 		if not id in equipped: equipped.append(id)
+
+# a move's damage per chip as the planner sees it (a finisher at four chips)
+func _per_chip(id: String) -> float:
+	var m := move(id)
+	var n := maxi(1, cost_of(cost_for(id)).size())
+	var acc := float(m.get("accuracy", 100))
+	if acc <= 0.0: acc = 100.0
+	var pw := move_power(id, 4 if is_all(id) else 0)
+	if is_all(id): n = 4
+	return pw / n * acc / 100.0
+
+# a status move's worth: what the planner thinks its effects are worth, times its accuracy
+func _status_worth_of(m: Dictionary) -> float:
+	var SV: Dictionary = _AI().get("status_value", {})
+	var v := 0.0
+	for t in m.get("effects", []): v += float(SV.get(String(t), 4.0))
+	var acc := float(m.get("accuracy", 100))
+	if acc <= 0.0: acc = 100.0
+	return v * acc / 100.0 + float(m.get("disrupt", 0)) + 1.0
+
+# a sensible loadout from the known moves: one of each kind first, then the strongest
+func balanced_loadout(n_slots: int) -> Array:
+	var pick := []
+	var by := {}
+	for id in known:
+		var m := move(id)
+		if m.is_empty(): continue
+		var role := String(m.get("role", "offense"))
+		var dmg := float(m.get("power", 0)) > 0.0
+		var key := ""
+		if dmg and role in ["offense", "two_phase", "disruption"]: key = tier_of(id)
+		elif role == "reaction": key = "reaction"
+		elif role == "disruption": key = "disruption"
+		elif role == "utility": key = "utility"
+		if key == "": continue
+		var v := _per_chip(id) if dmg else _status_worth_of(m)
+		if off_pool(id): v *= 0.7
+		if not by.has(key) or v > by[key][0]: by[key] = [v, id]
+	for key in ["opener", "mid", "finisher", "reaction", "disruption", "utility"]:
+		if by.has(key) and pick.size() < n_slots and not by[key][1] in pick: pick.append(by[key][1])
+	var rest: Array = known.filter(func(id): return not id in pick and not move(id).is_empty())
+	rest.sort_custom(func(a, b): return _per_chip(a) > _per_chip(b))
+	for id in rest:
+		if pick.size() >= n_slots: break
+		pick.append(id)
+	return pick
 
 func equip(id: String) -> bool:
 	if not id in known or id in equipped or equipped.size() >= slots: return false
@@ -1122,14 +1174,18 @@ func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {},
 	var v := pw * acc * float(K.get("dmg", 1.0))
 	v *= pow(float(K.get("repeat", 0.75)), in_turn) * pow(float(A.get("repeat_battle", 0.94)), mini(times - in_turn, 4))
 	var st := 0.0
+	var fs: Dictionary = ctx.get("foe", {})
+	var ms: Dictionary = ctx.get("me", {})
 	for tag in m.get("effects", []):
-		var tv := float(SV.get(tag, 0.0))
+		var tv := float(SV.get(tag, 0.0)) * _state_worth(String(tag), fs, ms)
 		if tag == "force_out": tv *= float(K.get("force_out", 0.5))
 		if pw > 0.0 and tag != "fixed_40" and tag != "disrupt": tv *= float(m.get("chance", 0.3))
 		st += tv
 	if pw <= 0.0 or "fixed_40" in m.get("effects", []):
 		st *= acc
 		st *= pow(0.5, times)
+		# the same status move twice in one plan is next to worthless (it lands once)
+		st *= pow(float(A.get("status_repeat_turn", 0.2)), in_turn)
 	v += st * float(K.get("status", 1.0))
 	if role == "reaction":
 		v = float(ctx.get("reaction_value", float(A.get("reaction_value", 30.0)) * 0.5)) * pow(0.4, in_turn)
@@ -1137,6 +1193,56 @@ func _move_value(id: String, style: String, times: int, in_turn := 0, ctx := {},
 	v *= float(ctx.get("role_w", {}).get(role, 1.0))
 	v += float(ctx.get("move_bonus", {}).get(id, 0.0))
 	return v
+
+const STATUS_TAGS := ["para", "sleep", "poison", "burn", "freeze", "bad_poison", "tri_status"]
+const STAT_NAMES := {"atk": "atk", "def": "def", "spatk": "spa", "spdef": "spd", "speed": "spe", "acc": "acc", "evasion": "eva"}
+
+# how much of a tag's value is left given the battle's state (ctx foe / me: status,
+# confused, seeded, identified, sure_hit, drowsy, stages): a condition the foe already
+# has is worth nothing, a stat change is worth half per stage already moved that way
+static func _state_worth(tag: String, fs: Dictionary, ms: Dictionary) -> float:
+	if fs.is_empty() and ms.is_empty(): return 1.0
+	if tag in STATUS_TAGS: return 0.0 if String(fs.get("status", "")) != "" else 1.0
+	if tag in ["confuse", "infatuate"]: return 0.0 if bool(fs.get("confused", false)) else 1.0
+	if tag == "drain": return 0.0 if bool(fs.get("seeded", false)) else 1.0
+	if tag == "identify": return 0.0 if bool(fs.get("identified", false)) else 1.0
+	if tag == "sure_hit": return 0.0 if bool(ms.get("sure_hit", false)) else 1.0
+	if tag == "drowsy": return 0.0 if String(fs.get("status", "")) != "" or int(fs.get("drowsy", 0)) > 0 else 1.0
+	if tag == "trap": return 0.0 if bool(fs.get("trapped", false)) else 1.0
+	var fst: Dictionary = fs.get("stages", {})
+	var mst: Dictionary = ms.get("stages", {})
+	for k in STAT_NAMES:
+		var st: String = STAT_NAMES[k]
+		if tag.begins_with(k + "_down") and not tag.ends_with("_self"):
+			return pow(0.5, maxi(0, -int(fst.get(st, 0))))
+		if tag.begins_with(k + "_up"):
+			return pow(0.5, maxi(0, int(mst.get(st, 0))))
+	if tag == "def_down2": return pow(0.5, maxi(0, -int(fst.get("def", 0))))
+	return 1.0
+
+# a move that would do nothing now, never planned: an attack whose own rule fails
+# (Snore or Dream Eater with nobody asleep, Raging Smash unconfused, Last Resort before
+# the others, Fake Out after the first turn), or a status move none of whose effects
+# would land (Thunder Wave on a paralysed foe, a stat already at its limit)
+func _pointless(id: String, ctx: Dictionary) -> bool:
+	var m := move(id)
+	var fx0: Array = m.get("effects", [])
+	var fs: Dictionary = ctx.get("foe", {})
+	var ms: Dictionary = ctx.get("me", {})
+	var uses: Dictionary = ctx.get("uses", {})
+	if not fs.is_empty() or not ms.is_empty():
+		if "sleep_only" in fx0 and String(fs.get("status", "")) != "sleep" and String(ms.get("status", "")) != "sleep": return true
+		if "self_confused_only" in fx0 and not bool(ms.get("confused", false)): return true
+	if "first_turn" in fx0 and int(uses.get(id, 0)) > 0: return true
+	if "needs_others" in fx0:
+		for o in equipped:
+			if o != id and int(uses.get(o, 0)) <= 0: return true
+	if float(m.get("power", 0)) > 0.0 or role_of(id) in ["reaction", "two_phase"]: return false
+	var fx: Array = m.get("effects", [])
+	if fx.is_empty() or (ctx.get("foe", {}).is_empty() and ctx.get("me", {}).is_empty()): return false
+	for t in fx:
+		if _state_worth(String(t), ctx.get("foe", {}), ctx.get("me", {})) > 0.02: return false
+	return true
 
 func plan_turn(known_moves = null, style := "strategic", ctx := {}) -> Array:
 	if not style in STYLES: style = "strategic"
@@ -1146,6 +1252,7 @@ func plan_turn(known_moves = null, style := "strategic", ctx := {}) -> Array:
 		var c := cost_of(id)
 		if c.is_empty() or move(id).is_empty() or id in ids or id in excl: continue
 		if locked(id) and known_moves == null: continue
+		if _pointless(String(id), ctx): continue
 		ids.append(String(id))
 	if ids.is_empty() or chips.is_empty(): return []
 	var best := {"score": -INF, "seq": []}
@@ -1192,7 +1299,12 @@ func _score(seq: Array, left: int, style: String, uses: Dictionary, noise: Dicti
 		var n := int(count.get(id, 0)) + int(uses.get(id, 0))
 		var nc := cost_of(cost_for(id)).size()
 		if is_all(id): nc = int(ctx.get("_start", nc)) - spent_n
-		s += _move_value(id, style, n, int(count.get(id, 0)), ctx, nc) + float(K.get("per_action", 0.0)) + float(noise.get(id, 0.0))
+		var mv := _move_value(id, style, n, int(count.get(id, 0)), ctx, nc)
+		if mv < float(_AI().get("min_action_value", 0.0)):
+			# next to worthless (a second Tail Whip this turn): no better than leaving the chips
+			s += -float(_AI().get("waste", 20.0)) * nc - 0.01
+		else:
+			s += mv + float(K.get("per_action", 0.0)) * clampf(mv / 10.0, 0.0, 1.0) + float(noise.get(id, 0.0))
 		count[id] = int(count.get(id, 0)) + 1
 		spent_n += nc
 		big = maxi(big, nc)

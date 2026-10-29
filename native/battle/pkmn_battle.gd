@@ -74,6 +74,8 @@ class Fighter:
 	var regen := false           # heals a little each turn (Ingrain, Aqua Ring)
 	var drowsy := 0              # Yawn: falls asleep when this counts down to 0
 	var last_move := ""          # its last move (Mimic, Mirror Move, Copycat)
+	var para_turn := -1          # the turn its paralysis was last rolled (damage.para_scope turn)
+	var para_blocked := false
 	var ai := "player"
 	var queue: Array = []        # [{move, kinds, free}]
 	var uses := {}
@@ -319,7 +321,7 @@ func _act(s: String, q: Dictionary) -> Array:
 		out.append(_ev({"t": "asleep", "side": s, "move": id, "text": "%s is fast asleep." % _nm(u)}))
 		_lose_commit(u, out)
 		return out
-	if u.status == "para" and rng.randf() < BattleConfig.num("damage", "para_skip", 0.25):
+	if u.status == "para" and _para_blocks(u):
 		out.append(_ev({"t": "paralysed", "side": s, "move": id, "text": "%s is paralysed! It can't move!" % _nm(u)}))
 		_lose_commit(u, out)
 		return out
@@ -387,6 +389,16 @@ static func rarity_mult(u: Fighter, id: String) -> float:
 	if bool(mv(id).get("signature", false)): return 1.0
 	var r := String(BattleEnergy.species_data(u.species).get("rarity", ""))
 	return float(BattleConfig.sect("rarity").get("shared_power_mult", {}).get(r, 1.0))
+
+# paralysis: battle_config damage.para_scope "turn" (one roll a turn decides all its
+# actions) or "action" (a roll for each action)
+func _para_blocks(u: Fighter) -> bool:
+	var skip := BattleConfig.num("damage", "para_skip", 0.25)
+	if String(BattleConfig.val("damage", "para_scope", "turn")) == "action": return rng.randf() < skip
+	if u.para_turn != turn:
+		u.para_turn = turn
+		u.para_blocked = rng.randf() < skip
+	return u.para_blocked
 
 func _lose_commit(u: Fighter, out: Array) -> void:
 	if not u.e.commit.is_empty() and int(u.e.commit.turn) < turn:
@@ -618,6 +630,7 @@ func type_factor(mt: String, tg: Fighter, ignore_ghost := false) -> float:
 	if chart == 0.0: return float(M.get("tcg_immunity_mult", 0.0))
 	var k := BattleEnergy.energy_of(mt)
 	var f := 1.0
+	if chart < 1.0: f *= float(M.get("tcg_chart_resist_mult", 1.0))
 	if k in S.get("weakness", []): f *= float(M.get("weakness_mult", 2.0))
 	if k in S.get("resistance", []): f *= float(M.get("resistance_mult", 0.6))
 	return f
@@ -651,6 +664,10 @@ func _effect(u: Fighter, tg: Fighter, tag: String, id: String, sure: bool) -> Ar
 		"evasion_up": out.append_array(_stage(u, "eva", 1, 1.0))
 		"speed_up": out.append_array(_stage(u, "spe", 2, 1.0))
 		"para", "sleep", "poison", "burn":
+			if tg.status != "" and sure:
+				var have := {"para": "paralysed", "sleep": "asleep", "poison": "poisoned", "burn": "burned"}
+				out.append(_ev({"t": "no_effect", "side": tg.side, "move": id, "text": "%s is already %s!" % [_nm(tg), String(have.get(tg.status, tg.status))]}))
+				return out
 			if tg.status == "" and rng.randf() < chance:
 				if tag == "para" and "electric" in tg.types: return out
 				if tag == "poison" and ("poison" in tg.types or "steel" in tg.types): return out
@@ -812,6 +829,9 @@ func _power_rule(u: Fighter, tg: Fighter, id: String) -> float:
 	if "sleep_only" in fx and tg.status != "sleep" and u.status != "sleep": return 0.0
 	if "self_confused_only" in fx and u.confused <= 0: return 0.0
 	if "first_turn" in fx and int(u.uses.get(id, 0)) > 1: return 0.0
+	if "needs_others" in fx:
+		for o in u.e.equipped:
+			if o != id and int(u.uses.get(o, 0)) <= 0: return 0.0
 	if "low_hp_boost" in fx: p *= 1.0 + (1.0 - float(u.hp) / maxf(1.0, u.max_hp))
 	if "bonus_vs_damaged" in fx and tg.hp < tg.max_hp: p *= 1.5
 	if "bonus_vs_healthy" in fx: p *= 0.5 + float(tg.hp) / maxf(1.0, tg.max_hp)

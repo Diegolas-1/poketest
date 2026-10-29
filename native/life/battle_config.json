@@ -58,8 +58,9 @@
   },
 
   "slots": {
-    "_doc": "Energy slots: how many moves a Pokemon can have equipped (usable). level -> slots; the highest key at or below its level wins. Moves are never forgotten: known moves beyond the slots show locked in the move list.",
+    "_doc": "Energy slots: how many moves a Pokemon can have equipped (usable). level -> slots; the highest key at or below its level wins. Moves are never forgotten: known moves beyond the slots show locked in the move list. wild_equip: latest (a wild or fresh Pokemon equips its newest moves, as in the games) | balanced (an opener, a mid and a finisher it can pay, a reaction, a disruption and a support move, then the strongest).",
     "table": {"1": 4, "9": 5, "18": 6, "27": 7, "36": 8, "46": 9, "57": 10, "70": 11, "85": 12},
+    "wild_equip": "latest",
     "max": 12
   },
 
@@ -71,16 +72,17 @@
   },
 
   "matchups": {
-    "_doc": "Type matchups, TCG style, for species whose data names a weakness and a resistance (energy kinds; the Kanto 151 dataset): weakness_mult (the card game's x2), resistance_mult (a reduction, multiplied) and resistance_sub (subtracted after the damage, the card game's -20 / -30; 0 = off). In TCG mode the chart's immunities become tcg_immunity_mult (the card game has no immunities; 0 keeps them). mode: auto (TCG for species with the data, the chart otherwise) | chart | tcg.",
+    "_doc": "Type matchups, TCG style, for species whose data names a weakness and a resistance (energy kinds; the Kanto 151 dataset): weakness_mult (the card game's x2), resistance_mult (a reduction, multiplied) and resistance_sub (subtracted after the damage, the card game's -20 / -30; 0 = off). In TCG mode the chart's immunities become tcg_immunity_mult (the card game has no immunities; 0 keeps them). mode: auto (TCG for species with the data, the chart otherwise) | chart | tcg. tcg_chart_resist_mult: in TCG mode, a move the chart calls not very effective is also multiplied by this (1 = off).",
     "mode": "auto",
     "weakness_mult": 2.0,
     "resistance_mult": 0.6,
     "resistance_sub": 0,
-    "tcg_immunity_mult": 0.0
+    "tcg_immunity_mult": 0.0,
+    "tcg_chart_resist_mult": 1.0
   },
 
   "costs": {
-    "_doc": "Move cost overrides (move id -> list of energy kinds); empty means the cost in moves.json. Two-phase moves are paid on the commit turn only. off_pool: a typed chip of a kind the Pokemon has no pool for is paid in Colorless, plus extra Colorless chips (the v1 rule: off-type costs Colorless, one chip more); a finisher of a kind it lacks takes any chips, at least finisher_extra more.",
+    "_doc": "Move cost overrides (move id -> list of energy kinds); empty means the cost in moves.json. Two-phase moves are paid on the commit turn only. off_pool: a typed chip of a kind the Pokemon has no pool for is paid in Colorless, plus extra Colorless chips (the v1 rule: off-type costs Colorless, one chip more); a finisher of a kind it lacks takes any chips, at least finisher_extra more. ",
     "overrides": {},
     "off_pool": {"enabled": true, "extra": 1, "finisher_extra": 1}
   },
@@ -96,7 +98,7 @@
   },
 
   "damage": {
-    "_doc": "damage = ((2L/5 + 2) * power * A/D / 50 + 2) * stab * type * crit * random * scale. scale keeps several moves a turn from ending fights too fast.",
+    "_doc": "damage = ((2L/5 + 2) * power * A/D / 50 + 2) * stab * type * crit * random * scale. scale keeps several moves a turn from ending fights too fast. para_scope: turn (one roll a turn decides every action of a paralysed Pokemon) | action (a roll for each).",
     "scale": 0.55,
     "stab": 1.5,
     "crit": 1.5,
@@ -107,6 +109,7 @@
     "acc_stage_step": 0.34,
     "para_speed": 0.5,
     "para_skip": 0.25,
+    "para_scope": "turn",
     "confuse_self_hit": 0.33,
     "confuse_turns": [1, 3],
     "sleep_turns": [1, 3],
@@ -212,8 +215,10 @@
   },
 
   "ai": {
-    "_doc": "Planner weights. wild_styles: the wild planner (damage, status, per_action, big, force_out, repeat). personalities: trainer AI multipliers on each role's value and how often it sets a reaction when it can (reaction_rate), answers a two-phase foe with a counter (counter_rate), commits to its own two-phase moves (two_phase_rate). waste: the cost of an unspent chip. status_value: what an effect is worth.",
+    "_doc": "Planner weights. wild_styles: the wild planner (damage, status, per_action, big, force_out, repeat). personalities: trainer AI multipliers on each role's value and how often it sets a reaction when it can (reaction_rate), answers a two-phase foe with a counter (counter_rate), commits to its own two-phase moves (two_phase_rate). waste: the cost of an unspent chip. status_value: what an effect is worth. status_repeat_turn: a status move's value for each time it is already in this turn's plan.",
     "waste": 20.0,
+    "status_repeat_turn": 0.2,
+    "min_action_value": 0.0,
     "repeat_turn": 0.75,
     "repeat_battle": 0.94,
     "max_actions": 6,
@@ -244,5 +249,5 @@
     "counter_bonus": 40.0,
     "two_phase_value": 1.15
   },
-  "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.5}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.271, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6}}}}}
+  "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.5, "tcg_chart_resist_mult": 0.8}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.271, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6, "disruption": 1.25}}, "min_action_value": 4.0, "wild_styles": {"evasive": {"status": 1.3}}}, "slots": {"wild_equip": "balanced"}}}
 }

@@ -506,11 +506,13 @@ func _rules() -> void:
 	ok(p.can_pay("double_kick"), "Pikachu can pay Double Kick off-pool")
 	# endure: a sure knockout leaves it at 1 HP
 	var bt := _duel("machamp", 60, ["karate_chop"], "rattata", 5, ["endure"])
+	bt.fighter("b").hp = 3      # sure to be a knockout blow
 	ok(bt.queue("b", "endure") and bt.queue("a", "karate_chop"), "endure vs Karate Chop queued")
 	var ev := bt.resolve()
 	ok(bt.fighter("b").hp == 1, "Endure: Rattata hangs on at 1 HP (%s)" % _texts(ev))
 	# destiny bond: the attacker goes down too
 	bt = _duel("machamp", 60, ["bite"], "gastly", 5, ["destiny_bond"])
+	bt.fighter("b").hp = 3
 	bt.queue("b", "destiny_bond"); bt.queue("a", "bite")
 	ev = bt.resolve()
 	ok(bt.fighter("b").fainted() and bt.fighter("a").fainted(), "Destiny Bond takes Machamp down with Gastly (%s)" % _texts(ev))
@@ -549,6 +551,29 @@ func _rules() -> void:
 	ok(bt.fighter("a").recharge_turn == bt.turn + 1, "Hyper Beam: Snorlax must recharge next turn")
 	bt.begin_turn()
 	ok(not bt.can_queue("a", "hyper_beam"), "and can't act while recharging")
+	# a status move on a foe that already has a condition: it says so, and the planner skips it
+	bt = _duel("pikachu", 20, ["thunder_wave", "thunder_shock"], "pidgey", 20, ["tackle"])
+	bt.fighter("b").status = "para"
+	bt.queue("a", "thunder_wave")
+	ev = bt.resolve()
+	ok(ev.any(func(x): return x.get("t", "") == "no_effect"), "Thunder Wave on a paralysed foe: 'already paralysed' (%s)" % _texts(ev))
+	bt = _duel("pikachu", 20, ["thunder_wave", "tail_whip", "thunder_shock"], "pidgey", 20, ["tackle"])
+	bt.fighter("b").status = "para"
+	bt.fighter("a").ai = "aggressive"
+	var plan := PkmnAI.plan(bt, "a")
+	ok(not "thunder_wave" in plan and "thunder_shock" in plan and plan.count("tail_whip") <= 1, "the planner attacks a paralysed foe instead of Thunder Wave (%s)" % [plan])
+	# paralysis is rolled once a turn: every action that turn goes the same way
+	BattleConfig.override({"damage": {"para_skip": 0.5, "para_scope": "turn"}})
+	var mixed := 0
+	for k in 12:
+		bt = _duel("pikachu", 20, ["thunder_shock"], "pidgey", 20, ["tackle"])
+		bt.fighter("a").status = "para"
+		bt.rng.seed = 100 + k
+		bt.queue("a", "thunder_shock"); bt.queue("a", "thunder_shock")
+		var acted := bt.resolve().filter(func(x): return x.get("t", "") == "move" and x.side == "a").size()
+		if acted == 1: mixed += 1
+	ok(mixed == 0, "paralysis: all or none of a turn's actions (mixed turns %d)" % mixed)
+	BattleConfig.override({"damage": {"para_skip": 0.25}})
 	# rarity: a legendary's shared move hits harder than a common's
 	ok(absf(PkmnBattle.rarity_mult(_duel("mewtwo", 50, ["swift"], "rattata", 50, ["tackle"]).fighter("a"), "swift") - 1.16) < 0.001, "Mewtwo's Swift carries the legendary bonus")
 	BattleConfig.reset()

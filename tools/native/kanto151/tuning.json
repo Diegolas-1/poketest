@@ -34,7 +34,16 @@
    },
    "tricky": {
     "two_phase_rate": 0.9,
-    "reaction_rate": 0.6
+    "reaction_rate": 0.6,
+    "disruption": 1.25
+   }
+  },
+  "slots.wild_equip": "balanced",
+  "matchups.tcg_chart_resist_mult": 0.8,
+  "ai.min_action_value": 4.0,
+  "ai.wild_styles": {
+   "evasive": {
+    "status": 1.3
    }
   }
  },
@@ -6157,6 +6166,42 @@
    "why": "openers are 0.67 of actions",
    "round": 3,
    "run": "run 6"
+  },
+  {
+   "round": 0,
+   "run": "fixes after battle_log",
+   "change": "engine and AI fixes from the battle logs (by hand)",
+   "why": "the planner now reads the battle's state (PkmnAI.state_ctx): a condition the foe already has is worth nothing and a stat change half per stage already moved, a status move twice in one plan is next to worthless (ai.status_repeat_turn), and the per-action bonus only counts for an action worth something; Thunder Wave on a paralysed foe now says so; paralysis is rolled once a turn (damage.para_scope turn). Pikachu Lv 9 had spent five turns on Thunder Wave and Tail Whip"
+  },
+  {
+   "round": 0,
+   "run": "fixes after battle_log",
+   "change": "slots.wild_equip latest -> balanced (by hand)",
+   "why": "a Kanto species' newest moves were often all status or off-pool (Pikachu Lv 9 equipped Thunder Wave, Charge, Dodge, Tail Whip and an off-pool Double Kick: no attack it could pay for). A wild or fresh one now equips an opener, a mid and a finisher it can pay, then a reaction, a disruption and a support move"
+  },
+  {
+   "round": 0,
+   "run": "fixes after battle_log",
+   "change": "matchups.tcg_chart_resist_mult 1 -> 0.8 (by hand)",
+   "why": "in TCG mode only the card's weakness and resistance counted, so Fire hit Water at full power; the chart's 'not very effective' now takes a fifth off, so Water beats Fire both ways. A design call: the card game itself has no such rule"
+  },
+  {
+   "round": 0,
+   "run": "fixes after battle_log",
+   "change": "ai.min_action_value 0 -> 4 (by hand)",
+   "why": "the planner spent spare chips on anything worth more than nothing (a second and third Tail Whip in one turn) because an unspent chip counts as waste; an action worth less than this now scores as no better than leaving the chips"
+  },
+  {
+   "round": 0,
+   "run": "fixes after battle_log",
+   "change": "the planner skips moves whose own rule would fail (by hand, engine)",
+   "why": "Snorlax opened with Snore while awake ('But it failed!') and Last Resort hit for 94 before any other move was used; Last Resort now needs the others used first (the engine enforces it) and the planner leaves out Snore, Dream Eater, Raging Smash, Last Resort and Fake Out when they can't work"
+  },
+  {
+   "round": 0,
+   "run": "fixes after battle_log",
+   "change": "ai tricky disruption 1.6 -> 1.25, evasive status 1.6 -> 1.3 (by hand)",
+   "why": "a tricky Gengar spent four turns on Confuse Ray and Curse against Alakazam without one attack"
   }
  ]
 }
