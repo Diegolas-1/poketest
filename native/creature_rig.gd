@@ -60,6 +60,9 @@ static func info(sp: String) -> Dictionary:
 
 static func create(sp: String) -> Creature:
 	match sp:
+		"bulbasaur", "ivysaur", "venusaur": return CreatureBulbasaur.new()
+		"charmander", "charmeleon", "charizard": return CreatureCharmander.new()
+		"squirtle", "wartortle", "blastoise": return CreatureSquirtle.new()
 		"rattata", "raticate": return CreatureRattata.new()
 		"spearow": return CreatureSpearow.new()
 		"fearow": return CreatureBird.new()
@@ -98,7 +101,8 @@ var durs := {"look": 1.8, "sniff": 1.6, "happy": 1.4, "angry": 1.4, "startle": 0
 	"scratch": 1.6, "yawn": 1.8, "stretch": 2.0, "growl": 1.4, "leer": 1.3, "tail_whip": 1.5,
 	"quick_attack": 1.0, "bite": 1.0, "dig": 1.8, "emerge": 1.0, "double_kick": 1.4, "horn_attack": 1.2,
 	"poison_sting": 1.0, "pound": 0.9, "double_slap": 1.5, "sing": 3.0, "defense_curl": 1.6, "ember": 1.1,
-	"stomp": 1.2, "focus_energy": 1.6, "scratch_attack": 0.9, "groom": 2.0, "peck": 0.9, "fury_attack": 1.6}
+	"stomp": 1.2, "focus_energy": 1.6, "scratch_attack": 0.9, "groom": 2.0, "peck": 0.9, "fury_attack": 1.6,
+	"affection": 2.2, "cheer": 1.6, "look_up": 2.0, "play": 1.8}
 
 # rig
 var W := -1                       # Waist (the body's root)
@@ -364,6 +368,8 @@ func mood(what: String) -> void:
 		"wake":
 			if not sleep: return
 			sleep = false
+	var al: Dictionary = I.get("alias", {})
+	if not durs.has(what) and al.has(what) and durs.has(String(al[what])): durs[what] = durs[String(al[what])]
 	if not durs.has(what): return
 	if what != "faint": fainted = false
 	if act != "": _end_act()
@@ -504,7 +510,16 @@ func _pose(dt: float, _speed: float) -> void:
 	_base_species(P, dt, v)
 	if act != "":
 		var u := act_t
-		if not _act_species(P, dt, u, act_dur): _act(P, dt, u, act_dur)
+		if not _act_species(P, dt, u, act_dur):
+			# a move played as another act (species.json "alias": {"slash": "scratch_attack"})
+			var al: Dictionary = I.get("alias", {})
+			if al.has(act):
+				var a := act
+				act = String(al[a])
+				if not _act_species(P, dt, u, act_dur): _act(P, dt, u, act_dur)
+				act = a
+			else:
+				_act(P, dt, u, act_dur)
 	_auto(dt, v)
 	_frame(P, dt, v)
 	_after(P, dt)
@@ -1005,6 +1020,73 @@ func _act(P: Dictionary, dt: float, u: float, d: float) -> void:
 			P.tp += 0.6 * k
 			for i in 2: P.arm_in[i] += 0.5 * k; P.elbow[i] += 0.8 * k
 			if _ev("g", 0.5): fx.emit("glow", point("chest"))
+		"affection":
+			# (a companion) leaning in to its trainer, the head rubbed against them side to
+			# side, the eyes shut happy, the tail going (look_at_pos: who it nuzzles)
+			var k := sm(0.0, 0.35, u) * sm(d, d - 0.4, u)
+			var rub := sin(u * TAU * 1.6)
+			P.lean += 0.2 * k
+			P.fwd += 0.12 * sz * k
+			P.ht = 0.35 * rub * k
+			P.hy = 0.25 * rub * k
+			P.hp = 0.1 * k
+			P.eye = "happy" if k > 0.3 else ""
+			P.mouth = "smile"
+			P.earf -= 0.3 * k
+			P.earo += 0.2 * k
+			P.wag = 1.2 * k
+			P.wagf = 7.0
+			P.roll += 0.06 * rub * k
+			P.hk = 0.8
+			for i in 2: P.arm_up[i] += 0.5 * k; P.arm_in[i] += 0.6 * k; P.elbow[i] += 0.6 * k
+			if _ev("h", 0.4): fx.emit("hearts", point("head"))
+		"cheer":
+			# two happy bounces, the arms thrown up
+			var j := maxf(bump(u, 0.1, 0.6), bump(u, 0.8, 1.3))
+			P.y += 0.35 * sz * j
+			P.air = 1.0 if j > 0.2 else 0.0
+			P.legs = "tuck"
+			P.sq += 0.25 * (bump(u, 0.0, 0.15) + bump(u, 0.6, 0.8)) - 0.15 * j
+			P.eye = "happy"
+			P.mouth = "wide"
+			P.jaw = 0.5
+			P.hp = 0.3
+			P.wag = 1.5
+			P.earf += 0.5
+			for i in 2: P.arm_up[i] += 2.3 * j + 0.6; P.arm_out[i] += 0.5 * j
+			if _ev("c", 0.15): fx.emit("voice", point("mouth"))
+		"look_up":
+			# up at its trainer (look_at_pos), the head tilted, the tail wagging: "what now?"
+			var k := sm(0.0, 0.3, u) * sm(d, d - 0.35, u)
+			if not is_nan(look_at_pos.x) and HEAD >= 0:
+				var to := look_at_pos - to_world(G[HEAD].origin)
+				P.hy = clampf(wrapf(atan2(to.x, to.z) - global_rotation.y, -PI, PI), -1.2, 1.2) * k
+				P.hp = clampf(atan2(to.y, Vector2(to.x, to.z).length()), -0.3, 0.8) * k
+			else:
+				P.hp = 0.55 * k
+			P.ht = 0.3 * k * sin(u * 2.0)
+			P.lean -= 0.12 * k
+			P.eye = "happy" if fposmod(u, 1.0) > 0.6 else "open"
+			P.mouth = "smile"
+			P.wag = 1.0 * k
+			P.earf += 0.4 * k
+			if _ev("v", 0.5): fx.emit("voice", point("mouth"))
+		"play":
+			# a play bow (front down, rear up, the tail going) and a bounce
+			var bow := sm(0.0, 0.3, u) * (1.0 - sm(0.9, 1.1, u))
+			var j := bump(u, 1.0, 1.5)
+			P.pitch += 0.35 * bow
+			P.crouch += 0.4 * bow
+			P.lean += 0.25 * bow
+			P.wag = 1.6 * bow + 0.8 * j
+			P.wagf = 10.0
+			P.tp += 0.6 * bow
+			P.eye = "happy"
+			P.mouth = "wide"
+			P.y += 0.3 * sz * j
+			P.air = 1.0 if j > 0.2 else 0.0
+			P.legs = "tuck"
+			for i in 2: P.arm_up[i] += 1.0 * bow
 		"groom":
 			# a forepaw licked and drawn over the face, twice
 			var k := sm(0.0, 0.3, u) * sm(d, d - 0.3, u)

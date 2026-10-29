@@ -42,6 +42,23 @@ const SPECIES = {
   // along x) and folded at the side (LFeeler1 - LFeeler2): separate meshes (parts).
   pidgey: { dir: 'Pidgey', dae: 'Pidgey.DAE', img: 'Images', scale: 0.0135,
     parts: { wing_l: ['LArm'], wing_r: ['RArm'], fold_l: ['LFeeler1'], fold_r: ['RFeeler1'] } },
+  // ---- the Kanto starters #001 - #009 (--src holds <0001>/Pokemon XY/<Name>/...; Mega forms not baked).
+  // Bulbasaur's vines are their own files on the vine bones (L/RFeelerC01 ..): "vine_l", "vine_r";
+  // the Charmander line's tail flame is two meshes (FireCore, FireSten: grey ramps the game colours)
+  bulbasaur: { dir: '0001/Pokemon XY/Bulbasaur', smd: 'Bulbasaur.SMD', scale: 0.0100, merged: true,
+    alt: [{ file: 'Bulbasaur_LVine.SMD', part: 'vine_l' }, { file: 'Bulbasaur_RVine.SMD', part: 'vine_r' }] },
+  ivysaur: { dir: '0002/Pokemon XY/Ivysaur', smd: 'Ivysaur.SMD', scale: 0.0100 },
+  venusaur: { dir: '0003/Pokemon XY/Venusaur', smd: 'VenusaurM.SMD', scale: 0.0105 },
+  venusaur_f: { dir: '0003/Pokemon XY/Venusaur', smd: 'VenusaurF.SMD', scale: 0.0105 },
+  charmander: { dir: '0004/Pokemon XY/Charmander', smd: 'Charmander.SMD', scale: 0.0100 },
+  charmeleon: { dir: '0005/Pokemon XY/Charmeleon', smd: 'Charmeleon.SMD', scale: 0.0100, merged: true },
+  charizard: { dir: '0006/Pokemon XY/Charizard', smd: 'Charizard.SMD', scale: 0.0100 },
+  squirtle: { dir: '0007/Pokemon XY/Squirtle', smd: 'Squirtle.SMD', scale: 0.0113 },
+  wartortle: { dir: '0008/Pokemon XY/Wartortle', smd: 'Wartortle.SMD', scale: 0.0100, merged: true },
+  // the cannons out of the shell (Hydro Pump) are their own file on the shoulder bones: "cannons"
+  // (CannonsB rides a bone the model does not have: left out)
+  blastoise: { dir: '0009/Pokemon XY/Blastoise', smd: 'Blastoise.SMD', scale: 0.0115, merged: true,
+    alt: [{ file: 'Blastoise_CannonsA.SMD', part: 'cannons' }] },
   // ---- #019 - #039, the X/Y rips as The Models Resource ships them, one folder per dex
   // number (--src holds <0019>/Pokemon XY/<Name>/...). The rips are authored at about a
   // centimetre a unit (scale 0.01 is the Pokedex height); each is set to its Pokedex
@@ -437,7 +454,8 @@ async function bake(id) {
     }
     // parts: a triangle with a corner on a named bone's branch goes to that part's own
     // mesh (Pidgey's open and folded wings: separate shells the game shows one at a time)
-    let part = t.part || '';
+    // (the tail flame's sheets, FireCore / FireSten, are their own mesh: drawn as fire, no ink outline)
+    let part = t.part || (/_Fire(Core|Sten)/.test(t.mat) ? 'flame' : '');
     if (!part && sp.parts) {
       const bs = t.v.map((v) => v.w.reduce((a, c) => (c[1] > a[1] ? c : a))[0]);
       part = Object.keys(sp.parts).find((pn) => sp.parts[pn].some((nm) => bs.some((b) => under(b, byName[nm])))) || '';

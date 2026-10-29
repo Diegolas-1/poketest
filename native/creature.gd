@@ -23,6 +23,7 @@ extends Node3D
 
 const SHADER := preload("res://shaders/creature.gdshader")
 const SHADER_CUT := preload("res://shaders/creature_cutout.gdshader")
+const SHADER_FLAME := preload("res://shaders/creature_flame.gdshader")
 
 static var _scenes := {}
 
@@ -38,6 +39,7 @@ var meshes: Array[MeshInstance3D] = []
 var mats: Array[ShaderMaterial] = []
 var mat_by := {}                     # material name -> ShaderMaterial (the last surface with it)
 var mat_names: Array[String] = []    # each of mats' material name
+var flames: Array[ShaderMaterial] = []   # materials drawn as flame (their "power" set by the species)
 var look_at_pos := Vector3(NAN, NAN, NAN)
 var sleep := false
 # counters for sfx_world.gd (a sound each time one goes up): feet put down, pecks, hops
@@ -100,6 +102,10 @@ func _build(sp: String) -> void:
 		var m3 := mi as MeshInstance3D
 		meshes.append(m3)
 		m3.extra_cull_margin = 0.6
+		if String(m3.name).ends_with("_flame"):
+			# a tail flame (bake_creatures.mjs): fire, so no ink outline and no shadow
+			m3.set_meta("no_ink", true)
+			m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for s in m3.mesh.get_surface_count():
 			var src := m3.mesh.surface_get_material(s)
 			var m := ShaderMaterial.new()
@@ -130,7 +136,8 @@ static func species_info(sp: String) -> Dictionary:
 # per material (by the texture's name: "bodya1", "eye1", "mouth1" .., or "*" for all; a
 # material's own entry over "*"): tint, brightness, saturation, texture (another
 # image, res:// path), blend ("opaque" / "cutout") with alpha_cut, masks
-# ([{"rect": [u0, v0, u1, v1], "tint": [r, g, b]}], two at most). See species.json's _schema.
+# ([{"rect": [u0, v0, u1, v1], "tint": [r, g, b]}], two at most), shader ("flame": drawn as
+# fire, with its hot / warm / cool colours). See species.json's _schema.
 func _looks(cfg: Dictionary) -> void:
 	if cfg.is_empty(): return
 	for i in mats.size():
@@ -140,6 +147,16 @@ func _looks(cfg: Dictionary) -> void:
 			if k != "*" and (nm == String(k) or nm.ends_with("_" + String(k))): o.merge(cfg[k], true)
 		if o.is_empty(): continue
 		var m := mats[i]
+		if String(o.get("shader", "")) == "flame":
+			# a flame (unlit, added on top: shaders/creature_flame.gdshader), not cel shaded
+			var tex = m.get_shader_parameter("albedo_tex")
+			m.shader = SHADER_FLAME
+			m.set_shader_parameter("albedo_tex", tex)
+			m.set_shader_parameter("seed", float(i) * 1.7)
+			for k in ["hot", "warm", "cool"]:
+				if o.has(k): m.set_shader_parameter(k, _v3(o[k]))
+			flames.append(m)
+			continue
 		if String(o.get("blend", "opaque")) == "cutout":
 			var tex = m.get_shader_parameter("albedo_tex")
 			m.shader = SHADER_CUT

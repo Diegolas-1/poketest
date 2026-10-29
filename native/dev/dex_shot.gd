@@ -171,7 +171,9 @@ func _process(_dt: float) -> void:
 	if A.has("debug") and Engine.get_process_frames() % 6 == 0:
 		var out := "t=%.2f" % t
 		for k in String(A.debug).split(";"):
-			out += " %s=%s" % [k, str(c.get(k))]
+			if k.begins_with("pt:"): out += " %s=%s" % [k, str(c.call("point", k.substr(3)))]
+			elif k.begins_with("bone:"): out += " %s=%s" % [k, str(c.to_world(c.G[c.b(k.substr(5))].origin))]
+			else: out += " %s=%s" % [k, str(c.get(k))]
 		print(out)
 	var cv := Array(String(A.get("cam", "3.2,0.9,0")).split(",")).map(func(s): return float(s))
 	var z := float(A.get("zoom", "1"))
