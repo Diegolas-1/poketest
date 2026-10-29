@@ -1183,11 +1183,11 @@ export function townsfolk(K) {
     const dirOf2 = (az, el) => V(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
     // the skull: an egg a little longer at the back, narrowing below into the neck, never inside
     // the face or the eye patch
-    const skull = (d) => {
+    const egg = (d) => {
       const lo = Math.max(0, -d.y), rz = d.z > 0 ? 0.106 : 0.118 * (1 - 0.45 * lo), rx = 0.1 * (1 - 0.4 * lo), ry = d.y > 0 ? 0.128 : 0.11;
-      const e = 1 / Math.hypot(d.x / rx, d.y / ry, d.z / rz), h = cast(T, C0, d, 0.25);
-      return h == null ? e : Math.max(e, h + 0.004);
+      return 1 / Math.hypot(d.x / rx, d.y / ry, d.z / rz);
     };
+    const skull = (d) => { const e = egg(d), h = cast(T, C0, d, 0.25); return h == null ? e : Math.max(e, h + 0.004); };
     // the hairline's height round the head (|azimuth|), then its points
     const base = (az) => table([[0, 1.238], [0.62, 1.238], [0.92, 1.2], [1.2, 1.155], [1.38, 1.168], [1.5, 1.19], [1.66, 1.165], [1.85, 1.135], [2.2, 1.11], [Math.PI, 1.1]], Math.abs(az));
     const teeth = (az) => {
@@ -1229,16 +1229,14 @@ export function townsfolk(K) {
     g.setAttribute('normal', smooth.attributes.normal.clone());
     g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     v.flat(g, c.hair, head1);
-    // the head's underside: skin from just inside the hairline at the sides and the back (behind
-    // the jaw, under the ears, the nape) down and in to the top of the neck, so nothing shows
-    // through the head there; it goes with the head at the top and the neck at the bottom
-    const NU = 6, A0 = 1.0, NJ = 60, neck = (az, y) => V(Math.sin(az) * 0.031, y, -0.008 + Math.cos(az) * 0.031 * 0.95);
-    const ug = sheet(NU, NJ, (t, u) => {
-      const az = A0 + u * (TAU2 - 2 * A0), d = dirOf2(az, elAt(az, base(az))), top = C0.clone().addScaledVector(d, skull(d) - 0.003);
-      const bot = neck(az, 1.09), p = top.clone().lerp(bot, t), out = V(Math.sin(az), 0, Math.cos(az));
-      return p.addScaledVector(out, 0.016 * Math.sin(Math.PI * t) * sstep(1.3, 1.9, Math.abs(Math.atan2(Math.sin(az), Math.cos(az))))).toArray();
-    }, false);
-    v.add(ug, K.flatMat(c.skin, v.SKIN, { name: 'cast_skull', side: THREE.DoubleSide }), (p) => { const t = sstep(1.13, 1.095, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'skull');
+    // the head itself under it (the base head is only a face mask): the skull and the back of the
+    // neck as skin, the same head shape a little inside the hair and behind the face, narrowing
+    // underneath into the neck; the hair is a cap on it
+    const sk = sheet(40, 72, (t, u) => {
+      const az = u * TAU2, el = Math.PI / 2 - t * Math.PI, d = dirOf2(az, el);
+      return C0.clone().addScaledVector(d, egg(d) * 0.965).toArray();
+    });
+    v.add(sk, K.flatMat(c.skin, v.SKIN, { name: 'cast_skull' }), (p) => { const t = sstep(1.12, 1.085, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'skull');
   }
 
   // spiky hair as separate locks that bounce: each a chunky tapered lock rising from the head in
