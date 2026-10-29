@@ -17,12 +17,17 @@ extends RefCounted
 # centring it again on a path re-engages. Off the path's edge (half width +
 # edge_margin) it lets go.
 #
-# Junctions: the branch is picked before the fork (signal_t seconds of riding
-# ahead, at least signal_min m): a nudge of the stick (between nudge and
-# override off centre) picks the branch that way; else, with the setting
+# Junctions (lazy: it wants to keep rolling straight): the branch is picked before
+# the fork (signal_t seconds of riding ahead, at least signal_min m). Near a fork
+# the stick may go up to fork_override off straight ahead without taking the
+# steering back, and a push toward a branch (at least fork_tilt of tilt, more
+# than nudge rad off straight ahead, the stick within fork_align rad of that
+# branch's way out) picks it; a slight drift never does. Else, with the setting
 # "Follow the road to my goal" on and a goal on the compass, the branch on the
-# shortest way there (graph distances, Floyd-Warshall at load); else the
-# straightest. The island's compass points down the chosen branch while one is
+# shortest way there (graph distances, Floyd-Warshall at load), but only where no
+# branch runs on straight (within straight_ang rad of the way he comes in: a T or
+# a Y); else the straightest. Near the node the lookahead grows (fork_la), so
+# the line through a junction is a smooth straight one, not a pull toward the node. The island's compass points down the chosen branch while one is
 # pending (hint()).
 #
 #   update(...)   once a frame while riding: returns true while steering
@@ -56,6 +61,11 @@ var SIGNAL_T := 2.2
 var SIGNAL_MIN := 12.0
 var MIN_V := 0.8
 var GAIN := 1.0
+var FORK_OVERRIDE := 1.75  # rad: near a fork the stick may go this far off straight ahead
+var FORK_TILT := 0.15      # the tilt a branch pick needs
+var FORK_ALIGN := 1.05     # rad: the stick within this of a branch's way out picks it
+var STRAIGHT_ANG := 0.6    # rad: a branch this close to straight on wins over the goal
+var FORK_LA := 1.4         # the lookahead x this near a junction node
 
 # state
 var active := false
@@ -93,6 +103,11 @@ func _init() -> void:
 	SIGNAL_MIN = float(c.get("signal_min", SIGNAL_MIN))
 	MIN_V = float(c.get("min_speed", MIN_V))
 	GAIN = float(c.get("gain", GAIN))
+	FORK_OVERRIDE = float(c.get("fork_override", FORK_OVERRIDE))
+	FORK_TILT = float(c.get("fork_tilt", FORK_TILT))
+	FORK_ALIGN = float(c.get("fork_align", FORK_ALIGN))
+	STRAIGHT_ANG = float(c.get("straight_ang", STRAIGHT_ANG))
+	FORK_LA = float(c.get("fork_la", FORK_LA))
 	_load()
 
 func _load() -> void:
@@ -230,14 +245,20 @@ func pick(n: int, k: int, d: int, nudge_dir: Vector2) -> Array:
 	if br.is_empty(): return []
 	if br.size() == 1: why = "only"; return br[0]
 	var tin := tangent(k, E[k].len if d > 0 else 0.0, d)
+	var sb := _straight_of(n, k, d)
 	if nudge_dir != Vector2.ZERO:
+		# the branch the stick points at (within fork_align of its way out); the straight
+		# one keeps it unless another is clearly better aligned
 		var best := []; var bd := -9.0
 		for o in br:
 			var dt := _out_dir(n, o[0], o[1]).dot(nudge_dir)
 			if dt > bd: bd = dt; best = o
-		why = "stick"
-		return best
-	if goal_on and goal != Vector3.INF:
+		var sd := _out_dir(n, sb[0], sb[1]).dot(nudge_dir)
+		if bd >= cos(FORK_ALIGN) and (best == sb or bd > sd + 0.12):
+			why = "stick"
+			return best
+	var straight_on := _out_dir(n, sb[0], sb[1]).dot(tin) >= cos(STRAIGHT_ANG)
+	if goal_on and goal != Vector3.INF and not straight_on:
 		var g2 := Vector2(goal.x, goal.z)
 		var ge := _nearest_any(g2)
 		if not ge.is_empty():
@@ -328,7 +349,16 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 	v_limit = 1e9
 	if E.is_empty(): active = false; return
 	var fw := Vector2(sin(yaw), cos(yaw))
+	# (near a fork the stick may point down a branch without taking the steering back)
+	# (near a fork the stick may point down a branch without taking the steering back: a
+	# push off into the grass, toward no branch, still does)
 	var held := m > 0.08 and absf(stick_rel) < OVERRIDE
+	if not held and active and e >= 0 and m > FORK_TILT and absf(stick_rel) < FORK_OVERRIDE and stick != Vector2.ZERO and to_end() < maxf(SIGNAL_MIN, v * SIGNAL_T):
+		var nn := _end_node(e, dir)
+		var brs := branches(nn, e, dir)
+		if brs.size() > 1:
+			for o in brs:
+				if _out_dir(nn, o[0], o[1]).dot(stick) >= cos(FORK_ALIGN): held = true; break
 	var want := (held or (cruising and m <= 0.08)) and v > MIN_V
 	# where on the graph: follow the current edge, else look round
 	var found := false
@@ -382,8 +412,8 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 	var n := _end_node(e, dir)
 	var sig := maxf(SIGNAL_MIN, v * SIGNAL_T)
 	var nudge := Vector2.ZERO
-	if m > 0.08 and absf(stick_rel) > NUDGE:
-		nudge = fw.rotated(-signf(stick_rel) * 1.2)   # (+stick_rel = left: in (sin, cos) a turn of +yaw is a rotation by -angle)
+	if m > FORK_TILT and absf(stick_rel) > NUDGE and stick != Vector2.ZERO:
+		nudge = stick   # (the stick's own way: the branch it points at)
 	if to_end() < sig and adj[n].size() > 1:
 		# (picked once; again on a nudge, or when the goal moved and no nudge chose it)
 		if choice.is_empty() or choice[0] != n or nudge != Vector2.ZERO or (not _choice_stick and _goal_dirty):
@@ -397,6 +427,8 @@ func _update(_dt: float, p: Vector2, yaw: float, v: float, stick: Vector2, stick
 	# pure pursuit toward the point ahead on the centre line
 	# (a narrow path, a footbridge's deck: a shorter lookahead follows it more closely)
 	var la := minf(LA_MIN + LA_K * v, maxf(LA_MIN, LA_NARROW * half))
+	# (through a junction: a longer look ahead, a smooth line instead of a pull to the node)
+	if adj[n].size() > 2 and to_end() < la * 1.5: la *= FORK_LA
 	aim = ahead(la)
 	var to := aim - p
 	var alpha := wrapf(atan2(to.x, to.y) - yaw, -PI, PI)

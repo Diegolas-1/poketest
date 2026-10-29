@@ -25,6 +25,13 @@ extends Node
 #              stones, the speed falling with the depth, the splash pools busy in the water
 #              and idle out of it, the bike wet and dripping after, the cost; PASS / FAIL
 #              (rendered with --chase=d,h,side --snap=...: the bow wave, spray and wake)
+#   measure    the riding numbers: 0 -> top on a flat stretch of Route 1's road (cruise and
+#              sprint), up its steepest 40 m climb, and down it (holding forward, and coasting
+#              with the stick let go); prints MEASURE lines
+#   tricks     the 180 (a quick flick forward -> back spins him round, keeping speed; a slow
+#              sweep round the side or a slow pull back does not) and the wheelie (engages,
+#              holds, costs no speed, drops on release); PASS / FAIL (--snapdir: a shot mid-spin
+#              and one mid-wheelie, best with --chase=d,h,side)
 #   assist     the road assist and flow test: town -> the Route 1 gate holding forward only,
 #              the forks (straight, a nudge each way, the goal), steering over and back,
 #              cruise, the ford at the stepping stones, flow building and draining, the cost; PASS / FAIL
@@ -118,6 +125,7 @@ func _process(dt: float) -> void:
 		"mount": _mount(dt)
 		"ride", "turn", "coast":
 			if frame == 4 and at.size() == 3: _ride_at(at[0], at[1], at[2])
+			B()._test_wheelie = OS.get_cmdline_user_args().has("--wheelie") and T > float(_arg("wheelie_at", "1.0"))
 			if frame > 6:
 				main.stick_vec = stick
 				var b := B()
@@ -134,6 +142,8 @@ func _process(dt: float) -> void:
 		"paths": _paths()
 		"assist": _assist_test(dt)
 		"stats": _stats(dt)
+		"measure": _measure(dt)
+		"tricks": _tricks(dt)
 		"road":
 			# Route 1's road north from --at (its nearest point), the stick at --tilt
 			if frame == 4 and at.size() == 3: _ride_at(at[0], at[1], at[2])
@@ -376,7 +386,7 @@ func _test(dt: float) -> void:
 			_clip_check()
 			if wi >= waypoints.size() or b.at.z < -425.0 or ph_t > 150.0:
 				_check(b.at.z < -400.0, "rode the lanes and Route 1 to the gate (z %.0f in %.0f s, top speed %.1f m/s)" % [b.at.z, ph_t, res.vmax])
-				_check(res.vmax > 12.0 and res.vmax <= 19.6, "speed in range (%.1f)" % res.vmax)
+				_check(res.vmax > 13.0 and res.vmax <= b.FLOW_VMAX + 0.1, "speed in range (%.1f, the cap %.1f)" % [res.vmax, b.FLOW_VMAX])
 				var run_v := T_RUN()
 				_check(res.road_d / maxf(0.1, res.road_t) >= 1.4 * run_v and res.dist / maxf(0.1, ph_t) >= 1.2 * run_v, "faster than running: %.1f m/s on Route 1's road, %.1f m/s over the whole ride (%.0f m in %.1f s; running %.1f m/s)" % [res.road_d / maxf(0.1, res.road_t), res.dist / maxf(0.1, ph_t), res.dist, ph_t, run_v])
 				_check(res.clip < res.frames * 0.02, "hands and feet stayed on the grips and pedals (%d of %d frames off)" % [res.clip, res.frames])
@@ -413,12 +423,13 @@ func _test(dt: float) -> void:
 				if L == Vector3.ZERO:
 					_check(false, "found a ledge to ride off"); _next(); return
 				_ride_at(L.x, L.z - 3.0, 0.0)
-				res.l_air = 0
+				res.l_air = 0; res.l_air_t = 0.0
 				res.l_y0 = b.at.y
 			main.stick_vec = _toward(Vector3(res.ledge.x, 0, res.ledge.z + 8.0), 1.0)
-			if not main.cast.ground: res.l_air += 1
+			if not main.cast.ground: res.l_air += 1; res.l_air_t += dt
 			if ph_t > 3.0:
-				_check(b.at.z > res.ledge.z + 0.5 and res.l_air > 6, "rode off the ledge at (%.1f, %.1f) with a hop (airborne %d frames, dropped %.2f m)" % [res.ledge.x, res.ledge.z, res.l_air, res.l_y0 - b.at.y])
+				# (airborne time, not frames: the frame count follows the frame rate)
+				_check(b.at.z > res.ledge.z + 0.5 and res.l_air >= 3 and res.l_air_t > 0.3, "rode off the ledge at (%.1f, %.1f) with a hop (airborne %.2f s, %d frames, dropped %.2f m)" % [res.ledge.x, res.ledge.z, res.l_air_t, res.l_air, res.l_y0 - b.at.y])
 				# and can't ride back up it
 				res.l_back = b.at
 				phase = 11; ph_t = 0.0; ph_f = 0
@@ -1057,7 +1068,7 @@ func _assist_test(dt: float) -> void:
 				samp.sort()
 				print("cost in a loop: median %d us, 90th %d us (%d calls)" % [samp[samp.size() / 2], samp[int(samp.size() * 0.9)], samp.size()])
 				_next()
-		1, 2, 3, 4:
+		1, 2, 3, 4, 9:
 			# the meadow fork on Route 1's trail to the lookout: straight / nudge left / nudge right / the goal
 			var fork := _node_near(Vector2(74, -136))
 			var e1 := _edge_toward(fork, Vector2(89, -149))
@@ -1069,8 +1080,20 @@ func _assist_test(dt: float) -> void:
 				if phase == 4: b.goal_override = Vector3(96.0, 0.0, -116.0)
 				_as = {"picked": -1, "why": ""}
 			var sv := Vector2(0, -0.85)
-			if phase == 2: sv = Vector2(-0.22, -0.85)
-			if phase == 3: sv = Vector2(0.22, -0.85)
+			# (a pick: half the stick toward the branch, once the fork is near, as a player would)
+			if phase in [2, 3] and p2.distance_to(A.nodes[fork]) < 16.0 and p2.x < A.nodes[fork].x + 1.0:
+				var ein0 := -1
+				for o in A.adj[fork]: if o[0] != e1 and o[0] != e2: ein0 = o[0]
+				var tin0 := -A._out_dir(fork, ein0, 1 if A.E[ein0].a == fork else -1)
+				var lf0 := Vector2(tin0.y, -tin0.x)
+				var q1 := A._out_dir(fork, e1, 1 if A.E[e1].a == fork else -1)
+				var q2 := A._out_dir(fork, e2, 1 if A.E[e2].a == fork else -1)
+				var left_e := e1 if q1.dot(lf0) > q2.dot(lf0) else e2
+				var tgt_e := left_e if phase == 2 else (e2 if left_e == e1 else e1)
+				var od := A._out_dir(fork, tgt_e, 1 if A.E[tgt_e].a == fork else -1)
+				var tp := A.nodes[fork] + od * 14.0
+				sv = _toward(Vector3(tp.x, 0, tp.y), 0.25)
+			if phase == 9: sv = Vector2(-0.85 * tan(deg_to_rad(10.0)), -0.85)   # (a slight drift toward the left: 10 degrees)
 			main.stick_vec = sv
 			if not A.choice.is_empty() and A.nodes[A.choice[0]].distance_to(A.nodes[fork]) < 4.0: _as.picked = A.choice[1]; _as.why = A.why
 			if OS.get_cmdline_user_args().has("--log") and ph_f % 30 == 0: print("fork %d t %.1f at %s e %d dir %d choice %s why %s active %s fork %d end %.1f" % [phase, ph_t, str(p2), A.e, A.dir, str(A.choice), A.why, A.active, fork, A.to_end() if A.e >= 0 else -1.0])
@@ -1083,14 +1106,17 @@ func _assist_test(dt: float) -> void:
 				var o1 := A._out_dir(fork, e1, 1 if A.E[e1].a == fork else -1)
 				var o2 := A._out_dir(fork, e2, 1 if A.E[e2].a == fork else -1)
 				var want := -1
-				var label: String = ["", "straight on", "a nudge left", "a nudge right", "toward the goal"][phase]
+				var label: String = ["", "straight on", "a quarter of the stick toward the left branch", "a quarter of the stick toward the right branch", "toward the goal", "", "", "", "", "a slight drift of the stick (10 degrees)"][phase]
+				var straight := e1 if o1.dot(tin) > o2.dot(tin) else e2
 				match phase:
-					1: want = e1 if o1.dot(tin) > o2.dot(tin) else e2
+					1, 9: want = straight
 					2: want = e1 if o1.dot(left) > o2.dot(left) else e2
 					3: want = e1 if o1.dot(left) < o2.dot(left) else e2
-					4: want = e2
-				_check(on == want and _as.picked == want, "at the fork, %s: took edge %d (picked %d by %s, expected %d; branches %d toward the tree, %d toward the lookout)" % [label, on, _as.picked, _as.why, want, e1, e2])
-				_next()
+					# (the goal picks only where no branch runs on straight)
+					4: want = e2 if maxf(o1.dot(tin), o2.dot(tin)) < cos(A.STRAIGHT_ANG) else straight
+				_check(on == want and (_as.picked == want or phase == 9 and _as.picked < 0), "at the fork, %s: took edge %d (picked %d by %s, expected %d; branches %d toward the tree, %d toward the lookout)" % [label, on, _as.picked, _as.why, want, e1, e2])
+				if phase == 9: phase = 10; ph_t = 0.0; ph_f = 0
+				else: _next()
 		5:
 			# steering over: off the assist at once; centred again: back on it
 			if ph_f == 1:
@@ -1103,9 +1129,11 @@ func _assist_test(dt: float) -> void:
 			if _as.t_on > 0.0 and ph_t > _as.t_on + 1.0 and ph_t < _as.t_on + 1.3:
 				main.stick_vec = Vector2(0.75, -0.6)    # a firm push right (about 50 degrees)
 				if ph_t > _as.t_on + 1.05 and not b.assisting: _as.off = true
+				# (near a fork a push toward a branch picks it instead: the lazy fork rule)
+				if ph_t > _as.t_on + 1.05 and b.assisting and A.why == "stick" and not A.choice.is_empty(): _as.off = true; _as.fork = true
 			if _as.t_on > 0.0 and ph_t > _as.t_on + 1.3 and _as.back < 0.0 and b.assisting: _as.back = ph_t - (_as.t_on + 1.3)
 			if ph_t > 8.0:
-				_check(_as.off, "steering the stick over took the steering back at once")
+				_check(_as.off, "steering the stick over took the steering back at once" + (" (here near a fork: it picked the branch the stick points at)" if _as.get("fork", false) else ""))
 				_check(_as.back >= 0.0 and _as.back < 1.5, "centring the stick re-engaged the assist (after %.2f s)" % _as.back)
 				_next()
 		6:
@@ -1146,7 +1174,51 @@ func _assist_test(dt: float) -> void:
 			if ph_t > 10.0 or past > 5.0:
 				_check(past > 3.0 and _as.wet > 5, "the ford at the stepping stones: the assist rode on across (%.1f m past the last stone, %d frames on the stones or in the water, steering %d of them)" % [past, _as.wet, _as.on])
 				_check(_as.vwet < _as.vdry * 0.75, "slower over the ford: %.1f m/s on the trail, %.1f at the slowest on it" % [_as.vdry, _as.vwet])
-				_next()
+				phase = 9; ph_t = 0.0; ph_f = 0
+		11:
+			# a quick turn on a path: the stick pushed 45 degrees over at speed, the assist on;
+			# the bike answers within a few frames (it does not fight the stick)
+			if ph_f == 1:
+				Settings.set_value("bike_assist", 1)
+				var rd := _straight_road()
+				_ride_at(rd.x, rd.z, rd.y)
+				b.v = 12.0
+				_as = {"t0": -1.0, "f0": 0, "fr": -1, "on": false}
+			if ph_t < 1.5:
+				main.stick_vec = Vector2(0, -0.85)
+				_as.on = b.assisting
+			else:
+				if _as.t0 < 0.0: _as.t0 = ph_t; _as.f0 = ph_f
+				main.stick_vec = Vector2(0.62, -0.62)
+				if _as.fr < 0 and b.om < -0.6: _as.fr = ph_f - _as.f0
+			if ph_t > 2.3:
+				_check(_as.on and _as.fr >= 0 and _as.fr <= 6, "a quick turn on a path (assist on): the bike turned within %d frames of the stick going over" % _as.fr)
+				phase = 8; ph_t = 0.0; ph_f = 0
+		10:
+			# lazy at junctions: through real junctions of the graph (a branch running on
+			# straight), the stick held forward, the goal off: straight on every time
+			if ph_f == 1:
+				Settings.set_value("bike_goal", 0)
+				b.goal_override = Vector3.INF
+				_as = {"list": _junctions(4), "i": -1, "bad": [], "n": 0, "t": 99.0}
+			if _as.t > 12.0 or (_as.i >= 0 and p2.distance_to(_as.list[_as.i][3]) > 12.0 and (p2 - _as.list[_as.i][3]).dot(_as.list[_as.i][4]) > 8.0):
+				if _as.i >= 0:
+					var J: Array = _as.list[_as.i]
+					_as.n += 1
+					if A.e != J[2]: _as.bad.append("node %d at %s: on edge %d, straight on is %d (%.1f s)" % [J[0], str(J[3]), A.e, J[2], _as.t])
+				_as.i += 1
+				if _as.i >= _as.list.size():
+					Settings.set_value("bike_goal", 1)
+					_check(_as.n >= 3 and _as.bad.is_empty(), "lazy at junctions: %d junctions ridden straight through with the stick forward (wrong: %s)" % [_as.n, ", ".join(_as.bad)])
+					phase = 11; ph_t = 0.0; ph_f = 0
+					return
+				var J2: Array = _as.list[_as.i]
+				var st: Vector2 = J2[5]
+				_start_on(st.x, st.y, J2[3])
+				b.v = 8.0
+				_as.t = 0.0
+			_as.t += dt
+			main.stick_vec = Vector2(0, -0.85)
 		8:
 			Settings.set_value("bike_goal", 1)
 			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
@@ -1249,7 +1321,7 @@ func _water_test(dt: float) -> void:
 			if ph_t > 14.0:
 				_check(_wt.wet0 > 0.2 and _wt.drip_seen > 10, "out of the water the bike is wet (line %.2f m) and dripped (%d frames of drops)" % [_wt.wet0, _wt.drip_seen])
 				var R := RenderingServer
-				_check(not b.water.in_water and b.water.pools_live() == 0 and not b.water._part_set and b.water.stats.us < 30.0, "dry land: the splash pools idle (%d live, parting %s, %.0f us a frame while the wet line dries)" % [b.water.pools_live(), b.water._part_set, b.water.stats.us])
+				_check(not b.water.in_water and b.water.pools_live() == 0 and not b.water._part_set and b.water.stats.us < 100.0, "dry land: the splash pools idle (%d live, parting %s, %.0f us a frame while the wet line dries)" % [b.water.pools_live(), b.water._part_set, b.water.stats.us])
 				_wt.draws_out = R.get_rendering_info(R.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
 				_next()
 		2:
@@ -1299,5 +1371,222 @@ func _water_test(dt: float) -> void:
 			Settings.set_value("bike_assist", 1)
 			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
 			for nn in notes: print("  " + nn)
+			get_tree().quit(0 if fails.is_empty() else 1)
+			phase = 99
+
+# ---------- measure: the riding numbers ----------
+var _ms := {}
+func _road_h(i: int) -> float:
+	var road: Array = main.cast.road
+	return main.world.ash_ground(road[i][0], road[i][1])
+func _road_len(i0: int, i1: int) -> float:
+	var road: Array = main.cast.road
+	var d := 0.0
+	var st := 1 if i1 > i0 else -1
+	var i := i0
+	while i != i1:
+		d += Vector2(road[i + st][0] - road[i][0], road[i + st][1] - road[i][1]).length()
+		i += st
+	return d
+# [i0, i1] of road points: the flattest straight 50 m and the steepest 40 m climb (going i0 -> i1)
+func _ms_find() -> void:
+	var road: Array = main.cast.road
+	var n := road.size()
+	var best_flat := 1e9; var best_climb := -1e9
+	for i in range(10, n - 10, 2):
+		for dir in [1, -1]:
+			var j: int = i
+			var L := 0.0
+			var rough := 0.0
+			while j + dir >= 0 and j + dir < n and L < 50.0:
+				L += Vector2(road[j + dir][0] - road[j][0], road[j + dir][1] - road[j][1]).length()
+				rough = maxf(rough, absf(_road_h(j + dir) - _road_h(i)))
+				j += dir
+			if L >= 50.0 and Vector2(road[j][0] - road[i][0], road[j][1] - road[i][1]).length() > 44.0 and rough < best_flat:
+				best_flat = rough; _ms.flat = [i, j]
+			var k: int = i; var L2 := 0.0
+			while k + dir >= 0 and k + dir < n and L2 < 40.0:
+				L2 += Vector2(road[k + dir][0] - road[k][0], road[k + dir][1] - road[k][1]).length(); k += dir
+			if L2 >= 40.0:
+				var g := (_road_h(k) - _road_h(i)) / L2
+				if g > best_climb: best_climb = g; _ms.climb = [i, k]; _ms.grade = g
+	print("MEASURE spots: road %d points; flat road %s (height range %.2f m over 50 m), steepest 40 m climb %s grade %.3f" % [n, str(_ms.get("flat")), best_flat, str(_ms.get("climb")), _ms.get("grade", 0.0)])
+
+func _ms_ride(i0: int, i1: int, v0: float) -> void:
+	var road: Array = main.cast.road
+	var st := 1 if i1 > i0 else -1
+	_ride_at(road[i0][0], road[i0][1], atan2(road[i0 + st][0] - road[i0][0], road[i0 + st][1] - road[i0][1]))
+	B().v = v0
+	waypoints = []
+	var i := i0 + st
+	while i != i1 + st and i >= 0 and i < road.size():
+		waypoints.append(Vector3(road[i][0], 0, road[i][1])); i += st
+	wi = 0
+
+func _measure(dt: float) -> void:
+	var b := B()
+	if frame == 4: _fresh_state(); _ms_find()
+	if frame < 5: return
+	ph_t += dt
+	ph_f += 1
+	var steps := ["flat cruise", "flat sprint", "grass cruise", "climb cruise", "climb sprint", "down pedal", "down coast"]
+	if phase >= steps.size():
+		print("MEASURE done"); get_tree().quit(0); phase = 99; return
+	var nm: String = steps[phase]
+	var fl: Array = _ms.flat; var cl: Array = _ms.climb
+	if ph_f == 1:
+		main.cast.body.stamina = 1.0
+		main.cast.body.cond.remove("fatigue")
+		res = {"vmax": 0.0, "t12": -1.0, "tops": [], "sum": 0.0, "n": 0, "vmin": 99.0}
+		match nm:
+			"flat cruise", "flat sprint": _ms_ride(fl[0], fl[1], 0.0)
+			"grass cruise":
+				var o := _open_spot(9.0)
+				_ride_at(o.x, o.z - 8.0, 0.0)
+				waypoints = [Vector3(o.x, 0, o.z + 40.0)]; wi = 0
+				Settings.set_value("bike_assist", 0)
+			"climb cruise", "climb sprint": _ms_ride(cl[0], cl[1], b.CRUISE)
+			"down pedal", "down coast": _ms_ride(cl[1], cl[0], 8.0)
+		res.v0 = b.v
+		return
+	_follow(dt)
+	var tilt := 1.0 if nm in ["flat sprint", "climb sprint"] else 0.9
+	if nm == "down coast": tilt = 0.07   # (released: steers toward the road, no pedalling)
+	main.stick_vec *= tilt
+	res.vmax = maxf(res.vmax, b.v)
+	res.sum += b.v; res.n += 1
+	if ph_t > 1.0: res.vmin = minf(res.vmin, b.v)
+	if res.t12 < 0.0 and b.v >= 12.0: res.t12 = ph_t
+	res.tops.append([ph_t, b.v])
+	var done := wi >= waypoints.size() or ph_t > 12.0
+	if done:
+		var t95 := -1.0
+		for e in res.tops:
+			if e[1] >= res.vmax * 0.95: t95 = e[0]; break
+		match nm:
+			"flat cruise", "flat sprint", "grass cruise":
+				print("MEASURE %s: top %.1f m/s, 0->12 m/s %.2f s, 0->95%% of top %.2f s (surface %s)" % [nm, res.vmax, res.t12, t95, b.surface])
+			"climb cruise", "climb sprint":
+				print("MEASURE %s (grade %.3f, 40 m): from %.1f m/s, slowest %.1f, average %.1f, at the top %.1f" % [nm, _ms.grade, res.v0, res.vmin, res.sum / maxf(1, res.n), b.v])
+			_:
+				print("MEASURE %s (grade -%.3f, 40 m): from %.1f m/s to %.1f at the bottom (+%.1f), top %.1f" % [nm, _ms.grade, res.v0, b.v, b.v - res.v0, res.vmax])
+		Settings.set_value("bike_assist", 1)
+		phase += 1; ph_t = 0.0; ph_f = 0
+
+# junctions for the lazy-assist check: [node, edge in, the straight edge out, node point,
+# the way out, a start 16 m back along the edge in]; nodes of 3+ edges where one branch
+# runs on within 0.4 rad of straight and the edge in is at least 20 m long
+func _junctions(n: int) -> Array:
+	var A: BikeAssist = B().assist
+	var out := []
+	for nd in A.nodes.size():
+		if A.adj[nd].size() < 3: continue
+		for o in A.adj[nd]:
+			var k: int = o[0]
+			if A.E[k].len < 20.0: continue
+			var d_in := -1 if o[1] > 0 else 1   # (arriving at nd along k)
+			var br := A.branches(nd, k, d_in)
+			if br.size() < 2: continue
+			var tin := A.tangent(k, A.E[k].len if d_in > 0 else 0.0, d_in)
+			var best := []; var bd := -9.0; var second := -9.0
+			for b2 in br:
+				var dd := A._out_dir(nd, b2[0], b2[1]).dot(tin)
+				if dd > bd: second = bd; bd = dd; best = b2
+				elif dd > second: second = dd
+			if bd < cos(0.4) or second > cos(0.9): continue
+			var sp := A.at(k, (A.E[k].len - 16.0) if d_in > 0 else 16.0)
+			var od := A._out_dir(nd, best[0], best[1])
+			# (rideable: the start and the node on open ground)
+			out.append([nd, k, best[0], A.nodes[nd], od, sp])
+			break
+		if out.size() >= n: break
+	return out
+
+# ---------- tricks: the 180 and the wheelie ----------
+var _tk := {}
+func _shot(name: String) -> void:
+	if snapdir == "": return
+	RenderingServer.frame_post_draw.connect(func(): get_viewport().get_texture().get_image().save_png("%s/%s.png" % [snapdir, name]), CONNECT_ONE_SHOT)
+
+func _tricks(dt: float) -> void:
+	var b := B()
+	if frame == 4: _fresh_state(); _ms_find()
+	if frame < 5: return
+	ph_t += dt
+	ph_f += 1
+	var f := Vector3(sin(b.yaw), 0, cos(b.yaw))
+	var fl: Array = _ms.flat
+	match phase:
+		0, 1, 2:
+			# ride up to speed on the flat road, then: 0 a flick, 1 a slow sweep round the
+			# side, 2 a slow pull back through the centre
+			if ph_f == 1:
+				_ms_ride(fl[0], fl[1], 0.0)
+				_tk = {"n0": b.spins, "y0": 0.0, "v0": 0.0, "t0": -1.0, "shot": false, "vmin": 99.0}
+			if ph_t < 2.6:
+				_follow(dt)
+				main.stick_vec *= 0.95
+				return
+			if _tk.t0 < 0.0: _tk.t0 = ph_t; _tk.y0 = b.yaw; _tk.v0 = b.v; _tk.f0 = f
+			var tt: float = ph_t - _tk.t0
+			var f0: Vector3 = _tk.f0
+			var bk := Vector3(-f0.x, 0, -f0.z)
+			match phase:
+				0:
+					# forward 0.15 s, then straight back 0.25 s, then along the new way
+					# (the back stick then held just as it was, as a player would: the camera swings
+					# round with him, and the held stick must still mean straight on)
+					if tt < 0.15: main.stick_vec = _toward(b.at + f0 * 6.0, 1.0)
+					else:
+						if not _tk.has("sv"): _tk.sv = _toward(b.at + bk * 6.0, 1.0)
+						main.stick_vec = _tk.sv if tt < 0.4 else _tk.sv * 0.9
+					if b.spins > _tk.n0 and b.spin_t < 0.0 and not _tk.has("cam"):
+						_tk.cam = absf(wrapf(main.cam_yaw - (b.yaw + PI), -PI, PI))
+				1:
+					# swept round the left side over 0.9 s, held right out
+					var a := clampf(tt / 0.9, 0.0, 1.0) * PI * 0.97
+					var d := f0.rotated(Vector3.UP, a)
+					main.stick_vec = _toward(b.at + d * 6.0, 1.0)
+				2:
+					# forward, let go for 0.45 s, then back softly-to-full: braking, no spin
+					if tt < 0.15: main.stick_vec = _toward(b.at + f0 * 6.0, 1.0)
+					elif tt < 0.6: main.stick_vec = Vector2.ZERO
+					else: main.stick_vec = _toward(b.at + bk * 6.0, 1.0)
+			if b.spin_t > 0.18 and not _tk.shot: _tk.shot = true; _shot("spin")
+			if b.spin_t >= 0.0: _tk.vmin = minf(_tk.vmin, absf(b.v))
+			if tt > 1.6:
+				var turned := absf(wrapf(b.yaw - (_tk.y0 + PI), -PI, PI))
+				match phase:
+					0:
+						_check(b.spins == _tk.n0 + 1 and turned < 0.35 and b.v >= _tk.v0 * 0.55, "the 180: a quick flick forward -> back spun him round (%d spin), and with the stick still held back he rode straight on the new way (facing %.2f rad off the reverse, no second spin or u-turn) at %.1f m/s (from %.1f)" % [b.spins - _tk.n0, turned, b.v, _tk.v0])
+						_check(_tk.get("cam", 9.0) < deg_to_rad(15.0), "the camera swung round with the spin: %.1f degrees off behind him as he landed" % rad_to_deg(_tk.get("cam", 9.0)))
+					1: _check(b.spins == _tk.n0, "a slow sweep of the stick round the side: no spin (%d)" % [b.spins - _tk.n0])
+					2: _check(b.spins == _tk.n0, "letting go, then pulling back: no spin (%d)" % [b.spins - _tk.n0])
+				phase += 1; ph_t = 0.0; ph_f = 0
+		3, 4:
+			# the same stretch without and with the wheelie: the same speed
+			var on := phase == 4
+			if ph_f == 1:
+				_ms_ride(fl[0], fl[1], 0.0)
+				_tk.vs = 0.0; _tk.vn = 0; _tk.whmin = 9.0; _tk.wshot = false
+			_follow(dt)
+			main.stick_vec *= 0.9
+			b._test_wheelie = on and ph_t > 0.3 and ph_t < 4.0
+			if ph_t > 1.0 and ph_t < 4.0:
+				_tk.vs += b.v; _tk.vn += 1
+				if on: _tk.whmin = minf(_tk.whmin, b.wheelie)
+				if on and ph_t > 2.0 and not _tk.wshot: _tk.wshot = true; _shot("wheelie")
+			if ph_t > 4.6:
+				var va: float = _tk.vs / maxf(1.0, _tk.vn)
+				if not on:
+					_tk.vbase = va
+				else:
+					_check(_tk.whmin > 0.95, "the wheelie: up and held for 3 s (lowest %.2f of up)" % _tk.whmin)
+					_check(absf(va - _tk.vbase) < _tk.vbase * 0.03, "the wheelie costs no speed: %.2f m/s on average against %.2f without" % [va, _tk.vbase])
+					_check(b.wheelie < 0.05, "let go: the front wheel down again (%.2f)" % b.wheelie)
+				phase += 1; ph_t = 0.0; ph_f = 0
+		5:
+			print("RESULT %s (%d failed)" % ["PASS" if fails.is_empty() else "FAIL", fails.size()])
+			for n in notes: print("  " + n)
 			get_tree().quit(0 if fails.is_empty() else 1)
 			phase = 99

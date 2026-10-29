@@ -234,7 +234,7 @@ func _process(dt: float) -> void:
 	if not active and _quiet: return   # (off the bike: nothing to do until he rides again)
 	var v := speed if active else 0.0
 	var on := clampf(v / 1.2, 0.0, 1.0)
-	var vk := clampf(v / 14.0, 0.0, 1.3)   # (cruise is 13.5)
+	var vk := clampf(v / 16.0, 0.0, 1.45)   # (cruise is 15.5; a descent runs on to 23)
 	var surf_map := {"dirt": "roll_dirt", "sand": "roll_sand", "grass": "roll_grass", "tallgrass": "roll_grass", "stone": "roll_hard", "wood": "roll_hard", "water": "water"}
 	var roll: String = surf_map.get(surface, "roll_dirt")
 	var want := {}
@@ -247,7 +247,7 @@ func _process(dt: float) -> void:
 	want.free = (on * clampf(wheel_rps / 1.0, 0.0, 1.0) * 0.6) if coasting and active and skid < 0.1 else 0.0
 	want.squeal = skid * clampf(v / 3.0, 0.0, 1.0)
 	want.scrub = skid * clampf(v / 2.0, 0.0, 1.0) * 0.9
-	want.wind = minf(1.0, clampf((v - 2.0) / 12.0, 0.0, 1.0) * 0.85 + flow * 0.2) if active else 0.0
+	want.wind = minf(1.0, clampf((v - 2.0) / 15.0, 0.0, 1.15) * 0.85 + flow * 0.15) if active else 0.0   # (rising on past cruise: a descent rushes)
 	# just the ratchet's soft clicks coasting and a subtle rush of wind; the tyres and chain
 	# barely there (any rolling hiss read as a vacuum cleaner)
 	var base_db := {"roll_dirt": -42.0, "roll_grass": -44.0, "roll_sand": -40.0, "roll_hard": -45.0, "chain": -40.0, "free": -36.0, "squeal": -20.0, "scrub": -22.0, "wind": -19.0, "water": -27.0}

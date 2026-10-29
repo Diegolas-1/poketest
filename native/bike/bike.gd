@@ -18,11 +18,12 @@ extends Node3D
 # Riding (all numbers tunable): the stick's tilt is the pedalling (its direction
 # where to go); pedalling pulls him up to cruise speed (sprint holding Run, standing
 # on the pedals), easing off the stick coasts (the pedals still, the freewheel
-# ticking), letting go of it brakes (a short skid stopping hard from speed; B brakes
-# hard). He turns no tighter than his speed allows (no turning on the spot: stopped,
+# ticking), letting go of it eases him to a stop on the flat (the last few m/s a crisp
+# brake) and freewheels down a slope (B brakes hard, a short skid from speed). He turns no tighter than his speed allows (no turning on the spot: stopped,
 # he walks the bike round with a foot down) and leans into the turn by speed x
-# turn rate. Wherever Ash can walk, the bike rides: climbs slow him (steep ones to a
-# crawl, standing on the pedals), downhill runs him on up to max speed, stairs are taken
+# turn rate. Wherever Ash can walk, the bike rides: climbs slow him a little (only steep
+# ones much, standing on the pedals), downhill gravity runs him on past his flat top speed
+# up to max speed (momentum carried onto the flat, drag bleeding it off), stairs are taken
 # slowly with a bump at each step; grass, tall grass and sand are slower than the paths.
 # Into the water too, wherever Ash could wade (world_data.gd can_wade: the streams, the
 # creeks (beside the tea house trail's stepping stones too; the stones themselves are
@@ -38,6 +39,18 @@ extends Node3D
 # over the bars. The jump button hops; a
 # ledge is ridden off with a hop and a landing on the springs. A wall bounces him back
 # a little; people in the way make him brake (they step aside).
+#
+# Tricks: a quick flick of the stick from ahead to behind (forward, then straight
+# back within trick.flick_t, not swept round the side) at speed on the ground pops a
+# 180: a little hop, the bike swung round under him, landing the other way with most
+# of the speed (trick.keep), dust where it lands; a short cooldown, not in the air or
+# deep water. Moving through it runs along the old line (slowing through zero and
+# back out the new way), so it is as safe against walls and ledges as riding.
+# The wheelie (Y on a Nintendo pad, the west face button; V on a keyboard; the
+# wheelie touch button): held, the front wheel pops up to wheelie.angle and stays
+# there, wobbling a little, for as long as it is held, the bike pivoting on its back
+# axle; it costs no speed (the riding is the same), steering a touch gentler. Let go:
+# the front wheel comes down softly. Deep water, a hard landing or a wall drops it.
 #
 # Flow: riding steady (mostly straight, pedalling on good ground, no braking, not
 # climbing) builds a "flow" over flow.build seconds that raises his speed by up to
@@ -115,6 +128,29 @@ var cruise := false
 var assisting := false
 var goal_override := Vector3.INF   # (tests: a goal for the assist's routing)
 var _test_brake := false
+# tricks: the 180 spin and the wheelie
+var spin_t := -1.0         # >= 0: spinning (seconds in)
+var spin_dir := 1.0        # +1 round to the left
+var spin_y0 := 0.0
+var spin_v0 := 0.0
+var spins := 0             # (tests)
+var _spin_cd := 0.0
+var _fl_fwd_t := -9.0      # the last time the stick pointed ahead
+var _fl_side := false      # swept round the side since then
+var wheelie := 0.0         # 0 down .. 1 up (eased in place())
+var wheelie_in := false    # the button held (read in _ride)
+var _test_wheelie := false
+var _wh_lock := 0.0
+var _wh_t := 0.0
+var dust: WaterFx
+var _latch := false        # the stick held through a 180: read as before the camera swung
+var _latch_a := 0.0        # its angle in the camera's frame then
+var _latch_cam := 0.0      # the camera's yaw then
+var _spin_dir_in := Vector2.ZERO
+var _cam0 := 0.0
+var _as_in := 0.0
+var stick_rel_now := 0.0
+var stick_held_now := false          # the assist's share of the steering, eased in when it takes over
 var _clock := 0.0
 var _fwd_was := false
 var _fwd_at := -9.0
@@ -152,6 +188,11 @@ var CARVE_E := T.num("bike", "carve_angle", 1.2)
 var LEAN_GAIN := T.num("bike", "lean_gain", 0.85)
 var LEAN_MAX := T.num("bike", "lean_max", 0.6)
 var SLOPE := T.num("bike", "slope_gain", 0.75)
+var SLOPE_DOWN := T.num("bike", "slope_down_gain", 1.0)
+var REL_DECEL := T.num("bike", "release_decel", 4.5)
+var REL_STOP := T.num("bike", "release_stop", 4.0)
+var ACC_TAPER := T.num("bike", "accel_taper", 1.6)
+var ACC_MIN := T.num("bike", "accel_min", 0.35)
 var SURF_MULT := T.dict("bike", "surface_mult", {"dirt": 1.0, "stone": 1.0, "wood": 1.0, "grass": 0.84, "tallgrass": 0.68, "sand": 0.55})
 var SURF_DRAG := T.dict("bike", "surface_drag", {"dirt": 0.0, "stone": 0.0, "wood": 0.0, "grass": 0.35, "tallgrass": 0.8, "sand": 1.6})
 var W_SLOW: Array = T.file("bike").get("water_slow", [[0.0, 1.0], [0.04, 0.9], [0.12, 0.68], [0.22, 0.48], [0.33, 0.32], [0.42, 0.2], [0.5, 0.11]])
@@ -217,6 +258,38 @@ var AS := T.dict("bike", "assist", {})
 var CRUISE_TILT := float(AS.get("cruise_tilt", 0.9))
 var DBL_TAP := float(AS.get("double_tap", 0.4))
 var ASSIST_BRAKE := float(AS.get("brake", 4.5))
+var TR := T.dict("bike", "trick", {})
+var TR_FLICK := float(TR.get("flick_t", 0.2))
+var TR_M := float(TR.get("flick_tilt", 0.6))
+var TR_FWD := float(TR.get("fwd_ang", 0.6))
+var TR_BACK := float(TR.get("back_ang", 0.7))
+var TR_VMIN := float(TR.get("min_speed", 3.0))
+var TR_T := float(TR.get("time", 0.46))
+var TR_VY := float(TR.get("hop_vy", 3.4))
+var TR_KEEP := float(TR.get("keep", 0.75))
+var TR_CD := float(TR.get("cooldown", 0.6))
+var TR_DEPTH := float(TR.get("max_depth", 0.1))
+var TR_LEAN := float(TR.get("lean", 0.35))
+var TR_TUCK := float(TR.get("tuck", 0.16))
+var TR_DUST := int(TR.get("dust", 26))
+var TR_CAM := float(TR.get("cam_time", 0.4))
+var LATCH_M := float(TR.get("latch_tilt", 0.25))
+var LATCH_ANG := float(TR.get("latch_ang", 0.7))
+var AS_BLEND := float(AS.get("blend_in", 0.3))
+var AS_OVERRIDE := float(AS.get("override", 0.42))
+var AS_HAND := float(AS.get("hand_from", 0.12))
+var WH := T.dict("bike", "wheelie", {})
+var WH_ANG := float(WH.get("angle", 0.52))
+var WH_POP := float(WH.get("pop", 0.2))
+var WH_DROP := float(WH.get("drop", 0.25))
+var WH_WOB := float(WH.get("wobble", 0.035))
+var WH_HZ := float(WH.get("wobble_hz", 1.3))
+var WH_VMIN := float(WH.get("min_speed", 0.8))
+var WH_STEER := float(WH.get("steer", 0.8))
+var WH_DEPTH := float(WH.get("max_depth", 0.15))
+var WH_BACK := float(WH.get("lean_back", 0.08))
+var WH_HARD := float(WH.get("hard_land", 0.6))
+var WH_LOCK := float(WH.get("lock", 0.6))
 var surface := "dirt"
 
 func setup(g: Node3D, c: Node) -> void:
@@ -545,6 +618,32 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	var brake_btn := (Input.is_action_pressed("back") or _test_brake) and not busy
 	var f := Vector3(sin(yaw), 0, cos(yaw))
 	_clock += dt
+	if _spin_cd > 0.0: _spin_cd -= dt
+	if _wh_lock > 0.0: _wh_lock -= dt
+	wheelie_in = (_test_wheelie or _wheelie_input()) and not busy
+	# after a 180 the camera has swung round with him: the stick still held where the flick
+	# left it means "on along the new way" (read as it was before the swing) until it is let
+	# go or moved well away
+	if _latch and m > LATCH_M and absf(wrapf(atan2(dir.x, dir.y) - game.cam_yaw - _latch_a, -PI, PI)) < LATCH_ANG:
+		var w: float = atan2(dir.x, dir.y) - (game.cam_yaw - _latch_cam)
+		dir = Vector2(sin(w), cos(w)) * dir.length()
+	elif spin_t < 0.0:
+		_latch = false
+	if spin_t >= 0.0:
+		_spin_step(dt)
+		return
+	# the 180: the stick flicked from ahead straight to behind (not swept round the side)
+	var ef := wrapf(atan2(dir.x, dir.y) - yaw, -PI, PI) if m > 0.05 else 0.0
+	if m > TR_M and absf(ef) < TR_FWD:
+		_fl_fwd_t = _clock; _fl_side = false
+	elif m > TR_M and absf(ef) > TR_FWD + 0.3 and absf(ef) < PI - TR_BACK:
+		_fl_side = true
+	elif m > TR_M and absf(ef) >= PI - TR_BACK and _clock - _fl_fwd_t < TR_FLICK and not _fl_side:
+		if cast.ground and not busy and not dismount_want and v > TR_VMIN and _wd < TR_DEPTH and not _bumping and _spin_cd <= 0.0 and skid_t <= 0.0:
+			_spin_dir_in = dir
+			_spin_start(signf(ef) if absf(ef) < PI - 0.05 else (signf(om) if absf(om) > 0.05 else 1.0))
+			_spin_step(dt)
+			return
 	# the stick relative to the camera: 0 straight ahead, + to the left
 	var cy: float = game.cam_yaw
 	var stick_rel := wrapf(atan2(dir.x, dir.y) - (cy + PI), -PI, PI) if m > 0.05 else 0.0
@@ -623,6 +722,9 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		assisting = assist.update(dt, at, yaw, v, sw, 0.0 if (cruise and not stick_held) else stick_rel, m if stick_held else 0.0, cruise)
 	elif assist.active:
 		assist.active = false
+	if not assisting: _as_in = 0.0
+	stick_rel_now = 0.0 if (cruise and not stick_held) else stick_rel
+	stick_held_now = stick_held
 	if assisting:
 		target = minf(target, assist.v_limit)
 	# in the water (the assist's pace through a ford too)
@@ -671,13 +773,19 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	if brake_btn:
 		a = -BRAKE_HARD * (1.0 + W_BRAKE * wfrac) * signf(v)
 		if v > SKID_V * 0.75 and skid_t <= 0.0: _skid()
-	elif released or busy or dismount_want:
+	elif busy or dismount_want:
 		a = -BRAKE * (1.0 + W_BRAKE * wfrac) * signf(v)
-		if v > SKID_V and skid_t <= 0.0 and (released or dismount_want): _skid()
+		if v > SKID_V and skid_t <= 0.0 and dismount_want: _skid()
+	elif released:
+		# letting go: freewheels down a slope (gravity builds the speed, see below), eases
+		# to a stop on the flat (release_decel), the last few m/s a crisp brake
+		var rk := clampf((slope + 0.05) / 0.05, 0.0, 1.0) if ground else 1.0
+		var dec := BRAKE if absf(v) < REL_STOP else REL_DECEL * rk
+		a = -dec * (1.0 + W_BRAKE * wfrac) * signf(v)
 	elif v < target - 0.15:
 		pedalling = true
 		var acc := SPRINT_ACCEL if sprint else ACCEL
-		a = acc * clampf((target - v) / 2.5 + 0.25, 0.25, 1.0)
+		a = acc * clampf((target - v) / ACC_TAPER + ACC_MIN, ACC_MIN, 1.0)
 	elif bend_brake:
 		a = -slow_dec * (1.0 if slow_dec == BRAKE else clampf((v - slow_lim) / 1.5, 0.3, 1.0))   # the assist slowing for a bend, or for stairs
 	elif v > target + 0.4:
@@ -685,11 +793,13 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		a -= (v - target) * W_SETTLE * wfrac   # (the water holding him back to its pace)
 	else:
 		pedalling = target > 0.5
-		a = (target - v) * 2.0
+		# (holding the pace: the legs make up the air and the climb, so he sits on the target)
+		a = (target - v) * 4.0 + ((DRAG * v * v + 9.8 * sin(atan(maxf(slope, 0.0))) * SLOPE) if ground and pedalling else 0.0)
 	# rolling resistance on soft ground, gravity on slopes (only on the ground)
 	if ground:
 		a -= (COAST * (0.0 if pedalling else 1.0) + sdrag + (DRAG + W_DRAG * wfrac) * v * v) * signf(v) if absf(v) > 0.05 else 0.0
-		if not pivot: a -= 9.8 * sin(atan(slope)) * SLOPE   # (walking it round, he holds it)
+		# (uphill a gentler pull than downhill: climbs are pedalled, descents run on; walking it round, he holds it)
+		if not pivot: a -= 9.8 * sin(atan(slope)) * (SLOPE if slope > 0.0 else SLOPE_DOWN)
 		a -= CARVE * carve
 	if not ground: a = 0.0
 	var v0 := v
@@ -717,8 +827,19 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 		var rmin := R_MIN + R_K * v * v
 		var om_max := minf(absf(v) / rmin, OM_MAX)
 		om_t = clampf(e * TURN_GAIN, -om_max, om_max) * signf(v)
-		if assisting and v > 0.0: om_t = clampf(assist.om_target, -om_max, om_max)
+		if assisting and v > 0.0:
+			# the assist eases in when it takes over (no yank onto the path), and inside its
+			# override band the stick's own turn blends in by how far it is pushed, so a turn
+			# on a path answers at once (not toward a branch the stick picked: the assist rides that)
+			_as_in = move_toward(_as_in, 1.0, dt / maxf(0.01, AS_BLEND))
+			var hand := 0.0
+			var srel := absf(stick_rel_now)
+			if stick_held_now and srel < AS_OVERRIDE and not assist._choice_stick:
+				hand = clampf((srel - AS_HAND) / maxf(0.01, AS_OVERRIDE - AS_HAND), 0.0, 1.0)
+				hand = hand * hand * (3.0 - 2.0 * hand)
+			om_t = lerpf(om_t, clampf(assist.om_target, -om_max, om_max), _as_in * (1.0 - hand))
 		if skid_t > 0.0: om_t *= 0.4
+		om_t *= lerpf(1.0, WH_STEER, wheelie)
 	om += (om_t - om) * (1.0 - exp(-dt * (10.0 if pivot else TURN_RESP)))
 	var yaw0 := yaw
 	yaw = wrapf(yaw + om * dt, -PI, PI)
@@ -765,7 +886,105 @@ func _ride(dt: float, dir: Vector2, m: float, run: bool) -> void:
 	game.pos = Vector3(at.x, game.pos.y, at.z)
 	game.yaw = yaw
 	if dismount_want and absf(v) < 0.8: _start_dismount()
+	_wheelie_step(dt, busy)
 	_surface_fx(dt)
+
+# ---------- tricks ----------
+# the wheelie button: a pad's west face button (Y on a Nintendo pad; the jump action's
+# other button rings the bell), V on a keyboard, the touch button
+func _wheelie_input() -> bool:
+	for d in Input.get_connected_joypads():
+		if Input.is_joy_button_pressed(d, JOY_BUTTON_X): return true
+	if Input.is_physical_key_pressed(KEY_V): return true
+	var bu = cast.get("btn_ui") if cast else null
+	return bu != null and bool(bu.down.get("wheelie", false))
+
+func _wheelie_step(dt: float, busy: bool) -> void:
+	var want := wheelie_in and state == "ride" and v > WH_VMIN and _wd < WH_DEPTH and not _bumping and _wh_lock <= 0.0 and spin_t < 0.0 and not busy and not dismount_want
+	var w0 := wheelie
+	wheelie = move_toward(wheelie, 1.0 if want else 0.0, dt / maxf(0.02, WH_POP if want else WH_DROP))
+	if wheelie > 0.0: _wh_t += dt
+	else: _wh_t = 0.0
+	# (the pop: a scuff of the back tyre; the front wheel down: a soft click)
+	if w0 <= 0.0 and wheelie > 0.0: Sfx.play("land_metal", null, {"vol": -24.0, "pitch": 1.9})
+	if w0 > 0.08 and wheelie <= 0.08 and cast.ground: Sfx.play("land_metal", null, {"vol": -20.0, "pitch": 1.6})
+
+# the front wheel's angle up (rad): the pop eased, a slow balance wobble
+func wheelie_angle() -> float:
+	if wheelie <= 0.0: return 0.0
+	var k := wheelie * wheelie * (3.0 - 2.0 * wheelie)
+	var wob := (sin(_wh_t * TAU * WH_HZ) + 0.45 * sin(_wh_t * TAU * WH_HZ * 2.3 + 1.1)) * WH_WOB * k
+	return WH_ANG * k + wob
+
+func _spin_start(sd: float) -> void:
+	spin_t = 0.0
+	spin_dir = sd if sd != 0.0 else 1.0
+	spin_y0 = yaw
+	spin_v0 = v
+	spins += 1
+	cruise = false
+	assisting = false
+	if assist: assist.active = false   # (it picks the path up again the new way)
+	_cam0 = game.cam_yaw
+	_latch_cam = game.cam_yaw
+	_latch = true
+	_latch_a = wrapf(atan2(_spin_dir_in.x, _spin_dir_in.y) - game.cam_yaw, -PI, PI)
+	cast.vy = TR_VY
+	cast.ground = false
+	Sfx.play("whoosh", null, {"vol": -15.0, "pitch": 1.25})
+	_dust(at, 8)
+
+# the 180 under way: the bike swings round over trick.time (eased), the hop carries
+# him; the way he goes runs along the old line from forward through zero to back,
+# i.e. out along the new heading at keep x the speed (blocked like any riding)
+func _spin_step(dt: float) -> void:
+	spin_t += dt
+	var k := clampf(spin_t / TR_T, 0.0, 1.0)
+	var ke := k * k * (3.0 - 2.0 * k)
+	yaw = wrapf(spin_y0 + spin_dir * PI * ke, -PI, PI)
+	# the camera swings round with him, the same way, behind the new heading by the landing
+	var kc := clampf(spin_t / maxf(0.05, TR_CAM), 0.0, 1.0)
+	kc = kc * kc * (3.0 - 2.0 * kc)
+	var cam_turn := spin_dir * PI + wrapf(spin_y0 + PI - _cam0, -PI, PI)
+	game.cam_yaw = _cam0 + cam_turn * kc
+	om = spin_dir * PI / TR_T * 6.0 * k * (1.0 - k)
+	var fo := Vector3(sin(spin_y0), 0, cos(spin_y0))
+	v = spin_v0 * (1.0 - ke * (1.0 + TR_KEEP))
+	pedalling = false
+	coasting = true
+	lean += (-spin_dir * TR_LEAN * sin(PI * k) - lean) * (1.0 - exp(-dt * 14.0))
+	steer += (spin_dir * 0.35 * sin(PI * k) - steer) * (1.0 - exp(-dt * 12.0))
+	var want := fo * v * dt
+	if want.length() > 1e-5: _move(want, fo)
+	var wv := absf(v) / model.R
+	wheel_f += wv * dt; wheel_r += wv * dt
+	foot_k = move_toward(foot_k, 0.0, dt * 6.0)
+	stand_k += (0.6 - stand_k) * (1.0 - exp(-dt * 8.0))
+	if _bumping or (k >= 1.0 and cast.ground):
+		# round (or knocked out of it): riding on the new way
+		yaw = wrapf(spin_y0 + spin_dir * PI, -PI, PI) if not _bumping else yaw
+		if not _bumping: v = spin_v0 * TR_KEEP
+		om = 0.0
+		spin_t = -1.0
+		_spin_cd = TR_CD
+		flow_raw *= 0.5
+		_fl_fwd_t = -9.0
+	game.speed = maxf(v, 0.0)
+	game.pos = Vector3(at.x, game.pos.y, at.z)
+	game.yaw = yaw
+	_surface_fx(dt)
+
+# a puff of dust (or grass bits) at p: the dust pool's drops, coloured by the ground
+func _dust(p: Vector3, n: int) -> void:
+	if _wd > 0.03 or surface in ["stone", "wood"] or n <= 0: return
+	if dust == null:
+		dust = WaterFx.new(128, 1)
+		add_child(dust)
+	var c := Color(0.74, 0.63, 0.47, 0.8)
+	if surface in ["grass", "tallgrass"]: c = Color(0.52, 0.64, 0.33, 0.85)
+	elif surface == "sand": c = Color(0.88, 0.8, 0.62, 0.8)
+	dust.tint(c)
+	dust.spray(Vector3(p.x, game.world.ash_ground(p.x, p.z), p.z), n, 3.0, Vector3.ZERO)
 
 var _bumping := false
 var _ledged := false
@@ -926,6 +1145,7 @@ func _blocked() -> void:
 	var hit := absf(v)
 	_blocked_t = 0.4
 	stats.blocks += 1
+	_wh_lock = WH_LOCK
 	cruise = false
 	flow_raw = 0.0
 	if absf(v) > 2.0:
@@ -1242,6 +1462,8 @@ func place(dt: float) -> void:
 		Sfx.play("land_metal", null, {"vol": -14.0 + squash * 6.0, "pitch": 1.4})
 		# (in the water the splash is bike_water.gd's)
 		if _wd < 0.03: Sfx.play("land_" + ("dirt" if surface in ["dirt", "sand"] else ("grass" if surface in ["grass", "tallgrass"] else "stone")), null, {"vol": -8.0 + squash * 4.0})
+		if squash > WH_HARD: _wh_lock = WH_LOCK   # (a hard landing: the front wheel comes down)
+		if spin_t >= 0.0 or _spin_cd > TR_CD - 0.2: _dust(at, TR_DUST)
 	_was_ground = ground
 	_land_vy = cast.vy
 	squash = move_toward(squash, 0.0, dt * 3.2)
@@ -1271,7 +1493,12 @@ func place(dt: float) -> void:
 		kick = 0.0
 	rider.mount = m
 	var sq := squash * 0.035 * model.s
-	var bx := Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -pitch) * Basis(Vector3.BACK, lean), at + Vector3(0, -sq, 0))
+	# a wheelie: the bike turned nose up about its back axle (the back tyre stays put)
+	var wa := wheelie_angle()
+	var piv := Vector3(0, model.R, -model.WB * 0.5)
+	var b0 := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -pitch)
+	var bw := b0 * Basis(Vector3.RIGHT, -wa)
+	var bx := Transform3D(bw * Basis(Vector3.BACK, lean), at + Vector3(0, -sq, 0) + b0 * piv - bw * piv)
 	model.global_transform = bx
 	var pl := BikeRider.foot_pitch(crank, 1.0)
 	var pr := BikeRider.foot_pitch(crank, -1.0)
@@ -1280,7 +1507,9 @@ func place(dt: float) -> void:
 	# Ash: in the bike's frame (his own lean comes from it), the riding fields
 	var a: CastActor = cast.player
 	var me := m * m * (3.0 - 2.0 * m)
-	var ax := Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -pitch * me) * Basis(Vector3.BACK, lean * me), at + Vector3(0, -sq, 0))
+	var a0 := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -pitch * me)
+	var aw := a0 * Basis(Vector3.RIGHT, -wa * me)
+	var ax := Transform3D(aw * Basis(Vector3.BACK, lean * me), at + Vector3(0, -sq, 0) + a0 * piv - aw * piv)
 	a.global_transform = ax
 	rider.rel = ax.affine_inverse() * bx
 	rider.speed = absf(v)
@@ -1288,13 +1517,16 @@ func place(dt: float) -> void:
 	# worn out: hunched over the bars, panting
 	var tk: float = cast.player.tired if cast.player else 0.0
 	if tk > 0.001: rider.lean_fwd += tk * (FAT_HUNCH + 0.03 * sin(_clock * 9.0))
+	# a wheelie: sat back, arms out straight to the bars; the 180: tucked over the bars
+	rider.lean_fwd -= WH_BACK * wheelie
+	if spin_t >= 0.0: rider.lean_fwd += TR_TUCK * sin(PI * clampf(spin_t / TR_T, 0.0, 1.0))
 	rider.stand = stand_k
 	rider.foot_down = foot_k * (1.0 if state == "ride" else 0.0)
 	rider.bell = clampf(1.0 - bell_t / 0.3, 0.0, 1.0) if bell_t < 0.3 else 0.0
 	rider.look = clampf(om * 0.32 + steer * 0.4, -0.7, 0.7)
 	rider.squash = squash
 	# the camera eases back with speed
-	pull += (clampf(v / CRUISE, 0.0, 1.2) - pull) * (1.0 - exp(-dt * 2.0))
+	pull += (clampf(v / CRUISE, 0.0, 1.35) - pull) * (1.0 - exp(-dt * 2.0))
 	var fk := clampf((v - CAM_FOV_FROM) / maxf(0.5, FLOW_VMAX - CAM_FOV_FROM), 0.0, 1.0) if state == "ride" else 0.0
 	_fov_k += (fk - _fov_k) * (1.0 - exp(-dt * 1.6))
 	# sounds
@@ -1309,6 +1541,7 @@ func place(dt: float) -> void:
 	audio.water = clampf(_wd / 0.25, 0.0, 1.0) if water.in_water else 0.0
 	_assist_fx(dt)
 	water.update(dt)
+	if dust: dust.update(dt)
 	if _toast_t > 0.0: _toast_t -= dt
 	if _block_said > 0.0: _block_said -= dt
 	_toast_fade(dt)
