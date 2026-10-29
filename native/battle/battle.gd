@@ -75,6 +75,15 @@ extends Node3D
 # wings_spread...); Gust's wind pulses with its wing_phase when it has one.
 # While the battle has it, it carries the meta "battle" (its owner should leave it be).
 #
+# Staged battles (the Battle Arena, arena/arena.gd) may also pass:
+#   "gap": m           Ash to the foe (default GAP), "partner_ahead": m (PARTNER_AHEAD):
+#                      a formal field, the trainers at its ends, the Pokémon between
+#   "staged": true     the opening was already played (the formal bow, the coin, the
+#                      balls thrown): no banner, the two Pokémon grow out of the
+#                      release flash, the camera cranes up from where it is
+#   "party_a" / "party_b": teams (battle_pkmn.gd, battle/pkmn_party.gd); "log": the HUD's log
+# swap_creature(side, species) puts a new Pokémon on a side's spot (a switch).
+#
 # Dev: dev/battle_dev.tscn starts one in Route 1's tall grass (scripted for
 # renders: --acts=, --moves=, --hit=1); dev/battle_test.tscn checks the rules.
 
@@ -164,6 +173,9 @@ var auto_delay := 0.9
 var _choice := ""
 var _prev_stance := ""
 var _hidden: Array = []
+var gap := GAP                  # Ash to the foe (opts.gap)
+var partner_ahead := PARTNER_AHEAD
+var appear := 1.0               # staged: the Pokémon grow out of the release flash (0 -> 1)
 
 static func start(g: Node3D, o: Dictionary = {}) -> Battle:
 	if active and current and is_instance_valid(current): return current
@@ -207,6 +219,12 @@ func _begin(g: Node3D, o: Dictionary) -> void:
 	R.force_run = int(o.get("force_run", -1))
 	R.force_found = int(o.get("force_found", -1))
 	auto_delay = float(o.get("auto_delay", 0.9))
+	gap = float(o.get("gap", GAP))
+	partner_ahead = float(o.get("partner_ahead", PARTNER_AHEAD))
+	if R.S.get("name", "") == "PIDGEY" and species != "pidgey":
+		# (an unknown species fights by Pidgey's rules: its own name on the banner)
+		R.S = R.S.duplicate()
+		R.S["name"] = String(BattleEnergy.species_data(species).get("name", species.capitalize())).to_upper()
 	fx = BattleFx.new()
 	fx.name = "Fx"
 	add_child(fx)
@@ -242,8 +260,9 @@ func _place() -> void:
 	fwd = d
 	side = fwd.cross(Vector3.UP).normalized()
 	ash_spot = Vector3(ash_pos.x, 0, ash_pos.z)
-	foe_spot = ash_spot + fwd * GAP
-	c = ash_spot + fwd * GAP * 0.5
+	foe_spot = ash_spot + fwd * gap
+	c = ash_spot + fwd * gap * 0.5
+	if opts.has("partner_ahead"): c = (ash_spot + fwd * partner_ahead).lerp(foe_spot, 0.5)   # (the middle between the two Pokémon)
 	ash_spot.y = _gy(ash_spot); foe_spot.y = _gy(foe_spot); c.y = _gy(c)
 	ash_yaw = game.yaw
 	foe_yaw = atan2(-fwd.x, -fwd.z)
@@ -338,7 +357,7 @@ func _put_foe(dt: float) -> void:
 	foe_pos.y = _gy(foe_pos)
 	foe.global_position = foe_pos + Vector3(0, foe_lift, 0)
 	foe.rotation = Vector3(0, foe_yaw, 0)
-	foe.scale = _foe_scale0 * lerpf(1.0, FOE_SCALE, clampf(arena_k, 0.0, 1.0))
+	foe.scale = _foe_scale0 * lerpf(1.0, FOE_SCALE, clampf(arena_k, 0.0, 1.0)) * maxf(appear * foe_appear, 0.001)
 	_foe_vel = (foe_pos - _foe_last) / maxf(dt, 1e-4)
 	_foe_last = foe_pos
 	if foe.has_method("animate"): foe.animate(dt, foe_speed)
@@ -420,9 +439,11 @@ func _shot_xf(n: String) -> Dictionary:
 		# the high diagonal: up behind Ash's right shoulder, looking down across the arena at it
 		"overview":
 			if pk:
-				# mode "pkmn": over the two Pokémon (Ash small, back by his partner's side)
+				# mode "pkmn": over the two Pokémon (Ash small, back by his partner's side);
+				# further back when they stand further apart (a staged field)
 				var m := partner_pos.lerp(foe_p, 0.5)
-				return {"pos": m - fwd * 3.7 + side * 3.3 + up * 4.4, "look": m + up * 0.15, "fov": 44.0}
+				var k := clampf(partner_pos.distance_to(foe_p) / 2.6 * 0.5, 1.0, 1.5)
+				return {"pos": m - fwd * 3.7 * k + side * 3.3 * k + up * 4.4 * k, "look": m + up * 0.15, "fov": 44.0}
 			return {"pos": c - fwd * 3.9 + side * 2.9 + up * 5.0, "look": c + fwd * 0.45 + up * 0.2, "fov": 46.0}
 		"overview2": return {"pos": c - fwd * 3.6 - side * 4.8 + up * 6.0, "look": c + up * 0.4, "fov": 50.0}
 		"gust_side": return {"pos": c + side * 6.0 - fwd * 2.2 + up * 2.6, "look": c + fwd * 0.2 + up * 0.9, "fov": 58.0}
@@ -547,9 +568,17 @@ func _run() -> void:
 	_shot = {}
 	# ---- the intro ----
 	# a flash and the banner over the live scene; under the flash the two square up
-	Sfx.play("encounter", null, {"vol": -1.0})
-	ui.intro_wild = not opts.has("trainer")
-	ui.intro(_intro_name(), _intro_sub())
+	# (staged: the opening has been played, the Pokémon grow out of their release flashes)
+	var staged := bool(opts.get("staged", false))
+	if staged:
+		if not opts.has("creature"):
+			appear = 0.0
+			var tw := create_tween()
+			tw.tween_property(self, "appear", 1.0, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	else:
+		Sfx.play("encounter", null, {"vol": -1.0})
+		ui.intro_wild = not opts.has("trainer")
+		ui.intro(_intro_name(), _intro_sub())
 	ash_yaw = atan2(fwd.x, fwd.z)
 	if player and player.idles: player.idles.stance = "battle"
 	foe_pos = foe_spot
@@ -630,18 +659,47 @@ func _stage_partner() -> void:
 	if pk == null: return
 	partner = pk.make_partner()
 	if partner == null: return
-	partner_pos = ash_spot + fwd * PARTNER_AHEAD + side * PARTNER_SIDE
+	partner_pos = ash_spot + fwd * partner_ahead + side * PARTNER_SIDE
 	partner_pos.y = _gy(partner_pos)
 	partner_yaw = atan2(fwd.x, fwd.z)
 	partner.global_position = partner_pos
 	partner.rotation = Vector3(0, partner_yaw, 0)
 	fx.dust(partner_pos, 6, Color("cdb68a"), 0.6, 0.4, 0.35)
 
+# a switch: a new Pokémon on a side's spot (the old one goes); it grows in with k (partner_appear / foe_appear)
+var partner_appear := 1.0
+var foe_appear := 1.0
+func swap_creature(s: String, sp: String) -> Node3D:
+	var n: Node3D = Creature.make(sp) if ResourceLoader.exists("res://creatures/%s.glb" % sp) else (PidgeyStandin.new() if sp == "pidgey" else PkmnStandin.make(sp))
+	add_child(n)
+	if s == "a":
+		if partner and is_instance_valid(partner): partner.queue_free()
+		partner = n
+		n.top_level = true
+		n.global_position = partner_pos
+		n.rotation = Vector3(0, partner_yaw, 0)
+		n.scale = Vector3.ONE * 0.001
+	else:
+		if foe and is_instance_valid(foe):
+			if own_foe: foe.queue_free()
+			else: foe.remove_meta("battle"); foe.visible = false
+		foe = n
+		own_foe = true
+		species = sp
+		foe.set_meta("battle", true)
+		_foe_scale0 = Vector3.ONE
+		if "battle" in foe: foe.battle = true
+		if "auto" in foe: foe.auto = false
+		if "act_reach" in foe: foe.act_reach = 0.0
+		if "gust_beats" in foe: foe.gust_beats = 3
+		foe.scale = Vector3.ONE * 0.001
+	return n
+
 func _put_partner(dt: float) -> void:
 	if partner == null or not is_instance_valid(partner): return
 	partner.global_position = partner_pos + Vector3(0, pk.lift("a") if pk else 0.0, 0)
 	partner.rotation = Vector3(0, partner_yaw, 0)
-	partner.scale = Vector3.ONE * lerpf(1.0, FOE_SCALE, clampf(arena_k, 0.0, 1.0))   # (the same battle presence as the foe's)
+	partner.scale = Vector3.ONE * lerpf(1.0, FOE_SCALE, clampf(arena_k, 0.0, 1.0)) * maxf(appear * partner_appear, 0.001)   # (the same battle presence as the foe's)
 	if partner.has_method("animate"): partner.animate(dt, 0.0)
 
 # ---------- the wild side's mind: the hooks for the energy system ----------

@@ -13,6 +13,18 @@ extends Node
 #       "species": "pidgey", "level": 8, "ai": "wild", "state": "startled",   (the other side)
 #       "kind": "wild" | "trainer" | ..., "trainer": "CAMPER" (a trainer's banner),
 #       "auto": true (both sides by the AI: renders), "seed": n})
+# Teams (the Battle Arena: arena/arena.gd): "party_a": [{species, level, known?, equip?}, ...],
+#   "party_b": [...] (up to six each; battle/pkmn_party.gd), "first": "a" | "b" (the coin:
+#   who moves first on turn 1), "log": true (the HUD's battle log), "on_event":
+#   Callable(event) (the arena's trainers react: a throw for a switch, a fist pump...).
+#   POKéMON opens the party list (a switch takes the turn); a faint with others left
+#   stops the turn for the next one (Ash picks it; the trainer AI picks its own).
+#   The result then carries "party": PkmnParty.results().
+# Doubles ("doubles": true with teams; battle/pkmn_doubles.gd, a test option): two out a
+#   side, side by side; Ash picks for each of his in turn (FIGHT, a move, then its
+#   target: either foe or his other Pokémon), END TURN moves on to the next; the
+#   second pair is sent out at the start. Events carry their "place" (0, 1): the
+#   staging animates that one.
 # The result (battle.result): outcome ash_won | ash_down | ran | fled (the
 # contract's), and pkmn_outcome: PkmnBattle's own (won | lost | fled | wild_fled | blown_away).
 #
@@ -41,9 +53,21 @@ var hud: PkmnHud
 var auto := false
 var _busy := false
 var _over := false
-var _semi := {"a": "", "b": ""}
+var _semi := {"a": "", "b": "", "a1": "", "b1": ""}
 var _mound := {}
-var _lift := {"a": 0.0, "b": 0.0}
+var _lift := {"a": 0.0, "b": 0.0, "a1": 0.0, "b1": 0.0}
+# doubles
+var D: PkmnDoubles
+var _pl := {"a": 0, "b": 0}          # the place each side's staging is about now
+var _x2 := {"a": null, "b": null}    # place 1's Pokémon (place 0's are the battle's partner / foe)
+var _x2pos := {"a": Vector3.ZERO, "b": Vector3.ZERO}
+var _x2k := {"a": 1.0, "b": 1.0}     # its grow-in
+var _tg := {"side": "b", "place": 0} # the move being staged: its target
+var _inp := 0                        # the place Ash is choosing for
+var _aim_id := ""
+var _aims: Array = []
+var _fill_k := -1
+const DX := 1.3                      # doubles: each place this far to the side
 
 func setup(b: Battle) -> void:
 	battle = b
@@ -58,7 +82,32 @@ func setup(b: Battle) -> void:
 	if o.has("foe_focus"): foe["focus"] = float(o.foe_focus)
 	var bo := {"a": a, "b": foe, "kind": String(o.get("kind", "wild"))}
 	if o.has("seed"): bo["seed"] = int(o.seed)
-	B = PkmnBattle.new(bo)
+	if o.has("party_a") or o.has("party_b"):
+		# teams: the party layer (the leads from the lists, the rest on the bench)
+		var pa: Array = []
+		for d in o.get("party_a", [a]):
+			var dd: Dictionary = d.duplicate(true)
+			dd["ai"] = "balanced" if auto else "player"
+			pa.append(dd)
+		var pb: Array = []
+		for d in o.get("party_b", [foe]):
+			var dd: Dictionary = d.duplicate(true)
+			if not dd.has("ai"): dd["ai"] = String(foe.ai)
+			if String(o.get("kind", "wild")) == "wild": dd["state"] = String(foe.state)
+			pb.append(dd)
+		bo["a"] = pa
+		bo["b"] = pb
+		bo["first"] = String(o.get("first", ""))
+		if bool(o.get("doubles", false)):
+			B = PkmnDoubles.new(bo)
+			D = B
+		else:
+			B = PkmnParty.new(bo)
+		(B as PkmnParty).owner_name = {"a": "Ash", "b": String(o.get("trainer", "The foe"))}
+	else:
+		B = PkmnBattle.new(bo)
+
+func party() -> PkmnParty: return B as PkmnParty
 
 func intro_name() -> String:
 	if battle.opts.has("trainer"): return "%s WANTS TO BATTLE!" % String(battle.opts.trainer).to_upper()
@@ -68,6 +117,8 @@ func intro_sub() -> String:
 	return "LV. %d" % B.fighter("b").level
 
 func make_partner() -> Node3D:
+	var given = battle.opts.get("partner_node")
+	if given is Node3D and is_instance_valid(given): return given   # (the staged opening's, already out)
 	var sp := String(B.fighter("a").species)
 	var n: Node3D = Creature.make(sp) if ResourceLoader.exists("res://creatures/%s.glb" % sp) else PkmnStandin.make(sp)
 	battle.add_child(n)
@@ -76,15 +127,36 @@ func make_partner() -> Node3D:
 
 func lift(side: String) -> float: return float(_lift.get(side, 0.0))
 
-func _node(side: String) -> Node3D: return battle.partner if side == "a" else battle.foe
-func _pos(side: String) -> Vector3: return battle.partner_pos if side == "a" else battle.foe_pos
+# the side's Pokémon the staging is about (doubles: its place now, _pl)
+func _key(side: String) -> String: return side if int(_pl[side]) == 0 else side + "1"
+func _f(side: String) -> PkmnBattle.Fighter:
+	if D and D.at(side, int(_pl[side])) != null: return D.at(side, int(_pl[side]))
+	return B.fighter(side)
+func _node(side: String) -> Node3D:
+	if D and int(_pl[side]) == 1: return _x2[side]
+	return battle.partner if side == "a" else battle.foe
+func _pos(side: String) -> Vector3:
+	if D and int(_pl[side]) == 1: return _x2pos[side]
+	return battle.partner_pos if side == "a" else battle.foe_pos
 func _set_pos(side: String, p: Vector3) -> void:
-	if side == "a": battle.partner_pos = p
+	if D and int(_pl[side]) == 1: _x2pos[side] = p
+	elif side == "a": battle.partner_pos = p
 	else: battle.foe_pos = p
 func _home(side: String) -> Vector3:
-	var h := battle.ash_spot + battle.fwd * Battle.PARTNER_AHEAD + battle.side * Battle.PARTNER_SIDE if side == "a" else battle.foe_spot
+	var h := battle.ash_spot + battle.fwd * battle.partner_ahead + battle.side * Battle.PARTNER_SIDE if side == "a" else battle.foe_spot
+	if D: h += battle.side * DX * (1.0 if int(_pl[side]) == 1 else -1.0) - (battle.side * Battle.PARTNER_SIDE if side == "a" else Vector3.ZERO)
 	h.y = battle._gy(h)
 	return h
+func _pos_at(side: String, place: int) -> Vector3:
+	var was: int = _pl[side]
+	_pl[side] = place
+	var p := _pos(side)
+	_pl[side] = was
+	return p
+func _set_appear(side: String, v: float) -> void:
+	if D and int(_pl[side]) == 1: _x2k[side] = v
+	elif side == "a": battle.partner_appear = v
+	else: battle.foe_appear = v
 
 # the act a creature plays for a move: creatures/species.json's "acts" (and its
 # "alias": a move's id to the act that stands for it), tried as the move id, its
@@ -99,7 +171,7 @@ func _act(side: String, id: String, anim: String, fallback := "tackle") -> Strin
 	if _species.is_empty() and FileAccess.file_exists("res://creatures/species.json"):
 		var v = JSON.parse_string(FileAccess.get_file_as_string("res://creatures/species.json"))
 		_species = v.get("species", {}) if v is Dictionary else {}
-	var d: Dictionary = _species.get(String(B.fighter(side).species), {})
+	var d: Dictionary = _species.get(String(_f(side).species), {})
 	acts = d.get("acts", [])
 	alias = d.get("alias", {})
 	if acts.is_empty() and n and n.has_method("acts"): acts = n.acts()
@@ -115,16 +187,33 @@ func _mood(side: String, m: String) -> void:
 func _process(dt: float) -> void:
 	if battle == null: return
 	# where each one is: under the ground (hidden, a mound over it), in the air, here
-	for s in ["a", "b"]:
+	for key in ["a", "b", "a1", "b1"]:
+		var s: String = key.substr(0, 1)
+		var pl := 1 if key.length() > 1 else 0
+		if pl == 1 and D == null: continue
+		var keep: int = _pl[s]
+		_pl[s] = pl
 		var want := 0.0
-		if _semi[s] == "airborne": want = 2.4 + sin(Time.get_ticks_msec() * 0.003) * 0.1
-		_lift[s] = lerpf(float(_lift[s]), want, 1.0 - exp(-dt * 6.0))
+		if _semi[key] == "airborne": want = 2.4 + sin(Time.get_ticks_msec() * 0.003) * 0.1
+		_lift[key] = lerpf(float(_lift[key]), want, 1.0 - exp(-dt * 6.0))
 		var n := _node(s)
-		if n and is_instance_valid(n): n.visible = not _semi[s] in ["underground", "underwater"]
-		if _mound.has(s) and is_instance_valid(_mound[s]):
-			_mound[s].visible = _semi[s] in ["underground", "underwater"]
-			_mound[s].global_position = _pos(s) + Vector3(0, 0.02, 0)
+		if n and is_instance_valid(n): n.visible = not _semi[key] in ["underground", "underwater"]
+		if _mound.has(key) and is_instance_valid(_mound[key]):
+			_mound[key].visible = _semi[key] in ["underground", "underwater"]
+			_mound[key].global_position = _pos(s) + Vector3(0, 0.02, 0)
+		_pl[s] = keep
 	if battle.foe: battle.foe_lift = float(_lift.b)
+	# doubles: place 1's Pokémon, as the battle places its partner and foe
+	if D:
+		for s in ["a", "b"]:
+			var n: Node3D = _x2[s]
+			if n == null or not is_instance_valid(n): continue
+			var p: Vector3 = _x2pos[s]
+			p.y = battle._gy(p)
+			n.global_position = p + Vector3(0, float(_lift[s + "1"]), 0)
+			n.rotation = Vector3(0, battle.partner_yaw if s == "a" else battle.foe_yaw, 0)
+			n.scale = Vector3.ONE * lerpf(1.0, Battle.FOE_SCALE, clampf(battle.arena_k, 0.0, 1.0)) * maxf(float(_x2k[s]), 0.001)
+			if n.has_method("animate"): n.animate(dt, 0.0)
 
 # ---------- the loop ----------
 func run() -> void:
@@ -136,8 +225,14 @@ func run() -> void:
 	hud.end_turn.connect(_on_end_turn)
 	hud.pool_picked.connect(_on_pool)
 	hud.undo.connect(func(): B.unqueue("a"); hud.refresh_moves())
-	for s in ["a", "b"]: _make_mound(s)
+	hud.party_picked.connect(_on_party)
+	hud.party_cancel.connect(func(): if hud.mode == "party" and not hud.party_forced: hud.show_menu())
+	hud.target_picked.connect(_on_target)
+	hud.target_cancel.connect(func(): _aim_id = ""; hud.show_fight())
+	hud.log_on = bool(battle.opts.get("log", false))
+	for s in ["a", "b", "a1", "b1"]: _make_mound(s)
 	await _play(B.start(), 0.2)
+	if D: await _doubles_in()
 	battle.shot("overview", 2.5)
 	if battle.opts.has("hud_state"):
 		# a frozen HUD for shots: it stays up for good
@@ -150,6 +245,9 @@ func run() -> void:
 func _next_turn() -> void:
 	if B.over: _over = true; return
 	await _play(B.begin_turn(), 0.3)
+	if D and not auto:
+		_inp = 0 if D.at("a", 0) != null and not D.at("a", 0).fainted() else 1
+		_select_inp()
 	if B.needs_pick("a"):
 		if auto: B.pick_pool("a", "")
 		else:
@@ -161,6 +259,15 @@ func _open_menu() -> void:
 	battle.shot("overview", 2.5)
 	if auto:
 		await get_tree().create_timer(0.6).timeout
+		# scripted runs: "script_switch": [turn, team index] switches Ash's by choice on that turn
+		var sw: Array = battle.opts.get("script_switch", [])
+		if party() and D == null and sw.size() == 2 and B.turn == int(sw[0]) and party().can_switch("a", int(sw[1])):
+			hud.show_party(false)
+			await get_tree().create_timer(1.0).timeout
+			hud.party_sel = int(sw[1])
+			await get_tree().create_timer(0.6).timeout
+			_on_party(int(sw[1]))
+			return
 		B.ai_queue("a")
 		_on_end_turn()
 		return
@@ -185,9 +292,51 @@ func _on_command(c: String) -> void:
 		"items":
 			if B.use_item("a", "energy_shard") > 0: hud.say("Used an Energy Shard: +1 chip.", UITheme.YELLOW)
 			else: hud.say("No room for more chips.", UITheme.RED)
-		"pokemon": hud.say("%s is your only Pokémon." % B.fighter("a").name, UITheme.SKY)
+		"pokemon":
+			if party() and not party().bench("a").is_empty(): hud.show_party(false)
+			elif party() and party().alive("a") > 1: hud.say("%s can't be switched out now!" % B.fighter("a").name, UITheme.RED)
+			else: hud.say("%s is your only Pokémon." % B.fighter("a").name, UITheme.SKY)
+
+# a pick from the party list: after a faint, the next one out (then the next turn);
+# by choice, the switch is Ash's turn (the foe still moves)
+func _on_party(i: int) -> void:
+	if _busy or party() == null: return
+	if D:
+		hud.busy()
+		_busy = true
+		if _fill_k >= 0:
+			var k := _fill_k
+			_fill_k = -1
+			await _play(D.fill("a", k, i), 0.2)
+			_busy = false
+			await _after_faints()
+			return
+		await _play(D.switch_place("a", _inp, i), 0.2)
+		_busy = false
+		_on_end_turn()
+		return
+	if party().pending.a:
+		hud.busy()
+		_busy = true
+		await _play(party().switch_to("a", i), 0.2)
+		_busy = false
+		await _after_faints()
+		return
+	hud.busy()
+	_busy = true
+	await _play(party().switch_to("a", i), 0.2)
+	_busy = false
+	_on_end_turn()
 
 func _on_move(id: String) -> void:
+	if D:
+		_aims = D.targets("a", _inp, id)
+		if _aims.size() >= 2:
+			_aim_id = id
+			hud.show_targets(_aims.map(func(t): return _aim_label(t)))
+			return
+		_queue_aimed(id, _aims[0] if _aims.size() == 1 else {})
+		return
 	if B.queue("a", id):
 		hud.say("%s queued." % String(BattleEnergy.move(id).name), UITheme.SKY)
 		hud.refresh_moves()
@@ -195,6 +344,14 @@ func _on_move(id: String) -> void:
 
 func _on_end_turn() -> void:
 	if _busy: return
+	# doubles: on to Ash's other Pokémon first
+	if D and not auto and _inp == 0 and D.at("a", 1) != null and not D.at("a", 1).fainted() and not _done_for(1):
+		_inp = 1
+		_select_inp()
+		if B.needs_pick("a"): hud.show_pick()
+		else: _open_menu()
+		return
+	if D: D.select("a", 0 if D.at("a", 0) != null and not D.at("a", 0).fainted() else 1)
 	_busy = true
 	hud.busy()
 	B.ai_queue("b")
@@ -203,6 +360,49 @@ func _on_end_turn() -> void:
 		await _play(B.step(), 0.15)
 	_busy = false
 	if B.over: _over = true
+	else: await _after_faints()
+
+# after a turn: a side whose Pokémon fainted sends out the next (the trainer AI's
+# pick; Ash's from the party list, or the AI's in an auto run), then the next turn
+func _after_faints() -> void:
+	var P := party()
+	if D and not B.over:
+		for k in D.pending_places("b"):
+			var i := D.ai_pick("b")
+			if i < 0: continue
+			_busy = true
+			await _wait(0.4)
+			await _play(D.fill("b", k, i), 0.3)
+			_busy = false
+		for k in D.pending_places("a"):
+			if auto:
+				_busy = true
+				await _wait(0.5)
+				await _play(D.fill("a", k, D.ai_pick("a")), 0.3)
+				_busy = false
+			else:
+				_fill_k = k
+				hud.say("Choose your next Pokémon!", UITheme.SKY)
+				hud.show_party(true)
+				return
+		P = null
+	if P and not B.over:
+		if P.pending.b:
+			_busy = true
+			await _wait(0.4)
+			await _play(P.switch_to("b", P.ai_pick("b")), 0.3)
+			_busy = false
+		if P.pending.a:
+			if auto:
+				_busy = true
+				await _wait(0.5)
+				await _play(P.switch_to("a", P.ai_pick("a")), 0.3)
+				_busy = false
+			else:
+				hud.say("Choose your next Pokémon!", UITheme.SKY)
+				hud.show_party(true)
+				return
+	if B.over: _over = true
 	else: _next_turn()
 
 func _end() -> void:
@@ -210,7 +410,8 @@ func _end() -> void:
 	var oc := B.outcome
 	hud.say({"won": "You won!", "lost": "%s fainted..." % B.fighter("a").name, "fled": "Got away safely!", "wild_fled": "The wild one fled!", "blown_away": "Blown away!"}.get(oc, "The battle is over."), UITheme.YELLOW)
 	B.finish()
-	battle.result = {"outcome": {"won": "ash_won", "lost": "ash_down", "fled": "ran", "wild_fled": "fled", "blown_away": "ran"}.get(oc, "ran"),
+	var pr := party().results() if party() else {}
+	battle.result = {"party": pr,"outcome": {"won": "ash_won", "lost": "ash_down", "fled": "ran", "wild_fled": "fled", "blown_away": "ran"}.get(oc, "ran"),
 		"pkmn_outcome": oc, "species": String(B.fighter("b").species), "foe_hp": B.fighter("b").hp, "partner_hp": B.fighter("a").hp, "turns": B.turn,
 		"creature": battle.foe if not battle.own_foe else null}
 	match oc:
@@ -231,8 +432,14 @@ func _end() -> void:
 # ---------- the staging ----------
 func _play(evs: Array, gap: float) -> void:
 	for e in evs:
+		var cb = battle.opts.get("on_event")
+		if cb is Callable and cb.is_valid(): cb.call(e)
 		var t := String(e.get("t", ""))
 		var s := String(e.get("side", ""))
+		if D and s in ["a", "b"]:
+			_pl[s] = int(e.get("place", 0))
+			if t in ["move", "strike"]:
+				_tg = {"side": String(e.get("tside", B.other(s))), "place": int(e.get("tp", 0))}
 		var txt := String(e.get("text_owner", e.get("text", ""))) if s == "a" else String(e.get("text", ""))
 		if txt != "" and not t in ["turn", "gain"]:
 			hud.say(txt, UITheme.SKY if s == "a" else UITheme.YELLOW)
@@ -245,11 +452,15 @@ func _play(evs: Array, gap: float) -> void:
 			"commit":
 				await _commit(s, String(e.get("semi", "")))
 			"pulled_out", "forced_out":
-				_semi[s] = ""
+				_semi[_key(s)] = ""
 				battle.fx.dust(_pos(s), 8, Color("cdb68a"), 0.8, 0.6, 0.45)
 				await _wait(0.5)
 			"miss", "dodged", "untargetable":
-				await _dodge(s if t != "miss" else B.other(s))
+				if D and t == "miss":
+					_pl[String(_tg.side)] = int(_tg.place)
+					await _dodge(String(_tg.side))
+				else:
+					await _dodge(s if t != "miss" else B.other(s))
 			"protected":
 				battle.fx.spawn("ring", _pos(s) + Vector3(0, 0.4, 0), Vector3.ZERO, {"life": 0.5, "size": 0.6, "size_end": 1.6, "col": Color(0.6, 0.9, 1.0, 0.9)})
 				await _wait(0.5)
@@ -262,6 +473,12 @@ func _play(evs: Array, gap: float) -> void:
 				if t == "stat" and int(e.get("d", 0)) != 0:
 					battle.ui.pop(("%s UP" if int(e.d) > 0 else "%s DOWN") % String(e.get("stat", "")).to_upper(), _pos(s) + Vector3(0, 1.0, 0), UITheme.ORANGE, 22, "word")
 				await _wait(0.55)
+			"switch_out":
+				await _recall(s)
+			"switch_in":
+				await _send_out(s, String(e.get("species", B.fighter(s).species)))
+			"need_switch", "dragged_out":
+				await _wait(0.5)
 			"turn", "gain", "pick", "picked":
 				pass
 			_:
@@ -273,15 +490,15 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 	var anim := String(m.get("anim", id))
 	var col: Color = TYPE_COL.get(String(m.get("type", "normal")), Color.WHITE)
 	var o := B.other(s)
-	battle.ui.say(String(B.fighter(s).name).to_upper(), String(m.get("name", id)).to_upper() + "!", col if col != TYPE_COL.normal else UITheme.ORANGE)
+	battle.ui.say(String(_f(s).name).to_upper(), String(m.get("name", id)).to_upper() + "!", col if col != TYPE_COL.normal else UITheme.ORANGE)
 	battle.shot("pk_" + s, 0.0)   # (a cut: a glide between the two sides passes overhead)
 	# a committed strike comes out of wherever it went (up, under)
 	if strike:
-		_semi[s] = ""
+		_semi[_key(s)] = ""
 		battle.fx.dust(_pos(s), 10, Color("cdb68a"), 1.0, 0.8, 0.5)
 		battle.shake = 0.4
 	var from := _pos(s)
-	var to := _pos(o)
+	var to := _pos_at(String(_tg.side), int(_tg.place)) if D else _pos(o)
 	var d := (to - from); d.y = 0.0; d = d.normalized()
 	if anim in CONTACT:
 		var quick := anim == "quick_attack"
@@ -337,6 +554,58 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 			await _wait(0.03)
 	await _wait(0.1)
 
+# ---------- switching: the red recall beam, and the next one thrown out ----------
+func _recall(s: String) -> void:
+	var n := _node(s)
+	var p := _pos(s) + Vector3(0, 0.4, 0)
+	var trainer: Vector3 = battle.ash_pos + Vector3(0, 1.1, 0) if s == "a" else battle.foe_spot + battle.fwd * float(battle.opts.get("foe_trainer_back", 4.6)) + Vector3(0, 1.1, 0)
+	Sfx.play("whoosh", p, {"vol": -4.0, "pitch": 1.6})
+	var t := 0.0
+	while t < 0.55:
+		t += get_process_delta_time()
+		var u := clampf(t / 0.55, 0.0, 1.0)
+		if int(t * 60.0) % 2 == 0:
+			var q := trainer.lerp(p, randf())
+			battle.fx.spawn("star", q, Vector3.ZERO, {"life": 0.18, "size": 0.25, "size_end": 0.05, "col": Color(1.0, 0.25, 0.2, 1.0), "rot": randf() * TAU})
+		_set_appear(s, 1.0 - u)
+		if n and is_instance_valid(n): battle.fx.flash(n, Color(1.0, 0.3, 0.25), 0.1)
+		await get_tree().process_frame
+	battle.fx.spawn("ring", p, Vector3.ZERO, {"life": 0.3, "size": 0.2, "size_end": 1.2, "col": Color(1.0, 0.3, 0.25, 0.9)})
+	await _wait(0.25)
+
+func _send_out(s: String, sp: String) -> void:
+	var to := _home(s)
+	var from: Vector3 = battle.ash_pos + Vector3(0, 1.4, 0) if s == "a" else battle.foe_spot + battle.fwd * float(battle.opts.get("foe_trainer_back", 4.6)) + Vector3(0, 1.4, 0)
+	_set_appear(s, 0.0)
+	# the ball's arc
+	var ball := PkmnBall.make()
+	battle.add_child(ball)
+	Sfx.play("throw", from, {"vol": -2.0})
+	var t := 0.0
+	while t < 0.6:
+		t += get_process_delta_time()
+		var u := clampf(t / 0.6, 0.0, 1.0)
+		ball.global_position = from.lerp(to + Vector3(0, 0.5, 0), u) + Vector3(0, sin(u * PI) * 1.6, 0)
+		ball.rotation.x = -u * 12.0
+		await get_tree().process_frame
+	ball.queue_free()
+	PkmnBall.burst(battle.fx, to + Vector3(0, 0.5, 0))
+	Sfx.play("whoosh", to, {"vol": 0.0, "pitch": 0.8})
+	_set_pos(s, to)
+	_semi[_key(s)] = ""
+	if D and int(_pl[s]) == 1: _make_x2(s, sp)
+	else: battle.swap_creature(s, sp)
+	t = 0.0
+	while t < 0.4:
+		t += get_process_delta_time()
+		var k := UITheme.ease_back(clampf(t / 0.4, 0.0, 1.0), 1.6)
+		_set_appear(s, k)
+		await get_tree().process_frame
+	_set_appear(s, 1.0)
+	hud.bind(B)
+	_mood(s, _act(s, "taunt", "taunt", "taunt"))
+	await _wait(0.4)
+
 func _bolt(a: Vector3, b: Vector3, col: Color) -> void:
 	var n := 9
 	var prev := a
@@ -378,7 +647,7 @@ func _dodge(s: String) -> void:
 	await _move(s, p, 0.3)
 
 func _commit(s: String, semi: String) -> void:
-	_semi[s] = semi
+	_semi[_key(s)] = semi
 	if semi in ["underground", "underwater"]:
 		battle.fx.dust(_pos(s), 14, Color("8a6a44") if semi == "underground" else Color("8ac8ff"), 1.0, 0.8, 0.5)
 		Sfx.play("dig", _pos(s), {"vol": 0.0})
@@ -399,6 +668,63 @@ func _move(s: String, to: Vector3, secs: float, hop := 0.0, each: Callable = Cal
 		_set_pos(s, p)
 		if each.is_valid(): each.call()
 		await get_tree().process_frame
+
+# ---------- doubles ----------
+# the second pair out at the start: each side's first steps aside, the next is thrown out beside it
+func _doubles_in() -> void:
+	for s in ["a", "b"]:
+		_pl[s] = 0
+		var h := _home(s)
+		_move(s, h, 0.5, 0.3)
+	await _wait(0.55)
+	for s in ["a", "b"]:
+		if D.at(s, 1) == null: continue
+		_pl[s] = 1
+		_x2pos[s] = _home(s)
+		await _send_out(s, String(D.at(s, 1).species))
+		_pl[s] = 0
+	if hud: hud.bind(B)
+
+func _make_x2(s: String, sp: String) -> void:
+	if _x2[s] != null and is_instance_valid(_x2[s]): _x2[s].queue_free()
+	var n: Node3D = Creature.make(sp) if ResourceLoader.exists("res://creatures/%s.glb" % sp) else (PidgeyStandin.new() if sp == "pidgey" else PkmnStandin.make(sp))
+	battle.add_child(n)
+	n.top_level = true
+	if "auto" in n: n.auto = false
+	if "battle" in n: n.battle = true
+	_x2[s] = n
+	_x2k[s] = 0.0
+
+# whose turn to choose: the HUD shows that one (its plate, its pools)
+func _select_inp() -> void:
+	D.select("a", _inp)
+	hud.bind(B)
+	var f := D.at("a", _inp)
+	hud.choosing = "%s  ·  %d OF %d" % [String(f.name).to_upper(), _inp + 1, D.alive_out("a").size()] if f else ""
+
+func _done_for(k: int) -> bool:
+	var f := D.at("a", k)
+	return f == null or f.fainted() or not f.queue.is_empty()
+
+func _aim_label(t: Dictionary) -> String:
+	var f := D.at(String(t.side), int(t.k))
+	var who := "ALLY" if String(t.side) == "a" else ("LEFT FOE" if int(t.k) == 0 else "RIGHT FOE")
+	return "%s|%s" % [who, String(f.name).to_upper() if f else "?"]
+
+func _on_target(i: int) -> void:
+	if _aim_id == "" or i < 0 or i >= _aims.size(): return
+	var id := _aim_id
+	_aim_id = ""
+	hud.show_fight()
+	_queue_aimed(id, _aims[i])
+
+func _queue_aimed(id: String, target: Dictionary) -> void:
+	if D.queue_at("a", _inp, id, target):
+		hud.bind(B)
+		hud.show_fight()
+		hud.say("%s queued%s." % [String(BattleEnergy.move(id).name), "" if target.is_empty() else " at " + String(D.at(String(target.side), int(target.k)).name).to_upper()], UITheme.SKY)
+		hud.refresh_moves()
+		if B.committed_now("a") or BattleEnergy.is_all(id): _on_end_turn()
 
 func _make_mound(s: String) -> void:
 	var mound := MeshInstance3D.new()

@@ -85,6 +85,7 @@ var _end_talk := false
 var log: Array = []         # (tests) every item shown
 var _tags := {}             # "OLD TOM" -> "tom"
 var food_request := ""      # "Could I get something to eat?": the place whose menu cast.gd opens after the talk
+var arena_request := false  # "Can I use the training arena?" (Prof. Oak): cast.gd takes Ash there after the talk (arena/arena.gd)
 
 func _ready() -> void:
 	_ensure()
@@ -555,6 +556,10 @@ func _topics_for() -> Array:
 		own.append({"key": tid, "kind": "topic", "topic": tp, "label": String(tp.label), "tone": String(tp.get("tone", "curious")),
 			"dim": last > -999, "pri": 1 if last == -999 else 0})
 	out += own
+	# Prof. Oak: the Battle Arena, always on offer (conversations.json arena)
+	var ar: Dictionary = C.get("arena", {}).get(who, {})
+	if not ar.is_empty() and not asked.has("arena"):
+		out.append({"key": "arena", "kind": "arena", "label": String(ar.get("ask", "Can I use the training arena?")), "tone": "eager", "pri": 4.0})
 	# someone who serves food, at work (life/food.json host_id): Ash can ask for the menu
 	var fp := food_place()
 	if fp != "" and not asked.has("food"):
@@ -612,6 +617,14 @@ func _answer(e: Dictionary) -> void:
 			var ml: Array = FoodData.place(String(e.place)).get("lines", {}).get("menu", ["Of course! Here's the menu."])
 			_push_lines(parse_lines([String(ml[rng.randi() % ml.size()])], who))
 			food_request = String(e.place)
+			queue.append({"t": "end"})
+			_dirty()
+			return
+		"arena":
+			var ar: Dictionary = C.get("arena", {}).get(who, {})
+			_push_lines([{"who": "ash", "text": String(ar.get("ash", e.label))}])
+			_push_lines(parse_lines(ar.get("lines", ["Of course, Ash."]), who))
+			arena_request = true
 			queue.append({"t": "end"})
 			_dirty()
 			return

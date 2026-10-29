@@ -513,6 +513,10 @@ func update(dt: float) -> void:
 	if script_phase >= 0: _oak_scene(dt)
 	convo.update(dt)   # placing the two, their faces, the schedule's interruptions
 	# "Could I get something to eat?": the menu once the talk is over
+	# "Can I use the training arena?": off to the Battle Arena once the talk is over (arena/arena.gd)
+	if convo.arena_request and not convo.busy() and not dialog.open:
+		convo.arena_request = false
+		BattleArena.enter(game)
 	if convo.food_request != "" and not convo.busy() and not dialog.open:
 		var fr := convo.food_request
 		convo.food_request = ""

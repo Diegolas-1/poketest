@@ -390,6 +390,18 @@
     ]
   },
   "clue_labels": {},
+  "arena": {
+    "_doc": "The Battle Arena (arena/arena.gd): an always-available question in Prof. Oak's talk. ask: the menu's label; ash: what Ash says; lines: Oak's reply, then the door wipe there.",
+    "oak": {
+      "ask": "Can I use the training arena?",
+      "ash": "Professor, can I use the training arena? I want to practise battling!",
+      "lines": [
+        "The training arena? Ha! Eager as ever, Ash. Of course you can.",
+        "Stage any battle you like out there: wild POKéMON, or a proper match against another trainer.",
+        "And remember, my boy: a battle between trainers begins with a bow. Respect first, then the battle. Off you go!"
+      ]
+    }
+  },
   "pet_chimes": {
     "nibbles": [["nibbles: Cater!", "N: (Nibbles wriggles up onto Lily's shoe to get a better look at you.)"], ["N: (At Lily's feet, Nibbles nods along as if he understands every word.)"], ["nibbles: Caaater...", "lily: He says hello. Probably."]],
     "doduo": [["doduo: Do! Duo!", "N: (Doduo's left head pecks your cap. The right head looks embarrassed.)"], ["N: (Doduo leans both heads in to listen. They seem to be taking notes.)"], ["doduo: Dodo!", "ben: Mm. It likes you."]],
