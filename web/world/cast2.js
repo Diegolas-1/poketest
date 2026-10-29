@@ -1392,7 +1392,8 @@ export function townsfolk(K) {
   const GIRL_LINE = [[0, 1.245], [0.7, 1.235], [1.0, 1.19], [1.25, 1.14], [1.45, 1.15], [1.7, 1.12], [2.2, 1.08], [Math.PI, 1.07]];
   for (const [id, h] of Object.entries(CHEERS)) {
     C[id] = { ...CHEER, ...h };
-    CAST[id] = { height: h.height, edits: body({ ...WOMAN, head: 0.97, trunk: [0.93, 1.02, 0.95], arm: 0.9, legLen: 1.07 }),
+    // (the head set lower on a shorter neck, as Gary's: no gap under it)
+    CAST[id] = { height: h.height, edits: { ...body({ ...WOMAN, head: 0.97, trunk: [0.93, 1.02, 0.95], arm: 0.9, legLen: 1.07 }), Head: { t: [0, -0.024, 0] } },
       drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
       face: { iris: h.iris, brow: h.hair2, lashes: '#1e141a', mouth: 'smile', blush: '#f49aa2', lips: '#e07a82', forehead: 'smooth', happy: true } };
     BUILD[id] = (v) => cheerleader(v, C[id]);
@@ -1426,6 +1427,11 @@ export function townsfolk(K) {
     });
     v.shoes({ up: c.white, sole: c.sole, toe: c.white, sock: c.white, sockY: 0.1, rimY: 0.092, rim: c.blue });
     v.shape('topsjer', lowerCollar(1.045, 0.22));
+    // and what is left of Ash's collar taken in round the neck (a flat neckline, as Gary's)
+    v.shape('topsjer', (p, n, part) => {
+      const t = sstep(1.04, 1.05, p.y), r = Math.hypot(p.x, p.z + 0.008); if (!t || isArm(part) || r < 0.033) return;
+      const k = 1 + (0.033 / r - 1) * t; p.x *= k; p.z = -0.008 + (p.z + 0.008) * k;
+    });
     // none of Ash's hair: her own on a real head (hairCap)
     v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
     v.neck();
