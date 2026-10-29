@@ -1242,9 +1242,11 @@ export function townsfolk(K) {
     const teeth = (az) => {
       const a = Math.abs(az);
       // [count over the whole circle, depth, where in each the point is (0..1)]
-      const [n, depth] = a < 0.8 ? [26, 0] : a < 1.35 ? [22, 0.01] : a < 1.7 ? [22, 0.008] : [30, 0.026];
-      const f = ((az / TAU2 * n + 0.15) % 1 + 1) % 1, fp = 0.3;
-      return depth * (f < fp ? f / fp : (1 - f) / (1 - fp)) ** 1.4;
+      // (across the front: small, choppy and uneven, every point a different depth)
+      const [n, depth] = a < 1.35 ? [40, 0.014] : a < 1.7 ? [22, 0.008] : [30, 0.026];
+      const g = az / TAU2 * n + 0.15, f = (g % 1 + 1) % 1, fp = 0.3, k = Math.floor(g);
+      const vary = a < 1.35 ? 0.35 + 0.65 * hash(k, 7.3) : 1;
+      return depth * vary * (f < fp ? f / fp : (1 - f) / (1 - fp)) ** 1.4;
     };
     // the edge's elevation where the skull reaches height y (a few steps of refinement)
     const elAt = (az, y) => {
