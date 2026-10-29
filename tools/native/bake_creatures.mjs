@@ -42,6 +42,60 @@ const SPECIES = {
   // along x) and folded at the side (LFeeler1 - LFeeler2): separate meshes (parts).
   pidgey: { dir: 'Pidgey', dae: 'Pidgey.DAE', img: 'Images', scale: 0.0135,
     parts: { wing_l: ['LArm'], wing_r: ['RArm'], fold_l: ['LFeeler1'], fold_r: ['RFeeler1'] } },
+  // ---- the Kanto starters #001 - #009 (--src holds <0001>/Pokemon XY/<Name>/...; Mega forms not baked).
+  // Bulbasaur's vines are their own files on the vine bones (L/RFeelerC01 ..): "vine_l", "vine_r";
+  // the Charmander line's tail flame is two meshes (FireCore, FireSten: grey ramps the game colours)
+  bulbasaur: { dir: '0001/Pokemon XY/Bulbasaur', smd: 'Bulbasaur.SMD', scale: 0.0100, merged: true,
+    alt: [{ file: 'Bulbasaur_LVine.SMD', part: 'vine_l' }, { file: 'Bulbasaur_RVine.SMD', part: 'vine_r' }] },
+  ivysaur: { dir: '0002/Pokemon XY/Ivysaur', smd: 'Ivysaur.SMD', scale: 0.0100 },
+  venusaur: { dir: '0003/Pokemon XY/Venusaur', smd: 'VenusaurM.SMD', scale: 0.0105 },
+  venusaur_f: { dir: '0003/Pokemon XY/Venusaur', smd: 'VenusaurF.SMD', scale: 0.0105 },
+  charmander: { dir: '0004/Pokemon XY/Charmander', smd: 'Charmander.SMD', scale: 0.0100 },
+  charmeleon: { dir: '0005/Pokemon XY/Charmeleon', smd: 'Charmeleon.SMD', scale: 0.0100, merged: true },
+  charizard: { dir: '0006/Pokemon XY/Charizard', smd: 'Charizard.SMD', scale: 0.0100 },
+  squirtle: { dir: '0007/Pokemon XY/Squirtle', smd: 'Squirtle.SMD', scale: 0.0113 },
+  wartortle: { dir: '0008/Pokemon XY/Wartortle', smd: 'Wartortle.SMD', scale: 0.0100, merged: true },
+  // the cannons out of the shell (Hydro Pump) are their own file on the shoulder bones: "cannons"
+  // (CannonsB rides a bone the model does not have: left out)
+  blastoise: { dir: '0009/Pokemon XY/Blastoise', smd: 'Blastoise.SMD', scale: 0.0115, merged: true,
+    alt: [{ file: 'Blastoise_CannonsA.SMD', part: 'cannons' }] },
+  // ---- #019 - #039, the X/Y rips as The Models Resource ships them, one folder per dex
+  // number (--src holds <0019>/Pokemon XY/<Name>/...). The rips are authored at about a
+  // centimetre a unit (scale 0.01 is the Pokedex height); each is set to its Pokedex
+  // height (the top of the head or ears, a serpent's length), the game's species.json
+  // fine-tunes it. Every eye (and mouth) sheet is a 2 x 4 atlas of expressions (uv_off
+  // steps of 0.5 and 0.25; creature_rig.gd names them). The rips that draw the pupils as
+  // a see-through sheet over the eye whites (Iris1) use the merged sheet instead, as
+  // Mr. Mime does. Gendered ones bake the female as <id>_f (same skeleton).
+  rattata: { dir: '0019/Pokemon XY/Rattata', dae: 'Rattata_M.DAE', img: 'Images', scale: 0.0100, merged: true },
+  rattata_f: { dir: '0019/Pokemon XY/Rattata', dae: 'Rattata_F.DAE', img: 'Images_F', scale: 0.0100, merged: true },
+  raticate: { dir: '0020/Pokemon XY/Raticate', dae: 'Raticate_M.DAE', img: 'Images', scale: 0.0097 },
+  raticate_f: { dir: '0020/Pokemon XY/Raticate', dae: 'Raticate_F.DAE', img: 'Images_F', scale: 0.0097 },
+  // Spearow has each wing twice like Pidgey: spread (LArm ..) and folded (LFeeler1 ..)
+  spearow: { dir: '0021/Pokemon XY/Spearow', dae: 'Spearow.DAE', img: 'Images', scale: 0.0100,
+    parts: { wing_l: ['LArm'], wing_r: ['RArm'], fold_l: ['LFeeler1'], fold_r: ['RFeeler1'] } },
+  fearow: { dir: '0022/Pokemon XY/Fearow', dae: 'Fearow.DAE', img: 'Images', scale: 0.0148 },
+  ekans: { dir: '0023/Pokemon XY/Ekans', smd: 'Ekans.SMD', scale: 0.0102 },
+  arbok: { dir: '0024/Pokemon XY/Arbok', smd: 'Arbok.SMD', scale: 0.0100 },
+  pikachu: { dir: '0025/Pokemon XY/Pikachu', smd: 'PikachuM.SMD', scale: 0.0084 },
+  pikachu_f: { dir: '0025/Pokemon XY/Pikachu', smd: 'PikachuF.SMD', scale: 0.0084 },
+  raichu: { dir: '0026/Pokemon XY/Raichu', smd: 'RaichuM.SMD', scale: 0.0095 },
+  raichu_f: { dir: '0026/Pokemon XY/Raichu', smd: 'RaichuF.SMD', scale: 0.0095 },
+  // Sandshrew rolled up is another file on the same skeleton: the mesh "roll"
+  sandshrew: { dir: '0027/Pokemon XY/Sandshrew', smd: 'Sandshrew.SMD', scale: 0.0102, alt: [{ file: 'SandshrewRoll.SMD', part: 'roll' }] },
+  sandslash: { dir: '0028/Pokemon XY/Sandslash', smd: 'Sandslash.SMD', scale: 0.0097 },
+  nidoranf: { dir: '0029/Pokemon XY/NidoranF', smd: 'NidoranF.SMD', scale: 0.0097 },
+  nidorina: { dir: '0030/Pokemon XY/Nidorina', smd: 'Nidorina.SMD', scale: 0.0113, merged: true },
+  nidoqueen: { dir: '0031/Pokemon XY/Nidoqueen', smd: 'Nidoqueen.SMD', scale: 0.0102 },
+  nidoranm: { dir: '0032/Pokemon XY/NidoranM', smd: 'NidoranM.SMD', scale: 0.0109, merged: true },
+  nidorino: { dir: '0033/Pokemon XY/Nidorino', smd: 'Nidorino.SMD', scale: 0.0101 },
+  nidoking: { dir: '0034/Pokemon XY/Nidoking', smd: 'Nidoking.SMD', scale: 0.0101 },
+  // a Blender re-export with its own names (Body1_0.png ..) and the images beside it
+  clefairy: { dir: '0035/035. Clefairy', dae: 'clefairy.dae', img: '.', scale: 0.0097 },
+  clefable: { dir: '0036/Pokemon XY/Clefable', dae: 'Clefable.DAE', img: 'Images', scale: 0.0091 },
+  vulpix: { dir: '0037/Pokemon XY/Vulpix', dae: 'Vulpix.DAE', img: 'Images', scale: 0.0105 },
+  ninetales: { dir: '0038/Pokemon XY/Ninetales', dae: 'Ninetales.DAE', img: 'Images', scale: 0.0100 },
+  jigglypuff: { dir: '0039/Pokemon XY/Jigglypuff', dae: 'Jigglypuff.DAE', img: 'Images', scale: 0.0089, merged: true },
 };
 
 const args = process.argv.slice(2);
@@ -258,7 +312,45 @@ async function bake(id) {
   const text = fs.readFileSync(path.join(dir, sp.dae || sp.smd), 'utf8');
   const { nodes, tris: all } = sp.dae ? parseDAE(text) : parseSMD(text);
   const imgDir = path.join(dir, sp.img || 'images');
+  // alt: other files rigged to the same skeleton (Sandshrew's rolled-up ball), each
+  // baked as its own mesh (part) the game shows instead of the body
+  for (const a of sp.alt || []) {
+    const t2 = fs.readFileSync(path.join(dir, a.file), 'utf8');
+    const o = a.file.match(/\.dae$/i) ? parseDAE(t2) : parseSMD(t2);
+    const map = o.nodes.map((n) => nodes.findIndex((m) => m.name === n.name));
+    for (const t of o.tris) {
+      if (t.v.some((v) => v.w.some(([j]) => map[j] < 0))) continue;
+      all.push({ ...t, part: a.part, v: t.v.map((v) => ({ ...v, w: v.w.map(([j, w]) => [map[j], w]) })) });
+    }
+  }
+  if (sp.merged) {
+    const pre = fs.readdirSync(imgDir).find((f) => /_Eye1_Merged\.png$/.test(f)).replace(/_Eye1_Merged\.png$/, '');
+    sp.swap = { ...(sp.swap || {}), [pre + '_Eye1.png']: pre + '_Eye1_Merged.png' };
+    sp.drop = [...(sp.drop || []), pre + '_Iris1.png'];
+  }
   const tris = all.filter((t) => !(sp.drop || []).includes(t.mat));
+  // the face sheets (eyes, mouth, the cheeks' overlay) are their own shells laid over
+  // the body, with flatter normals of their own: lit by those, the cel bands put a
+  // lighter (or darker) box round the eyes. Each face corner takes the normal of the
+  // nearest body corner instead, so the face shades as one surface with the head.
+  if (!['caterpie', 'doduo', 'mrmime', 'pidgey'].includes(id)) {
+    const face = (m) => /(Eye|Mouth|Iris|Inc)/i.test(m);
+    const body = [];
+    for (const t of tris) if (!face(t.mat) && !t.part) for (const v of t.v) body.push(v);
+    let n = 0;
+    for (const t of tris) {
+      if (!face(t.mat)) continue;
+      for (const v of t.v) {
+        let best = null, bd = 1e18;
+        for (const q of body) {
+          const d = (q.p[0] - v.p[0]) ** 2 + (q.p[1] - v.p[1]) ** 2 + (q.p[2] - v.p[2]) ** 2;
+          if (d < bd) { bd = d; best = q; }
+        }
+        if (best && best.n[0] * v.n[0] + best.n[1] * v.n[1] + best.n[2] * v.n[2] > -0.2) { v.n = [...best.n]; n++; }
+      }
+    }
+    if (n) console.log(`  ${n} face corners shaded with the head`);
+  }
   const s = sp.scale;
   // world bind matrices in the rip's frame, then in the game's (rotation by M, translation scaled)
   const W = [];
@@ -352,7 +444,8 @@ async function bake(id) {
   }
   const groups = {};
   for (const t of tris) {
-    let key = t.mat.replace(/\.png$/i, '').replace(/^pm\d+_\d+_/, id + '_').toLowerCase();
+    // the texture's name without the rip's prefix (pm0025_00_) or the Blender rip's suffix (_0)
+    let key = (id + '_' + t.mat.replace(/\.png$/i, '').replace(/^pm\d+_\d+_/, '').replace(/_0$/, '')).toLowerCase();
     const sp2 = sp.split && sp.split[t.mat];
     if (sp2) {
       const b = t.v[0].w.reduce((a, c) => (c[1] > a[1] ? c : a))[0];
@@ -361,8 +454,9 @@ async function bake(id) {
     }
     // parts: a triangle with a corner on a named bone's branch goes to that part's own
     // mesh (Pidgey's open and folded wings: separate shells the game shows one at a time)
-    let part = '';
-    if (sp.parts) {
+    // (the tail flame's sheets, FireCore / FireSten, are their own mesh: drawn as fire, no ink outline)
+    let part = t.part || (/_Fire(Core|Sten)/.test(t.mat) ? 'flame' : '');
+    if (!part && sp.parts) {
       const bs = t.v.map((v) => v.w.reduce((a, c) => (c[1] > a[1] ? c : a))[0]);
       part = Object.keys(sp.parts).find((pn) => sp.parts[pn].some((nm) => bs.some((b) => under(b, byName[nm])))) || '';
     }
