@@ -148,14 +148,14 @@ export function markOptions() {
   }
   return { where: 'skin', list: optionList(FALLBACK_MARKS), fallback: true };
 }
-export const skinTones = () => swatches(SKIN.SKIN_TONES) .length ? swatches(SKIN.SKIN_TONES) : FALLBACK_TONES;
+export const skinTones = () => (SKIN.SKIN_TONES ? swatches(SKIN.SKIN_TONES) : FALLBACK_TONES);
 export const expressions = () => choices(SKIN.EXPRESSIONS || FALLBACK_EXPRESSIONS);
 export const underwearStyles = () => choices(SKIN.UNDERWEAR || FALLBACK_UNDERWEAR);
 export const hairStyles = () => choices(HAIR.HAIR_STYLES).filter((s) => !/facial|beard|moustache|mustache/i.test(`${s.kind || ''} ${s.type || ''} ${s.slot || ''}`));
 export const hairColors = () => (HAIR.HAIR_COLORS ? swatches(HAIR.HAIR_COLORS) : FALLBACK_HAIR_COLORS);
 export function facialStyles() {
   if (HAIR.FACIAL_HAIR || HAIR.FACIAL_STYLES) return choices(HAIR.FACIAL_HAIR || HAIR.FACIAL_STYLES);
-  const inStyles = choices(HAIR.HAIR_STYLES).filter((s) => /facial|beard|moustache|mustache/i.test(`${s.kind || ''} ${s.type || ''} ${s.slot || ''}`));
+  const inStyles = choices(HAIR.HAIR_STYLES || []).filter((s) => /facial|beard|moustache|mustache/i.test(`${s.kind || ''} ${s.type || ''} ${s.slot || ''}`));
   if (inStyles.length) return [{ id: 'none', name: 'None' }, ...inStyles];
   return choices(FALLBACK_FACIAL);
 }
@@ -188,6 +188,8 @@ export const SLOT_TABS = [
 ];
 export const SLOT_NAME = { top: 'Top', outer: 'Outerwear', dress: 'Dress', onepiece: 'One-piece', bottom: 'Bottom', legwear: 'Legwear', shoes: 'Shoes', hat: 'Hat', eyewear: 'Eyewear', neckwear: 'Neckwear', bag: 'Bag', belt: 'Belt', gloves: 'Gloves', apron: 'Apron', wrist: 'Wrist', jewellery: 'Jewellery', pin: 'Pin', hair_acc: 'Hair accessory' };
 // slots that take several items (accessories); every other slot holds one
+// hair settings that change the hair's geometry (the rest is paint)
+export const HAIR_SHAPE = ['style', 'facial', 'length', 'volume', 'spikiness', 'bangs', 'part', 'curl', 'ahoge', 'seed'];
 export const MULTI = new Set(['wrist', 'jewellery', 'pin', 'hair_acc']);
 // what else an item takes off when it goes on
 export const CONFLICTS = { dress: ['bottom', 'onepiece'], onepiece: ['bottom', 'dress'], bottom: ['dress', 'onepiece'] };

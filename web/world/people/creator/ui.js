@@ -9,7 +9,7 @@ export function h(tag, props = {}, ...kids) {
   for (const [k, v] of Object.entries(props || {})) {
     if (v === undefined || v === null || v === false || k === 'svg') continue;
     if (k === 'class') el.setAttribute('class', v);
-    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'style' && typeof v === 'object') { for (const [sk, sv] of Object.entries(v)) if (sk.startsWith('--')) el.style.setProperty(sk, sv); else el.style[sk] = sv; }
     else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'html') el.innerHTML = v;
     else if (k in el && !(el instanceof SVGElement) && typeof v !== 'string') el[k] = v;
@@ -112,8 +112,8 @@ export function slider(o) {
   const def = o.def ?? 0;
   const paint = () => {
     const a = (Math.min(+inp.value, def) - o.min) / (o.max - o.min) * 100, b = (Math.max(+inp.value, def) - o.min) / (o.max - o.min) * 100;
-    inp.style.setProperty('--a', a + '%'); inp.style.setProperty('--b', b + '%');
-    inp.style.setProperty('--d', ((def - o.min) / (o.max - o.min) * 100) + '%');
+    wrap.style.setProperty('--a', a + '%'); wrap.style.setProperty('--b', b + '%');
+    wrap.style.setProperty('--d', ((def - o.min) / (o.max - o.min) * 100) + '%');
     wrap.classList.toggle('changed', Math.abs(+inp.value - def) > 1e-6);
   };
   inp.addEventListener('input', () => { val.textContent = fmt(+inp.value); paint(); o.onInput && o.onInput(+inp.value); });
@@ -173,7 +173,6 @@ export function section(title, body, o = {}) {
   const head = h('div', { class: 'sec-head' }, h('h3', {}, title, o.badge ? h('span', { class: 'badge ' + (o.badgeClass || '') }, o.badge) : null), h('div', { class: 'sec-actions' }, o.actions || []));
   const sec = h('section', { class: 'sec' + (o.fold ? ' fold' : '') + (o.closed ? ' closed' : '') }, head, h('div', { class: 'sec-body' }, body));
   if (o.fold) head.addEventListener('click', (e) => { if (e.target.closest('.sec-actions')) return; sec.classList.toggle('closed'); o.onFold && o.onFold(!sec.classList.contains('closed')); });
-  if (o.onEnter) sec.addEventListener('pointerenter', o.onEnter);
   if (o.onFocus) sec.addEventListener('focusin', o.onFocus);
   return sec;
 }

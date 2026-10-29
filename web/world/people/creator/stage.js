@@ -60,7 +60,7 @@ function meadow() {
   const shade = new THREE.Mesh(new THREE.RingGeometry(PODIUM_R + 0.01, PODIUM_R + 0.5, 72).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#7fb362', transparent: true, opacity: 0.35, depthWrite: false }));
   shade.position.y = 0.002; shade.userData.outline = false; g.add(shade);
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const blade = new THREE.ConeGeometry(0.018, 0.11, 4).translate(0, 0.055, 0);
+  const blade = new THREE.ConeGeometry(0.013, 0.075, 3).translate(0, 0.037, 0);
   const tufts = new THREE.InstancedMesh(blade, toon('#7fb85c'), 520);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
   for (let i = 0; i < 520; i++) {
@@ -134,12 +134,12 @@ export function createStage(host) {
     if (!L) return { ty: y0 + H * 0.5, dist: fit(H * 0.6, H * 0.45), pitch: 0.1 };
     const top = L.crown ?? (L.chinY + L.hh);
     switch (name) {
-      case 'face': return { ty: y0 + L.chinY + L.hh * 0.52, dist: fit(L.hh * 0.95, L.hh * 0.95), pitch: 0.04, front: true };
+      case 'face': return { ty: y0 + L.chinY + L.hh * 0.68, dist: fit(L.hh * 1.25, L.hh * 1.1), pitch: 0.04, front: true };
       case 'bust': { const lo = (L.chestY ?? L.shY - 0.1 * H) - 0.05; return { ty: y0 + (lo + top) / 2, dist: fit((top - lo) * 0.62, (top - lo) * 0.6), pitch: 0.06, front: true }; }
       case 'torso': { const lo = L.hipJ - 0.06 * H; return { ty: y0 + (lo + top) / 2 - 0.02, dist: fit((top - lo) * 0.6, H * 0.36), pitch: 0.08 }; }
       case 'legs': return { ty: y0 + (L.hipJ + 0.04) * 0.52, dist: fit(L.hipJ * 0.62 + 0.04, H * 0.3), pitch: 0.12 };
       case 'feet': return { ty: y0 + Math.max(0.06, H * 0.05), dist: fit(H * 0.13 + 0.04, H * 0.22), pitch: 0.42 };
-      default: return { ty: y0 + H * 0.5, dist: fit(H * 0.56 + 0.06, H * 0.46), pitch: 0.09 };
+      default: return { ty: y0 + H * 0.47, dist: fit(H * 0.6 + 0.16, H * 0.5), pitch: 0.1 };
     }
   }
   function frame(name = st.frameName, instant = false, keepZoom = false) {
@@ -214,9 +214,9 @@ export function createStage(host) {
   }
   const setPose = (name) => { st.pose = name; applyPose(); };
   const skinMat = () => st.person && st.person.body && st.person.body.material;
-  function setExpression(name) {
-    st.expression = name; const m = skinMat();
-    if (m && m.userData.setExpression) { try { m.userData.setExpression(name); } catch (e) { console.warn('expression', e); } }
+  function setExpression(name, amount = st.exprAmount ?? 1) {
+    st.expression = name; st.exprAmount = amount; const m = skinMat();
+    if (m && m.userData.setExpression) { try { m.userData.setExpression(name, amount); } catch (e) { console.warn('expression', e); } }
     st.dirty = true;
   }
   const canExpress = () => !!(skinMat() && skinMat().userData.setExpression);
@@ -224,7 +224,7 @@ export function createStage(host) {
 
   // ---------- drawing ----------
   let paused = false;
-  function draw() { place(); renderer.render(scene, cam); ink.render(scene, cam); }
+  function draw() { place(); renderer.render(scene, cam); ink.render(scene, cam); api.draws++; }
   function tick() {
     requestAnimationFrame(tick);
     const dt = Math.min(0.05, st.clock.getDelta());
@@ -270,9 +270,7 @@ export function createStage(host) {
     return c.toDataURL('image/jpeg', 0.82);
   }
 
-  resize();
-  tick();
-  return {
+  const api = {
     renderer, scene, camera: cam,
     get person() { return st.person; },
     get pose() { return st.pose; },
@@ -284,6 +282,9 @@ export function createStage(host) {
     resetTurn() { stand.rotation.y = 0; st.goal.yaw = 0.35; st.dirty = true; },
     snapshot, thumbnail, invalidate() { st.dirty = true; },
     pause(on) { paused = on; if (!on) st.dirty = true; },
-    resize,
+    resize, draws: 0,
   };
+  resize();
+  tick();
+  return api;
 }

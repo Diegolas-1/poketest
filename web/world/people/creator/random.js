@@ -12,14 +12,14 @@
 // rollBody / rollOutfit: one part only, with a new seed.
 import * as CORE from '../random.js';
 import { rng } from '../vmath.js';
-import { SKIN, groupOf, faceOptions, skinTones, hairStyles, hairColors, underwearStyles } from './data.js';
+import { SKIN, groupOf, faceOptions, skinTones, hairStyles, hairColors, underwearStyles, facialStyles } from './data.js';
 
 export const newSeed = () => (Math.random() * 0x7fffffff) >>> 0;
 const pick = (R, a) => a[Math.floor(R() * a.length)];
 const NATURAL = /black|brown|chestnut|auburn|ginger|honey|blond|platinum|grey|gray|white|copper|dark|light|sand|ash|silver/i;
 
 function hairColorsFlagged() {
-  return hairColors().map((c) => ({ ...c, anime: c.anime ?? !NATURAL.test(c.name) }));
+  return hairColors().map((c) => ({ ...c, anime: c.anime ?? (c.natural !== undefined ? !c.natural : !NATURAL.test(c.name)) }));
 }
 function faceRoll(body, R) {
   if (typeof SKIN.faceDefaults === 'function') {
@@ -55,7 +55,11 @@ export function rollLook(seed, look, catalog, o = {}) {
   if (lock.body && look.body && o.group && groupOf(look.body.age).id !== o.group) next.body = { ...look.body, age: CORE.randomBody(rng(seed ^ 0x5bd1), o.group, look.body.sex).age };
   const R = rng((seed ^ 0x2545f491) >>> 0);
   next.underwear = L.has('underwear') && look.underwear ? look.underwear : underwearRoll(next.body, R);
-  if (!lock.hair && next.hair) next.hair.facial = next.body.age >= 18 && next.body.sex < 0.5 && R() < 0.3 ? pick(R, ['stubble', 'moustache', 'goatee', 'short beard', 'full beard']) : 'none';
+  // facial hair: some grown men (the elder beard for the old only)
+  if (!lock.hair && next.hair) {
+    const fs = facialStyles().filter((f) => f.id !== 'none' && (next.body.age >= 60 || !/elder/.test(f.id)));
+    next.hair.facial = next.body.age >= 18 && next.body.sex < 0.5 && fs.length && R() < 0.3 ? pick(R, fs).id : 'none';
+  }
   if (lock.face && look.face) next.face = look.face;
   next.name = look.name;
   next.seed = seed;

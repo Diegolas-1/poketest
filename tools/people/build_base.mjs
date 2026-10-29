@@ -11,6 +11,7 @@ import { compile, evalW } from '../../web/world/people/sdf.js';
 import { surfaceNets, project, relax, decimate, dropSpecks, neighbours, normals } from '../../web/world/people/mesh.js';
 import { measureBones } from '../../web/world/people/fit.js';
 import { packBase } from '../../web/world/people/base.js';
+import { loadHeads } from '../../web/world/people/headgrid.js';
 import { BONE, BONE_NAMES, NB } from '../../web/world/people/rig.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -20,6 +21,7 @@ const CELL = +arg('cell', 0.0025), VERTS = +arg('verts', 24000);
 export const REF = { age: 22, sex: 0.5 };
 const t0 = Date.now(), log = (...a) => console.log(((Date.now() - t0) / 1000).toFixed(1) + 's', ...a);
 
+await loadHeads(new URL('../../web/world/people/head.bin', import.meta.url));
 const A = anatomy(REF), L = A.L;
 const tree = posed(A.tree, A.ad), F = compile(tree);
 let m = surfaceNets(F.f, F.box, CELL);

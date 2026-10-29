@@ -11,6 +11,7 @@ import { buildBody, loadBase, base } from './gen.js';
 import { anatomy, posed } from './anatomy.js';
 import { compile } from './sdf.js';
 import { buildData, lookOf } from './build.js';
+import { loadHeads } from './headgrid.js';
 import { BONE_NAMES, PARENT, NB } from './rig.js';
 import { skinMaterial } from './skin.js';
 import { clothMaterial } from './paint.js';
@@ -98,7 +99,7 @@ export async function personData(look, o = {}) {
 // makePerson(look, { worker, anim }) -> { root, body, meshes, bones, skeleton, anat, H, look, missing, stats, mixer?, play?, dispose }
 export async function makePerson(input = {}, o = {}) {
   const look = lookOf(input);
-  if (o.direct) return makeDirect(look, o);
+  if (o.direct) { await loadHeads(); return makeDirect(look, o); }
   const d = await personData(look, o);
   return assemble(d, look, o);
 }

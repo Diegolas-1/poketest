@@ -9,12 +9,14 @@ import { surfaceNets, project, relax, dropSpecks, normals, neighbours } from './
 import { fit } from './fit.js';
 import { unpackBase } from './base.js';
 import { BONE_NAMES } from './rig.js';
+import { loadHeads } from './headgrid.js';
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 let BASE = null;
 
 export async function loadBase(url = new URL('./base.bin', import.meta.url)) {
   if (BASE) return BASE;
+  await loadHeads(new URL('./head.bin', url));
   const ab = typeof fetch !== 'undefined' && !String(url).startsWith('file:')
     ? await (await fetch(url)).arrayBuffer()
     : (await import('node:fs')).readFileSync(new URL(url)).buffer;

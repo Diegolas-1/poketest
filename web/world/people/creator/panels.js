@@ -7,7 +7,7 @@
 import { h, icon, slider, swatchRow, chips, toggle, select, section, slotGlyph, hairGlyph, iconButton } from './ui.js';
 import {
   SLIDERS, AGE_GROUPS, CAT_AGE, GROUP_OF_CAT, groupOf, sliderGroups, sliderName, faceOptions, markOptions, skinTones, hairStyles, hairColors,
-  facialStyles, underwearStyles, expressions, faceDefaults, has, SLOT_TABS, SLOT_NAME, MULTI, CONFLICTS, built, colorsOfWorn, isMinor,
+  facialStyles, underwearStyles, expressions, faceDefaults, has, HAIR, HAIR_SHAPE, SLOT_TABS, SLOT_NAME, MULTI, CONFLICTS, built, colorsOfWorn, isMinor,
 } from './data.js';
 import { outfitFromPreset } from './random.js';
 
@@ -87,8 +87,7 @@ export function bodyPanel(app) {
     const reset = h('button', { class: 'btn small ghost', title: `Reset ${grp.name.toLowerCase()}`, onclick: () => {
       app.edit((l) => { for (const k of grp.keys) { if (k === 'age' || k === 'sex') continue; delete l.body[k]; } }, { frame: grp.frame }); app.renderPanel();
     } }, icon('reset'), 'Reset');
-    out.append(section(grp.name, sliders, { actions: grp.id === 'agesex' ? [] : [reset], fold: true, closed: !!(app.ui.folded || {})[grp.id], onFold: (open) => { (app.ui.folded || (app.ui.folded = {}))[grp.id] = !open; },
-      onEnter: () => app.hoverFrame(grp.frame), onFocus: () => app.frame(grp.frame) }));
+    out.append(section(grp.name, sliders, { actions: grp.id === 'agesex' ? [] : [reset], fold: true, closed: !!(app.ui.folded || {})[grp.id], onFold: (open) => { (app.ui.folded || (app.ui.folded = {}))[grp.id] = !open; }, onFocus: () => app.frame(grp.frame) }));
   }
   return out;
 }
@@ -114,7 +113,8 @@ export function facePanel(app) {
   for (const o of faceOptions()) { const g = o.group || 'Face'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(o); }
   const exprs = expressions();
   const exprRow = chips({ items: exprs.map((e) => ({ id: e.id, name: e.name })), value: app.ui.expression || exprs[0]?.id, small: true, onPick: (id) => app.setExpression(id) });
-  out.append(section('Expression', [exprRow, app.stage.canExpress() ? null : h('p', { class: 'hint' }, 'Preview only for now: the skin material has no expressions yet.')],
+  const amount = slider({ label: 'Strength', min: 0, max: 1, def: 1, value: app.ui.exprAmount ?? 1, onInput: (v) => app.setExpression(app.ui.expression || 'neutral', v) });
+  out.append(section('Expression', [exprRow, has.expressions() ? amount : h('p', { class: 'hint' }, 'Preview only for now: skin.js has no expressions yet.')],
     { actions: [toggle({ label: 'Blink', value: app.ui.blink !== false, onChange: (v) => app.setBlink(v) })] }));
   for (const [g, opts] of groups) {
     out.append(section(g, opts.map((o) => optionControl(app, o, get, set, 'skin')), {
@@ -162,11 +162,37 @@ export function hairPanel(app) {
   out.append(section('Colour', [swatchRow({ items: cols, value: color,
     onPick: (c) => { app.edit((l) => { l.hair = { ...(l.hair || {}), color: c }; }, { paint: 'hair' }); gal.querySelectorAll('.hair-card path, .hair-card circle:not(:first-child)').forEach((p) => p.setAttribute('fill', c)); },
     onCustomInput: (c) => app.edit((l) => { l.hair = { ...(l.hair || {}), color: c }; }, { paint: 'hair', commit: false }), onCustomChange: () => app.commit() })]));
+  // second colour and highlight: paint only
+  const mixes = [{ id: 'none', name: 'One colour' }, { id: 'tips', name: 'Tips' }, { id: 'streak', name: 'Streak' }, { id: 'ombre', name: 'Ombré' }, { id: 'under', name: 'Under layer' }];
+  const two = hair.color2 ? hair.mix || 'tips' : 'none';
+  out.append(section('Second colour', [
+    chips({ items: mixes, value: two, small: true, onPick: (id) => { app.edit((l) => { const hr = { ...(l.hair || {}) }; if (id === 'none') { delete hr.color2; delete hr.mix; } else { hr.mix = id; hr.color2 = hr.color2 || (cols.find((c) => c.natural === false || c.anime) || cols[cols.length - 1]).color; } l.hair = hr; }, { paint: 'hair' }); app.renderPanel(); } }),
+    two === 'none' ? null : h('div', { style: { marginTop: '10px' } }, swatchRow({ items: cols, value: hair.color2,
+      onPick: (c) => app.edit((l) => { l.hair = { ...(l.hair || {}), color2: c }; }, { paint: 'hair' }),
+      onCustomInput: (c) => app.edit((l) => { l.hair = { ...(l.hair || {}), color2: c }; }, { paint: 'hair', commit: false }), onCustomChange: () => app.commit() })),
+  ], { actions: [toggle({ label: 'Shine', title: 'The anime highlight band', value: hair.highlight !== false, onChange: (v) => app.edit((l) => { l.hair = { ...(l.hair || {}), highlight: v }; }, { paint: 'hair' }) })] }));
+  // shape: rebuilds
+  const sh = (k, v) => app.edit((l) => { const hr = { ...(l.hair || {}) }; if (v === undefined) delete hr[k]; else hr[k] = v; l.hair = hr; }, { frame: 'face', commit: false });
+  const fr = Object.keys(HAIR.FRINGES || {});
+  const shape = [
+    fr.length ? h('div', { class: 'opt' }, h('div', { class: 'label' }, 'Bangs'), chips({ items: [{ id: 'style', name: 'Style\'s own' }, ...fr.map((id) => ({ id, name: id.replace(/_/g, ' ') }))], value: hair.bangs || 'style', small: true, onPick: (id) => { sh('bangs', id === 'style' ? undefined : id); app.commit(); } })) : null,
+    h('div', { class: 'opt' }, h('div', { class: 'label' }, 'Parting'), chips({ items: [{ id: 'style', name: 'Style\'s own' }, { id: 'left', name: 'Left' }, { id: 'center', name: 'Centre' }, { id: 'right', name: 'Right' }], value: hair.part || 'style', small: true, onPick: (id) => { sh('part', id === 'style' ? undefined : id); app.commit(); } })),
+    slider({ label: 'Length', min: 0.5, max: 1.6, def: 1, value: hair.length ?? 1, onInput: (v) => sh('length', v), onChange: () => app.commit() }),
+    slider({ label: 'Volume', min: 0.6, max: 1.5, def: 1, value: hair.volume ?? 1, onInput: (v) => sh('volume', v), onChange: () => app.commit() }),
+    slider({ label: 'Spikiness', min: 0, max: 1, def: 0.5, value: hair.spikiness ?? 0.5, onInput: (v) => sh('spikiness', v), onChange: () => app.commit() }),
+    slider({ label: 'Curl', min: 0, max: 1, def: 0, value: hair.curl ?? 0, onInput: (v) => sh('curl', v), onChange: () => app.commit() }),
+    h('div', { class: 'opt' }, toggle({ label: 'Ahoge (one strand sticking up)', value: !!hair.ahoge, onChange: (v) => { sh('ahoge', v || undefined); app.commit(); } })),
+  ];
+  out.append(section('Shape', shape, { fold: true, closed: !(app.ui.folded || {}).hairShape, onFold: (open) => { (app.ui.folded || (app.ui.folded = {})).hairShape = open; },
+    actions: [h('button', { class: 'btn small ghost', onclick: () => { app.edit((l) => { const hr = { ...(l.hair || {}) }; for (const k of HAIR_SHAPE) delete hr[k]; l.hair = hr; }); app.renderPanel(); } }, icon('reset'), 'Reset')] }));
   const age = app.look.body.age ?? 11;
   const facial = facialStyles();
   out.append(section('Facial hair', [
-    age < 16 ? h('p', { class: 'hint' }, 'For grown-ups (16 and over).') : chips({ items: facial, value: hair.facial || 'none', small: true, onPick: (id) => { app.edit((l) => { l.hair = { ...(l.hair || {}), facial: id }; }, { frame: 'face' }); } }),
+    age < 16 ? h('p', { class: 'hint' }, 'For grown-ups (16 and over).') : chips({ items: facial, value: hair.facial || 'none', small: true, onPick: (id) => { app.edit((l) => { l.hair = { ...(l.hair || {}), facial: id }; }, { frame: 'face' }); app.renderPanel(); } }),
     has.facial() ? null : h('p', { class: 'hint' }, 'Saved with the look; hair.js will grow it once it has facial hair.'),
+    age >= 16 && hair.facial && hair.facial !== 'none' ? h('div', {}, h('div', { class: 'label' }, 'Colour'), swatchRow({ items: cols, value: hair.facialColor || color,
+      onPick: (c) => app.edit((l) => { l.hair = { ...(l.hair || {}), facialColor: c }; }, { paint: 'hair' }),
+      onCustomInput: (c) => app.edit((l) => { l.hair = { ...(l.hair || {}), facialColor: c }; }, { paint: 'hair', commit: false }), onCustomChange: () => app.commit() })) : null,
   ]));
   return out;
 }

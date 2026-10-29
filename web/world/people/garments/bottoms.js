@@ -40,15 +40,16 @@ export function legUVHelper(V, land) {
 }
 
 // trousers' paint coordinates, continuous from the hips down each leg: u round the nearer leg's
-// axis (0 at the outside seam, + to the front; angle times the distance from the axis, so stripes and
-// checks keep their size and run on from the hip into the leg without a break), v the reference height.
+// axis (0 at the outside seam, + to the front; the angle times a thigh's radius, so stripes and checks
+// run on from the hip into the leg without a break), v the reference height.
 // (wear.js gives the trunk and the legs separate u/v, which tear patterns at the top of the thigh.)
-export function pantsUVHelper(piece, land) {
+// Blotchy prints (camo, splatter) need no direction and take a seamless slanted projection instead.
+export function pantsUVHelper(piece, land, planar = false) {
   if (!piece) return piece;
   const m = piece.mesh, n = m.pos.length / 3, C = m.canon, G = m.gco;
   for (let v = 0; v < n; v++) {
     const dx = Math.abs(C[3 * v]) - land.hipJx, z = C[3 * v + 2];
-    G[4 * v] = Math.atan2(z, dx) * Math.max(Math.hypot(dx, z), 0.03);
+    G[4 * v] = planar ? C[3 * v] + 0.8 * z : Math.atan2(z, dx) * 0.075;
     G[4 * v + 1] = C[3 * v + 1];
   }
   return piece;
@@ -61,28 +62,36 @@ const LEGCO = (land) => `float lang = atan(vCanon.z, abs(vCanon.x) - ${f3(land.h
 // turnUp (m of cuff), cuff ('rib' | 'band': a tight band at the hem), cargo: [v0, v1] }
 export function pantsShell(ctx, it, o = {}) {
   const land = ctx.land, p = it.params, [ease0] = FIT[p.fit] || FIT.regular;
-  const s = o.leg ?? LEG[p.length] ?? 0.97, LL = land.hipJ - land.ankleY;
+  let s = o.leg ?? LEG[p.length] ?? 0.97;
+  const LL = land.hipJ - land.ankleY;
   const ease = o.ease ?? ease0;
   const flare = o.flare ?? (p.fit === 'wide' ? 0.03 : p.fit === 'loose' ? 0.016 : p.fit === 'relaxed' ? 0.01 : p.fit === 'flared' ? 0.025 : p.fit === 'tight' || p.fit === 'tapered' ? 0 : 0.006);
   const from = o.from ?? (p.fit === 'flared' ? 0.5 : 0.15);
-  // over a shoe: the hem stands out round its collar (a low shoe or an ankle boot under the trousers)
-  const sf = ctx.shoeFit, overShoe = sf && !sf.tuck && s > 0.85;
+  // shoes (built first) say how high they reach: trousers drape over a low shoe or an ankle boot (the hem
+  // stands out round its top), or end inside a tall boot, narrowed to fit in its shaft
+  const sf = ctx.shoeFit, L = ctx.A.L, sTop = sf ? (L.hipJ - sf.top) / (L.hipJ - L.ankleY) : 2;
+  const overShoe = sf && !sf.tuck && s > sTop - 0.04, tuck = sf && sf.tuck && s > sTop + 0.03;
+  if (tuck) s = Math.min(s, sTop + 0.07);
   const offOf = (V) => {
     let d = it.off + ease * (V.limb === 2 ? 1 : 0.5);
     if (V.limb === 2) {
-      d += flare * sstep(from, 1, V.s);
+      // flares stand out to the front, back and outside, less between the legs
+      const dx = Math.abs(V.cx) - land.hipJx, cosA = dx / (Math.hypot(dx, V.cz) || 1);
+      d += flare * sstep(from, 1, V.s) * (flare > 0.012 ? 0.3 + 0.7 * clamp(0.6 + 0.6 * cosA) : 1);
       if (o.taper) d -= o.taper * sstep(0.45, 0.95, V.s);
       if (o.blouse) d += o.blouse * Math.exp(-(((V.s - (s - 0.1)) / 0.08) ** 2));
-      if (overShoe) d = Math.max(d, (sf.clear + 0.004) * sstep(s - 0.16, s - 0.04, V.s));
+      if (overShoe) d = Math.max(d, (sf.clear + 0.0045) * sstep(sTop - 0.1, sTop - 0.01, V.s));
+      if (tuck) d = Math.min(d, d * (1 - sstep(sTop - 0.12, sTop - 0.02, V.s)) + Math.max(sf.clear * 0.6, 0.002) * sstep(sTop - 0.12, sTop - 0.02, V.s));
     }
     return Math.max(d, 0.0015);
   };
-  it.hemY = land.hipJ - Math.min(s, 1) * LL; it.topY = riseY(land, p.rise);
+  it.hemY = land.hipJ - Math.min(s, 1) * LL; it.topY = riseHelper(land, p.rise);
   it.hemV = s * LL; it.legS = s;
-  const piece = pantsUVHelper(shell(ctx, { cover: bottomCover(land, { leg: s, rise: p.rise }), off: offOf, fill: 3, rim: o.rim ?? 0.004, layer: it.layer }), land);
+  const planar = ['camo', 'splatter'].includes((it.pattern || {}).type);
+  const piece = pantsUVHelper(shell(ctx, { cover: bottomCover(land, { leg: s, rise: p.rise }), off: offOf, fill: 3, rim: o.rim ?? 0.004, layer: it.layer }), land, planar);
   return { piece, offOf, s };
 }
-export function riseY(land, rise) { return rise === 'high' ? land.waistY + 0.03 : rise === 'low' ? land.hipJ + 0.07 : land.waistY - 0.01; }
+export function riseHelper(land, rise) { return rise === 'high' ? land.waistY + 0.03 : rise === 'low' ? land.hipJ + 0.07 : land.waistY - 0.01; }
 
 // a band round the leg at its hem (turn-up, rib cuff, contrast band): a second shell a little looser
 function hemBandShell(ctx, it, ps, h, extra) {
@@ -118,7 +127,7 @@ const cargoGLSL = (land, v0, v1, u0 = 0.004, hw = 0.034) => `vec3 col = uMain * 
 // seams, denim (contrast top stitching, rivets), crease, stripes (count), hem: 'turn_up' | 'rib' | 'band' | 'elastic' | 'split' | 'plain',
 // knee (patches), reflective, whiskers, patches (distressed), tab, piping, panel ('left_right'), cords }
 export function pantsPaintHelper(land, it, o) {
-  const top = riseY(land, it.params.rise), WB = o.waist === 'elastic' || o.waist === 'drawstring' ? 0.038 : 0.032, hemV = it.hemV;
+  const top = riseHelper(land, it.params.rise), WB = o.waist === 'elastic' || o.waist === 'drawstring' ? 0.038 : 0.032, hemV = it.hemV;
   const hx = land.hipJx, flyB = land.crotchY + 0.05, out = [];
   const st = o.denim ? 'uTrim' : 'mix(uMain, uTrim, 0.55)';   // top stitching
   out.push(`{ float trunk = step(vG.z, 0.5), leg = step(2.5, vG.z) * step(vG.z, 4.5), rim = step(0.5, vG.w);
@@ -316,7 +325,7 @@ export const pyjama_pants = (ctx, it) => pantsHelper(ctx, it, { ease: 0.008, fla
 export const capri = (ctx, it) => pantsHelper(ctx, it, { leg: LEG[it.params.length] ?? 0.62, back: 'welt' });
 export const breeches = (ctx, it) => pantsHelper(ctx, it, { leg: 0.62, ease: 0.006, blouse: 0.012, hem: 'rib', cuffH: 0.035, cuffColor: 'uMain', back: 'patch' });
 export const culottes = (ctx, it) => {
-  const pieces = pantsHelper(ctx, it, { leg: LEG[it.params.length] ?? 0.6, ease: 0.006, flare: 0.034, from: 0.02, back: false, fly: false });
+  const pieces = pantsHelper(ctx, it, { leg: LEG[it.params.length] ?? 0.6, ease: 0.006, flare: 0.07, from: 0.0, back: false, fly: false });
   // pressed knife pleats down the front of each leg
   if (pieces[0] && has(it, 'pleats_knife')) pieces[0].extra += `{ ${LEGCO(ctx.land)} col = mix(col, col * 0.78, (line(lu, 0.075, 0.0018) + line(lu, 0.125, 0.0018)) * step(2.5, vG.z) * (1.0 - step(0.5, vG.w))); }`;
   return pieces;
@@ -327,7 +336,7 @@ export const shorts = (ctx, it) => pantsHelper(ctx, it, {
   turnUp: 0.03, back: it.params.pockets === 'shield_back' ? 'shield' : 'welt',
 });
 export const shorts_cargo = (ctx, it) => pantsHelper(ctx, it, { leg: LEG[it.params.length] ?? 0.5, ease: 0.006, flare: 0.012, back: 'patch' });
-export const shorts_sport = (ctx, it) => pantsHelper(ctx, it, { leg: LEG[it.params.length] ?? 0.36, ease: 0.006, flare: 0.016, fly: false, front: false, back: false, hem: 'split', stripes: 0, stripeW: 0.007 });
+export const shorts_sport = (ctx, it) => pantsHelper(ctx, it, { leg: LEG[it.params.length] ?? 0.36, ease: 0.006, flare: 0.016, fly: false, front: false, back: false, hem: 'split', stripeW: 0.007 });
 export const swim_shorts = (ctx, it) => pantsHelper(ctx, it, { leg: LEG[it.params.length] ?? 0.48, ease: 0.006, flare: 0.016, fly: false, back: false, front: 'patch', waist: 'drawstring', cordColor: 'uTrim', hem: 'plain' });
 
 // ---------- skirts ----------
@@ -408,7 +417,7 @@ export function skirt_pleated(ctx, it) {
   it.hemY = hem; it.topY = top;
   const box = has(it, 'pleats_box');
   const n = box ? 14 : 22;
-  const pc = box ? skirtTubeHelper(ctx, { top, hem, off: it.off + 0.004, flare: 0.05 + (p.fit === 'full' ? 0.03 : 0), pleats: n, pleatDepth: 0.01, follow: 0.45, layer: it.layer, segments: 112 })
+  const pc = box ? skirtTubeHelper(ctx, { top, hem, off: it.off + 0.004, flare: 0.032 + (p.fit === 'full' ? 0.03 : 0), pleats: n, pleatDepth: 0.009, follow: 0.45, layer: it.layer, segments: 112 })
     : skirtTubeHelper(ctx, { top, hem, off: it.off + 0.004, flare: 0.055 + (p.fit === 'full' ? 0.03 : 0), knife: n, knifeDepth: 0.009, follow: 0.45, layer: it.layer, segments: 132 });
   const pieces = [];
   // pleat folds painted along the tube's seams, so the two-tone pattern and plaid line up with them
@@ -422,7 +431,7 @@ export function skirt_aline(ctx, it) {
   const land = ctx.land, p = it.params, hem = skirtHem(land, p.length || 'above_knee'), top = land.waistY + 0.005;
   it.hemY = hem; it.topY = top;
   const long = top - hem > 0.4;
-  const pc = skirtTubeHelper(ctx, { top, hem, off: it.off + 0.004, flare: long ? 0.11 : 0.06, follow: long ? 0.3 : 0.45, gathers: 9, gatherAmp: 0.0025, layer: it.layer, segments: 96 });
+  const pc = skirtTubeHelper(ctx, { top, hem, off: it.off + 0.004, flare: long ? 0.1 : 0.06, follow: long ? 0.3 : 0.45, gathers: 7, gatherAmp: 0.0012, layer: it.layer, segments: 96 });
   const pieces = [{ piece: pc, noDetails: true, extra: genericDetails(it) + skirtPaintHelper(it, top, hem, {
     zip: p.closure === 'side_zip', yoke: !long, buttons: has(it, 'buttons_contrast') ? 'uAccent' : p.closure === 'buttons_single' ? 'uMain * 0.6' : false,
     pockets: p.pockets === 'patch_hip', slash: p.pockets === 'slash', belt: has(it, 'belt'),
@@ -481,9 +490,9 @@ export function skirt_maxi(ctx, it) {
     // a long smooth yoke and two gathered tiers below the knee
     const k1 = land.kneeY + 0.08, k2 = land.kneeY - 0.17;
     const a = skirtTubeHelper(ctx, { top, hem: k1, off: it.off + 0.004, flare: 0.05, follow: 0.35, gathers: 12, gatherAmp: 0.003, layer: it.layer, segments: 96 });
-    const b = skirtTubeHelper(ctx, { top: k1 + 0.012, hem: k2, off: it.off + 0.012, flare: 0.05, follow: 0.3, gathers: 26, gatherAmp: 0.004, ruffle: 0.003, layer: it.layer + 0.1, segments: 120 });
-    const c = skirtTubeHelper(ctx, { top: k2 + 0.012, hem, off: it.off + 0.02, flare: 0.08, follow: 0.25, gathers: 34, gatherAmp: 0.005, ruffle: 0.004, layer: it.layer + 0.2, segments: 144 });
-    const tierPaint = (t0, t1) => `col = mix(col, col * 0.86, smoothstep(0.3, 1.0, sin(vG.x / 0.15 * 26.0)) * 0.5); col = mix(col, col * 0.62, line(vG.y, ${f3(t0 - 0.003)}, 0.003)); col = mix(col, col * 0.8, step(0.5, vG.w));`;
+    const b = skirtTubeHelper(ctx, { top: k1 + 0.012, hem: k2, off: it.off + 0.012, flare: 0.04, follow: 0.3, gathers: 16, gatherAmp: 0.0025, ruffle: 0.002, layer: it.layer + 0.1, segments: 120 });
+    const c = skirtTubeHelper(ctx, { top: k2 + 0.012, hem, off: it.off + 0.02, flare: 0.06, follow: 0.25, gathers: 20, gatherAmp: 0.003, ruffle: 0.003, layer: it.layer + 0.2, segments: 144 });
+    const tierPaint = (t0, t1) => `col = mix(col, col * 0.88, smoothstep(0.3, 1.0, sin(vG.x / 0.15 * 18.0)) * 0.4); col = mix(col, col * 0.62, line(vG.y, ${f3(t0 - 0.003)}, 0.003)); col = mix(col, col * 0.8, step(0.5, vG.w));`;
     if (a) pieces.push({ piece: a, noDetails: true, noPattern: true, extra: skirtPaintHelper(it, top, k1, {}), uP: [[k1, top, 0, 0]] });
     if (b) pieces.push({ piece: b, noDetails: true, noPattern: true, extra: tierPaint(k1 + 0.012, k2), uP: [[k2, k1, 0, 0]] });
     if (c) pieces.push({ piece: c, noDetails: true, extra: tierPaint(k2 + 0.012, hem), uP: [[hem, k2, 0, 0]] });

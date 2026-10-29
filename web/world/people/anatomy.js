@@ -14,8 +14,9 @@
 // (field, T pose), L (landmarks for garments, hair and faces), aq (A pose
 // rotations), aw (A pose world matrices), ad (rest -> A pose per bone) }
 import { BONE as B, axisX, skeleton, worlds, aPose, deltas, NB } from './rig.js';
-import { P, smin, union, inter, sub, moved, compile } from './sdf.js';
-import { add, scale, lerp, clamp, norm, qfromTo, qaxis, qmul, mirror } from './vmath.js';
+import { P, smin, union, inter, sub, moved, compile, field } from './sdf.js';
+import { heads, headField, headLandmarks } from './headgrid.js';
+import { add, scale, lerp, clamp, sstep, norm, qfromTo, qaxis, qmul, mirror } from './vmath.js';
 
 // ---------- the tables ----------
 const AGES = [2, 4, 7, 10, 13, 16, 20, 30, 45, 60, 75, 90];
@@ -32,8 +33,8 @@ const T = {
   fat: [[1.0, 0.8, 0.5, 0.35, 0.25, 0.2, 0.15, 0.2, 0.3, 0.35, 0.3, 0.25]],
   limb: [[1.18, 1.08, 0.96, 0.92, 0.92, 0.95, 0.98, 1.0, 1.0, 0.98, 0.94, 0.9], [1.18, 1.08, 0.96, 0.92, 0.92, 0.93, 0.94, 0.95, 0.96, 0.96, 0.93, 0.9]],
   neck: [[0.018, 0.022, 0.028, 0.033, 0.036, 0.04, 0.042, 0.042, 0.04, 0.038, 0.035, 0.033]],
-  headW: [[0.9, 0.88, 0.86, 0.84, 0.82, 0.8, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78], [0.9, 0.88, 0.86, 0.84, 0.82, 0.8, 0.79, 0.79, 0.79, 0.79, 0.79, 0.79]],
-  eye: [[0.38, 0.39, 0.41, 0.42, 0.43, 0.44, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45]],   // eye line, share of the head from the chin
+  headW: [[1.02, 1.01, 1.0, 0.98, 0.96, 0.94, 0.92, 0.92, 0.92, 0.92, 0.91, 0.9], [1.02, 1.01, 1.0, 0.98, 0.97, 0.95, 0.94, 0.94, 0.94, 0.94, 0.93, 0.92]],   // width / head height (X/Y: about 1)
+  eye: [[0.44, 0.45, 0.46, 0.48, 0.49, 0.49, 0.48, 0.48, 0.48, 0.47, 0.47, 0.47]],   // eye line (the eyes' middle), share of the head from the chin (X/Y: about a half)
   jaw: [[0.2, 0.3, 0.45, 0.55, 0.65, 0.78, 0.88, 0.92, 0.95, 0.95, 0.92, 0.9], [0.2, 0.3, 0.42, 0.5, 0.55, 0.6, 0.62, 0.64, 0.66, 0.68, 0.68, 0.66]],   // how much the jaw shows (0: round baby face)
   hand: [[0.12, 0.115, 0.11, 0.108, 0.107, 0.107, 0.108, 0.108, 0.108, 0.108, 0.108, 0.108], [0.12, 0.115, 0.11, 0.106, 0.104, 0.103, 0.103, 0.103, 0.103, 0.103, 0.103, 0.103]],
   foot: [[0.165, 0.163, 0.161, 0.16, 0.16, 0.158, 0.157, 0.157, 0.157, 0.157, 0.155, 0.155], [0.165, 0.163, 0.16, 0.157, 0.153, 0.15, 0.148, 0.148, 0.148, 0.148, 0.147, 0.146]],
@@ -89,7 +90,7 @@ export function anatomy(params = {}) {
   const kh = 1 + 0.12 * p.head;
   const hh = H / tb('heads') * kh;                       // head: chin to crown
   const hw = hh * tb('headW') * (1 + 0.08 * p.headW);    // head width
-  const hd = hh * 0.9 * (1 + 0.07 * p.headD);           // head depth
+  const hd = hh * 1.04 * (1 + 0.07 * p.headD);          // head depth
   const hhs = hh * (1 + 0.07 * p.headH);                 // cranium height
   const limbK = tb('limb') * (1 + 0.13 * w + 0.06 * mu);
   const legShare = tb('leg') + 0.025 * p.legs;
@@ -199,9 +200,13 @@ export function anatomy(params = {}) {
 
   // neck
   // anime necks are slender; a man's thickens after puberty
-  const neckR = H * (0.0195 + 0.0065 * (1 - fem) * clamp((age - 12) / 8)) * (1 + 0.15 * p.neckW + 0.12 * w + 0.1 * mu) * (age < 8 ? 1.08 : 1);
-  const neckTop = add([0, chinY + 0.2 * hh, -0.05 * hh], headShift);
-  parts.push(P.rcone({ a: [0, shY - 0.02 * H, -0.014 * H + 0.03 * H * st], b: neckTop, ra: neckR * 1.15, rb: neckR, ramp: [B.Spine3, B.Head, [0, shY, 0], [0, chinY + 0.15 * hh, 0]] }));
+  // the neck (as on the X/Y models): slim, set under the back half of the jaw and leaning
+  // a little forward, widening into the shoulders; a man's thickens after puberty
+  const neckR = hh * (0.145 + 0.015 * (1 - fem) + 0.05 * (1 - fem) * clamp((age - 12) / 8)) * (1 + 0.15 * p.neckW + 0.1 * w + 0.08 * mu);
+  const neckTop = add([0, chinY + 0.2 * hh, -0.1 * hh], headShift);
+  parts.push(smin(0.02 * H,
+    P.rcone({ a: [0, shY - 0.01 * H, -0.02 * H + 0.03 * H * st], b: neckTop, ra: neckR * 1.08, rb: neckR, ramp: [B.Spine3, B.Head, [0, shY, 0], [0, chinY + 0.1 * hh, 0]] }),
+    P.ellipsoid({ c: [0, shY + 0.004 * H, -0.024 * H + 0.03 * H * st], r: [neckR * 1.9, neckR * 0.9, neckR * 1.3], bone: B.Spine3 })));
 
   // legs and feet
   for (const s of ['L', 'R']) {
@@ -266,32 +271,27 @@ export function anatomy(params = {}) {
     parts.push(smin(0.0028 * H, smin(0.007 * H, hand), smin(0.0012 * H, fingers)));
   }
 
-  // head
+  // head: lofted from profiles measured on the X/Y heads (headProfile): at each
+  // height from the chin the half width, the face's front and the skull's back.
+  // Widest at the eyes (about a head height across), a nearly flat face, a soft V
+  // down to a small chin (rounder on children), the skull round and set back.
   const hc = (x, y, z) => add([x, chinY + y, z], headShift);   // head space: y from the chin, z from the neck's axis
   const jawK = tb('jaw') * (1 + 0.35 * p.jawLine), cheekK = clamp(fat * 0.9 + 0.25 * p.cheeks + 0.15 * Math.max(w, 0), 0, 1.4);
-  const head = [];
-  // cranium (big and round; the back of the skull reaches well behind the neck)
-  const fh = 1 + 0.05 * p.forehead;
-  head.push(P.ellipsoid({ c: hc(0, hh - 0.4 * hhs, -0.03 * hh), r: [hw * 0.5, 0.4 * hhs * fh, hd * 0.52], bone: B.Head }));
-  // the face: a broad, nearly upright front from the brow to the mouth
-  const faceW = hw * (0.45 + 0.04 * p.jaw) * (1 - 0.06 * jawK);
-  head.push(P.ellipsoid({ c: hc(0, 0.38 * hh, 0.09 * hh), r: [faceW, 0.38 * hh, 0.37 * hh], bone: B.Head }));
-  // cheeks (round on small children), cheekbones
-  if (cheekK > 0.02) for (const m of [1, -1]) head.push(P.sphere({ c: hc(m * 0.26 * hw, 0.29 * hh, 0.24 * hh), r: 0.15 * hw * (0.6 + 0.5 * cheekK), bone: B.Head }));
-  if (p.cheekbones > 0.02) for (const m of [1, -1]) head.push(P.ellipsoid({ c: hc(m * 0.35 * hw, 0.43 * hh, 0.2 * hh), r: [0.1 * hw, 0.05 * hh * p.cheekbones + 0.02 * hh, 0.09 * hh], bone: B.Head }));
-  // jaw lines from under the ears down to the chin (a soft V; rounder on children)
-  const chinLen = 1 + 0.1 * p.chin, chinR = hw * (0.085 + 0.025 * p.chinW) * (1.25 - 0.3 * jawK);
-  const chinZ = 0.3 * hh * chinLen, chinX = hw * (0.05 + 0.03 * p.chinW) * (1.6 - jawK);
-  for (const m of [1, -1]) head.push(P.rcone({ a: hc(m * 0.41 * hw * (1 + 0.05 * p.jaw), 0.42 * hh, -0.03 * hh), b: hc(m * chinX, chinR * 0.95, chinZ - 0.04 * hh), ra: 0.075 * hw * (0.7 + 0.5 * jawK), rb: chinR * 0.8, bone: B.Head }));
-  head.push(P.sphere({ c: hc(0, chinR, chinZ - chinR * 0.35), r: chinR, bone: B.Head }));
-  let headTree = smin(hw * (0.14 - 0.05 * jawK), head);
+  const prof = headProfile({ jawK, cheekK, fem: sx, jaw: p.jaw, chin: p.chin, chinW: p.chinW, cheekbones: p.cheekbones, forehead: p.forehead, headH: p.headH });
+  const hcz = -0.02 * hh;   // the head's middle, front to back, from the neck's axis
+  // with VRoid's CC0 base heads loaded (headgrid.js): their shape, blended by sex, sized to this person
+  const grid = heads();
+  let headTree = grid
+    ? field(headField({ c: hc(0, 0, hcz), hh, hw, hd, sex: sx, kid: clamp(1 - (age - 4) / 10) * 0.8 }), [hc(-hw * 0.7, -0.35 * hh, hcz - hd * 0.8), hc(hw * 0.7, hh * 1.08, hcz + hd * 0.8)], { bone: B.Head })
+    : field(loftField(prof, hc(0, 0, hcz), hh, hw / hh, hd / hh), [hc(-hw * 0.6, -0.02 * hh, hcz - hd * 0.7), hc(hw * 0.6, hh * 1.02, hcz + hd * 0.7)], { bone: B.Head });
+  const hl = grid ? headLandmarks(sx) : null;
   // the face's front, found on the head so far, to put the nose and the ears on
   const hf = compile(headTree);
   const frontZ = (x, y) => { let z = hd; for (let i = 0; i < 64; i++) { const d = hf.f(x, y, z); if (d < 1e-4) break; z -= Math.max(d, 1e-4); } return z; };
   const sideX = (y, z) => { let x = hw; for (let i = 0; i < 64; i++) { const d = hf.f(x, y, z); if (d < 1e-4) break; x -= Math.max(d, 1e-4); } return x; };
-  const noseY = eyeY - hh * 0.13 * (1 + 0.15 * p.noseLen) + 0.012 * hh * p.noseUp;
+  const noseY = eyeY - hh * 0.18 * (1 + 0.15 * p.noseLen) + 0.012 * hh * p.noseUp;
   const nz = frontZ(0, noseY + headShift[1]);
-  const ns = hh * (0.045 + 0.012 * p.nose) * (age < 8 ? 0.8 : 1);
+  const ns = hh * (0.038 + 0.01 * p.nose) * (age < 8 ? 0.8 : 1);
   const nose = [
     P.ellipsoid({ c: [0, noseY + headShift[1], nz - ns * 0.15], r: [ns * 0.75 * (1 + 0.25 * p.noseW), ns * 0.8, ns * 0.7], q: qaxis([1, 0, 0], -0.25 - 0.25 * p.noseUp), bone: B.Head }),
   ];
@@ -301,9 +301,9 @@ export function anatomy(params = {}) {
   }
   // ears: a flat shell with a hollow, set back on the sides
   const ears = [];
-  const earY = eyeY + headShift[1] - 0.06 * hh, earS = hh * (0.13 + 0.025 * p.ears) * (age < 8 ? 1.05 : 1);
+  const earY = eyeY + headShift[1] - 0.13 * hh, earS = hh * (0.24 + 0.03 * p.ears);
   for (const m of [1, -1]) {
-    const ez = -0.035 * hh + headShift[2], ex = sideX(earY, ez);
+    const ez = -0.04 * hh + headShift[2], ex = sideX(earY, ez);
     const tilt = qmul(qaxis([0, 0, 1], m * (0.15 + 0.2 * p.earOut)), qaxis([1, 0, 0], 0.2));
     const shellE = P.ellipsoid({ c: [m * (ex + earS * 0.2), earY, ez - earS * 0.05], r: [earS * 0.2, earS * (0.55 + 0.25 * p.earPoint), earS * 0.38], q: tilt, bone: B.Head });
     const hollow = P.ellipsoid({ c: [m * (ex + earS * 0.36), earY - earS * 0.02, ez - earS * 0.02], r: [earS * 0.12, earS * 0.38, earS * 0.24], q: tilt });
@@ -311,7 +311,7 @@ export function anatomy(params = {}) {
     if (p.earPoint > 0.05) parts2.push(P.rcone({ a: [m * (ex + earS * 0.05), earY + earS * 0.2, ez - earS * 0.05], b: [m * (ex + earS * 0.15), earY + earS * (0.5 + 0.5 * p.earPoint), ez - earS * 0.2 * p.earPoint], ra: earS * 0.15, rb: earS * 0.03, q: tilt, bone: B.Head }));
     ears.push(sub(earS * 0.04, smin(earS * 0.08, parts2), hollow));
   }
-  headTree = smin(hw * 0.03, headTree, smin(ns * 0.6, nose), smin(hw * 0.04, ears));
+  if (!grid) headTree = smin(hw * 0.03, headTree, smin(ns * 0.6, nose), smin(hw * 0.04, ears));
   parts.push(headTree);
 
   // the whole body: limbs melt into the trunk with their own blend
@@ -324,9 +324,76 @@ export function anatomy(params = {}) {
     hipW, waistW, chestW, chestD, waistD, hipD, neckR, R, fem, age, fat, bust, stoop: st, muscle: mu, weight: w,
     headC: add([0, chinY + 0.55 * hh, 0.0], headShift), faceZ: frontZ(0, eyeY + headShift[1]),
   };
+  if (hl) {
+    // the face's landmarks from the model (its eyes, nose and mouth; the head's own proportions)
+    L.eyeY = chinY + hl.eye[1] * hh + headShift[1]; L.eyeX = hl.eye[0] * hh * (hw / hh) / hl.width;
+    L.noseY = chinY + hl.nose[1] * hh + headShift[1]; L.mouthY = chinY + hl.mouth[1] * hh + headShift[1];
+    L.browY = chinY + hl.brow[1] * hh + headShift[1]; L.irisH = hl.iris_h * hh;
+    L.faceZ = frontZ(0, L.eyeY);
+  }
   const aq = aPose(age < 6 ? 40 : 45);
   const aw = worlds(sk, aq), ad = deltas(sk, aw);
   return { p, H, sk, J, tree, L, aq, aw, ad };
+}
+
+// ---------- the head's profiles ----------
+// measured on the X/Y heads (head heights from the chin; widths and depths in head heights
+// for a head as wide as it is tall): t, half width, the face's front, the skull's back
+const HEAD_T = [0, 0.04, 0.08, 0.12, 0.17, 0.23, 0.3, 0.38, 0.46, 0.54, 0.62, 0.7, 0.78, 0.85, 0.91, 0.96, 1];
+const HEAD_W = [0.06, 0.12, 0.19, 0.25, 0.3, 0.35, 0.4, 0.45, 0.48, 0.5, 0.5, 0.48, 0.44, 0.37, 0.28, 0.17, 0.0];
+const HEAD_F = [0.37, 0.41, 0.45, 0.48, 0.5, 0.51, 0.52, 0.52, 0.52, 0.52, 0.52, 0.5, 0.46, 0.4, 0.31, 0.19, 0.0];
+const HEAD_B = [0.25, 0.17, 0.08, -0.01, -0.1, -0.22, -0.36, -0.47, -0.54, -0.57, -0.57, -0.55, -0.5, -0.42, -0.32, -0.2, 0.0];
+// the profiles for a face: jawK 0 (a round child's) .. 1 (a man's defined jaw), cheek fullness, sliders
+function headProfile(o) {
+  const n = HEAD_T.length, W = [], F = [], Bk = [];
+  for (let i = 0; i < n; i++) {
+    const t = HEAD_T[i];
+    let w = HEAD_W[i], f = HEAD_F[i], b = HEAD_B[i];
+    const low = 1 - sstep(0.3, 0.5, t);                       // the jaw and cheeks (below the eyes)
+    // children: fuller and rounder below the eyes, a wider, shorter chin; men: a straighter, narrower V
+    w *= 1 + low * (0.08 * (1 - o.jawK) ** 2 - 0.04 * o.jawK * (1 - o.fem * 0.5) + 0.05 * (o.jaw || 0));
+    if (t < 0.12) w *= 1 + 0.25 * (o.chinW || 0) + 0.15 * (1 - o.jawK) ** 2;
+    // cheeks: a soft bulge where the cheeks are (sides and front)
+    const ck = Math.exp(-(((t - 0.25) / 0.1) ** 2)) * (o.cheekK || 0);
+    w += 0.035 * ck; f += 0.02 * ck;
+    w += 0.025 * (o.cheekbones || 0) * Math.exp(-(((t - 0.42) / 0.06) ** 2));
+    // the chin's length forward/back
+    f += 0.04 * (o.chin || 0) * (1 - sstep(0, 0.2, t));
+    // forehead: fuller or flatter above the brows
+    f += 0.02 * (o.forehead || 0) * sstep(0.6, 0.8, t) * (1 - sstep(0.88, 1, t));
+    W.push(w); F.push(f); Bk.push(b);
+  }
+  return { T: HEAD_T, W, F, B: Bk };
+}
+// a lofted head's field: c the chin's middle (world), hh head height, kw / kd width and depth scales
+function loftField(pr, c, hh, kw, kd) {
+  // resample on a fine even grid (smooth interpolation through the measured points)
+  const N = 101, w = new Float64Array(N), f = new Float64Array(N), b = new Float64Array(N);
+  const at = (arr, t) => {
+    let i = 0; while (i < pr.T.length - 2 && t > pr.T[i + 1]) i++;
+    const t0 = pr.T[i], t1 = pr.T[i + 1], u = clamp((t - t0) / (t1 - t0));
+    const p0 = arr[Math.max(0, i - 1)], p1 = arr[i], p2 = arr[i + 1], p3 = arr[Math.min(arr.length - 1, i + 2)];
+    const u2 = u * u, u3 = u2 * u;   // Catmull-Rom
+    return 0.5 * (2 * p1 + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 + (-p0 + 3 * p1 - 3 * p2 + p3) * u3);
+  };
+  // above the brow the skull is a round dome: an ellipse's quarter from its widest row up to the crown
+  const T0 = 0.6, w0 = at(pr.W, T0), f0 = at(pr.F, T0), b0 = at(pr.B, T0);
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1), k = t > T0 ? Math.sqrt(Math.max(0, 1 - ((t - T0) / (1 - T0)) ** 2)) : 1;
+    w[i] = Math.max(1e-4, t > T0 ? w0 * k : at(pr.W, t)) * kw * hh; f[i] = (t > T0 ? f0 * k : at(pr.F, t)) * kd * hh; b[i] = (t > T0 ? b0 * k : at(pr.B, t)) * kd * hh;
+  }
+  const [cx, cy, cz] = c;
+  return (x, y, z) => {
+    const t = (y - cy) / hh, tc = clamp(t), k = tc * (N - 1), i = Math.min(N - 2, Math.floor(k)), u = k - i;
+    const ww = w[i] + (w[i + 1] - w[i]) * u, ff = f[i] + (f[i + 1] - f[i]) * u, bb = b[i] + (b[i + 1] - b[i]) * u;
+    const zm = (ff + bb) / 2, rz = Math.max(1e-4, (ff - bb) / 2);
+    const px = Math.abs(x - cx), pz = z - cz - zm;
+    // the face's half is flatter than the skull's (a squarer superellipse)
+    const e = pz > 0 ? 2.6 : 2.1;
+    const q = Math.pow(Math.pow(px / ww, e) + Math.pow(Math.abs(pz) / rz, e), 1 / e);
+    const d = (q - 1) * Math.min(ww, rz);
+    return Math.max(d, (t - 1) * hh, -t * hh - 0.002);
+  };
 }
 
 // the field in the A pose (the pose meshes are made in): every leaf moved with its bone

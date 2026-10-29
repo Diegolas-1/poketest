@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fdf3e1">
+<title>Character Creator</title>
+<!-- The character creator: every part of the people generator (people/*.js) on one screen. creator.js runs it. -->
+<script type="importmap">{ "imports": { "three": "../../lib/three/three.module.min.js", "three/addons/": "../../lib/three/addons/" } }</script>
+<link rel="stylesheet" href="creator.css">
+</head>
+<body data-tab="presets">
+<div id="app">
+  <header id="top">
+    <div class="brand">
+      <span class="orb" aria-hidden="true"></span>
+      <div><h1>Character Creator</h1><p>Make anyone in the world</p></div>
+    </div>
+    <div class="top-mid">
+      <button id="undo" class="ibtn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled></button>
+      <button id="redo" class="ibtn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled></button>
+      <button id="dice-top" class="ibtn accent compact-only" title="Randomize (R)" aria-label="Randomize"></button>
+    </div>
+    <div class="top-right">
+      <button id="help" class="ibtn txt" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
+    </div>
+  </header>
+
+  <nav id="tabs" role="tablist" aria-label="Steps"></nav>
+  <section id="panel" aria-live="polite"></section>
+
+  <main id="stage" aria-label="Character viewport">
+    <div class="tool" id="tool-tl"></div>
+    <div class="tool" id="tool-tr"><div id="spinner" role="status" aria-live="polite"><span class="spin"></span><span>Updating</span></div></div>
+    <div class="tool" id="tool-bl"></div>
+    <div class="tool" id="tool-br"></div>
+    <div class="orbit-hint">Drag to turn · scroll or pinch to zoom · shift-drag to raise</div>
+    <div id="loading"><div class="load-orb"></div><p>Getting your trainer ready…</p></div>
+  </main>
+
+  <aside id="card" aria-label="Summary">
+    <div class="id-card">
+      <label class="name-wrap"><span class="sr">Name</span><input id="name" maxlength="24" placeholder="Name your character" autocomplete="off" spellcheck="false"></label>
+      <div id="meta" class="meta"></div>
+      <div class="label">Outfit palette</div>
+      <div id="palette" class="palette"></div>
+      <ul id="warnings" class="warnings"></ul>
+    </div>
+    <div class="rand-card">
+      <button id="randomize" class="btn big primary" title="Randomize (R)">Randomize</button>
+      <div class="label">Keep when randomizing</div>
+      <div id="locks" class="locks"></div>
+      <div class="seed-row">
+        <label for="seed">Seed</label>
+        <input id="seed" inputmode="numeric" autocomplete="off" placeholder="—">
+        <button id="seed-go" class="btn small">Go</button>
+      </div>
+      <div id="seed-note" class="hint tiny"></div>
+    </div>
+    <div class="label">Save &amp; share</div>
+    <div id="actions" class="actions"></div>
+    <div class="label">Saved looks <span id="slots-count" class="count"></span></div>
+    <div id="slots" class="slots"></div>
+    <div id="stats" class="stats"></div>
+    <input id="file" type="file" accept=".json,application/json" hidden>
+  </aside>
+</div>
+
+<div id="keys" class="keys" role="dialog" aria-label="Keyboard shortcuts">
+  <h3>Shortcuts</h3>
+  <dl>
+    <dt>1 – 7</dt><dd>Steps</dd>
+    <dt>R</dt><dd>Randomize</dd>
+    <dt>Ctrl Z / Ctrl Y</dt><dd>Undo / redo</dd>
+    <dt>T</dt><dd>Turntable</dd>
+    <dt>F</dt><dd>Frame the whole body</dd>
+    <dt>Drag · wheel</dt><dd>Turn · zoom</dd>
+    <dt>Shift-drag</dt><dd>Raise / lower the view</dd>
+    <dt>Double-click</dt><dd>Reset a slider · reframe</dd>
+  </dl>
+</div>
+<script type="module" src="creator.js"></script>
+</body>
+</html>
