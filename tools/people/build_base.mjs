@@ -78,6 +78,12 @@ for (let v = 0; v < nv; v++) {
   if (h > 0.62) { for (let b = 0; b < NB; b++) Wd[v * NB + b] = 0; Wd[v * NB + BONE.Head] = 1; }
   else if (h > 0.3) { const k = (h - 0.3) / 0.32; for (let b = 0; b < NB; b++) Wd[v * NB + b] *= (1 - k * 0.6); Wd[v * NB + BONE.Head] += k * 0.6; }
 }
+// no vertex is left without a bone: take the neighbours' weights
+for (let pass = 0; pass < 4; pass++) for (let v = 0; v < nv; v++) {
+  let s = 0; for (let b = 0; b < NB; b++) s += Wd[v * NB + b];
+  if (s > 1e-6) continue;
+  for (let j = nb.start[v]; j < nb.start[v + 1]; j++) for (let b = 0; b < NB; b++) Wd[v * NB + b] += Wd[nb.list[j] * NB + b];
+}
 const skin = new Uint8Array(nv * 4), wts = new Float32Array(nv * 4);
 for (let v = 0; v < nv; v++) {
   const top = [];

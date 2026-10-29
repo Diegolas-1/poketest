@@ -245,8 +245,9 @@ export function evalW(c, x, y, z) {
     const rs = c.kids.map((kid) => evalW(kid, x, y, z)).sort((p, q) => p.d - q.d);
     let acc = rs[0];
     for (const r of rs.slice(1)) {
-      const h = k > 0 ? clamp(0.5 + 0.5 * (r.d - acc.d) / k) : acc.d < r.d ? 1 : 0;
-      if (h >= 1) continue;
+      let h = k > 0 ? clamp(0.5 + 0.5 * (r.d - acc.d) / k) : acc.d < r.d ? 1 : 0;
+      if (!r.w.size) h = 1; else if (!acc.w.size) h = 0;   // a part with no bone takes no weight
+      if (h >= 1) { acc = { d: sminK(acc.d, r.d, k), w: acc.w }; continue; }
       const w = new Map();
       for (const [b, v] of acc.w) w.set(b, (w.get(b) || 0) + v * h);
       for (const [b, v] of r.w) w.set(b, (w.get(b) || 0) + v * (1 - h));
@@ -259,7 +260,8 @@ export function evalW(c, x, y, z) {
   for (const kid of c.kids) {
     const r = evalW(kid, x, y, z);
     if (!acc) { acc = r; continue; }
-    const h = k > 0 ? clamp(0.5 - 0.5 * (r.d - acc.d) / k) : acc.d > r.d ? 1 : 0;
+    let h = k > 0 ? clamp(0.5 - 0.5 * (r.d - acc.d) / k) : acc.d > r.d ? 1 : 0;
+    if (!r.w.size) h = 1; else if (!acc.w.size) h = 0;   // a cutter with no bone (a plane) takes no weight
     const w = new Map();
     for (const [b, v] of acc.w) w.set(b, (w.get(b) || 0) + v * h);
     for (const [b, v] of r.w) w.set(b, (w.get(b) || 0) + v * (1 - h));

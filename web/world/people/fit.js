@@ -11,6 +11,7 @@
 // and the sliders can be dragged live.
 import { NB, PARENT } from './rig.js';
 import { mmul, minv } from './vmath.js';
+import { evalW } from './sdf.js';
 import { project, relax, normals, smoothNormals } from './mesh.js';
 
 const col = (m, i) => [m[4 * i], m[4 * i + 1], m[4 * i + 2]];
@@ -77,7 +78,9 @@ export function fit(base, A, field, o = {}) {
     P[3 * v] = ox; P[3 * v + 1] = oy; P[3 * v + 2] = oz;
   }
   const mesh = { pos: P, idx: base.idx };
+  const P0 = P.slice();
   project(mesh, field.f, o.steps ?? 5, 0.03);
+  guardSnaps(mesh, P0, field, J, W);
   if ((o.relax ?? 2) > 0) relax(mesh, o.relax ?? 2, 0.4, field.f, base.nb || null, base.lock || null);
   untangle(mesh, field.f, base.nb, o.untangle ?? 4);
   mesh.nrm = normals(mesh);
@@ -128,5 +131,22 @@ function projectSome(P, f, mask, e = 2e-4) {
       x -= gx * s; y -= gy * s; z -= gz * s;
     }
     P[3 * v] = x; P[3 * v + 1] = y; P[3 * v + 2] = z;
+  }
+}
+
+// a vertex that moved far onto a part of the body made by other bones (a foot's inside
+// onto the other foot, a finger onto its neighbour) is put back and brought onto its
+// own part in small steps
+function guardSnaps(mesh, P0, field, J, W, far = 0.008) {
+  const P = mesh.pos, n = P.length / 3;
+  for (let v = 0; v < n; v++) {
+    const dx = P[3 * v] - P0[3 * v], dy = P[3 * v + 1] - P0[3 * v + 1], dz = P[3 * v + 2] - P0[3 * v + 2];
+    if (dx * dx + dy * dy + dz * dz < far * far) continue;
+    const r = evalW(field, P[3 * v], P[3 * v + 1], P[3 * v + 2]);
+    let own = 0;
+    for (let k = 0; k < 4; k++) if (W[4 * v + k]) own += (r.w.get(J[4 * v + k]) || 0) * Math.min(1, W[4 * v + k] * 2);
+    if (own > 0.25) continue;
+    P[3 * v] = P0[3 * v]; P[3 * v + 1] = P0[3 * v + 1]; P[3 * v + 2] = P0[3 * v + 2];
+    project({ pos: P.subarray(3 * v, 3 * v + 3) }, field.f, 8, 0.003);
   }
 }
