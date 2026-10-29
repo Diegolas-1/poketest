@@ -1188,10 +1188,21 @@ export function townsfolk(K) {
       const lo = Math.max(0, -d.y), rz = d.z > 0 ? 0.106 : 0.118 * (1 - 0.45 * lo), rx = 0.1 * (1 - 0.4 * lo), ry = d.y > 0 ? 0.128 : 0.11;
       return 1 / Math.hypot(d.x / rx, d.y / ry, d.z / rz);
     };
+    // the hairline's height round the head (|azimuth|), then its points
+    const base = (az) => table([[0, 1.238], [0.62, 1.238], [0.92, 1.2], [1.2, 1.155], [1.38, 1.168], [1.5, 1.19], [1.66, 1.165], [1.85, 1.135], [2.2, 1.11], [Math.PI, 1.1]], Math.abs(az));
     // the head itself under the hair (the base head is only a face mask): Xerosic's bald skull and
-    // neck from the X/Y pack, fitted to it (heads/skull.js, tools/world/head_from_xy.py)
+    // neck from the X/Y pack, fitted to it (heads/skull.js, tools/world/head_from_xy.py); where the
+    // hair covers it, tucked in under the cap, and at the front behind the forehead, so only the
+    // face's skin shows between the bangs' points (the cap is fitted to it as it was)
+    const tucked = SKULL.pos.slice();
+    for (let k = 0; k < tucked.length; k += 3) {
+      const r = V(tucked[k], tucked[k + 1], tucked[k + 2]).sub(C0), l = r.length(), hb = base(Math.atan2(r.x, r.z)) - 0.045, y = C0.y + r.y;
+      const cover = sstep(hb - 0.01, hb + 0.01, y), front = sstep(-0.01, 0.03, r.z) * sstep(1.17, 1.21, y);
+      const f = 1 - (0.01 * cover + 0.014 * front) / l;
+      tucked[k] = C0.x + r.x * f; tucked[k + 1] = C0.y + r.y * f; tucked[k + 2] = C0.z + r.z * f;
+    }
     const skullGeo = new THREE.BufferGeometry();
-    skullGeo.setAttribute('position', new THREE.Float32BufferAttribute(SKULL.pos, 3)); skullGeo.setIndex(SKULL.idx); skullGeo.computeVertexNormals();
+    skullGeo.setAttribute('position', new THREE.Float32BufferAttribute(tucked, 3)); skullGeo.setIndex(SKULL.idx); skullGeo.computeVertexNormals();
     const ST = [];
     for (let k = 0; k < SKULL.idx.length; k += 3) ST.push({ v: [0, 1, 2].map((q) => V(SKULL.pos[SKULL.idx[k + q] * 3], SKULL.pos[SKULL.idx[k + q] * 3 + 1], SKULL.pos[SKULL.idx[k + q] * 3 + 2])) });
     // the hair's cap sits on that head (and outside the face and the eye patch); where neither
@@ -1203,22 +1214,25 @@ export function townsfolk(K) {
     // (smoothed: the cap follows the head's shape, not its low-poly facets) a grid of radii by
     // azimuth and elevation, blurred, never more than a few mm inside the head itself (the hair's
     // thickness covers that)
-    const GA = 96, GE = 48, RG = [], RM = [];
-    for (let i = 0; i <= GE; i++) { const el = -Math.PI / 2 + i / GE * Math.PI; RG.push(Array.from({ length: GA }, (_, j) => skull0(dirOf2(j / GA * TAU2, el)))); }
+    const GA = 96, GE = 48, RG = [], RM = [], FM = [];
+    for (let i = 0; i <= GE; i++) {
+      const el = -Math.PI / 2 + i / GE * Math.PI;
+      RG.push(Array.from({ length: GA }, (_, j) => skull0(dirOf2(j / GA * TAU2, el))));
+      FM.push(Array.from({ length: GA }, (_, j) => { const h = cast(T, C0, dirOf2(j / GA * TAU2, el), 0.25); return h == null ? 0 : h + 0.009; }));   // (never inside the face or the eye patch)
+    }
     for (const r of RG) RM.push(r.slice());
     for (let it = 0; it < 12; it++) {
       const B = RG.map((r) => r.slice());
       for (let i = 1; i < GE; i++) for (let j = 0; j < GA; j++) RG[i][j] = (B[i][j] * 4 + B[i - 1][j] + B[i + 1][j] + B[i][(j + 1) % GA] + B[i][(j + GA - 1) % GA]) / 8;
     }
-    for (let i = 0; i <= GE; i++) for (let j = 0; j < GA; j++) RG[i][j] = Math.max(RG[i][j], RM[i][j] - 0.003);
+    for (let i = 0; i <= GE; i++) for (let j = 0; j < GA; j++) RG[i][j] = Math.max(RG[i][j], RM[i][j] - 0.003, FM[i][j]);
     const skull = (d) => {
       const el = Math.asin(clamp(d.y, -1, 1)), az = ((Math.atan2(d.x, d.z) % TAU2) + TAU2) % TAU2;
       const fi = (el + Math.PI / 2) / Math.PI * GE, fj = az / TAU2 * GA, i0 = Math.min(GE - 1, Math.floor(fi)), j0 = Math.floor(fj) % GA, u = fi - i0, w = fj - Math.floor(fj);
       const a = lerp(RG[i0][j0], RG[i0][(j0 + 1) % GA], w), b = lerp(RG[i0 + 1][j0], RG[i0 + 1][(j0 + 1) % GA], w);
       return lerp(a, b, u);
     };
-    // the hairline's height round the head (|azimuth|), then its points
-    const base = (az) => table([[0, 1.238], [0.62, 1.238], [0.92, 1.2], [1.2, 1.155], [1.38, 1.168], [1.5, 1.19], [1.66, 1.165], [1.85, 1.135], [2.2, 1.11], [Math.PI, 1.1]], Math.abs(az));
+    // (the hairline's points)
     const teeth = (az) => {
       const a = Math.abs(az);
       // [count over the whole circle, depth, where in each the point is (0..1)]
