@@ -31,6 +31,7 @@ var _skip_hold := 0.0
 var _crouched_t := 0.0
 var _seen_burst := false
 var forced := false        # dev: run it even when done
+var plan = null            # where its Pidgey settles (picked as Oak calls), Vector3 or null
 
 func setup(w) -> void:
 	W = w
@@ -127,6 +128,12 @@ func _start() -> void:
 	W.clear()
 	W.game.speed = 0.0
 	W.cast.set_crouch(false)
+	# where its Pidgey will be (the camera frames it while Oak talks): a few metres in,
+	# ahead of him if it can be
+	var src: WildSource = W.sources[0]
+	var me: Vector3 = W.game.pos
+	plan = src.pick_spot(me, float(W.game.yaw), 5.5, 8.5, W._rng)
+	if plan == null: plan = src.pick_spot(me, float(W.game.yaw), 3.5, 12.0, W._rng)
 	Sfx.play("pc_beep", null, {"vol": -4.0})
 	dp.set_speaker("Prof. Oak", "on the Pokégear")
 	_say(["OAK: Ash! It's Professor Oak, on your Pokégear. Hold on before you go wading into that tall grass!",
@@ -166,11 +173,9 @@ func _close_dialog() -> void:
 	dp.visible = false
 
 func _begin() -> void:
-	# its Pidgey: a few metres in, ahead of him if it can be
+	# its Pidgey, where the camera has been looking
 	var src: WildSource = W.sources[0]
-	var me: Vector3 = W.game.pos
-	var spot = src.pick_spot(me, float(W.game.yaw), 5.5, 8.5, W._rng)
-	if spot == null: spot = src.pick_spot(me, float(W.game.yaw), 3.5, 12.0, W._rng)
+	var spot = plan
 	if spot == null: _finish(); return
 	e = W.spawn("pidgey", src, spot, "flighty", true)
 	e.burst_t = 0.9

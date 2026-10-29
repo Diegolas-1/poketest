@@ -70,6 +70,7 @@ var island: CanvasLayer  # island.gd
 var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
 var cam_shake := 0.0     # a knock (the bike into a wall): eases out
 var cam_ease := 0.0      # 1 just after a conversation: the camera glides back to its boom (eases to 0)
+var cam_clear := 99.0    # outdoors while hunting (wild.gd camera_care): how far back the camera can sit before a prop hides him
 
 func _ready() -> void:
 	world.load_all()
@@ -394,6 +395,7 @@ func _camera(dt: float) -> void:
 	if cam_recenter > 0.0:   # L / ZL / C: swing in behind the player
 		cam_recenter -= dt
 		cam_yaw += wrapf(yaw + PI - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 12.0))
+	elif _wild_frame(dt): pass   # (the hunt's tutorial: him and the twitching spot both in view)
 	elif cam_idle > (0.5 if bk else T.num("camera", "follow_idle", 1.0)) and speed > 0.5:
 		var behind := wrapf(yaw + PI - cam_yaw, -PI, PI)
 		var swing := behind * (1.0 - exp(-dt * T.num("camera", "follow_rate", 0.9) * (bk.CAM_FOLLOW if bk else 1.0) * minf(1.0, speed / 6.0)))
@@ -407,6 +409,17 @@ func _camera(dt: float) -> void:
 	cam_target.y = cam_ty + T.num("camera", "eye_height", 1.45) - T.num("camera", "crouch_drop", 0.5) * cw
 	var cp := cos(pitch_eff)
 	var want := cam_target + Vector3(sin(cam_yaw) * cp, sin(pitch_eff), cos(cam_yaw) * cp) * dist
+	# hunting wild Pokémon (wild.gd camera_care): a sign, a tree or a wall between the
+	# camera and him pulls it in along the line to him at once, and lets it back slowly
+	if cast and cast.wild and cast.wild.camera_care():
+		var off := want - cam_target
+		var ln := off.length()
+		var free := _cam_free(cam_target, off / maxf(ln, 1e-3), ln)
+		cam_clear = minf(cam_clear, ln)
+		cam_clear += (free - cam_clear) * (1.0 - exp(-dt * (14.0 if free < cam_clear else 1.5)))
+		if cam_clear < ln: want = cam_target + off / maxf(ln, 1e-3) * maxf(cam_clear, 1.2)
+	else:
+		cam_clear = 99.0
 	var gc := T.num("camera", "ground_clear", 0.4)
 	var fl := maxf(world.height_at(want.x, want.z) + gc, world.sea_y + gc)
 	cam_floor += (fl - cam_floor) * (1.0 - exp(-dt * (T.num("camera", "floor_up", 9.0) if fl > cam_floor else T.num("camera", "floor_down", 3.0))))
@@ -420,6 +433,47 @@ func _camera(dt: float) -> void:
 	if cam_shake > 0.001:
 		cam_shake = move_toward(cam_shake, 0.0, dt * 0.8)
 		cam.rotate_object_local(Vector3.RIGHT, sin(Time.get_ticks_msec() * 0.06) * cam_shake * 0.05)
+
+# how far from `look` along dir (up to len) the camera can go before a prop (a sign, a
+# post, a trunk, a wall: the world's colliders, below 4 m up) is in the way
+func _cam_free(look: Vector3, dir: Vector3, len: float) -> float:
+	var n := 12
+	for i in range(1, n + 1):
+		var t := len * i / n
+		var p := look + dir * t
+		var g: float = world.height_at(p.x, p.z)
+		if p.y - g > 4.0: continue
+		var q: Vector3 = world.collide(p, 0.25)
+		if Vector2(q.x - p.x, q.z - p.z).length() > 0.01: return maxf(0.0, t - len / n)
+	return len
+
+# the hunt's tutorial frames a spot (wild.gd camera_hint): while the player leaves the
+# camera alone, it swings round behind him to look past his shoulder at it
+func _wild_frame(dt: float) -> bool:
+	if cast == null or cast.wild == null or cam_idle < 0.8: return false
+	var h: Dictionary = cast.wild.camera_hint()
+	if h.is_empty(): return false
+	var at: Vector3 = h.at
+	if Vector2(at.x - pos.x, at.z - pos.z).length() < 1.0: return false
+	# over whichever shoulder has the clearer view (a sign or a post beside the shot
+	# pushes it round to the other side; it keeps its side unless the other is much clearer)
+	var base := atan2(pos.x - at.x, pos.z - at.z)
+	var sd := absf(float(h.get("side", 0.3)))
+	var bad := [0.0, 0.0]
+	for k in 2:
+		var y := base + (sd if k == 0 else -sd)
+		var cp := cos(cam_pitch)
+		var off := Vector3(sin(y) * cp, sin(cam_pitch), cos(y) * cp) * cam_dist
+		var lat := Vector3(cos(y), 0, -sin(y))
+		for l in [0.0, 1.2, -1.2]:
+			var tip: Vector3 = cam_target + off + lat * l
+			var dv := tip - cam_target
+			bad[k] += dv.length() - _cam_free(cam_target, dv.normalized(), dv.length())
+	if (_frame_side > 0.0 and bad[0] > bad[1] + 1.0) or (_frame_side < 0.0 and bad[1] > bad[0] + 1.0): _frame_side = -_frame_side
+	var want := base + sd * _frame_side
+	cam_yaw += wrapf(want - cam_yaw, -PI, PI) * (1.0 - exp(-dt * 2.2))
+	return true
+var _frame_side := 1.0
 
 # ---------- spaces: going through a door ----------
 # Like the games: the screen fades to black, the outdoor world (terrain, town,

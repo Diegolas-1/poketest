@@ -113,6 +113,18 @@ func use_pressed() -> bool:
 					return true
 	return false
 
+# the camera minds props between it and Ash while a hunt is on (main.gd _camera)
+func camera_care() -> bool:
+	return not encs.is_empty() or tut.running()
+
+# the tutorial's steps keep its Pidgey's spot in view: {at} or {} (main.gd _wild_frame)
+func camera_hint() -> Dictionary:
+	if not tut.running() or not tut.state in ["intro", "watch", "crouch", "sneak", "engage", "track"]: return {}
+	if tut.state == "intro" or tut.e.is_empty(): return {"at": tut.plan, "side": 0.3} if tut.plan is Vector3 else {}
+	var n = tut.e.get("node")
+	if n == null or not is_instance_valid(n): return {}
+	return {"at": (n as Node3D).position, "side": 0.3}
+
 # the compass's goal while tracking one that fled (island.gd): {pos, name} or {}
 func track_hint() -> Dictionary:
 	for e in encs:

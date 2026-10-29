@@ -82,7 +82,7 @@ func _spawn(at: Vector3, temper := "flighty") -> void:
 func step(dt: float) -> void:
 	t += dt
 	var g = W.game
-	g.cam_idle = 0.0
+	if case != "tutorial": g.cam_idle = 0.0   # (the tutorial: the game camera as it is, framing the spot)
 	if t < 0.25: return
 	if ph == 0:
 		_place(start, yaw)
