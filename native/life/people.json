@@ -101,6 +101,21 @@
    "friends": [],
    "schedule": {
     "default": [["00:00", "night_watch", "viridian_gate"], ["05:30", "guard", "viridian_gate"], ["21:00", "night_watch", "viridian_gate"]]
-   }}
+   }},
+  {"id": "cheer1", "name": "Mika", "full": "Mika", "look": "cheer1", "stand_in": "girl", "home": "blue", "age": "adult", "speed": 2.0, "jitter": 0, "voice": "high", "_note": "Gary's cheerleaders (after the anime): no day of their own, they copy Gary's a minute behind him (rank orders them), stand round him wherever he stops, and cheer at everything he does (life.gd squad).",
+   "follow": "gary", "rank": 0, "idles": ["pompom", "hip", "shoulders"], "friends": [],
+   "schedule": {"default": [["00:00", "sleep", "home"]]}},
+  {"id": "cheer2", "name": "Rei", "full": "Rei", "look": "cheer2", "stand_in": "girl", "home": "blue", "age": "adult", "speed": 2.0, "jitter": 0, "voice": "high",
+   "follow": "gary", "rank": 1, "idles": ["pompom", "hip", "shoulders"], "friends": [],
+   "schedule": {"default": [["00:00", "sleep", "home"]]}},
+  {"id": "cheer3", "name": "Aiko", "full": "Aiko", "look": "cheer3", "stand_in": "girl", "home": "blue", "age": "adult", "speed": 2.0, "jitter": 0, "voice": "high",
+   "follow": "gary", "rank": 2, "idles": ["pompom", "hip", "shoulders"], "friends": [],
+   "schedule": {"default": [["00:00", "sleep", "home"]]}},
+  {"id": "cheer4", "name": "Natsu", "full": "Natsu", "look": "cheer4", "stand_in": "girl", "home": "blue", "age": "adult", "speed": 2.0, "jitter": 0, "voice": "high",
+   "follow": "gary", "rank": 3, "idles": ["pompom", "hip", "shoulders"], "friends": [],
+   "schedule": {"default": [["00:00", "sleep", "home"]]}},
+  {"id": "cheer5", "name": "Yuri", "full": "Yuri", "look": "cheer5", "stand_in": "girl", "home": "blue", "age": "adult", "speed": 2.0, "jitter": 0, "voice": "high",
+   "follow": "gary", "rank": 4, "idles": ["pompom", "hip", "shoulders"], "friends": [],
+   "schedule": {"default": [["00:00", "sleep", "home"]]}}
  ]
 }

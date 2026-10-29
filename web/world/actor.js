@@ -641,10 +641,15 @@ Object.assign(LOOKS, {
   gary: { hair: '#a4532c', hairStyle: 'short', skin: '#f6d4b6', face: { eye: '#2a1c18', eye2: '#5a3a28', mouth: 'smile', brow: '#7e3a1c' },
     shirt: '#6d42ac', sleeve: 'long', pants: '#41609e', cuff: '#41609e', boots: { up: '#d8a432', sole: '#1c1a1e' } },
 });
+// Gary's cheerleaders: one uniform, each her own hair (cast2.js makes them)
+export const CHEERLEADERS = ['cheer1', 'cheer2', 'cheer3', 'cheer4', 'cheer5'];
+for (const [k, hair, eye] of [['cheer1', '#6a3a22', '#6a4a2a'], ['cheer2', '#262238', '#3a2a3a'], ['cheer3', '#3a4ab0', '#3a4a8a'], ['cheer4', '#d0622c', '#4a6a3a'], ['cheer5', '#7a4ab0', '#5a3a7a']])
+  LOOKS[k] = { adult: true, hair, hairStyle: 'pony', ribbon: '#f39ac0', skin: '#f6d2b6', face: W_FACE(eye, hair), shirt: null, pants: null,
+    dress: { color: '#f6f6f2', collar: '#2f5fc0', sleeve: '#f6f6f2', trim: '#2f5fc0' }, shoes: { up: '#f6f6f2', sole: '#d6d4cc', collar: '#f6f6f2' } };
 // the townspeople, in the order the town lists them (Ash and Prof. Oak aside)
 export const TOWNSFOLK = ['delia', 'girl', 'rose', 'bram', 'ada', 'kid', 'mae', 'fisher', 'marina', 'ben', 'tom', 'gus', 'gary'];
 // and the visitors (baked like them)
-export const VISITORS = ['jenny'];
+export const VISITORS = ['jenny', ...CHEERLEADERS];
 
 // the others are made from the same base model too, reworked in cast.js (and cast2.js)
 for (const k of ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus', 'gary', ...VISITORS]) Object.assign(LOOKS[k], { base: 'calem', cast: k });

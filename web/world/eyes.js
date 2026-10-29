@@ -11,7 +11,8 @@
 // town's people get theirs drawn in (cast.js eyeTex): their skin, brows, irises and lashes.
 //   drawEyes({ scale, skin: [4 colours: EYE_COLOURS.skin's], brow, browW, iris: [3 colours: top
 //     to bottom], lashes: a colour (a girl's lashes), forehead: true | 'smooth' (swept-back hair:
-//     the forehead lit skin, with lines unless smooth) }) -> canvas
+//     the forehead lit skin, with lines unless smooth), happy (brows raised and arched, no frown) })
+//     -> canvas
 const SKIN = ['#cdaca4', '#ffdcd5', '#c5a49c', '#eed0c5'];   // the bands above and below, the strip's two
 const INK = '#1b1418', BROW = '#2a2024', LID_SHADE = 'rgba(70,46,72,0.24)';
 const IRIS = ['#241b1f', '#3e3134', '#6e5658'], RIM = '#160f12', PUPIL = '#0e0a0c';
@@ -104,13 +105,14 @@ function closed(g, C, lashes) {
     taper(g, [x0 + 1, 46.2], [x0 - 1, 47], [x0 - 2.2, 48.6], 1.6, 1.1, 0.2);
   }
 }
-function brow(g, C, col, k) {
-  const [yo, yi, lift] = C.brow;
+function brow(g, C, col, k, happy) {
+  let [yo, yi, lift] = C.brow;
+  if (happy) { const m = (yo + yi) / 2 - 1; yo = m + 0.5; yi = m + 0.5; lift += 1.6; }   // soft, raised, arched: no frown
   g.fillStyle = col;
   taper(g, [21.5, yo], [31, (yo + yi) / 2 - lift], [40.5, yi], 0.5 * k, 2.6 * k, 1.5 * k);
 }
 
-export function drawEyes({ scale = 4, lashes = null, skin = SKIN, brow: browCol = BROW, browW = 1, iris = IRIS, forehead = false } = {}) {
+export function drawEyes({ scale = 4, lashes = null, skin = SKIN, brow: browCol = BROW, browW = 1, iris = IRIS, forehead = false, happy = false } = {}) {
   const c = document.createElement('canvas'); c.width = 512 * scale; c.height = 128 * scale;
   const g = c.getContext('2d');
   CELLS.forEach((C, i) => {
@@ -139,7 +141,7 @@ export function drawEyes({ scale = 4, lashes = null, skin = SKIN, brow: browCol 
     for (const m of [false, true]) {
       g.save();
       if (m) g.transform(-1, 0, 0, 1, 101, 0);   // the other eye: the mirror image
-      brow(g, C, browCol, browW);
+      brow(g, C, browCol, browW, happy);
       if (C.k === 'o' || C.k === 'n') eye(g, C, lashes, iris); else closed(g, C, lashes);
       g.restore();
     }

@@ -150,7 +150,7 @@ function eyeTex(src, L) {
   if (src.image.dataset?.eyes === 'vector') {
     const F = L.face, irisOf = (o) => { const l = lum(o); return l < 0.16 ? mix([22, 16, 18], iris, (l / 0.16) ** 2 * 0.35) : mul(iris, 0.5 + l * 1.4); };
     const cv = drawEyes({ scale: src.image.width / 512, skin: EYE_COLOURS.skin.map((c) => css(toneSkin(hex(c), skin))), brow: L.face.brow, browW: 1 + 0.3 * (F.browThick || 0),
-      iris: EYE_COLOURS.iris.map((c) => css(irisOf(hex(c)))), lashes: F.lashes, forehead: F.forehead });
+      iris: EYE_COLOURS.iris.map((c) => css(irisOf(hex(c)))), lashes: F.lashes, forehead: F.forehead, happy: F.happy });
     const { c, g, d } = imageData(cv, cv.width, cv.height), w = c.width, cw = w / 4, ch = c.height / 2, px = d.data;
     // grown-ups: the narrower eyes (cell 1) as the open eyes (cell 0)
     if (F.mature) for (let y = 0; y < ch; y++) px.copyWithin(y * w * 4, (y * w + cw) * 4, (y * w + 2 * cw) * 4);

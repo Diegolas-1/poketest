@@ -114,6 +114,8 @@ static func _defs() -> Dictionary:
 	var CR := {"dy": -0.45, "dz": -0.1, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.45, "hp": -0.2}
 	var CR2 := {"dy": -0.5, "dz": -0.09, "wp": 0.45, "lean": 0.4, "ko": 0.42, "heel": 0.6, "side": -0.1, "tw": -0.1, "hp": -0.18}
 	var SIT := {"dy": -0.63, "dz": -0.54, "wp": 0, "lean": 0.1, "ko": 0.35, "seat": 1, "gap": 0}
+	var POM_UP := func(sg): return {"at": HD(sg * 0.36, 0.42, 0.06), "pole": [sg, -0.2, -0.6], "wt": 0.2, "cu": 0.9}
+	var POM_CHEST := func(sg): return {"at": CH(sg * 0.13, -0.06, 0.28), "pole": [sg, -1, -0.2], "wt": 0.4, "cu": 0.9}
 	ACTIONS = {
 		"hip": {"dur": 9.0, "len": [7, 11], "stretch": [2, 7], "w": 1.2,
 			"armR": [[0, null], [0.9, HIP], [7.6, HIP], [8.6, null]],
@@ -247,6 +249,20 @@ static func _defs() -> Dictionary:
 				[2.25, {"at": CH(-0.2, 0.1, 0.15), "pole": [-1, -0.3, 0.1], "wf": 0.1, "wt": 0.3, "cu": 0.0}], [2.7, null]],
 			"body": [[0, {}], [0.45, {"lean": -0.05, "hp": -0.05, "sh": -0.01}], [1.95, {"lean": -0.05, "hp": -0.04, "sh": -0.01}], [2.7, {}]],
 			"gaze": [[0, {"y": 0, "p": 0}], [2.7, {"y": 0, "p": 0}]]},
+		# a cheer (Gary's cheerleaders, life.gd: forced when Gary does anything at all): two
+		# hops with the knees kicked up behind, the pom-poms thrown up in a V over the head and
+		# shaken, then brought down to the chest
+		"cheer": {"dur": 2.6, "talk": true, "fx": "cheer",
+			"armL": [[0, null], [0.3, POM_UP.call(1)], [1.95, POM_UP.call(1)], [2.25, POM_CHEST.call(1)], [2.6, null]],
+			"armR": [[0, null], [0.28, POM_UP.call(-1)], [1.95, POM_UP.call(-1)], [2.25, POM_CHEST.call(-1)], [2.6, null]],
+			"body": [[0, {}], [0.3, {"lean": -0.06, "hp": -0.12, "sh": 0.05}], [1.9, {"lean": -0.05, "hp": -0.1, "sh": 0.05}], [2.6, {}]],
+			"gaze": [[0, {"y": 0, "p": 0}], [0.4, {"y": 0, "p": -0.2}], [1.9, {"y": 0, "p": -0.15}], [2.6, {"y": 0, "p": 0}]]},
+		# the pom-poms shaken in front of the chest, a bounce in the knees (picked at random by
+		# the cheerleaders, people.json "idles")
+		"pompom": {"dur": 2.2, "w": 1.0, "fx": "pompom", "own": true,
+			"armL": [[0, null], [0.35, POM_CHEST.call(1)], [1.8, POM_CHEST.call(1)], [2.2, null]],
+			"armR": [[0, null], [0.35, POM_CHEST.call(-1)], [1.8, POM_CHEST.call(-1)], [2.2, null]],
+			"body": [[0, {}], [0.4, {"hp": -0.04}], [1.8, {"hp": -0.04}], [2.2, {}]]},
 		# hungry (hunger.gd forces it with a tummy growl): a hand to his tummy, a little
 		# rub, a glance down at it, a sigh
 		"tummy": {"dur": 3.0, "talk": true, "player": true,
@@ -288,7 +304,7 @@ func _init(actor: CastActor, is_npc: bool, with_ball: bool) -> void:
 	for n in D:
 		if D[n].get("ball", false) and not with_ball: continue
 		if npc and D[n].get("player", false): continue
-		if D[n].get("talk", false): continue
+		if D[n].get("talk", false) or D[n].get("own", false): continue   # (own: only for whoever lists it, people.json "idles")
 		names.append(n)
 	if with_ball: _make_ball()
 
@@ -364,9 +380,10 @@ func _local(a: Dictionary) -> float:
 	return a.t - (a.len - d.dur)
 
 # only these of the random actions (people.json "idles": someone on duty doesn't
-# put their hands behind their head and gaze at the sky)
+# put their hands behind their head and gaze at the sky; a cheerleader shakes her pom-poms)
 func limit(allowed: Array) -> void:
-	names = names.filter(func(n): return allowed.has(n))
+	var D := _defs()
+	names = allowed.filter(func(n): return D.has(n) and not D[n].get("talk", false) and not (npc and D[n].get("player", false)))
 
 func update(dt: float, wI: float) -> void:
 	# the stance: in while standing, out while an arm is busy with an action
@@ -525,6 +542,22 @@ func _fx(id: String, a: Dictionary, t: float, env0: float) -> void:
 			b.call(s + "Thigh", 1, 0, 0, -0.1 * env); b.call(s + "Leg", 1, 0, 0, 0.35 * env); b.call(s + "Foot", 1, 0, 0, 0.45 * env)
 			b.call(s + "Thigh", 0, 1, 0, sin(t * 3.6) * 0.26 * env)
 			b.call("Spine1", 0, 0, 1, (-0.03 if s == "L" else 0.03) * env)
+		"cheer":
+			# two hops (holder up, knees kicked back), the pom-poms shaking while they are up
+			var hop := 0.0
+			for h in [[0.3, 0.78], [1.1, 1.58]]:
+				if t > h[0] and t < h[1]: hop = sin((t - h[0]) / (h[1] - h[0]) * PI)
+			A.holder.position.y += hop * 0.2 * env0
+			for s in ["L", "R"]:
+				b.call(s + "Thigh", 1, 0, 0, 0.25 * hop * env0); b.call(s + "Leg", 1, 0, 0, 1.3 * hop * env0); b.call(s + "Foot", 1, 0, 0, 0.4 * hop * env0)
+			var sh := sin(t * 30.0) * 0.03 * _sm(0.3, 0.45, t) * (1.0 - _sm(1.8, 1.95, t)) * env0
+			a.wob.L = sh; a.wob.R = -sh
+		"pompom":
+			var sh := sin(t * 26.0) * 0.025 * _sm(0.35, 0.5, t) * (1.0 - _sm(1.65, 1.8, t)) * env0
+			a.wob.L = sh; a.wob.R = -sh
+			var k := (0.5 - 0.5 * cos(t * 6.0)) * 0.12 * _sm(0.3, 0.5, t) * (1.0 - _sm(1.6, 1.9, t)) * env0
+			for s in ["L", "R"]: b.call(s + "Thigh", 1, 0, 0, -k); b.call(s + "Leg", 1, 0, 0, k * 2.0); b.call(s + "Foot", 1, 0, 0, -k)
+			A.holder.position.y -= k * 0.05
 		"shoulders":
 			var u := t / 1.8
 			var env := _sm(0.0, 0.15, u) * (1.0 - _sm(0.85, 1.0, u)) * env0

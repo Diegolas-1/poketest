@@ -1388,6 +1388,466 @@
           "Later. I've got training to do."
         ]
       }
+    },
+
+    "cheer1": {
+      "name": "Mika",
+      "tag": "MIKA",
+      "short": "Mika",
+      "label": "Mika",
+      "home": "blue",
+      "voice": "The squad's captain. Brown hair, big smile, takes the cheers very seriously; thinks Gary is the greatest Trainer who ever lived (he hasn't caught anything yet).",
+      "greet": {
+        "morning": [
+          "Oh! Hi! Are you looking for Gary? Everyone's looking for Gary.",
+          "Morning! Gary was up SO early. He's amazing."
+        ],
+        "afternoon": [
+          "Hiii! Did you see Gary just now? He walked. It was incredible."
+        ],
+        "evening": [
+          "Evening! We're cheering Gary home. It's a whole routine."
+        ],
+        "night": [
+          "Shh! Gary's sleeping. We're cheering quietly."
+        ]
+      },
+      "period": {
+        "any": [
+          "We go wherever Gary goes. It's in the rules. We wrote the rules."
+        ]
+      },
+      "activity": {
+        "any": [
+          "Practising! The new routine has eleven 'Gary's in it."
+        ]
+      },
+      "ash": [
+        [
+          "You're Ash, right? Gary talks about you a LOT.",
+          "Like, a lot a lot. He says you're 'nothing special'. Every day."
+        ],
+        [
+          "Do YOU have cheerleaders? ...Oh. That's okay! Maybe someday!"
+        ],
+        [
+          "Gary's going to be the very best. We have pom-poms, so it's official."
+        ]
+      ],
+      "town": [
+        "Pallet Town's so cute! It's Gary's town, so it's the best town."
+      ],
+      "sleep": [
+        "(Zzz... Gary, Gary... he's our man... zzz...)"
+      ],
+      "bark": {
+        "any": [
+          "Go, Gary!",
+          "Woo!",
+          "Gary! Gary!",
+          "Yay!"
+        ],
+        "walk": [
+          "Wait up, Gary!",
+          "Hup, two, three, four!"
+        ],
+        "night": [
+          "Gary... gary..."
+        ]
+      },
+      "cheer": [
+        "Gary, Gary, he's our man! If he can't do it, no one can! Go... Gary!",
+        "Who's the best? GARY! Who's the rest? EVERYONE ELSE!",
+        "Two, four, six, eight, who do we appreciate? GARY!",
+        "Go, go, Gary! Go, go, GARY!",
+        "G-A-R-Y! Gary, Gary, he's our guy!",
+        "Gary's walking! Woo!",
+        "He looked over here! Ahhh!"
+      ],
+      "chat": {
+        "open": {
+          "any": [
+            "Isn't Gary amazing, {b}?"
+          ]
+        },
+        "reply": {
+          "any": [
+            "Totally!",
+            "Gary would agree!"
+          ]
+        },
+        "close": [
+          "Gotta go! Gary's moving!"
+        ]
+      }
+    },
+
+    "cheer2": {
+      "name": "Rei",
+      "tag": "REI",
+      "short": "Rei",
+      "label": "Rei",
+      "home": "blue",
+      "voice": "Long black hair, red headband. The loudest of the squad; writes the chants; secretly thinks Ash is kind of cute.",
+      "greet": {
+        "morning": [
+          "Oh! Hi! Are you looking for Gary? Everyone's looking for Gary.",
+          "Morning! Gary was up SO early. He's amazing."
+        ],
+        "afternoon": [
+          "Hiii! Did you see Gary just now? He walked. It was incredible."
+        ],
+        "evening": [
+          "Evening! We're cheering Gary home. It's a whole routine."
+        ],
+        "night": [
+          "Shh! Gary's sleeping. We're cheering quietly."
+        ]
+      },
+      "period": {
+        "any": [
+          "We go wherever Gary goes. It's in the rules. We wrote the rules."
+        ]
+      },
+      "activity": {
+        "any": [
+          "Practising! The new routine has eleven 'Gary's in it."
+        ]
+      },
+      "ash": [
+        [
+          "You're Ash, right? Gary talks about you a LOT.",
+          "Like, a lot a lot. He says you're 'nothing special'. Every day."
+        ],
+        [
+          "Do YOU have cheerleaders? ...Oh. That's okay! Maybe someday!"
+        ],
+        [
+          "Gary's going to be the very best. We have pom-poms, so it's official."
+        ]
+      ],
+      "town": [
+        "Pallet Town's so cute! It's Gary's town, so it's the best town."
+      ],
+      "sleep": [
+        "(Zzz... Gary, Gary... he's our man... zzz...)"
+      ],
+      "bark": {
+        "any": [
+          "Go, Gary!",
+          "Woo!",
+          "Gary! Gary!",
+          "Yay!"
+        ],
+        "walk": [
+          "Wait up, Gary!",
+          "Hup, two, three, four!"
+        ],
+        "night": [
+          "Gary... gary..."
+        ]
+      },
+      "cheer": [
+        "Gary, Gary, he's our man! If he can't do it, no one can! Go... Gary!",
+        "Who's the best? GARY! Who's the rest? EVERYONE ELSE!",
+        "Two, four, six, eight, who do we appreciate? GARY!",
+        "Go, go, Gary! Go, go, GARY!",
+        "G-A-R-Y! Gary, Gary, he's our guy!",
+        "Gary's walking! Woo!",
+        "He looked over here! Ahhh!"
+      ],
+      "chat": {
+        "open": {
+          "any": [
+            "Isn't Gary amazing, {b}?"
+          ]
+        },
+        "reply": {
+          "any": [
+            "Totally!",
+            "Gary would agree!"
+          ]
+        },
+        "close": [
+          "Gotta go! Gary's moving!"
+        ]
+      }
+    },
+
+    "cheer3": {
+      "name": "Aiko",
+      "tag": "AIKO",
+      "short": "Aiko",
+      "label": "Aiko",
+      "home": "blue",
+      "voice": "Blue bob, big pink bow. Sweet, giggly, cries at everything, especially Gary losing (he never loses).",
+      "greet": {
+        "morning": [
+          "Oh! Hi! Are you looking for Gary? Everyone's looking for Gary.",
+          "Morning! Gary was up SO early. He's amazing."
+        ],
+        "afternoon": [
+          "Hiii! Did you see Gary just now? He walked. It was incredible."
+        ],
+        "evening": [
+          "Evening! We're cheering Gary home. It's a whole routine."
+        ],
+        "night": [
+          "Shh! Gary's sleeping. We're cheering quietly."
+        ]
+      },
+      "period": {
+        "any": [
+          "We go wherever Gary goes. It's in the rules. We wrote the rules."
+        ]
+      },
+      "activity": {
+        "any": [
+          "Practising! The new routine has eleven 'Gary's in it."
+        ]
+      },
+      "ash": [
+        [
+          "You're Ash, right? Gary talks about you a LOT.",
+          "Like, a lot a lot. He says you're 'nothing special'. Every day."
+        ],
+        [
+          "Do YOU have cheerleaders? ...Oh. That's okay! Maybe someday!"
+        ],
+        [
+          "Gary's going to be the very best. We have pom-poms, so it's official."
+        ]
+      ],
+      "town": [
+        "Pallet Town's so cute! It's Gary's town, so it's the best town."
+      ],
+      "sleep": [
+        "(Zzz... Gary, Gary... he's our man... zzz...)"
+      ],
+      "bark": {
+        "any": [
+          "Go, Gary!",
+          "Woo!",
+          "Gary! Gary!",
+          "Yay!"
+        ],
+        "walk": [
+          "Wait up, Gary!",
+          "Hup, two, three, four!"
+        ],
+        "night": [
+          "Gary... gary..."
+        ]
+      },
+      "cheer": [
+        "Gary, Gary, he's our man! If he can't do it, no one can! Go... Gary!",
+        "Who's the best? GARY! Who's the rest? EVERYONE ELSE!",
+        "Two, four, six, eight, who do we appreciate? GARY!",
+        "Go, go, Gary! Go, go, GARY!",
+        "G-A-R-Y! Gary, Gary, he's our guy!",
+        "Gary's walking! Woo!",
+        "He looked over here! Ahhh!"
+      ],
+      "chat": {
+        "open": {
+          "any": [
+            "Isn't Gary amazing, {b}?"
+          ]
+        },
+        "reply": {
+          "any": [
+            "Totally!",
+            "Gary would agree!"
+          ]
+        },
+        "close": [
+          "Gotta go! Gary's moving!"
+        ]
+      }
+    },
+
+    "cheer4": {
+      "name": "Natsu",
+      "tag": "NATSU",
+      "short": "Natsu",
+      "label": "Natsu",
+      "home": "blue",
+      "voice": "Orange ponytail. Sporty and bouncy, does the high kicks, would race Gary if she weren't busy cheering for him.",
+      "greet": {
+        "morning": [
+          "Oh! Hi! Are you looking for Gary? Everyone's looking for Gary.",
+          "Morning! Gary was up SO early. He's amazing."
+        ],
+        "afternoon": [
+          "Hiii! Did you see Gary just now? He walked. It was incredible."
+        ],
+        "evening": [
+          "Evening! We're cheering Gary home. It's a whole routine."
+        ],
+        "night": [
+          "Shh! Gary's sleeping. We're cheering quietly."
+        ]
+      },
+      "period": {
+        "any": [
+          "We go wherever Gary goes. It's in the rules. We wrote the rules."
+        ]
+      },
+      "activity": {
+        "any": [
+          "Practising! The new routine has eleven 'Gary's in it."
+        ]
+      },
+      "ash": [
+        [
+          "You're Ash, right? Gary talks about you a LOT.",
+          "Like, a lot a lot. He says you're 'nothing special'. Every day."
+        ],
+        [
+          "Do YOU have cheerleaders? ...Oh. That's okay! Maybe someday!"
+        ],
+        [
+          "Gary's going to be the very best. We have pom-poms, so it's official."
+        ]
+      ],
+      "town": [
+        "Pallet Town's so cute! It's Gary's town, so it's the best town."
+      ],
+      "sleep": [
+        "(Zzz... Gary, Gary... he's our man... zzz...)"
+      ],
+      "bark": {
+        "any": [
+          "Go, Gary!",
+          "Woo!",
+          "Gary! Gary!",
+          "Yay!"
+        ],
+        "walk": [
+          "Wait up, Gary!",
+          "Hup, two, three, four!"
+        ],
+        "night": [
+          "Gary... gary..."
+        ]
+      },
+      "cheer": [
+        "Gary, Gary, he's our man! If he can't do it, no one can! Go... Gary!",
+        "Who's the best? GARY! Who's the rest? EVERYONE ELSE!",
+        "Two, four, six, eight, who do we appreciate? GARY!",
+        "Go, go, Gary! Go, go, GARY!",
+        "G-A-R-Y! Gary, Gary, he's our guy!",
+        "Gary's walking! Woo!",
+        "He looked over here! Ahhh!"
+      ],
+      "chat": {
+        "open": {
+          "any": [
+            "Isn't Gary amazing, {b}?"
+          ]
+        },
+        "reply": {
+          "any": [
+            "Totally!",
+            "Gary would agree!"
+          ]
+        },
+        "close": [
+          "Gotta go! Gary's moving!"
+        ]
+      }
+    },
+
+    "cheer5": {
+      "name": "Yuri",
+      "tag": "YURI",
+      "short": "Yuri",
+      "label": "Yuri",
+      "home": "blue",
+      "voice": "Violet twin tails. Dreamy and a bit dizzy, always one beat behind the chant.",
+      "greet": {
+        "morning": [
+          "Oh! Hi! Are you looking for Gary? Everyone's looking for Gary.",
+          "Morning! Gary was up SO early. He's amazing."
+        ],
+        "afternoon": [
+          "Hiii! Did you see Gary just now? He walked. It was incredible."
+        ],
+        "evening": [
+          "Evening! We're cheering Gary home. It's a whole routine."
+        ],
+        "night": [
+          "Shh! Gary's sleeping. We're cheering quietly."
+        ]
+      },
+      "period": {
+        "any": [
+          "We go wherever Gary goes. It's in the rules. We wrote the rules."
+        ]
+      },
+      "activity": {
+        "any": [
+          "Practising! The new routine has eleven 'Gary's in it."
+        ]
+      },
+      "ash": [
+        [
+          "You're Ash, right? Gary talks about you a LOT.",
+          "Like, a lot a lot. He says you're 'nothing special'. Every day."
+        ],
+        [
+          "Do YOU have cheerleaders? ...Oh. That's okay! Maybe someday!"
+        ],
+        [
+          "Gary's going to be the very best. We have pom-poms, so it's official."
+        ]
+      ],
+      "town": [
+        "Pallet Town's so cute! It's Gary's town, so it's the best town."
+      ],
+      "sleep": [
+        "(Zzz... Gary, Gary... he's our man... zzz...)"
+      ],
+      "bark": {
+        "any": [
+          "Go, Gary!",
+          "Woo!",
+          "Gary! Gary!",
+          "Yay!"
+        ],
+        "walk": [
+          "Wait up, Gary!",
+          "Hup, two, three, four!"
+        ],
+        "night": [
+          "Gary... gary..."
+        ]
+      },
+      "cheer": [
+        "Gary, Gary, he's our man! If he can't do it, no one can! Go... Gary!",
+        "Who's the best? GARY! Who's the rest? EVERYONE ELSE!",
+        "Two, four, six, eight, who do we appreciate? GARY!",
+        "Go, go, Gary! Go, go, GARY!",
+        "G-A-R-Y! Gary, Gary, he's our guy!",
+        "Gary's walking! Woo!",
+        "He looked over here! Ahhh!"
+      ],
+      "chat": {
+        "open": {
+          "any": [
+            "Isn't Gary amazing, {b}?"
+          ]
+        },
+        "reply": {
+          "any": [
+            "Totally!",
+            "Gary would agree!"
+          ]
+        },
+        "close": [
+          "Gotta go! Gary's moving!"
+        ]
+      }
     }
   },
 

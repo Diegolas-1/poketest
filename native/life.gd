@@ -56,6 +56,14 @@ extends Node3D
 # activity, place and target; T / Shift+T skip an hour / six (clock.gd); F4
 # fast-forwards x30. dev/life_test.tscn runs the headless day test.
 #
+# ---- a squad (people.json "follow") ----
+# Gary's cheerleaders don't keep a day of their own: each copies the leader's plan a
+# minute or so behind him (people.json "rank" orders them), so they go where he goes and
+# in where he goes in. Wherever he stops they take a place in an arc behind him (their
+# rank's), facing him, and move on when he does. They cheer (idles.gd "cheer": hops and
+# pom-poms) whenever he gets anywhere, when Ash talks to him and when he says goodbye,
+# and now and then just because; one of them chants (dialogue.json "cheer").
+#
 # Words: quests.gd (Quests) answers talk / chatter / overheard / wants / relation.
 # Pokémon: companions.gd (Companions, life/companions.json) keeps Lily's Nibbles
 # and Ben's Doduo with their owners; an owner a slow pet keeps to (pace_cap)
@@ -117,6 +125,7 @@ var _chase := {}                 # the kids' game of tag (see _chase_tick)
 var _tag_cd := 30.0              # game seconds until they may start another
 var _delia_cd := 30.0
 var _talking = null
+var squads := {}                 # leader id -> the people who follow them (people.json "follow")
 
 # ======================================================================
 # setup
@@ -161,6 +170,10 @@ func setup(g: Node3D, c: Node, clk: GameClock) -> void:
 			p.actor = a
 		people.append(p)
 		by_id[p.id] = p
+	for p in people:
+		if p.data.has("follow"):
+			if not squads.has(String(p.data.follow)): squads[String(p.data.follow)] = []
+			squads[String(p.data.follow)].append(p)
 	_make_doors()
 	_quests()
 	companions = Companions.new()
@@ -545,6 +558,14 @@ func _hm(s: String) -> float:
 	return float(p[0]) * 60.0 + float(p[1])
 
 func _plan(p: Dictionary, d: int) -> void:
+	var L = by_id.get(String(p.data.get("follow", "")))
+	if L != null:
+		# the leader's day, a little behind him
+		if L.plan_day != d: _plan(L, d)
+		var lag := 0.6 + 0.35 * float(p.data.get("rank", 0))
+		p.plan = L.plan.map(func(b): return {"t": b.t + (lag if b.t > 0.0 else 0.0), "act": b.act, "place": b.place, "seed": b.seed})
+		p.plan_day = d
+		return
 	var sch: Dictionary = p.data.schedule
 	var wd: String = GameClock.WEEK[(d - 1 + GameClock.FIRST_WEEKDAY) % 7]
 	var key := "default"
@@ -600,6 +621,7 @@ func _goal(p: Dictionary, blk: Dictionary) -> Dictionary:
 	rng.seed = blk.seed
 	if place == "lighthouse" or houses.has(place):
 		return {"kind": "inside", "house": place}
+	if p.data.has("follow"): return {"kind": "follow", "key": place}   # (round the leader, wherever he is)
 	if place.begins_with("route:"):
 		var hs := Array(place.substr(6).split(","))
 		hs.erase(p.home)
@@ -679,6 +701,10 @@ func _pursue(p: Dictionary) -> void:
 			_walk(p, _xz(s), "act")
 		"route":
 			_walk(p, _xz(door_of(g.list[g.i])), "knock")
+		"follow":
+			var f := _squad_spot(p)
+			p.target = f
+			_walk(p, _xz(f), "act")
 
 func _walk(p: Dictionary, to: Vector2, after: String) -> void:
 	p.after = after
@@ -746,6 +772,7 @@ func _arrive(p: Dictionary) -> void:
 			var t: Vector3 = p.target
 			p.face = t.z if not is_nan(t.z) else NAN
 			p.hop_t = _rng.randf_range(15, 45)
+			if squads.has(p.id): hype(p)   # (he got somewhere: cheers)
 		"knock":
 			p.state = "knock"; p.beat_t = 0.0
 			var d := door_of(p.goal.list[p.goal.i])
@@ -791,6 +818,10 @@ func _place_now(p: Dictionary) -> void:
 		var d := door_of(g.list[g.i])
 		s = d
 		p.after = "knock"
+	elif g.kind == "follow":
+		s = _squad_spot(p)
+		p.target = s
+		p.after = "act"
 	else:
 		s = _claim(p, g)
 		p.target = s
@@ -843,6 +874,7 @@ func update(dt: float) -> void:
 	companions.update(sim, dt, cam, planes, cp)
 	if cyclists: cyclists.update(dt, cp)
 	_doors(sim)
+	if not squads.is_empty(): _squad(sim)
 	_social_acc += sim
 	if _social_acc >= 0.25:
 		_social(_social_acc)
@@ -881,10 +913,13 @@ func _turn(p: Dictionary, to: float, dt: float, k := 7.0) -> void:
 
 func _tick(p: Dictionary, dt: float, full: bool) -> void:
 	match p.state:
-		"walk": _move(p, dt, full)
+		"walk":
+			_move(p, dt, full)
+			if p.state == "walk" and p.goal.kind == "follow": _keep_up(p, dt, 4.0)
 		"wait_path": p.v *= exp(-dt * 8.0)
 		"act":
 			p.v *= exp(-dt * 8.0)
+			if p.goal.kind == "follow": _keep_up(p, dt, 2.5)
 			if not is_nan(p.face): _turn(p, p.face, dt, 4.0)
 			if p.goal.kind == "roam":
 				p.hop_t -= dt
@@ -916,6 +951,72 @@ func _tick(p: Dictionary, dt: float, full: bool) -> void:
 			p.v = 0.0
 			var me: Vector3 = game.pos
 			_turn(p, atan2(me.x - p.pos.x, me.z - p.pos.z), dt, 8.0)
+
+# ---------- the squad ----------
+# a follower's place round the leader: in an arc behind him (by rank), facing him; round where
+# he's going if he's on his way somewhere
+func _squad_spot(p: Dictionary) -> Vector3:
+	var L: Dictionary = by_id[String(p.data.follow)]
+	var c := _xz3(L.pos)
+	var f: float = L.yaw
+	if L.state in ["walk", "wait_path"] and L.has("dest"): c = L.dest
+	if L.has("target") and L.state in ["walk", "wait_path", "act"]:
+		var t: Vector3 = L.target
+		if Vector2(t.x, t.y).distance_to(c) < 0.5 and not is_nan(t.z): f = t.z
+	var n: int = squads[L.id].size()
+	var i := float(p.data.get("rank", 0)) - (n - 1) * 0.5
+	var a := f + PI + i * 0.55
+	var q := snap(c + Vector2(sin(a), cos(a)) * (2.1 + 0.35 * (int(p.data.get("rank", 0)) % 2)))
+	return Vector3(q.x, q.y, atan2(c.x - q.x, c.y - q.y))
+
+# keep with the leader: go again when where he is (or is going) has moved off from them
+func _keep_up(p: Dictionary, dt: float, far: float) -> void:
+	p.fol_t = float(p.get("fol_t", 0.0)) - dt
+	if p.fol_t > 0.0: return
+	p.fol_t = 0.8
+	var L: Dictionary = by_id[String(p.data.follow)]
+	if L.state in ["inside", "door_in", "door_out"]: return
+	var want := _squad_spot(p)
+	if Vector2(want.x, want.y).distance_to(_xz3v(p.target)) > far:
+		_pursue(p)
+	elif p.state == "act" and _xz3(L.pos).distance_to(_xz3(p.pos)) < 9.0:
+		p.face = atan2(L.pos.x - p.pos.x, L.pos.z - p.pos.z)
+
+# cheers: the squad near the leader hops and shakes the pom-poms, one of them chants (loud
+# and often: talk, a goodbye and getting somewhere always; otherwise now and then)
+func hype(L: Dictionary, chant := false) -> void:
+	var near := []
+	for p in squads.get(L.id, []):
+		if p.state in ["act", "walk", "wait_path"] and p.inside == "" and _xz3(p.pos).distance_to(_xz3(L.pos)) < 12.0: near.append(p)
+	if near.is_empty(): return
+	var who: Dictionary = near[_rng.randi() % near.size()]
+	for p in near:
+		p.cheer_at = _rng.randf_range(0.0, 0.45)
+		p.cheer_say = p == who and (chant or _rng.randf() < 0.7)
+
+func _squad(dt: float) -> void:
+	for L_id in squads:
+		var L = by_id.get(L_id)
+		if L == null: continue
+		for p in squads[L_id]:
+			if p.has("cheer_at"):
+				p.cheer_at -= dt
+				if p.cheer_at <= 0.0:
+					if p.state == "act" and p.actor: p.actor.idles.force("cheer")
+					if p.cheer_say: _chant(p)
+					p.erase("cheer_at")
+				continue
+			if p.state != "act" or L.state == "inside" or _xz3(p.pos).distance_to(_xz3(L.pos)) > 10.0: continue
+			p.cheer_cd = float(p.get("cheer_cd", _rng.randf_range(4.0, 14.0))) - dt
+			if p.cheer_cd <= 0.0:
+				p.cheer_cd = _rng.randf_range(10.0, 26.0)
+				if p.actor: p.actor.idles.force("cheer")
+				if _rng.randf() < 0.35: _chant(p)
+
+func _chant(p: Dictionary) -> void:
+	var lines: Array = quests.person(p.id).get("cheer", []) if quests else []
+	if lines.is_empty(): lines = ["Gary, Gary, he's our man!", "Go, Gary!"]
+	say(p, String(lines[_rng.randi() % lines.size()]), 2.6)
 
 func _hop(p: Dictionary) -> void:
 	# another spot of the place, or a short wander round this one
@@ -1181,6 +1282,7 @@ func say(p: Dictionary, text: String, secs := 3.0, delay := 0.0) -> void:
 	if delay > 0.0: p.bubble.delay = delay
 
 func _free_for_chat(p: Dictionary) -> bool:
+	if p.data.has("follow"): return false   # (with the leader, not chatting)
 	return p.state in ["walk", "act", "wait_path"] and p.inside == "" and _talking != p and not (cyclists and cyclists.riding(p))
 
 func _pair(a: String, b: String) -> String:
@@ -1505,6 +1607,7 @@ func begin_talk_quiet(p: Dictionary) -> Dictionary:
 			if by_id[id].state == "chat": _end_chat(by_id[id])
 	var ctx := ctx_of(p)
 	p.talk_resume = {"state": p.state}
+	if squads.has(p.id): hype(p, true)   # (Ash came to talk to him)
 	p.state = "talk"
 	p.v = 0.0
 	p.bubble = {}
@@ -1513,6 +1616,7 @@ func begin_talk_quiet(p: Dictionary) -> Dictionary:
 
 func end_talk(p: Dictionary) -> void:
 	_talking = null
+	if squads.has(p.id): hype(p, true)
 	# (someone talked to inside a house, cast.gd _talk_proxy: their record stays inside)
 	if p.has("indoor_of"): return
 	var r: Dictionary = p.get("talk_resume", {"state": "act"})

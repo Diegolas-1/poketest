@@ -116,7 +116,12 @@
       "pitch": 1.0
     },
     "jenny": {"name": "OFFICER JENNY", "colour": "#4a55c8", "voice": "high", "pitch": 1.02},
-    "gary": {"name": "GARY", "colour": "#6d42ac", "voice": "kid", "pitch": 0.98}
+    "gary": {"name": "GARY", "colour": "#6d42ac", "voice": "kid", "pitch": 0.98},
+    "cheer1": {"name": "MIKA", "colour": "#e66aa0", "voice": "high", "pitch": 1.08},
+    "cheer2": {"name": "REI", "colour": "#e66aa0", "voice": "high", "pitch": 1.08},
+    "cheer3": {"name": "AIKO", "colour": "#e66aa0", "voice": "high", "pitch": 1.08},
+    "cheer4": {"name": "NATSU", "colour": "#e66aa0", "voice": "high", "pitch": 1.08},
+    "cheer5": {"name": "YURI", "colour": "#e66aa0", "voice": "high", "pitch": 1.08}
   },
   "ash": {
     "greet": [
@@ -332,7 +337,12 @@
       "Smell ya later, Ashy-boy!",
       "Later, loser! ...Kidding. Mostly.",
       "Go get some sleep. You'll need it."
-    ]
+    ],
+    "cheer1": ["Bye! Go, Gary!", "Toodles! Gary, wait for us!"],
+    "cheer2": ["Bye! Go, Gary!", "Toodles! Gary, wait for us!"],
+    "cheer3": ["Bye! Go, Gary!", "Toodles! Gary, wait for us!"],
+    "cheer4": ["Bye! Go, Gary!", "Toodles! Gary, wait for us!"],
+    "cheer5": ["Bye! Go, Gary!", "Toodles! Gary, wait for us!"]
   },
   "wrap_up": {
     "_any": [
@@ -414,7 +424,12 @@
     "gary": [
       "Oh, that's Daisy calling. Gotta go. Don't follow me!",
       "Grandpa needs me at the lab. VIP stuff. Bye!"
-    ]
+    ],
+    "cheer1": ["Oh! Gary's leaving! Byeee!"],
+    "cheer2": ["Oh! Gary's leaving! Byeee!"],
+    "cheer3": ["Oh! Gary's leaving! Byeee!"],
+    "cheer4": ["Oh! Gary's leaving! Byeee!"],
+    "cheer5": ["Oh! Gary's leaving! Byeee!"]
   },
   "clue_labels": {},
   "pet_chimes": {

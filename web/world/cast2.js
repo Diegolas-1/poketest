@@ -1072,7 +1072,7 @@ export function townsfolk(K) {
     // inside the head, and Gary's own scalp in its place (garyScalp)
     v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
     v.neck();
-    const scalp = garyScalp(v, c);
+    const scalp = hairCap(v, c, { base: GARY_LINE, teeth: garyTeeth });
     v.garment((G) => {
       // the sweatshirt: hung from the shoulders, big and loose like a long-sleeved shirt, falling
       // wide past the waist to low on the hips, the undershirt's orange hem just showing under it;
@@ -1184,7 +1184,19 @@ export function townsfolk(K) {
   // the hairline all round: across the forehead a row of points leaning over to his right (each
   // drops gently from his left and rises steeply on his right), down in front of the ears as
   // pointed sideburns, arching over the ears, and down the back to a pointed nape
-  function garyScalp(v, c) {
+  // Gary's hairline: high over the forehead, dipping before the ears, low at the nape; and its
+  // points: across the front small, choppy and uneven, every point a different depth
+  const GARY_LINE = [[0, 1.238], [0.62, 1.238], [0.92, 1.2], [1.2, 1.155], [1.38, 1.168], [1.5, 1.19], [1.66, 1.165], [1.85, 1.135], [2.2, 1.11], [Math.PI, 1.1]];
+  function garyTeeth(az) {
+    const a = Math.abs(az);
+    const [n, depth] = a < 1.35 ? [40, 0.014] : a < 1.7 ? [22, 0.008] : [30, 0.026];   // [count over the whole circle, depth]
+    const g = az / TAU * n + 0.15, f = (g % 1 + 1) % 1, fp = 0.3, k = Math.floor(g);
+    const vary = a < 1.35 ? 0.35 + 0.65 * hash(k, 7.3) : 1;
+    return depth * vary * (f < fp ? f / fp : (1 - f) / (1 - fp)) ** 1.4;
+  }
+  // a head of hair's cap, for anyone (Gary, the cheerleaders): o.base, the hairline's height round
+  // the head ([|azimuth|, y] rows); o.teeth(az), how far its edge is cut into points there
+  function hairCap(v, c, o = {}) {
     const C0 = V(0, 1.18, -0.01), T = [...trisOf(v.meshes.get('face_on_1')), ...trisOf(v.meshes.get('face_on_0'))];
     const NA = 144, NE = 30, TAU2 = TAU;
     const dirOf2 = (az, el) => V(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
@@ -1195,7 +1207,7 @@ export function townsfolk(K) {
       return 1 / Math.hypot(d.x / rx, d.y / ry, d.z / rz);
     };
     // the hairline's height round the head (|azimuth|), then its points
-    const base = (az) => table([[0, 1.238], [0.62, 1.238], [0.92, 1.2], [1.2, 1.155], [1.38, 1.168], [1.5, 1.19], [1.66, 1.165], [1.85, 1.135], [2.2, 1.11], [Math.PI, 1.1]], Math.abs(az));
+    const base = (az) => table(o.base || GARY_LINE, Math.abs(az));
     // the head itself under the hair (the base head is only a face mask): Xerosic's bald skull and
     // neck from the X/Y pack, fitted to it (heads/skull.js, tools/world/head_from_xy.py); where the
     // hair covers it, tucked in under the cap, and at the front behind the forehead, so only the
@@ -1238,16 +1250,7 @@ export function townsfolk(K) {
       const a = lerp(RG[i0][j0], RG[i0][(j0 + 1) % GA], w), b = lerp(RG[i0 + 1][j0], RG[i0 + 1][(j0 + 1) % GA], w);
       return lerp(a, b, u);
     };
-    // (the hairline's points)
-    const teeth = (az) => {
-      const a = Math.abs(az);
-      // [count over the whole circle, depth, where in each the point is (0..1)]
-      // (across the front: small, choppy and uneven, every point a different depth)
-      const [n, depth] = a < 1.35 ? [40, 0.014] : a < 1.7 ? [22, 0.008] : [30, 0.026];
-      const g = az / TAU2 * n + 0.15, f = (g % 1 + 1) % 1, fp = 0.3, k = Math.floor(g);
-      const vary = a < 1.35 ? 0.35 + 0.65 * hash(k, 7.3) : 1;
-      return depth * vary * (f < fp ? f / fp : (1 - f) / (1 - fp)) ** 1.4;
-    };
+    const teeth = o.teeth || (() => 0);
     // the edge's elevation where the skull reaches height y (a few steps of refinement)
     const elAt = (az, y) => {
       let el = -0.5;
@@ -1295,35 +1298,40 @@ export function townsfolk(K) {
     const c0 = new V3(0, 1.2, -0.012), B = G.build(), N = 12, NC = 10;
     // each: [azimuth of the root (0 front, + his left), its elevation on the head, the direction it
     // rises in, the direction it arcs out to, length, width], or { r0, at(t) } a lock along a given
-    // path over the head (its width across the head, its thickness out from it)
+    // path over the head (its width across the head, its thickness out from it); with, for long
+    // hair, rigid (how much of it, from the root, lies still on the head: the chain starts there),
+    // n (points along the path), r1 (its tip's width), flat, stiff and coll (each link's collision,
+    // cast.js simKit: e.g. { ring: 'Spine3', pad } to fall over the back)
     list.forEach((L, li) => {
       let at, r0, flat;
+      const rigid = L.rigid ?? 0, kk = k * (L.stiff ?? 1);
       if (Array.isArray(L)) {
         const [a, e, d0, d1, len] = L; r0 = L[5];
         const out = V(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
         const p0 = c0.clone().addScaledVector(out, 0.085), p1 = p0.clone().addScaledVector(V(...d0).normalize(), len * 0.55), p2 = p1.clone().addScaledVector(V(...d1).normalize(), len * 0.6);
         at = (t) => p0.clone().multiplyScalar((1 - t) ** 2).addScaledVector(p1, 2 * (1 - t) * t).addScaledVector(p2, t * t);
       } else { at = L.at; r0 = L.r0; flat = c0; }
-      const p0 = at(0), pts = [0, 0.25, 0.5, 0.75, 1].map((t) => at(t).toArray());
-      const geo = flat ? lock(pts, r0, 0.45, 0.0015, N, NC, flat) : lock(pts, r0, 0.55, 0.0015, N, NC);
+      const NP = L.n ?? 5, pts = Array.from({ length: NP }, (_, q) => at(q / (NP - 1)).toArray());
+      const NR = L.n ? Math.max(N, NP * 3) : N;
+      const geo = flat ? lock(pts, r0, L.flat ?? 0.45, L.r1 ?? 0.0015, NR, NC, flat) : lock(pts, r0, 0.55, L.r1 ?? 0.0015, NR, NC);
       // facing out (the native game's ink hull grows along the normals): flip the winding if the
       // lock came out inside out, judged against the middle of each ring
       {
         const P0 = geo.attributes.position, N0 = geo.attributes.normal; let dot = 0;
-        for (let r = 0; r <= N; r++) {
+        for (let r = 0; r <= NR; r++) {
           const c = V(); for (let j = 0; j <= NC; j++) c.add(V().fromBufferAttribute(P0, r * (NC + 1) + j)); c.divideScalar(NC + 1);
           for (let j = 0; j <= NC; j++) { const q = r * (NC + 1) + j; dot += V().fromBufferAttribute(P0, q).sub(c).dot(V().fromBufferAttribute(N0, q)); }
         }
         if (dot < 0) { const I = geo.index.array; for (let q = 0; q < I.length; q += 3) { const t = I[q + 1]; I[q + 1] = I[q + 2]; I[q + 2] = t; } geo.index.needsUpdate = true; geo.computeVertexNormals(); }
       }
-      // its two bones: at the root and halfway, the tip beyond
-      const bn = [`hr${name}${li}_0`, `hr${name}${li}_1`], mid = at(0.5), tip = at(1);
-      G.bone(bn[0], 'Head', p0); G.bone(bn[1], bn[0], mid);
-      G.chains.push({ parent: 'Head', bones: bn, tip0: tip, ks: [240 * k, 170 * k], drag: [0.12, 0.16], damp: 2.2 * Math.sqrt(k), vmax: 4, flut: 0.12, cone: [0.32 / k, 0.5 / k],
-        hangBone: '', hang: [], quad: false, coll: [{}, {}] });
-      const P = geo.attributes.position, U = geo.attributes.uv, base = B.pos.length / 3, p = V();
+      // its two bones: where it leaves the head and halfway on, the tip beyond
+      const m = (rigid + 1) / 2, bn = [`hr${name}${li}_0`, `hr${name}${li}_1`], mid = at(m), tip = at(1);
+      G.bone(bn[0], 'Head', at(rigid)); G.bone(bn[1], bn[0], mid);
+      G.chains.push({ parent: 'Head', bones: bn, tip0: tip, ks: [240 * kk, 170 * kk], drag: [0.12, 0.16], damp: 2.2 * Math.sqrt(kk), vmax: 4, flut: 0.12, cone: [0.32 / kk, 0.5 / kk],
+        hangBone: '', hang: [], quad: false, coll: L.coll || [{}, {}] });
+      const P = geo.attributes.position, U = geo.attributes.uv, base = B.pos.length / 3, p = V(), span = 0.2 * (1 - rigid);
       for (let i = 0; i < P.count; i++) {
-        const t = Math.floor(i / (NC + 1)) / N, wh = 1 - sstep(0, 0.2, t), w1 = (1 - wh) * sstep(0.4, 0.6, t);
+        const t = Math.floor(i / (NC + 1)) / NR, wh = 1 - sstep(rigid, rigid + span, t), w1 = (1 - wh) * sstep(m - span / 2, m + span / 2, t);
         B.v(p.fromBufferAttribute(P, i), [U.getX(i), U.getY(i)], { Head: wh, [bn[0]]: 1 - wh - w1, [bn[1]]: w1 });
       }
       for (const k of geo.index.array) B.idx.push(base + k);
@@ -1360,6 +1368,164 @@ export function townsfolk(K) {
     // the ahoge: one strand up from the crown, curling forward and over
     parts.push(lock([[0, 1.3, 0.005], [0.003, 1.335, 0.012], [0.006, 1.362, 0.03], [0.004, 1.37, 0.052], [0.0, 1.36, 0.064]], 0.009, 0.4, 0.0015, 12, 6));
     v.flat(mergeGeos(parts), c.hair, head1);
+  }
+
+  // ---------- Gary's cheerleaders ----------
+  // after the anime (EP001 and on): a squad of girls who follow Gary everywhere and cheer at
+  // everything he does. One uniform for all of them: a white sleeveless top with a blue V-neck,
+  // a blue and white pleated mini skirt, white sneakers and pink pom-poms; each her own hair
+  const CHEER = { white: '#f6f6f2', white2: '#dedcd6', blue: '#2f5fc0', blue2: '#244a9a', pom: '#f39ac0', pom2: '#fbd2e2', sole: '#d6d4cc' };
+  const CHEERS = {
+    // long straight brown hair to the middle of her back, bangs swept to the side
+    cheer1: { skin: '#f8d4b8', hair: '#6a3a22', hair2: '#4c2716', iris: '#6a4a2a', style: 'long', height: 1.76 },
+    // long straight black hair, blunt bangs, a red headband
+    cheer2: { skin: '#f6d0b4', hair: '#262238', hair2: '#16141f', iris: '#3a2a3a', band: '#d8343a', style: 'raven', height: 1.78 },
+    // a blue bob to the jaw, a big pink bow
+    cheer3: { skin: '#f8d8c0', hair: '#3a4ab0', hair2: '#2a3488', iris: '#3a4a8a', bow: '#f48ab4', style: 'bob', height: 1.72 },
+    // an orange high ponytail with a blue scrunchie
+    cheer4: { skin: '#f6d2b6', hair: '#d0622c', hair2: '#a8461c', iris: '#4a6a3a', tie: '#2f5fc0', style: 'pony', height: 1.74 },
+    // violet twin tails with white ribbons
+    cheer5: { skin: '#f4ccae', hair: '#7a4ab0', hair2: '#5a3488', iris: '#5a3a7a', ribbon: '#f6f6f2', style: 'twins', height: 1.73 },
+  };
+  // the hairline round a girl's face: under the bangs at the front, down in front of the ears, low
+  // at the nape
+  const GIRL_LINE = [[0, 1.245], [0.7, 1.235], [1.0, 1.19], [1.25, 1.14], [1.45, 1.15], [1.7, 1.12], [2.2, 1.08], [Math.PI, 1.07]];
+  for (const [id, h] of Object.entries(CHEERS)) {
+    C[id] = { ...CHEER, ...h };
+    CAST[id] = { height: h.height, edits: body({ ...WOMAN, head: 0.97, trunk: [0.93, 1.02, 0.95], arm: 0.9, legLen: 1.07 }),
+      drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
+      face: { iris: h.iris, brow: h.hair2, lashes: '#1e141a', mouth: 'smile', blush: '#f49aa2', lips: '#e07a82', forehead: 'smooth', happy: true } };
+    BUILD[id] = (v) => cheerleader(v, C[id]);
+  }
+
+  function cheerleader(v, c) {
+    const skin = hex(c.skin), wh = hex(c.white), wh2 = hex(c.white2), bl = hex(c.blue), bl2 = hex(c.blue2);
+    // the V-neck: blue inside a V from the shoulders' edge of the neckline down to the chest
+    const vx = (y) => 0.058 * clamp((y - 0.905) / 0.135);
+    const topPaint = (p) => {
+      const x = Math.abs(p.x);
+      if (p.z > 0 && p.y > 0.905) { const e = vx(p.y) - x; if (e > 0.004) return bl; if (e > -0.004) return e > 0 ? wh : bl2; }   // (a white line inside the V, a blue edge)
+      return wh;
+    };
+    // the body: bare arms and hands (sleeveless), the top's white over the shoulders, skin at the neck
+    v.paint('topsjer', 0.5, (p, n, o, part) => {
+      if (part === 'hand' || (isArm(part) && ax(p) > 0.108)) return skin;
+      if (isArm(part)) return ax(p) > 0.1 ? bl : wh;   // (the armhole's blue trim)
+      if (p.y > 1.042) return skin;
+      return topPaint(p);
+    });
+    v.paint('btmsskin', 0.5, (p) => (p.y > 0.6 ? bl2 : skin));
+    // bare legs, smooth (the jeans' creases gone), down into white sneakers with a blue top
+    v.shape('btmsskin', (p) => { if (p.y < 0.3) p.y = 0.3 - (0.3 - p.y) * (0.3 - 0.07) / (0.3 - 0.213); });
+    v.shape('btmsskin', slimLegs(0.62, 0.66));
+    v.shape('btmsskin', (p) => {
+      const t = sstep(0.62, 0.56, p.y); if (!t) return;
+      const cx = Math.sign(p.x) * 0.056, cz = 0.002, dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz); if (d < 1e-6) return;
+      const ca = dz / d, want = legR(p.y) * (1 + 0.1 * Math.max(0, -ca) * sstep(0.18, 0.26, p.y) * sstep(0.38, 0.3, p.y) - 0.03 * ca);
+      const k = 1 + (want / d - 1) * t; p.x = cx + dx * k; p.z = cz + dz * k;
+    });
+    v.shoes({ up: c.white, sole: c.sole, toe: c.white, sock: c.white, sockY: 0.1, rimY: 0.092, rim: c.blue });
+    v.shape('topsjer', lowerCollar(1.045, 0.22));
+    // none of Ash's hair: her own on a real head (hairCap)
+    v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
+    v.neck();
+    const scalp = hairCap(v, c, { base: GIRL_LINE });
+    pomPoms(v, c);
+    const onHead = [], flat0 = v.flat;   // (the head's rigid parts in one mesh: paletted)
+    v.flat = (geo, col) => onHead.push([geo, col]);
+    if (c.style === 'raven') {   // the headband over the top of the head, ear to ear
+      const pts = Array.from({ length: 9 }, (_, i) => scalp.on(lerp(1.45, -1.45, i / 8), 0.95 - 0.55 * Math.abs(i / 8 * 2 - 1) ** 2, 0.004).toArray());
+      v.flat(lock(pts, 0.012, 0.3, 0.012, 24, 10, new V3(0, 1.2, -0.012)), c.band);
+    }
+    if (c.style === 'bob') {   // the bow: two big loops and a knot, up on her left
+      const at = scalp.on(0.9, 0.95, 0.01), bow = [];
+      for (const s of [-1, 1]) { const l = new THREE.SphereGeometry(1, 14, 10); l.scale(0.045, 0.028, 0.016); l.rotateZ(s * 0.4 - 0.5); l.translate(at.x + s * 0.03, at.y + 0.012 - s * 0.012, at.z); bow.push(l); }
+      const k = new THREE.SphereGeometry(0.016, 10, 8); k.translate(at.x, at.y, at.z); bow.push(k);
+      v.flat(mergeGeos(bow), c.bow);
+    }
+    if (c.style === 'pony') {   // the scrunchie at the ponytail's root
+      const at = scalp.on(Math.PI, 0.75, 0.0), t = new THREE.TorusGeometry(0.024, 0.012, 8, 18);
+      t.rotateX(1.1); t.translate(at.x, at.y + 0.004, at.z - 0.008); v.flat(t, c.tie);
+    }
+    if (c.style === 'twins') for (const s of [1, -1]) {   // white ribbons at the tails' roots
+      const at = scalp.on(s * 2.25, 0.45, 0.004), bow = [];
+      for (const q of [-1, 1]) { const l = new THREE.SphereGeometry(1, 12, 8); l.scale(0.03, 0.02, 0.012); l.rotateZ(q * 0.5); l.translate(at.x + q * 0.022 * Math.cos(s * 2.25), at.y + 0.01, at.z - q * 0.022 * Math.sin(s * 2.25)); bow.push(l); }
+      v.flat(mergeGeos(bow), c.ribbon);
+    }
+    v.flat = flat0;
+    if (onHead.length) paletted(v, onHead, head1, 'cheer_head');
+    v.garment((G) => {
+      // the pleated mini skirt: blue and white pleats, a white hem band
+      skirt(G, { name: 'cheer_skirt', hem: 0.5, rx: [0.122, 0.175], rz: [0.1, 0.16], back: 1.05, curve: 0.7, folds: 16, wave: 0.03, lining: mul(bl2, 0.8), flut: 0.55,
+        paint: (p) => {
+          if (p.y < 0.518) return p.y < 0.51 ? wh2 : wh;
+          if (p.y > 0.73) return bl2;   // the waistband
+          const th = Math.atan2(p.x, p.z - ZC), f = ((th / TAU * 16) % 1 + 1) % 1;
+          return f < 0.5 ? bl : (f < 0.53 ? wh2 : wh);
+        } });
+      // the top, hung from the shoulders to over the skirt's waist
+      top(G, { name: 'cheer_top', hem: 0.715, lining: mul(wh, 0.82), off1: 0.008, paint: (p) => (p.y < 0.728 ? bl : topPaint(p)) });
+      underTop(G); underSkirt(G);
+      // the hair, moving as cloth (bouncyLocks): bangs on the cap, then the style
+      const bang = (az0, el0, az1, el1, lift, r0) => ({ r0, rigid: 0.3, stiff: 1.6, at: (t) => scalp.on(lerp(az0, az1, t), lerp(el0, el1, t), -0.012 + (0.012 + lift) * t ** 1.2 + 0.01 * Math.sin(Math.PI * Math.min(1, t * 1.15))) });
+      const bangs = c.style === 'raven'   // blunt, straight across
+        ? [-0.75, -0.45, -0.15, 0.15, 0.45, 0.75].map((a) => bang(a, 1.15, a, 0.26, 0.008, 0.07))
+        : [[0.75, 1.1, 0.5, 0.3], [0.45, 1.2, 0.18, 0.24], [0.12, 1.25, -0.18, 0.22], [-0.2, 1.2, -0.5, 0.26], [-0.55, 1.1, -0.82, 0.32]].map(([a0, e0, a1, e1]) => bang(a0, e0, a1, e1, 0.01, 0.07));
+      // the locks either side of the face, to the jaw (all but the ponytail)
+      const sides = c.style === 'pony' ? [] : [1, -1].map((s) => ({ ...bang(s * 1.05, 0.9, s * 1.2, -0.1, 0.006, 0.052), r1: 0.014 }));
+      bouncyLocks(G, 'cheer_bangs', c.hair, c.hair2, [...bangs, ...sides]);
+      // a lock hanging from the head: over the cap from (az, el0) to the nape (el1), then down to
+      // yEnd, kept out of the back and the shoulders (the top under it)
+      const T = [...G.torsoT, ...G.extraT], back = [{ ring: 'Spine3', pad: 0.03 }, { ring: 'Spine2', pad: 0.03 }];
+      const hang = (az, el0, el1, yEnd, r0, o = {}) => {
+        const P1 = scalp.on(az, el1, 0.002), out = V(Math.sin(az), 0, Math.cos(az)), rig = o.rigid ?? 0.45;
+        return { r0, r1: o.r1 ?? 0.006, n: 9, flat: o.flat ?? 0.4, rigid: rig, stiff: o.stiff ?? 0.8, coll: o.coll ?? back,
+          at: (t) => {
+            if (t <= rig) return scalp.on(az, lerp(el0, el1, t / rig), 0.002);
+            const u = (t - rig) / (1 - rig), p = P1.clone().add(V(0, (yEnd - P1.y) * u, 0)).addScaledVector(out, (o.flare ?? 0.02) * Math.sin(u * Math.PI * 0.6));
+            const th = Math.atan2(p.x, p.z - ZC), r = p.y < 1.08 ? cast(T, V(0, p.y, ZC), V(Math.sin(th), 0, Math.cos(th)), 0.4) : null, d = Math.hypot(p.x, p.z - ZC);
+            if (r != null && d < r + 0.016) { const k = (r + 0.016) / d; p.x *= k; p.z = ZC + (p.z - ZC) * k; }
+            return p;
+          } };
+      };
+      let hair = [];
+      if (c.style === 'long' || c.style === 'raven')   // long and straight, to the middle of the back
+        hair = Array.from({ length: 11 }, (_, i) => { const az = Math.PI + (i / 10 * 2 - 1) * 1.25; return hang(az, 1.25, -0.35, 0.8 + 0.04 * Math.abs(i / 10 * 2 - 1), 0.04, { r1: 0.026 }); });
+      if (c.style === 'bob')   // to the jaw all round, the ends flipped out a little
+        hair = Array.from({ length: 11 }, (_, i) => { const az = Math.PI + (i / 10 * 2 - 1) * 1.75; return hang(az, 1.2, -0.25, 1.06 + 0.04 * Math.cos(az), 0.04, { rigid: 0.6, stiff: 1.4, flare: 0.03, r1: 0.03, coll: [{}, {}] }); });
+      if (c.style === 'pony') {   // pulled back off the face, up into a high ponytail
+        hair = Array.from({ length: 7 }, (_, i) => { const az = Math.PI + (i / 6 * 2 - 1) * 1.6; return { r0: 0.04, n: 5, flat: 0.35, rigid: 0.95, r1: 0.02,
+          at: (t) => scalp.on(lerp(az, Math.PI, t ** 1.3), lerp(az === Math.PI ? 0.2 : 0.35, 0.75, t), 0.002) }; });
+        const root = scalp.on(Math.PI, 0.75, 0.0);
+        hair.push(...[-0.6, -0.2, 0.2, 0.6].map((q) => ({ r0: 0.044, r1: 0.02, n: 7, flat: 0.6, stiff: 0.7, coll: back,
+          at: (t) => root.clone().add(V(q * 0.03 * t, 0.025 * Math.sin(t * Math.PI * 0.5) - 0.25 * t * t, -0.035 - 0.06 * Math.sin(t * Math.PI * 0.6))) })));
+      }
+      if (c.style === 'twins') for (const s of [1, -1]) {   // two tails behind the ears, to the shoulder blades
+        const root = scalp.on(s * 2.25, 0.45, 0.0), out = V(Math.sin(s * 2.25), 0, Math.cos(s * 2.25));
+        hair.push(...[-0.5, 0, 0.5].map((q) => ({ r0: 0.042, r1: 0.02, n: 7, flat: 0.6, stiff: 0.7, coll: back,
+          at: (t) => root.clone().addScaledVector(out, 0.03 * Math.sin(t * Math.PI * 0.6) + 0.006 * q).add(V(q * 0.006, -0.3 * t, -0.02 * t)) })));
+        hair.push(...Array.from({ length: 3 }, (_, i) => { const az = s * (1.6 + i * 0.35); return { r0: 0.04, n: 5, flat: 0.35, rigid: 0.95, r1: 0.02,
+          at: (t) => scalp.on(lerp(az, s * 2.25, t), lerp(1.0, 0.45, t), 0.002) }; }));
+      }
+      if (hair.length) bouncyLocks(G, 'cheer_hair', c.hair, c.hair2, hair);
+    });
+  }
+  // pink pom-poms in both hands: a core and a burst of streamers, two pinks, held in the fists
+  function pomPoms(v, c) {
+    for (const [s, hand] of [[1, 'LHand'], [-1, 'RHand']]) {
+      const ctr = V(s * 0.5, 1.022, 0.004), strands = [[], []];
+      const core = new THREE.IcosahedronGeometry(0.05, 2); core.translate(ctr.x, ctr.y, ctr.z); strands[0].push(core);
+      const n = 110;
+      for (let i = 0; i < n; i++) {
+        const y = 1 - (i + 0.5) / n * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996, d = V(Math.cos(a) * r, y, Math.sin(a) * r);
+        const L = 0.045 + 0.02 * hash(i, 3.1), g = new THREE.ConeGeometry(0.009, L, 4, 1);
+        g.translate(0, L / 2, 0); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), d));
+        g.translate(ctr.x + d.x * 0.04, ctr.y + d.y * 0.04, ctr.z + d.z * 0.04);
+        strands[hash(i, 9.7) < 0.35 ? 1 : 0].push(g);
+      }
+      v.flat(mergeGeos(strands[0]), c.pom, () => [[hand, 1]]);
+      v.flat(mergeGeos(strands[1]), c.pom2, () => [[hand, 1]]);
+    }
   }
 
   return { C, CAST, BUILD };
