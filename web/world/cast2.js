@@ -1072,7 +1072,7 @@ export function townsfolk(K) {
     // inside the head, and Gary's own scalp in its place (garyScalp)
     v.shape('hair01_on', (p) => p.set(0, 1.18, -0.02));
     v.neck();
-    garyScalp(v, c);
+    const scalp = garyScalp(v, c);
     v.garment((G) => {
       // the sweatshirt: hung from the shoulders, big and loose like a long-sleeved shirt, falling
       // wide past the waist to low on the hips, the undershirt's orange hem just showing under it;
@@ -1160,14 +1160,18 @@ export function townsfolk(K) {
       // the bangs: chunky locks lifting off the forehead and arcing down and over to his right, a
       // row along the hairline and a row further back on the front of the head; stiffer, so they
       // keep off his eyes
+      // [azimuth and elevation of its root, of its tip, how far its tip lifts off]: each grows out
+      // of the cap and runs down over the forehead and across to his right, lying on the hair
+      // and lifting off only towards its point
+      const bang = (az0, el0, az1, el1, lift, r0) => ({ r0, at: (t) => scalp.on(lerp(az0, az1, t), lerp(el0, el1, t), lift * t ** 1.6) });
       bouncyLocks(G, 'gary_bangs', c.hair, c.hair2, [
-        [0.5, 0.55, [0.4, 0.35, 0.85], [-0.45, -0.8, -0.35], 0.17, 0.07],     // along the hairline, down to the brows
-        [0.15, 0.55, [0.05, 0.35, 1], [-0.55, -0.8, -0.25], 0.18, 0.075],
-        [-0.2, 0.55, [-0.15, 0.35, 1], [-0.6, -0.75, -0.2], 0.18, 0.075],
-        [-0.55, 0.5, [-0.45, 0.35, 0.85], [-0.7, -0.7, -0.1], 0.16, 0.068],
-        [0.3, 0.85, [0.1, 0.6, 0.8], [-0.6, -0.75, -0.1], 0.17, 0.075],      // further back on the front of the head
-        [-0.1, 0.85, [-0.05, 0.6, 0.8], [-0.65, -0.72, -0.08], 0.17, 0.075],
-        [-0.5, 0.8, [-0.35, 0.6, 0.7], [-0.75, -0.65, 0], 0.16, 0.07],
+        bang(0.55, 0.8, 0.25, 0.28, 0.012, 0.055),       // along the hairline, down to the brows
+        bang(0.25, 0.85, -0.08, 0.25, 0.014, 0.06),
+        bang(-0.08, 0.85, -0.42, 0.27, 0.014, 0.06),
+        bang(-0.4, 0.8, -0.75, 0.3, 0.012, 0.055),
+        bang(0.4, 1.15, 0.05, 0.62, 0.016, 0.06),        // further back on the front of the head
+        bang(0.0, 1.2, -0.35, 0.62, 0.016, 0.06),
+        bang(-0.4, 1.1, -0.75, 0.6, 0.014, 0.055),
       ], { stiff: 1.6 });
     });
   };
@@ -1272,6 +1276,8 @@ export function townsfolk(K) {
     g.setAttribute('normal', smooth.attributes.normal.clone());
     g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     v.flat(g, c.hair, head1);
+    // (for locks lying on the cap: a point on its surface in a direction, off it by lift)
+    return { on: (az, el, lift) => { const d = dirOf2(az, el); return C0.clone().addScaledVector(d, skull(d) + 0.012 + lift); } };
     skullGeo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(SKULL.pos.length / 3 * 2), 2));
     v.add(skullGeo, K.flatMat(c.skin, v.SKIN, { name: 'cast_skull' }), (p) => { const t = sstep(1.12, 1.085, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'skull');
   }
@@ -1283,12 +1289,19 @@ export function townsfolk(K) {
   function bouncyLocks(G, name, col, col2, list, o = {}) {
     const k = o.stiff ?? 1;
     const c0 = new V3(0, 1.2, -0.012), B = G.build(), N = 12, NC = 10;
-    list.forEach(([a, e, d0, d1, len, r0], li) => {
-      const out = V(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
-      const p0 = c0.clone().addScaledVector(out, 0.085), p1 = p0.clone().addScaledVector(V(...d0).normalize(), len * 0.55), p2 = p1.clone().addScaledVector(V(...d1).normalize(), len * 0.6);
-      const at = (t) => p0.clone().multiplyScalar((1 - t) ** 2).addScaledVector(p1, 2 * (1 - t) * t).addScaledVector(p2, t * t);
-      const pts = [0, 0.25, 0.5, 0.75, 1].map((t) => at(t).toArray());
-      const geo = lock(pts, r0, 0.55, 0.0015, N, NC);
+    // each: [azimuth of the root (0 front, + his left), its elevation on the head, the direction it
+    // rises in, the direction it arcs out to, length, width], or { r0, at(t) } a lock along a given
+    // path (lying flat on the head)
+    list.forEach((L, li) => {
+      let at, r0, flat;
+      if (Array.isArray(L)) {
+        const [a, e, d0, d1, len] = L; r0 = L[5];
+        const out = V(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
+        const p0 = c0.clone().addScaledVector(out, 0.085), p1 = p0.clone().addScaledVector(V(...d0).normalize(), len * 0.55), p2 = p1.clone().addScaledVector(V(...d1).normalize(), len * 0.6);
+        at = (t) => p0.clone().multiplyScalar((1 - t) ** 2).addScaledVector(p1, 2 * (1 - t) * t).addScaledVector(p2, t * t);
+      } else { at = L.at; r0 = L.r0; flat = c0; }
+      const p0 = at(0), pts = [0, 0.25, 0.5, 0.75, 1].map((t) => at(t).toArray());
+      const geo = flat ? lock(pts, r0, 0.42, 0.0015, N, NC, flat) : lock(pts, r0, 0.55, 0.0015, N, NC);
       // its two bones: at the root and halfway, the tip beyond
       const bn = [`hr${name}${li}_0`, `hr${name}${li}_1`], mid = at(0.5), tip = at(1);
       G.bone(bn[0], 'Head', p0); G.bone(bn[1], bn[0], mid);
