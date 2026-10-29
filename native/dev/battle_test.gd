@@ -67,6 +67,7 @@ func _hits_to_down() -> void:
 		var R := BattleRules.new("pidgey", "aggressive", "attacking", sd)
 		R.force = 1
 		var E := BattleEnergy.make("pidgey", R.level())
+		E.apply_mode(R.mode)   # the prologue's own pace (battle_config prologue), as the EnergyHook sets it
 		var rng := RandomNumberGenerator.new(); rng.seed = sd
 		var n := 0
 		var t := 0

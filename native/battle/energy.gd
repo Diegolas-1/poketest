@@ -76,6 +76,7 @@ var known: Array = []           # learned move ids, in the order learned; never 
 var equipped: Array = []        # the moves in its slots (usable); a subset of known
 var perks: Array = []           # perk ids (battle_config perks): start, gain, chip_cap, disrupt_resist
 var params := {}                # its focus parameters (BattleConfig.focus_for + perks)
+var mode := ""                  # a battle mode with its own settings (battle_config "prologue"), or ""
 # ---- the energy, kept separate ----
 var focus := 0.0                # 0..100
 var pools := {}                 # kind -> {"ready": n, "spent": n}
@@ -288,6 +289,24 @@ func _refresh_params() -> void:
 		params.chip_cap = int(params.chip_cap) + int(d.get("chip_cap", 0))
 		params.disrupt_resist = float(params.disrupt_resist) + float(d.get("disrupt_resist", 0.0))
 	params.disrupt_resist = clampf(float(params.disrupt_resist), 0.0, 1.0)
+	# a battle mode's own focus numbers (battle_config prologue.focus) win over everything
+	var M := mode_config()
+	for k in M.get("focus", {}): params[k] = M.focus[k]
+
+# battle_config's block for this battle mode: only "prologue" has one (Ash with no
+# partner, against a wild Pokemon): its pace is set apart from Pokemon-vs-Pokemon play
+const MODES := ["prologue"]
+func mode_config() -> Dictionary:
+	if not mode in MODES: return {}
+	var M = BattleConfig.sect(mode)
+	return M if M is Dictionary else {}
+
+func apply_mode(m: String) -> void:
+	mode = m
+	_refresh_params()
+	var M := mode_config()
+	if M.has("start"): set_focus(float(M.start), "mode")
+	_sync("mode")
 
 func add_perk(id: String) -> void:
 	if id in perks: return
@@ -1269,7 +1288,7 @@ func plan_turn(known_moves = null, style := "strategic", ctx := {}) -> Array:
 	var jitter := float(ctx.get("jitter", 0.0))
 	var noise := {}
 	for id in ids: noise[id] = (rng.randf_range(-1.0, 1.0) * jitter * 25.0) if rng != null else 0.0
-	var room := int(ctx.get("max_actions", int(_AI().get("max_actions", 6))))
+	var room := int(ctx.get("max_actions", int(mode_config().get("max_actions", _AI().get("max_actions", 6)))))
 	ctx = ctx.duplicate()
 	ctx["_start"] = chips.size()
 	_search(chips.duplicate(), ids, 0, [], style, uses, noise, room, best, ctx)

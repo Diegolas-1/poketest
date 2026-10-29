@@ -217,6 +217,12 @@
     "full_charge": {"name": "Full Charge", "focus_to": 100, "price": 12000, "rarity": "unique", "desc": "Extremely rare. Straight to max focus."}
   },
 
+  "prologue": {
+    "_doc": "The prologue (battle.gd mode prologue: Ash with no partner Pokemon against a wild one) keeps its own pace, apart from Pokemon-vs-Pokemon tuning: focus (step, gain, ...) replaces the wild one's focus numbers, max_actions caps its moves a turn. The aim: about 3 to 4 hits over 3 to 5 turns, scary but survivable for a few turns (dev/battle_test).",
+    "focus": {"step": 30, "gain": 10},
+    "max_actions": 2
+  },
+
   "ai": {
     "_doc": "Planner weights. wild_styles: the wild planner (damage, status, per_action, big, force_out, repeat). personalities: trainer AI multipliers on each role's value and how often it sets a reaction when it can (reaction_rate), answers a two-phase foe with a counter (counter_rate), commits to its own two-phase moves (two_phase_rate). waste: the cost of an unspent chip. status_value: what an effect is worth. status_repeat_turn: a status move's value for each time it is already in this turn's plan. min_action_value: below it an action is worth no more than unspent chips. self_faint_hp: Self-Destruct and the like only at or below this HP share. two_phase_value, finisher_value: how the planner rates a two-phase move's and a finisher's power. status_scale: all effect values. reaction_rate_scale: every personality's reaction_rate.",
     "waste": 20.0,

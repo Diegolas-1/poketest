@@ -104,6 +104,9 @@ func _setup() -> void:
 		var f := foe.focus
 		foe = BattleEnergy.make(sp, lv, o.known)
 		foe.set_focus(f, "wild")
+	# the battle's mode (battle.gd mode: "prologue" has its own pace, battle_config prologue)
+	var md := String(o.get("mode", _get_b("mode", "")))
+	if md != "": foe.apply_mode(md)
 	# the moves the battle can stage
 	if o.get("moves", null) is Array: supported = o.moves.duplicate()
 	elif battle and battle.has_method("energy_moves"): supported = battle.energy_moves()
