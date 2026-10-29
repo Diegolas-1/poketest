@@ -22,6 +22,12 @@ SRC = json.load(open(SRC_PATH))
 # the engine's own data: battle_config.json (focus defaults, slots, the counter table,
 # matchups) and pokemon.json (the type chart); read, never written
 CFG = json.load(open(os.path.join(OUT_DIR, "battle_config.json")))
+# the numbers tuned for this dataset (dataset_overrides.kanto) over the plain ones, as the engine sees them
+def _merge_cfg(into, frm):
+    for k, v in frm.items():
+        if isinstance(v, dict) and isinstance(into.get(k), dict): _merge_cfg(into[k], v)
+        else: into[k] = v
+_merge_cfg(CFG, CFG.get("dataset_overrides", {}).get("kanto", {}))
 PK = json.load(open(os.path.join(OUT_DIR, "pokemon.json")))
 
 # ======================================================================== the balance
@@ -56,8 +62,8 @@ B = {
     "role_power_mult": {"offense": 1.0, "two_phase": 1.0, "disruption": 0.75, "reaction": 0.8, "utility": 0.8},
     "round_power_to": 5, "round_finisher_ppc_to": 1,
     "tolerance": {"pct": 0.1, "abs": 5},
-    "shared_power_mult": {"common": 1.0, "uncommon": 1.04, "rare": 1.08, "very_rare": 1.12, "legendary": 1.16},
-    "off_pool": {"typed_to": "colorless", "power_mult": 0.85},
+    "shared_power_mult": CFG.get("rarity", {}).get("shared_power_mult", {"common": 1.0, "uncommon": 1.04, "rare": 1.08, "very_rare": 1.12, "legendary": 1.16}),
+    "off_pool": CFG.get("costs", {}).get("off_pool", {"enabled": True, "extra": 1, "finisher_extra": 1}),
     "disrupt_per_chip": {"common": 10, "uncommon": 11, "rare": 12, "very_rare": 13, "legendary": 15},
     "disrupt_damaging_mult": 0.5,
     "reaction": {"lock": "the move's chips stay locked until the foe's next attack or the next turn",
@@ -70,6 +76,7 @@ B = {
                       "fighting": {"resist": 0.15}, "dark": {"resist": 0.1}, "dragon": {"gain": 11, "resist": 0.2},
                       "grass": {"gain": 9, "resist": 0.1}, "water": {}, "steel": {"resist": 0.25}, "colorless": {}},
         "rarity_gain_bonus": {"common": 0, "uncommon": 0, "rare": 1, "very_rare": 2, "legendary": 3},
+        "stage_gain_bonus": {"0": 0, "1": 0, "2": 0},
         "rarity_resist_bonus": {"common": 0.0, "uncommon": 0.05, "rare": 0.1, "very_rare": 0.15, "legendary": 0.2},
         "resist_cap": 0.6,
         "focus_up_amount": 15, "focus_down_self_amount": 30, "focus_drain_amount": 10,
@@ -80,6 +87,8 @@ B = {
     "resistance_reduce": {"20": 0.15, "30": 0.25},
     "equip_slots": {"1": 1, "3": 2, "8": 3, "14": 4, "21": 5, "29": 6, "38": 7, "48": 8, "60": 9, "75": 10},
     "learn_levels": {"opener": 3, "mid": 12, "finisher": 24, "other": 8},
+    "stats": {"spread": 0.5, "shape": 0.6, "evolution_floor": 0.08, "rarity_bonus": {"common": 0.0, "uncommon": 0.03, "rare": 0.06, "very_rare": 0.09, "legendary": 0.12},
+              "group_bonus": {"basic": 0.0, "middle": 0.0, "final": 0.0, "single": 0.0}},
     "type_map": TYPE_MAP, "tcg_energy_ids": TCG_IDS, "energy_names": ENERGY_NAMES,
 }
 
@@ -315,6 +324,17 @@ CHANCE_TAGS = sorted({"para", "burn", "freeze", "poison", "bad_poison", "sleep",
                      | {t for t in EFFECTS if "_down" in t and not t.endswith("_self")}
                      | {t for t in EFFECTS if t.endswith("_up") or t.endswith("_up_big")})
 B["chance_scaled_tags"] = CHANCE_TAGS
+
+# the tuning layer (tune.py writes it from the battle simulator's reports): balance
+# overrides (deep-merged into B), per-move power factors (power_mods.tune) and
+# per-species focus deltas (added to focus_profile). Every change is logged there.
+TUNE_PATH = os.path.join(HERE, "tuning.json")
+TUNE = json.load(open(TUNE_PATH)) if os.path.exists(TUNE_PATH) else {}
+def _deep(into, frm):
+    for k, v in frm.items():
+        if isinstance(v, dict) and isinstance(into.get(k), dict): _deep(into[k], v)
+        else: into[k] = v
+_deep(B, TUNE.get("balance", {}))
 UNKNOWN_TAGS = set()
 def tag_weight(t):
     if t not in EFFECTS:
@@ -764,6 +784,7 @@ def power_mods(m):
         mods["game_power"] = round(max(lo, min(hi, f)), 4)
     else:
         mods["game_power"] = 1.0
+    mods["tune"] = float(TUNE.get("moves", {}).get(m["id"], {}).get("power", 1.0))
     tot = 1.0
     for v in mods.values(): tot *= v
     return mods, tot
@@ -799,7 +820,7 @@ EXTRA_ROWS = [
     {"move": "hurricane", "vs": "airborne", "hits": True, "mult": 1.0},
     {"move": "feint", "vs": "charging", "hits": True},
 ]
-ALL_ROWS = CFG_ROWS + EXTRA_ROWS
+ALL_ROWS = CFG_ROWS + [r for r in EXTRA_ROWS if not any(c.get("move") == r["move"] and c.get("vs") == r["vs"] for c in CFG_ROWS)]
 def rows_hitting(state):
     return sorted({r["move"] for r in ALL_ROWS if r.get("vs") == state and r.get("hits")})
 
@@ -947,8 +968,12 @@ def focus_for(s):
         for k, v in o.items():
             f[ren.get(k, k)] = v
     r = rarity[s]
-    f["gain"] = float(f["gain"]) + B["focus"]["rarity_gain_bonus"][r]
+    f["gain"] = float(f["gain"]) + B["focus"]["rarity_gain_bonus"][r] + float(B["focus"].get("stage_gain_bonus", {}).get(str(stage_of(s)), 0))
     f["disrupt_resist"] = round(min(B["focus"]["resist_cap"], float(f["disrupt_resist"]) + B["focus"]["rarity_resist_bonus"][r]), 2)
+    t = TUNE.get("species", {}).get(s, {})
+    f["gain"] = round(max(4.0, min(20.0, float(f["gain"]) + float(t.get("gain", 0.0)))), 2)
+    f["start"] = max(0.0, min(60.0, float(f["start"]) + float(t.get("start", 0.0))))
+    f["disrupt_resist"] = round(max(0.0, min(B["focus"]["resist_cap"], f["disrupt_resist"] + float(t.get("disrupt_resist", 0.0)))), 2)
     return {"gain": f["gain"], "step": float(f["step"]), "chip_cap": int(f["chip_cap"]), "start": float(f["start"]), "disrupt_resist": f["disrupt_resist"]}
 
 def evo_record(s):
@@ -994,6 +1019,42 @@ def ability_skills(s):
 def ability_id(a):
     return a + "_ability" if a in SKILLS else a
 
+# battle stats: the games' base stats pulled toward their group's mean total (a TCG-like
+# flattening, so a common's typing and moves matter more than its stat line), then the
+# rarity bonus and any per-species tuning. Groups: basic (first stage of a line), middle,
+# final (last stage of a line), single (no evolutions).
+def stat_group(s):
+    if s in parent: return "final" if not children.get(s) else "middle"
+    return "basic" if children.get(s) else "single"
+
+def bst(s):
+    st = by_id[s]["stats"]
+    return sum(st[k] for k in ("hp", "attack", "defense", "special-attack", "special-defense", "speed"))
+
+GROUP_MEAN = {}
+for g in ("basic", "middle", "final", "single"):
+    xs = [bst(x) for x in species_order if stat_group(x) == g and rarity[x] in ("common", "uncommon", "rare")]
+    GROUP_MEAN[g] = sum(xs) / max(1, len(xs))
+B["stats"]["group_mean_total"] = {g: round(v, 1) for g, v in GROUP_MEAN.items()}
+
+def battle_base(s):
+    st = by_id[s]["stats"]
+    raw = [st["hp"], st["attack"], st["defense"], st["special-attack"], st["special-defense"], st["speed"]]
+    T = float(sum(raw))
+    G = GROUP_MEAN[stat_group(s)]
+    k = float(B["stats"]["spread"])
+    want = (G + (T - G) * k) * (1.0 + float(B["stats"]["rarity_bonus"][rarity[s]])) * (1.0 + float(B["stats"].get("group_bonus", {}).get(stat_group(s), 0.0)))
+    want *= 1.0 + float(TUNE.get("species", {}).get(s, {}).get("stats", 0.0))
+    # an evolution is always a step up: at least evolution_floor more than the stage before
+    if s in parent:
+        want = max(want, sum(battle_base(parent[s])) * (1.0 + float(B["stats"].get("evolution_floor", 0.08))))
+    # the shape: each stat pulled toward the species' own average (shape 1 = the games' shape),
+    # so a glass cannon or a wall (Chansey's Defense 5) is less extreme
+    sh = float(B["stats"].get("shape", 1.0))
+    avg = T / 6.0
+    shaped = [avg + (x - avg) * sh for x in raw]
+    return [max(5, int(round(x * want / T))) for x in shaped]
+
 species_out = {}
 for s in species_order:
     d = dex_of[s]
@@ -1034,7 +1095,9 @@ for s in species_order:
     rec = {
         "dex": d, "name": by_id[s]["name"], "types": by_id[s]["types"], "energy": pools, "rarity": rarity[s],
         "weakness": [TCG_IDS[t[3]]] if t[3] else [], "resistance": [TCG_IDS[t[4][0]]] if t[4] else [],
-        "base": [st["hp"], st["attack"], st["defense"], st["special-attack"], st["special-defense"], st["speed"]],
+        "base": battle_base(s),
+        "base_game": [st["hp"], st["attack"], st["defense"], st["special-attack"], st["special-defense"], st["speed"]],
+        "stat_group": stat_group(s),
         "wild_levels": wild_levels(s),
         "learnset": rows,
         "tm": sorted(L["tm"] | L["tutor"]), "tutor": sorted(L["tutor"]), "egg": sorted(L["egg"]),
@@ -1121,7 +1184,9 @@ SPECIES_SCHEMA = {
     "energy": "its pools as the engine makes them: typed (in type order) then Colorless", "rarity": "common | uncommon | rare | very_rare | legendary: the card rarity blended with how rare it is in the world",
     "weakness": "energy kinds it is weak to (its SV151 card; battle_config matchups.weakness_mult); [] for the Dragon line (their cards have none)",
     "resistance": "energy kinds it resists (battle_config matchups.resistance_mult / resistance_sub)",
-    "base": "[hp, atk, def, spa, spd, spe] main-series base stats", "wild_levels": "[lo, hi]: a placeholder band by stage and rarity",
+    "base": "[hp, atk, def, spa, spd, spe] battle base stats: base_game pulled toward its stat_group's mean total (balance stats.spread), plus the rarity bonus and its tuning",
+    "base_game": "extra: the main-series base stats", "stat_group": "extra: basic | middle | final | single (its place in its line)",
+    "wild_levels": "[lo, hi]: a placeholder band by stage and rarity",
     "learnset": "[{level, move, src: game | tcg | anime | new | design, inherited, anime, tcg}] in level order (never forgotten)",
     "tm": "move ids it can be taught (TM, HM or tutor, in any game)", "ai": "aggressive | strategic | evasive",
     "dex": "extra: national Pokédex number", "tutor": "extra: the tm moves that come from a tutor", "egg": "extra: egg moves (a breeding hook; teach() with force)",
@@ -1173,17 +1238,18 @@ BAL_SCHEMA = {
     "accuracy_k": "power x (1 + (100 - accuracy) x k): less accurate moves hit harder (a never-miss move, accuracy 0, counts as 100)", "priority_mult": "power multiplier by priority (reactions excluded)",
     "two_phase_mult": "two-phase moves are stronger per chip", "hits_state_mult": "per unreachable state a move can hit", "role_power_mult": "damage from non-offense roles",
     "round_power_to": "powers are rounded to this", "tolerance": "how far a move's power may drift from the formula before the test fails (hand tuning room)",
-    "shared_power_mult": "species efficiency: a shared (non-signature) move's power x this for the user's rarity (signature moves already carry their rarity); for the engine and simulator to apply",
-    "off_pool": "a typed cost the user has no pool for: paid in Colorless at this power (for the engine to add; until then such moves are unpayable)",
+    "shared_power_mult": "a copy of battle_config rarity.shared_power_mult (the engine applies it): a shared (non-signature) move's power x this for the user's rarity (signature moves already carry their rarity)",
+    "off_pool": "a copy of battle_config costs.off_pool (the engine's rule): a typed chip of a kind it has no pool for is paid in Colorless plus extra chips",
     "disrupt_per_chip": "focus points a disruption move takes per chip, by rarity (install() writes each move's into battle_config disruption.moves)", "disrupt_damaging_mult": "for damaging disruption moves",
     "reaction": "reaction numbers: return_mult (a counter's mult by rarity), bide_mult, guard_reduce, default_chance (percent)",
     "combo_power_pct": "the extra power a combo gives, by the move's rarity",
-    "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
+    "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, stage_gain_bonus (by evolution stage), rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
     "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier",
+    "stats": "battle stats: shape (each stat pulled toward the species' own average: 1 = the games' shape), spread (how much of a species' distance from its group's mean total survives: 1 = the games' stats, 0 = all equal), rarity_bonus and group_bonus (shares on top), evolution_floor (an evolved form's total is at least this share above the stage before, whatever the tuning), group_mean_total (written by gen.py)",
     "type_map": "main-series type -> energy kind (also kanto151.json type_energy)", "tcg_energy_ids": "TCG energy name -> kind", "energy_names": "kind -> shown name",
     "effects": "every effect tag (engine names): power_mult (the weight on a damaging move's power), doc, and its numbers",
     "chance_scaled_tags": "for these tags the weight is scaled by the move's chance: w' = 1 - (1 - power_mult) x chance; power_mods.effects is the product of the (scaled) weights",
-    "counter_rows_extra": "rows the design adds to battle_config counters.rows (install() appends them): Smack Down, Dimensional Hand, Multishot Lightning, Hurricane; Feint reaches a charging foe",
+    "counter_rows_extra": "rows the design added to battle_config counters.rows (now in the config itself): Smack Down, Dimensional Hand, Multishot Lightning, Hurricane; Feint reaches a charging foe",
     "matchups": "attacker energy -> defender card type, counted from the species data: weak (has that Weakness), resist, of (species with that card type)",
     "matchup_summary": "the same, read off: x2 when most of that type are weak to it, resisted when most resist it, else the counts",
     "sim_targets": "what the battle simulator checks the meta against",
@@ -1194,15 +1260,19 @@ SIM = {
     "rarity_step_winrate": {"min": 0.55, "max": 0.68, "doc": "a species one rarity step up, at the same level and stage, wins this share against the step below (a clear, not absurd, step)"},
     "within_tier_winrate": {"min": 0.40, "max": 0.60, "level_band": 5, "applies_to": ["common", "uncommon"],
                             "doc": "within one rarity at a similar level, no common or uncommon's average win rate against its peers leaves this band"},
-    "within_tier_spread_max": 0.2, "within_tier_spread_doc": "the gap between the best and worst average win rate in a tier and level band",
+    "within_tier_spread_max": 0.2, "within_tier_spread_doc": "the spread of the peers' average win rates in a tier, stat group and level band: the 10th to the 90th percentile (the full range is reported too)",
+    "starter_triangle": {"min": 0.55, "max": 0.85, "doc": "each starter against the one it is strong against, at the same level and stage"},
     "evolution_step_winrate": {"min": 0.62, "max": 0.8, "doc": "an evolved form against its previous stage at the evolution level"},
-    "level_step_winrate": {"per_levels": 10, "min": 0.6, "max": 0.78, "doc": "a species against itself ten levels lower"},
+    "level_step_winrate": {"per_levels": 10, "min": 0.7, "max": 0.93, "doc": "a species against itself ten levels lower: a clear step up (new moves, a slot, more HP), not quite a wall"},
     "slot_unlock_winrate": {"min": 0.52, "doc": "the same species with one more equip slot"},
     "legendary_vs_common_max": 0.97,
     "first_mover_max": 0.56, "doc_first_mover": "the side that acts first should not win much more than half",
     "move_pick_share_max": 0.35, "doc_move_pick": "no single move should be more than this share of a species' picks across battles (choice stays real)",
     "dodge_success": {"min": 0.35, "max": 0.65, "doc": "a Dodge against an attack that doesn't ignore it"},
-    "battle_turns": {"min": 3, "max": 12, "doc": "a typical wild battle's length in turns"},
+    "battle_turns": {"min": 3, "max": 8, "doc": "a typical battle's length in turns (the mean)"},
+    "role_share_min": 0.03, "doc_role_share": "every role (offense, reaction, two-phase, disruption, utility) is at least this share of all actions",
+    "tier_share_min": 0.08, "doc_tier_share": "every tier (opener, mid, finisher) is at least this share of all actions",
+    "exempt": ["magikarp", "metapod", "kakuna"], "doc_exempt": "weak by design (the joke fish and the cocoons, whose whole point is to evolve): left out of the peer band and spread checks; a design decision for the user",
 }
 
 BAL = {"_schema": BAL_SCHEMA, "_notes": NOTES_TOP}

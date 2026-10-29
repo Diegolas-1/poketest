@@ -13,20 +13,21 @@
     "role_power_mult": "damage from non-offense roles",
     "round_power_to": "powers are rounded to this",
     "tolerance": "how far a move's power may drift from the formula before the test fails (hand tuning room)",
-    "shared_power_mult": "species efficiency: a shared (non-signature) move's power x this for the user's rarity (signature moves already carry their rarity); for the engine and simulator to apply",
-    "off_pool": "a typed cost the user has no pool for: paid in Colorless at this power (for the engine to add; until then such moves are unpayable)",
+    "shared_power_mult": "a copy of battle_config rarity.shared_power_mult (the engine applies it): a shared (non-signature) move's power x this for the user's rarity (signature moves already carry their rarity)",
+    "off_pool": "a copy of battle_config costs.off_pool (the engine's rule): a typed chip of a kind it has no pool for is paid in Colorless plus extra chips",
     "disrupt_per_chip": "focus points a disruption move takes per chip, by rarity (install() writes each move's into battle_config disruption.moves)",
     "disrupt_damaging_mult": "for damaging disruption moves",
     "reaction": "reaction numbers: return_mult (a counter's mult by rarity), bide_mult, guard_reduce, default_chance (percent)",
     "combo_power_pct": "the extra power a combo gives, by the move's rarity",
-    "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
+    "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, stage_gain_bonus (by evolution stage), rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
     "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier",
+    "stats": "battle stats: shape (each stat pulled toward the species' own average: 1 = the games' shape), spread (how much of a species' distance from its group's mean total survives: 1 = the games' stats, 0 = all equal), rarity_bonus and group_bonus (shares on top), evolution_floor (an evolved form's total is at least this share above the stage before, whatever the tuning), group_mean_total (written by gen.py)",
     "type_map": "main-series type -> energy kind (also kanto151.json type_energy)",
     "tcg_energy_ids": "TCG energy name -> kind",
     "energy_names": "kind -> shown name",
     "effects": "every effect tag (engine names): power_mult (the weight on a damaging move's power), doc, and its numbers",
     "chance_scaled_tags": "for these tags the weight is scaled by the move's chance: w' = 1 - (1 - power_mult) x chance; power_mods.effects is the product of the (scaled) weights",
-    "counter_rows_extra": "rows the design adds to battle_config counters.rows (install() appends them): Smack Down, Dimensional Hand, Multishot Lightning, Hurricane; Feint reaches a charging foe",
+    "counter_rows_extra": "rows the design added to battle_config counters.rows (now in the config itself): Smack Down, Dimensional Hand, Multishot Lightning, Hurricane; Feint reaches a charging foe",
     "matchups": "attacker energy -> defender card type, counted from the species data: weak (has that Weakness), resist, of (species with that card type)",
     "matchup_summary": "the same, read off: x2 when most of that type are weak to it, resisted when most resist it, else the counts",
     "sim_targets": "what the battle simulator checks the meta against"
@@ -45,25 +46,25 @@
   ],
   "power_per_chip": {
     "opener": {
-      "common": 38,
-      "uncommon": 40,
-      "rare": 42.5,
-      "very_rare": 45,
-      "legendary": 48
+      "common": 33.5,
+      "uncommon": 35.5,
+      "rare": 38.0,
+      "very_rare": 40.5,
+      "legendary": 43.5
     },
     "mid": {
-      "common": 39,
-      "uncommon": 41,
-      "rare": 43.5,
-      "very_rare": 46,
-      "legendary": 49
+      "common": 48.0,
+      "uncommon": 50.0,
+      "rare": 52.5,
+      "very_rare": 55.0,
+      "legendary": 58.0
     },
     "finisher": {
-      "common": 38,
-      "uncommon": 40,
-      "rare": 42.5,
-      "very_rare": 45,
-      "legendary": 48
+      "common": 47.0,
+      "uncommon": 49.0,
+      "rare": 51.5,
+      "very_rare": 54.0,
+      "legendary": 57.0
     }
   },
   "finisher_base": {
@@ -114,14 +115,15 @@
   },
   "shared_power_mult": {
     "common": 1.0,
-    "uncommon": 1.04,
-    "rare": 1.08,
+    "uncommon": 1.01,
+    "rare": 1.05,
     "very_rare": 1.12,
     "legendary": 1.16
   },
   "off_pool": {
-    "typed_to": "colorless",
-    "power_mult": 0.85
+    "enabled": true,
+    "extra": 1,
+    "finisher_extra": 1
   },
   "disrupt_per_chip": {
     "common": 10,
@@ -159,6 +161,11 @@
       "very_rare": 2,
       "legendary": 3
     },
+    "stage_gain_bonus": {
+      "0": 0,
+      "1": 0,
+      "2": 0
+    },
     "rarity_resist_bonus": {
       "common": 0.0,
       "uncommon": 0.05,
@@ -176,6 +183,30 @@
     "mid": 12,
     "finisher": 24,
     "other": 8
+  },
+  "stats": {
+    "spread": 0.3,
+    "shape": 0.6,
+    "evolution_floor": 0.08,
+    "rarity_bonus": {
+      "common": 0.0,
+      "uncommon": 0.03,
+      "rare": 0.06,
+      "very_rare": 0.09,
+      "legendary": 0.12
+    },
+    "group_bonus": {
+      "basic": 0.0,
+      "middle": -0.2,
+      "final": -0.3,
+      "single": 0.0
+    },
+    "group_mean_total": {
+      "basic": 303.9,
+      "middle": 364.9,
+      "final": 482.5,
+      "single": 445.6
+    }
   },
   "type_map": {
     "normal": "colorless",
@@ -2019,7 +2050,12 @@
       "doc": "within one rarity at a similar level, no common or uncommon's average win rate against its peers leaves this band"
     },
     "within_tier_spread_max": 0.2,
-    "within_tier_spread_doc": "the gap between the best and worst average win rate in a tier and level band",
+    "within_tier_spread_doc": "the spread of the peers' average win rates in a tier, stat group and level band: the 10th to the 90th percentile (the full range is reported too)",
+    "starter_triangle": {
+      "min": 0.55,
+      "max": 0.85,
+      "doc": "each starter against the one it is strong against, at the same level and stage"
+    },
     "evolution_step_winrate": {
       "min": 0.62,
       "max": 0.8,
@@ -2027,9 +2063,9 @@
     },
     "level_step_winrate": {
       "per_levels": 10,
-      "min": 0.6,
-      "max": 0.78,
-      "doc": "a species against itself ten levels lower"
+      "min": 0.7,
+      "max": 0.93,
+      "doc": "a species against itself ten levels lower: a clear step up (new moves, a slot, more HP), not quite a wall"
     },
     "slot_unlock_winrate": {
       "min": 0.52,
@@ -2047,8 +2083,18 @@
     },
     "battle_turns": {
       "min": 3,
-      "max": 12,
-      "doc": "a typical wild battle's length in turns"
-    }
+      "max": 8,
+      "doc": "a typical battle's length in turns (the mean)"
+    },
+    "role_share_min": 0.03,
+    "doc_role_share": "every role (offense, reaction, two-phase, disruption, utility) is at least this share of all actions",
+    "tier_share_min": 0.08,
+    "doc_tier_share": "every tier (opener, mid, finisher) is at least this share of all actions",
+    "exempt": [
+      "magikarp",
+      "metapod",
+      "kakuna"
+    ],
+    "doc_exempt": "weak by design (the joke fish and the cocoons, whose whole point is to evolve): left out of the peer band and spread checks; a design decision for the user"
   }
 }

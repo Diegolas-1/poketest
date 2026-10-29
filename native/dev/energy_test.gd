@@ -27,7 +27,7 @@ func _wait(sec: float) -> void:
 
 func _run() -> void:
 	BattleConfig.reset()
-	BattleEnergy.reload()
+	BattleEnergy.set_dataset("v1")   # the hand-made v1 fixtures (pokemon.json, moves.json); kanto151_test covers the 151
 	_data()
 	_focus()
 	_pools()

@@ -71,16 +71,28 @@
   },
 
   "matchups": {
-    "_doc": "Type matchups, TCG style, for species whose data names a weakness and a resistance (energy kinds; the Kanto 151 dataset): weakness_mult (the card game's x2), resistance_mult (a reduction, multiplied) and resistance_sub (subtracted after the damage, the card game's -20 / -30; 0 = off). The type chart's immunities still hold. mode: auto (TCG for species with the data, the chart otherwise) | chart | tcg.",
+    "_doc": "Type matchups, TCG style, for species whose data names a weakness and a resistance (energy kinds; the Kanto 151 dataset): weakness_mult (the card game's x2), resistance_mult (a reduction, multiplied) and resistance_sub (subtracted after the damage, the card game's -20 / -30; 0 = off). In TCG mode the chart's immunities become tcg_immunity_mult (the card game has no immunities; 0 keeps them). mode: auto (TCG for species with the data, the chart otherwise) | chart | tcg.",
     "mode": "auto",
     "weakness_mult": 2.0,
     "resistance_mult": 0.6,
-    "resistance_sub": 0
+    "resistance_sub": 0,
+    "tcg_immunity_mult": 0.0
   },
 
   "costs": {
-    "_doc": "Move cost overrides (move id -> list of energy kinds); empty means the cost in moves.json. Two-phase moves are paid on the commit turn only.",
-    "overrides": {}
+    "_doc": "Move cost overrides (move id -> list of energy kinds); empty means the cost in moves.json. Two-phase moves are paid on the commit turn only. off_pool: a typed chip of a kind the Pokemon has no pool for is paid in Colorless, plus extra Colorless chips (the v1 rule: off-type costs Colorless, one chip more); a finisher of a kind it lacks takes any chips, at least finisher_extra more.",
+    "overrides": {},
+    "off_pool": {"enabled": true, "extra": 1, "finisher_extra": 1}
+  },
+
+  "rarity": {
+    "_doc": "Species efficiency by rarity (the Kanto 151 rarity field): a shared (non-signature) move's power x shared_power_mult[rarity]. Signature moves already carry their rarity in their numbers (kanto151_balance.json).",
+    "shared_power_mult": {"common": 1.0, "uncommon": 1.04, "rare": 1.08, "very_rare": 1.12, "legendary": 1.16}
+  },
+
+  "stats": {
+    "_doc": "Battle stats from base stats: stat = 2 x base x (level + level_offset) / 100 + 5 (HP: + level + 10), and the damage formula's level term uses level + level_offset too. level_offset flattens the level curve so a few levels are a clear step up, not a wall (0 = the games' formula).",
+    "level_offset": 0
   },
 
   "damage": {
@@ -104,7 +116,21 @@
     "drain_tick": 0.0625,
     "recoil": 0.25,
     "status_effect_chance": 0.3,
-    "flinch_chance": 0.3
+    "flinch_chance": 0.3,
+    "absorb": 0.5,
+    "barrier_mult": 0.5,
+    "regen_tick": 0.0625,
+    "fixed_damage": true
+  },
+
+  "effects": {
+    "_doc": "Numbers for the wider effect vocabulary (the Kanto 151 tags, kanto151_balance.json effects): heal (share of max HP), barrier_turns (Reflect, Light Screen), focus_up / focus_drain / focus_down_self (focus points), all_up_chance (Ancient Power's chance to raise every stat).",
+    "heal": 0.5,
+    "barrier_turns": 4,
+    "focus_up": 15,
+    "focus_drain": 10,
+    "focus_down_self": 30,
+    "all_up_chance": 0.1
   },
 
   "counters": {
@@ -132,7 +158,14 @@
       {"move": "whirlwind", "vs": "underground", "hits": true, "force_out": true},
       {"move": "whirlwind", "vs": "airborne", "hits": true, "force_out": true},
       {"move": "whirlwind", "vs": "underwater", "hits": true, "force_out": true},
-      {"move": "whirlwind", "vs": "charging", "hits": true, "force_out": true}
+      {"move": "whirlwind", "vs": "charging", "hits": true, "force_out": true},
+      {"move": "smack_down", "vs": "airborne", "hits": true, "mult": 1.5, "pull_out": 1.0},
+      {"move": "dimensional_hand", "vs": "underground", "hits": true, "mult": 1.0},
+      {"move": "dimensional_hand", "vs": "airborne", "hits": true, "mult": 1.0},
+      {"move": "dimensional_hand", "vs": "underwater", "hits": true, "mult": 1.0},
+      {"move": "multishot_lightning", "vs": "airborne", "hits": true, "mult": 1.0},
+      {"move": "hurricane", "vs": "airborne", "hits": true, "mult": 1.0},
+      {"move": "feint", "vs": "charging", "hits": true}
     ],
     "cancel_dodge": ["mind_reader", "lock_on"],
     "identify": ["foresight"],
@@ -187,7 +220,15 @@
     "jitter": 0.1,
     "status_value": {"acc_down": 30.0, "atk_down": 20.0, "def_down": 20.0, "speed_down": 14.0, "def_up": 18.0, "evasion_up": 26.0,
       "para": 34.0, "sleep": 40.0, "poison": 28.0, "drain": 26.0, "burn": 12.0, "flinch": 8.0, "trap": 10.0, "high_crit": 6.0,
-      "force_out": 12.0, "clear_field": 4.0, "fixed_40": 40.0, "disrupt": 18.0, "confuse": 30.0, "sure_hit": 14.0, "identify": 6.0},
+      "force_out": 12.0, "clear_field": 4.0, "fixed_40": 40.0, "disrupt": 18.0, "confuse": 30.0, "sure_hit": 14.0, "identify": 6.0,
+      "atk_up": 22.0, "atk_up_big": 34.0, "spatk_up": 20.0, "spatk_up_big": 32.0, "def_up_big": 26.0, "spdef_up": 14.0, "spdef_up_big": 24.0,
+      "speed_up_big": 20.0, "crit_up": 10.0, "heal": 30.0, "rest": 26.0, "focus_up": 22.0, "chip_gain": 26.0, "chip_gain_any": 28.0,
+      "chip_drain": 24.0, "focus_drain": 14.0, "cure_status": 8.0, "barrier_phys": 22.0, "barrier_spec": 22.0, "barrier_both": 32.0,
+      "seal": 24.0, "taunt": 12.0, "disable": 14.0, "encore": 10.0, "drowsy": 30.0, "transform": 40.0, "copy_move": 20.0,
+      "random_move": 22.0, "absorb": 18.0, "spatk_down": 18.0, "spdef_down": 14.0, "def_down2": 28.0, "atk_down_big": 30.0,
+      "acc_down_big": 40.0, "evasion_up_big": 36.0, "freeze": 40.0, "bad_poison": 32.0, "infatuate": 24.0, "heal_over_time": 18.0,
+      "spdef_down_big": 26.0, "speed_down_big": 20.0, "cleanse_foe": 14.0, "set_weakness": 10.0, "leech": 26.0, "tri_status": 26.0,
+      "foe_cost_up": 18.0, "power_grows": 6.0, "low_hp_boost": 4.0, "atk_max": 30.0, "all_up_chance": 8.0},
     "wild_styles": {
       "aggressive": {"dmg": 1.0, "status": 0.3, "per_action": -4.0, "big": 12.0, "force_out": 0.0, "repeat": 0.92},
       "strategic": {"dmg": 0.9, "status": 1.3, "per_action": 8.0, "big": 0.0, "force_out": 0.5, "repeat": 0.75},
@@ -202,5 +243,7 @@
     "reaction_value": 30.0,
     "counter_bonus": 40.0,
     "two_phase_value": 1.15
-  }
+  },
+
+  "dataset_overrides": {"kanto": {"focus": {"disruption_skips_gain": false}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "matchups": {"tcg_immunity_mult": 0.25}, "damage": {"sleep_turns": [1, 2]}, "stats": {"level_offset": 30}}}
 }

@@ -51,6 +51,11 @@ signal locked_in_changed(on: bool)
 
 const POKEMON_PATH := "res://life/pokemon.json"
 const MOVES_PATH := "res://life/moves.json"
+# the Kanto 151 (tools/native/kanto151/gen.py): the game's dataset. Its species
+# replace pokemon.json's by id (with its energy kinds, type_energy and names), its
+# moves are merged over moves.json by id.
+const KANTO_SPECIES_PATH := "res://life/kanto151.json"
+const KANTO_MOVES_PATH := "res://life/moves_kanto.json"
 const COLORLESS := "colorless"
 const ANY := "any"                # a Locked In wild chip: counts as any kind
 const STYLES := ["aggressive", "strategic", "evasive"]
@@ -58,6 +63,9 @@ const ROLES := ["offense", "reaction", "two_phase", "disruption", "utility"]
 
 static var _pk := {}
 static var _mv := {}
+# kanto (the game: pokemon.json + kanto151.json, moves.json + moves_kanto.json) |
+# v1 (pokemon.json and moves.json alone: the hand-made fixtures the older tests use)
+static var dataset := "kanto"
 static var _lock_seq := 0
 
 # ---- who it is ----
@@ -82,6 +90,7 @@ var turn := 0                   # turns begun this battle
 var pick_mode := "auto"         # auto (AI, wild: the planner's choice) | player (wait for pick_pool)
 var asleep := false             # set by the battle: no focus gain
 var disturbed := false          # disrupted since the last turn began (no gain this turn)
+var disrupted_n := 0            # disruptions taken this turn (battle_config disruption.repeat_mult)
 # ---- between battles ----
 var idle_minutes := 0.0         # game minutes since its last battle
 var in_gym := false
@@ -94,12 +103,29 @@ static func _load(path: String) -> Dictionary:
 	return v if v is Dictionary else {}
 
 static func data() -> Dictionary:
-	if _pk.is_empty(): _pk = _load(POKEMON_PATH)
+	if _pk.is_empty():
+		_pk = _load(POKEMON_PATH)
+		if dataset == "kanto":
+			var k := _load(KANTO_SPECIES_PATH)
+			if not k.is_empty():
+				var sp: Dictionary = _pk.get("species", {}).duplicate()
+				sp.merge(k.get("species", {}), true)
+				for key in k:
+					if key != "species" and not String(key).begins_with("_"): _pk[key] = k[key]
+				_pk["species"] = sp
 	return _pk
 
 static func moves_data() -> Dictionary:
-	if _mv.is_empty(): _mv = _load(MOVES_PATH).get("moves", {})
+	if _mv.is_empty():
+		_mv = _load(MOVES_PATH).get("moves", {})
+		if dataset == "kanto": _mv.merge(_load(KANTO_MOVES_PATH).get("moves", {}), true)
 	return _mv
+
+# switches the species and move data (kanto | v1) and drops the caches
+static func set_dataset(name: String) -> void:
+	dataset = name
+	_pk = {}; _mv = {}
+	BattleConfig.reload()
 
 static func reload() -> void:
 	_pk = {}; _mv = {}
@@ -248,6 +274,11 @@ func _init(sp := "pidgey", lv := 1) -> void:
 
 func _refresh_params() -> void:
 	params = BattleConfig.focus_for(species, types)
+	# the species' own focus profile (kanto151.json: the config's defaults, by_type and
+	# species entries already folded in by the generator, then the design and tuning)
+	var prof = species_data(species).get("focus_profile", {})
+	if prof is Dictionary:
+		for k in prof: params[k] = prof[k]
 	var P := BattleConfig.sect("perks")
 	for p in perks:
 		var d = P.get(String(p), {})
@@ -345,12 +376,19 @@ func crit_bonus() -> int:
 func disrupt(amount := -1.0, source := "") -> Array:
 	var D := BattleConfig.sect("disruption")
 	if amount < 0.0:
-		amount = float(D.get("moves", {}).get(source, D.get("step", 15)))
+		# the move's own disrupt (the Kanto 151 data), else the config's per-move step, else the default
+		var own := float(move(source).get("disrupt", 0)) if source != "" else 0.0
+		amount = own if own > 0.0 else float(D.get("moves", {}).get(source, D.get("step", 15)))
 	amount *= 1.0 - float(params.get("disrupt_resist", 0.0))
+	# each further disruption in the same turn bites less (repeat_mult), and it never takes
+	# the focus below floor (no stun-lock at zero chips)
+	amount *= pow(float(D.get("repeat_mult", 1.0)), disrupted_n)
+	disrupted_n += 1
 	disturbed = true
 	if locked_in: _set_locked_in(false)
 	var before := chip_list().map(func(c): return c.kind)
-	set_focus(focus - amount, "disrupt")
+	var floor_f := minf(focus, float(D.get("floor", 0.0)))
+	set_focus(maxf(floor_f, focus - amount), "disrupt")
 	var after := chip_list().map(func(c): return c.kind)
 	for k in after: before.erase(k)
 	return before
@@ -562,6 +600,7 @@ func begin_turn() -> Array:
 	if turn == 1 and not bool(BattleConfig.val("focus", "gain_on_first_turn", true)): gain_ok = false
 	disturbed = false
 	_last_gained = []
+	disrupted_n = 0
 	if gain_ok: add_focus(gain_per_turn(), "gain")
 	else: _sync("turn")
 	if focus >= fmax() - 0.001 and not locked_in and gain_ok: _set_locked_in(true)
@@ -657,11 +696,41 @@ static func match_cost(have: Array, cost) -> Variant:
 	return used
 
 func can_pay(cost) -> bool:
-	return match_cost(chips, cost) != null
+	return match_cost(chips, cost_for(cost)) != null
+
+# the cost as this Pokemon pays it. Off-pool rule (battle_config costs.off_pool): a
+# typed chip of a kind it has no pool for is paid in Colorless, plus extra Colorless
+# chips; a finisher of a kind it lacks takes any chips, finisher_extra more at least.
+# Returns the cost unchanged (a move id stays an id) when nothing is off-pool. The
+# rule reads moves (ids); a literal cost (an Array or a spec) is taken as written.
+func cost_for(c):
+	if not c is String: return c
+	var O: Dictionary = BattleConfig.sect("costs").get("off_pool", {})
+	if not bool(O.get("enabled", true)): return c
+	var pk := pool_kinds()
+	var spec := all_spec(c)
+	if not spec.is_empty():
+		var k := _all_kind(spec)
+		if k == COLORLESS or k in pk: return c
+		return {"all": true, "min": int(spec.min) + int(O.get("finisher_extra", 0)), "type": "any"}
+	var need := cost_of(c)
+	var out := []
+	var off := false
+	for k in need:
+		if k != COLORLESS and k != ANY and not k in pk:
+			out.append(COLORLESS); off = true
+		else: out.append(k)
+	if not off: return c
+	for i in int(O.get("extra", 1)): out.append(COLORLESS)
+	return out
+
+# a move it can only pay off-pool (its typed cost needs a pool it lacks)
+func off_pool(id: String) -> bool:
+	return not (cost_for(id) is String)
 
 # the chips a cost would use (for the bar's preview): the indices into chips, [] if it can't
 func preview(cost) -> Array:
-	var m = match_cost(chips, cost)
+	var m = match_cost(chips, cost_for(cost))
 	return m if m != null else []
 
 # as far as these chips go toward a cost: {used: chip indices, missing: the kinds it lacks}
@@ -704,7 +773,7 @@ static func partial_match(have: Array, cost) -> Dictionary:
 
 # what a cost still lacks with these chips: the unmatched kinds (the bar shows them as ghosts)
 func missing(cost) -> Array:
-	return partial_match(chips, cost).missing
+	return partial_match(chips, cost_for(cost)).missing
 
 # ready-list index -> chip_list index
 func _list_index(ready_i: int) -> int:
@@ -738,7 +807,7 @@ func _take(cost) -> Dictionary:
 # pays cost: the chips used (indices into chips before paying, ascending), or [] if it can't.
 # The chips stay in their pools, spent (dim) until the next turn.
 func pay(cost, move_id := "") -> Array:
-	var t := _take(move_id if move_id != "" and is_all(move_id) else cost)
+	var t := _take(cost_for(move_id if move_id != "" and is_all(move_id) else cost))
 	if t.is_empty(): return []
 	for k in t.kinds:
 		if k == ANY: bonus.ready -= 1; bonus.spent += 1
@@ -767,7 +836,7 @@ func lock(move_id: String) -> Dictionary:
 	var m := move(move_id)
 	var r: Dictionary = m.get("reaction", {})
 	if locks.size() >= int(BattleConfig.num("locks", "max_locks", 2)): return {}
-	var t := _take(move_id)
+	var t := _take(cost_for(move_id))
 	if t.is_empty(): return {}
 	for k in t.kinds:
 		if k == ANY: bonus.ready -= 1
@@ -775,6 +844,7 @@ func lock(move_id: String) -> Dictionary:
 	_lock_seq += 1
 	var L := {"id": _lock_seq, "move": move_id, "kinds": t.kinds.duplicate(), "trigger": String(r.get("trigger", "any")),
 		"effect": String(r.get("effect", "evade")), "scope": String(r.get("scope", "next")), "mult": float(r.get("mult", 1.0)),
+		"chance": float(r.get("chance", 1.0)), "reduce": float(r.get("reduce", 0.0)),
 		"set_turn": turn, "expires_turn": turn + int(BattleConfig.num("locks", "expiry_turns", 1))}
 	locks.append(L)
 	lock_set.emit(L)
@@ -903,12 +973,12 @@ func swap(out_id: String, in_id: String) -> bool:
 
 # the moves it can use now (equipped, and payable by a full bar)
 func usable() -> Array:
-	return equipped.filter(func(id): return id in known and cost_of(id).size() <= chip_cap() + int(BattleConfig.num("locked_in", "wild_chip", 1)))
+	return equipped.filter(func(id): return id in known and cost_of(cost_for(id)).size() <= chip_cap() + int(BattleConfig.num("locked_in", "wild_chip", 1)))
 
 # known but not in a slot (or too big for any bar): the move list shows it locked
 func locked(id: String) -> bool:
 	if not id in equipped and id in known: return true
-	return cost_of(id).size() > chip_cap() + int(BattleConfig.num("locked_in", "wild_chip", 1))
+	return cost_of(cost_for(id)).size() > chip_cap() + int(BattleConfig.num("locked_in", "wild_chip", 1))
 
 # ---------- items (battle_config items) ----------
 # n more chips now (focus rises to match), into kind's pool ("" = the auto rule). Returns how many.
@@ -1102,7 +1172,7 @@ func _search(have: Array, ids: Array, from: int, seq: Array, style: String, uses
 		if role_of(id) == "reaction" and (reacts >= int(BattleConfig.num("locks", "max_locks", 2)) or id in seq): continue
 		if role_of(id) == "two_phase" and (phased or not commit.is_empty()): continue
 		if is_all(id) and phased: continue
-		var m = match_cost(have, id)
+		var m = match_cost(have, cost_for(id))
 		if m == null: continue
 		var rest := have.duplicate()
 		var idx: Array = m.duplicate()
@@ -1120,7 +1190,7 @@ func _score(seq: Array, left: int, style: String, uses: Dictionary, noise: Dicti
 	var spent_n := 0
 	for id in seq:
 		var n := int(count.get(id, 0)) + int(uses.get(id, 0))
-		var nc := cost_of(id).size()
+		var nc := cost_of(cost_for(id)).size()
 		if is_all(id): nc = int(ctx.get("_start", nc)) - spent_n
 		s += _move_value(id, style, n, int(count.get(id, 0)), ctx, nc) + float(K.get("per_action", 0.0)) + float(noise.get(id, 0.0))
 		count[id] = int(count.get(id, 0)) + 1

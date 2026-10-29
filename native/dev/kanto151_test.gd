@@ -476,8 +476,82 @@ func _engine() -> void:
 		print("  battle %s Lv %d vs %s Lv %d: %d turns, %d moves, %d hits, %s (HP %d/%d vs %d/%d)" % [p[0], p[1], p[2], p[3], turns, moves_used, hits,
 			bt.outcome if bt.over else "still going", bt.fighter("a").hp, bt.fighter("a").max_hp, bt.fighter("b").hp, bt.fighter("b").max_hp])
 	ok(finished >= pairs.size() / 2, "most test battles finish inside 25 turns (%d of %d)" % [finished, pairs.size()])
+	_rules()
 	Kanto151Data.uninstall()
 	ok(BattleEnergy.species_data("mewtwo").is_empty() or BattleEnergy.species_data("pidgey").has("wild_levels"), "uninstall puts pokemon.json back")
+
+# ---------------------------------------------------------------- the rules the 151 brought to the engine
+# a two-Pokemon trainer battle with set moves and full focus; b acts with `react`, a with `attack`
+func _duel(a_sp: String, a_lv: int, a_moves: Array, b_sp: String, b_lv: int, b_moves: Array) -> PkmnBattle:
+	var ea := BattleEnergy.make(a_sp, a_lv, a_moves)
+	ea.equipped = a_moves.duplicate()
+	var eb := BattleEnergy.make(b_sp, b_lv, b_moves)
+	eb.equipped = b_moves.duplicate()
+	var bt := PkmnBattle.new({"a": {"energy": ea, "ai": "balanced"}, "b": {"energy": eb, "ai": "balanced"}, "kind": "trainer", "seed": 3})
+	bt.start()
+	ea.set_focus(100.0, "test"); eb.set_focus(100.0, "test")
+	bt.begin_turn()
+	return bt
+
+func _texts(ev: Array) -> String:
+	return " | ".join(ev.map(func(x): return String(x.get("text", ""))))
+
+func _rules() -> void:
+	BattleConfig.override({"damage": {"crit_base": 0.0, "crit_per_stage": 0.0, "random_min": 1.0}})
+	# off-pool: Pikachu (Lightning) paying a Fighting move: Colorless, one chip more
+	var p := BattleEnergy.make("pikachu", 30)
+	ok(p.cost_for("double_kick") == ["colorless", "colorless"], "off-pool: Double Kick costs Pikachu two Colorless (%s)" % [p.cost_for("double_kick")])
+	ok(p.off_pool("double_kick") and not p.off_pool("thunder_shock"), "off_pool() tells them apart")
+	p.chips = ["colorless", "colorless"]
+	ok(p.can_pay("double_kick"), "Pikachu can pay Double Kick off-pool")
+	# endure: a sure knockout leaves it at 1 HP
+	var bt := _duel("machamp", 60, ["karate_chop"], "rattata", 5, ["endure"])
+	ok(bt.queue("b", "endure") and bt.queue("a", "karate_chop"), "endure vs Karate Chop queued")
+	var ev := bt.resolve()
+	ok(bt.fighter("b").hp == 1, "Endure: Rattata hangs on at 1 HP (%s)" % _texts(ev))
+	# destiny bond: the attacker goes down too
+	bt = _duel("machamp", 60, ["bite"], "gastly", 5, ["destiny_bond"])
+	bt.queue("b", "destiny_bond"); bt.queue("a", "bite")
+	ev = bt.resolve()
+	ok(bt.fighter("b").fainted() and bt.fighter("a").fainted(), "Destiny Bond takes Machamp down with Gastly (%s)" % _texts(ev))
+	# counter-any: Metal Burst returns a special hit
+	bt = _duel("pikachu", 30, ["thunderbolt"], "magneton", 40, ["metal_burst"])
+	var hp0 := bt.fighter("a").hp
+	bt.queue("b", "metal_burst"); bt.queue("a", "thunderbolt")
+	ev = bt.resolve()
+	ok(bt.fighter("a").hp < hp0, "Metal Burst hits back a special attack (%s)" % _texts(ev))
+	# guard: Stiffen takes a share off the next hit
+	bt = _duel("geodude", 20, ["tackle"], "geodude", 20, ["stiffen"])
+	bt.queue("a", "tackle")
+	var plain := bt.resolve().filter(func(x): return x.get("t", "") == "hit")
+	bt = _duel("geodude", 20, ["tackle"], "geodude", 20, ["stiffen"])
+	bt.queue("b", "stiffen"); bt.queue("a", "tackle")
+	var guarded := bt.resolve().filter(func(x): return x.get("t", "") == "hit")
+	ok(not plain.is_empty() and not guarded.is_empty() and int(guarded[0].dmg) < int(plain[0].dmg), "Stiffen: less damage (%s vs %s)" % [guarded, plain])
+	# bounce: Magic Coat sends Growl back
+	bt = _duel("pidgey", 20, ["growl"], "alakazam", 40, ["magic_coat"])
+	bt.queue("b", "magic_coat"); bt.queue("a", "growl")
+	ev = bt.resolve()
+	ok(int(bt.fighter("a").stages.atk) < 0 and int(bt.fighter("b").stages.atk) == 0, "Magic Coat bounces Growl (%s)" % _texts(ev))
+	# steal: Snatch takes Swords Dance
+	bt = _duel("scyther", 30, ["swords_dance"], "persian", 30, ["snatch"])
+	bt.queue("b", "snatch"); bt.queue("a", "swords_dance")
+	ev = bt.resolve()
+	ok(int(bt.fighter("b").stages.atk) > 0 and int(bt.fighter("a").stages.atk) == 0, "Snatch steals Swords Dance (%s)" % _texts(ev))
+	# self buffs reach the user; heals heal; recharge skips a turn
+	bt = _duel("scyther", 30, ["swords_dance"], "rattata", 30, ["tackle"])
+	bt.queue("a", "swords_dance"); bt.resolve()
+	ok(int(bt.fighter("a").stages.atk) == 2, "Swords Dance: attack +2")
+	bt = _duel("snorlax", 50, ["hyper_beam"], "chansey", 50, ["soft_boiled"])
+	bt.fighter("b").hp = 10
+	bt.queue("b", "soft_boiled"); bt.queue("a", "hyper_beam")
+	ev = bt.resolve()
+	ok(bt.fighter("a").recharge_turn == bt.turn + 1, "Hyper Beam: Snorlax must recharge next turn")
+	bt.begin_turn()
+	ok(not bt.can_queue("a", "hyper_beam"), "and can't act while recharging")
+	# rarity: a legendary's shared move hits harder than a common's
+	ok(absf(PkmnBattle.rarity_mult(_duel("mewtwo", 50, ["swift"], "rattata", 50, ["tackle"]).fighter("a"), "swift") - 1.16) < 0.001, "Mewtwo's Swift carries the legendary bonus")
+	BattleConfig.reset()
 
 # ---------------------------------------------------------------- summary
 func _summary() -> void:
