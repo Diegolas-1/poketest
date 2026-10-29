@@ -5,7 +5,8 @@ extends Node3D
 #     res://dev/dex_lineup.tscn -- --out=/tmp/lineup.png [--ids=a,b,..] [--t=1.5]
 #     [--side] (seen from the side, facing right) [--bind] (no animation: the rest pose)
 #     [--gap=0.25] (metres between them) [--h=1.0] (camera height) [--mood=x] (on all)
-const ALL := ["pidgey", "caterpie", "doduo", "mrmime", "rattata", "raticate", "spearow", "fearow", "ekans", "arbok",
+const ALL := ["bulbasaur", "ivysaur", "venusaur", "charmander", "charmeleon", "charizard", "squirtle", "wartortle",
+	"blastoise", "caterpie", "pidgey", "doduo", "mrmime", "rattata", "raticate", "spearow", "fearow", "ekans", "arbok",
 	"pikachu", "raichu", "sandshrew", "sandslash", "nidoranf", "nidorina", "nidoqueen", "nidoranm", "nidorino",
 	"nidoking", "clefairy", "clefable", "vulpix", "ninetales", "jigglypuff"]
 var A := {}
@@ -37,7 +38,7 @@ func _ready() -> void:
 	sun.look_at_from_position(Vector3(-0.5, 1.0, 0.8) * 10.0, Vector3.ZERO)
 	var fl := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(60, 20)
+	pm.size = Vector2(240, 40)
 	fl.mesh = pm
 	var fm := StandardMaterial3D.new()
 	fm.albedo_color = Color(0.5, 0.66, 0.4)
@@ -95,7 +96,9 @@ func _width(c: Creature) -> Vector2:
 		for i in c.rest_g.size():
 			var p: Vector3 = c.rest_g[i].origin
 			lo = minf(lo, -p.z); hi = maxf(hi, -p.z)
-	return Vector2(maxf(0.15, hi - lo), back)
+	var h := float(Creature.species_info(c.species).get("height", 0.0))
+	if c.species in ["ekans", "arbok"]: h *= 0.35
+	return Vector2(maxf(maxf(0.15, hi - lo), 0.55 * h), back)
 
 func _process(_dt: float) -> void:
 	for k in ["overlay", "menu"]:

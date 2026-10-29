@@ -57,6 +57,8 @@ var _touched := {}                   # bones written last frame (back to rest wh
 # it has no model for is the default. The species of creatures/species.json (#019 on) are
 # CreatureRig's families (creature_rig.gd), each with its own subclass where it has one.
 static func make(sp: String, variant := "") -> Creature:
+	# (the battle data's ids for the Nidoran: life/kanto151.json)
+	sp = {"nidoran_f": "nidoranf", "nidoran_m": "nidoranm"}.get(sp, sp)
 	var c: Creature
 	match sp:
 		"caterpie": c = CreatureCaterpie.new()
