@@ -244,6 +244,5 @@
     "counter_bonus": 40.0,
     "two_phase_value": 1.15
   },
-
-  "dataset_overrides": {"kanto": {"focus": {"disruption_skips_gain": false}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "matchups": {"tcg_immunity_mult": 0.25}, "damage": {"sleep_turns": [1, 2]}, "stats": {"level_offset": 30}}}
+  "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.5}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.271, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6}}}}}
 }

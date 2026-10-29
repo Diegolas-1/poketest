@@ -46,25 +46,25 @@
   ],
   "power_per_chip": {
     "opener": {
-      "common": 33.5,
-      "uncommon": 35.5,
-      "rare": 38.0,
-      "very_rare": 40.5,
-      "legendary": 43.5
+      "common": 28.5,
+      "uncommon": 30.5,
+      "rare": 33.0,
+      "very_rare": 35.5,
+      "legendary": 38.5
     },
     "mid": {
-      "common": 48.0,
-      "uncommon": 50.0,
-      "rare": 52.5,
-      "very_rare": 55.0,
-      "legendary": 58.0
+      "common": 50.0,
+      "uncommon": 52.0,
+      "rare": 54.5,
+      "very_rare": 57.0,
+      "legendary": 60.0
     },
     "finisher": {
-      "common": 47.0,
-      "uncommon": 49.0,
-      "rare": 51.5,
-      "very_rare": 54.0,
-      "legendary": 57.0
+      "common": 57.0,
+      "uncommon": 59.0,
+      "rare": 61.5,
+      "very_rare": 64.0,
+      "legendary": 67.0
     }
   },
   "finisher_base": {
@@ -116,8 +116,8 @@
   "shared_power_mult": {
     "common": 1.0,
     "uncommon": 1.01,
-    "rare": 1.05,
-    "very_rare": 1.12,
+    "rare": 1.02,
+    "very_rare": 1.03,
     "legendary": 1.16
   },
   "off_pool": {
@@ -190,15 +190,15 @@
     "evolution_floor": 0.08,
     "rarity_bonus": {
       "common": 0.0,
-      "uncommon": 0.03,
-      "rare": 0.06,
-      "very_rare": 0.09,
+      "uncommon": 0.005,
+      "rare": 0.01,
+      "very_rare": 0.015,
       "legendary": 0.12
     },
     "group_bonus": {
       "basic": 0.0,
-      "middle": -0.2,
-      "final": -0.3,
+      "middle": -0.28,
+      "final": -0.42,
       "single": 0.0
     },
     "group_mean_total": {

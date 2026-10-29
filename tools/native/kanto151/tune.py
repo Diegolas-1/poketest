@@ -30,6 +30,7 @@ ap.add_argument("--final-n", type=int, default=8)
 ap.add_argument("--report", default=os.path.join(NATIVE, "dev", "sim_report.json"))
 ap.add_argument("--work", default="/tmp")
 ap.add_argument("--dry", action="store_true", help="measure only, change nothing")
+ap.add_argument("--label", default=time.strftime("%Y-%m-%d %H:%M"), help="the run label written on every log entry")
 A = ap.parse_args()
 
 def load_tune():
@@ -115,11 +116,12 @@ def adjust(rep, tune, rnd):
             rate = r["rate"]
             if 0.43 <= rate <= 0.57: continue
             # its battle stats a few percent up or down (and its focus gain a little for a big miss)
-            d = max(-0.2, min(0.2, round((0.5 - rate) * 0.7, 3)))
+            # small steps: battles are close to deterministic, so a big step flips whole matchups
+            d = max(-0.05, min(0.05, round((0.5 - rate) * 0.2, 3)))
             ts_ = tune["species"].setdefault(sp, {})
             ts_["stats"] = round(max(-0.45, min(0.6, ts_.get("stats", 0.0) + d)), 3)
             note = "%s battle stats %+.1f%% (now %+.1f%%)" % (sp, d * 100, ts_["stats"] * 100)
-            if abs(rate - 0.5) > 0.2:
+            if abs(rate - 0.5) > 0.3:
                 g = 1.0 if rate < 0.5 else -1.0
                 ts_["gain"] = round(max(-5.0, min(6.0, ts_.get("gain", 0.0) + g)), 1)
                 note += ", focus gain %+.0f (now %+.1f)" % (g, ts_["gain"])
@@ -138,6 +140,12 @@ def adjust(rep, tune, rnd):
             if lo <= avg <= hi: continue
             dlt = 0.03 if avg < lo else -0.03
             spm[upper] = round(spm[upper] + dlt, 3)
+            # and the stat bonus by rarity, the bigger lever
+            rb = bal.setdefault("stats", {}).setdefault("rarity_bonus", {"common": 0.0, "uncommon": 0.03, "rare": 0.06, "very_rare": 0.09, "legendary": 0.12})
+            rb[upper] = round(rb[upper] + (0.025 if avg < lo else -0.025), 3)
+            for i in range(1, len(RARITIES)):
+                rb[RARITIES[i]] = max(rb[RARITIES[i]], rb[RARITIES[i - 1]])
+            log.append({"change": "stats rarity_bonus %s %+.3f (now %.3f)" % (upper, 0.025 if avg < lo else -0.025, rb[upper]), "why": "%s wins %.2f" % (k, avg)})
             # keep the rarity order
             for i in range(1, len(RARITIES)):
                 spm[RARITIES[i]] = max(spm[RARITIES[i]], round(spm[RARITIES[i - 1]] + 0.01, 3))
@@ -187,7 +195,7 @@ def adjust(rep, tune, rnd):
         row = ppc.setdefault("opener", dict(base_ppc["opener"]))
         for r in RARITIES: row[r] = round(float(row[r]) - 0.5, 1)
         log.append({"change": "power_per_chip opener -0.5 (common now %.1f)" % row["common"], "why": "openers are %.2f of actions" % ts.get("opener", 0)})
-    for l in log: l["round"] = rnd
+    for l in log: l["round"] = rnd; l["run"] = A.label
     tune["log"].extend(log)
     return log
 
