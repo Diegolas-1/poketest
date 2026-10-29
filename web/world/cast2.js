@@ -1067,23 +1067,24 @@ export function townsfolk(K) {
       const k = 1 + (0.033 / r - 1) * t; p.x *= k; p.z = -0.008 + (p.z + 0.008) * k;
     });
     v.hair(c.hair);
-    // the base hair's thin wisps taken up short, at the nape and in front of the ears (the
-    // chunky locks below are the hair's shape)
+    // the base hair's fringe and thin wisps taken up short, at the forehead, the nape and in
+    // front of the ears (the chunky locks below are the hair's shape)
     v.shape('hair01_on', (p) => {
-      if (p.z < -0.02 && p.y < 1.14) p.y = 1.14 - (1.14 - p.y) * 0.3;
+      if (p.z > 0.035 && Math.abs(p.x) < 0.085 && p.y < 1.27) p.y = 1.27 - (1.27 - p.y) * 0.3;   // the fringe, up under the bangs' wedges
+      else if (p.z < -0.02 && p.y < 1.14) p.y = 1.14 - (1.14 - p.y) * 0.3;
       else if (Math.abs(p.x) > 0.06 && p.y < 1.15) p.y = 1.15 - (1.15 - p.y) * 0.45;
     });
     v.neck();
     v.crown({ top: 1.318, back: 0.02, bulge: 1.05, rimY: 1.232, front: 0.035, strands: false });
-    // the bangs: pointed locks from under the crown's front down over the forehead to the brows
+    // the bangs: broad wedges from up on the crown, swooping down over the forehead and across to
+    // his right, their points at the brows (over the line where Ash's cap sat)
     {
       const hc = new V3(0, 1.17, -0.005), parts = [];
-      for (const [x, z, tx, ty, r] of [[0, 0.088, 0.004, 1.2, 0.024], [0.034, 0.083, 0.05, 1.205, 0.023], [-0.034, 0.083, -0.048, 1.208, 0.023], [0.066, 0.068, 0.088, 1.2, 0.022], [-0.066, 0.068, -0.086, 1.198, 0.022]]) {
-        const zt = 0.1 - Math.abs(tx) * 0.22;
-        parts.push(lock([[x, 1.292, z - 0.012], [(x + tx) / 2, 1.262, zt + 0.006], [tx, ty, zt]], r, 0.35, 0.002, 10, 10, hc));
+      for (const [x, dx, ty, r] of [[0.09, -0.028, 1.222, 0.034], [0.064, -0.04, 1.205, 0.04], [0.036, -0.048, 1.196, 0.042], [0.008, -0.05, 1.19, 0.043],
+        [-0.02, -0.05, 1.198, 0.042], [-0.048, -0.048, 1.205, 0.04], [-0.074, -0.04, 1.212, 0.038], [-0.098, -0.03, 1.222, 0.032]]) {
+        const tx = x + dx, zt = 0.112 - Math.abs(tx) * 0.3, z0 = 0.045 - Math.abs(x) * 0.15;
+        parts.push(lock([[x, 1.315, z0], [x + dx * 0.35, 1.29, 0.09 - Math.abs(x) * 0.2], [x + dx * 0.75, 1.245, zt + 0.006], [tx, ty, zt]], r, 0.32, 0.002, 12, 10, hc));
       }
-      // and a long one falling between the eyes, off to his right
-      parts.push(lock([[-0.012, 1.3, 0.07], [-0.022, 1.25, 0.104], [-0.026, 1.205, 0.112], [-0.02, 1.168, 0.11]], 0.02, 0.32, 0.002, 12, 10, hc));
       // chunky locks down in front of the ears, over the base hair's thin strands there
       for (const s of [1, -1]) {
         parts.push(lock([[s * 0.078, 1.25, 0.06], [s * 0.094, 1.21, 0.058], [s * 0.1, 1.17, 0.048], [s * 0.097, 1.14, 0.04]], 0.034, 0.42, 0.003, 12, 10, hc));
