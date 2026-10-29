@@ -8,6 +8,9 @@ extends RefCounted
 #   BattleConfig.sect("decay")                     # a whole section (Dictionary)
 #   BattleConfig.focus_for(species, types)         # focus params with type and species overrides merged
 #   BattleConfig.override(dict)                    # tests: patch values (deep merge); reset() undoes it
+# dataset_overrides.<dataset>: numbers tuned for one species dataset (the Kanto 151's,
+# written by tools/native/kanto151/tune.py), merged over the file while that dataset is
+# live (BattleEnergy.dataset); the plain numbers stay for the v1 fixtures.
 
 const PATH := "res://life/battle_config.json"
 
@@ -19,6 +22,8 @@ static func data() -> Dictionary:
 		if FileAccess.file_exists(PATH):
 			var v = JSON.parse_string(FileAccess.get_file_as_string(PATH))
 			if v is Dictionary: _c = v
+		var ds = _c.get("dataset_overrides", {}).get(BattleEnergy.dataset, null)
+		if ds is Dictionary: _merge(_c, ds.duplicate(true))
 		if not _patch.is_empty(): _merge(_c, _patch)
 	return _c
 

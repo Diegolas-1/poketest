@@ -67,6 +67,15 @@ class Fighter:
 	var trapped := false
 	var seeded := false
 	var protect_turn := -1       # Protect holds for the rest of this turn
+	var recharge_turn := -1      # a recharge move (Hyper Beam): it can't act on this turn
+	var sealed_turn := -1        # sealed (Taunt, Disable, Tongue-Tied): no attacks on this turn
+	var crit_stage := 0          # Focus Energy and the like
+	var barrier := {}            # physical | special -> the last turn it holds (Reflect, Light Screen)
+	var regen := false           # heals a little each turn (Ingrain, Aqua Ring)
+	var drowsy := 0              # Yawn: falls asleep when this counts down to 0
+	var last_move := ""          # its last move (Mimic, Mirror Move, Copycat)
+	var para_turn := -1          # the turn its paralysis was last rolled (damage.para_scope turn)
+	var para_blocked := false
 	var ai := "player"
 	var queue: Array = []        # [{move, kinds, free}]
 	var uses := {}
@@ -109,9 +118,12 @@ func _make(s: String, d: Dictionary) -> Fighter:
 	f.name = String(d.get("name", S.get("name", sp.capitalize())))
 	f.types = S.get("types", ["normal"]).duplicate()
 	var base: Array = S.get("base", [50, 50, 50, 50, 50, 50])
-	f.max_hp = int(floor(2.0 * float(base[0]) * lv / 100.0)) + lv + 10
+	# battle_config stats.level_offset flattens the level curve (0 = the games' formula)
+	var le := float(lv) + BattleConfig.num("stats", "level_offset", 0.0)
+	var rm := rarity_stat_mult(String(S.get("rarity", "")), lv)
+	f.max_hp = int(floor(2.0 * float(base[0]) * rm * le / 100.0)) + lv + 10
 	var keys := ["atk", "def", "spa", "spd", "spe"]
-	for i in 5: f.stats[keys[i]] = int(floor(2.0 * float(base[i + 1]) * lv / 100.0)) + 5
+	for i in 5: f.stats[keys[i]] = int(floor(2.0 * float(base[i + 1]) * rm * le / 100.0)) + 5
 	f.hp = int(d.get("hp", f.max_hp))
 	f.ai = String(d.get("ai", "player" if s == "a" else "wild"))
 	f.e.pick_mode = "player" if f.ai == "player" else "auto"
@@ -178,6 +190,7 @@ func committed_now(s: String) -> bool:
 func can_queue(s: String, id: String) -> bool:
 	var f: Fighter = F[s]
 	if over or f.fainted() or f.status == "sleep": return false
+	if f.recharge_turn == turn: return false
 	if not id in f.e.usable(): return false
 	if committed_now(s): return false                     # gone under / up: nothing more this turn
 	if BattleEnergy.role_of(id) == "two_phase" and not f.e.commit.is_empty(): return false
@@ -190,7 +203,7 @@ func queue(s: String, id: String) -> bool:
 	if not can_queue(s, id): return false
 	var f: Fighter = F[s]
 	var have := f.e.chips
-	var m = BattleEnergy.match_cost(have, id)
+	var m = BattleEnergy.match_cost(have, f.e.cost_for(id))
 	var kinds := []
 	for i in m: kinds.append(have[i])
 	f.e.pay(id, id)
@@ -309,7 +322,7 @@ func _act(s: String, q: Dictionary) -> Array:
 		out.append(_ev({"t": "asleep", "side": s, "move": id, "text": "%s is fast asleep." % _nm(u)}))
 		_lose_commit(u, out)
 		return out
-	if u.status == "para" and rng.randf() < BattleConfig.num("damage", "para_skip", 0.25):
+	if u.status == "para" and _para_blocks(u):
 		out.append(_ev({"t": "paralysed", "side": s, "move": id, "text": "%s is paralysed! It can't move!" % _nm(u)}))
 		_lose_commit(u, out)
 		return out
@@ -322,8 +335,12 @@ func _act(s: String, q: Dictionary) -> Array:
 			if u.fainted(): out.append_array(_faint(u))
 			_lose_commit(u, out)
 			return out
+	if u.sealed_turn == turn and is_attack(id) and not q.get("free", false):
+		out.append(_ev({"t": "sealed", "side": s, "move": id, "text": "%s can't attack right now!" % _nm(u)}))
+		return out
 	u.uses[id] = int(u.uses.get(id, 0)) + 1
 	var role := BattleEnergy.role_of(id)
+	if role != "reaction": u.last_move = id
 	# the second turn of a two-phase move: the strike
 	if q.get("free", false):
 		u.e.clear_commit()
@@ -358,6 +375,51 @@ func _act(s: String, q: Dictionary) -> Array:
 	out.append_array(_use_on(u, tg, id, int(q.get("chips", 0))))
 	return out
 
+# a set reaction with a chance (a coin flip, e.g. Defensive Posture): does it work this time?
+# A failed one is spent (released) with an event.
+func _lock_works(f: Fighter, L: Dictionary, out: Array) -> bool:
+	var ch := float(L.get("chance", 1.0))
+	if ch >= 1.0 or rng.randf() < ch: return true
+	f.e.release_lock(int(L.id), "failed")
+	out.append(_ev({"t": "wasted", "side": f.side, "move": L.move, "why": "chance", "text": "%s's %s didn't work!" % [_nm(f), String(mv(L.move).name).to_upper()]}))
+	return false
+
+# species efficiency (battle_config rarity.shared_power_mult): a shared move used by a
+# rarer species hits a little harder; a signature move already carries its rarity
+# battle_config rarity.level_stat: base stats x (1 + the rarity's bonus at this level), the bonus
+# read off its points at levels (straight lines between them, flat past the ends), so the
+# step between rarities can be held level across the game
+static func rarity_stat_mult(r: String, lv: int) -> float:
+	var R = BattleConfig.sect("rarity").get("level_stat", {})
+	if not R is Dictionary or R.is_empty(): return 1.0
+	var lvls: Array = R.get("levels", [])
+	var pts = R.get("bonus", {}).get(r, [])
+	var add := 0.0
+	if pts is Array and pts.size() == lvls.size() and not lvls.is_empty():
+		add = float(pts[0])
+		for i in lvls.size():
+			if float(lv) >= float(lvls[i]): add = float(pts[i])
+			if i + 1 < lvls.size() and float(lv) > float(lvls[i]) and float(lv) < float(lvls[i + 1]):
+				var t := (float(lv) - float(lvls[i])) / (float(lvls[i + 1]) - float(lvls[i]))
+				add = lerpf(float(pts[i]), float(pts[i + 1]), t)
+				break
+	return clampf(1.0 + add, float(R.get("min", 0.6)), float(R.get("max", 1.6)))
+
+static func rarity_mult(u: Fighter, id: String) -> float:
+	if bool(mv(id).get("signature", false)): return 1.0
+	var r := String(BattleEnergy.species_data(u.species).get("rarity", ""))
+	return float(BattleConfig.sect("rarity").get("shared_power_mult", {}).get(r, 1.0))
+
+# paralysis: battle_config damage.para_scope "turn" (one roll a turn decides all its
+# actions) or "action" (a roll for each action)
+func _para_blocks(u: Fighter) -> bool:
+	var skip := BattleConfig.num("damage", "para_skip", 0.25)
+	if String(BattleConfig.val("damage", "para_scope", "turn")) == "action": return rng.randf() < skip
+	if u.para_turn != turn:
+		u.para_turn = turn
+		u.para_blocked = rng.randf() < skip
+	return u.para_blocked
+
 func _lose_commit(u: Fighter, out: Array) -> void:
 	if not u.e.commit.is_empty() and int(u.e.commit.turn) < turn:
 		u.e.clear_commit()
@@ -373,19 +435,35 @@ static func is_attack(id: String) -> bool:
 	var m := mv(id)
 	return float(m.get("power", 0)) > 0.0 or "fixed_40" in m.get("effects", [])
 
-const SELF_TAGS := ["def_up", "evasion_up", "speed_up"]
+const SELF_TAGS := ["def_up", "evasion_up", "speed_up", "heal", "rest", "cure_status", "focus_up", "chip_gain", "chip_gain_any",
+	"barrier_phys", "barrier_spec", "barrier_both", "mist", "heal_over_time", "heal_delayed", "substitute", "crit_up", "trap_self",
+	"stockpile", "status_shield", "no_crit", "atk_max", "random_stat_up_big", "levitate", "crit_next", "power_up_next", "pass_boosts",
+	"weather_sun", "weather_rain", "weather_sand", "weather_snow", "terrain_electric", "terrain_grassy", "terrain_misty",
+	"terrain_psychic", "retype", "clear_field", "none", "copy_move", "random_move", "random_own", "transform", "copy_boosts"]
+
+static func is_self_tag(x: String) -> bool:
+	if x in SELF_TAGS: return true
+	if x.begins_with("foe_"): return false
+	return x.ends_with("_up") or x.ends_with("_up_big") or x.ends_with("_down_self")
 
 static func targets_self(id: String) -> bool:
 	var m := mv(id)
 	if is_attack(id): return false
 	var fx: Array = m.get("effects", [])
-	return not fx.is_empty() and fx.all(func(x): return x in SELF_TAGS)
+	return not fx.is_empty() and fx.all(func(x): return is_self_tag(String(x)))
 
 func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 	var out := []
 	var m := mv(id)
 	if targets_self(id):
-		for tag in m.get("effects", []): out.append_array(_effect(u, u, String(tag), id, true))
+		var thief := u
+		for L in tg.e.locks.duplicate():
+			if String(L.effect) == "steal" and _lock_works(tg, L, out):
+				tg.e.release_lock(int(L.id), "triggered")
+				thief = tg
+				out.append(_ev({"t": "trigger", "side": tg.side, "move": L.move, "text": "%s snatched %s!" % [_nm(tg), String(m.name).to_upper()]}))
+				break
+		for tag in m.get("effects", []): out.append_array(_effect(thief, thief, String(tag), id, true))
 		return out
 	var C := BattleConfig.sect("counters")
 	var row := {}
@@ -401,6 +479,13 @@ func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 	for L in tg.e.locks.duplicate():
 		var eff := String(L.effect)
 		var trig := String(L.trigger)
+		if eff == "bounce" and not attack:
+			if not _lock_works(tg, L, out): continue
+			tg.e.release_lock(int(L.id), "triggered")
+			out.append(_ev({"t": "trigger", "side": tg.side, "move": L.move, "text": "%s bounced %s back!" % [_nm(tg), String(m.name).to_upper()]}))
+			for tag in m.get("effects", []): out.append_array(_effect(tg, u, String(tag), id, true))
+			return out
+		if (eff == "evade" or (eff == "block" and attack)) and not _lock_works(tg, L, out): continue
 		if eff == "evade":
 			if interaction(id, "dodge").get("hits", false): continue      # Swift: it can't be dodged
 			if id in C.get("cancel_dodge", []): continue                  # Mind Reader reads it, it doesn't dodge it
@@ -442,7 +527,7 @@ func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 	# 4. type immunity (Foresight lets Normal and Fighting hit a Ghost)
 	var mt := String(m.get("type", "normal"))
 	var tm := type_factor(mt, tg)
-	if tm == 0.0 and tg.identified and mt in C.get("identify_hits_ghost", []) and "ghost" in tg.types:
+	if tm < 1.0 and tg.identified and mt in C.get("identify_hits_ghost", []) and "ghost" in tg.types:
 		tm = type_factor(mt, tg, true)
 	if (attack or id == "thunder_wave") and tm == 0.0:
 		out.append(_ev({"t": "no_effect", "side": tg.side, "move": id, "text": "It doesn't affect %s..." % _nm(tg)}))
@@ -453,14 +538,60 @@ func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 	if attack:
 		var mult := float(row.get("mult", 1.0)) if row.get("hits", false) else 1.0
 		var crit := _crit(u, id)
-		if "fixed_40" in m.get("effects", []): dealt = 40
+		var fx: Array = m.get("effects", [])
+		var pm := _power_rule(u, tg, id)
+		if pm <= 0.0:
+			out.append(_ev({"t": "miss", "side": u.side, "move": id, "why": "rule", "text": "But it failed!"}))
+			return out
+		var fixed = m.get("fixed_damage", null)
+		if "fixed_40" in fx: dealt = 40
+		elif fixed is String and fixed == "ohko":
+			dealt = tg.hp if u.level >= tg.level else 0
+			if dealt == 0:
+				out.append(_ev({"t": "miss", "side": u.side, "move": id, "why": "level", "text": "But it failed!"}))
+				return out
+			out.append(_ev({"t": "stat", "side": tg.side, "stat": "ohko", "text": "It's a one-hit KO!"}))
+		elif fixed is String and fixed == "level": dealt = u.level
+		elif fixed is String and fixed == "half_hp": dealt = maxi(1, tg.hp / 2)
+		elif fixed is String and fixed == "match_hp": dealt = maxi(0, tg.hp - u.hp)
+		elif fixed is String and fixed == "user_hp": dealt = u.hp
+		elif (fixed is float or fixed is int) and float(fixed) > 0.0 and bool(BattleConfig.val("damage", "fixed_damage", true)): dealt = int(fixed)
 		else:
-			dealt = _damage_raw(u, tg, BattleEnergy.move_power(id, chips), String(m.category), tm * mult, crit, mt)
+			dealt = _damage_raw(u, tg, BattleEnergy.move_power(id, chips) * rarity_mult(u, id) * pm, String(m.category), tm * mult, crit, mt)
 			if resisted(mt, tg): dealt = maxi(1, dealt - int(BattleConfig.num("matchups", "resistance_sub", 0.0)))
+			var side_k := "physical" if String(m.category) == "physical" else "special"
+			if int(tg.barrier.get(side_k, -1)) >= turn and not "breaks_barrier" in fx:
+				dealt = maxi(1, int(dealt * BattleConfig.num("damage", "barrier_mult", 0.5)))
+		# Guard (Stiffen) takes some off; Endure leaves it at 1 HP
+		for L in tg.e.locks.duplicate():
+			var le := String(L.effect)
+			if le == "guard" and _lock_works(tg, L, out):
+				tg.e.release_lock(int(L.id), "triggered")
+				dealt = maxi(1, int(round(dealt * (1.0 - float(L.get("reduce", 0.4))))))
+				out.append(_ev({"t": "trigger", "side": tg.side, "move": L.move, "text": "%s braced against it!" % _nm(tg)}))
+			elif le == "endure" and dealt >= tg.hp and _lock_works(tg, L, out):
+				tg.e.release_lock(int(L.id), "triggered")
+				dealt = maxi(0, tg.hp - 1)
+				out.append(_ev({"t": "trigger", "side": tg.side, "move": L.move, "text": "%s endured the hit!" % _nm(tg)}))
 		_hurt(tg, dealt)
+		# Destiny Bond / Grudge: if that knocked it out, the attacker goes down too
+		if tg.fainted():
+			for L in tg.e.locks.duplicate():
+				if String(L.effect) == "destiny":
+					tg.e.release_lock(int(L.id), "triggered")
+					_hurt(u, u.hp)
+					out.append(_ev({"t": "trigger", "side": tg.side, "move": L.move, "text": "%s took its foe down with it!" % _nm(tg)}))
+					break
 		u.sure_hit = false
 		out.append(_ev({"t": "hit", "side": tg.side, "move": id, "dmg": dealt, "hp": tg.hp, "max_hp": tg.max_hp, "eff": tm, "crit": crit, "mult": mult,
 			"text": _hit_text(tm, crit, mult)}))
+		if "absorb" in m.get("effects", []) and dealt > 0 and not u.fainted():
+			var hh := maxi(1, int(dealt * BattleConfig.num("damage", "absorb", 0.5)))
+			u.hp = mini(u.max_hp, u.hp + hh)
+			out.append(_ev({"t": "heal", "side": u.side, "hp": u.hp, "max_hp": u.max_hp, "text": "%s drained some HP." % _nm(u)}))
+		if "self_faint" in m.get("effects", []):
+			_hurt(u, u.hp)
+		if "recharge" in m.get("effects", []): u.recharge_turn = turn + 1
 		if "recoil" in m.get("effects", []):
 			var rc := maxi(1, int(dealt * BattleConfig.num("damage", "recoil", 0.25)))
 			_hurt(u, rc)
@@ -468,7 +599,7 @@ func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 		# Counter / Mirror Coat set by the target
 		for L in tg.e.locks.duplicate():
 			if String(L.effect) != "counter": continue
-			if String(L.trigger) == String(m.category):
+			if String(L.trigger) == String(m.category) or String(L.trigger) in ["attack", "any"]:
 				tg.e.release_lock(int(L.id), "triggered")
 				if not tg.fainted():
 					var back := maxi(1, int(dealt * float(L.mult)))
@@ -514,9 +645,12 @@ func type_factor(mt: String, tg: Fighter, ignore_ghost := false) -> float:
 	var mode := String(M.get("mode", "auto"))
 	var has_tcg: bool = S.has("weakness") or S.has("resistance")
 	if mode == "chart" or (mode == "auto" and not has_tcg): return chart
-	if chart == 0.0: return 0.0
+	# the card game has no immunities: in TCG mode the chart's immunities become a strong
+	# resistance (matchups.tcg_immunity_mult; 0 keeps them immunities)
+	if chart == 0.0: return float(M.get("tcg_immunity_mult", 0.0))
 	var k := BattleEnergy.energy_of(mt)
 	var f := 1.0
+	if chart < 1.0: f *= float(M.get("tcg_chart_resist_mult", 1.0))
 	if k in S.get("weakness", []): f *= float(M.get("weakness_mult", 2.0))
 	if k in S.get("resistance", []): f *= float(M.get("resistance_mult", 0.6))
 	return f
@@ -550,6 +684,10 @@ func _effect(u: Fighter, tg: Fighter, tag: String, id: String, sure: bool) -> Ar
 		"evasion_up": out.append_array(_stage(u, "eva", 1, 1.0))
 		"speed_up": out.append_array(_stage(u, "spe", 2, 1.0))
 		"para", "sleep", "poison", "burn":
+			if tg.status != "" and sure:
+				var have := {"para": "paralysed", "sleep": "asleep", "poison": "poisoned", "burn": "burned"}
+				out.append(_ev({"t": "no_effect", "side": tg.side, "move": id, "text": "%s is already %s!" % [_nm(tg), String(have.get(tg.status, tg.status))]}))
+				return out
 			if tg.status == "" and rng.randf() < chance:
 				if tag == "para" and "electric" in tg.types: return out
 				if tag == "poison" and ("poison" in tg.types or "steel" in tg.types): return out
@@ -595,7 +733,140 @@ func _effect(u: Fighter, tg: Fighter, tag: String, id: String, sure: bool) -> Ar
 		"clear_field":
 			u.seeded = false; u.trapped = false
 		"high_crit", "recoil", "fixed_40", "wind", "hits_airborne", "break_protect": pass
+		_: out.append_array(_effect_more(u, tg, tag, id, sure, chance))
 	return out
+
+const STAT_KEYS := {"atk": "atk", "def": "def", "spatk": "spa", "spdef": "spd", "speed": "spe", "acc": "acc", "evasion": "eva"}
+
+# the rest of the tag vocabulary (kanto151_balance.json effects): stat stages by name,
+# healing, focus and chips, barriers, sealing, copying, the energy v2 tags
+func _effect_more(u: Fighter, tg: Fighter, tag: String, id: String, sure: bool, chance: float) -> Array:
+	var out := []
+	var D := BattleConfig.sect("damage")
+	var B := BattleConfig.sect("effects")
+	# stat stages: <stat>_up, <stat>_up_big, <stat>_down, <stat>_down_big, <stat>_down2, <stat>_down_self, foe_<stat>_up
+	for k in STAT_KEYS:
+		var st: String = STAT_KEYS[k]
+		if tag == k + "_up": return _stage(u, st, 1, 1.0 if sure else chance)
+		if tag == k + "_up_big": return _stage(u, st, 2, 1.0 if sure else chance)
+		if tag == k + "_down": return _stage(tg, st, -1, chance)
+		if tag == k + "_down_big" or tag == k + "_down2": return _stage(tg, st, -2, chance)
+		if tag == k + "_down_self": return _stage(u, st, -1, 1.0)
+		if tag == "foe_" + k + "_up": return _stage(tg, st, 2, 1.0)
+	match tag:
+		"crit_up", "crit_next":
+			u.crit_stage = mini(u.crit_stage + 1, 3)
+		"atk_max":
+			_hurt(u, u.max_hp / 2)
+			u.stages.atk = 6
+			out.append(_ev({"t": "stat", "side": u.side, "stat": "atk", "d": 6, "text": "%s maxed out its attack!" % _nm(u)}))
+		"all_up_chance":
+			if rng.randf() < float(B.get("all_up_chance", 0.1)):
+				for st in ["atk", "def", "spa", "spd", "spe"]: u.stages[st] = mini(6, int(u.stages[st]) + 1)
+				out.append(_ev({"t": "stat", "side": u.side, "stat": "all", "d": 1, "text": "%s's stats all rose!" % _nm(u)}))
+		"heal", "heal_delayed":
+			var h := int(u.max_hp * float(B.get("heal", 0.5)))
+			u.hp = mini(u.max_hp, u.hp + h)
+			out.append(_ev({"t": "heal", "side": u.side, "hp": u.hp, "max_hp": u.max_hp, "text": "%s restored its HP." % _nm(u)}))
+		"rest":
+			u.hp = u.max_hp
+			u.status = "sleep"; u.sleep_turns = 2; u.sleep_from = turn; u.e.asleep = true
+			out.append(_ev({"t": "status", "side": u.side, "status": "sleep", "text": "%s slept and became healthy!" % _nm(u)}))
+		"cure_status":
+			u.status = ""; u.e.asleep = false; u.confused = 0
+		"heal_over_time":
+			u.regen = true
+		"barrier_phys": u.barrier["physical"] = turn + int(B.get("barrier_turns", 4))
+		"barrier_spec": u.barrier["special"] = turn + int(B.get("barrier_turns", 4))
+		"barrier_both":
+			u.barrier["physical"] = turn + int(B.get("barrier_turns", 4)); u.barrier["special"] = turn + int(B.get("barrier_turns", 4))
+		"focus_up":
+			u.e.add_focus(float(B.get("focus_up", 15.0)), "focus_up")
+			out.append(_ev({"t": "gain", "side": u.side, "focus": u.e.focus, "text": "%s focused harder (%d%%)." % [_nm(u), int(u.e.focus)]}))
+		"chip_gain", "chip_gain_any":
+			if rng.randf() < (1.0 if sure else chance):
+				var n := u.e.restore(1, "")
+				if n > 0: out.append(_ev({"t": "gain", "side": u.side, "focus": u.e.focus, "text": "%s gathered energy." % _nm(u)}))
+		"chip_drain":
+			if rng.randf() < chance:
+				out.append_array(_disrupt(tg, tg.e.step(), "chip_drain"))
+		"focus_drain":
+			out.append_array(_disrupt(tg, float(B.get("focus_drain", 10.0)), "focus_drain"))
+		"focus_down_self":
+			u.e.set_focus(maxf(0.0, u.e.focus - float(B.get("focus_down_self", 30.0))), "spent")
+		"confuse_self":
+			if u.confused <= 0: u.confused = rng.randi_range(1, 3)
+		"freeze":
+			if tg.status == "" and rng.randf() < chance and not "ice" in tg.types:
+				tg.status = "sleep"; tg.sleep_turns = rng.randi_range(1, 2); tg.sleep_from = turn; tg.e.asleep = true
+				out.append(_ev({"t": "status", "side": tg.side, "status": "freeze", "text": "%s was frozen solid!" % _nm(tg)}))
+		"bad_poison":
+			out.append_array(_effect(u, tg, "poison", id, sure))
+		"infatuate":
+			out.append_array(_effect(u, tg, "confuse", id, sure))
+		"tri_status":
+			out.append_array(_effect(u, tg, ["burn", "para", "freeze"][rng.randi() % 3], id, sure))
+		"seal", "taunt", "disable", "disable_lite", "encore":
+			if rng.randf() < chance:
+				tg.sealed_turn = turn + 1
+				out.append(_ev({"t": "status", "side": tg.side, "status": "sealed", "text": "%s can't attack next turn!" % _nm(tg)}))
+		"drowsy":
+			if tg.status == "" and tg.drowsy <= 0: tg.drowsy = 2
+		"sleep_self":
+			if u.status == "":
+				u.status = "sleep"; u.sleep_turns = 1; u.sleep_from = turn; u.e.asleep = true
+		"cleanse", "cleanse_foe":
+			for st in tg.stages: tg.stages[st] = mini(0, int(tg.stages[st]))
+			if tag == "cleanse":
+				for st in u.stages: u.stages[st] = maxi(0, int(u.stages[st]))
+		"transform":
+			u.types = tg.types.duplicate()
+			for k in ["atk", "def", "spa", "spd", "spe"]: u.stats[k] = tg.stats[k]
+			u.e.types = tg.types.duplicate()
+			for mid in tg.e.equipped:
+				if not mid in u.e.known: u.e.known.append(mid)
+			u.e.equipped = tg.e.equipped.duplicate()
+			out.append(_ev({"t": "stat", "side": u.side, "stat": "transform", "text": "%s transformed into %s!" % [_nm(u), tg.name.to_upper()]}))
+		"copy_move", "random_move", "random_own":
+			var pick := ""
+			if tag == "copy_move": pick = tg.last_move
+			elif tag == "random_own":
+				var opts: Array = u.e.equipped.filter(func(x): return x != id and is_attack(x))
+				if not opts.is_empty(): pick = opts[rng.randi() % opts.size()]
+			else:
+				var all: Array = BattleEnergy.moves_data().keys().filter(func(x): return is_attack(x) and not BattleEnergy.is_all(x) and BattleEnergy.role_of(x) == "offense")
+				if not all.is_empty(): pick = all[rng.randi() % all.size()]
+			if pick != "" and pick != id and not BattleEnergy.move(pick).is_empty() and BattleEnergy.role_of(pick) in ["offense", "disruption", "utility"]:
+				out.append(_ev({"t": "move", "side": u.side, "move": pick, "role": BattleEnergy.role_of(pick), "chips": 0, "text": "%s used %s!" % [_nm(u), String(mv(pick).name).to_upper()]}))
+				out.append_array(_use_on(u, tg, pick, 2))
+	return out
+
+# a move's own power rule (kanto151_balance.json effects): a multiplier, 0 when it fails
+func _power_rule(u: Fighter, tg: Fighter, id: String) -> float:
+	var m := mv(id)
+	var fx: Array = m.get("effects", [])
+	var p := 1.0
+	if "sleep_only" in fx and tg.status != "sleep" and u.status != "sleep": return 0.0
+	if "self_confused_only" in fx and u.confused <= 0: return 0.0
+	if "first_turn" in fx and int(u.uses.get(id, 0)) > 1: return 0.0
+	if "needs_others" in fx:
+		for o in u.e.equipped:
+			if o != id and int(u.uses.get(o, 0)) <= 0: return 0.0
+	if "low_hp_boost" in fx: p *= 1.0 + (1.0 - float(u.hp) / maxf(1.0, u.max_hp))
+	if "bonus_vs_damaged" in fx and tg.hp < tg.max_hp: p *= 1.5
+	if "bonus_vs_healthy" in fx: p *= 0.5 + float(tg.hp) / maxf(1.0, tg.max_hp)
+	if "power_grows" in fx: p *= minf(2.0, 1.0 + 0.25 * maxi(0, int(u.uses.get(id, 1)) - 1))
+	if "random_power" in fx: p *= rng.randf_range(0.5, 1.5)
+	if "coin_bonus" in fx and rng.randf() < 0.5: p *= 2.0
+	if "bonus_if_matched" in fx and u.e.available() == tg.e.available(): p *= 2.0
+	if "bonus_per_foe_chip" in fx: p *= 1.0 + 0.15 * tg.e.available()
+	if "bonus_per_own_pool" in fx: p *= 1.0 + 0.12 * u.e.available()
+	if "bonus_vs_type" in fx and String(m.get("bonus_type", "")) in tg.e.pool_kinds(): p *= 1.75
+	if "bonus_vs_rarer" in fx:
+		var R := ["common", "uncommon", "rare", "very_rare", "legendary"]
+		if R.find(String(BattleEnergy.species_data(tg.species).get("rarity", "common"))) > R.find(String(BattleEnergy.species_data(u.species).get("rarity", "common"))): p *= 1.5
+	if "hits_fleeing" in fx and not tg.e.commit.is_empty(): p *= 1.5
+	return p
 
 func _stage(f: Fighter, st: String, d: int, chance: float) -> Array:
 	if rng.randf() >= chance: return []
@@ -626,7 +897,7 @@ static func _acc_mult(st: int) -> float:
 
 func _crit(u: Fighter, id: String) -> bool:
 	var D := BattleConfig.sect("damage")
-	var st := u.e.crit_bonus() + (1 if "high_crit" in mv(id).get("effects", []) else 0)
+	var st := u.e.crit_bonus() + u.crit_stage + (1 if "high_crit" in mv(id).get("effects", []) else 0)
 	var p := float(D.get("crit_base", 0.0625)) + float(D.get("crit_per_stage", 0.0625)) * st
 	return rng.randf() < p
 
@@ -639,7 +910,8 @@ func _damage_raw(u: Fighter, tg: Fighter, power: float, cat: String, mult: float
 		A = maxf(A, float(u.stats.atk if phys else u.stats.spa))
 		Df = minf(Df, float(tg.stats.def if phys else tg.stats.spd))
 	if phys and u.status == "burn": A *= float(D.get("burn_atk", 0.5))
-	var base := ((2.0 * u.level / 5.0 + 2.0) * power * A / maxf(1.0, Df)) / 50.0 + 2.0
+	var le := float(u.level) + BattleConfig.num("stats", "level_offset", 0.0)
+	var base := ((2.0 * le / 5.0 + 2.0) * power * A / maxf(1.0, Df)) / 50.0 + 2.0
 	var stab := float(D.get("stab", 1.5)) if mtype != "" and mtype in u.types else 1.0
 	var r := rng.randf_range(float(D.get("random_min", 0.85)), 1.0)
 	var d := base * stab * mult * (float(D.get("crit", 1.5)) if crit else 1.0) * r * float(D.get("scale", 0.55))
@@ -674,6 +946,13 @@ func _end_turn() -> Array:
 			_hurt(f, dd)
 			if not o.fainted(): o.hp = mini(o.max_hp, o.hp + dd)
 			out.append(_ev({"t": "tick", "side": s, "dmg": dd, "hp": f.hp, "max_hp": f.max_hp, "text": "Leech Seed saps %s." % _nm(f)}))
+		if f.regen and not f.fainted():
+			f.hp = mini(f.max_hp, f.hp + maxi(1, int(f.max_hp * float(D.get("regen_tick", 0.0625)))))
+		if f.drowsy > 0:
+			f.drowsy -= 1
+			if f.drowsy == 0 and f.status == "":
+				f.status = "sleep"; f.sleep_turns = rng.randi_range(1, 2); f.sleep_from = turn; f.e.asleep = true
+				out.append(_ev({"t": "status", "side": s, "status": "sleep", "text": "%s fell asleep!" % _nm(f)}))
 		if f.fainted():
 			out.append_array(_faint(f))
 			if over: return out

@@ -23,7 +23,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	BattleConfig.reset()
-	BattleEnergy.reload()
+	BattleEnergy.set_dataset("v1")   # the hand-made v1 fixtures (pokemon.json, moves.json); kanto151_test covers the 151
 	# deterministic numbers for the rule checks (no crits, no damage roll)
 	BattleConfig.override({"damage": {"crit_base": 0.0, "crit_per_stage": 0.0, "random_min": 1.0}})
 	_flow()

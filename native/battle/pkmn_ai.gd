@@ -18,6 +18,15 @@ static func personality(name: String) -> Dictionary:
 	var P: Dictionary = BattleConfig.sect("ai").get("personalities", {})
 	return P.get(name, P.get("balanced", {}))
 
+# what the planner knows of the battle's state (BattleEnergy._state_worth reads it)
+static func state_ctx(b: PkmnBattle, side: String) -> Dictionary:
+	var me = b.fighter(side)
+	var foe = b.fighter(b.other(side))
+	return {"foe": {"status": foe.status, "confused": foe.confused > 0, "seeded": foe.seeded, "identified": foe.identified,
+			"trapped": foe.trapped, "drowsy": foe.drowsy, "stages": foe.stages.duplicate()},
+		"me": {"sure_hit": me.sure_hit, "status": me.status, "confused": me.confused > 0, "stages": me.stages.duplicate(),
+			"hp_ratio": float(me.hp) / maxf(1.0, float(me.max_hp))}}
+
 static func plan(b: PkmnBattle, side: String) -> Array:
 	var me = b.fighter(side)
 	var foe = b.fighter(b.other(side))
@@ -27,16 +36,17 @@ static func plan(b: PkmnBattle, side: String) -> Array:
 	if ids.is_empty(): return []
 	var A := BattleConfig.sect("ai")
 	var jitter := float(A.get("jitter", 0.1))
+	var state := state_ctx(b, side)
 	if String(me.ai) == "wild":
 		var st := String(BattleEnergy.species_data(e.species).get("ai", "strategic"))
-		return e.plan_turn(ids, st, {"uses": me.uses, "rng": b.rng, "jitter": jitter})
+		return e.plan_turn(ids, st, {"uses": me.uses, "rng": b.rng, "jitter": jitter, "foe": state.foe, "me": state.me})
 	var P := personality(String(me.ai))
-	var ctx := {"uses": me.uses, "rng": b.rng, "jitter": jitter, "move_bonus": {}, "exclude": [],
+	var ctx := {"uses": me.uses, "rng": b.rng, "jitter": jitter, "move_bonus": {}, "exclude": [], "foe": state.foe, "me": state.me,
 		"role_w": {"offense": float(P.get("offense", 1.0)), "disruption": float(P.get("disruption", 1.0))}}
 	var rv := float(A.get("reaction_value", 30.0))
 	var foe_threat: bool = foe.e.available() > 0 or not foe.e.commit.is_empty()
 	# reactions: set one when the foe can attack, by temperament
-	if foe_threat and b.rng.randf() < float(P.get("reaction_rate", 0.3)):
+	if foe_threat and b.rng.randf() < float(P.get("reaction_rate", 0.3)) * float(A.get("reaction_rate_scale", 1.0)):
 		ctx.reaction_value = rv * 1.6
 		# a known physical strike coming (Dig, Fly...): Counter is a sure read
 		if not foe.e.commit.is_empty() and String(BattleEnergy.move(String(foe.e.commit.move)).get("category", "")) == "physical":
