@@ -18,7 +18,8 @@ extends Node
 # face, cam_speed, invert_y, deadzone, clock ("game" | "real"), day_len (real
 # minutes per game day), clock_hud, town_debug (clock.gd, life.gd), bike_assist / bike_goal / bike_cruise
 # (the road assist, its routing to the compass's goal, double-tap cruise: bike/assist.gd), auto_update
-# (updater.gd), music, music_vol (music.gd), sfx_vol, amb_vol, ui_sfx (sfx.gd).
+# (updater.gd), music, music_vol (music.gd), sfx_vol, amb_vol, ui_sfx (sfx.gd), wild_peek
+# ("hidden" | "peek": a wild Pokémon in the tall grass shows only by the grass, or peeks out; wild/wild.gd).
 #
 # Viewport-wide things (render scale, upscaler, anti-aliasing, frame cap,
 # shadow atlas size and filter, outlines through the Ink autoload) are applied
@@ -59,6 +60,7 @@ const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "inv
 	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
+	"wild_peek": "hidden",
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
@@ -94,6 +96,7 @@ const ROWS := {
 		["trees", "Trees", [0.3, 0.45, 0.6, 0.8, 1.0, 1.25, 1.5], ""],
 		["plants", "Bushes and flowers", [0.25, 0.5, 0.75, 1.0, 1.25, 1.5], ""],
 		["fog", "Haze distance", [0.6, 0.8, 1.0, 1.25, 1.5, 2.0], ""],
+		["wild_peek", "Pokémon in the grass", ["hidden", "peek"], "a wild Pokémon hiding in tall grass: only the grass gives it away, or it peeks out"],
 	],
 	"Controls": [
 		["face", "Face buttons", ["nintendo", "xbox"], "Switch / GameCube pads: A right"],
@@ -198,7 +201,7 @@ func step(key: String, values: Array, d: int) -> void:
 			for k in values.size():
 				if absf(float(values[k]) - float(v)) < absf(float(values[i]) - float(v)): i = k
 	var n := values.size()
-	if key in ["preset", "face", "upscale", "aa", "clock", "island_side"] or values == [0, 1]:
+	if key in ["preset", "face", "upscale", "aa", "clock", "island_side", "wild_peek"] or values == [0, 1]:
 		i = (i + d + n) % n                      # choices wrap round
 	else:
 		i = clampi(i + d, 0, n - 1)
@@ -226,6 +229,7 @@ func fmt(key: String, v) -> String:
 		"clock": return "Real time" if v == "real" else "Game time"
 		"day_len": return "%d min" % int(v)
 		"island_side": return "Left" if v == "left" else "Right"
+		"wild_peek": return "Peeking (model visible)" if v == "peek" else "Hidden (grass only)"
 		"island_dx", "island_dy", "island_w", "island_h": return "%d pt" % int(v)
 	if typeof(v) == TYPE_INT and (v == 0 or v == 1): return "On" if v == 1 else "Off"
 	return str(v)
@@ -353,7 +357,7 @@ func _setup_input() -> void:
 	var nin: bool = get_value("face") == "nintendo"
 	var ok := JOY_BUTTON_B if nin else JOY_BUTTON_A
 	var no := JOY_BUTTON_A if nin else JOY_BUTTON_B
-	for pair in [["use", ok], ["back", no], ["ui_accept", ok], ["ui_cancel", no]]:
+	for pair in [["use", ok], ["back", no], ["crouch", no], ["ui_accept", ok], ["ui_cancel", no]]:
 		var act: String = pair[0]
 		if not InputMap.has_action(act): InputMap.add_action(act)
 		for e in InputMap.action_get_events(act):
