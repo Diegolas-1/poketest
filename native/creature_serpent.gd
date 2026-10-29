@@ -305,7 +305,7 @@ func _act(P: Dictionary, dt: float, u: float, d: float) -> void:
 			P.sway += 1.2 * env
 			P.hood += 0.5 * env
 			P.tongue = bump(u, 0.5, 1.0) + bump(u, 1.4, 1.9)
-		"hood", "angry", "glare", "leer":
+		"hood", "angry", "glare", "leer", "growl":
 			P.rise += 0.45 * env
 			P.hood += 1.0 * env
 			P.sway += 0.4 * env

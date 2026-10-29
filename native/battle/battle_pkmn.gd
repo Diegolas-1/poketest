@@ -491,7 +491,8 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 	var col: Color = TYPE_COL.get(String(m.get("type", "normal")), Color.WHITE)
 	var o := B.other(s)
 	battle.ui.say(String(_f(s).name).to_upper(), String(m.get("name", id)).to_upper() + "!", col if col != TYPE_COL.normal else UITheme.ORANGE)
-	battle.shot("pk_" + s, 0.0)   # (a cut: a glide between the two sides passes overhead)
+	if D: _cut_doubles(s)
+	else: battle.shot("pk_" + s, 0.0)   # (a cut: a glide between the two sides passes overhead)
 	# a committed strike comes out of wherever it went (up, under)
 	if strike:
 		_semi[_key(s)] = ""
@@ -684,6 +685,22 @@ func _doubles_in() -> void:
 		await _send_out(s, String(D.at(s, 1).species))
 		_pl[s] = 0
 	if hud: hud.bind(B)
+
+# doubles: the battle's over-the-shoulder shots, from whichever place acts at its target
+func _cut_doubles(s: String) -> void:
+	var from := _pos(s)
+	var to := _pos_at(String(_tg.side), int(_tg.place))
+	var f: Vector3 = battle.fwd
+	var sd: Vector3 = battle.side
+	var up := Vector3.UP
+	var sh := {"pos": from - f * 1.3 + sd * 2.6 + up * 1.8, "look": to + up * 0.3 - f * 0.9, "fov": 50.0}
+	if s == "b": sh = {"pos": from + f * 2.0 - sd * 2.5 + up * 2.0, "look": to + up * 0.3 + f * 0.6, "fov": 52.0}
+	sh["rate"] = 4.0
+	sh["name"] = "_fixed"
+	battle._shot = sh
+	battle.cam_pos = sh.pos
+	battle.cam_look = sh.look
+	battle.cam_fov = sh.fov
 
 func _make_x2(s: String, sp: String) -> void:
 	if _x2[s] != null and is_instance_valid(_x2[s]): _x2[s].queue_free()
