@@ -37,6 +37,7 @@ extends Node
 
 const STANDIN := preload("res://wild/wild_standin.gd")
 const STUB := preload("res://wild/wild_battle_stub.gd")
+static var battle_override: Script = null   # (tests: the stand-in battle, which ends at once)
 const PUSH_W := 0.75       # a twitch's push radius (m)
 
 var game: Node
@@ -619,6 +620,7 @@ func _lunge(dt: float) -> void:
 
 # ---------- the battle (native/battle/ Battle, or the stand-in) ----------
 static func _battle_script() -> Script:
+	if battle_override: return battle_override
 	for c in ProjectSettings.get_global_class_list():
 		if String(c.get("class", "")) == "Battle": return load(String(c.path))
 	return STUB

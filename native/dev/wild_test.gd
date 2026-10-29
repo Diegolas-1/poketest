@@ -28,6 +28,8 @@ func ok(c: bool, what: String) -> void:
 	print(("PASS " if c else "FAIL ") + what)
 
 func _ready() -> void:
+	# the hunt's side of the hand-off is tested here; the battle itself in dev/battle_test
+	Wild.battle_override = Wild.STUB
 	_rules()
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
