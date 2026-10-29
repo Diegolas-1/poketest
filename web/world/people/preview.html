@@ -41,7 +41,7 @@ if (q.has('row')) {
 const t0 = performance.now();
 let x = 0;
 for (const prm of rows) {
-  const person = await makePerson(prm, { cell: +(q.get('res') || 0.005), direct: q.has('direct'), anim: q.has('anim') });
+  const person = await makePerson(prm, { cell: +(q.get('res') || 0.005), direct: q.has('direct'), anim: q.has('anim'), worker: q.has('worker') });
   if (q.has('anim')) { person.play(q.get('anim')); person.mixer.setTime(+(q.get('t') || 0)); }
   person.root.position.x = x; x += Math.max(0.6, person.H * 0.42);
   scene.add(person.root); people.push(person);

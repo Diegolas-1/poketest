@@ -8,12 +8,14 @@
 // outfit: [{ id, colourway, colors, params, pattern }] (outfit.js, catalog.json) }
 import * as THREE from 'three';
 import { buildBody, loadBase, base } from './gen.js';
+import { anatomy, posed } from './anatomy.js';
+import { compile } from './sdf.js';
+import { buildData, lookOf } from './build.js';
 import { BONE_NAMES, PARENT, NB } from './rig.js';
 import { skinMaterial } from './skin.js';
 import { clothMaterial } from './paint.js';
 import { context } from './wear.js';
-import { dress } from './outfit.js';
-import { buildHair } from './hair.js';
+import * as HAIR from './hair.js';
 
 // bones for a skeleton (local positions sk.t, rotations q)
 export function makeBones(sk, q) {
@@ -65,64 +67,105 @@ export function clipsFor(waistY) {
   });
 }
 
-export function lookOf(x = {}) { return x.body || x.outfit || x.skin ? x : { body: x, skin: x.skin ? { tone: x.skin } : undefined }; }
+export { lookOf };
 
+// ---------- building ----------
+// the worker (worker.js) that builds people off the page's thread, made on first use
+let WORKER = null, wid = 0;
+const waiting = new Map();
+function worker() {
+  if (WORKER === null) {
+    try {
+      WORKER = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+      WORKER.onmessage = (e) => { const w = waiting.get(e.data.id); if (!w) return; waiting.delete(e.data.id); e.data.error ? w.reject(new Error(e.data.error)) : w.resolve(e.data.data); };
+      WORKER.onerror = (e) => { for (const w of waiting.values()) w.reject(e); waiting.clear(); WORKER = false; };
+    } catch { WORKER = false; }
+  }
+  return WORKER || null;
+}
+// a person's data (build.js), in the worker when o.worker (and there is one), else here
+export async function personData(look, o = {}) {
+  const w = o.worker ? worker() : null;
+  if (w) {
+    try { return await new Promise((resolve, reject) => { const id = ++wid; waiting.set(id, { resolve, reject }); w.postMessage({ id, look }); }); }
+    catch (e) { console.warn('people worker failed, building on the page', e); }
+  }
+  await loadBase();
+  const cat = look.outfit && look.outfit.length ? await loadCatalog() : null;
+  return buildData(look, { base: base(), catalog: cat, hair: null });
+}
+
+// makePerson(look, { worker, anim }) -> { root, body, meshes, bones, skeleton, anat, H, look, missing, stats, mixer?, play?, dispose }
 export async function makePerson(input = {}, o = {}) {
   const look = lookOf(input);
-  if (!o.direct) await loadBase();
-  const b = buildBody(look.body || {}, o);
-  const A = b.anat;
-  const root = new THREE.Group();
-  const person = { root, anat: A, H: A.H, look, meshes: [], built: b };
-  // what they wear first: it says which parts of the body are covered
-  let worn = [];
-  const hide = new Float32Array(b.mesh.pos.length / 3);
-  if (!o.direct && look.outfit && look.outfit.length) {
-    const cat = await loadCatalog(), ctx = person.ctx = context(b, base());
-    const t0 = performance.now();
-    worn = dress(ctx, look.outfit, cat);
-    person.dressMs = Math.round(performance.now() - t0);
-    for (const w of worn) if (w.piece) for (let v = 0; v < hide.length; v++) if (w.piece.hide[v]) hide[v] = 1;
-    person.missing = worn.filter((w) => w.missing).map((w) => w.missing);
-  }
-  const g = geometryOf(b.mesh);
-  g.setAttribute('hide', new THREE.BufferAttribute(hide, 1));
-  const bodyMat = skinMaterial(look, base() ? base().land : A.L);
-  const bones = makeBones(A.sk, A.aq);
+  if (o.direct) return makeDirect(look, o);
+  const d = await personData(look, o);
+  return assemble(d, look, o);
+}
+
+export async function assemble(d, look, o = {}) {
+  const A = d.anat, root = new THREE.Group();
+  const person = { root, anat: A, H: A.H, look, meshes: [], missing: d.missing, data: d };
+  const g = geometryOf(d.body);
+  g.setAttribute('hide', new THREE.BufferAttribute(d.body.hide, 1));
+  if (!base()) await loadBase();
+  const bodyMat = skinMaterial(look, base().land);
+  const bones = makeBones({ t: A.t }, A.aq);
   root.add(bones[0]);
   root.updateMatrixWorld(true);
   const skeleton = new THREE.Skeleton(bones);
   const add = (geo, mat, name) => {
-    const m = b.mesh.skin ? new THREE.SkinnedMesh(geo, mat) : new THREE.Mesh(geo, mat);
+    const m = new THREE.SkinnedMesh(geo, mat);
     m.name = name; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
-    root.add(m);
-    if (m.isSkinnedMesh) m.bind(skeleton);
+    root.add(m); m.bind(skeleton);
     person.meshes.push(m);
     return m;
   };
   person.body = add(g, bodyMat, 'body');
-  for (const w of worn) {
-    if (!w.piece) continue;
-    const mat = clothMaterial({ colors: w.paint.colors, glsl: w.paint.glsl, params: w.paint.params, double: w.piece.double, inside: w.paint.inside });
-    const m = add(geometryOf(w.piece.mesh), mat, w.item.id);
+  for (const w of d.worn) {
+    const mat = clothMaterial({ colors: w.paint.colors, glsl: w.paint.glsl, params: w.paint.params, double: w.double, inside: w.paint.inside });
+    const m = add(geometryOf(w.mesh), mat, w.item.id);
     m.userData.item = w.item; m.userData.slot = w.slot;
   }
-  // hair (hair.js): pieces with their own materials; flattened under a hat
-  if (!o.direct && look.hair) {
-    const ctx = person.ctx || context(b, base());
-    const hatOn = worn.some((w) => w.slot === 'hat' && w.piece);
+  // hair: built with the rest when a pure hair builder exists (hairgen.js), else here
+  let hairMs = 0;
+  if (look.hair) {
+    const t = performance.now();
     let hair = [];
-    try { hair = buildHair(ctx, look.hair, { hatOn, look }) || []; } catch (e) { console.warn('hair', e); }
+    try {
+      if (d.hair && HAIR.hairMaterial) hair = d.hair.map((h) => ({ piece: { mesh: h.mesh }, material: HAIR.hairMaterial(h.paint) }));
+      else {
+        // the field and fitting context are made again here (cheap) for the hair builder
+        const ctx = d._ctx || contextFromData(d, look);
+        const hatOn = d.worn.some((w) => w.slot === 'hat');
+        hair = HAIR.buildHair(ctx, look.hair, { hatOn, look }) || [];
+      }
+    } catch (e) { console.warn('hair', e); }
     for (const h of hair) if (h && h.piece) { const m = add(geometryOf(h.piece.mesh), h.material, 'hair'); m.userData.slot = 'hair'; }
+    hairMs = Math.round(performance.now() - t);
   }
   person.bones = bones; person.skeleton = skeleton;
-  person.stats = `${(A.H * 100).toFixed(0)}cm ${b.mesh.pos.length / 3}v ${b.ms}ms` + (person.dressMs !== undefined ? ` +${worn.length} pieces ${person.dressMs}ms` : '');
-  if (o.anim && b.mesh.skin) {
+  person.stats = `${(A.H * 100).toFixed(0)}cm ${d.body.pos.length / 3}v body ${d.ms.body}ms` + (d.ms.dress !== undefined ? ` +${d.worn.length} pieces ${d.ms.dress}ms` : '') + (look.hair ? ` hair ${d.ms.hair ?? hairMs}ms` : '');
+  if (o.anim) {
     await loadClips();
-    const mixer = new THREE.AnimationMixer(root), clips = clipsFor(A.sk.pos[1][1]);
+    const mixer = new THREE.AnimationMixer(root), clips = clipsFor(A.waistY);
     person.mixer = mixer; person.clips = clips;
     person.play = (name) => { mixer.stopAllAction(); const c = clips.find((x) => x.name === name); if (c) mixer.clipAction(c).play(); };
   }
   person.dispose = () => { for (const m of person.meshes) { m.geometry.dispose(); m.material.dispose(); } };
   return person;
+}
+function contextFromData(d, look) {
+  const anat = anatomy(look.body || {}), field = compile(posed(anat.tree, anat.ad));
+  const mesh = { ...d.body };
+  return context({ anat, mesh, field }, base());
+}
+
+// meshed straight from the field (no base, nothing worn): for checking the base itself
+async function makeDirect(look, o) {
+  const b = buildBody(look.body || {}, o), A = b.anat, root = new THREE.Group();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(b.mesh.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(b.mesh.nrm, 3)); g.setIndex(new THREE.BufferAttribute(b.mesh.idx, 1));
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: '#f6d2b8' })); m.castShadow = true; root.add(m);
+  return { root, body: m, meshes: [m], anat: A, H: A.H, look, stats: `${(A.H * 100).toFixed(0)}cm ${b.mesh.pos.length / 3}v ${b.ms}ms (direct)`, dispose: () => { g.dispose(); m.material.dispose(); } };
 }
