@@ -1160,10 +1160,10 @@ export function townsfolk(K) {
       // the bangs: chunky locks lifting off the forehead and arcing down and over to his right, a
       // row along the hairline and a row further back on the front of the head; stiffer, so they
       // keep off his eyes
-      // [azimuth and elevation of its root, of its tip, how far its tip lifts off]: each grows out
-      // of the cap and runs down over the forehead and across to his right, lying on the hair
-      // and lifting off only towards its point
-      const bang = (az0, el0, az1, el1, lift, r0) => ({ r0, at: (t) => scalp.on(lerp(az0, az1, t), lerp(el0, el1, t), lift * t ** 1.6) });
+      // [azimuth and elevation of its root, of its tip, how far its tip lifts off]: made like the
+      // spikes (a full, rounded lock, its root buried in the hair), each arcs up out of the cap and
+      // over, down the forehead and across to his right, its point just off the forehead
+      const bang = (az0, el0, az1, el1, lift, r0) => ({ r0: r0 * 1.15, at: (t) => scalp.on(lerp(az0, az1, t), lerp(el0, el1, t), -0.016 + (0.016 + lift) * t ** 1.2 + 0.012 * Math.sin(Math.PI * Math.min(1, t * 1.2))) });
       bouncyLocks(G, 'gary_bangs', c.hair, c.hair2, [
         bang(0.55, 0.8, 0.25, 0.28, 0.012, 0.055),       // along the hairline, down to the brows
         bang(0.25, 0.85, -0.08, 0.25, 0.014, 0.06),
@@ -1291,7 +1291,7 @@ export function townsfolk(K) {
     const c0 = new V3(0, 1.2, -0.012), B = G.build(), N = 12, NC = 10;
     // each: [azimuth of the root (0 front, + his left), its elevation on the head, the direction it
     // rises in, the direction it arcs out to, length, width], or { r0, at(t) } a lock along a given
-    // path (lying flat on the head)
+    // path
     list.forEach((L, li) => {
       let at, r0, flat;
       if (Array.isArray(L)) {
@@ -1299,7 +1299,7 @@ export function townsfolk(K) {
         const out = V(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
         const p0 = c0.clone().addScaledVector(out, 0.085), p1 = p0.clone().addScaledVector(V(...d0).normalize(), len * 0.55), p2 = p1.clone().addScaledVector(V(...d1).normalize(), len * 0.6);
         at = (t) => p0.clone().multiplyScalar((1 - t) ** 2).addScaledVector(p1, 2 * (1 - t) * t).addScaledVector(p2, t * t);
-      } else { at = L.at; r0 = L.r0; flat = c0; }
+      } else { at = L.at; r0 = L.r0; }
       const p0 = at(0), pts = [0, 0.25, 0.5, 0.75, 1].map((t) => at(t).toArray());
       const geo = flat ? lock(pts, r0, 0.42, 0.0015, N, NC, flat) : lock(pts, r0, 0.55, 0.0015, N, NC);
       // its two bones: at the root and halfway, the tip beyond
