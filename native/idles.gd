@@ -255,7 +255,99 @@ static func _defs() -> Dictionary:
 			"body": [[0, {}], [0.5, {"lean": 0.12, "hp": 0.3, "sh": 0.01}], [2.0, {"lean": 0.14, "hp": 0.28, "sh": 0.015}], [2.5, {"lean": 0.04, "hp": 0.05}], [3.0, {}]],
 			"gaze": [[0, {"y": 0, "p": 0}], [0.5, {"y": 0, "p": 0.45}], [2.0, {"y": 0, "p": 0.4}], [3.0, {"y": 0, "p": 0}]]},
 	}
+	ACTIONS.merge(_battle_defs())
 	return ACTIONS
+
+# ---------- battle acting (battle/battle.gd forces these; never picked at random) ----------
+# Ash with no Pokémon, facing a wild one: kicking sand at it, a big shout with his
+# arms up, a rock thrown, flinching, shielding his face from Gust's wind, rubbing
+# sand out of his eyes, knocked back by a hit, crumpling to the ground; and for the
+# grown-ups who come to help him, kneeling beside him.
+static func _battle_defs() -> Dictionary:
+	var GUARD_R := {"at": HD(-0.07, -0.04, 0.24), "pole": [-1, -0.8, 0.1], "wt": 0.6, "wf": -0.2, "cu": 0.6}
+	var GUARD_L := {"at": HD(0.07, -0.07, 0.25), "pole": [1, -0.8, 0.1], "wt": 0.6, "wf": -0.2, "cu": 0.6}
+	var SHIELD_R := {"at": HD(0.03, 0.03, 0.21), "pole": [-1, -0.5, 0.1], "wt": 0.9, "wf": -0.3, "cu": 0.3}
+	var SHIELD_L := {"at": HD(-0.04, -0.03, 0.24), "pole": [1, -0.5, 0.1], "wt": 0.9, "wf": -0.3, "cu": 0.3}
+	var EYE_R := {"at": HD(-0.035, 0.07, 0.13), "pole": [-1, -0.9, 0.0], "wt": 0.4, "wf": 0.3, "cu": 0.7}
+	var EYE_L := {"at": HD(0.035, 0.07, 0.13), "pole": [1, -0.9, 0.0], "wt": 0.4, "wf": 0.3, "cu": 0.7}
+	var UP_R := func(x, z): return {"at": CH(-x * 0.75, -0.12, z + 0.26), "pole": [-1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
+	var UP_L := func(x, z): return {"at": CH(x * 0.75, -0.12, z + 0.26), "pole": [1, -0.2, -0.4], "wt": 0.2, "wf": -0.4, "cu": -0.3}
+	var HIDE := {"dy": -0.58, "dz": -0.1, "wp": 0.3, "lean": 0.55, "ko": 0.4, "heel": 0.55, "hp": 0.42, "sh": 0.08, "eye": 0}
+	var HIDE_R := {"at": HD(-0.1, 0.16, 0.06), "pole": [-1, 0.2, -0.4], "wt": 0.6, "wf": -0.3, "cu": 0.5}
+	var HIDE_L := {"at": HD(0.1, 0.17, 0.04), "pole": [1, 0.2, -0.4], "wt": 0.6, "wf": -0.3, "cu": 0.5}
+	var KNEEL := {"dy": -0.52, "dz": -0.08, "wp": 0.35, "lean": 0.28, "ko": 0.42, "heel": 0.6, "hp": 0.15}
+	var SLUMP := {"dy": -0.63, "dz": -0.54, "wp": 0.2, "lean": 0.42, "ko": 0.35, "seat": 1, "gap": 0, "hp": 0.42, "side": 0.08, "sh": 0.04}
+	return {
+		# Kick Sand: weight back, the right foot swung through low and up, scooping the dirt at it
+		"b_kick": {"dur": 1.25, "talk": true, "player": true, "fx": "kick",
+			"armL": [[0, null], [0.25, {"at": CH(0.3, -0.22, 0.12), "pole": [1, -0.4, -0.2], "wf": -0.2, "cu": 0.2}], [0.75, {"at": CH(0.33, -0.25, 0.16), "pole": [1, -0.4, -0.2], "cu": 0.2}], [1.2, null]],
+			"armR": [[0, null], [0.25, {"at": CH(-0.26, 0.12, 0.06), "pole": [-1, -0.3, -0.5], "cu": 0.3}], [0.75, {"at": CH(-0.3, 0.15, 0.1), "pole": [-1, -0.3, -0.5], "cu": 0.3}], [1.2, null]],
+			"body": [[0, {}], [0.25, {"lean": 0.12, "tw": 0.12, "hp": 0.1}], [0.45, {"lean": -0.16, "tw": -0.16, "hp": -0.05, "side": -0.05}], [0.75, {"lean": -0.08, "tw": -0.08}], [1.25, {}]]},
+		# Startle: a big shout, both arms flung up and waving wide, leaning in at it
+		"b_startle": {"dur": 1.9, "talk": true, "player": true,
+			"armL": [[0, null], [0.2, UP_L.call(0.3, 0.5)], [0.5, UP_L.call(0.48, 0.38)], [0.8, UP_L.call(0.28, 0.56)], [1.1, UP_L.call(0.48, 0.38)], [1.4, UP_L.call(0.3, 0.52)], [1.85, null]],
+			"armR": [[0, null], [0.22, UP_R.call(0.3, 0.5)], [0.55, UP_R.call(0.28, 0.56)], [0.85, UP_R.call(0.48, 0.38)], [1.15, UP_R.call(0.28, 0.56)], [1.45, UP_R.call(0.45, 0.4)], [1.85, null]],
+			"body": [[0, {}], [0.2, {"lean": 0.16, "hp": -0.18, "sh": 0.08, "jaw": 0.55}], [0.6, {"lean": 0.2, "hp": -0.22, "sh": 0.08, "jaw": 0.6, "side": 0.04}],
+				[1.0, {"lean": 0.18, "hp": -0.2, "sh": 0.07, "jaw": 0.5, "side": -0.04}], [1.4, {"lean": 0.12, "hp": -0.12, "sh": 0.04, "jaw": 0.3}], [1.9, {}]]},
+		# Throw a Rock: down for a stone, up, the arm back behind the head, the throw and the follow-through
+		"b_throw": {"dur": 1.75, "talk": true, "player": true, "legs": true,
+			"body": [[0, {}], [0.35, {"dy": -0.34, "dz": -0.04, "lean": 0.5, "ko": 0.3, "heel": 0.2, "hp": 0.3}], [0.55, {"dy": -0.33, "dz": -0.04, "lean": 0.48, "ko": 0.3, "heel": 0.2, "hp": 0.25}],
+				[0.85, {"dy": -0.04, "lean": -0.12, "tw": 0.4, "hp": -0.08}], [1.0, {"dy": -0.07, "lean": 0.3, "tw": -0.38, "hp": 0.02}], [1.25, {"dy": -0.05, "lean": 0.18, "tw": -0.22}], [1.75, {}]],
+			"armR": [[0, null], [0.35, {"at": GR(-0.17, 0.1, 0.42), "pole": [-1, 0, -1], "wf": -0.3, "cu": 0.4}], [0.55, {"at": GR(-0.17, 0.13, 0.4), "pole": [-1, 0, -1], "cu": 0.8}],
+				[0.85, {"at": HD(-0.24, 0.1, -0.24), "pole": [-1, -0.4, -0.6], "wt": 0.4, "cu": 0.8}], [1.0, {"at": CH(-0.1, -0.56, 0.3), "pole": [-1, -0.6, 0], "wf": 0.3, "cu": 0.1}],
+				[1.25, {"at": CH(0.0, -0.4, -0.02), "pole": [-1, -0.6, 0], "cu": 0.1}], [1.7, null]],
+			"armL": [[0, null], [0.4, {"at": KN("L", -0.02, 0.06, 0.1), "pole": [0.6, -0.6, -0.5], "wf": 0.4}], [0.85, {"at": CH(0.22, -0.38, 0.26), "pole": [1, -0.5, -0.1], "cu": 0.1}],
+				[1.1, {"at": CH(0.26, 0.05, 0.05), "pole": [1, -0.5, -0.4], "cu": 0.3}], [1.7, null]]},
+		# Hide: down in the grass as small as he can get, on his heels, arms wrapped
+		# over his head, peeking out under them and trembling (held: battle.gd releases it)
+		"b_hide": {"dur": 30.0, "stretch": [1.0, 28.0], "talk": true, "player": true, "legs": true, "fx": "shield",
+			"body": [[0, {}], [0.3, {"dy": -0.3, "dz": -0.04, "lean": 0.4, "ko": 0.3, "heel": 0.3, "hp": 0.25}], [0.7, HIDE], [28.0, HIDE], [29.0, {"dy": -0.3, "lean": 0.3, "ko": 0.3, "heel": 0.3}], [30.0, {}]],
+			"armR": [[0, null], [0.4, SHIELD_R], [0.75, HIDE_R], [28.0, HIDE_R], [29.0, null]],
+			"armL": [[0, null], [0.45, SHIELD_L], [0.8, HIDE_L], [28.0, HIDE_L], [29.0, null]],
+			"gaze": [[0, {"y": 0, "p": 0}], [0.8, {"y": 0, "p": -0.15}], [28.0, {"y": 0.1, "p": -0.15}], [30.0, {"y": 0, "p": 0}]]},
+		# a flinch: hands up in front of the face, a duck of the head
+		"b_flinch": {"dur": 0.75, "talk": true, "player": true,
+			"armR": [[0, null], [0.12, GUARD_R], [0.45, GUARD_R], [0.75, null]],
+			"armL": [[0, null], [0.14, GUARD_L], [0.45, GUARD_L], [0.75, null]],
+			"body": [[0, {}], [0.1, {"lean": -0.2, "hp": 0.15, "sh": 0.09, "side": 0.04}], [0.45, {"lean": -0.1, "hp": 0.1, "sh": 0.06}], [0.75, {}]]},
+		# Gust: arms crossed before his face, leaning into the wind, head down, trembling
+		"b_shield": {"dur": 2.6, "stretch": [0.5, 2.0], "talk": true, "player": true, "fx": "shield",
+			"armR": [[0, null], [0.22, SHIELD_R], [2.2, SHIELD_R], [2.6, null]],
+			"armL": [[0, null], [0.25, SHIELD_L], [2.2, SHIELD_L], [2.6, null]],
+			"body": [[0, {}], [0.25, {"lean": 0.3, "hp": 0.3, "sh": 0.08, "side": 0.03}], [1.2, {"lean": 0.34, "hp": 0.32, "sh": 0.09, "side": -0.03}], [2.2, {"lean": 0.28, "hp": 0.25, "sh": 0.07}], [2.6, {}]]},
+		# sand in his eyes: both fists rubbing at them, head bowed, eyes screwed shut
+		"b_rub": {"dur": 2.2, "talk": true, "player": true, "fx": "rub",
+			"armR": [[0, null], [0.25, EYE_R], [1.9, EYE_R], [2.2, null]],
+			"armL": [[0, null], [0.3, EYE_L], [1.9, EYE_L], [2.2, null]],
+			"body": [[0, {}], [0.3, {"lean": 0.14, "hp": 0.28, "sh": 0.06, "eye": 1}], [1.0, {"lean": 0.12, "hp": 0.22, "sh": 0.05, "eye": 1, "hr": 0.08}], [1.9, {"lean": 0.1, "hp": 0.2, "eye": 1, "hr": -0.06}], [2.2, {}]],
+			"gaze": [[0, {"y": 0, "p": 0}], [2.2, {"y": 0, "p": 0}]]},
+		# knocked back by a hit: thrown back from the chest, arms flung out, then catching himself
+		"b_knock": {"dur": 1.15, "talk": true, "player": true,
+			"armR": [[0, null], [0.1, {"at": CH(-0.45, 0.12, 0.22), "pole": [-1, 0.2, -0.3], "wf": -0.3, "cu": -0.3}], [0.45, {"at": CH(-0.38, 0.05, 0.1), "pole": [-1, -0.3, -0.3], "cu": 0.1}], [1.0, null]],
+			"armL": [[0, null], [0.1, {"at": CH(0.45, 0.12, 0.25), "pole": [1, 0.2, -0.3], "wf": -0.3, "cu": -0.3}], [0.45, {"at": CH(0.38, 0.05, 0.1), "pole": [1, -0.3, -0.3], "cu": 0.1}], [1.0, null]],
+			"body": [[0, {}], [0.1, {"lean": -0.42, "hp": -0.35, "sh": 0.1, "side": 0.06, "jaw": 0.3, "eye": 1}], [0.45, {"lean": -0.18, "hp": -0.1, "sh": 0.04, "jaw": 0.1}], [0.75, {"lean": 0.12, "hp": 0.15}], [1.15, {}]]},
+		# down: the knees go, a hand down to the ground, sitting slumped, a hand to his side
+		"b_crumple": {"dur": 30.0, "stretch": [2.0, 28.0], "talk": true, "player": true, "legs": true, "kup": 1.0,
+			"body": [[0, {}], [0.25, {"dy": -0.2, "lean": 0.25, "hp": 0.2, "ko": 0.2, "eye": 1}], [0.75, {"dy": -0.5, "dz": -0.1, "wp": 0.3, "lean": 0.5, "ko": 0.4, "heel": 0.5, "hp": 0.35, "gap": 0.2}],
+				[1.35, {"dy": -0.6, "dz": -0.42, "wp": 0.2, "lean": 0.4, "ko": 0.36, "heel": 0.05, "seat": 0.5, "gap": 0.05, "hp": 0.4}], [2.0, SLUMP], [28.0, SLUMP],
+				[29.0, {"dy": -0.45, "dz": -0.12, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.35, "gap": 0.2}], [30.0, {}]],
+			"armL": [[0, null], [0.75, {"at": GR(0.24, 0.06, 0.3), "pole": [0.6, 0, -1], "wf": -0.3, "cu": -0.1}], [2.0, {"at": GR(0.3, 0.04, -0.05), "pole": [0.8, 0, -0.6], "wf": -0.3, "cu": 0.0}],
+				[28.0, {"at": GR(0.3, 0.04, -0.05), "pole": [0.8, 0, -0.6], "wf": -0.3, "cu": 0.0}], [29.0, null]],
+			"armR": [[0, null], [0.8, TUM], [2.0, TUM2], [28.0, TUM2], [29.0, null]],
+			"gaze": [[0, {"y": 0, "p": 0}], [1.0, {"y": 0.1, "p": 0.35}], [28.0, {"y": 0.1, "p": 0.3}], [30.0, {"y": 0, "p": 0}]]},
+		# kneeling down by someone on the ground: a hand on her knee, the other reaching to him
+		"b_kneel": {"dur": 60.0, "stretch": [1.5, 58.0], "talk": true, "legs": true,
+			"body": [[0, {}], [0.5, {"dy": -0.3, "lean": 0.3, "ko": 0.3, "heel": 0.3}], [1.1, KNEEL], [58.0, KNEEL], [59.2, {"dy": -0.2, "lean": 0.15}], [60.0, {}]],
+			"armL": [[0, null], [1.0, {"at": KN("L", -0.02, 0.06, 0.1), "pole": [0.6, -0.6, -0.5], "wf": 0.4}], [58.0, {"at": KN("L", -0.02, 0.06, 0.1), "pole": [0.6, -0.6, -0.5], "wf": 0.4}], [59.0, null]],
+			"armR": [[0, null], [1.1, {"at": GR(-0.12, 0.45, 0.5), "pole": [-1, -0.6, -0.2], "wf": -0.2, "wt": 0.6, "cu": 0.1}], [58.0, {"at": GR(-0.12, 0.45, 0.5), "pole": [-1, -0.6, -0.2], "wf": -0.2, "wt": 0.6, "cu": 0.1}], [59.0, null]]},
+	}
+
+# a ready stance for a battle (battle.gd sets idles.stance = "battle"): weight forward, fists up
+static func battle_stance() -> Dictionary:
+	return {
+		"armR": {"at": CH(-0.17, -0.27, 0.06), "pole": [-1, -0.7, -0.3], "wt": 0.3, "cu": 0.9},
+		"armL": {"at": CH(0.17, -0.25, 0.1), "pole": [1, -0.7, -0.3], "wt": 0.3, "cu": 0.9},
+		"body": {"lean": 0.12, "legs_in": -0.05, "hp": -0.05}}
 
 # the hand on the tummy (the front of the belly, over the jacket), and a little to the side
 const TUM := {"at": ["Hips", -0.02, 0.13, 0.16], "pole": [-1, -0.5, -0.3], "wf": 0.1, "cu": 0.15}
@@ -275,6 +367,7 @@ static func _stances() -> Dictionary:
 			"armR": {"at": H(-0.006, -0.14, 0.19), "pole": [-1, 0.0, 0.25], "wf": -0.2, "wd": 0.3, "wt": 0.5, "cu": 0.35},
 			"armL": {"at": H(0.022, -0.16, 0.178), "pole": [1, 0.0, 0.25], "wf": -0.2, "wd": 0.3, "wt": 0.5, "cu": 0.45},
 			"body": {"lean": -0.03, "legs_in": 0.035, "hp": -0.02}},
+		"battle": battle_stance(),
 	}
 	return STANCES
 
@@ -525,6 +618,24 @@ func _fx(id: String, a: Dictionary, t: float, env0: float) -> void:
 			b.call(s + "Thigh", 1, 0, 0, -0.1 * env); b.call(s + "Leg", 1, 0, 0, 0.35 * env); b.call(s + "Foot", 1, 0, 0, 0.45 * env)
 			b.call(s + "Thigh", 0, 1, 0, sin(t * 3.6) * 0.26 * env)
 			b.call("Spine1", 0, 0, 1, (-0.03 if s == "L" else 0.03) * env)
+		"kick":
+			# the right leg: drawn back (knee bent), swung through low and up, set back down
+			var env := env0
+			var ts := [0.0, 0.26, 0.44, 0.62, 1.15]
+			b.call("RThigh", 1, 0, 0, mono(ts, [0.0, -0.42, 1.05, 0.8, 0.0], t) * env)
+			b.call("RLeg", 1, 0, 0, mono(ts, [0.0, 1.1, 0.12, 0.3, 0.0], t) * env)
+			b.call("RFoot", 1, 0, 0, mono(ts, [0.0, 0.35, -0.35, -0.2, 0.0], t) * env)
+			b.call("LLeg", 1, 0, 0, mono(ts, [0.0, 0.18, 0.12, 0.1, 0.0], t) * env)
+			b.call("LThigh", 1, 0, 0, mono(ts, [0.0, 0.12, 0.05, 0.06, 0.0], t) * env)
+		"shield":
+			# trembling against the wind
+			var k := _sm(0.2, 0.4, t) * (1.0 - _sm(2.0, 2.4, t)) * env0
+			a.wob.L = sin(t * 41.0) * 0.007 * k
+			a.wob.R = sin(t * 37.0 + 1.3) * 0.007 * k
+		"rub":
+			var k := _sm(0.25, 0.45, t) * (1.0 - _sm(1.7, 2.0, t)) * env0
+			a.wob.L = sin(t * 15.0) * 0.014 * k
+			a.wob.R = sin(t * 15.0 + PI) * 0.014 * k
 		"shoulders":
 			var u := t / 1.8
 			var env := _sm(0.0, 0.15, u) * (1.0 - _sm(0.85, 1.0, u)) * env0

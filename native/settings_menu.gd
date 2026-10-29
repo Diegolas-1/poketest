@@ -316,21 +316,21 @@ func _legend() -> void:
 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(cl)
 	var grid := Control.new()
-	var items := [["pad", "use", "Talk, confirm"], ["pad", "back", "Back, cancel"], ["pad", "jump", "Jump (X or Y)"],
-		["pad", "run", "Run (hold R / ZR)"], ["pad", "recenter", "Camera behind you (L / ZL)"], ["pad", "menu", "This menu (Start / +)"],
-		["keys", "use", "Talk"], ["keys", "jump", "Jump"], ["keys", "run", "Run (hold)"],
+	var items := [["pad", "use", "Talk, confirm, pounce"], ["pad", "back", "Back; crouch (on foot)"], ["pad", "jump", "Jump (X or Y)"],
+		["pad", "run", "Run (hold R / ZR)"], ["pad", "recenter", "Camera behind you (L / ZL)"], ["pad", "menu", "This menu (Start / +)"], ["pad", "quests", "Quest log"],
+		["keys", "use", "Talk, pounce"], ["keys", "crouch", "Crouch (toggle)"], ["keys", "jump", "Jump"], ["keys", "run", "Run (hold)"],
 		["keys", "recenter", "Recenter camera"], ["keys", "menu", "This menu"], ["keys", "quests", "Quest log"]]
-	grid.custom_minimum_size = Vector2(0, 6 * 40 + 40)
+	grid.custom_minimum_size = Vector2(0, 7 * 40 + 40)
 	grid.draw.connect(func():
 		for i in items.size():
 			var it: Array = items[i]
 			var colx := 0.0 if it[0] == "pad" else grid.size.x * 0.5
-			var y := 30.0 + (i % 6) * 40.0
-			if i % 6 == 0: UITheme.text(grid, Vector2(colx, 12), "GAMEPAD" if it[0] == "pad" else "KEYBOARD", "label", 16, UITheme.TEXT_DIM)
+			var y := 30.0 + (i % 7) * 40.0
+			if i % 7 == 0: UITheme.text(grid, Vector2(colx, 12), "GAMEPAD" if it[0] == "pad" else "KEYBOARD", "label", 16, UITheme.TEXT_DIM)
 			var gw := UITheme.glyph(grid, Vector2(colx + 30.0, y + 14.0), it[1], 28.0, 1.0, it[0])
 			UITheme.text_mid(grid, Vector2(colx + 30.0 + maxf(gw, 28.0) * 0.5 + 14.0, y + 14.0), it[2], "body", 18, UITheme.TEXT))
 	box.add_child(grid)
-	var kl := UITheme.label("Keyboard: WASD move, arrows camera, Shift run, Space jump, E talk, C recenter, M menu, J quest log", "body", 16, UITheme.TEXT_DIM)
+	var kl := UITheme.label("Keyboard: WASD move, arrows camera, Shift run, Ctrl crouch, Space jump, E talk, C recenter, M menu, J quest log", "body", 16, UITheme.TEXT_DIM)
 	kl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(kl)
 

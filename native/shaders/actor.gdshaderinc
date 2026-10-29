@@ -23,7 +23,17 @@ uniform vec3 lit_add = vec3(0.02, 0.02, 0.01);
 uniform float soft = 0.025;
 uniform float wet_y = -10000.0;
 uniform float wet_k = 1.0;
+// scraped and dirty (body.gd, the "scraped" condition, 0..1): dirt ground into the
+// clothes in patches, scratches on the bare skin; not on the eyes (wet_k 0)
+uniform float dirt = 0.0;
 varying vec3 v_wp;
+
+float a_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float a_noise(vec2 p) {
+	vec2 i = floor(p), f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(a_hash(i), a_hash(i + vec2(1, 0)), f.x), mix(a_hash(i + vec2(0, 1)), a_hash(i + vec2(1, 1)), f.x), f.y);
+}
 
 void vertex() {
 	if (lift > 0.0) VERTEX += NORMAL * lift;
@@ -48,6 +58,23 @@ void fragment() {
 		vec3 w = sat * sat * 0.55 + sat * 0.17;   // darker, deeper colour
 		float mark = (1.0 - smoothstep(0.0, 0.022, abs(y - wet_y + 0.012))) * 0.22 * wet_k * (1.0 - 0.85 * skin);
 		c.rgb = mix(c.rgb, w, wet) * (1.0 - mark);
+	}
+	if (dirt > 0.001 && wet_k > 0.0) {
+		float rb2 = c.r - c.b;
+		float skin2 = step(0.6, c.r) * step(c.b, c.g) * step(c.g, c.r) * smoothstep(0.06, 0.12, rb2) * (1.0 - smoothstep(0.38, 0.48, rb2));
+		vec2 duv = UV * 9.0;
+		float n = a_noise(duv) * 0.6 + a_noise(duv * 2.7 + 1.7) * 0.4;
+		float patch = smoothstep(0.5, 0.72, n) * dirt;
+		vec3 mud = vec3(0.33, 0.25, 0.17);
+		c.rgb = mix(c.rgb, c.rgb * 0.5 + mud * 0.38, patch * 0.85 * (1.0 - skin2));
+		c.rgb = mix(c.rgb, c.rgb * 0.8 + mud * 0.15, patch * 0.5 * skin2);
+		// scratches: short thin red lines where the noise allows, on the skin
+		float l = abs(fract(dot(UV, vec2(41.0, 67.0)) + n * 0.7) - 0.5);
+		float scratch = smoothstep(0.045, 0.0, l) * smoothstep(0.6, 0.7, a_noise(UV * 6.0 + 3.1)) * dirt * skin2;
+		c.rgb = mix(c.rgb, vec3(0.72, 0.2, 0.18), scratch * 0.85);
+		// frayed scuffs on the cloth: a few paler scrapes
+		float scuff = smoothstep(0.035, 0.0, abs(fract(dot(UV, vec2(-53.0, 29.0)) + n) - 0.5)) * smoothstep(0.72, 0.8, a_noise(UV * 4.0 + 7.3)) * dirt * (1.0 - skin2);
+		c.rgb = mix(c.rgb, c.rgb * 0.6 + vec3(0.42, 0.38, 0.33), scuff * 0.6);
 	}
 	ALBEDO = c.rgb;
 }

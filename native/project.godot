@@ -159,3 +159,11 @@ veg_cam={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+battle_arena={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+battle_arena_v={
+"type": "float",
+"value": 0.0
+}

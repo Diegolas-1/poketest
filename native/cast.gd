@@ -26,6 +26,11 @@ var hunger: Hunger           # how full he is (hunger.gd)
 var meal: Meal               # eating: the menu, the walk to a seat, the meal itself (meal.gd)
 var bike: AshBike            # his bicycle (bike/bike.gd)
 var convo: Conversation      # the conversation mode (conversation.gd)
+var wild: Wild               # wild Pokémon in the tall grass, and the tutorial (wild/wild.gd)
+# crouching (B on a pad, Ctrl on a keyboard, the touch CROUCH button: a toggle):
+# slow (main.gd crouch_speed), quiet steps (sfx_world.gd), the camera lower; not on the bike
+var crouching := false
+var _last_frame := -1
 var uses: Array = []
 var road: Array = []
 var tall: Array = []
@@ -46,6 +51,7 @@ var btn_ui: Control
 var _btn_a := false
 var _btn_jump := false
 var _btn_bell := false
+var _btn_crouch := false
 var _touch_btn := {}     # touch index -> "use" | "jump" | "bell"
 
 func setup(g: Node3D) -> void:
@@ -121,11 +127,16 @@ func setup(g: Node3D) -> void:
 	meal.name = "Meal"
 	add_child(meal)
 	meal.setup(game, self, self)
+	# wild Pokémon: hiding in the tall grass, the hunt, and its tutorial (wild/wild.gd)
+	wild = Wild.new()
+	wild.name = "Wild"
+	add_child(wild)
+	wild.setup(game, self, layer)
 
 # the actions worker settings define in project.godot; added here only when missing
 func _actions() -> void:
-	var keys := {"use": [KEY_E, KEY_ENTER, KEY_X], "jump": [KEY_SPACE], "run": [KEY_SHIFT], "back": [KEY_ESCAPE, KEY_Z, KEY_BACKSPACE], "bike_bell": [KEY_B]}
-	var pads := {"use": JOY_BUTTON_A, "jump": JOY_BUTTON_X, "back": JOY_BUTTON_B}
+	var keys := {"use": [KEY_E, KEY_ENTER, KEY_X], "jump": [KEY_SPACE], "run": [KEY_SHIFT], "back": [KEY_ESCAPE, KEY_Z, KEY_BACKSPACE], "bike_bell": [KEY_B], "crouch": [KEY_CTRL]}
+	var pads := {"use": JOY_BUTTON_A, "jump": JOY_BUTTON_X, "back": JOY_BUTTON_B, "crouch": JOY_BUTTON_B}   # (settings.gd: B follows the face-button layout)
 	for a in keys:
 		if InputMap.has_action(a): continue
 		InputMap.add_action(a)
@@ -137,7 +148,7 @@ func _actions() -> void:
 			InputMap.action_add_event(a, jb)
 
 func busy() -> bool:
-	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy()) or (meal != null and meal.busy())
+	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy()) or (meal != null and meal.busy()) or (wild != null and wild.busy()) or Battle.active
 
 # someone is being talked to (the text box or a conversation): people stand still
 func talking() -> bool:
@@ -306,7 +317,16 @@ func _pressed(a: String) -> bool:
 	if a == "use" and _btn_a: p = true
 	if a == "jump" and _btn_jump: p = true
 	if a == "bike_bell" and _btn_bell: p = true
+	if a == "crouch" and _btn_crouch: p = true
 	return p
+
+# crouch on / off (B, Ctrl, the touch button): not on the bike, nor indoors
+func set_crouch(on: bool) -> void:
+	if on and (bike == null or bike.riding() or indoors): on = false
+	if on == crouching: return
+	crouching = on
+	Sfx.play("cloth_rustle", null, {"vol": -14.0 if on else -17.0, "pitch": 1.1 if on else 1.0})
+	if btn_ui: btn_ui.queue_redraw()
 
 # a pad's X / Y (the jump action's buttons) is down: on the bike they ring the bell
 static func _pad_xy() -> bool:
@@ -388,7 +408,11 @@ func update(dt: float) -> void:
 	var back := _pressed("back")
 	var bell := _pressed("bike_bell")
 	var rjust := Input.is_action_just_pressed("run")
-	_btn_a = false; _btn_jump = false; _btn_bell = false
+	# (the first frame after a pause, a menu closed with B: that press is not a crouch)
+	var fresh := Engine.get_process_frames() - _last_frame <= 2
+	_last_frame = Engine.get_process_frames()
+	var crj := _pressed("crouch") and fresh
+	_btn_a = false; _btn_jump = false; _btn_bell = false; _btn_crouch = false
 	if convo.active:
 		# the conversation has the controls: A / Jump next (or pick), B the goodbye, up / down choose
 		if back: convo.back()
@@ -399,7 +423,16 @@ func update(dt: float) -> void:
 	elif dialog.open:
 		if use or jmp or back: dialog.next()
 		use = false; jmp = false
+	elif Battle.active: pass   # (a battle has the controls: battle/battle.gd)
+	elif wild.busy():
+		wild.input(use or jmp, back)
+		use = false; jmp = false
 	elif script_phase < 0 and not convo.busy() and not meal.busy():
+		# crouch: B / Ctrl toggles it; a jump or a run stands him up
+		if crj and not bike.riding(): set_crouch(not crouching)
+		if crouching and (jmp or (run_held() and absf(game.speed) > 1.0) or bike.riding()): set_crouch(false)
+		# A near a wild Pokémon: the pounce (wild.gd), before anything else in reach
+		if use and wild.use_pressed(): use = false
 		if bike.riding():
 			# on the bike: the jump hops (a pad's X / Y ring the bell, its R hops)
 			if jmp and _pad_xy(): bell = true
@@ -490,6 +523,7 @@ func update(dt: float) -> void:
 	else:
 		player.position = game.pos
 		player.rotation.y = game.yaw
+		player.crouch = 1.0 if crouching else 0.0
 		# the head turns toward where the camera looks, within a comfortable range
 		var rel := wrapf(game.cam_yaw + PI - game.yaw, -PI, PI)
 		if not convo.active:   # (in a conversation he looks at whoever he's talking to)
@@ -497,6 +531,7 @@ func update(dt: float) -> void:
 	# in the air: jumping, or walked off a drop (ground stays set then, but he falls)
 	player.animate(dt, absf(game.speed), (not ground or _air_y - g > 0.3) and not bike.riding())
 	body.update(dt)
+	wild.update(dt)
 	_villagers(dt)
 	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
 	if indoors:
@@ -528,7 +563,7 @@ func update(dt: float) -> void:
 		vy = 3.2; ground = false
 	_on_ledge = fl != 255 and (fl & 32) != 0
 	# the prompt over whatever is in reach
-	var n2 := nearby() if not dialog.open and script_phase < 0 and not convo.busy() and not meal.busy() else {}
+	var n2 := nearby() if not dialog.open and script_phase < 0 and not convo.busy() and not meal.busy() and not Battle.active else {}
 	var cam: Camera3D = game.cam
 	if not n2.is_empty() and not cam.is_position_behind(n2.at):
 		dialog.prompt = {"pos": cam.unproject_position(n2.at), "label": n2.label}
@@ -895,6 +930,7 @@ func _input(e: InputEvent) -> void:
 				_touch_btn[e.index] = b
 				if b == "use": _btn_a = true
 				elif b == "bell": _btn_bell = true
+				elif b == "crouch": _btn_crouch = true
 				else: _btn_jump = true
 				btn_ui.down[b] = true
 				btn_ui.queue_redraw()
@@ -909,7 +945,7 @@ func _input(e: InputEvent) -> void:
 
 class _TouchButtons extends Control:
 	var cast
-	var down := {"use": false, "jump": false, "bell": false}
+	var down := {"use": false, "jump": false, "bell": false, "crouch": false}
 	var _bell_on := false
 	var shown := false
 	func _ready() -> void:
@@ -938,12 +974,14 @@ class _TouchButtons extends Control:
 		var c := {"use": Vector2(s.x - 66, s.y - 138), "jump": Vector2(s.x - 150, s.y - 70)}
 		# on the bike: a small bell button beside the two
 		if cast and cast.bike and cast.bike.riding(): c["bell"] = Vector2(s.x - 214, s.y - 58)
+		# on foot, outside: the crouch toggle there instead
+		elif cast and not cast.indoors: c["crouch"] = Vector2(s.x - 222, s.y - 56)
 		return c
 	func hit(p: Vector2) -> String:
 		if not shown: return ""
 		var c := centres()
 		for k in c:
-			if p.distance_to(c[k]) < (34.0 if k == "bell" else 42.0): return k
+			if p.distance_to(c[k]) < (34.0 if k in ["bell", "crouch"] else 42.0): return k
 		return ""
 	func _process(_dt: float) -> void:
 		var on: bool = cast != null and cast.bike != null and cast.bike.riding()
@@ -958,7 +996,7 @@ class _TouchButtons extends Control:
 		for k in c:
 			var bc: Vector2 = c[k]
 			var on: bool = down[k]
-			var r := (38.0 if k == "use" else (31.0 if k == "jump" else 24.0)) * (0.92 if on else 1.0)
+			var r := (38.0 if k == "use" else (31.0 if k == "jump" else (27.0 if k == "crouch" else 24.0))) * (0.92 if on else 1.0)
 			draw_circle(bc + Vector2(0, 3), r + 1.0, Color(0, 0, 0, 0.28), true, -1.0, true)
 			if on: UITheme.glow(self, bc, r + 4.0, UITheme.YELLOW)
 			if k == "use":
@@ -982,6 +1020,14 @@ class _TouchButtons extends Control:
 				draw_arc(bc, r - 1.0, 0.0, TAU, 36, Color(1, 1, 1, 0.6 if not on else 0.95), 2.0, true)
 				UITheme.icon(self, "jump", bc + Vector2(0, -5), 11.0, Color.WHITE)
 				UITheme.text_mid(self, bc + Vector2(0, 13), "HOP" if _bell_on else "JUMP", "label", 12, Color(1, 1, 1, 0.9), 1)
+			elif k == "crouch":
+				# a dark disc; crouched, a yellow ring and the chevron points back up (STAND)
+				var cr: bool = cast.crouching
+				draw_circle(bc, r, Color(UITheme.PLATE, 0.62 if not on else 0.85), true, -1.0, true)
+				draw_arc(bc, r - 1.0, 0.0, TAU, 36, Color(UITheme.YELLOW, 0.95) if cr else Color(1, 1, 1, 0.6 if not on else 0.95), 3.0 if cr else 2.0, true)
+				if cr: UITheme.chevron_up(self, bc + Vector2(0, -6), 14.0, Color.WHITE)
+				else: UITheme.chevron_down(self, bc + Vector2(0, -6), 14.0, Color.WHITE)
+				UITheme.text_mid(self, bc + Vector2(0, 11), "STAND" if cr else "CROUCH", "label", 10, Color(1, 1, 1, 0.9), 1)
 			else:
 				draw_circle(bc, r, Color(UITheme.YELLOW, 0.85 if not on else 1.0), true, -1.0, true)
 				draw_arc(bc, r - 1.0, 0.0, TAU, 32, Color(UITheme.INK, 0.6), 2.0, true)

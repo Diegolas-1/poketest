@@ -36,6 +36,7 @@ var safe_override := Rect2()
 var bar_a: EnergyBar
 var bar_b: EnergyBar
 var moves: EnergyMoveList
+var moves_clip: Control          # clips the move list to its rect (a long list scrolls; it never runs over the bar below)
 var mode := "busy"               # busy | menu | fight | pick
 var sel := 0                     # the menu's selection
 var t := 0.0
@@ -65,7 +66,11 @@ func _ready() -> void:
 	moves.show_end = true
 	moves.visible = false
 	moves.input_enabled = false
-	add_child(moves)
+	moves_clip = Control.new()
+	moves_clip.clip_contents = true
+	moves_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(moves_clip)
+	moves_clip.add_child(moves)
 	moves.picked.connect(func(id): move_picked.emit(id))
 	moves.end_turn.connect(func(): end_turn.emit())
 
@@ -132,7 +137,7 @@ func _rects() -> Dictionary:
 	var bar_a_r := Rect2(S.end.x - M - RIGHT_W - 60.0, S.end.y - M - 84.0, RIGHT_W + 60.0, 84.0)
 	var menu := Rect2(S.end.x - M - RIGHT_W, bar_a_r.position.y - 20.0 - 122.0, RIGHT_W, 122.0)
 	var mv_top := bar_b_r.end.y + 44.0
-	var mlist := Rect2(S.end.x - M - RIGHT_W, mv_top, RIGHT_W, bar_a_r.position.y - 22.0 - mv_top)
+	var mlist := Rect2(S.end.x - M - RIGHT_W, mv_top, RIGHT_W, bar_a_r.position.y - 40.0 - mv_top)   # (clear of the bar's TURN tag above it)
 	var line := Rect2(S.position.x + M, S.position.y + M + 4.0, minf(560.0, S.size.x - PLATE_W - 3 * M - 20.0), 46.0)
 	return {"plate_a": plate_a, "plate_b": plate_b, "bar_a": bar_a_r, "bar_b": bar_b_r, "menu": menu, "moves": mlist, "line": line, "safe": S}
 
@@ -140,7 +145,11 @@ func _layout() -> void:
 	var R := _rects()
 	bar_a.fit(R.bar_a)
 	bar_b.fit(R.bar_b)
-	moves.position = R.moves.position
+	# the clip: room at the sides for the selected row's nudge and the shadows,
+	# next to none at the bottom (the player's bar and its tag start just below)
+	moves_clip.position = R.moves.position - Vector2(48, 8)
+	moves_clip.size = R.moves.size + Vector2(96, 8 + 4)
+	moves.position = Vector2(48, 8)
 	moves.size = R.moves.size
 
 func menu_rect(i: int) -> Rect2:
