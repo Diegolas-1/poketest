@@ -1145,16 +1145,28 @@ export function townsfolk(K) {
         [-0.5, 0.95, [-0.2, 1, 0], [-1, 0.1, 0], 0.22, 0.075],          // swept to his right
         [-1.1, 0.7, [-0.5, 1, -0.1], [-1, -0.15, -0.15], 0.22, 0.07],
         [-1.6, 0.4, [-0.8, 0.6, -0.2], [-1, -0.35, -0.3], 0.2, 0.065],
-        [-2.1, 0.15, [-0.7, 0.2, -0.6], [-0.7, -0.5, -0.6], 0.16, 0.06],
+        [-2.1, 0.15, [-0.8, 0.4, -0.5], [-0.8, 0.1, -0.6], 0.16, 0.06],
         [0, 0.6, [0, 1, 0.35], [-0.6, 0.5, 0.4], 0.16, 0.07],              // the front's tuft, over to his right
         [0.4, 0.9, [0.2, 1, -0.1], [0.4, 0.6, -0.5], 0.16, 0.07],          // on top
         [1.1, 0.65, [0.5, 1, -0.1], [1, 0, -0.2], 0.15, 0.065],            // his left, shorter
-        [1.7, 0.3, [0.8, 0.5, -0.3], [0.8, -0.4, -0.5], 0.14, 0.06],
-        [Math.PI, 0.75, [0, 0.9, -0.6], [0, -0.1, -1], 0.17, 0.07],        // the back
-        [2.5, 0.35, [0.4, 0.4, -0.9], [0.3, -0.4, -0.9], 0.15, 0.065],
-        [-2.6, 0.4, [-0.4, 0.4, -0.9], [-0.4, -0.4, -0.9], 0.16, 0.065],
-        [Math.PI, 0.1, [0, -0.1, -1], [0, -0.6, -0.8], 0.12, 0.06],
+        [1.7, 0.3, [0.8, 0.6, -0.3], [0.9, 0.1, -0.4], 0.14, 0.06],
+        [Math.PI, 0.6, [0, 0.7, -0.7], [0, 0.35, -1], 0.17, 0.072],        // the back, up and out
+        [2.5, 0.35, [0.5, 0.6, -0.7], [0.6, 0.4, -0.8], 0.15, 0.066],
+        [-2.6, 0.4, [-0.5, 0.6, -0.7], [-0.6, 0.4, -0.8], 0.16, 0.066],
+        [Math.PI, 0.15, [0, 0.3, -1], [0, 0.45, -0.9], 0.13, 0.062],
       ]);
+      // the bangs: chunky locks lifting off the forehead and arcing down and over to his right, a
+      // row along the hairline and a row further back on the front of the head; stiffer, so they
+      // keep off his eyes
+      bouncyLocks(G, 'gary_bangs', c.hair, c.hair2, [
+        [0.5, 0.55, [0.4, 0.35, 0.85], [-0.45, -0.8, -0.35], 0.17, 0.07],     // along the hairline, down to the brows
+        [0.15, 0.55, [0.05, 0.35, 1], [-0.55, -0.8, -0.25], 0.18, 0.075],
+        [-0.2, 0.55, [-0.15, 0.35, 1], [-0.6, -0.75, -0.2], 0.18, 0.075],
+        [-0.55, 0.5, [-0.45, 0.35, 0.85], [-0.7, -0.7, -0.1], 0.16, 0.068],
+        [0.3, 0.85, [0.1, 0.6, 0.8], [-0.6, -0.75, -0.1], 0.17, 0.075],      // further back on the front of the head
+        [-0.1, 0.85, [-0.05, 0.6, 0.8], [-0.65, -0.72, -0.08], 0.17, 0.075],
+        [-0.5, 0.8, [-0.35, 0.6, 0.7], [-0.75, -0.65, 0], 0.16, 0.07],
+      ], { stiff: 1.6 });
     });
   };
 
@@ -1180,7 +1192,7 @@ export function townsfolk(K) {
     const teeth = (az) => {
       const a = Math.abs(az);
       // [count over the whole circle, depth, where in each the point is (0..1)]
-      const [n, depth] = a < 0.8 ? [26, 0.042] : a < 1.35 ? [22, 0.034] : a < 1.7 ? [22, 0.008] : [30, 0.026];
+      const [n, depth] = a < 0.8 ? [26, 0.03] : a < 1.35 ? [22, 0.034] : a < 1.7 ? [22, 0.008] : [30, 0.026];
       const f = ((az / TAU2 * n + 0.15) % 1 + 1) % 1, fp = 0.3;
       return depth * (f < fp ? f / fp : (1 - f) / (1 - fp)) ** 1.4;
     };
@@ -1222,7 +1234,8 @@ export function townsfolk(K) {
   // one direction and arcing over into another, on a chain of two cloth bones from the head
   // (garments.js clothSim, and the native game's), stiff enough to hold its shape but sagging a
   // little more under gravity and swinging when the head moves
-  function bouncyLocks(G, name, col, col2, list) {
+  function bouncyLocks(G, name, col, col2, list, o = {}) {
+    const k = o.stiff ?? 1;
     const c0 = new V3(0, 1.2, -0.012), B = G.build(), N = 12, NC = 10;
     list.forEach(([a, e, d0, d1, len, r0], li) => {
       const out = V(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
@@ -1233,7 +1246,7 @@ export function townsfolk(K) {
       // its two bones: at the root and halfway, the tip beyond
       const bn = [`hr${name}${li}_0`, `hr${name}${li}_1`], mid = at(0.5), tip = at(1);
       G.bone(bn[0], 'Head', p0); G.bone(bn[1], bn[0], mid);
-      G.chains.push({ parent: 'Head', bones: bn, tip0: tip, ks: [240, 170], drag: [0.12, 0.16], damp: 2.2, vmax: 4, flut: 0.12, cone: [0.32, 0.5],
+      G.chains.push({ parent: 'Head', bones: bn, tip0: tip, ks: [240 * k, 170 * k], drag: [0.12, 0.16], damp: 2.2 * Math.sqrt(k), vmax: 4, flut: 0.12, cone: [0.32 / k, 0.5 / k],
         hangBone: '', hang: [], quad: false, coll: [{}, {}] });
       const P = geo.attributes.position, U = geo.attributes.uv, base = B.pos.length / 3, p = V();
       for (let i = 0; i < P.count; i++) {
