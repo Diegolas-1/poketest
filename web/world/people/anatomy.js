@@ -22,8 +22,8 @@ const AGES = [2, 4, 7, 10, 13, 16, 20, 30, 45, 60, 75, 90];
 // key: [boy/man values by AGES], [girl/woman values] (one array: the same for both)
 const T = {
   H: [[0.88, 1.02, 1.22, 1.40, 1.56, 1.70, 1.76, 1.76, 1.75, 1.73, 1.70, 1.66], [0.87, 1.01, 1.21, 1.40, 1.55, 1.60, 1.63, 1.64, 1.63, 1.61, 1.57, 1.53]],
-  heads: [[3.3, 3.7, 4.3, 4.9, 5.4, 6.0, 6.5, 6.7, 6.6, 6.3, 6.0, 5.8]],
-  leg: [[0.34, 0.37, 0.41, 0.445, 0.465, 0.48, 0.495, 0.5, 0.495, 0.49, 0.485, 0.48], [0.34, 0.37, 0.41, 0.445, 0.47, 0.49, 0.505, 0.51, 0.505, 0.495, 0.49, 0.485]],
+  heads: [[3.2, 3.5, 4.0, 4.6, 5.0, 5.5, 6.0, 6.2, 6.1, 5.9, 5.6, 5.4]],
+  leg: [[0.34, 0.37, 0.4, 0.43, 0.455, 0.48, 0.5, 0.51, 0.505, 0.5, 0.49, 0.485], [0.34, 0.37, 0.4, 0.43, 0.46, 0.49, 0.51, 0.52, 0.515, 0.505, 0.495, 0.49]],
   sh: [[0.205, 0.20, 0.195, 0.195, 0.20, 0.212, 0.222, 0.226, 0.226, 0.222, 0.216, 0.21], [0.205, 0.20, 0.195, 0.192, 0.19, 0.192, 0.195, 0.197, 0.197, 0.195, 0.19, 0.186]],
   hipW: [[0.185, 0.18, 0.172, 0.166, 0.166, 0.17, 0.174, 0.178, 0.184, 0.186, 0.182, 0.178], [0.185, 0.18, 0.172, 0.172, 0.182, 0.196, 0.204, 0.208, 0.214, 0.214, 0.21, 0.204]],
   waistW: [[0.175, 0.158, 0.142, 0.135, 0.133, 0.137, 0.142, 0.148, 0.158, 0.164, 0.164, 0.16], [0.175, 0.158, 0.142, 0.13, 0.124, 0.12, 0.12, 0.124, 0.134, 0.144, 0.15, 0.15]],
@@ -36,7 +36,7 @@ const T = {
   eye: [[0.38, 0.39, 0.41, 0.42, 0.43, 0.44, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45]],   // eye line, share of the head from the chin
   jaw: [[0.2, 0.3, 0.45, 0.55, 0.65, 0.78, 0.88, 0.92, 0.95, 0.95, 0.92, 0.9], [0.2, 0.3, 0.42, 0.5, 0.55, 0.6, 0.62, 0.64, 0.66, 0.68, 0.68, 0.66]],   // how much the jaw shows (0: round baby face)
   hand: [[0.12, 0.115, 0.11, 0.108, 0.107, 0.107, 0.108, 0.108, 0.108, 0.108, 0.108, 0.108], [0.12, 0.115, 0.11, 0.106, 0.104, 0.103, 0.103, 0.103, 0.103, 0.103, 0.103, 0.103]],
-  foot: [[0.158, 0.156, 0.154, 0.152, 0.152, 0.151, 0.15, 0.15, 0.15, 0.15, 0.15, 0.15], [0.158, 0.156, 0.153, 0.15, 0.147, 0.144, 0.142, 0.142, 0.142, 0.142, 0.142, 0.142]],
+  foot: [[0.165, 0.163, 0.161, 0.16, 0.16, 0.158, 0.157, 0.157, 0.157, 0.157, 0.155, 0.155], [0.165, 0.163, 0.16, 0.157, 0.153, 0.15, 0.148, 0.148, 0.148, 0.148, 0.147, 0.146]],
   bust: [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0.2, 0.45, 0.55, 0.58, 0.6, 0.6, 0.55, 0.5]],
   muscle: [[0, 0, 0.05, 0.1, 0.18, 0.3, 0.38, 0.4, 0.36, 0.3, 0.2, 0.12], [0, 0, 0.04, 0.08, 0.1, 0.12, 0.14, 0.14, 0.12, 0.1, 0.08, 0.06]],
   stoop: [[0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0.1, 0.32, 0.55]],
@@ -169,12 +169,12 @@ export function anatomy(params = {}) {
   const R = H * limbK;                          // limb radii scale
   const fem = sx, kidRound = fat;
   const parts = [];
-  const torso = [];
+  const torso = [], front = [];   // the trunk's big forms; chest and belly on them with a tighter blend
   // pelvis, buttocks, abdomen, rib cage, upper chest
   torso.push(P.ellipsoid({ c: [0, hipJ + 0.012 * H, -0.006 * H], r: [hipW * 0.47, 0.078 * H, hipD * 0.5], bone: B.Hips }));
   for (const m of [1, -1]) torso.push(P.ellipsoid({ c: [m * 0.042 * H * (hipW / (0.17 * H)), hipJ - 0.006 * H, -hipD * 0.2], r: [0.048 * H * (1 + 0.1 * fem), 0.058 * H, 0.046 * H * (1 + 0.12 * fem + 0.1 * w)], bone: B.Hips }));
   const abY = hipJ + 0.085 * H;
-  torso.push(P.ellipsoid({ c: [0, abY, 0.0], r: [waistW * 0.5, 0.1 * H * torsoK, waistD * 0.5], ramp: [B.Hips, B.Spine1, [0, hipJ, 0], [0, abY + 0.05 * H, 0]] }));
+  torso.push(P.ellipsoid({ c: [0, abY, 0.0], r: [waistW * 0.56, 0.11 * H * torsoK, waistD * 0.52], ramp: [B.Hips, B.Spine1, [0, hipJ, 0], [0, abY + 0.05 * H, 0]] }));
   const ribY = shY - 0.115 * H * torsoK;
   torso.push(P.ellipsoid({ c: [0, ribY, -0.006 * H + 0.008 * H * st], r: [chestW * 0.5, 0.125 * H * torsoK, chestD * 0.5], ramp: [B.Spine2, B.Spine3, [0, J[B.Spine2][1], 0], [0, shY, 0]] }));
   torso.push(P.ellipsoid({ c: [0, shY - 0.045 * H, -0.004 * H + 0.012 * H * st], r: [chestW * 0.53, 0.062 * H, chestD * 0.46], bone: B.Spine3 }));
@@ -182,11 +182,11 @@ export function anatomy(params = {}) {
   if (st > 0.01) torso.push(P.ellipsoid({ c: [0, shY - 0.06 * H, -chestD * 0.32 + 0.004 * H], r: [chestW * 0.42, 0.09 * H, 0.05 * H * st + 0.02 * H], bone: B.Spine3 }));
   // belly (weight, the slider and baby fat)
   const bel = clamp(p.belly + 0.4 * Math.max(w, 0) + 0.5 * kidRound * (age < 6 ? 1 : 0));
-  if (bel > 0.02) torso.push(P.ellipsoid({ c: [0, hipJ + 0.075 * H, waistD * 0.5 - 0.035 * H * (1 - 0.4 * bel)], r: [waistW * 0.4 * (0.7 + 0.4 * bel), 0.075 * H * (0.7 + 0.4 * bel), 0.05 * H * bel + 0.01 * H], bone: B.Spine1 }));
+  if (bel > 0.02) front.push(P.ellipsoid({ c: [0, hipJ + 0.075 * H, waistD * 0.5 - 0.035 * H * (1 - 0.4 * bel)], r: [waistW * 0.4 * (0.7 + 0.4 * bel), 0.075 * H * (0.7 + 0.4 * bel), 0.05 * H * bel + 0.01 * H], bone: B.Spine1 }));
   // chest: a woman's bust (modest), a man's pectorals with muscle
-  if (bust > 0.02) for (const m of [1, -1]) torso.push(P.ellipsoid({ c: [m * 0.05 * H, shY - 0.105 * H, chestD * 0.5 - 0.022 * H], r: [0.046 * H * (0.6 + 0.4 * bust), 0.04 * H * (0.6 + 0.4 * bust), 0.022 * H * bust + 0.008 * H], q: qaxis([0, 1, 0], m * 0.25), bone: B.Spine3 }));
-  if (mu > 0.15 && fem < 0.6) for (const m of [1, -1]) torso.push(P.ellipsoid({ c: [m * 0.048 * H, shY - 0.075 * H, chestD * 0.46 - 0.018 * H], r: [0.055 * H, 0.04 * H, 0.012 * H * mu + 0.004 * H], bone: B.Spine3 }));
-  parts.push(smin(0.035 * H, torso));
+  if (bust > 0.02) for (const m of [1, -1]) front.push(P.ellipsoid({ c: [m * 0.05 * H, shY - 0.105 * H, chestD * 0.5 - 0.022 * H], r: [0.046 * H * (0.6 + 0.4 * bust), 0.04 * H * (0.6 + 0.4 * bust), 0.022 * H * bust + 0.008 * H], q: qaxis([0, 1, 0], m * 0.25), bone: B.Spine3 }));
+  if (mu > 0.15 && fem < 0.6) for (const m of [1, -1]) front.push(P.ellipsoid({ c: [m * 0.048 * H, shY - 0.075 * H, chestD * 0.46 - 0.018 * H], r: [0.055 * H, 0.04 * H, 0.012 * H * mu + 0.004 * H], bone: B.Spine3 }));
+  parts.push(front.length ? smin(0.02 * H, smin(0.045 * H, torso), front) : smin(0.045 * H, torso));
 
   // shoulder girdle and trapezius (to each arm)
   const girdle = [];
@@ -198,7 +198,8 @@ export function anatomy(params = {}) {
   parts.push(smin(0.03 * H, girdle));
 
   // neck
-  const neckR = H * (0.024 + 0.005 * (1 - fem)) * (1 + 0.15 * p.neckW + 0.12 * w + 0.08 * mu) * (age < 8 ? 1.05 : 1);
+  // anime necks are slender; a man's thickens after puberty
+  const neckR = H * (0.0195 + 0.0065 * (1 - fem) * clamp((age - 12) / 8)) * (1 + 0.15 * p.neckW + 0.12 * w + 0.1 * mu) * (age < 8 ? 1.08 : 1);
   const neckTop = add([0, chinY + 0.2 * hh, -0.05 * hh], headShift);
   parts.push(P.rcone({ a: [0, shY - 0.02 * H, -0.014 * H + 0.03 * H * st], b: neckTop, ra: neckR * 1.15, rb: neckR, ramp: [B.Spine3, B.Head, [0, shY, 0], [0, chinY + 0.15 * hh, 0]] }));
 
@@ -208,11 +209,12 @@ export function anatomy(params = {}) {
     const thR = 0.05 * R * (1 + 0.1 * fem + 0.1 * p.thighs), knR = 0.03 * R, caR = 0.032 * R * (1 + 0.1 * p.calves), anR = 0.018 * R * (1 - 0.1 * w);
     const leg = [];
     leg.push(P.rcone({ a: add(hip, [m * 0.004 * H, 0.012 * H, 0]), b: knee, ra: thR, rb: knR, bone: B[s + 'Thigh'] }));
-    leg.push(P.ellipsoid({ c: add(knee, [m * 0.002 * H, Lth * 0.55, 0.012 * H]), r: [thR * 0.78, Lth * 0.42, thR * 0.72], bone: B[s + 'Thigh'] }));
+    // anime legs: long smooth tapers; muscle only shows when asked for
+    leg.push(P.ellipsoid({ c: add(knee, [m * 0.002 * H, Lth * 0.55, 0.008 * H]), r: [thR * (0.62 + 0.2 * mu), Lth * 0.42, thR * (0.6 + 0.18 * mu)], bone: B[s + 'Thigh'] }));
     if (fem > 0.3 && age > 12) leg.push(P.ellipsoid({ c: add(hip, [m * 0.022 * H, -0.03 * H, -0.004 * H]), r: [0.04 * H, 0.06 * H, 0.042 * H], bone: B[s + 'Thigh'] }));
     leg.push(P.rcone({ a: knee, b: ank, ra: knR * 1.02, rb: anR, bone: B[s + 'Leg'] }));
-    leg.push(P.ellipsoid({ c: add(knee, [m * 0.001 * H, -Lsh * 0.3, -0.016 * R]), r: [caR, Lsh * 0.3, caR * 0.95], bone: B[s + 'Leg'] }));
-    leg.push(P.sphere({ c: add(knee, [0, 0.004 * H, 0.012 * R]), r: knR * 0.7, bone: B[s + 'Leg'] }));
+    leg.push(P.ellipsoid({ c: add(knee, [m * 0.001 * H, -Lsh * 0.32, -0.012 * R]), r: [caR * (0.78 + 0.25 * mu), Lsh * 0.32, caR * (0.74 + 0.25 * mu)], bone: B[s + 'Leg'] }));
+    if (mu > 0.5) leg.push(P.sphere({ c: add(knee, [0, 0.004 * H, 0.01 * R]), r: knR * 0.6, bone: B[s + 'Leg'] }));
     parts.push(smin(0.022 * H, leg));
     // foot: heel, arch, ball and toes, flat underneath
     const fw = footL * 0.19 * (1 + 0.15 * w), heelZ = ank[2] - footL * 0.25, ballZ = toe[2], tipZ = heelZ + footL;
@@ -230,11 +232,11 @@ export function anatomy(params = {}) {
     const m = s === 'L' ? 1 : -1, sho = J[B[s + 'ArmA']], elb = J[B[s + 'ForeArm']], wr = J[B[s + 'Hand']];
     const uaR = 0.029 * R * (1 + 0.12 * p.upperArms - 0.05 * fem), elR = 0.02 * R, faR = 0.023 * R, wrR = 0.0155 * R * (1 - 0.1 * w);
     const arm = [
-      P.ellipsoid({ c: add(sho, [m * 0.006 * H, -0.004 * H, 0]), r: [0.04 * H, 0.037 * H * (1 + 0.15 * mu), 0.038 * H * (1 + 0.1 * mu)], bone: B[s + 'ArmA'] }),
+      P.ellipsoid({ c: add(sho, [m * 0.004 * H, -0.004 * H, 0]), r: [0.036 * H, 0.032 * H * (1 + 0.3 * mu), 0.034 * H * (1 + 0.2 * mu)], bone: B[s + 'ArmA'] }),
       P.rcone({ a: sho, b: elb, ra: uaR, rb: elR, bone: B[s + 'ArmA'] }),
-      P.ellipsoid({ c: add(elb, [-m * Lua * 0.45, 0.002 * H, 0.006 * H]), r: [Lua * 0.33, uaR * (0.8 + 0.3 * mu), uaR * (0.85 + 0.35 * mu)], bone: B[s + 'ArmA'] }),
+      P.ellipsoid({ c: add(elb, [-m * Lua * 0.45, 0.002 * H, 0.004 * H]), r: [Lua * 0.33, uaR * (0.62 + 0.4 * mu), uaR * (0.66 + 0.45 * mu)], bone: B[s + 'ArmA'] }),
       P.rcone({ a: elb, b: wr, ra: elR * 1.04, rb: wrR, bone: B[s + 'ForeArm'] }),
-      P.ellipsoid({ c: add(elb, [m * Lfa * 0.28, 0, 0.002 * H]), r: [Lfa * 0.3, faR * 0.9, faR * 1.05], bone: B[s + 'ForeArm'] }),
+      P.ellipsoid({ c: add(elb, [m * Lfa * 0.28, 0, 0.002 * H]), r: [Lfa * 0.3, faR * (0.72 + 0.2 * mu), faR * (0.84 + 0.2 * mu)], bone: B[s + 'ForeArm'] }),
     ];
     parts.push(smin(0.02 * H, arm));
     // hand: palm (and the thumb's pad), fingers

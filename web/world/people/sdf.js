@@ -145,11 +145,19 @@ function compileLeaf(n) {
   let b = leafBox(n);
   if (sc) b = [b[0].map((v, i) => v * sc[i]), b[1].map((v, i) => v * sc[i])];
   const corners = boxCorners(b).map((p) => { const r = q ? qrot(q, p) : p; return [r[0] + c[0], r[1] + c[1], r[2] + c[2]]; });
-  return { f, box: n.t === 'plane' ? [[-1e9, -1e9, -1e9], [1e9, 1e9, 1e9]] : boxOf(corners), n };
+  // how much the field may underestimate the true distance (ellipsoids and squashed leaves are bounds)
+  let rho = sc ? Math.min(sc[0], sc[1], sc[2]) / Math.max(sc[0], sc[1], sc[2]) : 1;
+  if (n.t === 'ellipsoid') rho *= Math.min(...n.r) / Math.max(...n.r);
+  return { f, box: n.t === 'plane' ? [[-1e9, -1e9, -1e9], [1e9, 1e9, 1e9]] : boxOf(corners), n, rho };
 }
 function compileOp(n) {
-  if (n.op === 'fn') return { f: n.f, box: n.box, n };
+  if (n.op === 'fn') return { f: n.f, box: n.box, n, rho: n.rho ?? 1 };
   const kids = n.kids.map(compile);
+  const r = compileOp2(n, kids);
+  r.rho = Math.min(...kids.map((c) => c.rho ?? 1));
+  return r;
+}
+function compileOp2(n, kids) {
   if (n.op === 'xform') {
     const m = n.m, k = kids[0], im = invRigid(m);
     const f = (x, y, z) => k.f(im[0] * x + im[4] * y + im[8] * z + im[12], im[1] * x + im[5] * y + im[9] * z + im[13], im[2] * x + im[6] * y + im[10] * z + im[14]);
@@ -161,24 +169,27 @@ function compileOp(n) {
   const k = n.k || 0;
   if (n.op === 'smin') {
     let box = kids[0].box; for (const c of kids) box = boxUnion(box, c.box);
-    const KB = kids.map((c) => boxGrow(c.box, k)), nk = kids.length, BD = new Float64Array(nk);
-    // the kids whose (grown) box holds the point first, then the others only
-    // while they could still be nearer than what was found
+    // the kids' values are folded nearest first, so the result does not depend on their
+    // order; a kid whose box (times rho: how much its field may underestimate) is a blend
+    // width past what was found cannot change it and is not evaluated
+    const nk = kids.length, BD = new Float64Array(nk), DV = new Float64Array(nk), RHO = kids.map((c) => c.rho ?? 1), ord = new Int32Array(nk);
     const f = (x, y, z) => {
-      let d = Infinity, lb = Infinity;
-      for (let i = 0; i < nk; i++) {
-        const bd = BD[i] = boxDist(KB[i], x, y, z);
-        if (bd > 0) { if (bd < lb) lb = bd; continue; }
-        const di = kids[i].f(x, y, z);
-        d = d === Infinity ? di : sminK(d, di, k);
+      let lo = Infinity;
+      for (let i = 0; i < nk; i++) { BD[i] = boxDist(kids[i].box, x, y, z) * RHO[i]; DV[i] = NaN; if (BD[i] < lo) lo = BD[i]; }
+      let d = Infinity;
+      for (let pass = 0; pass < 3; pass++) {
+        let more = false, m = 0;
+        for (let i = 0; i < nk; i++) {
+          if (Number.isNaN(DV[i]) && BD[i] < (d === Infinity ? lo : d) + k + 1e-9) { DV[i] = kids[i].f(x, y, z); more = true; }
+          if (!Number.isNaN(DV[i])) ord[m++] = i;
+        }
+        if (!more && d !== Infinity) break;
+        // insertion sort by value, then fold
+        for (let a = 1; a < m; a++) { const t = ord[a]; let j = a - 1; while (j >= 0 && DV[ord[j]] > DV[t]) { ord[j + 1] = ord[j]; j--; } ord[j + 1] = t; }
+        d = m ? DV[ord[0]] : Infinity;
+        for (let a = 1; a < m; a++) d = sminK(d, DV[ord[a]], k);
       }
-      if (lb < d) for (let i = 0; i < nk; i++) {
-        const bd = BD[i];
-        if (bd === 0 || bd >= d) continue;
-        const di = kids[i].f(x, y, z);
-        d = d === Infinity ? di : sminK(d, di, k);
-      }
-      return d === Infinity ? lb : d;
+      return d === Infinity ? lo : d;
     };
     return { f, box, n, kids };
   }
@@ -230,17 +241,29 @@ export function evalW(c, x, y, z) {
   if (n.op === 'shell') { const r = evalW(c.kids[0], x, y, z); r.d = Math.abs(r.d + n.th / 2) - n.th / 2; return r; }
   if (n.op === 'sub') { const r = evalW(c.kids[0], x, y, z); r.d = c.f(x, y, z); return r; }
   const k = n.k || 0;
+  if (n.op === 'smin') {
+    const rs = c.kids.map((kid) => evalW(kid, x, y, z)).sort((p, q) => p.d - q.d);
+    let acc = rs[0];
+    for (const r of rs.slice(1)) {
+      const h = k > 0 ? clamp(0.5 + 0.5 * (r.d - acc.d) / k) : acc.d < r.d ? 1 : 0;
+      if (h >= 1) continue;
+      const w = new Map();
+      for (const [b, v] of acc.w) w.set(b, (w.get(b) || 0) + v * h);
+      for (const [b, v] of r.w) w.set(b, (w.get(b) || 0) + v * (1 - h));
+      acc = { d: sminK(acc.d, r.d, k), w };
+    }
+    return acc;
+  }
+  // smax (intersection): the share of the larger
   let acc = null;
   for (const kid of c.kids) {
     const r = evalW(kid, x, y, z);
     if (!acc) { acc = r; continue; }
-    let h;   // share of acc
-    if (n.op === 'smin') h = k > 0 ? clamp(0.5 + 0.5 * (r.d - acc.d) / k) : acc.d < r.d ? 1 : 0;
-    else h = k > 0 ? clamp(0.5 - 0.5 * (r.d - acc.d) / k) : acc.d > r.d ? 1 : 0;
+    const h = k > 0 ? clamp(0.5 - 0.5 * (r.d - acc.d) / k) : acc.d > r.d ? 1 : 0;
     const w = new Map();
     for (const [b, v] of acc.w) w.set(b, (w.get(b) || 0) + v * h);
     for (const [b, v] of r.w) w.set(b, (w.get(b) || 0) + v * (1 - h));
-    acc = { d: n.op === 'smin' ? sminK(acc.d, r.d, k) : smaxK(acc.d, r.d, k), w };
+    acc = { d: smaxK(acc.d, r.d, k), w };
   }
   return acc;
 }

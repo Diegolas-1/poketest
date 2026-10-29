@@ -40,7 +40,7 @@ export function buildBody(params, o = {}) {
     mesh.nrm = normals(mesh);
   } else {
     mesh = fit(BASE, anat, field, { names: BONE_NAMES, relax: o.relax, steps: o.steps });
-    mesh.skin = BASE.skin; mesh.wts = BASE.wts; mesh.part = BASE.part; mesh.canon = BASE.pos;
+    mesh.skin = BASE.skin; mesh.wts = BASE.wts; mesh.part = BASE.part; mesh.share = BASE.share; mesh.canon = BASE.pos;
   }
   return { anat, mesh, field, ms: Math.round(now() - t0) };
 }

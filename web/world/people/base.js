@@ -2,7 +2,8 @@
 //   "PPLB" u32 json length, json { params, nv, nf, arrays: { name: [type, offset, length] } },
 //   then each array (4-byte aligned): pos (A pose, metres), idx, skin (4 bones per vertex), wts,
 //   aw0 (the reference skeleton's A pose, 16 per bone), meas0 (its parts' sizes, fit.js),
-//   part (per vertex: limb, place along it, side, region; paint.js), uv
+//   part (per vertex: limb, place along it, side), share (per vertex: how much it belongs to
+//   an arm, a leg, the head, a hand or foot; 0..1), uv
 const TYPES = { f32: Float32Array, f64: Float64Array, u32: Uint32Array, u16: Uint16Array, u8: Uint8Array, i8: Int8Array };
 const NAME = (a) => Object.entries(TYPES).find(([, T]) => a instanceof T)[0];
 

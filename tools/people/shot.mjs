@@ -22,11 +22,13 @@ const p = await b.newPage({ viewport: { width: +W, height: +Hh } });
 const errs = [];
 p.on('pageerror', (e) => errs.push('page error: ' + e.message));
 p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errs.push('console: ' + m.text().slice(0, 300)); });
-await p.goto(`http://localhost:${PORT}/${page}?${qs}`);
-try { await p.waitForFunction(() => window.ready, null, { timeout: +(process.env.TIMEOUT || 240000) }); }
+await p.goto(`http://localhost:${PORT}/${page}?${qs.replace(/#/g, '%23')}`);
+const failed = new Promise((r) => p.on('pageerror', r));
+try { await Promise.race([p.waitForFunction(() => window.ready, null, { timeout: +(process.env.TIMEOUT || 240000) }), failed]); }
 catch (e) { errs.push('timeout'); }
 const shots = (process.env.SHOTS || '').split(';').filter(Boolean);
-if (shots.length) {
+if (errs.length) for (const e of errs) console.log(e);
+if (shots.length && await p.evaluate(() => !!window.shot)) {
   for (const [i, s] of shots.entries()) {
     const [view, yaw] = s.split(',');
     await p.evaluate(([v, y]) => window.shot(v, +y), [view, yaw || 0]);

@@ -419,3 +419,103 @@ export function pointHash(pos, cell = 0.02) {
     },
   };
 }
+
+// ---------- cutting ----------
+// the part of a mesh where g > 0, cut exactly along g = 0 (new vertices on the cut
+// edges). attrs: { name: [array, width] } carried along (interpolated); skin
+// weights (skin + wts, 4 each) are merged and the four strongest kept.
+// Returns { pos, idx, border: Uint8Array (1 on the cut), from: Int32Array (the
+// source vertex, or -1 on the cut), attrs... }
+export function cutMesh(mesh, g, attrs = {}) {
+  const P = mesh.pos, I = mesh.idx, n = P.length / 3;
+  const map = new Int32Array(n).fill(-1), pos = [], from = [], border = [], A = {};
+  for (const k of Object.keys(attrs)) A[k] = [];
+  const skinOut = mesh.skin ? [] : null, wtsOut = mesh.skin ? [] : null;
+  const keep = (v) => {
+    if (map[v] >= 0) return map[v];
+    map[v] = pos.length / 3; pos.push(P[3 * v], P[3 * v + 1], P[3 * v + 2]); from.push(v); border.push(0);
+    for (const [k, [arr, w]] of Object.entries(attrs)) for (let j = 0; j < w; j++) A[k].push(arr[v * w + j]);
+    if (skinOut) for (let j = 0; j < 4; j++) { skinOut.push(mesh.skin[4 * v + j]); wtsOut.push(mesh.wts[4 * v + j]); }
+    return map[v];
+  };
+  const edges = new Map();
+  const cut = (a, b) => {
+    const key = a < b ? a * n + b : b * n + a;
+    let e = edges.get(key);
+    if (e !== undefined) return e;
+    const t = g[a] / (g[a] - g[b]);
+    e = pos.length / 3;
+    for (let j = 0; j < 3; j++) pos.push(P[3 * a + j] + (P[3 * b + j] - P[3 * a + j]) * t);
+    from.push(-1); border.push(1);
+    for (const [k, [arr, w]] of Object.entries(attrs)) for (let j = 0; j < w; j++) A[k].push(arr[a * w + j] + (arr[b * w + j] - arr[a * w + j]) * t);
+    if (skinOut) {
+      const acc = new Map();
+      for (let j = 0; j < 4; j++) {
+        acc.set(mesh.skin[4 * a + j], (acc.get(mesh.skin[4 * a + j]) || 0) + mesh.wts[4 * a + j] * (1 - t));
+        acc.set(mesh.skin[4 * b + j], (acc.get(mesh.skin[4 * b + j]) || 0) + mesh.wts[4 * b + j] * t);
+      }
+      const top = [...acc].sort((x, y) => y[1] - x[1]).slice(0, 4), s = top.reduce((x, y) => x + y[1], 0) || 1;
+      for (let j = 0; j < 4; j++) { skinOut.push(top[j] ? top[j][0] : 0); wtsOut.push(top[j] ? top[j][1] / s : 0); }
+    }
+    edges.set(key, e);
+    return e;
+  };
+  const idx = [];
+  for (let t = 0; t < I.length; t += 3) {
+    const v = [I[t], I[t + 1], I[t + 2]], inside = v.map((k) => g[k] > 0), c = inside.filter(Boolean).length;
+    if (c === 0) continue;
+    if (c === 3) { idx.push(keep(v[0]), keep(v[1]), keep(v[2])); continue; }
+    // rotate so the odd one out is first
+    let r = 0;
+    for (; r < 3; r++) if ((c === 1) === inside[r]) break;
+    const a = v[r], b = v[(r + 1) % 3], d = v[(r + 2) % 3];
+    if (c === 1) idx.push(keep(a), cut(a, b), cut(a, d));
+    else { const ab = cut(a, b), ad = cut(a, d); idx.push(ab, keep(b), keep(d), ab, keep(d), ad); }
+  }
+  const out = { pos: new Float32Array(pos), idx: new Uint32Array(idx), from: Int32Array.from(from), border: Uint8Array.from(border) };
+  for (const [k, [arr]] of Object.entries(attrs)) out[k] = new arr.constructor(A[k]);
+  if (skinOut) { out.skin = Uint16Array.from(skinOut); out.wts = Float32Array.from(wtsOut); }
+  return out;
+}
+
+// the open edges of a mesh as loops of vertex indices
+export function borderLoops(mesh) {
+  const I = mesh.idx, cnt = new Map(), n = mesh.pos.length / 3;
+  for (let t = 0; t < I.length; t += 3) for (let k = 0; k < 3; k++) {
+    const a = I[t + k], b = I[t + (k + 1) % 3], key = a < b ? a * n + b : b * n + a;
+    cnt.set(key, (cnt.get(key) || 0) + 1);
+  }
+  const next = new Map();
+  for (let t = 0; t < I.length; t += 3) for (let k = 0; k < 3; k++) {
+    const a = I[t + k], b = I[t + (k + 1) % 3], key = a < b ? a * n + b : b * n + a;
+    if (cnt.get(key) === 1) next.set(a, b);
+  }
+  const loops = [], seen = new Set();
+  for (const s of next.keys()) {
+    if (seen.has(s)) continue;
+    const loop = []; let v = s;
+    while (v !== undefined && !seen.has(v)) { seen.add(v); loop.push(v); v = next.get(v); }
+    if (loop.length > 2) loops.push(loop);
+  }
+  return loops;
+}
+
+// normals averaged with their neighbours' (iters passes, k blend): cel bands follow the
+// big forms instead of every small dent in the surface
+export function smoothNormals(mesh, nb, iters = 2, k = 0.6) {
+  const N = mesh.nrm, n = N.length / 3, Q = new Float32Array(N.length);
+  nb = nb || neighbours(mesh);
+  for (let it = 0; it < iters; it++) {
+    for (let i = 0; i < n; i++) {
+      const s = nb.start[i], e = nb.start[i + 1];
+      let x = 0, y = 0, z = 0;
+      for (let j = s; j < e; j++) { const q = 3 * nb.list[j]; x += N[q]; y += N[q + 1]; z += N[q + 2]; }
+      const c = Math.max(1, e - s);
+      x = N[3 * i] * (1 - k) + x / c * k; y = N[3 * i + 1] * (1 - k) + y / c * k; z = N[3 * i + 2] * (1 - k) + z / c * k;
+      const l = Math.hypot(x, y, z) || 1;
+      Q[3 * i] = x / l; Q[3 * i + 1] = y / l; Q[3 * i + 2] = z / l;
+    }
+    N.set(Q);
+  }
+  return N;
+}

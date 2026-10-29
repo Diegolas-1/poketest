@@ -11,7 +11,7 @@
 // and the sliders can be dragged live.
 import { NB, PARENT } from './rig.js';
 import { mmul, minv } from './vmath.js';
-import { project, relax, normals } from './mesh.js';
+import { project, relax, normals, smoothNormals } from './mesh.js';
 
 const col = (m, i) => [m[4 * i], m[4 * i + 1], m[4 * i + 2]];
 // first child of each bone (for its length)
@@ -79,6 +79,54 @@ export function fit(base, A, field, o = {}) {
   const mesh = { pos: P, idx: base.idx };
   project(mesh, field.f, o.steps ?? 5, 0.03);
   if ((o.relax ?? 2) > 0) relax(mesh, o.relax ?? 2, 0.4, field.f, base.nb || null, base.lock || null);
+  untangle(mesh, field.f, base.nb, o.untangle ?? 4);
   mesh.nrm = normals(mesh);
+  smoothNormals(mesh, base.nb, o.nsmooth ?? 2, 0.5);
   return mesh;
+}
+
+// triangles folded over (facing against their corners' normals) are smoothed out
+// with their neighbourhood and put back on the surface
+export function untangle(mesh, f, nb, iters = 4) {
+  const P = mesh.pos, I = mesh.idx, n = P.length / 3;
+  for (let it = 0; it < iters; it++) {
+    const N = normals(mesh), bad = new Uint8Array(n);
+    let count = 0;
+    for (let t = 0; t < I.length; t += 3) {
+      const a = 3 * I[t], b = 3 * I[t + 1], c = 3 * I[t + 2];
+      const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, l = Math.hypot(nx, ny, nz);
+      const mx = N[a] + N[b] + N[c], my = N[a + 1] + N[b + 1] + N[c + 1], mz = N[a + 2] + N[b + 2] + N[c + 2];
+      if (l < 1e-12 || (nx * mx + ny * my + nz * mz) < 0.3 * l * Math.hypot(mx, my, mz)) { bad[I[t]] = bad[I[t + 1]] = bad[I[t + 2]] = 1; count++; }
+    }
+    if (!count) return;
+    // grow the region by a ring, smooth it (plain Laplacian), back onto the surface
+    const grow = bad.slice();
+    for (let v = 0; v < n; v++) if (bad[v]) for (let j = nb.start[v]; j < nb.start[v + 1]; j++) grow[nb.list[j]] = 1;
+    for (let k = 0; k < 3; k++) {
+      const Q = new Float32Array(P);
+      for (let v = 0; v < n; v++) {
+        if (!grow[v]) continue;
+        let x = 0, y = 0, z = 0; const s = nb.start[v], e = nb.start[v + 1];
+        for (let j = s; j < e; j++) { const q = 3 * nb.list[j]; x += P[q]; y += P[q + 1]; z += P[q + 2]; }
+        const cnt = e - s; Q[3 * v] = x / cnt; Q[3 * v + 1] = y / cnt; Q[3 * v + 2] = z / cnt;
+      }
+      P.set(Q);
+    }
+    projectSome(P, f, grow);
+  }
+}
+function projectSome(P, f, mask, e = 2e-4) {
+  for (let v = 0; v < P.length / 3; v++) {
+    if (!mask[v]) continue;
+    let x = P[3 * v], y = P[3 * v + 1], z = P[3 * v + 2];
+    for (let it = 0; it < 4; it++) {
+      const d = f(x, y, z); if (Math.abs(d) < 1e-6) break;
+      const gx = (f(x + e, y, z) - f(x - e, y, z)) / (2 * e), gy = (f(x, y + e, z) - f(x, y - e, z)) / (2 * e), gz = (f(x, y, z + e) - f(x, y, z - e)) / (2 * e), g2 = gx * gx + gy * gy + gz * gz;
+      if (g2 < 1e-12) break;
+      let s = d / g2; const st = Math.abs(s) * Math.sqrt(g2); if (st > 0.02) s *= 0.02 / st;
+      x -= gx * s; y -= gy * s; z -= gz * s;
+    }
+    P[3 * v] = x; P[3 * v + 1] = y; P[3 * v + 2] = z;
+  }
 }
