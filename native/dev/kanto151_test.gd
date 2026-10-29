@@ -551,6 +551,49 @@ func _rules() -> void:
 	ok(bt.fighter("a").recharge_turn == bt.turn + 1, "Hyper Beam: Snorlax must recharge next turn")
 	bt.begin_turn()
 	ok(not bt.can_queue("a", "hyper_beam"), "and can't act while recharging")
+	# Dodge is a chance (battle_config dodge): in its clamp, higher for a fast flier than a slow heavy one
+	bt = _duel("pidgeotto", 30, ["dodge"], "snorlax", 30, ["tackle"])
+	var pf := bt.dodge_chance(bt.fighter("a"), bt.fighter("b"))
+	bt = _duel("snorlax", 30, ["dodge"], "pidgeotto", 30, ["tackle"])
+	var ps := bt.dodge_chance(bt.fighter("a"), bt.fighter("b"))
+	var D := BattleConfig.sect("dodge")
+	ok(pf > ps and ps >= float(D.min) and pf <= float(D.max), "dodge chance: Pidgeotto %.2f > Snorlax %.2f, inside %.2f..%.2f" % [pf, ps, float(D.min), float(D.max)])
+	bt.fighter("a").status = "sleep"
+	ok(bt.dodge_chance(bt.fighter("a"), bt.fighter("b")) == 0.0, "asleep it can't dodge")
+	bt.fighter("a").status = ""
+	bt.fighter("a").item = "bright_powder"
+	ok(bt.dodge_chance(bt.fighter("a"), bt.fighter("b")) > ps, "Bright Powder raises the dodge chance")
+	bt.fighter("a").item = ""
+	bt.fighter("b").stages.acc = 6
+	ok(bt.dodge_chance(bt.fighter("a"), bt.fighter("b")) == float(D.min), "a foe at +6 accuracy: the dodge floors at the minimum")
+	# over many tries a dodge works about as often as its chance, and a failed one says so and is spent
+	var won := 0
+	var failed_text := false
+	for k in 200:
+		bt = _duel("pikachu", 20, ["dodge"], "rattata", 20, ["tackle"])
+		bt.rng.seed = 1000 + k
+		var pc := bt.dodge_chance(bt.fighter("a"), bt.fighter("b"))
+		bt.queue("a", "dodge"); bt.queue("b", "tackle")
+		ev = bt.resolve()
+		if ev.any(func(x): return x.get("t", "") == "dodged"): won += 1
+		elif ev.any(func(x): return "tried to dodge... but was hit" in String(x.get("text", ""))) and bt.fighter("a").e.locks.is_empty(): failed_text = true
+		if k == 0: ok(pc > 0.2 and pc < 0.6, "Pikachu's dodge against Rattata: %.2f" % pc)
+	ok(won > 40 and won < 140 and failed_text, "Dodge: %d of 200 dodged; a failed one reads 'tried to dodge... but was hit!' and its chip is spent" % won)
+	# Swift still gets through a dodge
+	bt = _duel("pikachu", 20, ["dodge"], "eevee", 20, ["swift"])
+	bt.queue("a", "dodge"); bt.queue("b", "swift")
+	ev = bt.resolve()
+	ok(ev.any(func(x): return x.get("t", "") == "hit") and not ev.any(func(x): return x.get("t", "") == "dodged"), "Swift can't be dodged")
+	# Protect on turns in a row: 1, then 1/2, then 1/4 (battle_config protect_repeat)
+	bt = _duel("blastoise", 40, ["protect", "tackle"], "rattata", 40, ["tackle"])
+	var gc := []
+	for k in 3:
+		gc.append(bt.guard_chance(bt.fighter("a")))
+		bt.queue("a", "protect")
+		bt.resolve()
+		bt.begin_turn()
+		bt.fighter("a").e.set_focus(100.0, "test")
+	ok(gc == [1.0, 0.5, 0.25], "Protect in a row: chances %s" % [gc])
 	# a status move on a foe that already has a condition: it says so, and the planner skips it
 	bt = _duel("pikachu", 20, ["thunder_wave", "thunder_shock"], "pidgey", 20, ["tackle"])
 	bt.fighter("b").status = "para"

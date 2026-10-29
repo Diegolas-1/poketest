@@ -201,8 +201,8 @@
     },
     "group_bonus": {
       "basic": 0.0,
-      "middle": -0.36,
-      "final": -0.54,
+      "middle": -0.48,
+      "final": -0.72,
       "single": 0.0
     },
     "group_mean_total": {
@@ -2097,7 +2097,8 @@
         "max": 0.6
       },
       "reaction": {
-        "min": 0.08
+        "min": 0.08,
+        "max": 0.1
       },
       "two_phase": {
         "min": 0.05

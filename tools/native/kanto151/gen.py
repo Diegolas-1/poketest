@@ -1149,6 +1149,7 @@ for s in species_order:
     skills = sorted([k for k, v in SKILLS.items() if v[0] == d] + [ability_id(a) for a in ability_skills(s)])
     rec = {
         "dex": d, "name": by_id[s]["name"], "types": by_id[s]["types"], "energy": pools, "rarity": rarity[s],
+        "weight_kg": round(float(by_id[s].get("weight", 0)) / 10.0, 1), "height_m": round(float(by_id[s].get("height", 0)) / 10.0, 1),
         "weakness": [TCG_IDS[t[3]]] if t[3] else [], "resistance": [TCG_IDS[t[4][0]]] if t[4] else [],
         "base": battle_base(s),
         "base_game": [st["hp"], st["attack"], st["defense"], st["special-attack"], st["special-defense"], st["speed"]],
@@ -1326,7 +1327,7 @@ SIM = {
     "dodge_success": {"min": 0.35, "max": 0.65, "doc": "a Dodge against an attack that doesn't ignore it"},
     "battle_turns": {"min": 3, "max": 8, "doc": "a typical battle's length in turns (the mean)"},
     "role_share_min": 0.03, "doc_role_share": "every role (offense, reaction, two-phase, disruption, utility) is at least this share of all actions; role_share sets a role's own min or max",
-    "role_share": {"offense": {"max": 0.6}, "reaction": {"min": 0.08}, "two_phase": {"min": 0.05}},
+    "role_share": {"offense": {"max": 0.6}, "reaction": {"min": 0.08, "max": 0.1}, "two_phase": {"min": 0.05}},
     "tier_share_min": 0.08, "doc_tier_share": "every tier (opener, mid, finisher) is at least this share of all actions; tier_share sets a tier's own min",
     "tier_share": {"finisher": {"min": 0.15}},
     "exempt": ["magikarp", "metapod", "kakuna"], "doc_exempt": "weak by design (the joke fish and the cocoons, whose whole point is to evolve): left out of the peer band and spread checks; a design decision for the user",

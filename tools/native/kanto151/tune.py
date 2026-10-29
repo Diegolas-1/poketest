@@ -193,7 +193,7 @@ def adjust(rep, tune, rnd):
     # a trainer sets a reaction only when its temperament says so (reaction_rate): when one is set it is
     # almost always worth it, so the gate is the lever
     if rs.get("reaction", 0) < rmin: nudge("ai.reaction_rate_scale", True, 0.2, 0.5, 2.0, "reactions are %.3f of actions (want %.2f)" % (rs.get("reaction", 0), rmin), True)
-    elif rs.get("reaction", 0) > rmin * 2: nudge("ai.reaction_rate_scale", False, 0.1, 0.5, 2.0, "reactions are %.3f of actions" % rs.get("reaction", 0), True)
+    elif rs.get("reaction", 0) > float(RT.get("reaction", {}).get("max", rmin * 2)): nudge("ai.reaction_rate_scale", False, 0.1, 0.5, 2.0, "reactions are %.3f of actions (want %.2f or less)" % (rs.get("reaction", 0), float(RT.get("reaction", {}).get("max", rmin * 2))), True)
     tmin = float(RT.get("two_phase", {}).get("min", 0.05))
     if rs.get("two_phase", 0) < tmin: nudge("ai.two_phase_value", True, 0.1, 0.8, 1.8, "two-phase moves are %.3f of actions (want %.2f)" % (rs.get("two_phase", 0), tmin))
     elif rs.get("two_phase", 0) > tmin * 2: nudge("ai.two_phase_value", False, 0.1, 0.8, 1.8, "two-phase moves are %.3f of actions" % rs.get("two_phase", 0))
@@ -202,7 +202,7 @@ def adjust(rep, tune, rnd):
     elif tsh.get("finisher", 0) > fmin * 2: nudge("ai.finisher_value", False, 0.05, 0.8, 1.6, "finishers are %.3f of actions" % tsh.get("finisher", 0))
     omax = float(RT.get("offense", {}).get("max", 0.6))
     support = rs.get("disruption", 0) + rs.get("utility", 0)
-    if rs.get("offense", 0) > omax and support < 0.25: nudge("ai.status_scale", True, 0.08, 0.6, 1.6, "offense is %.3f of actions (want %.2f or less), disruption and utility %.3f" % (rs.get("offense", 0), omax, support))
+    if rs.get("offense", 0) > omax and support < 0.25: nudge("ai.status_scale", True, 0.08, 0.6, 1.8, "offense is %.3f of actions (want %.2f or less), disruption and utility %.3f" % (rs.get("offense", 0), omax, support))
     elif support > 0.32: nudge("ai.status_scale", False, 0.08, 0.6, 1.6, "disruption and utility are %.3f of actions (offense %.3f)" % (support, rs.get("offense", 0)))
     # evolution steps
     if "evo" in su:
