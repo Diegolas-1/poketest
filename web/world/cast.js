@@ -139,15 +139,17 @@ const isSkinTexel = (o) => o[0] > 150 && o[0] > o[2] + 10 && o[0] - o[2] < 90;
 // a flat colour with a little of the original's light and dark (folds, painted shading)
 const keepShade = (col, o, ref, amt = 0.5) => mul(col, 1 + (clamp(lum(o) / ref, 0.6, 1.25) - 1) * amt);
 
-// eyes: the 512x128 atlas holds 4x2 cells of two eyes; recolour skin, brows and irises
+// eyes: the atlas (512x128 as the game had it, 2048x512 redrawn: tools/world/hd_eyes.py) holds
+// 4x2 cells of two eyes; recolour skin, brows and irises. Strokes added here are sized for the
+// 512-wide atlas and scaled by sc
 function eyeTex(src, L) {
   const skin = hex(L.skin), brow = hex(L.face.brow), iris = hex(L.face.iris);
   const { c, g, d } = imageData(src.image, src.image.width, src.image.height);
-  const w = c.width, h = c.height, px = d.data, cw = w / 4, ch = h / 2;
+  const w = c.width, h = c.height, px = d.data, cw = w / 4, ch = h / 2, sc = Math.max(1, Math.round(w / 512));
   const orig = new Uint8ClampedArray(px);
   const at = (x, y) => { const k = (y * w + x) * 4; return [orig[k], orig[k + 1], orig[k + 2]]; };
   const isSkin = (o) => o[0] > 150 && o[0] > o[2] + 10;
-  const browThick = L.face.browThick || 0;
+  const browThick = (L.face.browThick || 0) * sc;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const k = (y * w + x) * 4, o = at(x, y), cy = (y % ch) / ch;
     let r;
@@ -162,7 +164,7 @@ function eyeTex(src, L) {
     }
     if (r) { px[k] = r[0]; px[k + 1] = r[1]; px[k + 2] = r[2]; }
   }
-  if (L.face.lashes) lashes(px, w, h, cw, ch, hex(L.face.lashes));
+  if (L.face.lashes) lashes(px, w, h, cw, ch, hex(L.face.lashes), sc);
   // grown-ups: the atlas's narrower, smaller-irised eyes (cell 1) as the open eyes (cell 0)
   if (L.face.mature) for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) for (let j = 0; j < 4; j++) px[(y * w + x) * 4 + j] = px[(y * w + x + cw) * 4 + j];
   // swept-back hair: the forehead (the top of the eye cells) is lit skin, with a few lines
@@ -180,7 +182,7 @@ function eyeTex(src, L) {
   return finish(c, g, d, src);
 }
 // a girl's lashes: thicken the upper lid line and flick it out at the outer corner of each eye
-function lashes(px, w, h, cw, ch, col) {
+function lashes(px, w, h, cw, ch, col, sc = 1) {
   const dark = (x, y) => { const k = (y * w + x) * 4; return px[k] + px[k + 1] + px[k + 2] < 160; };
   const set = (x, y, a) => { if (x < 0 || y < 0 || x >= w || y >= h) return; const k = (y * w + x) * 4; px[k] += (col[0] - px[k]) * a; px[k + 1] += (col[1] - px[k + 1]) * a; px[k + 2] += (col[2] - px[k + 2]) * a; };
   for (let cy = 0; cy < 2; cy++) for (let cx = 0; cx < 4; cx++) {
@@ -189,12 +191,15 @@ function lashes(px, w, h, cw, ch, col) {
       // the top of the eye's dark pixels in every column
       const top = [];
       for (let x = Math.floor(xa); x < xb; x++) for (let y = cy * ch + Math.floor(ch * 0.455); y < cy * ch + ch * 0.8; y++) if (dark(x, y)) { top.push([x, y]); break; }
-      if (top.length < 4) continue;
-      for (const [x, y] of top) { set(x, y, 1); set(x, y - 1, 1); set(x, y - 2, 0.5); }
+      if (top.length < 4 * sc) continue;
+      for (const [x, y] of top) for (let k = 0; k <= 2 * sc; k++) set(x, y - k, k < 2 * sc ? 1 : 0.5);
       // outer corner (away from the cell's middle): two lashes flicked up and out
       const outer = side === 0 ? top[0] : top[top.length - 1], dir = side === 0 ? -1 : 1;
-      for (let i = 0; i <= 6; i++) { const yy = outer[1] + 1 - Math.round(i * 0.75); set(outer[0] + dir * i, yy, 1 - i * 0.1); set(outer[0] + dir * i, yy + 1, 0.85 - i * 0.12); }
-      for (let i = 0; i <= 4; i++) set(outer[0] + dir * (i * 0.6 - 1), outer[1] - 1 - i, 0.85 - i * 0.15);
+      for (let i = 0; i <= 6 * sc; i++) {
+        const u = i / sc, yy = outer[1] + sc - Math.round(u * 0.75 * sc);
+        for (let k = 0; k < sc; k++) { set(outer[0] + dir * i, yy + k, 1 - u * 0.1); set(outer[0] + dir * i, yy + sc + k, 0.85 - u * 0.12); }
+      }
+      for (let i = 0; i <= 4 * sc; i++) { const u = i / sc; for (let k = 0; k < sc; k++) set(outer[0] + dir * (Math.round((u * 0.6 - 1) * sc) + k), outer[1] - sc - i, 0.85 - u * 0.15); }
     }
   }
 }
@@ -988,7 +993,8 @@ export function castBase(base, name, hooks) {
   // the legs' new length: the waist's bob and the strides scale with it
   const th = byName('LThigh'), ft = byName('LFoot');
   const sL = (P1.get(th).y - P1.get(ft).y) / (P0.get(th).y - P0.get(ft).y);
-  const out = { scene, SU: base.SU, rest, k: spec.height / (box.max.y - box.min.y), minY: box.min.y };
+  // (no height: Ash's own scale, for someone his size whatever is on his head)
+  const out = { scene, SU: base.SU, rest, k: spec.height ? spec.height / (box.max.y - box.min.y) : base.k, minY: box.min.y };
   if (base.anims) {
     const w0 = base.rest.get('Waist').p, w1 = rest.get('Waist').p;
     const clips = {};

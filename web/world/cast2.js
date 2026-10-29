@@ -1,7 +1,7 @@
 // The rest of Pallet Town's people (cast.js makes them, like the girl, the fisher,
 // the kid and Prof. Oak, from the player's base model): Delia Ketchum, Rose the
-// florist, Bram and Ada Hollis the bakers, Granny Mae, Marina, Farmer Ben, Old Tom
-// and Gus the lighthouse keeper.
+// florist, Bram and Ada Hollis the bakers, Granny Mae, Marina, Farmer Ben, Old Tom,
+// Gus the lighthouse keeper and Gary Oak, Ash's rival (on Ash's own body).
 //
 // Everything they wear is a real garment over the body (garments.js), not paint on
 // it: skirts hung from the waist and moving as cloth round the legs, blouses, shirts
@@ -23,7 +23,7 @@ const TAU = Math.PI * 2;
 const V3 = THREE.Vector3;
 
 export function townsfolk(K) {
-  const { hex, mix, mul, clamp, sstep, keepShade, isArm, ax, V, sheet, mergeGeos, rowsOf, rowAt, offTop, drawIn, slimLegs, lowerCollar, looseSleeves, shirtFolds, legR, crown, labCoat } = K;
+  const { hex, mix, mul, lum, clamp, sstep, keepShade, isArm, ax, V, sheet, mergeGeos, rowsOf, rowAt, offTop, drawIn, slimLegs, lowerCollar, looseSleeves, shirtFolds, legR, crown, labCoat } = K;
   const lerp = THREE.MathUtils.lerp;
   const dirOf = (th) => V(Math.sin(th), 0, Math.cos(th));
   const table = (rows, x) => {
@@ -90,13 +90,14 @@ export function townsfolk(K) {
   }
   // sleeves: tubes round the arms from the shoulder seam to x = o.to (0.2 short, 0.3 to the
   // elbow, 0.435 to the wrist), loose, snug underneath at the armpit; o.cuff: a band turned
-  // back at the end (o.roll: a fat rolled one), o.puff: fuller at the shoulder
+  // back at the end (o.roll: a fat rolled one), o.puff: fuller at the shoulder; o.loose: fuller
+  // all along (from o.looseFrom out, if given, so the shoulder stays round)
   function sleeves(G, o) {
     const x1 = o.to, NS = 16, SX = [];
     for (let x = 0.064; x < x1 - 0.004; x += x < 0.12 ? 0.011 : 0.025) SX.push(+x.toFixed(4));
     SX.push(x1);
     const puff = o.puff || 0;
-    const OFF = (x) => table([[0.064, -0.002], [0.08, 0.004], [0.1, 0.008], [0.13, 0.011], [0.25, 0.013], [0.3, 0.014], [0.38, 0.012], [0.435, 0.009]], x) * (o.loose ?? 1)
+    const OFF = (x) => table([[0.064, -0.002], [0.08, 0.004], [0.1, 0.008], [0.13, 0.011], [0.25, 0.013], [0.3, 0.014], [0.38, 0.012], [0.435, 0.009]], x) * lerp(1, o.loose ?? 1, o.looseFrom ? sstep(o.looseFrom, o.looseFrom + 0.06, x) : 1)
       + puff * Math.sin(Math.PI * clamp((x - 0.075) / Math.max(0.06, x1 - 0.075))) ** 0.8;
     const MIN = (x) => table([[0.064, 0], [0.08, 0], [0.11, 0.046], [0.2, 0.048], [0.3, 0.044], [0.435, 0.036]], x);
     const SB = G.build(), CB = G.build(); let sl = null, cl = null;
@@ -426,6 +427,11 @@ export function townsfolk(K) {
     jenny: { skin: '#f6d0b0', hair: '#2fa58c', hair2: '#24876f', cap: '#474cb6', cap2: '#3a3e9c', band: '#d8343a', peak: '#23264a', gold: '#e8b830',
       jacket: '#5157c6', jacket2: '#4247a8', panel: '#a8d6ee', panel2: '#86bcda', red: '#d8343a', red2: '#b02630', navy: '#2c2f70',
       skirt: '#4446ac', skirt2: '#2f3180', belt: '#1c1c24', strap: '#1c1c24', glove: '#f8f8f4', shoes: '#1e1e28', sole: '#121218' },
+    // Gary Oak: auburn hair in big spikes swept up and back, a baggy purple sweatshirt (an orange
+    // undershirt's hem below it) with a black cord and a yellow and green yin-yang pendant, straight
+    // blue jeans bunched over mustard-yellow boots banded in black
+    gary: { skin: '#f6d4b6', hair: '#7c4024', hair2: '#62301a', sweat: '#5e3a8c', sweat2: '#4c2e74', under: '#d0682a',
+      jeans: '#36528a', jeans2: '#2a4070', stitch: '#4a6498', boots: '#c08a24', black: '#1c1a1e', cord: '#18161a', yin: '#f4d43c', yang: '#3d9e4a' },
     gus: { skin: '#e9b896', hair: '#5e4a3e', beard: '#5a4a40', cap: '#cc4b2e', cap2: '#a83a22', coat: '#f2c22e', coat2: '#d9a41e', jumper: '#3e5a4e', pants: '#3e4452', boots: '#2a2a2e', sole: '#1a1a1e', brass: '#3a3a3a' },
   };
   // adult women: a smaller head, longer legs, narrower shoulders, a slimmer waist
@@ -454,6 +460,9 @@ export function townsfolk(K) {
   CAST.jenny = { height: 1.86, edits: body({ ...WOMAN, trunk: [0.94, 1.03, 0.95], hips: [1.0, 1, 1.0], arm: 0.9, leg: 0.92, legLen: 1.08 }),
     face: { iris: '#8a4a26', brow: '#1f6a5c', lashes: '#141418', mouth: 'smile', blush: '#f2a0a0', forehead: 'smooth', lips: '#d46a6c', mature: true } };
   for (const k in CAST) CAST[k].drop = ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'];
+  // a boy of Ash's age: Ash's body as it is, at Ash's scale; Ash's spikes from under his cap kept as his own
+  CAST.gary = { height: 0, edits: {}, drop: ['hathun', 'ash_logo', 'ash_sleeve'],
+    face: { iris: '#3a2a22', brow: '#6a3016', browThick: 1, mature: true } };   // (mature: the atlas's narrower, cooler eyes)
 
   // bare forearms and hands, the rest of the arm as the sleeve's colour (it shows only in gaps)
   const armsUnder = (skin, col, x) => (p, part) => (part === 'hand' || (isArm(part) && ax(p) > x) ? skin : col);
@@ -1006,6 +1015,150 @@ export function townsfolk(K) {
       G.boxes([{ p: fp.p, th: fp.th, w: 0.072, h: 0.036, d: 0.006 }], '#2a2a34', 'jenny_pouchflap');
       gloves(v, G, mul(glove, 0.97));
       underTop(G); underSkirt(G);
+    });
+  };
+
+  BUILD.gary = (v) => {
+    const c = C.gary, skin = hex(c.skin), sw = hex(c.sweat), sw2 = hex(c.sweat2), un = hex(c.under), jn = hex(c.jeans), jn2 = hex(c.jeans2);
+    const blk = hex(c.black), bt = hex(c.boots);
+    // the body: the hands bare, the rest under the sweatshirt its purple, up to a plain round
+    // neckline (no collar: Ash's jacket collar folded down to the base of the neck, the skin)
+    v.paint('topsjer', 0.5, (p, n, o, part) => {
+      if (part === 'hand' || (isArm(part) && ax(p) > 0.44)) return skin;
+      if (isArm(part)) return sw;
+      return p.y > 1.05 && Math.hypot(p.x, p.z + 0.008) < 0.042 ? skin : p.y > 1.04 ? sw2 : sw;
+    });
+    // the jeans: denim with its painted folds, a stitched seam down the outside of each leg, and
+    // bunched in creases above the boots
+    v.paint('btmsskin', 0.5, (p, n, o) => {
+      if (p.y > 0.69) return mul(jn2, 0.8);   // (the waist, under the sweatshirt)
+      const dx = Math.abs(p.x) - 0.056, dz = p.z - 0.002, a = Math.atan2(dx, dz);
+      if (Math.abs(a - Math.PI / 2) < 0.07 && p.y < 0.62) return hex(c.stitch);
+      if (Math.abs(a - Math.PI / 2) < 0.16 && p.y < 0.62) return jn2;
+      for (const [y0, ph] of [[0.236, 0], [0.262, 1.7], [0.292, 3.1], [0.33, 4.4]]) if (Math.abs(p.y - y0 - 0.006 * Math.sin(a * 2 + ph)) < 0.0028) return mul(jn2, 0.88);
+      return keepShade(jn, o, 0.55, 0.6);
+    });
+    v.shape('btmsskin', looseLegs(1.1, 0.3));
+    // the legs' bottoms bunched out a little over the boots' tops
+    v.shape('btmsskin', (p) => {
+      const t = sstep(0.34, 0.22, p.y); if (!t) return;
+      const cx = Math.sign(p.x) * 0.056, cz = 0.002, k = 1 + 0.1 * t;
+      p.x = cx + (p.x - cx) * k; p.z = cz + (p.z - cz) * k;
+    });
+    // the boots: mustard yellow, a black band round the shaft below its top and a strap round the
+    // ankle, a black toe cap and sole
+    v.paint('shoessboots', 0.5, (p, n, o) => {
+      const t = clamp(lum(o) / 0.62, 0.82, 1.1);
+      if (p.y < 0.03) return mul(blk, clamp(lum(o) / 0.5, 0.9, 1.3));
+      if (p.z > 0.1 && p.y < 0.075) return mul(blk, 1.2);
+      if ((p.y > 0.168 && p.y < 0.19) || (p.y > 0.086 && p.y < 0.102 && p.z < 0.09)) return blk;
+      return mul(bt, t);
+    });
+    v.shape('topsjer', lowerCollar(1.045, 0.25));
+    // the shoulders rounded off (the jacket's shoulder line rises to points beside the neck)
+    v.shape('topsjer', (p, n, part) => {
+      const x = Math.abs(p.x); if (isArm(part) || x < 0.035 || p.y < 0.99) return;
+      const cap = 1.05 - 3.5 * (x - 0.035) ** 2;
+      if (p.y > cap - 0.004) p.y = cap - 0.004 + 0.004 * Math.tanh((p.y - cap + 0.004) / 0.004);
+    });
+    // and what is left of it taken in round the neck, so the neckline lies flat (no collar)
+    v.shape('topsjer', (p, n, part) => {
+      const t = sstep(1.04, 1.05, p.y), r = Math.hypot(p.x, p.z + 0.008); if (!t || isArm(part) || r < 0.033) return;
+      const k = 1 + (0.033 / r - 1) * t; p.x *= k; p.z = -0.008 + (p.z + 0.008) * k;
+    });
+    v.hair(c.hair);
+    v.shape('ash_extra', (p) => { if (p.y > 1.3) p.set(0, 1.2, -0.02); });   // Ash's cap button gone
+    v.neck();
+    v.crown({ top: 1.318, back: 0.02, bulge: 1.05, rimY: 1.232, front: 0.035, strands: false });
+    // the bangs: pointed locks from under the crown's front down over the forehead to the brows
+    {
+      const hc = new V3(0, 1.17, -0.005), parts = [];
+      for (const [x, z, tx, ty, r] of [[0, 0.088, 0.004, 1.2, 0.024], [0.034, 0.083, 0.05, 1.205, 0.023], [-0.034, 0.083, -0.048, 1.208, 0.023], [0.066, 0.068, 0.088, 1.2, 0.022], [-0.066, 0.068, -0.086, 1.198, 0.022]]) {
+        const zt = 0.1 - Math.abs(tx) * 0.22;
+        parts.push(lock([[x, 1.292, z - 0.012], [(x + tx) / 2, 1.262, zt + 0.006], [tx, ty, zt]], r, 0.35, 0.002, 10, 10, hc));
+      }
+      v.flat(mergeGeos(parts), c.hair, head1);
+    }
+    // the hair: broad spikes up and back off the crown, a tuft rising off the front, spikes out
+    // over the ears and back off the back of the head
+    const S = [];
+    for (const s of [-1, 1]) {
+      S.push([s * 0.5, 0.75, 0.14, 0.058, [s * 0.35, 0.9, -0.2], 0.2]);       // on top
+      S.push([s * 0.45, 0.45, 0.12, 0.055, [s * 0.45, 0.75, 0.3], 0.15]);     // rising off the front
+      S.push([s * 1.3, 0.5, 0.13, 0.058, [s * 0.8, 0.6, -0.3], 0.25]);        // the sides
+      S.push([s * 1.6, 0.15, 0.11, 0.052, [s * 0.9, 0.1, -0.35], 0.35]);      // over the ears
+      S.push([s * 2.2, 0.55, 0.14, 0.058, [s * 0.4, 0.7, -0.7], 0.25]);       // behind
+      S.push([s * 2.6, 0.15, 0.13, 0.056, [s * 0.35, 0.15, -1], 0.35]);
+    }
+    S.push([0, 0.95, 0.14, 0.06, [0, 1, -0.25], 0.15], [0, 0.6, 0.13, 0.058, [0, 0.9, 0.35], 0.1],
+      [Math.PI, 0.7, 0.14, 0.06, [0, 0.75, -0.75], 0.25], [Math.PI, 0.0, 0.12, 0.055, [0, -0.25, -1], 0.4]);
+    v.spikes(c.hair, S);
+    v.garment((G) => {
+      // the sweatshirt: hung from the shoulders, big and loose like a long-sleeved shirt, falling
+      // wide past the waist to low on the hips, the undershirt's orange hem just showing under it;
+      // moving as a heavy cotton below the chest
+      const ys = rowsOf([0.958, 0.945], 0.93, 0.6, 0.02), hem = ys.length - 1;
+      const sg = G.hang({
+        name: 'gary_sweat', ys, nc: 48, pin: 2, mid: rowAt(ys, 0.86),
+        off: offTop(0.006, 0.016, 0.82), tuck: 0.006, lining: mul(sw2, 0.8), th: 0.005,
+        min: (y, th) => { const t = clamp((0.8 - y) / 0.2); if (t <= 0) return 0; const rx = 0.125 + 0.022 * t, rz = 0.1 + 0.018 * t; return 1 / Math.hypot(Math.sin(th) / rx, Math.cos(th) / rz); },
+        paint: (p) => {
+          if (p.y < 0.607) return un;
+          if (p.y < 0.614) return sw2;   // the hem's fold
+          return sw;
+        },
+        sim: {
+          tag: 'G', ns: 16, rows: [2, rowAt(ys, 0.76), hem], parent: 'Spine2',
+          prm: () => ({
+            ks: [46, 34], drag: [0.5, 0.75], damp: 5.5, vmax: 1.4, flut: 0.3, cone: [0.3, 0.42], hangBone: 'Hips', hang: [0, 0.35, 0.65], quad: true,
+            coll: [{ ring: 'Spine1', caps: ['arms'], seg: ['arms'] },
+              { ring: 'Hips', mid: 'Spine1', caps: ['arms'], seg: ['arms', 'thighs'], after: ['thighs'] }],
+          }),
+        },
+      });
+      // long loose sleeves to the wrists, plain hems
+      sleeves(G, { name: 'gary', to: 0.44, color: sw, loose: 1.5, looseFrom: 0.12, paint: (p) => (Math.abs(p.x) > 0.433 ? sw2 : sw) });
+      // the necklace: a black cord snug round the neck (not out over the shoulders: a ring round
+      // the neck itself, skinned like it), hanging down the front to a yellow and green yin-yang
+      // pendant on the chest
+      const PY = 0.905, PR = 0.017;
+      const at = (y) => onTrunk(G, 0, y, 0.0045).p, pc = at(PY), tg = at(PY + 0.02).sub(at(PY - 0.02)).normalize();
+      const ux = V(1, 0, 0), nn = V().crossVectors(ux, tg).normalize(), uy = V().crossVectors(nn, ux).normalize();
+      const path = [];
+      const NR0 = 0.0345, NZ = -0.008;   // (v.neck: a tube of radius 0.03 round (0, y, -0.008))
+      for (let k = 0; k <= 24; k++) { const th = lerp(0.75, TAU - 0.75, k / 24), y = 1.048 + 0.008 * (1 - Math.cos(th)) / 2; path.push(V(Math.sin(th) * NR0, y, NZ + Math.cos(th) * NR0 * 0.95)); }
+      const top = pc.clone().addScaledVector(uy, PR * 0.95), start = path[0], end = path[path.length - 1];
+      const down = (a) => Array.from({ length: 6 }, (_, k) => {
+        const t = (k + 1) / 7, y = lerp(a.y, top.y, t), q = onTrunk(G, Math.atan2(a.x, a.z - ZC) * (1 - t), y, 0.006).p;
+        return q.lerp(a.clone().lerp(top, t), 0.2 * sstep(0.5, 1, t));
+      });
+      const pts = [top, ...down(start).reverse(), ...path, ...down(end), top];
+      for (let it = 0; it < 3; it++) for (let i = 1; i < pts.length - 1; i++) pts[i] = pts[i].clone().multiplyScalar(0.5).addScaledVector(pts[i - 1], 0.25).addScaledVector(pts[i + 1], 0.25);
+      const cord = G.build(), NR = 6, RC = 0.0022;
+      const rings = pts.map((p, i) => {
+        const d = pts[Math.min(pts.length - 1, i + 1)].clone().sub(pts[Math.max(0, i - 1)]).normalize(), o = V(p.x, 0, p.z - ZC).normalize(), b = V().crossVectors(d, o).normalize(), o2 = V().crossVectors(b, d);
+        return Array.from({ length: NR + 1 }, (_, k) => { const a = (k % NR) / NR * TAU; return p.clone().addScaledVector(o2, Math.cos(a) * RC).addScaledVector(b, Math.sin(a) * RC); });
+      });
+      const neckW = (p) => ({ Neck: sstep(1.04, 1.09, p.y), Spine3: 1 - sstep(1.04, 1.09, p.y) });
+      const wOf = (p) => (p.y > 1.035 && Math.hypot(p.x, p.z - NZ) < 0.045 ? neckW(p) : p.y > 0.975 ? G.bodyW(p) : nearestW(sg, p));
+      slab(cord, rings, rings.map((r) => r.map(wOf)), 0.0008, { loop: true, out: (p, i) => p.clone().sub(pts[i]), rims: {} });
+      G.add(cord, paintGrid(rings, 8, 64, () => hex(c.cord), hex(c.cord)), 'gary_cord');
+      // the pendant: a disc on the chest, its face the yin-yang ringed in black
+      const pd = G.build(), NI = 5, NJ = 28;
+      const disc = Array.from({ length: NI }, (_, i) => Array.from({ length: NJ + 1 }, (_, j) => { const a = (j % NJ) / NJ * TAU, r = PR * Math.max(0.02, i / (NI - 1)); return pc.clone().addScaledVector(ux, Math.cos(a) * r).addScaledVector(uy, Math.sin(a) * r).addScaledVector(nn, 0.0015 * (1 - (i / (NI - 1)) ** 2)); }));
+      slab(pd, disc, disc.map((r) => r.map((p) => nearestW(sg, p))), 0.0028, { loop: true, out: () => nn, rims: { bottom: true } });
+      const yy = (p) => {
+        const q = p.clone().sub(pc), a = q.dot(ux) / PR, b = q.dot(uy) / PR, r = Math.hypot(a, b);
+        if (r > 0.86) return blk;
+        const Y = hex(c.yin), G2 = hex(c.yang);
+        if (Math.hypot(a, b - 0.43) < 0.13) return G2;   // the dots
+        if (Math.hypot(a, b + 0.43) < 0.13) return Y;
+        if (Math.hypot(a, b - 0.43) < 0.43) return Y;   // the two heads
+        if (Math.hypot(a, b + 0.43) < 0.43) return G2;
+        return a < 0 ? Y : G2;
+      };
+      G.add(pd, paintGrid(disc, 64, 64, yy, mul(blk, 1.4)), 'gary_pendant');
+      underTop(G); underSkirt(G, 0.006);
     });
   };
 

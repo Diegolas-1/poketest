@@ -635,13 +635,18 @@ Object.assign(LOOKS, {
     hat: { color: '#4a4fb8', band: '#d8343a' }, shirt: '#5157c6', sleeve: 'short', pants: '#4446ac', shorts: true,
     gloves: '#f8f8f4', gloves2: '#e6e6e0', shoes: { up: '#1e1e28', sole: '#121218', collar: '#1e1e28' } },
 });
+// Gary Oak, the professor's grandson and Ash's rival: Ash's own body, his own clothes
+Object.assign(LOOKS, {
+  gary: { hair: '#a4532c', hairStyle: 'short', skin: '#f6d4b6', face: { eye: '#2a1c18', eye2: '#5a3a28', mouth: 'smile', brow: '#7e3a1c' },
+    shirt: '#6d42ac', sleeve: 'long', pants: '#41609e', cuff: '#41609e', boots: { up: '#d8a432', sole: '#1c1a1e' } },
+});
 // the townspeople, in the order the town lists them (Ash and Prof. Oak aside)
-export const TOWNSFOLK = ['delia', 'girl', 'rose', 'bram', 'ada', 'kid', 'mae', 'fisher', 'marina', 'ben', 'tom', 'gus'];
+export const TOWNSFOLK = ['delia', 'girl', 'rose', 'bram', 'ada', 'kid', 'mae', 'fisher', 'marina', 'ben', 'tom', 'gus', 'gary'];
 // and the visitors (baked like them)
 export const VISITORS = ['jenny'];
 
 // the others are made from the same base model too, reworked in cast.js (and cast2.js)
-for (const k of ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus', ...VISITORS]) Object.assign(LOOKS[k], { base: 'calem', cast: k });
+for (const k of ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus', 'gary', ...VISITORS]) Object.assign(LOOKS[k], { base: 'calem', cast: k });
 
 // ---------- optional local base model ----------
 // web/world/local/ash.glb holds a skinned 3D-game body dressed as Ash. When it
