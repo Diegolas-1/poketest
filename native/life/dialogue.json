@@ -1128,6 +1128,266 @@
         },
         "close": ["Back to my post.", "Stay safe, citizen!"]
       }
+    },
+
+    "gary": {
+      "name": "Gary",
+      "tag": "GARY",
+      "short": "Gary",
+      "label": "Gary",
+      "home": "blue",
+      "voice": "Gary Oak, Prof. Oak's grandson and Ash's rival since they could walk. Smug, quick, always a step ahead and makes sure Ash knows it ('Ashy-boy'). Never cruel, never a villain; underneath, he takes Ash more seriously than anyone.",
+      "remarks": {
+        "wet": [
+          [
+            "Ha! Did you try to swim to Viridian, Ashy-boy?",
+            "The bridge is RIGHT there."
+          ]
+        ],
+        "soaked": [
+          [
+            "Whoa, you're soaked! A Magikarp could've stayed drier.",
+            "Go dry off. I don't want an excuse when I beat you."
+          ]
+        ],
+        "tired": [
+          [
+            "Out of breath already? I ran to the lab and back twice this morning."
+          ]
+        ],
+        "hungry": [
+          [
+            "Is that your stomach? It's louder than you are."
+          ]
+        ],
+        "stuffed": [
+          [
+            "Did you eat the whole inn? You're gonna roll to Viridian."
+          ]
+        ]
+      },
+      "greet": {
+        "dawn": [
+          "Up before me? No way. ...Oh, you haven't been to bed. Figures.",
+          "Morning, Ashy-boy. Bet you didn't even brush your teeth."
+        ],
+        "morning": [
+          "Well, well. Ash Ketchum, actually awake.",
+          "Hey, loser. Grandpa says hi. I'm the one who says 'loser'."
+        ],
+        "midday": [
+          "You again? Don't you have a nap to take?",
+          "Hey, Ash. Still no POKéMON? Same."
+        ],
+        "afternoon": [
+          "Afternoon, Ashy-boy. I've already done everything today. Twice.",
+          "Oh, it's you. Good. I was bored."
+        ],
+        "evening": [
+          "Shouldn't you be home? Your mom's gonna call the whole town.",
+          "Evening, Ash. Big day tomorrow. Every day's a big day for me."
+        ],
+        "night": [
+          "What are you doing out? Wait. What am I doing out? ...Don't tell Grandpa.",
+          "Night, Ashy-boy. Dream about losing to me."
+        ]
+      },
+      "period": {
+        "dawn": [
+          "I like the morning. Nobody's up to see how good I am, but still."
+        ],
+        "morning": [
+          "I already helped Grandpa sort a box of POKé BALLS. Did you do anything useful?"
+        ],
+        "midday": [
+          "Lunch is for people who aren't busy being great."
+        ],
+        "afternoon": [
+          "Afternoons are for training. I don't have a POKéMON yet. I'm training anyway."
+        ],
+        "evening": [
+          "Sunset's okay. It'd look better with a Charizard flying past it."
+        ],
+        "night": [
+          "Can't sleep. Too many plans. You wouldn't understand. You don't plan."
+        ]
+      },
+      "activity": {
+        "play": [
+          [
+            "I'm not playing. I'm practising throwing. Watch.",
+            "N: (He throws a pebble at a fence post. It hits. He looks very pleased.)"
+          ],
+          "Race you to the pond. Ready, go. I win."
+        ],
+        "walk": [
+          "I'm going to Grandpa's lab. I go every day. They know me there. Not you, though.",
+          [
+            "Walking? I'm scouting. There's a difference.",
+            "Scouts get to Viridian first."
+          ]
+        ],
+        "chat": [
+          "I'm telling everyone about my plans. They love it.",
+          "Shh. I'm being admired."
+        ],
+        "home": [
+          "This is my house. My sister's in there, so be quiet. She's way scarier than me."
+        ],
+        "breakfast": [
+          "Breakfast! Daisy made eggs. They're better than your mom's. ...Don't tell your mom I said that."
+        ],
+        "supper": [
+          "Supper. Daisy says if I talk about POKéMON at the table one more time, I wash the dishes."
+        ],
+        "commute": [
+          "Can't stop. Places to be. All of them before you."
+        ],
+        "errand": [
+          "Grandpa sent me for something. He trusts me with important stuff. Unlike some people."
+        ]
+      },
+      "place": {
+        "lab_gate": [
+          [
+            "That's my grandpa's lab. The POKéMON in there? I've seen them all.",
+            "Well, most of them. Through the window. A lot."
+          ]
+        ],
+        "lab_hill": [
+          "You can see the whole town from up here. Remember that. It's the view you'll have of me leaving."
+        ],
+        "route1_gate": [
+          [
+            "Route 1. And then Viridian. And then everywhere.",
+            "If the road weren't closed, I'd already be gone."
+          ]
+        ],
+        "plaza": [
+          "Everybody comes through the plaza. Great place to be seen."
+        ],
+        "pond": [
+          "There's a Poliwag in there. I've named it. It doesn't know yet."
+        ],
+        "beach": [
+          "One day I'm surfing to Cinnabar on a Lapras. You can watch from the beach."
+        ],
+        "blue": [
+          "Our yard. Daisy grows tomatoes. I'm not allowed near them since the Spearow thing."
+        ]
+      },
+      "ash": [
+        [
+          "Ten years old, Ash. Same as me. Except I'm ready.",
+          "You're... also ten."
+        ],
+        [
+          "Bet I get my first POKéMON before you. Bet I get my FIFTH before you.",
+          "Bet you oversleep. Ha!"
+        ],
+        [
+          "You know what you need, Ashy-boy? A plan. And an alarm clock.",
+          "Maybe two alarm clocks."
+        ],
+        [
+          "Everyone keeps saying we're rivals. Rivals means you have a chance.",
+          "So... I guess we're rivals. Don't let it go to your head."
+        ],
+        [
+          "Your mom gave me a cookie yesterday. A whole cookie.",
+          "She's the best thing about you. No offence."
+        ],
+        [
+          "You'd better be good when you start. Beating a pushover's no fun.",
+          "...That's not me being nice. It's tactics."
+        ]
+      ],
+      "town": [
+        "Pallet Town's small. Too small. I'm gonna make it famous. Gary's town.",
+        "Everybody here's known me since I was a baby. So they all know I'm great."
+      ],
+      "about": {
+        "oak": [
+          "Grandpa's the smartest guy in Kanto. Don't tell him I said so. His head's big enough."
+        ],
+        "delia": [
+          "Your mom's nice. Too nice. That's why you turned out so soft."
+        ],
+        "lily": [
+          "Lily says she's gonna beat me. Lily has a Caterpie. I'm not worried."
+        ],
+        "timmy": [
+          "Timmy follows me around. It's fine. I'd follow me around too."
+        ],
+        "jenny": [
+          "Officer Jenny won't let anyone through the gate. Not even ME. I asked. Twice."
+        ],
+        "mae": [
+          "Granny Mae says I've got my grandpa's chin. I've got his brains, too."
+        ]
+      },
+      "after": {},
+      "sleep": [
+        "(Gary is asleep. He's smiling. He's probably winning something.)"
+      ],
+      "bark": {
+        "any": [
+          "Smell ya later!",
+          "Too easy.",
+          "Gary Oak, coming through!",
+          "Hmph. Amateurs."
+        ],
+        "play": [
+          "Did you see that? Perfect.",
+          "Again! I can do it better.",
+          "Ha! Nailed it."
+        ],
+        "walk": [
+          "Out of my way, future Champion here.",
+          "Can't stop, busy being great."
+        ],
+        "chat": [
+          "...and THEN I'll get all eight badges.",
+          "Grandpa says I'm a natural."
+        ],
+        "night": [
+          "Can't sleep. Too excited.",
+          "Shh. Daisy'll hear."
+        ]
+      },
+      "chat": {
+        "open": {
+          "any": [
+            "Hey, {b}. Guess who's gonna be Champion?",
+            "{b}! I've got news. I'm amazing. Okay, that's not news."
+          ],
+          "ash": [
+            "{b}, have you seen Ash today? He's probably asleep.",
+            "Ash says he'll be a POKéMON Master, {b}. Funny guy."
+          ]
+        },
+        "reply": {
+          "any": [
+            "Yeah, yeah. Cool.",
+            "Sure. I knew that.",
+            "Hmph. If you say so."
+          ],
+          "ash": [
+            "Ash? He tries. I'll give him that.",
+            "Ashy-boy's okay. For a slowpoke."
+          ],
+          "sea": [
+            "The sea's fine. I'll cross it on a Lapras someday."
+          ],
+          "cinnabar": [
+            "Cinnabar's got a Gym. I'm gonna win it. Obviously."
+          ]
+        },
+        "close": [
+          "Gotta go. Smell ya later!",
+          "Later. I've got training to do."
+        ]
+      }
     }
   },
 
@@ -1137,7 +1397,9 @@
     "kai|marina": "family", "lily|rose": "family",
     "delia|rose": "friends", "delia|mae": "friends", "ada|mae": "friends", "ada|marina": "friends", "ben|mae": "friends",
     "ben|bram": "friends", "tom|gus": "rivals", "kai|gus": "rivals", "lily|timmy": "rivals", "delia|ada": "friends",
-    "rose|ben": "neighbours", "mae|gus": "friends", "lily|ben": "friends", "kai|tom": "friends", "marina|rose": "neighbours"
+    "rose|ben": "neighbours", "mae|gus": "friends", "lily|ben": "friends", "kai|tom": "friends", "marina|rose": "neighbours",
+    "gary|timmy": "friends",
+    "gary|lily": "rivals"
   },
 
   "pairs": {
@@ -1268,6 +1530,42 @@
     ],
     "delia|marina": [
       [["marina", "Delia. Ash was down on the pier at dawn again."], ["delia", "Watching the boats?"], ["marina", "Watching the horizon."], ["delia", "...Oh."]]
+    ],
+    "gary|lily": [
+      [
+        [
+          "lily",
+          "Gary! Nibbles and me are gonna beat you."
+        ],
+        [
+          "gary",
+          "With a Caterpie? Good luck."
+        ],
+        [
+          "lily",
+          "He's gonna be a BUTTERFREE!"
+        ],
+        [
+          "gary",
+          "...Okay, that's actually kind of cool."
+        ]
+      ]
+    ],
+    "gary|timmy": [
+      [
+        [
+          "timmy",
+          "Gary, can I have your autograph?"
+        ],
+        [
+          "gary",
+          "Sure. When I'm Champion it'll be worth a ton."
+        ],
+        [
+          "timmy",
+          "Cool! What's an autograph?"
+        ]
+      ]
     ]
   },
 

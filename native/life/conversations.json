@@ -115,7 +115,8 @@
       "voice": "mid",
       "pitch": 1.0
     },
-    "jenny": {"name": "OFFICER JENNY", "colour": "#4a55c8", "voice": "high", "pitch": 1.02}
+    "jenny": {"name": "OFFICER JENNY", "colour": "#4a55c8", "voice": "high", "pitch": 1.02},
+    "gary": {"name": "GARY", "colour": "#6d42ac", "voice": "kid", "pitch": 0.98}
   },
   "ash": {
     "greet": [
@@ -236,6 +237,22 @@
           "Bye, Officer Jenny!",
           "Thanks, Officer!"
         ]
+      },
+      "gary": {
+        "greet": [
+          "Hey, Gary.",
+          "Oh. It's you.",
+          "Gary! I'm gonna beat you!"
+        ],
+        "bye": [
+          "See ya, Gary.",
+          "Later, Gary!",
+          "Bye. I'm still gonna win!"
+        ],
+        "bye_labels": [
+          "See ya, Gary.",
+          "Later!"
+        ]
       }
     }
   },
@@ -310,6 +327,11 @@
       "Straight home along the road, now!",
       "Stay safe, young man. Carry on!",
       "Mind the ledges on your way down!"
+    ],
+    "gary": [
+      "Smell ya later, Ashy-boy!",
+      "Later, loser! ...Kidding. Mostly.",
+      "Go get some sleep. You'll need it."
     ]
   },
   "wrap_up": {
@@ -332,7 +354,8 @@
     "oak": [
       "My boy, I could talk POKéMON all day. And I would! But my notes are waiting."
     ],
-    "jenny": ["That's enough chit-chat. I'm on duty, you know. Very much on duty."]
+    "jenny": ["That's enough chit-chat. I'm on duty, you know. Very much on duty."],
+    "gary": ["Okay, that's enough of you for one day."]
   },
   "interrupts": {
     "_any": [
@@ -387,6 +410,10 @@
     "jenny": [
       "Excuse me, Ash. Change of watch. I have to light the gate lamps.",
       "One moment, young man. The crew's radio. Duty calls!"
+    ],
+    "gary": [
+      "Oh, that's Daisy calling. Gotta go. Don't follow me!",
+      "Grandpa needs me at the lab. VIP stuff. Bye!"
     ]
   },
   "clue_labels": {},
@@ -4521,6 +4548,207 @@
           "lines": [
             "...Thank you, Ash. We are. Very proud.",
             "When you start your journey, tell every Jenny you meet that Viridian says hello."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "gary_rivals",
+      "on": "talk",
+      "with": "gary",
+      "once": true,
+      "chance": 0.6,
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Hey, Ashy-boy. Grandpa's giving out POKéMON soon. You know that, right?",
+            "I'm gonna get mine first. And then I'm gonna beat you. In that order."
+          ],
+          "choices": [
+            {
+              "label": "No way. I'll beat you!",
+              "tone": "eager",
+              "ash": "No way! I'm gonna beat YOU!",
+              "do": {
+                "growth": {
+                  "courage": 1
+                }
+              },
+              "next": "fire"
+            },
+            {
+              "label": "Why do you care so much?",
+              "tone": "curious",
+              "ash": "Why do you even care if you beat me?",
+              "next": "why"
+            },
+            {
+              "label": "Good luck, Gary.",
+              "tone": "kind",
+              "ash": "Good luck, Gary. Really.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "luck"
+            }
+          ]
+        },
+        "fire": {
+          "lines": [
+            "Ha! That's the spirit. It's no fun if you just roll over.",
+            "See you at the lab. If you wake up."
+          ],
+          "end": true
+        },
+        "why": {
+          "lines": [
+            "...Because you're the only one who'd actually try to beat me back.",
+            "Forget I said that. Smell ya later!"
+          ],
+          "end": true
+        },
+        "luck": {
+          "lines": [
+            "Luck? I don't need luck. I'm Gary Oak.",
+            "...But, uh. You too, I guess."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "gary_starter",
+      "on": "talk",
+      "with": "gary",
+      "once": true,
+      "chance": 0.5,
+      "if": {
+        "talks_min": 1
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "Okay, Ash. Which one are you picking? Bulbasaur, Charmander or Squirtle?",
+            "Not that it matters. I'll pick the one that beats yours."
+          ],
+          "choices": [
+            {
+              "label": "Charmander. It's the coolest!",
+              "tone": "eager",
+              "ash": "Charmander! A fire-breathing lizard? Come on!",
+              "next": "char"
+            },
+            {
+              "label": "Squirtle. Water's strong.",
+              "tone": "curious",
+              "ash": "Squirtle, maybe. Water's strong against a lot.",
+              "next": "squirt"
+            },
+            {
+              "label": "Whichever one likes me.",
+              "tone": "kind",
+              "ash": "Whichever one likes me, I guess.",
+              "do": {
+                "growth": {
+                  "heart": 1
+                }
+              },
+              "next": "likes"
+            }
+          ]
+        },
+        "char": {
+          "lines": [
+            "Then I'll take Squirtle and put out your fire. Easy."
+          ],
+          "end": true
+        },
+        "squirt": {
+          "lines": [
+            "Squirtle? Huh. Not bad, Ashy-boy. I was gonna pick that.",
+            "Now I have to think again. Thanks a lot."
+          ],
+          "end": true
+        },
+        "likes": {
+          "lines": [
+            "Likes you? It's a POKéMON, not a pen pal.",
+            "...Grandpa says something like that, too. Weird."
+          ],
+          "end": true
+        }
+      }
+    },
+    {
+      "id": "gary_gate",
+      "on": "talk",
+      "with": "gary",
+      "once": true,
+      "chance": 0.4,
+      "if": {
+        "talks_min": 2
+      },
+      "start": "s",
+      "nodes": {
+        "s": {
+          "lines": [
+            "You've seen the Viridian gate? Closed. Rocks everywhere.",
+            "I've got a plan. We sneak past Officer Jenny at the lamp change. You in?"
+          ],
+          "choices": [
+            {
+              "label": "I'm in!",
+              "tone": "eager",
+              "ash": "I'm in! When?",
+              "next": "in"
+            },
+            {
+              "label": "She'd catch us in a second.",
+              "tone": "quiet",
+              "ash": "She'd catch us in about one second.",
+              "do": {
+                "growth": {
+                  "patience": 1
+                }
+              },
+              "next": "no"
+            },
+            {
+              "label": "Without a POKéMON? Nope.",
+              "tone": "cheeky",
+              "ash": "Past a rockslide with no POKéMON? Nope.",
+              "do": {
+                "growth": {
+                  "responsibility": 1
+                }
+              },
+              "next": "smart"
+            }
+          ]
+        },
+        "in": {
+          "lines": [
+            "Ha! I knew you'd say that. I wasn't really gonna do it.",
+            "It was a test. You failed. Smell ya later!"
+          ],
+          "end": true
+        },
+        "no": {
+          "lines": [
+            "Yeah, she would. She wrote my name down last time.",
+            "It's not a ticket. She says. It FEELS like a ticket."
+          ],
+          "end": true
+        },
+        "smart": {
+          "lines": [
+            "...Huh. That's actually smart, Ash.",
+            "Who are you and what did you do with Ashy-boy?"
           ],
           "end": true
         }

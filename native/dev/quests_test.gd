@@ -8,7 +8,7 @@ extends Node
 # Screenshots (xvfb, see dev/shot.gd):
 #   godot --path native --rendering-driver opengl3 --resolution 1688x780 res://dev/quests_test.tscn -- --shot=/abs/dir
 
-const IDS := ["delia", "lily", "rose", "bram", "ada", "timmy", "mae", "kai", "marina", "ben", "tom", "gus", "jenny"]
+const IDS := ["delia", "lily", "rose", "bram", "ada", "timmy", "mae", "kai", "marina", "ben", "tom", "gus", "jenny", "gary"]
 const PERIODS := ["dawn", "morning", "midday", "afternoon", "evening", "night"]
 const HOUR := {"dawn": 6.0, "morning": 9.0, "midday": 12.5, "afternoon": 15.0, "evening": 19.0, "night": 22.5}
 const ACTS := ["", "home", "breakfast", "commute", "work:farm", "work:bake", "shop", "chat", "walk", "yardwork", "fish",

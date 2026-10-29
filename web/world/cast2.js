@@ -1280,10 +1280,10 @@ export function townsfolk(K) {
     g.setAttribute('normal', smooth.attributes.normal.clone());
     g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     v.flat(g, c.hair, head1);
-    // (for locks lying on the cap: a point on its surface in a direction, off it by lift)
-    return { on: (az, el, lift) => { const d = dirOf2(az, el); return C0.clone().addScaledVector(d, skull(d) + 0.012 + lift); } };
     skullGeo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(SKULL.pos.length / 3 * 2), 2));
     v.add(skullGeo, K.flatMat(c.skin, v.SKIN, { name: 'cast_skull' }), (p) => { const t = sstep(1.12, 1.085, p.y); return [['Head', 1 - t], ['Neck', t]]; }, 'skull');
+    // (for locks lying on the cap: a point on its surface in a direction, off it by lift)
+    return { on: (az, el, lift) => { const d = dirOf2(az, el); return C0.clone().addScaledVector(d, skull(d) + 0.012 + lift); } };
   }
 
   // spiky hair as separate locks that bounce: each a chunky tapered lock rising from the head in
@@ -1306,6 +1306,16 @@ export function townsfolk(K) {
       } else { at = L.at; r0 = L.r0; flat = c0; }
       const p0 = at(0), pts = [0, 0.25, 0.5, 0.75, 1].map((t) => at(t).toArray());
       const geo = flat ? lock(pts, r0, 0.45, 0.0015, N, NC, flat) : lock(pts, r0, 0.55, 0.0015, N, NC);
+      // facing out (the native game's ink hull grows along the normals): flip the winding if the
+      // lock came out inside out, judged against the middle of each ring
+      {
+        const P0 = geo.attributes.position, N0 = geo.attributes.normal; let dot = 0;
+        for (let r = 0; r <= N; r++) {
+          const c = V(); for (let j = 0; j <= NC; j++) c.add(V().fromBufferAttribute(P0, r * (NC + 1) + j)); c.divideScalar(NC + 1);
+          for (let j = 0; j <= NC; j++) { const q = r * (NC + 1) + j; dot += V().fromBufferAttribute(P0, q).sub(c).dot(V().fromBufferAttribute(N0, q)); }
+        }
+        if (dot < 0) { const I = geo.index.array; for (let q = 0; q < I.length; q += 3) { const t = I[q + 1]; I[q + 1] = I[q + 2]; I[q + 2] = t; } geo.index.needsUpdate = true; geo.computeVertexNormals(); }
+      }
       // its two bones: at the root and halfway, the tip beyond
       const bn = [`hr${name}${li}_0`, `hr${name}${li}_1`], mid = at(0.5), tip = at(1);
       G.bone(bn[0], 'Head', p0); G.bone(bn[1], bn[0], mid);

@@ -266,6 +266,60 @@
           "Lovely town. Quiet. Smells of bread and the sea. Nobody tried to climb anything."
         ]
       }
+    },
+    {
+      "id": "gary_sister",
+      "label": "What's Daisy like?",
+      "tone": "curious",
+      "note": "Daisy: Gary's big sister. Kind, sensible, and the only one he's scared of.",
+      "by": {
+        "gary": [
+          "Daisy? She's okay. She makes me do chores. She reads a lot. She knows everything about POKéMON grooming.",
+          "Don't tell her I said okay."
+        ]
+      }
+    },
+    {
+      "id": "gary_necklace",
+      "label": "What's that necklace?",
+      "tone": "curious",
+      "note": "Gary's yin-yang pendant: a present from his grandpa.",
+      "by": {
+        "gary": [
+          "This? Grandpa gave it to me. Yin and yang. Balance, he says. Strong and gentle.",
+          "I'm working on the strong part. The gentle part can wait."
+        ]
+      }
+    },
+    {
+      "id": "gary_dream",
+      "label": "What do you really want?",
+      "tone": "quiet",
+      "ash": "Gary... what do you really want?",
+      "note": "Gary wants to be better than his grandpa, and he's scared he won't be.",
+      "do": {
+        "growth": {
+          "openness": 1
+        }
+      },
+      "by": {
+        "gary": [
+          "What do I want? To be the best. Better than everyone. Better than... Grandpa, even.",
+          "Everyone says 'Oh, Professor Oak's grandson.' One day they'll say 'Oh, Gary Oak's grandpa.'"
+        ]
+      }
+    },
+    {
+      "id": "gary_rival",
+      "label": "Why are we always fighting?",
+      "tone": "kind",
+      "note": "Gary and Ash have been rivals since they could walk. Gary started it. Probably.",
+      "by": {
+        "gary": [
+          "We're not fighting. We're competing. Fighting is when you're mad. I'm never mad. I'm winning.",
+          "You started it, anyway. When we were four. Over a Poké Doll."
+        ]
+      }
     }
   ]
 }

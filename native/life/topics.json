@@ -34,7 +34,8 @@
         "jenny": [
           "My city! Wide green streets, a POKéMON Center, a Gym, a police station with very shiny floors. I polish them.",
           "It's called the Eternally Green Paradise. Not the Eternally Closed Road. That's temporary."
-        ]
+        ],
+        "gary": ["Viridian's got a Gym. The leader's never there, though. Weird, right? I'll find him."]
       }},
     {"id": "beyond", "label": "What's past Viridian?", "tone": "curious", "note": "Past Viridian: the forest, then Pewter City (a Rock Gym), then Mt. Moon and Cerulean.",
       "if": {"known": "viridian"},
@@ -65,7 +66,8 @@
         "ada": ["You go out there and you do something we can talk about for twenty years! Something big! I'll handle the talking."],
         "jenny": [
           "Follow the rules, care for your POKéMON, and never give up. That's how you become anything worth becoming. Even a Master."
-        ]
+        ],
+        "gary": ["Easy. Be me. Step one: be born an Oak. You already messed that up."]
       }},
     {"id": "badges", "label": "What are Gym badges?", "tone": "curious", "note": "Gym badges: eight in Kanto, one from each Gym Leader. Eight gets you into the Indigo League.",
       "by": {
@@ -78,6 +80,9 @@
         "gus": ["Eight. Like the points of a compass, doubled. Each one a direction you've already been."],
         "jenny": [
           "Eight Gyms, eight badges, then the League. Viridian's Gym is one of them. The leader is... away a great deal. On business."
+        ],
+        "gary": [
+          "You beat a Gym Leader, you get a badge. Eight badges and you're in the League. I'm getting all eight first."
         ]
       }},
     {"id": "route1", "label": "What's on Route 1?", "tone": "curious", "note": "Route 1: north of town to Viridian. Tall grass, ledges, wild Pidgey and Rattata. A tea stop and a Mart on the way.",
@@ -91,6 +96,9 @@
         "marina": ["Long walk to Viridian. Takes a day if you dawdle, and you'll dawdle. Bring water."],
         "jenny": [
           "Route 1, according to my report: two bridges sound, eight ledges checked, one brook, too many Rattata. No serious damage."
+        ],
+        "gary": [
+          "Pidgey, Rattata, tall grass, ledges. I've walked it to the gate a hundred times. With Grandpa. Shush."
         ]
       }},
     {"id": "cinnabar", "label": "Tell me about Cinnabar.", "tone": "curious", "note": "Cinnabar Island: south across the sea. A volcano, hot springs, a hidden Gym, a burned mansion.",
@@ -134,6 +142,10 @@
         "ada": ["Whatever Gary doesn't pick! Then you'll have something to talk about. Ha!"],
         "jenny": [
           "Officially, the police don't take sides. Unofficially: a Fire-type. Growlithe was my first. Best partner I could ask for."
+        ],
+        "gary": [
+          "Pick whatever you want. I'll pick the one that beats it.",
+          "...But don't pick Squirtle. I might want Squirtle."
         ]
       }},
     {"id": "pallet_old", "label": "How old is Pallet Town?", "tone": "curious", "note": "Pallet Town: an old fishing village, a hundred years and more. Not much changes.",
@@ -157,6 +169,10 @@
         "rose": ["He sent me a note once to say my garden had the happiest Oddish in Kanto. I framed it."],
         "jenny": [
           "The Professor? A great man. He calls the station every morning to ask if the road's open. He has a lot of parcels waiting."
+        ],
+        "gary": [
+          "Grandpa? He's great. He forgets lunch, though. And my birthday, once. He made up for it.",
+          "He talks about you a lot, actually. 'That Ketchum boy.' It's annoying."
         ]
       }},
     {"id": "gary", "label": "What do you think of Gary?", "tone": "cheeky", "ash": "What do you think of Gary? Honestly?", "note": "Gary Oak: the Professor's grandson. Ash's rival. Everyone has a gentler opinion than Ash does.",
@@ -169,7 +185,8 @@
         "marina": ["He's quick. You're stubborn. Quick wins the first race. Stubborn wins the long one."],
         "kai": ["Smart kid. He reads. Not as much as me, but he reads."],
         "tom": ["The Professor's grandson? Sharp as a hook. But a hook's no good without a line, lad. Friends are the line."],
-        "oak": ["My grandson? A fine young man with a very high opinion of himself. Rather like I was. You two will be good for each other. Eventually."]
+        "oak": ["My grandson? A fine young man with a very high opinion of himself. Rather like I was. You two will be good for each other. Eventually."],
+        "gary": ["What do I think of me? Amazing. Next question."]
       }},
     {"id": "wild", "label": "What POKéMON live around here?", "tone": "curious", "note": "Around Pallet: Pidgey, Rattata, Spearow in the fields; Krabby, Tentacool, Wingull by the sea; Oddish in gardens.",
       "by": {
@@ -182,7 +199,10 @@
         "rose": ["Oddish, in the evening, when they think no one's looking. They pull up and walk about. Then plant themselves again."],
         "tom": ["Seen a Gyarados off the point, lad, in a storm. Swear on my ship's bell. Well. Mostly swear."],
         "oak": ["Pidgey and Rattata on Route 1, sea POKéMON on the shore, Oddish in the gardens. A gentle start for a young Trainer. Pallet was chosen for that."],
-        "timmy": ["There's a SECRET POKéMON in the pond! It's HUGE! I've never seen it! That's how you know it's secret!"]
+        "timmy": ["There's a SECRET POKéMON in the pond! It's HUGE! I've never seen it! That's how you know it's secret!"],
+        "gary": [
+          "Pidgey and Rattata on the route. Poliwag in the pond. And a Spearow that hates me personally."
+        ]
       }},
     {"id": "care", "label": "How do you look after a POKéMON?", "tone": "kind", "ash": "How do you look after a POKéMON? Properly, I mean.", "note": "Looking after POKéMON: food, rest, attention. Listen to them. Let them be what they are.",
       "do": {"growth": {"heart": 1}},
@@ -280,7 +300,8 @@
         "bram": ["They stop for bread and leave with a story! HO HO! I give them both for free."],
         "jenny": [
           "Dozens a week, normally, heading north. Since the quake I've turned back every one. Politely. Firmly. Politely."
-        ]
+        ],
+        "gary": ["Sometimes. They stop at Grandpa's lab and ask him stuff. Then they see me and get nervous."]
       }},
     {"id": "battled", "label": "Have you ever battled?", "tone": "eager", "ash": "Have you ever had a POKéMON battle?", "note": "Some of Pallet's grown-ups were Trainers once, a little.",
       "by": {
@@ -289,20 +310,29 @@
         "marina": ["Not with POKéMON. With Kai, about the radio, every day."],
         "ben": ["No. Doduo's not for battles. Doduo's for the farm. Mm."],
         "oak": ["In my youth, Ash, I was rather good. Then I found I'd rather understand a POKéMON than beat one. Both have their place."],
-        "mae": ["Me? Ha! I once battled a Spearow for my hat with an umbrella. I won, dearie. Kept the hat."]
+        "mae": ["Me? Ha! I once battled a Spearow for my hat with an umbrella. I won, dearie. Kept the hat."],
+        "gary": [
+          "Not with a POKéMON. Yet. I battled Timmy at marbles. I won. He cried. I gave the marbles back."
+        ]
       }},
     {"id": "evolve", "label": "How does evolving work?", "tone": "curious", "note": "Evolution: POKéMON change as they grow. Some with time, some with stones, some only when they're ready.",
       "by": {
         "oak": ["POKéMON change as they grow, Ash. Some with experience, some with special stones, some with trust.", "It's not a prize you give them. It's a step they take. Sometimes they'd rather not."],
         "lily": ["Caterpie becomes Metapod becomes BUTTERFREE! Metapod just sits there being hard, then BAM! Wings! I can't wait!"],
         "rose": ["Like a bulb, I think. It doesn't look like it's doing anything for a long time. Then one morning it's a tulip."],
-        "tom": ["Saw a Magikarp turn into a Gyarados, lad. In front of my boat. Most frightening, beautiful thing in my life."]
+        "tom": ["Saw a Magikarp turn into a Gyarados, lad. In front of my boat. Most frightening, beautiful thing in my life."],
+        "gary": [
+          "They get strong, they change. Charmander, Charmeleon, Charizard. I've got the whole chart memorized."
+        ]
       }},
     {"id": "pokeballs", "label": "How do POKé BALLS work?", "tone": "curious", "note": "POKé BALLS: they shrink a POKéMON down safe inside. Nobody in Pallet quite knows how.",
       "by": {
         "oak": ["The ball turns a POKéMON into energy and holds it safe inside. Most like it in there. Some don't, Ash. Remember that."],
         "kai": ["Nobody really knows! Something about energy! The Silph people keep it secret! Isn't that INCREDIBLE?!"],
-        "timmy": ["You THROW it and it goes WHOOSH and the POKéMON goes ZAP and then it's YOURS! I practise with rocks!"]
+        "timmy": ["You THROW it and it goes WHOOSH and the POKéMON goes ZAP and then it's YOURS! I practise with rocks!"],
+        "gary": [
+          "You throw it, it opens, the POKéMON goes in as light. Grandpa showed me. I could build one. Probably."
+        ]
       }},
     {"id": "legendary", "label": "Are there legendary POKéMON?", "tone": "eager", "ash": "Are there really legendary POKéMON? Like in the stories?", "note": "Legends: an ice bird at Seafoam, a fire bird from the volcano, a thunder bird in storms. Maybe.",
       "by": {
@@ -345,7 +375,10 @@
         "kai": ["A POKéDEX?! A pocket computer that knows every POKéMON?! I need one! I NEED one!"],
         "timmy": ["A talking book! About POKéMON! Can it talk about ME? I'm a POKéMON fan!"],
         "delia": ["The Professor's little gadget? He showed me. It talks! It told me Mr. Mime is a Psychic type. Mr. Mime looked very offended."],
-        "lily": ["Does it know Nibbles? Does it know he's the BEST Caterpie? It should say that."]
+        "lily": ["Does it know Nibbles? Does it know he's the BEST Caterpie? It should say that."],
+        "gary": [
+          "Grandpa's building a machine that knows every POKéMON. He's gonna give me one. Maybe you too, if he's feeling generous."
+        ]
       }},
     {"id": "twine_where", "label": "Where would Timmy hide things?", "tone": "curious", "note": "Timmy hides things by the pond, mostly.",
       "if": {"any": [{"step": ["q_twine", 0]}, {"step": ["q_twine", 1]}]},
