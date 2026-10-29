@@ -22,6 +22,9 @@ export async function loadBase(url = new URL('./base.bin', import.meta.url)) {
 }
 export function setBase(b) {
   b.nb = neighbours({ pos: b.pos, idx: b.idx });
+  // the head only scales and reshapes: its vertices are not relaxed (they would slide over the thin ears)
+  b.lock = new Uint8Array(b.pos.length / 3);
+  for (let v = 0; v < b.lock.length; v++) if (b.share[4 * v + 2] > 0.95) b.lock[v] = 1;
   BASE = b;
   return b;
 }
@@ -39,7 +42,17 @@ export function buildBody(params, o = {}) {
     relax(mesh, 2, 0.5, field.f);
     mesh.nrm = normals(mesh);
   } else {
-    mesh = fit(BASE, anat, field, { names: BONE_NAMES, relax: o.relax, steps: o.steps });
+    // far from the base (small children, heavy builds): through a body half way there first
+    const P0 = BASE.params, pr = anat.p, far = Math.abs(Math.log(pr.age / P0.age)) > 1.1 || pr.weight > 1.1 || pr.head > 0.7;
+    let from = null;
+    if (far && !o.direct1) {
+      const mid = {};
+      for (const [k, v] of Object.entries(pr)) mid[k] = typeof v === 'number' ? (k === 'age' ? Math.exp((Math.log(v) + Math.log(P0.age)) / 2) : (v + (P0[k] ?? (k === 'sex' ? 0.5 : 0))) / 2) : v;
+      const am = anatomy(mid), fm = compile(posed(am.tree, am.ad));
+      const mm = fit(BASE, am, fm, { names: BONE_NAMES, relax: 1, keep: true });
+      from = { pos: mm.pos, aw: am.aw, meas: mm.meas };
+    }
+    mesh = fit(BASE, anat, field, { names: BONE_NAMES, relax: o.relax, steps: o.steps, from });
     mesh.skin = BASE.skin; mesh.wts = BASE.wts; mesh.part = BASE.part; mesh.share = BASE.share; mesh.canon = BASE.pos;
   }
   return { anat, mesh, field, ms: Math.round(now() - t0) };

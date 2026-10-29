@@ -57,16 +57,18 @@ export function measureBones(f, aw, names) {
 // the base fitted to a person: base { pos, idx, skin (Uint16 x4), wts (Float32 x4), aw0, meas0 }, A (anatomy), field (compiled posed field)
 export function fit(base, A, field, o = {}) {
   const meas = measureBones(field.f, A.aw, o.names);
+  // from the base (or from an earlier fit: o.from = { pos, aw, meas }, for a body far from the base)
+  const src0 = o.from || { pos: base.pos, aw: null, meas: base.meas0 };
   // per bone: reference A pose -> scaled in the bone's frame -> person's A pose
   const M = [];
   for (let b = 0; b < NB; b++) {
-    const m0 = base.aw0.subarray(16 * b, 16 * b + 16);
-    const k = (i) => { const a = base.meas0[3 * b + i], c = meas[3 * b + i]; return a > 1e-5 && c > 1e-5 ? Math.min(4, Math.max(0.25, c / a)) : 1; };
+    const m0 = src0.aw ? src0.aw[b] : base.aw0.subarray(16 * b, 16 * b + 16);
+    const k = (i) => { const a = src0.meas[3 * b + i], c = meas[3 * b + i]; return a > 1e-5 && c > 1e-5 ? Math.min(4, Math.max(0.25, c / a)) : 1; };
     const s = [k(0), k(1) || 1, k(2) || 1];
     const S = new Float64Array([s[0], 0, 0, 0, 0, s[1], 0, 0, 0, 0, s[2], 0, 0, 0, 0, 1]);
     M.push(mmul(A.aw[b], mmul(S, minv(m0))));
   }
-  const n = base.pos.length / 3, P = new Float32Array(base.pos.length), src = base.pos, J = base.skin, W = base.wts;
+  const n = base.pos.length / 3, P = new Float32Array(base.pos.length), src = src0.pos, J = base.skin, W = base.wts;
   for (let v = 0; v < n; v++) {
     const x = src[3 * v], y = src[3 * v + 1], z = src[3 * v + 2];
     let ox = 0, oy = 0, oz = 0;
@@ -82,7 +84,13 @@ export function fit(base, A, field, o = {}) {
   project(mesh, field.f, o.steps ?? 5, 0.03);
   guardSnaps(mesh, P0, field, J, W, base.share);
   if ((o.relax ?? 2) > 0) relax(mesh, o.relax ?? 2, 0.4, field.f, base.nb || null, base.lock || null);
-  untangle(mesh, field.f, base.nb, o.untangle ?? 4);
+  untangle(mesh, field.f, base.nb, o.untangle ?? 4, base.lock);
+  // anything still off the surface (a stuck Newton step at a crease): small careful steps
+  for (let v = 0; v < n; v++) {
+    const x = P[3 * v], y = P[3 * v + 1], z = P[3 * v + 2];
+    if (Math.abs(field.f(x, y, z)) > 0.002) project({ pos: P.subarray(3 * v, 3 * v + 3) }, field.f, 16, 0.004, 5e-5);
+  }
+  if (o.keep) { mesh.meas = meas; return mesh; }
   mesh.nrm = normals(mesh);
   smoothNormals(mesh, base.nb, o.nsmooth ?? 2, 0.5);
   return mesh;
@@ -90,7 +98,7 @@ export function fit(base, A, field, o = {}) {
 
 // triangles folded over (facing against their corners' normals) are smoothed out
 // with their neighbourhood and put back on the surface
-export function untangle(mesh, f, nb, iters = 4) {
+export function untangle(mesh, f, nb, iters = 4, lock = null) {
   const P = mesh.pos, I = mesh.idx, n = P.length / 3;
   for (let it = 0; it < iters; it++) {
     const N = normals(mesh), bad = new Uint8Array(n);
@@ -106,6 +114,7 @@ export function untangle(mesh, f, nb, iters = 4) {
     // grow the region by a ring, smooth it (plain Laplacian), back onto the surface
     const grow = bad.slice();
     for (let v = 0; v < n; v++) if (bad[v]) for (let j = nb.start[v]; j < nb.start[v + 1]; j++) grow[nb.list[j]] = 1;
+    if (lock) for (let v = 0; v < n; v++) if (lock[v]) grow[v] = 0;
     for (let k = 0; k < 3; k++) {
       const Q = new Float32Array(P);
       for (let v = 0; v < n; v++) {
