@@ -11,7 +11,7 @@
   },
   "stats.level_offset": 50.0,
   "focus.disruption_skips_gain": false,
-  "damage.scale": 0.263,
+  "damage.scale": 0.258,
   "matchups.weakness_mult": 1.4,
   "damage.sleep_turns": [
    1,
@@ -48,9 +48,9 @@
   },
   "slots.gain_per_slot": 2.75,
   "ai.finisher_value": 1.23,
-  "ai.two_phase_value": 1.8,
+  "ai.two_phase_value": 0.9,
   "ai.reaction_value": 40.0,
-  "ai.status_scale": 1.6,
+  "ai.status_scale": 1.35,
   "rarity.level_stat": {
    "levels": [
     8,
@@ -66,28 +66,49 @@
      0.0
     ],
     "uncommon": [
-     -0.1666,
-     -0.065,
-     0.097
+     -0.2048,
+     -0.0298,
+     0.2062
     ],
     "rare": [
-     -0.2842,
-     -0.11,
-     0.2002
+     -0.3224,
+     -0.03,
+     0.3094
     ],
     "very_rare": [
-     -0.3042,
-     -0.1303,
-     0.1618
+     -0.3424,
+     0.0199,
+     0.2225
     ],
     "legendary": [
-     -0.3042,
-     -0.1303,
-     0.1618
+     -0.3424,
+     0.0199,
+     0.2225
     ]
    }
   },
-  "ai.reaction_rate_scale": 2.0
+  "ai.reaction_rate_scale": 1.818,
+  "matchups.weakness_by_level": {
+   "levels": [
+    8,
+    22,
+    40
+   ],
+   "mult": [
+    1.4,
+    1.3,
+    1.7
+   ]
+  },
+  "trainer_moves.fill": [],
+  "trainer_moves.places": [
+   "opener",
+   "mid",
+   "finisher",
+   "two_phase",
+   "reaction"
+  ],
+  "matchups.tcg_chart_super_mult": 1.15
  },
  "balance": {
   "shared_power_mult": {
@@ -140,49 +161,52 @@
    "finisher": 24,
    "finisher_by": 12,
    "two_phase_by": 14
+  },
+  "reaction": {
+   "bide_mult": 1.6
   }
  },
  "species": {
   "pidgey": {
-   "stats": -0.061
+   "stats": -0.076
   },
   "diglett": {
    "stats": 0.232
   },
   "drowzee": {
-   "stats": -0.091
+   "stats": -0.137
   },
   "gastly": {
    "stats": -0.366,
    "gain": -1.0
   },
   "caterpie": {
-   "stats": 0.318
+   "stats": 0.255
   },
   "weedle": {
-   "stats": 0.267,
-   "gain": 3.0
+   "stats": 0.12,
+   "gain": 1.0
   },
   "rattata": {
-   "stats": -0.002
+   "stats": -0.004
   },
   "spearow": {
-   "stats": -0.095
+   "stats": -0.037
   },
   "nidoran_m": {
-   "stats": -0.046
+   "stats": -0.105
   },
   "clefairy": {
-   "stats": -0.081
+   "stats": -0.031
   },
   "jigglypuff": {
-   "stats": -0.109
+   "stats": -0.18
   },
   "zubat": {
-   "stats": -0.012
+   "stats": 0.034
   },
   "paras": {
-   "stats": 0.033
+   "stats": 0.05
   },
   "venonat": {
    "stats": -0.012
@@ -191,107 +215,111 @@
    "stats": -0.014
   },
   "mankey": {
-   "stats": -0.135
+   "stats": -0.064
   },
   "growlithe": {
    "stats": -0.046
   },
   "poliwag": {
-   "stats": 0.184,
+   "stats": 0.063,
    "gain": 2.0
   },
   "abra": {
-   "stats": -0.104
+   "stats": -0.117,
+   "gain": 1.0
   },
   "machop": {
-   "stats": -0.115
+   "stats": -0.164
   },
   "bellsprout": {
-   "stats": 0.167
+   "stats": 0.131
   },
   "geodude": {
-   "stats": 0.043
+   "stats": 0.062
   },
   "ponyta": {
-   "stats": 0.083
+   "stats": 0.046
   },
   "magnemite": {
-   "stats": -0.257
+   "stats": -0.204
   },
   "doduo": {
-   "stats": -0.09
+   "stats": -0.088
   },
   "seel": {
-   "stats": -0.14
+   "stats": -0.069
   },
   "grimer": {
-   "stats": 0.023
+   "stats": -0.006,
+   "gain": -2.0
   },
   "shellder": {
-   "stats": 0.127,
+   "stats": 0.106,
    "gain": 1.0
   },
   "krabby": {
-   "stats": 0.073
+   "stats": 0.098
   },
   "voltorb": {
-   "stats": -0.163
+   "stats": -0.294
   },
   "exeggcute": {
-   "stats": -0.112
+   "stats": -0.168
   },
   "cubone": {
-   "stats": -0.207
+   "stats": -0.205
   },
   "rhyhorn": {
-   "stats": -0.097
+   "stats": -0.19
   },
   "goldeen": {
-   "stats": -0.013
+   "stats": -0.093
   },
   "farfetchd": {
-   "stats": -0.22
+   "stats": -0.299
   },
   "onix": {
-   "stats": -0.348,
+   "stats": -0.378,
    "gain": -2.0
   },
   "lickitung": {
    "stats": -0.208
   },
   "electabuzz": {
-   "stats": -0.23,
+   "stats": -0.283,
    "gain": -1.0
   },
   "magmar": {
    "stats": -0.23
   },
   "tauros": {
-   "stats": -0.275
+   "stats": -0.27
   },
   "nidorina": {
-   "stats": -0.156
+   "stats": 0.138,
+   "gain": 2.0
   },
   "nidorino": {
-   "stats": 0.018
+   "stats": 0.212
   },
   "butterfree": {
-   "stats": 0.265,
-   "gain": 3.0
+   "stats": -0.271,
+   "gain": -4.0
   },
   "beedrill": {
-   "stats": -0.106,
-   "gain": 1.0
+   "stats": -0.205,
+   "gain": 0.0
   },
   "raticate": {
-   "stats": 0.145
+   "stats": 0.591,
+   "gain": 1.0
   },
   "fearow": {
-   "stats": 0.555,
+   "stats": 0.6,
    "gain": 2.0
   },
   "clefable": {
-   "stats": 0.347,
+   "stats": 0.111,
    "gain": 4.0
   },
   "cloyster": {
@@ -299,55 +327,56 @@
    "gain": -5.0
   },
   "exeggutor": {
-   "stats": 0.471,
-   "gain": 2.0
+   "stats": 0.552,
+   "gain": 3.0
   },
   "pidgeotto": {
-   "stats": 0.35,
+   "stats": 0.45,
    "gain": -1.0
   },
   "poliwhirl": {
-   "stats": 0.425,
+   "stats": 0.55,
    "gain": 3.0
   },
   "gloom": {
-   "stats": -0.3,
+   "stats": -0.408,
    "gain": -1.0
   },
   "machoke": {
-   "stats": 0.285
+   "stats": 0.252
   },
   "graveler": {
-   "stats": 0.399,
+   "stats": 0.332,
    "gain": 5.0
   },
   "haunter": {
-   "stats": 0.016,
+   "stats": 0.008,
    "gain": -1.0
   },
   "arbok": {
-   "stats": 0.52,
+   "stats": 0.34,
    "gain": 4.0
   },
   "sandslash": {
-   "stats": -0.109
+   "stats": -0.005
   },
   "golbat": {
-   "stats": -0.367,
-   "gain": -1.0
+   "stats": -0.334,
+   "gain": 1.0
   },
   "parasect": {
-   "stats": -0.45
+   "stats": -0.295
   },
   "venomoth": {
-   "stats": 0.499
+   "stats": 0.6,
+   "gain": 6.0
   },
   "dugtrio": {
-   "stats": -0.45,
+   "stats": -0.253,
    "gain": -1.0
   },
   "persian": {
-   "stats": 0.476,
+   "stats": 0.543,
    "gain": 4.0
   },
   "golduck": {
@@ -355,90 +384,92 @@
    "gain": -4.0
   },
   "tentacruel": {
-   "stats": 0.6
+   "stats": 0.6,
+   "gain": 1.0
   },
   "magneton": {
-   "stats": 0.228
+   "stats": 0.245
   },
   "dodrio": {
-   "stats": -0.181
+   "stats": -0.014
   },
   "kingler": {
    "stats": -0.45,
    "gain": -4.0
   },
   "electrode": {
-   "stats": 0.333,
+   "stats": 0.25,
    "gain": 2.0
   },
   "weezing": {
-   "stats": 0.598
+   "stats": 0.524
   },
   "seadra": {
-   "stats": 0.53,
+   "stats": 0.592,
    "gain": 2.0
   },
   "seaking": {
-   "stats": 0.6,
+   "stats": 0.583,
    "gain": 2.0
   },
   "slowpoke": {
-   "stats": -0.141
+   "stats": -0.022
   },
   "koffing": {
-   "stats": -0.025
+   "stats": -0.105
   },
   "pinsir": {
-   "stats": -0.128
+   "stats": -0.116
   },
   "weepinbell": {
-   "stats": -0.425,
+   "stats": -0.45,
    "gain": -4.0
   },
   "primeape": {
-   "stats": 0.451,
+   "stats": 0.41,
    "gain": 1.0
   },
   "nidoran_f": {
-   "stats": -0.043
+   "stats": -0.073
   },
   "staryu": {
-   "stats": 0.006
+   "stats": -0.06
   },
   "wigglytuff": {
-   "stats": 0.211
+   "stats": 0.266
   },
   "dewgong": {
-   "stats": 0.552,
+   "stats": 0.6,
    "gain": 2.0
   },
   "horsea": {
-   "stats": -0.071
+   "stats": -0.068
   },
   "vulpix": {
-   "stats": -0.088
+   "stats": -0.111
   },
   "ekans": {
-   "stats": 0.029
+   "stats": -0.031
   },
   "psyduck": {
-   "stats": 0.069
+   "stats": 0.047
   },
   "oddish": {
-   "stats": 0.021
+   "stats": -0.025
   },
   "tentacool": {
-   "stats": 0.015
+   "stats": -0.027
   },
   "hypno": {
-   "stats": 0.175
+   "stats": 0.425,
+   "gain": 1.0
   },
   "kadabra": {
-   "stats": -0.419,
-   "gain": -2.0
+   "stats": -0.45,
+   "gain": -3.0
   },
   "sandshrew": {
-   "stats": -0.034
+   "stats": -0.019
   }
  },
  "moves": {},
@@ -10566,47 +10597,3011 @@
    "why": "rare>uncommon wins 0.52 at Lv 35 (target 0.55 to 0.68; about 2.3 win rate per unit of stats there)",
    "round": 3,
    "run": "run 11"
+  },
+  {
+   "round": 0,
+   "run": "before run 12",
+   "change": "matchups.weakness_by_level Lv 8 x1.3, Lv 22 x1.4, Lv 40 x1.5 (the user's choice: scale with level)",
+   "why": "the starter triangle was decided outright at Lv 8 (0.95 to 1.0) and nearly gone by Lv 40 (0.35 to 0.4) with one x1.4"
+  },
+  {
+   "round": 0,
+   "run": "before run 12",
+   "change": "added level-up two-phase and reaction moves where they fit (src added, with a _note): Dig for ground types, Fly for the fliers, Solar Beam for grass types, Dive for swimmers, Bounce for Magikarp, Skull Bash for Squirtle's and Rhyhorn's lines, Sky Attack for the great birds, Razor Wind for Farfetch'd, Scyther and Butterfree, Counter for fighters, Detect for the quick fighters, Mirror Coat for psychic types, Dodge for the quick and nimble, Protect for the hard-shelled",
+   "why": "the user's choice: both more level-up learnsets and trainers' TM moves, for two-phase 5% and reactions 8%"
+  },
+  {
+   "round": 0,
+   "run": "before run 12",
+   "change": "trainer Pokemon (personality AIs) also know their TM and tutor moves by level (battle_config trainer_moves)",
+   "why": "the user's choice"
+  },
+  {
+   "round": 0,
+   "run": "before run 12",
+   "change": "damage.finisher_stage_cap 2: a finisher counts at most -2 stages of the target's defence",
+   "why": "the recommended default (Screech and Superpower let one Thudding Press take Machamp from 150 HP)"
+  },
+  {
+   "round": 0,
+   "run": "before run 12",
+   "change": "trainer TM and tutor moves fill only a two-phase or reaction place, or a loadout place the species' own moves leave empty (trainer_moves fill); ai.two_phase_value 1.8 -> 1.3, status_scale 1.6 -> 1.35 (by hand)",
+   "why": "a first round with every TM move open: Swagger, Bide, Curse, Tera Blast and Giga Impact took a third of all actions, distinct moves in real use fell from 127 to 64, two-phase moves went to 13% and disruption to 21%"
+  },
+  {
+   "change": "damage.scale 0.263 -> 0.261",
+   "why": "mean battle 5.45 turns (aiming 5.5 to 7.5, inside the 3 to 8 target, so mids and finishers get their turns)",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "drowzee battle stats -3.1% (now -12.2%)",
+   "why": "0.66 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "caterpie battle stats +2.5% (now +34.3%)",
+   "why": "0.38 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "weedle battle stats +3.3% (now +30.0%)",
+   "why": "0.33 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "rattata battle stats -2.9% (now -3.1%)",
+   "why": "0.65 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "spearow battle stats +3.3% (now -6.2%)",
+   "why": "0.33 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "ekans battle stats +1.7% (now +4.6%)",
+   "why": "0.42 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "nidoran_f battle stats -2.1% (now -6.4%)",
+   "why": "0.60 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "clefairy battle stats +3.5% (now -4.6%)",
+   "why": "0.32 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "vulpix battle stats -2.5% (now -11.3%)",
+   "why": "0.62 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "jigglypuff battle stats -2.7% (now -13.6%)",
+   "why": "0.64 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "zubat battle stats +3.1% (now +1.9%)",
+   "why": "0.34 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "oddish battle stats -2.7% (now -0.6%)",
+   "why": "0.64 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "psyduck battle stats -2.2% (now +4.7%)",
+   "why": "0.61 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "mankey battle stats +1.7% (now -11.8%)",
+   "why": "0.42 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwag battle stats -4.0% (now +14.4%)",
+   "why": "0.70 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "abra battle stats -3.8% (now -14.2%)",
+   "why": "0.69 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "bellsprout battle stats -1.9% (now +14.8%)",
+   "why": "0.59 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacool battle stats +3.3% (now +4.8%)",
+   "why": "0.33 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "geodude battle stats +1.9% (now +6.2%)",
+   "why": "0.41 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "slowpoke battle stats +1.4% (now -12.7%)",
+   "why": "0.43 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "magnemite battle stats +1.9% (now -23.8%)",
+   "why": "0.41 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "seel battle stats +3.0% (now -11.0%)",
+   "why": "0.35 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "grimer battle stats -5.0% (now -2.7%), focus gain -1 (now -1.0)",
+   "why": "0.91 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "shellder battle stats +1.9% (now +14.6%)",
+   "why": "0.41 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "voltorb battle stats +1.5% (now -14.8%)",
+   "why": "0.43 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "exeggcute battle stats -3.3% (now -14.5%)",
+   "why": "0.67 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "cubone battle stats +5.0% (now -15.7%)",
+   "why": "0.22 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "koffing battle stats -4.8% (now -7.3%)",
+   "why": "0.74 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "rhyhorn battle stats -1.7% (now -11.4%)",
+   "why": "0.59 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "horsea battle stats +2.2% (now -4.9%)",
+   "why": "0.39 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "goldeen battle stats -2.2% (now -3.5%)",
+   "why": "0.61 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "farfetchd battle stats +3.3% (now -18.7%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "onix battle stats +5.0% (now -29.8%)",
+   "why": "0.20 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "electabuzz battle stats -1.8% (now -24.8%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "pinsir battle stats -2.7% (now -15.5%)",
+   "why": "0.63 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "tauros battle stats +2.0% (now -25.5%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "nidorina battle stats +2.5% (now -13.1%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "butterfree battle stats -3.8% (now +22.7%)",
+   "why": "0.69 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "raticate battle stats +1.5% (now +16.0%)",
+   "why": "0.43 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "clefable battle stats -5.0% (now +29.7%)",
+   "why": "0.76 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "cloyster battle stats +2.5% (now -42.5%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "exeggutor battle stats -4.6% (now +42.5%)",
+   "why": "0.73 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "pidgeotto battle stats +2.5% (now +37.5%)",
+   "why": "0.38 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwhirl battle stats -5.0% (now +37.5%)",
+   "why": "0.75 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "weepinbell battle stats +2.5% (now -40.0%)",
+   "why": "0.38 against its common peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "gloom battle stats -4.2% (now -34.2%)",
+   "why": "0.71 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "graveler battle stats -1.7% (now +38.2%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "haunter battle stats +2.5% (now +4.1%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "sandslash battle stats +3.3% (now -7.6%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "golbat battle stats +5.0% (now -31.7%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "parasect battle stats -2.5% (now -45.0%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +54.9%), focus gain +1 (now +1.0)",
+   "why": "0.12 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "golduck battle stats -3.8% (now -45.0%)",
+   "why": "0.69 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "primeape battle stats +3.8% (now +48.9%)",
+   "why": "0.31 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacruel battle stats -5.0% (now +55.0%)",
+   "why": "0.77 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "hypno battle stats -3.8% (now +13.7%)",
+   "why": "0.69 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "kingler battle stats +1.7% (now -43.3%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "weezing battle stats -4.6% (now +55.2%)",
+   "why": "0.73 against its uncommon peers",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 8: stats +2.4% (now -14.3% over common)",
+   "why": "uncommon>common wins 0.51 at Lv 8 (target 0.55 to 0.68; about 3.1 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 35: stats +0.8% (now +10.5% over common)",
+   "why": "uncommon>common wins 0.52 at Lv 35 (target 0.55 to 0.68; about 8.5 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat rare and up at Lv 20: stats +1.6% (now -2.9% over uncommon)",
+   "why": "rare>uncommon wins 0.49 at Lv 20 (target 0.55 to 0.68; about 5.5 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat very_rare and up at Lv 35: stats -1.2% (now -5.0% over rare)",
+   "why": "very_rare>rare wins 0.76 at Lv 35 (target 0.55 to 0.68; about 8.5 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "ai.two_phase_value 1.3 -> 1.2",
+   "why": "two-phase moves are 0.130 of actions",
+   "round": 1,
+   "run": "run 12"
+  },
+  {
+   "change": "damage.scale 0.261 -> 0.26",
+   "why": "mean battle 5.47 turns (aiming 5.5 to 7.5, inside the 3 to 8 target, so mids and finishers get their turns)",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "drowzee battle stats -1.7% (now -13.9%)",
+   "why": "0.58 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "caterpie battle stats +1.7% (now +36.0%)",
+   "why": "0.42 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "weedle battle stats +3.3% (now +33.3%)",
+   "why": "0.33 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "rattata battle stats -1.9% (now -5.0%)",
+   "why": "0.59 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "spearow battle stats +2.1% (now -4.1%)",
+   "why": "0.40 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "nidoran_f battle stats -2.1% (now -8.5%)",
+   "why": "0.60 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "clefairy battle stats +1.5% (now -3.1%)",
+   "why": "0.43 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "zubat battle stats +1.5% (now +3.4%)",
+   "why": "0.43 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "oddish battle stats -1.9% (now -2.5%)",
+   "why": "0.59 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwag battle stats -3.5% (now +10.9%)",
+   "why": "0.68 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "abra battle stats -3.8% (now -18.0%)",
+   "why": "0.69 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacool battle stats +2.1% (now +6.9%)",
+   "why": "0.40 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "slowpoke battle stats +2.0% (now -10.7%)",
+   "why": "0.40 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "magnemite battle stats +1.5% (now -22.3%)",
+   "why": "0.43 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "doduo battle stats +1.9% (now -7.1%)",
+   "why": "0.41 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "seel battle stats +2.7% (now -8.3%)",
+   "why": "0.37 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "grimer battle stats -5.0% (now -7.7%), focus gain -1 (now -2.0)",
+   "why": "0.85 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "shellder battle stats +1.5% (now +16.1%)",
+   "why": "0.43 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "exeggcute battle stats -2.3% (now -16.8%)",
+   "why": "0.61 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "cubone battle stats +4.6% (now -11.1%)",
+   "why": "0.27 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "koffing battle stats -4.2% (now -11.5%)",
+   "why": "0.71 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "rhyhorn battle stats -2.0% (now -13.4%)",
+   "why": "0.60 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "horsea battle stats +1.7% (now -3.2%)",
+   "why": "0.41 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "farfetchd battle stats +2.8% (now -15.9%)",
+   "why": "0.36 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "onix battle stats +5.0% (now -24.8%)",
+   "why": "0.24 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "pinsir battle stats -1.5% (now -17.0%)",
+   "why": "0.57 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "nidorina battle stats +1.9% (now -11.2%)",
+   "why": "0.41 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "nidorino battle stats -1.9% (now -0.1%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "butterfree battle stats -4.8% (now +17.9%)",
+   "why": "0.74 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "raticate battle stats +3.1% (now +19.1%)",
+   "why": "0.34 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "clefable battle stats -5.0% (now +24.7%)",
+   "why": "0.79 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "wigglytuff battle stats +1.5% (now +22.6%)",
+   "why": "0.43 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "cloyster battle stats +2.3% (now -40.2%)",
+   "why": "0.39 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "exeggutor battle stats -4.0% (now +38.5%)",
+   "why": "0.70 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "pidgeotto battle stats +2.5% (now +40.0%)",
+   "why": "0.38 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwhirl battle stats -5.0% (now +32.5%)",
+   "why": "0.75 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "weepinbell battle stats +2.5% (now -37.5%)",
+   "why": "0.38 against its common peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "gloom battle stats -2.5% (now -36.7%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "machoke battle stats +3.3% (now +31.8%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "graveler battle stats -3.3% (now +34.9%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "sandslash battle stats +3.8% (now -3.8%)",
+   "why": "0.31 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "golbat battle stats +5.0% (now -26.7%)",
+   "why": "0.25 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "parasect battle stats -2.9% (now -45.0%)",
+   "why": "0.65 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +59.9%)",
+   "why": "0.21 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "golduck battle stats -2.5% (now -45.0%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "primeape battle stats +2.1% (now +51.0%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacruel battle stats -3.3% (now +51.7%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "hypno battle stats -3.3% (now +10.4%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "weezing battle stats -3.3% (now +51.9%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 8: stats +2.2% (now -12.1% over common)",
+   "why": "uncommon>common wins 0.52 at Lv 8 (target 0.55 to 0.68; about 3.1 win rate per unit of stats there)",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 20: stats +1.1% (now -5.4% over common)",
+   "why": "uncommon>common wins 0.53 at Lv 20 (target 0.55 to 0.68; about 5.5 win rate per unit of stats there)",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat rare and up at Lv 20: stats +2.0% (now -0.9% over uncommon)",
+   "why": "rare>uncommon wins 0.54 at Lv 20 (target 0.55 to 0.68; about 2.8 win rate per unit of stats there)",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat very_rare and up at Lv 35: stats -1.6% (now -6.6% over rare)",
+   "why": "very_rare>rare wins 0.80 at Lv 35 (target 0.55 to 0.68; about 8.5 win rate per unit of stats there)",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "ai.two_phase_value 1.2 -> 1.1",
+   "why": "two-phase moves are 0.125 of actions",
+   "round": 2,
+   "run": "run 12"
+  },
+  {
+   "change": "damage.scale 0.26 -> 0.259",
+   "why": "mean battle 5.48 turns (aiming 5.5 to 7.5, inside the 3 to 8 target, so mids and finishers get their turns)",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "caterpie battle stats +2.1% (now +38.1%)",
+   "why": "0.40 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "rattata battle stats -1.5% (now -6.5%)",
+   "why": "0.57 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "spearow battle stats +2.1% (now -2.0%)",
+   "why": "0.40 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwag battle stats -2.3% (now +8.6%)",
+   "why": "0.61 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "abra battle stats -2.5% (now -20.5%)",
+   "why": "0.62 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacool battle stats +2.7% (now +9.6%)",
+   "why": "0.36 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "ponyta battle stats -1.7% (now +6.6%)",
+   "why": "0.59 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "slowpoke battle stats +2.0% (now -8.7%)",
+   "why": "0.40 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "seel battle stats +1.4% (now -6.9%)",
+   "why": "0.43 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "grimer battle stats -4.2% (now -11.9%)",
+   "why": "0.71 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "voltorb battle stats +1.9% (now -12.9%)",
+   "why": "0.41 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "exeggcute battle stats -1.7% (now -18.5%)",
+   "why": "0.58 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "cubone battle stats +1.9% (now -9.2%)",
+   "why": "0.41 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "koffing battle stats -3.4% (now -14.9%)",
+   "why": "0.67 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "farfetchd battle stats +2.5% (now -13.4%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "onix battle stats +4.7% (now -20.1%)",
+   "why": "0.27 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "pinsir battle stats -1.8% (now -18.8%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "nidorino battle stats -1.9% (now -2.0%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now +12.9%), focus gain -1 (now +2.0)",
+   "why": "0.81 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "raticate battle stats +3.8% (now +22.9%)",
+   "why": "0.31 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "fearow battle stats -2.1% (now +53.4%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "clefable battle stats -5.0% (now +19.7%)",
+   "why": "0.78 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "wigglytuff battle stats +1.9% (now +24.5%)",
+   "why": "0.41 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "cloyster battle stats +2.7% (now -37.5%)",
+   "why": "0.36 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "exeggutor battle stats -3.8% (now +34.7%)",
+   "why": "0.69 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "pidgeotto battle stats +2.5% (now +42.5%)",
+   "why": "0.38 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwhirl battle stats -5.0% (now +27.5%)",
+   "why": "0.75 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "weepinbell battle stats +2.5% (now -35.0%)",
+   "why": "0.38 against its common peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "haunter battle stats +1.7% (now +5.8%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "sandslash battle stats +3.3% (now -0.5%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "golbat battle stats +5.0% (now -21.7%), focus gain +1 (now +0.0)",
+   "why": "0.10 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%)",
+   "why": "0.25 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "dugtrio battle stats +1.7% (now -43.3%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "persian battle stats +2.1% (now +49.7%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "golduck battle stats -2.9% (now -45.0%)",
+   "why": "0.65 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "primeape battle stats -5.0% (now +46.0%)",
+   "why": "0.75 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacruel battle stats -1.7% (now +50.0%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "electrode battle stats -3.3% (now +30.0%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "seadra battle stats +3.3% (now +56.3%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "seaking battle stats +2.1% (now +60.0%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 8: stats +5.0% (now -7.1% over common)",
+   "why": "uncommon>common wins 0.54 at Lv 8 (target 0.55 to 0.68; about 0.9 win rate per unit of stats there)",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 20: stats +1.1% (now -4.3% over common)",
+   "why": "uncommon>common wins 0.53 at Lv 20 (target 0.55 to 0.68; about 5.5 win rate per unit of stats there)",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 35: stats +1.1% (now +11.6% over common)",
+   "why": "uncommon>common wins 0.48 at Lv 35 (target 0.55 to 0.68; about 8.5 win rate per unit of stats there)",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat very_rare and up at Lv 35: stats -2.1% (now -8.7% over rare)",
+   "why": "very_rare>rare wins 0.74 at Lv 35 (target 0.55 to 0.68; about 4.2 win rate per unit of stats there)",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "ai.two_phase_value 1.1 -> 1.0",
+   "why": "two-phase moves are 0.118 of actions",
+   "round": 3,
+   "run": "run 12"
+  },
+  {
+   "change": "damage.scale 0.259 -> 0.258",
+   "why": "mean battle 5.48 turns (aiming 5.5 to 7.5, inside the 3 to 8 target, so mids and finishers get their turns)",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "drowzee battle stats -1.7% (now -15.6%)",
+   "why": "0.58 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "caterpie battle stats +1.7% (now +39.8%)",
+   "why": "0.42 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "vulpix battle stats -1.9% (now -13.2%)",
+   "why": "0.59 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwag battle stats -2.3% (now +6.3%)",
+   "why": "0.61 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "abra battle stats -2.1% (now -22.6%)",
+   "why": "0.60 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacool battle stats +2.5% (now +12.1%)",
+   "why": "0.38 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "ponyta battle stats -2.0% (now +4.6%)",
+   "why": "0.60 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "slowpoke battle stats +2.0% (now -6.7%)",
+   "why": "0.40 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "magnemite battle stats +1.9% (now -20.4%)",
+   "why": "0.41 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "grimer battle stats -4.2% (now -16.1%)",
+   "why": "0.71 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "cubone battle stats +2.1% (now -7.1%)",
+   "why": "0.40 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "koffing battle stats -1.9% (now -16.8%)",
+   "why": "0.59 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "farfetchd battle stats +2.2% (now -11.2%)",
+   "why": "0.39 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "onix battle stats +2.8% (now -17.3%)",
+   "why": "0.36 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "nidorina battle stats -1.9% (now -13.1%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "nidorino battle stats -3.1% (now -5.1%)",
+   "why": "0.66 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "kadabra battle stats +5.0% (now -36.9%), focus gain +1 (now -1.0)",
+   "why": "0.16 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now +7.9%), focus gain -1 (now +1.0)",
+   "why": "0.84 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "raticate battle stats +4.8% (now +27.7%)",
+   "why": "0.26 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "fearow battle stats -2.3% (now +51.1%)",
+   "why": "0.61 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "clefable battle stats -5.0% (now +14.7%)",
+   "why": "0.76 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "wigglytuff battle stats +2.1% (now +26.6%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "cloyster battle stats +2.3% (now -35.2%)",
+   "why": "0.39 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "exeggutor battle stats -3.1% (now +31.6%)",
+   "why": "0.66 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "pidgeotto battle stats +2.5% (now +45.0%)",
+   "why": "0.38 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "poliwhirl battle stats -2.5% (now +25.0%)",
+   "why": "0.62 against its common peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "gloom battle stats -1.7% (now -38.4%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "arbok battle stats -1.7% (now +50.3%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "golbat battle stats +5.0% (now -16.7%), focus gain +1 (now +1.0)",
+   "why": "0.10 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "dugtrio battle stats +2.1% (now -41.2%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "primeape battle stats -5.0% (now +41.0%)",
+   "why": "0.75 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "tentacruel battle stats -2.1% (now +47.9%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "kingler battle stats +2.1% (now -41.2%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "electrode battle stats -3.3% (now +26.7%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "weezing battle stats -2.9% (now +49.0%)",
+   "why": "0.65 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "seadra battle stats +2.9% (now +59.2%)",
+   "why": "0.35 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "seaking battle stats +2.9% (now +60.0%)",
+   "why": "0.35 against its uncommon peers",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 20: stats +1.3% (now -3.0% over common)",
+   "why": "uncommon>common wins 0.51 at Lv 20 (target 0.55 to 0.68; about 5.5 win rate per unit of stats there)",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 35: stats +2.1% (now +13.7% over common)",
+   "why": "uncommon>common wins 0.52 at Lv 35 (target 0.55 to 0.68; about 3.3 win rate per unit of stats there)",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "ai.two_phase_value 1.0 -> 0.9",
+   "why": "two-phase moves are 0.106 of actions",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "change": "matchups.weakness_by_level at Lv 8: 1.3 -> 1.4",
+   "why": "a starter beats the one it's strong against 0.55 of the time at Lv 8 (0.20, 1.00, 0.45; target 0.55 to 0.85)",
+   "round": 4,
+   "run": "run 12"
+  },
+  {
+   "round": 0,
+   "run": "after run 12",
+   "change": "trainer_moves.fill [] : a trainer's TM and tutor moves (two-phase and reaction ones included) only fill a loadout place its own moves leave empty; reaction.bide_mult 2.0 -> 1.6 (by hand)",
+   "why": "run 12: Bide, a TM for 136 species, was the best reaction on paper for nearly everyone and 7% of all actions; Fire starters took Solar Beam by TM into the two-phase place and Water over Fire fell to 0.05 at Lv 22"
+  },
+  {
+   "round": 0,
+   "run": "after run 12",
+   "change": "a balanced loadout rates a move of the Pokemon's own type with STAB (engine); trainer_moves.places: TM and tutor moves take only attack, two-phase and reaction places, not status ones (by hand)",
+   "why": "Wartortle at Lv 22 went in with Bite over Water Gun and a TM Swagger, and lost to Charmeleon in every game; Swagger by TM was 4.5% of all actions"
+  },
+  {
+   "change": "pidgey battle stats -1.5% (now -7.6%)",
+   "why": "0.57 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "sandshrew battle stats +1.5% (now -1.9%)",
+   "why": "0.43 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "drowzee battle stats +1.9% (now -13.7%)",
+   "why": "0.41 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "caterpie battle stats -4.6% (now +35.2%)",
+   "why": "0.73 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "weedle battle stats -5.0% (now +28.3%), focus gain -1 (now +2.0)",
+   "why": "0.96 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "rattata battle stats +3.8% (now -2.7%)",
+   "why": "0.31 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "ekans battle stats -3.3% (now +1.3%)",
+   "why": "0.67 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "nidoran_f battle stats +2.9% (now -5.6%)",
+   "why": "0.35 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "nidoran_m battle stats -1.7% (now -6.3%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "jigglypuff battle stats -2.3% (now -15.9%)",
+   "why": "0.61 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "paras battle stats +1.7% (now +5.0%)",
+   "why": "0.42 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "mankey battle stats +3.3% (now -8.5%)",
+   "why": "0.33 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "abra battle stats +5.0% (now -17.6%), focus gain +1 (now +1.0)",
+   "why": "0.19 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "machop battle stats -1.9% (now -13.4%)",
+   "why": "0.59 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "bellsprout battle stats -1.7% (now +13.1%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacool battle stats -4.6% (now +7.5%)",
+   "why": "0.73 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "slowpoke battle stats +1.7% (now -5.0%)",
+   "why": "0.41 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "doduo battle stats -1.7% (now -8.8%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "grimer battle stats +4.1% (now -12.0%)",
+   "why": "0.30 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "shellder battle stats -2.1% (now +14.0%)",
+   "why": "0.60 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "krabby battle stats +2.5% (now +9.8%)",
+   "why": "0.38 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "voltorb battle stats -4.6% (now -17.5%)",
+   "why": "0.73 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "exeggcute battle stats +1.7% (now -16.8%)",
+   "why": "0.42 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "cubone battle stats -4.2% (now -11.3%)",
+   "why": "0.71 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "koffing battle stats +3.3% (now -13.5%)",
+   "why": "0.34 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "rhyhorn battle stats -3.6% (now -17.0%)",
+   "why": "0.68 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "goldeen battle stats -1.9% (now -5.4%)",
+   "why": "0.59 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "staryu battle stats -1.7% (now -1.1%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "farfetchd battle stats -2.7% (now -13.9%)",
+   "why": "0.63 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "onix battle stats -5.0% (now -22.3%)",
+   "why": "0.77 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "electabuzz battle stats -1.7% (now -26.5%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "pinsir battle stats +3.7% (now -15.1%)",
+   "why": "0.32 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorina battle stats +5.0% (now -8.1%), focus gain +1 (now +1.0)",
+   "why": "0.16 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorino battle stats +1.9% (now -3.2%)",
+   "why": "0.41 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "kadabra battle stats -5.0% (now -41.9%), focus gain -1 (now -2.0)",
+   "why": "0.84 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now +2.9%), focus gain -1 (now +0.0)",
+   "why": "0.86 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "beedrill battle stats -5.0% (now -15.6%), focus gain -1 (now +0.0)",
+   "why": "0.81 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "raticate battle stats +5.0% (now +32.7%), focus gain +1 (now +1.0)",
+   "why": "0.19 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "fearow battle stats +3.1% (now +54.2%)",
+   "why": "0.34 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "cloyster battle stats -3.4% (now -38.6%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "exeggutor battle stats +5.0% (now +36.6%), focus gain +1 (now +3.0)",
+   "why": "0.17 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "pidgeotto battle stats -2.5% (now +42.5%)",
+   "why": "0.62 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "poliwhirl battle stats +2.5% (now +27.5%)",
+   "why": "0.38 against its common peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "gloom battle stats +4.2% (now -34.2%)",
+   "why": "0.29 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "machoke battle stats -3.3% (now +28.5%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "haunter battle stats -2.5% (now +3.3%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "arbok battle stats -2.9% (now +47.4%)",
+   "why": "0.65 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "golbat battle stats -2.5% (now -19.2%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "parasect battle stats +2.1% (now -42.9%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%), focus gain +1 (now +2.0)",
+   "why": "0.17 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "dugtrio battle stats +2.1% (now -39.1%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "persian battle stats +2.5% (now +52.2%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacruel battle stats +2.9% (now +50.8%)",
+   "why": "0.35 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "magneton battle stats +1.7% (now +24.5%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "dodrio battle stats +1.7% (now -16.4%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "hypno battle stats +5.0% (now +15.4%), focus gain +1 (now +1.0)",
+   "why": "0.12 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "kingler battle stats -3.5% (now -44.7%)",
+   "why": "0.68 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "seaking battle stats +1.7% (now +60.0%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 8: stats -3.4% (now -10.5% over common)",
+   "why": "uncommon>common wins 0.76 at Lv 8 (target 0.55 to 0.68; about 3.1 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 35: stats +1.5% (now +15.2% over common)",
+   "why": "uncommon>common wins 0.43 at Lv 35 (target 0.55 to 0.68; about 8.5 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat rare and up at Lv 20: stats +0.9% (now -0.0% over uncommon)",
+   "why": "rare>uncommon wins 0.54 at Lv 20 (target 0.55 to 0.68; about 5.5 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat very_rare and up at Lv 20: stats +2.0% (now -0.0% over rare)",
+   "why": "very_rare>rare wins 0.46 at Lv 20 (target 0.55 to 0.68; about 5.5 win rate per unit of stats there)",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "ai.reaction_rate_scale 2.0 -> 1.818",
+   "why": "reactions are 0.167 of actions",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "matchups.weakness_by_level at Lv 40: 1.5 -> 1.6",
+   "why": "a starter beats the one it's strong against 0.52 of the time at Lv 40 (0.85, 0.65, 0.05; target 0.55 to 0.85)",
+   "round": 1,
+   "run": "run 13"
+  },
+  {
+   "change": "caterpie battle stats -3.8% (now +31.4%)",
+   "why": "0.69 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "weedle battle stats -5.0% (now +23.3%), focus gain -1 (now +1.0)",
+   "why": "0.92 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "rattata battle stats +2.3% (now -0.4%)",
+   "why": "0.39 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "ekans battle stats -2.7% (now -1.4%)",
+   "why": "0.64 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "vulpix battle stats +2.1% (now -11.1%)",
+   "why": "0.40 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "jigglypuff battle stats -2.1% (now -18.0%)",
+   "why": "0.60 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "mankey battle stats +2.1% (now -6.4%)",
+   "why": "0.40 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "abra battle stats +3.8% (now -13.8%)",
+   "why": "0.31 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "machop battle stats -1.5% (now -14.9%)",
+   "why": "0.57 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacool battle stats -4.4% (now +3.1%)",
+   "why": "0.72 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "slowpoke battle stats +1.4% (now -3.6%)",
+   "why": "0.43 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "grimer battle stats +3.0% (now -9.0%)",
+   "why": "0.35 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "voltorb battle stats -3.1% (now -20.6%)",
+   "why": "0.66 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "cubone battle stats -3.1% (now -14.4%)",
+   "why": "0.66 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "koffing battle stats +3.0% (now -10.5%)",
+   "why": "0.35 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "rhyhorn battle stats -2.0% (now -19.0%)",
+   "why": "0.60 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "goldeen battle stats -2.5% (now -7.9%)",
+   "why": "0.62 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "farfetchd battle stats -3.8% (now -17.7%)",
+   "why": "0.69 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "onix battle stats -3.3% (now -25.6%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "pinsir battle stats +2.0% (now -13.1%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorina battle stats +5.0% (now -3.1%), focus gain +1 (now +2.0)",
+   "why": "0.19 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorino battle stats +3.1% (now -0.1%)",
+   "why": "0.34 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "kadabra battle stats -5.0% (now -45.0%), focus gain -1 (now -3.0)",
+   "why": "0.84 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now -2.1%), focus gain -1 (now -1.0)",
+   "why": "0.85 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "beedrill battle stats -3.2% (now -18.8%)",
+   "why": "0.66 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "raticate battle stats +5.0% (now +37.7%)",
+   "why": "0.21 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "fearow battle stats +2.9% (now +57.1%)",
+   "why": "0.35 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "cloyster battle stats -2.8% (now -41.4%)",
+   "why": "0.64 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "exeggutor battle stats +5.0% (now +41.6%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "poliwhirl battle stats +5.0% (now +32.5%)",
+   "why": "0.25 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "weepinbell battle stats -5.0% (now -40.0%)",
+   "why": "0.75 against its common peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "gloom battle stats +3.3% (now -30.9%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "machoke battle stats -3.3% (now +25.2%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "haunter battle stats -2.5% (now +0.8%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "arbok battle stats -2.1% (now +45.3%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "golbat battle stats -2.5% (now -21.7%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "parasect battle stats +2.1% (now -40.8%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%), focus gain +1 (now +3.0)",
+   "why": "0.15 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "dugtrio battle stats +2.1% (now -37.0%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "persian battle stats +2.1% (now +54.3%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "golduck battle stats -1.7% (now -45.0%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacruel battle stats +4.2% (now +55.0%)",
+   "why": "0.29 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "dodrio battle stats +2.5% (now -13.9%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "hypno battle stats +5.0% (now +20.4%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "kingler battle stats -4.6% (now -45.0%)",
+   "why": "0.73 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "electrode battle stats -1.7% (now +25.0%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "weezing battle stats +1.7% (now +50.7%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "seaking battle stats -1.7% (now +58.3%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 8: stats -5.0% (now -15.5% over common)",
+   "why": "uncommon>common wins 0.74 at Lv 8 (target 0.55 to 0.68; about 0.8 win rate per unit of stats there)",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 35: stats +1.8% (now +16.9% over common)",
+   "why": "uncommon>common wins 0.50 at Lv 35 (target 0.55 to 0.68; about 4.6 win rate per unit of stats there)",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat very_rare and up at Lv 20: stats +5.0% (now +5.0% over rare)",
+   "why": "very_rare>rare wins 0.48 at Lv 20 (target 0.55 to 0.68; about 1.1 win rate per unit of stats there)",
+   "round": 2,
+   "run": "run 13"
+  },
+  {
+   "change": "caterpie battle stats -2.1% (now +29.3%)",
+   "why": "0.60 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "weedle battle stats -5.0% (now +18.3%)",
+   "why": "0.75 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "nidoran_m battle stats -2.5% (now -8.8%)",
+   "why": "0.62 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "abra battle stats +2.1% (now -11.7%)",
+   "why": "0.40 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacool battle stats -3.1% (now +0.0%)",
+   "why": "0.66 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "grimer battle stats +2.7% (now -6.3%)",
+   "why": "0.37 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "voltorb battle stats -2.7% (now -23.3%)",
+   "why": "0.64 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "cubone battle stats -2.3% (now -16.7%)",
+   "why": "0.61 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "horsea battle stats -1.6% (now -4.8%)",
+   "why": "0.58 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "staryu battle stats -1.5% (now -2.6%)",
+   "why": "0.57 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "farfetchd battle stats -3.5% (now -21.2%)",
+   "why": "0.68 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "onix battle stats -3.0% (now -28.6%)",
+   "why": "0.65 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorina battle stats +3.1% (now +0.0%)",
+   "why": "0.34 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorino battle stats +2.5% (now +2.4%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "kadabra battle stats -5.0% (now -45.0%)",
+   "why": "0.78 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now -7.1%), focus gain -1 (now -2.0)",
+   "why": "0.87 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "beedrill battle stats -1.7% (now -20.5%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "raticate battle stats +5.0% (now +42.7%)",
+   "why": "0.22 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "fearow battle stats +1.7% (now +58.8%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "cloyster battle stats -2.8% (now -44.2%)",
+   "why": "0.64 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "exeggutor battle stats +4.0% (now +45.6%)",
+   "why": "0.30 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "poliwhirl battle stats +5.0% (now +37.5%)",
+   "why": "0.25 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "weepinbell battle stats -5.0% (now -45.0%)",
+   "why": "0.75 against its common peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "machoke battle stats +1.7% (now +26.9%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "graveler battle stats -1.7% (now +33.2%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "arbok battle stats -2.1% (now +43.2%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "golbat battle stats -2.5% (now -24.2%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "parasect battle stats +2.5% (now -38.3%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%), focus gain +1 (now +4.0)",
+   "why": "0.17 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "dugtrio battle stats +2.1% (now -34.9%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacruel battle stats +5.0% (now +60.0%), focus gain +1 (now +1.0)",
+   "why": "0.19 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "dodrio battle stats +2.5% (now -11.4%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "dewgong battle stats +2.1% (now +57.3%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "hypno battle stats +5.0% (now +25.4%)",
+   "why": "0.25 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "kingler battle stats -4.2% (now -45.0%)",
+   "why": "0.71 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "weezing battle stats +1.7% (now +52.4%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 8: stats -5.0% (now -20.5% over common)",
+   "why": "uncommon>common wins 0.71 at Lv 8 (target 0.55 to 0.68; about 0.6 win rate per unit of stats there)",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 35: stats +2.7% (now +19.7% over common)",
+   "why": "uncommon>common wins 0.54 at Lv 35 (target 0.55 to 0.68; about 2.0 win rate per unit of stats there)",
+   "round": 3,
+   "run": "run 13"
+  },
+  {
+   "change": "caterpie battle stats -2.1% (now +27.2%)",
+   "why": "0.60 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "weedle battle stats -3.8% (now +14.5%)",
+   "why": "0.69 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "nidoran_m battle stats -1.7% (now -10.5%)",
+   "why": "0.58 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacool battle stats -2.7% (now -2.7%)",
+   "why": "0.64 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "grimer battle stats +2.7% (now -3.6%)",
+   "why": "0.37 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "voltorb battle stats -2.5% (now -25.8%)",
+   "why": "0.62 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "cubone battle stats -2.1% (now -18.8%)",
+   "why": "0.60 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "horsea battle stats -2.0% (now -6.8%)",
+   "why": "0.60 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "staryu battle stats -1.5% (now -4.1%)",
+   "why": "0.57 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "farfetchd battle stats -2.5% (now -23.7%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "onix battle stats -2.8% (now -31.4%)",
+   "why": "0.64 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorina battle stats +3.8% (now +3.8%)",
+   "why": "0.31 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "nidorino battle stats +3.8% (now +6.2%)",
+   "why": "0.31 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "kadabra battle stats -5.0% (now -45.0%)",
+   "why": "0.78 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now -12.1%), focus gain -1 (now -3.0)",
+   "why": "0.86 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "raticate battle stats +5.0% (now +47.7%)",
+   "why": "0.21 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "fearow battle stats +2.3% (now +60.0%)",
+   "why": "0.39 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "cloyster battle stats -3.0% (now -45.0%)",
+   "why": "0.65 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "exeggutor battle stats +3.3% (now +48.9%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "poliwhirl battle stats +5.0% (now +42.5%)",
+   "why": "0.25 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "weepinbell battle stats -5.0% (now -45.0%)",
+   "why": "0.75 against its common peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "machoke battle stats -1.7% (now +25.2%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "arbok battle stats -2.5% (now +40.7%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "golbat battle stats -2.5% (now -26.7%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "parasect battle stats +2.5% (now -35.8%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%), focus gain +1 (now +5.0)",
+   "why": "0.15 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "dugtrio battle stats +2.1% (now -32.8%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "tentacruel battle stats +5.0% (now +60.0%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "dodrio battle stats +2.5% (now -8.9%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "dewgong battle stats +1.7% (now +59.0%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "hypno battle stats +4.6% (now +30.0%)",
+   "why": "0.27 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "kingler battle stats -4.6% (now -45.0%)",
+   "why": "0.73 against its uncommon peers",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "rarity.level_stat uncommon and up at Lv 35: stats +0.9% (now +20.6% over common)",
+   "why": "uncommon>common wins 0.50 at Lv 35 (target 0.55 to 0.68; about 8.5 win rate per unit of stats there)",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "change": "matchups.weakness_by_level at Lv 40: 1.6 -> 1.7",
+   "why": "a starter beats the one it's strong against 0.55 of the time at Lv 40 (0.85, 0.75, 0.05; target 0.55 to 0.85)",
+   "round": 4,
+   "run": "run 13"
+  },
+  {
+   "round": 0,
+   "run": "after run 13",
+   "change": "matchups.tcg_chart_super_mult 1.15 (new): in TCG mode a move the games call super effective, on a card whose weakness is something else, does x1.15 (by hand)",
+   "why": "the 151's cards make the Squirtle line weak to Lightning, not Grass, so no weakness setting could move Grass over Water (0.10 at Lv 40, 0.50 at Lv 22); the starter triangle has only two card weaknesses"
+  },
+  {
+   "change": "caterpie battle stats -1.7% (now +25.5%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "spearow battle stats -1.7% (now -3.7%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "ekans battle stats -1.7% (now -3.1%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "machop battle stats -1.5% (now -16.4%)",
+   "why": "0.57 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "slowpoke battle stats +1.4% (now -2.2%)",
+   "why": "0.43 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "grimer battle stats +1.4% (now -2.2%)",
+   "why": "0.43 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "shellder battle stats -1.7% (now +12.3%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "voltorb battle stats -1.7% (now -27.5%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "cubone battle stats -1.7% (now -20.5%)",
+   "why": "0.58 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "goldeen battle stats -1.4% (now -9.3%)",
+   "why": "0.57 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "staryu battle stats -1.9% (now -6.0%)",
+   "why": "0.59 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "farfetchd battle stats -2.7% (now -26.4%)",
+   "why": "0.63 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "onix battle stats -2.5% (now -33.9%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "nidorina battle stats +3.1% (now +6.9%)",
+   "why": "0.34 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "nidorino battle stats +5.0% (now +11.2%)",
+   "why": "0.22 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "kadabra battle stats -5.0% (now -45.0%)",
+   "why": "0.78 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now -17.1%), focus gain -1 (now -4.0)",
+   "why": "0.84 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "raticate battle stats +5.0% (now +52.7%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "fearow battle stats +1.5% (now +60.0%)",
+   "why": "0.43 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "cloyster battle stats -2.8% (now -45.0%)",
+   "why": "0.64 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "exeggutor battle stats +2.3% (now +51.2%)",
+   "why": "0.39 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "poliwhirl battle stats +5.0% (now +47.5%)",
+   "why": "0.25 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "weepinbell battle stats -5.0% (now -45.0%)",
+   "why": "0.75 against its common peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "gloom battle stats -3.3% (now -34.2%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "arbok battle stats -2.5% (now +38.2%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "golbat battle stats -2.5% (now -29.2%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "parasect battle stats +2.1% (now -33.7%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%), focus gain +1 (now +6.0)",
+   "why": "0.19 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "dugtrio battle stats +2.5% (now -30.3%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "tentacruel battle stats +5.0% (now +60.0%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "dodrio battle stats +2.5% (now -6.4%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "dewgong battle stats +2.5% (now +60.0%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "hypno battle stats +5.0% (now +35.0%)",
+   "why": "0.25 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "kingler battle stats -4.6% (now -45.0%)",
+   "why": "0.73 against its uncommon peers",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "matchups.weakness_by_level at Lv 22: 1.4 -> 1.3",
+   "why": "a starter beats the one it's strong against 0.87 of the time at Lv 22 (0.90, 0.75, 0.95; target 0.55 to 0.85)",
+   "round": 1,
+   "run": "run 14"
+  },
+  {
+   "change": "weedle battle stats -2.5% (now +12.0%)",
+   "why": "0.62 against its common peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "nidoran_f battle stats -1.7% (now -7.3%)",
+   "why": "0.58 against its common peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "grimer battle stats +1.6% (now -0.6%)",
+   "why": "0.42 against its common peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "shellder battle stats -1.7% (now +10.6%)",
+   "why": "0.58 against its common peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "voltorb battle stats -1.9% (now -29.4%)",
+   "why": "0.59 against its common peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "farfetchd battle stats -1.8% (now -28.2%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "onix battle stats -2.2% (now -36.1%)",
+   "why": "0.61 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "pinsir battle stats +1.5% (now -11.6%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "tauros battle stats -1.5% (now -27.0%)",
+   "why": "0.57 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "nidorina battle stats +3.1% (now +10.0%)",
+   "why": "0.34 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "nidorino battle stats +5.0% (now +16.2%)",
+   "why": "0.22 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "kadabra battle stats -5.0% (now -45.0%)",
+   "why": "0.78 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now -22.1%)",
+   "why": "0.78 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "raticate battle stats +3.3% (now +56.0%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "fearow battle stats +1.9% (now +60.0%)",
+   "why": "0.41 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "clefable battle stats -1.7% (now +13.0%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "cloyster battle stats -2.4% (now -45.0%)",
+   "why": "0.62 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "exeggutor battle stats +2.3% (now +53.5%)",
+   "why": "0.39 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "poliwhirl battle stats +5.0% (now +52.5%)",
+   "why": "0.25 against its common peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "weepinbell battle stats -5.0% (now -45.0%)",
+   "why": "0.75 against its common peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "gloom battle stats -3.3% (now -37.5%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "arbok battle stats -2.1% (now +36.1%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "golbat battle stats -2.1% (now -31.3%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "parasect battle stats +2.1% (now -31.6%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%), focus gain +1 (now +6.0)",
+   "why": "0.19 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "dugtrio battle stats +2.5% (now -27.8%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "tentacruel battle stats +5.0% (now +60.0%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "dodrio battle stats +2.5% (now -3.9%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "hypno battle stats +4.2% (now +39.2%)",
+   "why": "0.29 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "kingler battle stats -4.6% (now -45.0%)",
+   "why": "0.73 against its uncommon peers",
+   "round": 2,
+   "run": "run 14"
+  },
+  {
+   "change": "farfetchd battle stats -1.7% (now -29.9%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "onix battle stats -1.7% (now -37.8%)",
+   "why": "0.58 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "electabuzz battle stats -1.8% (now -28.3%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "nidorina battle stats +3.8% (now +13.8%)",
+   "why": "0.31 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "nidorino battle stats +5.0% (now +21.2%)",
+   "why": "0.22 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "kadabra battle stats -5.0% (now -45.0%)",
+   "why": "0.78 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "butterfree battle stats -5.0% (now -27.1%)",
+   "why": "0.77 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "raticate battle stats +3.1% (now +59.1%)",
+   "why": "0.34 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "fearow battle stats +1.7% (now +60.0%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "clefable battle stats -1.9% (now +11.1%)",
+   "why": "0.59 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "cloyster battle stats -2.2% (now -45.0%)",
+   "why": "0.61 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "exeggutor battle stats +1.7% (now +55.2%)",
+   "why": "0.42 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "pidgeotto battle stats +2.5% (now +45.0%)",
+   "why": "0.38 against its common peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "poliwhirl battle stats +2.5% (now +55.0%)",
+   "why": "0.38 against its common peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "weepinbell battle stats -5.0% (now -45.0%)",
+   "why": "0.75 against its common peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "gloom battle stats -3.3% (now -40.8%)",
+   "why": "0.67 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "arbok battle stats -2.1% (now +34.0%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "golbat battle stats -2.1% (now -33.4%)",
+   "why": "0.60 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "parasect battle stats +2.1% (now -29.5%)",
+   "why": "0.40 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "venomoth battle stats +5.0% (now +60.0%), focus gain +1 (now +6.0)",
+   "why": "0.19 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "dugtrio battle stats +2.5% (now -25.3%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "tentacruel battle stats +5.0% (now +60.0%)",
+   "why": "0.23 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "dodrio battle stats +2.5% (now -1.4%)",
+   "why": "0.38 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "hypno battle stats +3.3% (now +42.5%)",
+   "why": "0.33 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "change": "kingler battle stats -4.2% (now -45.0%)",
+   "why": "0.71 against its uncommon peers",
+   "round": 3,
+   "run": "run 14"
+  },
+  {
+   "round": 0,
+   "run": "after run 14",
+   "change": "tried matchups.tcg_chart_super_mult 1.3, kept 1.15",
+   "why": "at 1.3 Grass over Water at Lv 40 stayed 0.13 (Blastoise wins on Protect against Solar Beam, Shell Smash and Wave Crash, not on type) while Water over Fire at Lv 22 fell to 0.48"
   }
  ],
  "rarity_fit": {
   "uncommon>common@8": {
-   "rel": -0.1666,
-   "rate": 0.66,
-   "sens": 1.72
+   "rel": -0.2048,
+   "rate": 0.585,
+   "sens": 3.1
   },
   "uncommon>common@20": {
-   "rel": -0.065,
-   "rate": 0.627,
+   "rel": -0.0298,
+   "rate": 0.598,
    "sens": 5.5
   },
   "uncommon>common@35": {
-   "rel": 0.0905,
-   "rate": 0.536,
+   "rel": 0.2062,
+   "rate": 0.554,
    "sens": 8.5
   },
   "rare>uncommon@8": {
    "rel": -0.1176,
-   "rate": 0.679,
+   "rate": 0.636,
    "sens": 3.1
   },
   "rare>uncommon@20": {
-   "rel": -0.045,
-   "rate": 0.664,
+   "rel": -0.0002,
+   "rate": 0.571,
    "sens": 5.5
   },
   "rare>uncommon@35": {
-   "rel": 0.0742,
-   "rate": 0.521,
-   "sens": 2.26
+   "rel": 0.1032,
+   "rate": 0.614,
+   "sens": 8.5
   },
   "very_rare>rare@20": {
-   "rel": -0.0203,
+   "rel": 0.0499,
    "rate": 0.565,
    "sens": 5.5
   },
   "very_rare>rare@35": {
-   "rel": -0.0384,
-   "rate": 0.63,
+   "rel": -0.0869,
+   "rate": 0.565,
    "sens": 8.5
   }
  }

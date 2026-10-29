@@ -325,6 +325,36 @@ static func make(sp: String, lv := 1, learned = null) -> BattleEnergy:
 	e.auto_equip(true)
 	return e
 
+# a trainer's Pokemon: its level-up moves and the TM and tutor moves on its own lists
+# that its level allows (battle_config trainer_moves: sources, min_level by tier or role),
+# with a balanced loadout
+static func make_trained(sp: String, lv := 1) -> BattleEnergy:
+	var e := make(sp, lv)
+	var T := BattleConfig.sect("trainer_moves")
+	if not bool(T.get("enabled", false)): return e
+	var ml: Dictionary = T.get("min_level", {})
+	var fill: Array = T.get("fill", ["two_phase", "reaction"])
+	var places: Array = T.get("places", ["opener", "mid", "finisher", "two_phase", "reaction", "disruption", "utility"])
+	var S := species_data(sp)
+	# the loadout places its own moves already fill
+	var have := {}
+	for id in e.known: have[e._loadout_key(id)] = true
+	var best := {}
+	for src in T.get("sources", ["tm", "tutor"]):
+		for id in S.get(String(src), []):
+			id = String(id)
+			if id in e.known or move(id).is_empty(): continue
+			var role := role_of(id)
+			var tk := role if role in ["two_phase", "reaction"] else (tier_of(id) if float(move(id).get("power", 0)) > 0.0 else "other")
+			if lv < int(ml.get(tk, 1)): continue
+			var key := e._loadout_key(id)
+			if key == "" or not key in places or (not key in fill and have.has(key)): continue
+			var v := e._per_chip(id) if float(move(id).get("power", 0)) > 0.0 else e._status_worth_of(move(id))
+			if not best.has(key) or v > best[key][0]: best[key] = [v, id]
+	for key in best: e.known.append(best[key][1])
+	e.equipped = e.balanced_loadout(e.slots)
+	return e
+
 # a wild one, its focus set by how the battle found it (battle_config focus.wild_start)
 static func make_wild(sp: String, lv: int, state := "default") -> BattleEnergy:
 	var e := make(sp, lv)
@@ -990,6 +1020,8 @@ func _per_chip(id: String) -> float:
 	if acc <= 0.0: acc = 100.0
 	var pw := move_power(id, 4 if is_all(id) else 0)
 	if is_all(id): n = 4
+	# its own type's moves hit harder (STAB): a Water type picks Water Gun over Bite
+	if String(m.get("type", "")) in types: pw *= BattleConfig.num("damage", "stab", 1.5)
 	return pw / n * acc / 100.0
 
 # a status move's worth: what the planner thinks its effects are worth, times its accuracy
@@ -1002,20 +1034,26 @@ func _status_worth_of(m: Dictionary) -> float:
 	return v * acc / 100.0 + float(m.get("disrupt", 0)) + 1.0
 
 # a sensible loadout from the known moves: one of each kind first, then the strongest
+# the place a move takes in a balanced loadout: opener | mid | finisher (damaging) |
+# two_phase | reaction | disruption | utility ("" = none)
+func _loadout_key(id: String) -> String:
+	var m := move(id)
+	if m.is_empty(): return ""
+	var role := String(m.get("role", "offense"))
+	var dmg := float(m.get("power", 0)) > 0.0
+	if role == "two_phase": return "two_phase"
+	if dmg and role in ["offense", "disruption"]: return tier_of(id)
+	if role in ["reaction", "disruption", "utility"]: return role
+	return ""
+
 func balanced_loadout(n_slots: int) -> Array:
 	var pick := []
 	var by := {}
 	for id in known:
 		var m := move(id)
 		if m.is_empty(): continue
-		var role := String(m.get("role", "offense"))
 		var dmg := float(m.get("power", 0)) > 0.0
-		var key := ""
-		if role == "two_phase": key = "two_phase"
-		elif dmg and role in ["offense", "disruption"]: key = tier_of(id)
-		elif role == "reaction": key = "reaction"
-		elif role == "disruption": key = "disruption"
-		elif role == "utility": key = "utility"
+		var key := _loadout_key(id)
 		if key == "": continue
 		var v := _per_chip(id) if dmg else _status_worth_of(m)
 		if off_pool(id): v *= 0.7

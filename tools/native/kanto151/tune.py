@@ -6,6 +6,7 @@
 #   - commons and uncommons over or under their peers: their battle stats and focus gain (tuning.json species)
 #   - rarity steps: battle_config rarity.level_stat (a stat bonus by rarity and its slope by level)
 #   - slot steps: battle_config slots.gain_per_slot
+#   - the starter triangle: battle_config matchups.weakness_by_level
 #   - the role and tier mix: battle_config ai.reaction_value, two_phase_value, finisher_value, status_scale
 #   - evolution steps: focus gain by evolution stage (tuning.json balance focus.stage_gain_bonus)
 # Every change is logged in tuning.json "log" with the metric that caused it. Re-run it
@@ -195,13 +196,14 @@ def adjust(rep, tune, rnd):
     elif rs.get("reaction", 0) > rmin * 2: nudge("ai.reaction_rate_scale", False, 0.1, 0.5, 2.0, "reactions are %.3f of actions" % rs.get("reaction", 0), True)
     tmin = float(RT.get("two_phase", {}).get("min", 0.05))
     if rs.get("two_phase", 0) < tmin: nudge("ai.two_phase_value", True, 0.1, 0.8, 1.8, "two-phase moves are %.3f of actions (want %.2f)" % (rs.get("two_phase", 0), tmin))
-    elif rs.get("two_phase", 0) > tmin * 2.5: nudge("ai.two_phase_value", False, 0.05, 0.8, 1.8, "two-phase moves are %.3f of actions" % rs.get("two_phase", 0))
+    elif rs.get("two_phase", 0) > tmin * 2: nudge("ai.two_phase_value", False, 0.1, 0.8, 1.8, "two-phase moves are %.3f of actions" % rs.get("two_phase", 0))
     fmin = float(TT.get("finisher", {}).get("min", 0.15))
     if tsh.get("finisher", 0) < fmin: nudge("ai.finisher_value", True, 0.08, 0.8, 1.6, "finishers are %.3f of actions (want %.2f)" % (tsh.get("finisher", 0), fmin))
     elif tsh.get("finisher", 0) > fmin * 2: nudge("ai.finisher_value", False, 0.05, 0.8, 1.6, "finishers are %.3f of actions" % tsh.get("finisher", 0))
     omax = float(RT.get("offense", {}).get("max", 0.6))
     support = rs.get("disruption", 0) + rs.get("utility", 0)
     if rs.get("offense", 0) > omax and support < 0.25: nudge("ai.status_scale", True, 0.08, 0.6, 1.6, "offense is %.3f of actions (want %.2f or less), disruption and utility %.3f" % (rs.get("offense", 0), omax, support))
+    elif support > 0.32: nudge("ai.status_scale", False, 0.08, 0.6, 1.6, "disruption and utility are %.3f of actions (offense %.3f)" % (support, rs.get("offense", 0)))
     # evolution steps
     if "evo" in su:
         es = T["evolution_step_winrate"]
@@ -221,17 +223,25 @@ def adjust(rep, tune, rnd):
             new = max(0.0, min(50.0, cur + dlt))
             tune["config"]["stats.level_offset"] = new
             log.append({"change": "stats.level_offset %s -> %s" % (cur, new), "why": "+10 levels wins %.2f (target %.2f to %.2f)" % (rate, ls["min"], ls["max"])})
-    # the starter triangle: the TCG weakness
+    # the starter triangle: the TCG weakness by level (battle_config matchups.weakness_by_level),
+    # each sim level's point moved on its own so the right type wins in the band at every level
     if "starters" in su:
         st = T.get("starter_triangle", {"min": 0.55, "max": 0.85})
-        xs = [v["x_rate"] for d in su["starters"].values() for v in d.values()]
-        avg = sum(xs) / max(1, len(xs))
-        if not (st["min"] <= avg <= st["max"]):
+        lvls = sorted(int(x) for x in su["starters"])
+        wb = tune["config"].get("matchups.weakness_by_level") or {}
+        if wb.get("levels") != lvls:
             cur = float(tune["config"].get("matchups.weakness_mult", get_config("matchups.weakness_mult")))
-            new = round(max(1.3, min(2.0, cur + (-0.1 if avg > st["max"] else 0.1))), 2)
-            if new != cur:
-                tune["config"]["matchups.weakness_mult"] = new
-                log.append({"change": "matchups.weakness_mult %s -> %s" % (cur, new), "why": "a starter beats the one it's strong against %.2f of the time (target %.2f to %.2f)" % (avg, st["min"], st["max"])})
+            wb = {"levels": lvls, "mult": [cur] * len(lvls)}
+        for i, lv in enumerate(lvls):
+            xs = [v["x_rate"] for v in su["starters"][str(lv)].values()]
+            avg = sum(xs) / max(1, len(xs))
+            if st["min"] <= avg <= st["max"]: continue
+            old = wb["mult"][i]
+            wb["mult"][i] = round(max(1.0, min(2.2, old + (-0.1 if avg > st["max"] else 0.1))), 2)
+            if wb["mult"][i] != old:
+                log.append({"change": "matchups.weakness_by_level at Lv %d: %s -> %s" % (lv, old, wb["mult"][i]),
+                            "why": "a starter beats the one it's strong against %.2f of the time at Lv %d (%s; target %.2f to %.2f)" % (avg, lv, ", ".join("%.2f" % x for x in xs), st["min"], st["max"])})
+        tune["config"]["matchups.weakness_by_level"] = wb
     # the three tiers all in real use: mids and finishers pay a little more per chip when they sit idle
     ts = rep["moves"]["tier_share"]
     base_ppc = json.load(open(os.path.join(NATIVE, "life", "kanto151_balance.json")))["power_per_chip"]

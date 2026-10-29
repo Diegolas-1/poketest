@@ -20,7 +20,7 @@
     "reaction": "reaction numbers: return_mult (a counter's mult by rarity), bide_mult, guard_reduce, default_chance (percent)",
     "combo_power_pct": "the extra power a combo gives, by the move's rarity",
     "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, stage_gain_bonus (by evolution stage), rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
-    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier; finisher_by and two_phase_by: a species' first level-up finisher and two-phase move come at most this many levels after its stage's first level (moved earlier, marked moved_from)",
+    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier; finisher_by and two_phase_by: a species' first level-up finisher and two-phase move come at most this many levels after its stage's first level (moved earlier, marked moved_from); added_two_phase and added_reaction: the levels of the added moves (src added)",
     "stats": "battle stats: shape (each stat pulled toward the species' own average: 1 = the games' shape), spread (how much of a species' distance from its group's mean total survives: 1 = the games' stats, 0 = all equal), rarity_bonus and group_bonus (shares on top), evolution_floor (an evolved form's total is at least this share above the stage before, whatever the tuning), group_mean_total (written by gen.py)",
     "type_map": "main-series type -> energy kind (also kanto151.json type_energy)",
     "tcg_energy_ids": "TCG energy name -> kind",
@@ -142,7 +142,7 @@
       "very_rare": 1.9,
       "legendary": 2.0
     },
-    "bide_mult": 2.0,
+    "bide_mult": 1.6,
     "guard_reduce": 0.4,
     "default_chance": 100
   },
@@ -183,6 +183,8 @@
     "mid": 12,
     "finisher": 24,
     "other": 8,
+    "added_two_phase": 10,
+    "added_reaction": 5,
     "finisher_by": 12,
     "two_phase_by": 14
   },

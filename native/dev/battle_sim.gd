@@ -100,9 +100,10 @@ func _run() -> void:
 	get_tree().quit(0)
 
 # ---------------------------------------------------------------- one battle
-# a ready Pokemon: every level-up move it knows by lv, a balanced loadout in its slots
-func make_energy(sp: String, lv: int, slot_delta := 0) -> BattleEnergy:
-	var e := BattleEnergy.make(sp, lv)
+# a ready Pokemon: every level-up move it knows by lv (a trainer personality's also its TM
+# and tutor moves, battle_config trainer_moves), a balanced loadout in its slots
+func make_energy(sp: String, lv: int, slot_delta := 0, policy := "") -> BattleEnergy:
+	var e := BattleEnergy.make_trained(sp, lv) if policy in PERSONALITIES else BattleEnergy.make(sp, lv)
 	var slots := maxi(1, e.slots + slot_delta)
 	e.equipped = e.balanced_loadout(slots)
 	e.set_focus(float(e.params.get("start", 20.0)), "start")
@@ -124,8 +125,8 @@ func battle(x: Spec, y: Spec, k: int) -> Dictionary:
 	var swap := k % 2 == 1
 	var A := y if swap else x
 	var Bs := x if swap else y
-	var ea := make_energy(A.sp, A.lv, A.slot_delta)
-	var eb := make_energy(Bs.sp, Bs.lv, Bs.slot_delta)
+	var ea := make_energy(A.sp, A.lv, A.slot_delta, A.policy)
+	var eb := make_energy(Bs.sp, Bs.lv, Bs.slot_delta, Bs.policy)
 	var bt := PkmnBattle.new({"a": {"energy": ea, "ai": _ai_name(A.policy)}, "b": {"energy": eb, "ai": _ai_name(Bs.policy)},
 		"kind": "trainer", "seed": seed_base * 7919 + battles * 31 + k})
 	battles += 1
@@ -458,8 +459,8 @@ func _suite_policies() -> Dictionary:
 # one matchup, logged turn by turn (--a=, --b=, --lv=): for reading what the AI does
 func _suite_one() -> Dictionary:
 	var lv := int(opt.get("lv", "10"))
-	var ea := make_energy(String(opt.get("a", "charmander")), lv)
-	var eb := make_energy(String(opt.get("b", "bulbasaur")), lv)
+	var ea := make_energy(String(opt.get("a", "charmander")), lv, 0, String(opt.ai))
+	var eb := make_energy(String(opt.get("b", "bulbasaur")), lv, 0, String(opt.ai))
 	print("A %s equips %s; B %s equips %s" % [ea.species, ea.equipped, eb.species, eb.equipped])
 	var bt := PkmnBattle.new({"a": {"energy": ea, "ai": String(opt.ai)}, "b": {"energy": eb, "ai": String(opt.ai)}, "kind": "trainer", "seed": seed_base})
 	bt.start()

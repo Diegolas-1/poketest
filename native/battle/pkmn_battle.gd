@@ -106,7 +106,11 @@ func _make(s: String, d: Dictionary) -> Fighter:
 			f.e = BattleEnergy.make(sp, lv, known)
 			f.e.set_focus(fo, "start")
 	else:
-		f.e = BattleEnergy.make(sp, lv, known)
+		# a trainer's Pokemon (a personality AI, no move list given) has its TM and tutor moves too
+		if known == null and String(d.get("ai", "")) in BattleConfig.sect("ai").get("personalities", {}):
+			f.e = BattleEnergy.make_trained(sp, lv)
+		else:
+			f.e = BattleEnergy.make(sp, lv, known)
 		if s == "b" or d.has("focus"):
 			f.e.set_focus(float(d.get("focus", BattleConfig.num("focus", "trainer_start", 30.0))), "start")
 	if d.get("equip", null) is Array:
@@ -557,7 +561,8 @@ func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 		elif fixed is String and fixed == "user_hp": dealt = u.hp
 		elif (fixed is float or fixed is int) and float(fixed) > 0.0 and bool(BattleConfig.val("damage", "fixed_damage", true)): dealt = int(fixed)
 		else:
-			dealt = _damage_raw(u, tg, BattleEnergy.move_power(id, chips) * rarity_mult(u, id) * pm, String(m.category), tm * mult, crit, mt)
+			dealt = _damage_raw(u, tg, BattleEnergy.move_power(id, chips) * rarity_mult(u, id) * pm, String(m.category), tm * mult, crit, mt,
+				int(BattleConfig.num("damage", "finisher_stage_cap", 6)) if BattleEnergy.is_all(BattleEnergy.cost_of(id)) else 6)
 			if resisted(mt, tg): dealt = maxi(1, dealt - int(BattleConfig.num("matchups", "resistance_sub", 0.0)))
 			var side_k := "physical" if String(m.category) == "physical" else "special"
 			if int(tg.barrier.get(side_k, -1)) >= turn and not "breaks_barrier" in fx:
@@ -651,9 +656,24 @@ func type_factor(mt: String, tg: Fighter, ignore_ghost := false) -> float:
 	var k := BattleEnergy.energy_of(mt)
 	var f := 1.0
 	if chart < 1.0: f *= float(M.get("tcg_chart_resist_mult", 1.0))
-	if k in S.get("weakness", []): f *= float(M.get("weakness_mult", 2.0))
-	if k in S.get("resistance", []): f *= float(M.get("resistance_mult", 0.6))
+	# the games' super effective where the card names no weakness (Grass on Blastoise, weak to Lightning on its card)
+	if chart > 1.0 and not k in S.get("weakness", []): f *= float(M.get("tcg_chart_super_mult", 1.0))
+	if k in S.get("weakness", []): f *= _by_level(M.get("weakness_by_level", null), tg.level, float(M.get("weakness_mult", 2.0)))
+	if k in S.get("resistance", []): f *= _by_level(M.get("resistance_by_level", null), tg.level, float(M.get("resistance_mult", 0.6)))
 	return f
+
+# a number that scales with level: {levels: [..], mult: [..]} (straight lines between, flat
+# past the ends); anything else = the plain default
+static func _by_level(c, lv: int, def: float) -> float:
+	if not c is Dictionary: return def
+	var L: Array = c.get("levels", [])
+	var V: Array = c.get("mult", [])
+	if L.is_empty() or L.size() != V.size(): return def
+	if float(lv) <= float(L[0]): return float(V[0])
+	for i in range(1, L.size()):
+		if float(lv) <= float(L[i]):
+			return lerpf(float(V[i - 1]), float(V[i]), (float(lv) - float(L[i - 1])) / maxf(1.0, float(L[i]) - float(L[i - 1])))
+	return float(V[-1])
 
 func resisted(mt: String, tg: Fighter) -> bool:
 	var S := BattleEnergy.species_data(tg.species)
@@ -901,11 +921,13 @@ func _crit(u: Fighter, id: String) -> bool:
 	var p := float(D.get("crit_base", 0.0625)) + float(D.get("crit_per_stage", 0.0625)) * st
 	return rng.randf() < p
 
-func _damage_raw(u: Fighter, tg: Fighter, power: float, cat: String, mult: float, crit: bool, mtype := "") -> int:
+# drop_cap: the most stages of the target's defence fall that count (battle_config
+# damage.finisher_stage_cap for a finisher; 6 = all of them)
+func _damage_raw(u: Fighter, tg: Fighter, power: float, cat: String, mult: float, crit: bool, mtype := "", drop_cap := 6) -> int:
 	var D := BattleConfig.sect("damage")
 	var phys := cat == "physical"
 	var A := float(u.stats.atk if phys else u.stats.spa) * _stage_mult(int(u.stages.atk if phys else u.stages.spa))
-	var Df := float(tg.stats.def if phys else tg.stats.spd) * _stage_mult(int(tg.stages.def if phys else tg.stages.spd))
+	var Df := float(tg.stats.def if phys else tg.stats.spd) * _stage_mult(maxi(-drop_cap, int(tg.stages.def if phys else tg.stages.spd)))
 	if crit:
 		A = maxf(A, float(u.stats.atk if phys else u.stats.spa))
 		Df = minf(Df, float(tg.stats.def if phys else tg.stats.spd))

@@ -86,7 +86,7 @@ B = {
     "weakness_mult": 2.0,
     "resistance_reduce": {"20": 0.15, "30": 0.25},
     "equip_slots": {"1": 1, "3": 2, "8": 3, "14": 4, "21": 5, "29": 6, "38": 7, "48": 8, "60": 9, "75": 10},
-    "learn_levels": {"opener": 3, "mid": 12, "finisher": 24, "other": 8},
+    "learn_levels": {"opener": 3, "mid": 12, "finisher": 24, "other": 8, "added_two_phase": 10, "added_reaction": 5},
     "stats": {"spread": 0.5, "shape": 0.6, "evolution_floor": 0.08, "rarity_bonus": {"common": 0.0, "uncommon": 0.03, "rare": 0.06, "very_rare": 0.09, "legendary": 0.12},
               "group_bonus": {"basic": 0.0, "middle": 0.0, "final": 0.0, "single": 0.0}},
     "type_map": TYPE_MAP, "tcg_energy_ids": TCG_IDS, "energy_names": ENERGY_NAMES,
@@ -713,6 +713,39 @@ for s in species_order:
 # every Pokémon can Struggle; the very basic ones get a few design fallbacks so each has all three tiers
 FALLBACK = {"opener": "tackle", "mid": "headbutt", "finisher": "struggle"}
 
+# ======================================================================== added level-up moves
+# two-phase and reaction moves the user asked for (src "added", each with a _note): only where
+# they fit the species and the anime. Levels: balance learn_levels added_two_phase /
+# added_reaction after the stage's first level.
+FLYERS = ["charizard", "pidgey", "pidgeotto", "pidgeot", "spearow", "fearow", "zubat", "golbat", "farfetchd",
+          "aerodactyl", "articuno", "zapdos", "moltres", "dragonite"]
+ADDED_MOVES = [
+    ("dig", lambda s: "ground" in by_id[s]["types"], "a ground type: it digs"),
+    ("fly", lambda s: s in FLYERS, "it flies (wings that carry it)"),
+    ("solar_beam", lambda s: "grass" in by_id[s]["types"], "a grass type: it gathers sunlight"),
+    ("dive", lambda s: s in ["squirtle", "wartortle", "blastoise", "psyduck", "golduck", "poliwag", "poliwhirl", "poliwrath",
+                             "tentacool", "tentacruel", "seel", "dewgong", "horsea", "seadra", "goldeen", "seaking",
+                             "lapras", "vaporeon", "gyarados"], "a swimmer: it dives"),
+    ("bounce", lambda s: s == "magikarp", "Magikarp's famous flop, as in the games (Bounce)"),
+    ("skull_bash", lambda s: s in ["squirtle", "wartortle", "blastoise", "rhyhorn", "rhydon"], "a hard head or shell to ram with (Squirtle's line, as in the games and the anime; Rhyhorn's line)"),
+    ("sky_attack", lambda s: s in ["pidgeot", "fearow", "dodrio", "farfetchd", "aerodactyl", "articuno", "zapdos", "moltres"], "a great bird: it dives from the sky"),
+    ("razor_wind", lambda s: s in ["farfetchd", "scyther", "butterfree"], "blades or wings that whip up a cutting wind"),
+    ("counter", lambda s: "fighting" in by_id[s]["types"], "a fighter: it answers a blow"),
+    ("detect", lambda s: s in ["mankey", "primeape", "poliwrath", "hitmonlee", "hitmonchan"], "a quick fighter: it reads the blow coming"),
+    ("mirror_coat", lambda s: "psychic" in by_id[s]["types"], "a psychic type: it turns a beam back"),
+    ("dodge", lambda s: by_id[s]["stats"]["speed"] >= 90 or s in ["pikachu", "rattata", "abra", "zubat", "ponyta", "voltorb", "eevee"],
+     "quick or evasive (base speed 90 or more, or nimble in the anime)"),
+    ("protect", lambda s: by_id[s]["stats"]["defense"] >= 110 or s in ["shellder", "metapod", "kakuna", "omanyte", "kabuto", "kabutops"],
+     "a hard shell or hide to hide behind"),
+]
+for s in species_order:
+    L = learn[s]
+    for m, test, note in ADDED_MOVES:
+        if m not in moves or not test(s) or m in L["rows"]: continue
+        for k in ("tm", "tutor", "egg"): L[k].discard(m)
+        key = "added_two_phase" if moves[m]["role"] == "two_phase" else "added_reaction"
+        L["rows"][m] = {"level": max(1, min(100, stage_level(s) + int(B["learn_levels"].get(key, 8)))), "src": "added", "_note": note}
+
 # evolutions inherit everything from the previous stage
 for s in sorted(species_order, key=lambda x: (stage_of(x), dex_of[x])):
     if s in parent:
@@ -737,12 +770,15 @@ for s in sorted(species_order, key=lambda x: (stage_of(x), dex_of[x])):
     if s in parent:
         for m, row in learn[parent[s]]["rows"].items():
             if m in rows_ and row["level"] < rows_[m]["level"]: rows_[m]["level"] = row["level"]
-    for kind, test in (("finisher_by", lambda mm: isinstance(mm["chips"], str)), ("two_phase_by", lambda mm: mm["role"] == "two_phase")):
+    for kind, test in (("finisher_by", lambda mm: isinstance(mm["chips"], str) and mm["role"] != "two_phase"), ("two_phase_by", lambda mm: mm["role"] == "two_phase")):
         n = B["learn_levels"].get(kind)
         if n is None: continue
-        cand = sorted((r["level"], m) for m, r in rows_.items() if test(moves[m]))
+        # its own type's first (a Water type's Hydro Pump before a Double-Edge), else the first
+        own = lambda m: moves[m].get("mtype") in by_id[s]["types"]
+        cand = sorted((not own(m), r["level"], m) for m, r in rows_.items() if test(moves[m]))
         if not cand: continue
-        lv0, m0 = cand[0]
+        _, lv0, m0 = cand[0]
+        if any(r["level"] <= stage_level(s) + int(n) and test(moves[m]) and (own(m) or not own(m0)) for m, r in rows_.items()): continue
         cap = stage_level(s) + int(n)
         if lv0 > cap:
             rows_[m0]["level"] = cap
@@ -1206,7 +1242,7 @@ SPECIES_SCHEMA = {
     "base": "[hp, atk, def, spa, spd, spe] battle base stats: base_game pulled toward its stat_group's mean total (balance stats.spread), plus the rarity bonus and its tuning",
     "base_game": "extra: the main-series base stats", "stat_group": "extra: basic | middle | final | single (its place in its line)",
     "wild_levels": "[lo, hi]: a placeholder band by stage and rarity",
-    "learnset": "[{level, move, src: game | tcg | anime | new | design, inherited, anime, tcg}] in level order (never forgotten)",
+    "learnset": "[{level, move, src: game | tcg | anime | new | design | added, inherited, anime, tcg, _note (why an added move fits)}] in level order (never forgotten)",
     "tm": "move ids it can be taught (TM, HM or tutor, in any game)", "ai": "aggressive | strategic | evasive",
     "dex": "extra: national Pokédex number", "tutor": "extra: the tm moves that come from a tutor", "egg": "extra: egg moves (a breeding hook; teach() with force)",
     "focus_profile": "extra: its focus params in battle_config focus terms {gain, step, chip_cap, start, disrupt_resist}: the config's defaults, by_type and species entries, the design's overrides, then the rarity bonus; install() writes them into focus.species",
@@ -1263,7 +1299,7 @@ BAL_SCHEMA = {
     "reaction": "reaction numbers: return_mult (a counter's mult by rarity), bide_mult, guard_reduce, default_chance (percent)",
     "combo_power_pct": "the extra power a combo gives, by the move's rarity",
     "focus": "the design's focus layer over battle_config focus: rarity_gain_bonus, stage_gain_bonus (by evolution stage), rarity_resist_bonus, resist_cap, and the amounts focus_up / focus_down_self / focus_drain move",
-    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier; finisher_by and two_phase_by: a species' first level-up finisher and two-phase move come at most this many levels after its stage's first level (moved earlier, marked moved_from)",
+    "learn_levels": "levels after the stage's first level at which designed (TCG, anime) moves are learned, by tier; finisher_by and two_phase_by: a species' first level-up finisher and two-phase move come at most this many levels after its stage's first level (moved earlier, marked moved_from); added_two_phase and added_reaction: the levels of the added moves (src added)",
     "stats": "battle stats: shape (each stat pulled toward the species' own average: 1 = the games' shape), spread (how much of a species' distance from its group's mean total survives: 1 = the games' stats, 0 = all equal), rarity_bonus and group_bonus (shares on top), evolution_floor (an evolved form's total is at least this share above the stage before, whatever the tuning), group_mean_total (written by gen.py)",
     "type_map": "main-series type -> energy kind (also kanto151.json type_energy)", "tcg_energy_ids": "TCG energy name -> kind", "energy_names": "kind -> shown name",
     "effects": "every effect tag (engine names): power_mult (the weight on a damaging move's power), doc, and its numbers",

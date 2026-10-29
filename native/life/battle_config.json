@@ -74,13 +74,16 @@
   },
 
   "matchups": {
-    "_doc": "Type matchups, TCG style, for species whose data names a weakness and a resistance (energy kinds; the Kanto 151 dataset): weakness_mult (the card game's x2), resistance_mult (a reduction, multiplied) and resistance_sub (subtracted after the damage, the card game's -20 / -30; 0 = off). In TCG mode the chart's immunities become tcg_immunity_mult (the card game has no immunities; 0 keeps them). mode: auto (TCG for species with the data, the chart otherwise) | chart | tcg. tcg_chart_resist_mult: in TCG mode, a move the chart calls not very effective is also multiplied by this (1 = off).",
+    "_doc": "Type matchups, TCG style, for species whose data names a weakness and a resistance (energy kinds; the Kanto 151 dataset): weakness_mult (the card game's x2), resistance_mult (a reduction, multiplied) and resistance_sub (subtracted after the damage, the card game's -20 / -30; 0 = off). In TCG mode the chart's immunities become tcg_immunity_mult (the card game has no immunities; 0 keeps them). mode: auto (TCG for species with the data, the chart otherwise) | chart | tcg. tcg_chart_resist_mult: in TCG mode, a move the chart calls not very effective is also multiplied by this (1 = off); tcg_chart_super_mult: one the chart calls super effective, on a card that names another weakness (1 = off). weakness_by_level, resistance_by_level: {levels, mult} scale the two with the defender's level (straight lines between the points, flat past the ends); null = the plain weakness_mult / resistance_mult.",
     "mode": "auto",
     "weakness_mult": 2.0,
     "resistance_mult": 0.6,
     "resistance_sub": 0,
     "tcg_immunity_mult": 0.0,
-    "tcg_chart_resist_mult": 1.0
+    "tcg_chart_resist_mult": 1.0,
+    "tcg_chart_super_mult": 1.0,
+    "weakness_by_level": null,
+    "resistance_by_level": null
   },
 
   "costs": {
@@ -101,8 +104,9 @@
   },
 
   "damage": {
-    "_doc": "damage = ((2L/5 + 2) * power * A/D / 50 + 2) * stab * type * crit * random * scale. scale keeps several moves a turn from ending fights too fast. para_scope: turn (one roll a turn decides every action of a paralysed Pokemon) | action (a roll for each).",
+    "_doc": "damage = ((2L/5 + 2) * power * A/D / 50 + 2) * stab * type * crit * random * scale. scale keeps several moves a turn from ending fights too fast. para_scope: turn (one roll a turn decides every action of a paralysed Pokemon) | action (a roll for each). finisher_stage_cap: a finisher counts at most this many stages of the target's defence fall (6 = all).",
     "scale": 0.55,
+    "finisher_stage_cap": 2,
     "stab": 1.5,
     "crit": 1.5,
     "crit_base": 0.0625,
@@ -217,6 +221,15 @@
     "full_charge": {"name": "Full Charge", "focus_to": 100, "price": 12000, "rarity": "unique", "desc": "Extremely rare. Straight to max focus."}
   },
 
+  "trainer_moves": {
+    "_doc": "A trainer's Pokemon (a personality AI: gym trainers, leaders, tricky and cautious trainers) also knows the TM and tutor moves on its own lists, once its level reaches min_level for the move's tier (opener, mid, finisher), role (two_phase, reaction) or other (status moves); then it equips a balanced loadout. It takes the best such move for each loadout place in fill (two_phase, reaction), and for any other place (opener, mid, finisher, disruption, utility) only when its own moves leave that place empty, so the species keeps its own character. places: the loadout places TM and tutor moves may take at all.",
+    "enabled": true,
+    "fill": ["two_phase", "reaction"],
+    "places": ["opener", "mid", "finisher", "two_phase", "reaction", "disruption", "utility"],
+    "sources": ["tm", "tutor"],
+    "min_level": {"opener": 1, "mid": 10, "finisher": 20, "two_phase": 12, "reaction": 5, "other": 5}
+  },
+
   "prologue": {
     "_doc": "The prologue (battle.gd mode prologue: Ash with no partner Pokemon against a wild one) keeps its own pace, apart from Pokemon-vs-Pokemon tuning: focus (step, gain, ...) replaces the wild one's focus numbers, max_actions caps its moves a turn. The aim: about 3 to 4 hits over 3 to 5 turns, scary but survivable for a few turns (dev/battle_test).",
     "focus": {"step": 30, "gain": 10},
@@ -262,5 +275,5 @@
     "reaction_rate_scale": 1.0,
     "status_scale": 1.0
   },
-  "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.4, "tcg_chart_resist_mult": 0.8}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}, "level_stat": {"levels": [8, 20, 35], "min": 0.6, "max": 1.6, "bonus": {"common": [0.0, 0.0, 0.0], "uncommon": [-0.1666, -0.065, 0.097], "rare": [-0.2842, -0.11, 0.2002], "very_rare": [-0.3042, -0.1303, 0.1618], "legendary": [-0.3042, -0.1303, 0.1618]}}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.263, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6, "disruption": 1.25}}, "min_action_value": 4.0, "wild_styles": {"evasive": {"status": 1.3}}, "finisher_value": 1.23, "two_phase_value": 1.8, "reaction_value": 40.0, "status_scale": 1.6, "reaction_rate_scale": 2.0}, "slots": {"wild_equip": "balanced", "gain_per_slot": 2.75}}}
+  "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.4, "tcg_chart_resist_mult": 0.8, "weakness_by_level": {"levels": [8, 22, 40], "mult": [1.4, 1.3, 1.7]}, "tcg_chart_super_mult": 1.15}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}, "level_stat": {"levels": [8, 20, 35], "min": 0.6, "max": 1.6, "bonus": {"common": [0.0, 0.0, 0.0], "uncommon": [-0.2048, -0.0298, 0.2062], "rare": [-0.3224, -0.03, 0.3094], "very_rare": [-0.3424, 0.0199, 0.2225], "legendary": [-0.3424, 0.0199, 0.2225]}}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.258, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6, "disruption": 1.25}}, "min_action_value": 4.0, "wild_styles": {"evasive": {"status": 1.3}}, "finisher_value": 1.23, "two_phase_value": 0.9, "reaction_value": 40.0, "status_scale": 1.35, "reaction_rate_scale": 1.818}, "slots": {"wild_equip": "balanced", "gain_per_slot": 2.75}, "trainer_moves": {"fill": [], "places": ["opener", "mid", "finisher", "two_phase", "reaction"]}}}
 }
