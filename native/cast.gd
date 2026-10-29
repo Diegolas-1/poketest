@@ -954,11 +954,7 @@ func _input(e: InputEvent) -> void:
 
 class _TouchButtons extends Control:
 	var cast
-<<<<<<< HEAD
-	var down := {"use": false, "jump": false, "bell": false, "crouch": false}
-=======
-	var down := {"use": false, "jump": false, "bell": false, "wheelie": false}
->>>>>>> origin/main
+	var down := {"use": false, "jump": false, "bell": false, "crouch": false, "wheelie": false}
 	var _bell_on := false
 	var shown := false
 	func _ready() -> void:
@@ -986,26 +982,17 @@ class _TouchButtons extends Control:
 			s -= Vector2(maxf(0.0, win.x - safe.end.x), maxf(0.0, win.y - safe.end.y)) * k
 		var c := {"use": Vector2(s.x - 66, s.y - 138), "jump": Vector2(s.x - 150, s.y - 70)}
 		# on the bike: a small bell button beside the two
-<<<<<<< HEAD
-		if cast and cast.bike and cast.bike.riding(): c["bell"] = Vector2(s.x - 214, s.y - 58)
-		# on foot, outside: the crouch toggle there instead
-		elif cast and not cast.indoors: c["crouch"] = Vector2(s.x - 222, s.y - 56)
-=======
-		# and the wheelie (held) above Jump
+		# and the wheelie (held) above Jump; on foot, outside: the crouch toggle instead
 		if cast and cast.bike and cast.bike.riding():
 			c["bell"] = Vector2(s.x - 214, s.y - 58)
 			c["wheelie"] = Vector2(s.x - 160, s.y - 158)
->>>>>>> origin/main
+		elif cast and not cast.indoors: c["crouch"] = Vector2(s.x - 222, s.y - 56)
 		return c
 	func hit(p: Vector2) -> String:
 		if not shown: return ""
 		var c := centres()
 		for k in c:
-<<<<<<< HEAD
-			if p.distance_to(c[k]) < (34.0 if k in ["bell", "crouch"] else 42.0): return k
-=======
-			if p.distance_to(c[k]) < (34.0 if k in ["bell", "wheelie"] else 42.0): return k
->>>>>>> origin/main
+			if p.distance_to(c[k]) < (34.0 if k in ["bell", "crouch", "wheelie"] else 42.0): return k
 		return ""
 	func _process(_dt: float) -> void:
 		var on: bool = cast != null and cast.bike != null and cast.bike.riding()
@@ -1020,11 +1007,7 @@ class _TouchButtons extends Control:
 		for k in c:
 			var bc: Vector2 = c[k]
 			var on: bool = down[k]
-<<<<<<< HEAD
-			var r := (38.0 if k == "use" else (31.0 if k == "jump" else (27.0 if k == "crouch" else 24.0))) * (0.92 if on else 1.0)
-=======
-			var r := (38.0 if k == "use" else (31.0 if k == "jump" else (26.0 if k == "wheelie" else 24.0))) * (0.92 if on else 1.0)
->>>>>>> origin/main
+			var r := (38.0 if k == "use" else (31.0 if k == "jump" else (27.0 if k == "crouch" else (26.0 if k == "wheelie" else 24.0)))) * (0.92 if on else 1.0)
 			draw_circle(bc + Vector2(0, 3), r + 1.0, Color(0, 0, 0, 0.28), true, -1.0, true)
 			if on: UITheme.glow(self, bc, r + 4.0, UITheme.YELLOW)
 			if k == "use":
@@ -1048,7 +1031,6 @@ class _TouchButtons extends Control:
 				draw_arc(bc, r - 1.0, 0.0, TAU, 36, Color(1, 1, 1, 0.6 if not on else 0.95), 2.0, true)
 				UITheme.icon(self, "jump", bc + Vector2(0, -5), 11.0, Color.WHITE)
 				UITheme.text_mid(self, bc + Vector2(0, 13), "HOP" if _bell_on else "JUMP", "label", 12, Color(1, 1, 1, 0.9), 1)
-<<<<<<< HEAD
 			elif k == "crouch":
 				# a dark disc; crouched, a yellow ring and the chevron points back up (STAND)
 				var cr: bool = cast.crouching
@@ -1057,7 +1039,6 @@ class _TouchButtons extends Control:
 				if cr: UITheme.chevron_up(self, bc + Vector2(0, -6), 14.0, Color.WHITE)
 				else: UITheme.chevron_down(self, bc + Vector2(0, -6), 14.0, Color.WHITE)
 				UITheme.text_mid(self, bc + Vector2(0, 11), "STAND" if cr else "CROUCH", "label", 10, Color(1, 1, 1, 0.9), 1)
-=======
 			elif k == "wheelie":
 				# a plate disc: a wheel with the front lifted, "WHEELIE" under it
 				draw_circle(bc, r, Color(UITheme.PLATE, 0.62 if not on else 0.85), true, -1.0, true)
@@ -1066,7 +1047,6 @@ class _TouchButtons extends Control:
 				draw_arc(bc + Vector2(5, -8), 5.5, 0.0, TAU, 18, Color.WHITE, 2.0, true)
 				draw_line(bc + Vector2(-7, 0), bc + Vector2(5, -8), Color.WHITE, 2.0, true)
 				UITheme.text_mid(self, bc + Vector2(0, 12), "WHEELIE", "label", 9, Color(1, 1, 1, 0.9), 1)
->>>>>>> origin/main
 			else:
 				draw_circle(bc, r, Color(UITheme.YELLOW, 0.85 if not on else 1.0), true, -1.0, true)
 				draw_arc(bc, r - 1.0, 0.0, TAU, 32, Color(UITheme.INK, 0.6), 2.0, true)
