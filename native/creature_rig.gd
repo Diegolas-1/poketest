@@ -73,6 +73,11 @@ static func create(sp: String) -> Creature:
 		"clefairy", "clefable": return CreatureClefairy.new()
 		"vulpix", "ninetales": return CreatureVulpix.new()
 		"jigglypuff": return CreatureJigglypuff.new()
+	# the rest by their family (species.json)
+	match String(info(sp).get("family", "")):
+		"float": return CreatureFloat.new()
+		"serpent": return CreatureSerpent.new()
+		"bird": return CreatureBird.new()
 	return CreatureRig.new() if not info(sp).is_empty() else Creature.new()
 
 # ---------- data ----------
@@ -89,6 +94,7 @@ var hiding := false
 var burrowed := false             # gone under the ground (dig): until "emerge"
 var streak := false               # quick_attack's dash (speed lines)
 var sing_beat := 0.0              # sing: 0..1 through each sway (a note at 0)
+var move_name := ""               # the move an aliased act is playing ("blast" for "water_gun")
 var height := 0.0                 # the body's height off the ground now (m), for a jump or dig
 
 # the act playing
@@ -102,7 +108,7 @@ var durs := {"look": 1.8, "sniff": 1.6, "happy": 1.4, "angry": 1.4, "startle": 0
 	"quick_attack": 1.0, "bite": 1.0, "dig": 1.8, "emerge": 1.0, "double_kick": 1.4, "horn_attack": 1.2,
 	"poison_sting": 1.0, "pound": 0.9, "double_slap": 1.5, "sing": 3.0, "defense_curl": 1.6, "ember": 1.1,
 	"stomp": 1.2, "focus_energy": 1.6, "scratch_attack": 0.9, "groom": 2.0, "peck": 0.9, "fury_attack": 1.6,
-	"affection": 2.2, "cheer": 1.6, "look_up": 2.0, "play": 1.8}
+	"affection": 2.2, "cheer": 1.6, "look_up": 2.0, "play": 1.8, "blast": 1.6, "psychic": 2.0, "power_up": 1.6}
 
 # rig
 var W := -1                       # Waist (the body's root)
@@ -375,6 +381,7 @@ func mood(what: String) -> void:
 	if act != "": _end_act()
 	hiding = false
 	act = what
+	move_name = what
 	act_t = 0.0
 	act_dur = durs[what]
 	_events.clear()
@@ -515,6 +522,7 @@ func _pose(dt: float, _speed: float) -> void:
 			var al: Dictionary = I.get("alias", {})
 			if al.has(act):
 				var a := act
+				move_name = a
 				act = String(al[a])
 				if not _act_species(P, dt, u, act_dur): _act(P, dt, u, act_dur)
 				act = a
@@ -1020,6 +1028,45 @@ func _act(P: Dictionary, dt: float, u: float, d: float) -> void:
 			P.tp += 0.6 * k
 			for i in 2: P.arm_in[i] += 0.5 * k; P.elbow[i] += 0.8 * k
 			if _ev("g", 0.5): fx.emit("glow", point("chest"))
+		"blast":
+			# a move sent from the mouth (or the body): a breath in, braced, then the move's
+			# effect (fx(<its anim family>, at the mouth), from moves_kanto.json) and the impact;
+			# species.json "blast_from" can name another point ("hand_l", "chest", "horn" ..)
+			var load := bump(u, 0.0, 0.55)
+			var go := sm(0.45, 0.55, u) * sm(d, d - 0.3, u)
+			P.lean += -0.2 * load + 0.25 * go
+			P.crouch += 0.25 * load + 0.2 * go
+			P.hp = 0.3 * load - 0.15 * go
+			P.hfwd += 0.08 * sz * go
+			P.jaw = 0.9 * go
+			P.mouth = "wide" if go > 0.2 else ""
+			P.eye = "angry"
+			P.tp += 0.3 * load
+			P.earf -= 0.4 * go
+			for i in 2: P.arm_up[i] += 0.8 * load + 0.9 * go; P.arm_out[i] += 0.3 * go; P.elbow[i] += 0.6 * load
+			var fxn: String = I.get("fx", {}).get(move_name, "blast")
+			var from: String = I.get("blast_from", "mouth")
+			for k in 4:
+				if _ev("f%d" % k, 0.5 + k * (d - 0.8) / 4.0): fx.emit(fxn, point(from))
+			if _ev("hit", 0.62): impact.emit(move_name if move_name != "" else act)
+		"psychic", "power_up":
+			# (psychic) a hand to the brow, the eyes shut tight, the glow; then the push. (power_up)
+			# a stance gathered, the glow: a boost or a status move
+			var k := sm(0.0, 0.3, u) * sm(d, d - 0.35, u)
+			var push := bump(u, d * 0.6, d - 0.1)
+			P.crouch += 0.25 * k
+			P.lean -= 0.1 * k
+			P.y += sin(u * 55.0) * 0.004 * sz * k
+			P.eye = "squeeze" if push < 0.3 else "angry"
+			P.hp = -0.1 * k + 0.2 * push
+			if act == "psychic":
+				P.arm_up[0] += 2.4 * k; P.elbow[0] += 1.2 * k
+				P.arm_up[1] += 1.4 * push; P.arm_out[1] += 0.5 * push
+			else:
+				for i in 2: P.arm_in[i] += 0.5 * k; P.elbow[i] += 0.9 * k
+			var fxn: String = I.get("fx", {}).get(move_name, "glow" if act == "power_up" else "psychic")
+			if _ev("g", 0.4): fx.emit(fxn, point("head"))
+			if _ev("hit", d * 0.65): impact.emit(move_name if move_name != "" else act)
 		"affection":
 			# (a companion) leaning in to its trainer, the head rubbed against them side to
 			# side, the eyes shut happy, the tail going (look_at_pos: who it nuzzles)

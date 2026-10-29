@@ -104,7 +104,8 @@ func _build(sp: String) -> void:
 		var m3 := mi as MeshInstance3D
 		meshes.append(m3)
 		m3.extra_cull_margin = 0.6
-		if String(m3.name).ends_with("_flame"):
+		var cards := String(m3.name).ends_with("_cards")
+		if String(m3.name).ends_with("_flame") or cards:
 			# a tail flame (bake_creatures.mjs): fire, so no ink outline and no shadow
 			m3.set_meta("no_ink", true)
 			m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -113,6 +114,16 @@ func _build(sp: String) -> void:
 			var m := ShaderMaterial.new()
 			m.shader = SHADER
 			if src is BaseMaterial3D and src.albedo_texture: m.set_shader_parameter("albedo_tex", src.albedo_texture)
+			if String(m3.name).ends_with("_flame"):
+				# a flame (or a gas puff) sheet: fire unless species.json says otherwise
+				m.shader = SHADER_FLAME
+				m.set_shader_parameter("seed", float(mats.size()) * 1.7)
+				flames.append(m)
+			if cards:
+				# a card (bake_creatures.mjs): see-through by its texture's alpha, both sides
+				var tex = m.get_shader_parameter("albedo_tex")
+				m.shader = SHADER_CUT
+				m.set_shader_parameter("albedo_tex", tex)
 			m3.set_surface_override_material(s, m)
 			mats.append(m)
 			mat_names.append(String(src.resource_name) if src else "m%d" % s)
@@ -155,9 +166,11 @@ func _looks(cfg: Dictionary) -> void:
 			m.shader = SHADER_FLAME
 			m.set_shader_parameter("albedo_tex", tex)
 			m.set_shader_parameter("seed", float(i) * 1.7)
+			if not flames.has(m): flames.append(m)
 			for k in ["hot", "warm", "cool"]:
 				if o.has(k): m.set_shader_parameter(k, _v3(o[k]))
-			flames.append(m)
+			# (power 0: not shown until a species turns it up: Koffing's gas cloud)
+			if o.has("power"): m.set_shader_parameter("power", float(o.power))
 			continue
 		if String(o.get("blend", "opaque")) == "cutout":
 			var tex = m.get_shader_parameter("albedo_tex")
@@ -214,6 +227,8 @@ static func frame(d: Vector3, u: Vector3) -> Basis:
 # `toward`, or rest_dir) and rest "up" (rest_up) onto dir and up
 func aim(bi: int, dir: Vector3, up: Vector3, rest_dir: Vector3, rest_up: Vector3) -> void:
 	if bi < 0: return
+	# (a zero-length bone or aim: nothing to turn it by)
+	if dir.length_squared() < 1e-12 or rest_dir.length_squared() < 1e-12: return
 	var q := frame(dir, up) * frame(rest_dir, rest_up).inverse()
 	_tg[bi] = (q * rest_g[bi].basis).orthonormalized()
 
