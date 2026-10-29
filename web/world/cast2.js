@@ -1077,22 +1077,10 @@ export function townsfolk(K) {
         const zt = 0.1 - Math.abs(tx) * 0.22;
         parts.push(lock([[x, 1.292, z - 0.012], [(x + tx) / 2, 1.262, zt + 0.006], [tx, ty, zt]], r, 0.35, 0.002, 10, 10, hc));
       }
+      // and a long one falling between the eyes, off to his right
+      parts.push(lock([[-0.012, 1.3, 0.07], [-0.022, 1.25, 0.104], [-0.026, 1.205, 0.112], [-0.02, 1.168, 0.11]], 0.02, 0.32, 0.002, 12, 10, hc));
       v.flat(mergeGeos(parts), c.hair, head1);
     }
-    // the hair: broad spikes up and back off the crown, a tuft rising off the front, spikes out
-    // over the ears and back off the back of the head
-    const S = [];
-    for (const s of [-1, 1]) {
-      S.push([s * 0.5, 0.75, 0.14, 0.058, [s * 0.35, 0.9, -0.2], 0.2]);       // on top
-      S.push([s * 0.45, 0.45, 0.12, 0.055, [s * 0.45, 0.75, 0.3], 0.15]);     // rising off the front
-      S.push([s * 1.3, 0.5, 0.13, 0.058, [s * 0.8, 0.6, -0.3], 0.25]);        // the sides
-      S.push([s * 1.6, 0.15, 0.11, 0.052, [s * 0.9, 0.1, -0.35], 0.35]);      // over the ears
-      S.push([s * 2.2, 0.55, 0.14, 0.058, [s * 0.4, 0.7, -0.7], 0.25]);       // behind
-      S.push([s * 2.6, 0.15, 0.13, 0.056, [s * 0.35, 0.15, -1], 0.35]);
-    }
-    S.push([0, 0.95, 0.14, 0.06, [0, 1, -0.25], 0.15], [0, 0.6, 0.13, 0.058, [0, 0.9, 0.35], 0.1],
-      [Math.PI, 0.7, 0.14, 0.06, [0, 0.75, -0.75], 0.25], [Math.PI, 0.0, 0.12, 0.055, [0, -0.25, -1], 0.4]);
-    v.spikes(c.hair, S);
     v.garment((G) => {
       // the sweatshirt: hung from the shoulders, big and loose like a long-sleeved shirt, falling
       // wide past the waist to low on the hips, the undershirt's orange hem just showing under it;
@@ -1159,8 +1147,59 @@ export function townsfolk(K) {
       };
       G.add(pd, paintGrid(disc, 64, 64, yy, mul(blk, 1.4)), 'gary_pendant');
       underTop(G); underSkirt(G, 0.006);
+      // the hair: big chunky spikes rising off the crown and arcing out and down, swept to his
+      // right, shorter ones to his left and down the back, each its own bouncy chain hanging a
+      // little under its own weight; [azimuth of the root (0 front, + his left), its elevation on
+      // the head, the direction it rises in, the direction it arcs out to, length, width]
+      bouncyLocks(G, 'gary_hair', c.hair, c.hair2, [
+        [-0.5, 0.95, [-0.2, 1, 0], [-1, 0.1, 0], 0.22, 0.075],          // swept to his right
+        [-1.1, 0.7, [-0.5, 1, -0.1], [-1, -0.15, -0.15], 0.22, 0.07],
+        [-1.6, 0.4, [-0.8, 0.6, -0.2], [-1, -0.35, -0.3], 0.2, 0.065],
+        [-2.1, 0.15, [-0.7, 0.2, -0.6], [-0.7, -0.5, -0.6], 0.16, 0.06],
+        [0, 0.6, [0, 1, 0.35], [-0.6, 0.5, 0.4], 0.16, 0.07],              // the front's tuft, over to his right
+        [0.4, 0.9, [0.2, 1, -0.1], [0.4, 0.6, -0.5], 0.16, 0.07],          // on top
+        [1.1, 0.65, [0.5, 1, -0.1], [1, 0, -0.2], 0.15, 0.065],            // his left, shorter
+        [1.7, 0.3, [0.8, 0.5, -0.3], [0.8, -0.4, -0.5], 0.14, 0.06],
+        [Math.PI, 0.75, [0, 0.9, -0.6], [0, -0.1, -1], 0.17, 0.07],        // the back
+        [2.5, 0.35, [0.4, 0.4, -0.9], [0.3, -0.4, -0.9], 0.15, 0.065],
+        [-2.6, 0.4, [-0.4, 0.4, -0.9], [-0.4, -0.4, -0.9], 0.16, 0.065],
+        [Math.PI, 0.1, [0, -0.1, -1], [0, -0.6, -0.8], 0.12, 0.06],
+      ]);
     });
   };
+
+  // spiky hair as separate locks that bounce: each a chunky tapered lock rising from the head in
+  // one direction and arcing over into another, on a chain of two cloth bones from the head
+  // (garments.js clothSim, and the native game's), stiff enough to hold its shape but sagging a
+  // little more under gravity and swinging when the head moves
+  function bouncyLocks(G, name, col, col2, list) {
+    const c0 = new V3(0, 1.2, -0.012), B = G.build(), N = 12, NC = 10;
+    list.forEach(([a, e, d0, d1, len, r0], li) => {
+      const out = V(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
+      const p0 = c0.clone().addScaledVector(out, 0.085), p1 = p0.clone().addScaledVector(V(...d0).normalize(), len * 0.55), p2 = p1.clone().addScaledVector(V(...d1).normalize(), len * 0.6);
+      const at = (t) => p0.clone().multiplyScalar((1 - t) ** 2).addScaledVector(p1, 2 * (1 - t) * t).addScaledVector(p2, t * t);
+      const pts = [0, 0.25, 0.5, 0.75, 1].map((t) => at(t).toArray());
+      const geo = lock(pts, r0, 0.55, 0.0015, N, NC);
+      // its two bones: at the root and halfway, the tip beyond
+      const bn = [`hr${name}${li}_0`, `hr${name}${li}_1`], mid = at(0.5), tip = at(1);
+      G.bone(bn[0], 'Head', p0); G.bone(bn[1], bn[0], mid);
+      G.chains.push({ parent: 'Head', bones: bn, tip0: tip, ks: [240, 170], drag: [0.12, 0.16], damp: 2.2, vmax: 4, flut: 0.12, cone: [0.32, 0.5],
+        hangBone: '', hang: [], quad: false, coll: [{}, {}] });
+      const P = geo.attributes.position, U = geo.attributes.uv, base = B.pos.length / 3, p = V();
+      for (let i = 0; i < P.count; i++) {
+        const t = Math.floor(i / (NC + 1)) / N, wh = 1 - sstep(0, 0.2, t), w1 = (1 - wh) * sstep(0.4, 0.6, t);
+        B.v(p.fromBufferAttribute(P, i), [U.getX(i), U.getY(i)], { Head: wh, [bn[0]]: 1 - wh - w1, [bn[1]]: w1 });
+      }
+      for (const k of geo.index.array) B.idx.push(base + k);
+    });
+    // coloured darker at the roots, the hair's own colour out to the tips
+    const cv = document.createElement('canvas'); cv.width = 4; cv.height = 64;
+    const x = cv.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 64);
+    gr.addColorStop(0, col2); gr.addColorStop(0.3, col); gr.addColorStop(1, col);
+    x.fillStyle = gr; x.fillRect(0, 0, 4, 64);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false;
+    G.add(B, t, name, true);
+  }
 
   // Delia's hair: the fringe parted in the middle and swept to the sides, an ahoge on top
   function partBangs(p) {
