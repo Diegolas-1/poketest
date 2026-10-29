@@ -460,8 +460,8 @@ export function townsfolk(K) {
   CAST.jenny = { height: 1.86, edits: body({ ...WOMAN, trunk: [0.94, 1.03, 0.95], hips: [1.0, 1, 1.0], arm: 0.9, leg: 0.92, legLen: 1.08 }),
     face: { iris: '#8a4a26', brow: '#1f6a5c', lashes: '#141418', mouth: 'smile', blush: '#f2a0a0', forehead: 'smooth', lips: '#d46a6c', mature: true } };
   for (const k in CAST) CAST[k].drop = ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'];
-  // a boy of Ash's age: Ash's body as it is, at Ash's scale; Ash's spikes from under his cap kept as his own
-  CAST.gary = { height: 0, edits: {}, drop: ['hathun', 'ash_logo', 'ash_sleeve'],
+  // a boy of Ash's age: Ash's body as it is, at Ash's scale
+  CAST.gary = { height: 0, edits: {}, drop: ['hathun', 'ash_extra', 'ash_logo', 'ash_sleeve'],
     face: { iris: '#3a2a22', brow: '#6a3016', browThick: 1, mature: true } };   // (mature: the atlas's narrower, cooler eyes)
 
   // bare forearms and hands, the rest of the arm as the sleeve's colour (it shows only in gaps)
@@ -1067,7 +1067,12 @@ export function townsfolk(K) {
       const k = 1 + (0.033 / r - 1) * t; p.x *= k; p.z = -0.008 + (p.z + 0.008) * k;
     });
     v.hair(c.hair);
-    v.shape('ash_extra', (p) => { if (p.y > 1.3) p.set(0, 1.2, -0.02); });   // Ash's cap button gone
+    // the base hair's thin wisps taken up short, at the nape and in front of the ears (the
+    // chunky locks below are the hair's shape)
+    v.shape('hair01_on', (p) => {
+      if (p.z < -0.02 && p.y < 1.14) p.y = 1.14 - (1.14 - p.y) * 0.3;
+      else if (Math.abs(p.x) > 0.06 && p.y < 1.15) p.y = 1.15 - (1.15 - p.y) * 0.45;
+    });
     v.neck();
     v.crown({ top: 1.318, back: 0.02, bulge: 1.05, rimY: 1.232, front: 0.035, strands: false });
     // the bangs: pointed locks from under the crown's front down over the forehead to the brows
@@ -1079,6 +1084,11 @@ export function townsfolk(K) {
       }
       // and a long one falling between the eyes, off to his right
       parts.push(lock([[-0.012, 1.3, 0.07], [-0.022, 1.25, 0.104], [-0.026, 1.205, 0.112], [-0.02, 1.168, 0.11]], 0.02, 0.32, 0.002, 12, 10, hc));
+      // chunky locks down in front of the ears, over the base hair's thin strands there
+      for (const s of [1, -1]) {
+        parts.push(lock([[s * 0.078, 1.25, 0.06], [s * 0.094, 1.21, 0.058], [s * 0.1, 1.17, 0.048], [s * 0.097, 1.14, 0.04]], 0.034, 0.42, 0.003, 12, 10, hc));
+        parts.push(lock([[s * 0.095, 1.25, 0.02], [s * 0.108, 1.21, 0.012], [s * 0.111, 1.17, 0.0], [s * 0.106, 1.14, -0.01]], 0.033, 0.42, 0.003, 12, 10, hc));
+      }
       v.flat(mergeGeos(parts), c.hair, head1);
     }
     v.garment((G) => {
