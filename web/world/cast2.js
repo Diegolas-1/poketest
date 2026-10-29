@@ -1160,18 +1160,20 @@ export function townsfolk(K) {
       // the bangs: chunky locks lifting off the forehead and arcing down and over to his right, a
       // row along the hairline and a row further back on the front of the head; stiffer, so they
       // keep off his eyes
-      // [azimuth and elevation of its root, of its tip, how far its tip lifts off]: made like the
-      // spikes (a full, rounded lock, its root buried in the hair), each arcs up out of the cap and
-      // over, down the forehead and across to his right, its point just off the forehead
-      const bang = (az0, el0, az1, el1, lift, r0) => ({ r0: r0 * 1.15, at: (t) => scalp.on(lerp(az0, az1, t), lerp(el0, el1, t), -0.016 + (0.016 + lift) * t ** 1.2 + 0.012 * Math.sin(Math.PI * Math.min(1, t * 1.2))) });
+      // the bangs are the hairline (the cap's edge is under them): broad rounded locks from high on
+      // the front of the crown falling down over the forehead to the brows, leaning to his right
+      // and overlapping, and a lock down in front of each ear; [azimuth and elevation of the root,
+      // of the tip, how far the tip lifts off, width]
+      const bang = (az0, el0, az1, el1, lift, r0) => ({ r0, at: (t) => scalp.on(lerp(az0, az1, t), lerp(el0, el1, t), -0.012 + (0.012 + lift) * t ** 1.2 + 0.014 * Math.sin(Math.PI * Math.min(1, t * 1.15))) });
       bouncyLocks(G, 'gary_bangs', c.hair, c.hair2, [
-        bang(0.55, 0.8, 0.25, 0.28, 0.012, 0.055),       // along the hairline, down to the brows
-        bang(0.25, 0.85, -0.08, 0.25, 0.014, 0.06),
-        bang(-0.08, 0.85, -0.42, 0.27, 0.014, 0.06),
-        bang(-0.4, 0.8, -0.75, 0.3, 0.012, 0.055),
-        bang(0.4, 1.15, 0.05, 0.62, 0.016, 0.06),        // further back on the front of the head
-        bang(0.0, 1.2, -0.35, 0.62, 0.016, 0.06),
-        bang(-0.4, 1.1, -0.75, 0.6, 0.014, 0.055),
+        bang(0.75, 1.15, 0.45, 0.3, 0.01, 0.07),
+        bang(0.45, 1.25, 0.12, 0.25, 0.012, 0.075),
+        bang(0.15, 1.3, -0.2, 0.23, 0.012, 0.078),
+        bang(-0.15, 1.3, -0.5, 0.25, 0.012, 0.078),
+        bang(-0.45, 1.25, -0.8, 0.3, 0.01, 0.075),
+        bang(-0.75, 1.15, -1.05, 0.35, 0.01, 0.07),
+        bang(1.05, 0.9, 1.15, 0.0, 0.006, 0.05),       // in front of the ears
+        bang(-1.05, 0.9, -1.2, 0.0, 0.006, 0.05),
       ], { stiff: 1.6 });
     });
   };
@@ -1240,7 +1242,7 @@ export function townsfolk(K) {
     const teeth = (az) => {
       const a = Math.abs(az);
       // [count over the whole circle, depth, where in each the point is (0..1)]
-      const [n, depth] = a < 0.8 ? [26, 0.03] : a < 1.35 ? [22, 0.034] : a < 1.7 ? [22, 0.008] : [30, 0.026];
+      const [n, depth] = a < 0.8 ? [26, 0] : a < 1.35 ? [22, 0.01] : a < 1.7 ? [22, 0.008] : [30, 0.026];
       const f = ((az / TAU2 * n + 0.15) % 1 + 1) % 1, fp = 0.3;
       return depth * (f < fp ? f / fp : (1 - f) / (1 - fp)) ** 1.4;
     };
@@ -1291,7 +1293,7 @@ export function townsfolk(K) {
     const c0 = new V3(0, 1.2, -0.012), B = G.build(), N = 12, NC = 10;
     // each: [azimuth of the root (0 front, + his left), its elevation on the head, the direction it
     // rises in, the direction it arcs out to, length, width], or { r0, at(t) } a lock along a given
-    // path
+    // path over the head (its width across the head, its thickness out from it)
     list.forEach((L, li) => {
       let at, r0, flat;
       if (Array.isArray(L)) {
@@ -1299,9 +1301,9 @@ export function townsfolk(K) {
         const out = V(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
         const p0 = c0.clone().addScaledVector(out, 0.085), p1 = p0.clone().addScaledVector(V(...d0).normalize(), len * 0.55), p2 = p1.clone().addScaledVector(V(...d1).normalize(), len * 0.6);
         at = (t) => p0.clone().multiplyScalar((1 - t) ** 2).addScaledVector(p1, 2 * (1 - t) * t).addScaledVector(p2, t * t);
-      } else { at = L.at; r0 = L.r0; }
+      } else { at = L.at; r0 = L.r0; flat = c0; }
       const p0 = at(0), pts = [0, 0.25, 0.5, 0.75, 1].map((t) => at(t).toArray());
-      const geo = flat ? lock(pts, r0, 0.42, 0.0015, N, NC, flat) : lock(pts, r0, 0.55, 0.0015, N, NC);
+      const geo = flat ? lock(pts, r0, 0.45, 0.0015, N, NC, flat) : lock(pts, r0, 0.55, 0.0015, N, NC);
       // its two bones: at the root and halfway, the tip beyond
       const bn = [`hr${name}${li}_0`, `hr${name}${li}_1`], mid = at(0.5), tip = at(1);
       G.bone(bn[0], 'Head', p0); G.bone(bn[1], bn[0], mid);
