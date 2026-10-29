@@ -1178,6 +1178,7 @@ func _outcome() -> void:
 			var away := foe_pos + fwd * 9.0 + side * 2.0
 			await _foe_move(away, 1.3, 2.5, Callable(), 2)
 		"disengaged":
+			shot("overview", 2.0)
 			ui.show_outcome(R.display_name() + " LOST INTEREST", "It doesn't see you as a threat", UITheme.SKY)
 			_mood("look")
 			await _wait(0.6)

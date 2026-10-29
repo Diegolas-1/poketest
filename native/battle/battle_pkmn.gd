@@ -252,7 +252,7 @@ func _stage_move(s: String, id: String, strike: bool) -> void:
 	var col: Color = TYPE_COL.get(String(m.get("type", "normal")), Color.WHITE)
 	var o := B.other(s)
 	battle.ui.say(String(B.fighter(s).name).to_upper(), String(m.get("name", id)).to_upper() + "!", col if col != TYPE_COL.normal else UITheme.ORANGE)
-	battle.shot("pk_" + s, 4.0)
+	battle.shot("pk_" + s, 0.0)   # (a cut: a glide between the two sides passes overhead)
 	# a committed strike comes out of wherever it went (up, under)
 	if strike:
 		_semi[s] = ""
@@ -323,8 +323,10 @@ func _bolt(a: Vector3, b: Vector3, col: Color) -> void:
 		var p := a.lerp(b, u)
 		if i < n: p += Vector3(randf_range(-0.35, 0.35), randf_range(-0.15, 0.15), randf_range(-0.35, 0.35)) * (1.0 - absf(u - 0.5))
 		var seg := p - prev
-		for j in 3:
-			battle.fx.spawn("streak", prev.lerp(p, j / 3.0), seg.normalized() * 0.01, {"life": 0.16, "size": 0.0, "len": seg.length() * 0.4, "w": 0.06, "col": Color(col.lightened(0.4), 1.0)})
+		# (a streak's length is its speed x len: crawling, with a long len, it stays put)
+		var mid := prev.lerp(p, 0.5)
+		battle.fx.spawn("streak", mid, seg.normalized() * 0.01, {"life": 0.16, "size": 0.0, "len": seg.length() / 0.01, "w": 0.05, "col": Color(1, 1, 0.92, 1.0)})
+		battle.fx.spawn("streak", mid, seg.normalized() * 0.01, {"life": 0.2, "size": 0.0, "len": seg.length() / 0.01, "w": 0.2, "col": Color(col, 0.55)})
 		prev = p
 	for i in 8:
 		battle.fx.spawn("star", b, Vector3(randf_range(-3, 3), randf_range(0.5, 4), randf_range(-3, 3)), {"life": 0.25, "size": 0.25, "size_end": 0.05, "col": Color(col, 1.0), "rot": randf() * TAU})
