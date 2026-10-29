@@ -80,7 +80,7 @@ export function fit(base, A, field, o = {}) {
   const mesh = { pos: P, idx: base.idx };
   const P0 = P.slice();
   project(mesh, field.f, o.steps ?? 5, 0.03);
-  guardSnaps(mesh, P0, field, J, W);
+  guardSnaps(mesh, P0, field, J, W, base.share);
   if ((o.relax ?? 2) > 0) relax(mesh, o.relax ?? 2, 0.4, field.f, base.nb || null, base.lock || null);
   untangle(mesh, field.f, base.nb, o.untangle ?? 4);
   mesh.nrm = normals(mesh);
@@ -137,9 +137,11 @@ function projectSome(P, f, mask, e = 2e-4) {
 // a vertex that moved far onto a part of the body made by other bones (a foot's inside
 // onto the other foot, a finger onto its neighbour) is put back and brought onto its
 // own part in small steps
-function guardSnaps(mesh, P0, field, J, W, far = 0.008) {
+function guardSnaps(mesh, P0, field, J, W, share, far = 0.008) {
   const P = mesh.pos, n = P.length / 3;
   for (let v = 0; v < n; v++) {
+    // only limbs can land on a neighbour (the trunk and head have none to land on)
+    if (share && share[4 * v] < 0.5 && share[4 * v + 1] < 0.5 && share[4 * v + 3] < 0.2) continue;
     const dx = P[3 * v] - P0[3 * v], dy = P[3 * v + 1] - P0[3 * v + 1], dz = P[3 * v + 2] - P0[3 * v + 2];
     if (dx * dx + dy * dy + dz * dz < far * far) continue;
     const r = evalW(field, P[3 * v], P[3 * v + 1], P[3 * v + 2]);
