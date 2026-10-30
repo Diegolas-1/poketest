@@ -5,6 +5,11 @@ extends Control
 #   WILD      the species (the 151, a searchable grid), the level, the temperament,
 #             how it starts (hidden in tall grass, startled, in the open), and Ash
 #             alone (the prologue's rules) or with his party
+#   HUNT      the species to hide in the tall grass (the same grid, tap to pick
+#             several), how many, their levels, their temperament (random, each
+#             species' own, or one for all), refill, Ash alone or with his party
+#             (WILD's switch, TRAINER's party); START HUNT closes the menu and the
+#             hunt is on (arena/arena_hunt.gd), RESTART HUNT re-populates, END HUNT
 #   TRAINER   Ash's party and the opponent's, up to six each (a slot: species,
 #             level, the moves equipped from what it knows); the opponent's name,
 #             look (the cast's looks), AI personality, singles or doubles; presets
@@ -19,7 +24,7 @@ extends Control
 
 var arena
 var setup: Dictionary = ArenaSetups.default_setup()
-var page := "trainer"            # wild | trainer | slot | saved | results
+var page := "trainer"            # wild | hunt | trainer | slot | saved | results
 var _back_page := "trainer"
 var slot_side := "ash"           # the slot being edited: ash | foe
 var slot_i := 0
@@ -108,7 +113,7 @@ func _process(dt: float) -> void:
 	t += dt
 	k = clampf(k + (dt / 0.22 if _open else -dt / 0.16), 0.0, 1.0)
 	if k <= 0.0 and not _open: visible = false
-	search.visible = _open and k > 0.9 and page in ["wild", "slot"]
+	search.visible = _open and k > 0.9 and page in ["wild", "slot", "hunt"]
 	name_edit.visible = _open and k > 0.9 and page == "trainer"
 	queue_redraw()
 
@@ -169,6 +174,7 @@ func _draw() -> void:
 	var body := Rect2(P.position.x + 28.0, P.position.y + 92.0, P.size.x - 56.0, P.size.y - 92.0 - 86.0)
 	match page:
 		"wild": _wild(body)
+		"hunt": _hunt(body)
 		"trainer": _trainer(body)
 		"slot": _slot(body)
 		"saved": _saved(body)
@@ -197,14 +203,16 @@ func _header(P: Rect2) -> void:
 	x += UITheme.text(self, Vector2(x, y), "BATTLE ARENA", "display", 44, Color(UITheme.INK, k)) + 14.0
 	UITheme.chevrons(self, Vector2(x, y - 30.0), 22.0, Color(UITheme.RED, k), 3)
 	x += 60.0
-	var tabs := [["wild", "WILD"], ["trainer", "TRAINER"], ["saved", "SAVED"]]
+	var tabs := [["wild", "WILD"], ["hunt", "HUNT"], ["trainer", "TRAINER"], ["saved", "SAVED"]]
 	if page == "results": tabs = [["results", "RESULTS"]] + tabs
+	var rx := P.end.x - 30.0
+	# (the tabs share what is left between the title and LEAVE ARENA)
+	var tw := minf(150.0, (rx - 270.0 - x - 10.0 * (tabs.size() - 1)) / tabs.size())
 	for tb in tabs:
 		var id: String = tb[0]
 		var sel: bool = page == id or (page == "slot" and id == "trainer")
-		_button("tab:" + id, Rect2(x, P.position.y + 22.0, 150.0, 46.0), String(tb[1]), func(): _go(id), UITheme.RED, false, sel)
-		x += 160.0
-	var rx := P.end.x - 30.0
+		_button("tab:" + id, Rect2(x, P.position.y + 22.0, tw, 46.0), String(tb[1]), func(): _go(id), UITheme.RED, false, sel)
+		x += tw + 10.0
 	_button("close", Rect2(rx - 60.0, P.position.y + 22.0, 56.0, 46.0), "✕", close, UITheme.INK)
 	_button("leave", Rect2(rx - 260.0, P.position.y + 22.0, 190.0, 46.0), "LEAVE ARENA", func(): close(); arena.leave(), UITheme.ORANGE)
 	draw_line(Vector2(P.position.x + 24.0, P.position.y + 82.0), Vector2(P.end.x - 24.0, P.position.y + 82.0), Color(UITheme.INK, 0.1 * k), 2.0)
@@ -215,7 +223,7 @@ func _go(p: String) -> void:
 	if page != "slot": _back_page = page
 	page = p
 	focus = ""
-	if p in ["wild", "slot"]: search.text = ""; _filter = ""
+	if p in ["wild", "slot", "hunt"]: search.text = ""; _filter = ""
 
 func _footer(P: Rect2) -> void:
 	var y := P.end.y - 74.0
@@ -226,24 +234,32 @@ func _footer(P: Rect2) -> void:
 	elif page == "results":
 		_button("rematch", r, "REMATCH  ▶", func(): _start(), UITheme.RED, true)
 		_button("edit", Rect2(r.position.x - 230.0, y, 210.0, 56.0), "EDIT", func(): _go(String(setup.type)), UITheme.SKY)
+	elif page == "hunt":
+		var hon := _hunt_on()
+		_button("start", r, "RESTART HUNT  ▶" if hon else "START HUNT  ▶", func(): _start(), UITheme.GREEN, true)
+		if hon: _button("hunt_end", Rect2(r.position.x - 230.0, y, 210.0, 56.0), "END HUNT", _end_hunt, UITheme.RED)
 	elif page != "saved":
 		var lbl := "START BATTLE  ▶"
 		_button("start", r, lbl, func(): _start(), UITheme.RED, true)
 	# the summary at the left: what START will run
-	var s := ArenaSetups.title({"type": page if page in ["wild", "trainer"] else setup.type, "wild": setup.wild, "ash": setup.ash, "foe": setup.foe})
+	var s := ArenaSetups.title({"type": page if page in ["wild", "trainer", "hunt"] else setup.type, "wild": setup.wild, "hunt": setup.hunt, "ash": setup.ash, "foe": setup.foe})
 	_label(Vector2(P.position.x + 34.0, y + 22.0), "STAGED", UITheme.INK_SOFT, 14)
 	UITheme.text(self, Vector2(P.position.x + 34.0, y + 48.0), s.to_upper(), "heading", 24, Color(UITheme.INK, k))
 	var hint := "TAP TO PICK · DRAG TO SCROLL" if UIInput.device == "touch" else "D-PAD MOVE · A PICK · B BACK"
 	_label(Vector2(P.position.x + 34.0 + UITheme.text_w(s.to_upper(), "heading", 24) + 30.0, y + 48.0), hint, UITheme.INK_SOFT, 13)
 
 func _start() -> void:
-	if page in ["wild", "trainer"]: setup.type = page
+	if page in ["wild", "trainer", "hunt"]: setup.type = page
+	if setup.type == "hunt":
+		_start_hunt(); return
 	if setup.type == "trainer" and (setup.ash.is_empty() or setup.foe.party.is_empty()):
 		toast("Both sides need a Pokémon", UITheme.RED); Sfx.ui("ui_error"); return
 	if setup.type == "wild" and setup.wild.with_party and setup.ash.is_empty():
 		toast("Ash's party is empty: add one on TRAINER", UITheme.RED); Sfx.ui("ui_error"); return
 	Sfx.ui("ui_confirm")
 	close()
+	# (a staged battle ends a hunt: the stage takes Ash elsewhere in the arena)
+	if _hunt_on(): arena.hunt.stop(false)
 	arena.stage.run(setup.duplicate(true))
 
 # ---------- the species grid (WILD, a slot) ----------
@@ -258,7 +274,8 @@ func _matches(s: Dictionary) -> bool:
 		if String(ty) == _filter: return true
 	return false
 
-func _grid_draw(r: Rect2, cur: String, fn: Callable) -> void:
+# cur: the species picked (an Array: several, the HUNT page's)
+func _grid_draw(r: Rect2, cur: Variant, fn: Callable) -> void:
 	# the search box above it
 	var sr := Rect2(r.position, Vector2(r.size.x, 46.0))
 	UITheme.fill(self, UITheme.para_points(sr, UITheme.SKEW * 0.3), Color(UITheme.INK, 0.06 * k))
@@ -287,7 +304,7 @@ func _grid_draw(r: Rect2, cur: String, fn: Callable) -> void:
 			if i >= n: break
 			var s: Dictionary = list[i]
 			var cr := Rect2(g.position.x + c * (cw + 8.0), g.position.y + (row - int(_rows.grid)) * (ch + 8.0), cw, ch)
-			var sel: bool = String(s.id) == cur
+			var sel: bool = (cur as Array).has(String(s.id)) if cur is Array else String(s.id) == String(cur)
 			var id := String(s.id)
 			var f := _w("sp:" + id, cr, func(): fn.call(id), "cell")
 			var pts := UITheme.para_points(cr, UITheme.SKEW * 0.5)
@@ -298,6 +315,7 @@ func _grid_draw(r: Rect2, cur: String, fn: Callable) -> void:
 			UITheme.text(self, cr.position + Vector2(20, 22), "#%03d" % int(s.dex), "label", 13, Color(tc, k * 0.6))
 			UITheme.text(self, cr.position + Vector2(20, 46), String(s.name).to_upper(), "heading", 21, Color(tc, k), 0, cw - 26.0)
 			if not s.model: UITheme.text(self, Vector2(cr.end.x - 10.0, cr.position.y + 22.0), "STAND-IN", "label", 11, Color(UITheme.ORANGE, k), 2)
+			if sel and cur is Array: UITheme.icon(self, "check", Vector2(cr.end.x - 18.0, cr.end.y - 18.0), 9.0, Color(UITheme.GREEN, k))
 			if f: UITheme.outline(self, pts, Color(UITheme.YELLOW, k), 3.0)
 	# the scroll bar
 	if rows > rows_vis:
@@ -346,6 +364,17 @@ func _wild(body: Rect2) -> void:
 	for i in UITheme.wrap(note, "body", 18, R.size.x).size():
 		UITheme.text(self, Vector2(R.position.x, y + i * 24.0), UITheme.wrap(note, "body", 18, R.size.x)[i], "body", 18, Color(UITheme.INK_SOFT, k))
 
+# a compact one: - value +
+func _mini(id: String, r: Rect2, v: int, fn: Callable, lo: int, hi: int, unit := "") -> void:
+	var bw := 46.0
+	_button(id + ":-1", Rect2(r.position.x, r.position.y, bw, r.size.y), "-", func(): fn.call(clampi(v - 1, lo, hi)), UITheme.INK)
+	var mid := Rect2(r.position.x + bw + 6.0, r.position.y, r.size.x - 2.0 * (bw + 6.0), r.size.y)
+	UITheme.fill(self, UITheme.para_points(mid), Color(UITheme.INK, 0.9 * k))
+	var vw := UITheme.text_w(str(v), "display", 30)
+	if unit != "": UITheme.text_mid(self, mid.get_center() + Vector2(-vw * 0.5 - 4.0, 1), unit, "label", 14, Color(UITheme.TEXT_DIM, k), 2)
+	UITheme.text_mid(self, mid.get_center() + Vector2(-vw * 0.5, 0), str(v), "display", 30, Color(UITheme.TEXT, k), 0)
+	_button(id + ":+1", Rect2(mid.end.x + 6.0, r.position.y, bw, r.size.y), "+", func(): fn.call(clampi(v + 1, lo, hi)), UITheme.INK)
+
 func _stepper(id: String, r: Rect2, v: int, fn: Callable, lo := 2, hi := 100) -> void:
 	var bw := 64.0
 	_button(id + ":-5", Rect2(r.position.x, r.position.y, bw, r.size.y), "-5", func(): fn.call(clampi(v - 5, lo, hi)), UITheme.INK)
@@ -356,6 +385,104 @@ func _stepper(id: String, r: Rect2, v: int, fn: Callable, lo := 2, hi := 100) ->
 	UITheme.text_mid(self, mid.get_center() + Vector2(-10, 0), str(v), "display", 34, Color(UITheme.TEXT, k), 0)
 	_button(id + ":+1", Rect2(mid.end.x + 8.0, r.position.y, bw, r.size.y), "+", func(): fn.call(clampi(v + 1, lo, hi)), UITheme.INK)
 	_button(id + ":+5", Rect2(mid.end.x + bw + 16.0, r.position.y, bw, r.size.y), "+5", func(): fn.call(clampi(v + 5, lo, hi)), UITheme.INK)
+
+# ---------- HUNT ----------
+func _hunt_on() -> bool: return arena != null and arena.hunt != null and arena.hunt.on
+
+func _hunt(body: Rect2) -> void:
+	var h: Dictionary = setup.hunt
+	var sp: Array = h.species
+	var left := Rect2(body.position, Vector2(body.size.x * 0.56, body.size.y))
+	_grid_draw(left, sp, _toggle_hunt)
+	var R := Rect2(left.end.x + 36.0, body.position.y, body.end.x - left.end.x - 36.0, body.size.y)
+	var y := R.position.y
+	# what hides: the count of species, their names, CLEAR and RANDOM
+	_label(Vector2(R.position.x, y + 14.0), "HIDING IN THE TALL GRASS")
+	UITheme.text(self, Vector2(R.position.x, y + 50.0), ("%d SPECIES" % sp.size()) if sp.size() != 1 else "1 SPECIES", "display", 36, Color(UITheme.INK, k))
+	_button("hunt_clr", Rect2(R.end.x - 112.0, y + 8.0, 112.0, 40.0), "CLEAR", func(): sp.clear(), UITheme.INK)
+	_button("hunt_rnd", Rect2(R.end.x - 238.0, y + 8.0, 118.0, 40.0), "RANDOM", _random_hunt, UITheme.PURPLE)
+	var names := " · ".join(sp.map(func(id): return ArenaSetups.species_name(String(id)).to_upper())) if not sp.is_empty() else "TAP THE GRID TO PICK THEM"
+	UITheme.text(self, Vector2(R.position.x, y + 76.0), names, "label", 14, Color(UITheme.INK_SOFT, k), 0, R.size.x)
+	y += 92.0
+	var lw := 112.0
+	var cx := R.position.x + lw
+	var cw := R.size.x - lw
+	var rh := 46.0
+	# how many, refill
+	_label(Vector2(R.position.x, y + 29.0), "HOW MANY")
+	_mini("hunt_n", Rect2(cx, y, 170.0, rh), int(h.count), func(v: int): h.count = v, ArenaSetups.HUNT_N[0], ArenaSetups.HUNT_N[1])
+	_seg("refill", Rect2(cx + 186.0, y, cw - 186.0, rh), ["off", "on"], ["NO REFILL", "REFILL"], "on" if bool(h.get("refill", false)) else "off", func(v): h.refill = v == "on", UITheme.GREEN)
+	y += rh + 12.0
+	# the levels: lo to hi
+	var lv: Array = h.lv
+	_label(Vector2(R.position.x, y + 29.0), "LEVELS")
+	var mw := (cw - 40.0) * 0.5
+	_mini("hunt_lo", Rect2(cx, y, mw, rh), int(lv[0]), func(v: int): lv[0] = v; lv[1] = maxi(int(lv[1]), v), 2, 100, "Lv")
+	UITheme.text_mid(self, Vector2(cx + mw + 20.0, y + rh * 0.5), "TO", "label", 15, Color(UITheme.INK_SOFT, k), 1)
+	_mini("hunt_hi", Rect2(cx + mw + 40.0, y, mw, rh), int(lv[1]), func(v: int): lv[1] = v; lv[0] = mini(int(lv[0]), v), 2, 100, "Lv")
+	y += rh + 12.0
+	# temperament: random, each species' own odds, or one for all (FIXED again: the next)
+	_label(Vector2(R.position.x, y + 29.0), "TEMPER")
+	var fx := String(h.get("fixed", "flighty"))
+	var tm := String(h.get("temper", "random"))
+	var sw := (cw - 16.0) / 3.0
+	_button("htemp:random", Rect2(cx, y, sw, rh), "RANDOM", func(): h.temper = "random", UITheme.ORANGE, false, tm == "random")
+	_button("htemp:species", Rect2(cx + sw + 8.0, y, sw, rh), "BY SPECIES", func(): h.temper = "species", UITheme.ORANGE, false, tm == "species")
+	_button("htemp:fixed", Rect2(cx + 2.0 * (sw + 8.0), y, sw, rh), "FIXED", _hunt_fixed, UITheme.ORANGE, false, tm == "fixed", fx.to_upper())
+	y += rh + 12.0
+	# Ash: alone, or with TRAINER's party (WILD's switch)
+	_label(Vector2(R.position.x, y + 29.0), "ASH")
+	var w: Dictionary = setup.wild
+	_seg("hwithp", Rect2(cx, y, cw, rh), ["alone", "party"], ["ALONE", "WITH HIS PARTY"], "party" if w.with_party else "alone", func(v): w.with_party = v == "party", UITheme.SKY)
+	y += rh + 14.0
+	var pn: int = setup.ash.size()
+	var note := ""
+	if _hunt_on(): note = "Hunt on: %d of %d still in the grass. RESTART HUNT hides a fresh field." % [arena.hunt.left(), arena.hunt.total()]
+	elif int(h.count) < sp.size(): note = "%d species for %d spots: not all of them will be out there." % [sp.size(), int(h.count)]
+	elif w.with_party: note = "His party from TRAINER: %d Pokémon (%s first)." % [pn, ArenaSetups.species_name(String(setup.ash[0].species)) if pn > 0 else "none"]
+	else: note = "Prologue rules: no Pokémon of his own, he can only run, hide or throw something."
+	UITheme.text(self, Vector2(R.position.x, y + 14.0), note, "body", 17, Color(UITheme.INK_SOFT, k), 0, R.size.x)
+
+# FIXED: one temperament for all of them; pressed again, the next one
+func _hunt_fixed() -> void:
+	var h: Dictionary = setup.hunt
+	var T: Array = ArenaSetups.TEMPERS
+	if String(h.get("temper", "")) == "fixed": h.fixed = T[(T.find(String(h.get("fixed", "flighty"))) + 1) % T.size()]
+	h.temper = "fixed"
+
+func _toggle_hunt(id: String) -> void:
+	var sp: Array = setup.hunt.species
+	if sp.has(id): sp.erase(id); Sfx.ui("ui_toggle_off"); return
+	if sp.size() >= 12:
+		toast("Twelve species at most", UITheme.ORANGE); Sfx.ui("ui_error"); return
+	sp.append(id)
+	Sfx.ui("ui_toggle_on")
+
+func _random_hunt() -> void:
+	var pool := ArenaSetups.species_list().filter(func(s): return s.model)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var sp: Array = setup.hunt.species
+	sp.clear()
+	while sp.size() < 5 and sp.size() < pool.size():
+		var id := String(pool[rng.randi() % pool.size()].id)
+		if not sp.has(id): sp.append(id)
+	toast("Five at random")
+
+func _start_hunt() -> void:
+	var h: Dictionary = setup.hunt
+	if (h.species as Array).is_empty():
+		toast("Pick a species or more to hide", UITheme.RED); Sfx.ui("ui_error"); return
+	if setup.wild.with_party and setup.ash.is_empty():
+		toast("Ash's party is empty: add one on TRAINER", UITheme.RED); Sfx.ui("ui_error"); return
+	Sfx.ui("ui_confirm")
+	close()
+	if _hunt_on(): arena.hunt.stop(false)
+	arena.hunt.start(h, setup.ash.duplicate(true), bool(setup.wild.with_party))
+
+func _end_hunt() -> void:
+	arena.hunt.stop(false)
+	toast("Hunt over: the grass is empty", UITheme.SKY)
 
 # ---------- TRAINER ----------
 func _trainer(body: Rect2) -> void:
@@ -533,6 +660,8 @@ func _saved(body: Rect2) -> void:
 		var detail := ""
 		if String(s.get("type", "")) == "trainer":
 			detail = " · ".join((s.get("ash", []) as Array).map(func(m): return ArenaSetups.species_name(String(m.species)))) + "  VS  " + " · ".join((s.get("foe", {}).get("party", []) as Array).map(func(m): return ArenaSetups.species_name(String(m.species))))
+		elif String(s.get("type", "")) == "hunt":
+			detail = " · ".join((s.get("hunt", {}).get("species", []) as Array).map(func(id): return ArenaSetups.species_name(String(id))))
 		UITheme.text_mid(self, Vector2(rr.end.x - 16.0, rr.position.y + 25.0), detail.to_upper(), "label", 13, Color(UITheme.INK_SOFT, k), 2)
 		_button("load:%d" % i, Rect2(rr.end.x + 14.0, rr.position.y, 170.0, 50.0), "LOAD", func(): _load(idx), UITheme.SKY)
 		_button("del:%d" % i, Rect2(rr.end.x + 194.0, rr.position.y, 150.0, 50.0), "DELETE", func(): ArenaSetups.delete_one(idx); toast("Deleted", UITheme.RED), UITheme.RED)

@@ -21,7 +21,9 @@ extends Node3D
 #   BattleArena.I.leave()          and back
 #   BattleArena.I                  the arena while Ash is in it, else null
 # The staging menu (arena/arena_menu.gd) opens from the STAGE A BATTLE button, the
-# pad's L3 / Tab, or A by the referee; arena/arena_stage.gd runs what it stages.
+# pad's L3 / Tab, or A by the referee; arena/arena_stage.gd runs what it stages, and
+# arena/arena_hunt.gd a hunt (wild Pokémon hidden through the tall grass, wild.gd's
+# own tracking: crouch, tells, the pounce).
 
 const SUN := Vector3(-0.55, 0.75, 0.45)
 
@@ -38,6 +40,8 @@ var stage: Node                # ArenaStage
 var referee: ScenePerson
 var btn: Control               # the STAGE A BATTLE button
 var _ink_chunks: Array = []    # [{node, ink, c}]
+var hides: Array = []          # the bushes and trees inside the fence: {at, kind, r} (a fled Pokémon's cover, wild.gd)
+var hunt: Node                 # ArenaHunt (arena/arena_hunt.gd)
 var _ink_t := 0.0
 var _saved := {}
 var _built := false
@@ -127,6 +131,7 @@ func _leave_now() -> void:
 	var g := game
 	var cast: Cast = g.cast
 	gone = true
+	if hunt: hunt.stop(false)
 	if menu: menu.close_now()
 	if grass and is_instance_valid(grass): grass.queue_free()
 	g.grass = null
@@ -178,6 +183,10 @@ func _build() -> void:
 	stage.name = "Stage"
 	add_child(stage)
 	stage.setup_(self)
+	hunt = preload("res://arena/arena_hunt.gd").new()
+	hunt.name = "Hunt"
+	add_child(hunt)
+	hunt.setup_(self)
 
 func w(x: float, z: float) -> Vector3:
 	return Vector3(ArenaData.C.x + x, ArenaData.ground(x, z), ArenaData.C.y + z)
@@ -343,7 +352,10 @@ func _plants() -> void:
 		var s: Dictionary = list[k]
 		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(s.scale * sc)
 		place[key].xf.append(Transform3D(b, w(x, z) - Vector3(0, 0.05, 0)))
-		if r > 0.0: data.add_circle(x, z, r)
+		if r > 0.0:
+			data.add_circle(x, z, r)
+			# (bush: r its radius; tree: r its height, the perch)
+			hides.append({"at": w(x, z), "kind": "bush" if list == bushes else "tree", "r": s.w * sc * 0.5 if list == bushes else s.h * sc})
 	# a ring of big trees past the fence, in clumps, closing off the horizon
 	for k in 64:
 		var a := TAU * k / 64.0 + rng.randf_range(-0.03, 0.03)
@@ -364,7 +376,7 @@ func _plants() -> void:
 	# inside: a few shade trees and bushes by the tall grass, the paths and the fence
 	var inside := [[-38, -38], [37, -39], [-39, 35], [39, 37], [-22, -40], [15, 38], [-41, 4], [41, -6], [24, -36], [-12, 39]]
 	for t in inside: add.call(trees, float(t[0]), float(t[1]), rng.randf_range(0.7, 1.0), 0.6)
-	var smalls := [[-33, -15], [33, -14], [-36, 14], [21, 28], [-24, 33], [10, -33], [-8, -36]]
+	var smalls := [[-33, -15], [33, -14], [-36, 14], [21, 28], [-24, 33], [10, -33], [-14, -38]]
 	for t in smalls: add.call(small_trees if not small_trees.is_empty() else trees, float(t[0]), float(t[1]), rng.randf_range(0.8, 1.1), 0.4)
 	for t in ArenaData.TALL:
 		for k in 3:

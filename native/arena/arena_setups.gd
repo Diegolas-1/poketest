@@ -5,9 +5,11 @@ extends RefCounted
 # user://arena_setups.json.
 #
 # A setup:
-#   {"type": "wild" | "trainer",
+#   {"type": "wild" | "trainer" | "hunt",
 #    "wild": {"species", "level", "temper": flighty|aggressive|curious|timid,
-#             "start": hidden|startled|open, "with_party": bool},
+#             "start": hidden|startled|open, "with_party": bool (the hunt's too)},
+#    "hunt": {"species": [ids], "count": 3..12, "lv": [lo, hi],
+#             "temper": random|species|fixed, "fixed": a temper, "refill": bool}   (arena_hunt.gd)
 #    "ash": [{"species", "level", "equip": [move ids] (optional)}, ...]   up to 6
 #    "foe": {"name", "look" (a cast look), "ai": cautious|aggressive|balanced|tricky,
 #            "format": "singles" | "doubles", "party": [...] up to 6}}
@@ -16,6 +18,8 @@ const PATH := "user://arena_setups.json"
 const TEMPERS := ["flighty", "aggressive", "curious", "timid"]
 const STARTS := ["hidden", "startled", "open"]
 const AIS := ["cautious", "aggressive", "balanced", "tricky"]
+const HUNT_TEMPERS := ["random", "species", "fixed"]
+const HUNT_N := [3, 12]
 const LOOKS := ["ben", "tom", "gus", "bram", "fisher", "kid", "girl", "marina", "mae", "rose", "ada", "delia", "jenny", "joy", "oak"]
 
 # the Indigo League era's teams (levels for a fair test)
@@ -29,8 +33,13 @@ const PRESETS := {
 static func default_setup() -> Dictionary:
 	return {"type": "trainer",
 		"wild": {"species": "pidgey", "level": 6, "temper": "flighty", "start": "hidden", "with_party": true},
+		"hunt": default_hunt(),
 		"ash": preset_party("ash").slice(0, 3),
 		"foe": {"name": "Brock", "look": "fisher", "ai": "cautious", "format": "singles", "party": preset_party("brock").slice(0, 3)}}
+
+# Route 1's sort: a few birds, a few on foot, all young
+static func default_hunt() -> Dictionary:
+	return {"species": ["pidgey", "rattata", "spearow", "caterpie"], "count": 6, "lv": [4, 9], "temper": "species", "fixed": "flighty", "refill": false}
 
 static func preset_party(id: String) -> Array:
 	var out := []
@@ -96,6 +105,10 @@ static func mon(d: Dictionary) -> Dictionary:
 	return o
 
 static func title(s: Dictionary) -> String:
+	if String(s.get("type", "")) == "hunt":
+		var h: Dictionary = s.get("hunt", default_hunt())
+		var lv: Array = h.lv
+		return "Hunt: %d in the grass, Lv%s" % [int(h.count), str(int(lv[0])) if int(lv[0]) == int(lv[1]) else "%d-%d" % [int(lv[0]), int(lv[1])]]
 	if String(s.get("type", "")) == "wild":
 		var w: Dictionary = s.wild
 		return "Wild %s Lv%d" % [species_name(String(w.species)), int(w.level)]
