@@ -28,6 +28,7 @@ extends Node
 #                      it chases a little way)
 #   --shot=PATH --shot-at=s     one still at s seconds, then quit
 #   --frames=DIR --every=n      the whole viewport every n-th frame (with --fixed-fps 15)
+#   --stats [--stats-every=n]   draw calls, triangles and objects every n frames (15)
 #   --quit-at=s                 quit at s seconds
 #   --skip-at=s                 press SKIP in the opening at s seconds
 #   --seed=n --hour=h --device=touch|pad|keys
@@ -65,7 +66,7 @@ func _process(dt: float) -> void:
 		_grab.call_deferred(String(A.shot))
 		get_tree().create_timer(0.3).timeout.connect(func(): get_tree().quit())
 	if A.has("quit-at") and t >= float(A.get("quit-at")) and _once("quit"): get_tree().quit()
-	if A.has("stats") and frame % 15 == 0:
+	if A.has("stats") and frame % int(A.get("stats-every", "15")) == 0:
 		print("stats: wall %d t %.1f draws %d prims %dk objects %d real %.0f ms" % [Time.get_ticks_msec(), t, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 			int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000.0), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0])
 	if frame == 3:
@@ -106,13 +107,14 @@ func _process(dt: float) -> void:
 				fl.auto_hunt = A.has("hunt")
 				if not fl.hive.is_empty(): fl.hive.cool = 1e9
 				if not fl.nest.is_empty(): fl.nest.cool = 1e9
-			# --cams=a,b,c: each one held 1.2 s from 3 s, a still of each (view_<cam>.png in --out)
+			# --cams=a,b,c: each one held 1.2 s (--hold=s) from 3 s, a still of each (view_<cam>.png in --out)
 			var cams: Array = Array(String(A.get("cams", A.get("cam", "aerial"))).split(","))
-			var i := int((t - 3.0) / 1.2)
+			var hold := float(A.get("hold", "1.2"))
+			var i := int((t - 3.0) / hold)
 			if t >= 3.0 and i < cams.size():
 				A["cam"] = cams[i]
 				_view(ar)
-				if t - 3.0 - i * 1.2 > 0.8 and A.has("out") and _once("v%d" % i): _grab.call_deferred("%s/view_%s.png" % [A.out, cams[i]])
+				if t - 3.0 - i * hold > hold - 0.4 and A.has("out") and _once("v%d" % i): _grab.call_deferred("%s/view_%s.png" % [A.out, cams[i]])
 			elif t >= 3.0 and A.has("out") and _once("vq"): get_tree().quit()
 		"menu":
 			if _once("menu"):
