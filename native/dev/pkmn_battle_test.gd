@@ -70,6 +70,7 @@ func _flow() -> void:
 	ok(a.max_hp > 20 and b.max_hp > 15 and a.stats.spe > b.stats.spe, "stats: Pikachu %d HP, Pidgey %d HP, Pikachu faster" % [a.max_hp, b.max_hp])
 	ok(b.e.focus == 20.0 and a.e.pick_mode == "player" and b.e.pick_mode == "auto", "the wild one starts at 20 (hidden); the player picks pools")
 	var ev := B.begin_turn()
+	if B.needs_pick("a"): B.pick_pool("a", "electric")   # (the player picks each new chip's type)
 	ok(_has(ev, "turn") and _has(ev, "gain", "a") and _has(ev, "gain", "b"), "begin_turn: focus for both")
 	ok(a.e.total() == 3 and b.e.total() == 1, "chips by focus (a %d, b %d)" % [a.e.total(), b.e.total()])
 	ok(B.queue("a", "quick_attack") and B.queue("a", "growl") and B.queue("a", "thunder_shock"), "three cheap moves queued")

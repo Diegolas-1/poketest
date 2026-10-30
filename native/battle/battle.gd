@@ -491,12 +491,24 @@ func _shot_xf(n: String) -> Dictionary:
 		"qa": return {"pos": c + side * 5.0 - fwd * 0.8 + up * 2.2, "look": c - fwd * 0.6 + up * 0.6, "fov": 52.0}
 		"impact": return {"pos": ash_pos + fwd * 2.6 + side * 2.6 + up * 1.6, "look": ash_pos + up * 0.9, "fov": 50.0}
 		"run": return {"pos": ash_spot - fwd * 4.6 + side * 3.4 + up * 2.4, "look": ash_pos - fwd * 0.4 + up * 0.7, "fov": 50.0}
-		# mode "pkmn": over his partner's shoulder at the foe, and over the foe's at his partner
+		# mode "pkmn". Every shot keeps to one side of the line between the two sides
+		# (the +side half, Ash's right: the 180 degree rule), so his side stays near
+		# the lens and screen left / right never swap between cuts.
+		# the turn playing out: lower and nearer than the overview, both sides in it
+		"duel":
+			var md := partner_pos.lerp(foe_p, 0.5)
+			var kd := clampf(partner_pos.distance_to(foe_p) / 2.6 * 0.5, 1.0, 1.5)
+			if pk and pk.D != null: kd *= 1.3
+			return {"pos": md - fwd * 2.9 * kd + side * 3.9 * kd + up * 3.0 * kd, "look": md + up * 0.35 + fwd * 0.2, "fov": 46.0}
+		# a big move: over his partner's shoulder at the foe, and over the foe's at his partner
 		"pk_a": return {"pos": partner_pos - fwd * 1.1 + side * 2.3 + up * 1.6, "look": foe_p + up * 0.3 - fwd * 0.9, "fov": 46.0}
 		"pk_b":
 			# (a big foe, a Beedrill's wings at its battle size: the lens further off it)
 			var kb := clampf(float(Creature.species_info(species).get("height", 0.5)) / 0.75, 1.0, 1.5)
-			return {"pos": foe_p + fwd * 1.8 * kb - side * 2.2 * kb + up * 1.8 * sqrt(kb), "look": partner_pos + up * 0.3 + fwd * 0.6, "fov": 48.0}
+			return {"pos": foe_p + fwd * 1.8 * kb + side * 2.4 * kb + up * 1.8 * sqrt(kb), "look": partner_pos + up * 0.3 + fwd * 0.6, "fov": 48.0}
+		# a faint: in on the one going down, from the same side
+		"pk_down_a": return {"pos": partner_pos + side * 2.4 - fwd * 0.5 + up * 1.2, "look": partner_pos + up * 0.25, "fov": 42.0}
+		"pk_down_b": return {"pos": foe_p + side * 2.6 - fwd * 0.9 + up * 1.3, "look": foe_p + up * 0.3, "fov": 42.0}
 		"hide": return {"pos": ash_pos + fwd * 2.3 + side * 1.3 + up * 1.0, "look": ash_pos + up * 0.45, "fov": 44.0}
 		"down": return {"pos": ash_pos - side * 2.0 + fwd * 1.4 + up * 1.1, "look": ash_pos + up * 0.3, "fov": 46.0}
 		"flee": return {"pos": c - fwd * 5.5 + side * 3.0 + up * 3.2, "look": foe_p + up * 1.2, "fov": 52.0}

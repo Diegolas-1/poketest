@@ -2,7 +2,7 @@
   "_doc": "Every tunable number of the energy system and the Pokemon-vs-Pokemon battle, in one place (read through battle/battle_config.gd; design/energy_system.md explains each). Change numbers here, not in code. Species overrides under focus.species.<id> win over the defaults.",
 
   "focus": {
-    "_doc": "Focus is a 0-100 meter per Pokemon. chips = min(floor(focus / step), chip_cap): the bar and the chip count always agree. gain: points per undisturbed turn. start: focus at the first battle of a fresh Pokemon. wild_start: a wild one's focus by its state when the battle starts. typed_pool_cap: chips a typed pool holds (Colorless holds the rest). auto_fill_single_type: a Pokemon with one typed pool sends new chips there until it is full (zero taps); otherwise new chips go to the default pool unless the player picks.",
+    "_doc": "Focus is a 0-100 meter per Pokemon. chips = min(floor(focus / step), chip_cap): the bar and the chip count always agree. gain: points per undisturbed turn. start: focus at the first battle of a fresh Pokemon. wild_start: a wild one's focus by its state when the battle starts. typed_pool_cap: chips a typed pool holds (Colorless holds the rest). auto_fill_single_type: true, a Pokemon with one typed pool sends new chips there until it is full (zero taps); false (the game: the player picks the type of every new chip, the typed pool or Colorless); with two or more typed pools the player always picks, and no choice means the default pool.",
     "max": 100,
     "gain": 10,
     "step": 20,
@@ -12,7 +12,7 @@
     "trainer_start": 30,
     "typed_pool_cap": 3,
     "default_pool": "colorless",
-    "auto_fill_single_type": true,
+    "auto_fill_single_type": false,
     "gain_on_first_turn": true,
     "disruption_skips_gain": true,
     "by_type": {
