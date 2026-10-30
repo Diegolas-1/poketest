@@ -10,6 +10,17 @@ extends Node
 #                      --switch=turn,index: Ash switches by choice on that turn; --doubles
 #   --case=wild        a staged wild battle (--start=hidden|startled|open, --alone)
 #   --case=results     a results card (a quick 3v3 played out headless, then shown)
+#   --case=hunt        a hunt (arena/arena_hunt.gd): --act=tells (Ash crouch-creeps into a
+#                      patch, a few hiding round him twitching the grass), pounce (on in,
+#                      the A-mash, into the battle), run (a Rattata startled runs off to
+#                      another patch, the camera after it); --species=a,b --n=8
+#   --case=ambush      Ash's Pokémon out with him and the ambushes (wild/ash_companions.gd,
+#                      wild/ambush.gd): --act=follow (Pikachu and Pidgeotto thrown out, they
+#                      follow him up the path, wait by him, sneak when he crouches), bush (a
+#                      Beedrill jumps him from a thicket: the standoff, POKéMON, Pikachu runs
+#                      in), intercept (Pikachu and Bulbasaur out cut off two Beedrill),
+#                      swarm (four Beedrill against his two, two at a time), run (RUN: away,
+#                      it chases a little way)
 #   --shot=PATH --shot-at=s     one still at s seconds, then quit
 #   --frames=DIR --every=n      the whole viewport every n-th frame (with --fixed-fps 15)
 #   --quit-at=s                 quit at s seconds
@@ -24,11 +35,13 @@ var _did := {}
 
 func _ready() -> void:
 	process_priority = 100
+	process_mode = Node.PROCESS_MODE_ALWAYS   # (a menu that pauses the game: the script still drives it)
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		A[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if A.has("device"): UIInput.force(String(A.device))
 	main = load("res://main.tscn").instantiate()
+	main.process_mode = Node.PROCESS_MODE_PAUSABLE   # (the game itself still pauses)
 	add_child(main)
 
 func _once(key: String) -> bool:
@@ -40,11 +53,17 @@ func _process(dt: float) -> void:
 	frame += 1
 	t += dt
 	if A.has("frames") and frame % maxi(1, int(A.get("every", "1"))) == 0: _grab.call_deferred("%s/f%05d.png" % [A.frames, frame])
+	# --skip-draw: only the frames kept are drawn (the game runs every frame as ever; a render
+	# on a busy machine goes several times faster)
+	if A.has("frames") and A.has("skip-draw"): RenderingServer.render_loop_enabled = frame % maxi(1, int(A.get("every", "1"))) == 0 or frame < 3
 	if A.has("shot") and t >= float(A.get("shot-at", "3")) and _once("shot"):
 		_grab.call_deferred(String(A.shot))
 		get_tree().create_timer(0.3).timeout.connect(func(): get_tree().quit())
 	if A.has("quit-at") and t >= float(A.get("quit-at")) and _once("quit"): get_tree().quit()
 	if frame == 3:
+		# (his Pokémon out with him: a save of the shots' own, never the player's)
+		main.cast.companions.save_path = "user://companions_shot.save"
+		main.cast.companions.autosave = false
 		main.cast.clock.real = false; main.cast.clock.ff = 1.0; main.cast.clock.set_time(float(A.get("hour", "10.5")))
 	if frame == 8 and not String(A.get("case", "")) in ["town", "oak"] and _once("enter"): BattleArena.enter(main, true)
 	# --case=oak (with -- --cast-test=convo --convo-who=oak --convo-picks=...): Oak's talk takes
@@ -84,6 +103,7 @@ func _process(dt: float) -> void:
 				else:
 					ar.menu.open(pg)
 				if pg == "wild": ar.menu.setup.wild.species = String(A.get("species", "pidgey"))
+				if pg == "hunt" and A.has("species"): ar.menu.setup.hunt.species = Array(String(A.species).split(","))
 				if A.has("search"): ar.menu.search.text = String(A.search); ar.menu._filter = String(A.search)
 		"trainer":
 			if _once("run"):
@@ -110,6 +130,8 @@ func _process(dt: float) -> void:
 				s.wild.start = String(A.get("start", "hidden"))
 				s.wild.with_party = not A.has("alone")
 				ar.stage.run(s, {"auto": true, "seed": int(A.get("seed", "3"))})
+		"hunt": _hunt(ar)
+		"ambush": _ambush(ar)
 		"results":
 			if _once("res"):
 				var s := ArenaSetups.default_setup()
@@ -129,6 +151,90 @@ func _process(dt: float) -> void:
 					for sd in ["a", "b"]: if B.pending[sd] and not B.over: B.switch_to(sd, B.ai_pick(sd))
 				var pr := B.results()
 				ar.menu.show_results({"outcome": "ash_won" if B.outcome == "won" else "ash_down", "turns": B.turn, "party": pr}, s)
+
+# ---------- a hunt, scripted ----------
+var _h := {}
+func _hunt(ar: BattleArena) -> void:
+	var W: Wild = main.cast.wild
+	var act := String(A.get("act", "tells"))
+	if _once("hunt"):
+		var h := ArenaSetups.default_hunt()
+		h.species = Array(String(A.get("species", "pidgey,rattata,caterpie,oddish")).split(","))
+		h.count = int(A.get("n", "8"))
+		ar.hunt.start(h, ArenaSetups.preset_party("ash").slice(0, 3), true)
+		# Ash at the north-east rim of the big patch (-28, -26), facing in; three of the field
+		# moved in a few metres ahead of him, the rest left where they fell
+		var C := ArenaData.C
+		var at := Vector3(C.x - 20.5, 0, C.y - 18.5)
+		var yaw := atan2(-7.5, -7.5)
+		var fwd := Vector3(sin(yaw), 0, cos(yaw))
+		var rt := Vector3(fwd.z, 0, -fwd.x)
+		_put(at, yaw)
+		var want: Array = {"tells": [[5.5, -1.6, "pidgey"], [7.5, 2.2, "caterpie"], [9.5, -0.4, "oddish"]], "pounce": [[5.0, 0.0, "pidgey"], [8.5, 2.6, "caterpie"]], "run": [[3.2, 0.0, "rattata"]]}[act]
+		var es: Array = W.encs.duplicate()
+		for i in want.size():
+			var w: Array = want[i]
+			var p := at + fwd * float(w[0]) + rt * float(w[1])
+			var e: Dictionary = es[i]
+			W._remove(e)
+			W.hunt = null
+			var ne: Dictionary = ar.hunt._settle(String(w[2]), p)
+			W.hunt = ar.hunt
+			ne.node.rotation.y = yaw + PI
+			_h["e%d" % i] = ne
+		_h.fwd = fwd
+		if act == "run": W.test_force = "react=flee"
+	var e0: Dictionary = _h.get("e0", {})
+	if e0.is_empty() or t < 1.0: return
+	var tt := t - 1.0
+	match act:
+		"tells":
+			# crouched, a slow creep in: the grass ahead twitches here and there
+			if _once("cr"): main.cast._btn_crouch = true
+			for k in 3:
+				var e: Dictionary = _h.get("e%d" % k, {})
+				if not e.is_empty(): e.alert = minf(float(e.alert), 0.2)
+			_walk(main.pos + _h.fwd * 5.0, 0.55 if tt > 1.0 and tt < 6.5 else 0.0)
+			main.cam_yaw = lerp_angle(main.cam_yaw, atan2(_h.fwd.x, _h.fwd.z) + PI - 0.45, 0.05)
+		"pounce":
+			if _once("cr"): main.cast._btn_crouch = true
+			var nd: Node3D = e0.node
+			var d := Wild._d2(main.pos, nd.position)
+			e0.alert = minf(float(e0.alert), 0.3)
+			if String(e0.state) == "hidden":
+				_walk(nd.position, 0.6 if d > 1.7 else 0.0)
+				if d <= 1.9 and fmod(tt, 0.2) < 0.07: W.use_pressed()
+			else: main.stick_vec = Vector2.ZERO
+			main.cam_yaw = lerp_angle(main.cam_yaw, atan2(_h.fwd.x, _h.fwd.z) + PI - 0.5, 0.05)
+		"run":
+			# he walks at it upright: it bolts; the camera turns after it
+			var nd2: Node3D = e0.node
+			if String(e0.state) == "hidden": _walk(nd2.position, 0.45)
+			else: main.stick_vec = Vector2.ZERO
+			if String(e0.state) != "hidden":
+				# up over his shoulder, looking down the way it runs
+				if not _h.has("cam"): _h.cam = main.cam.global_position
+				var look: Vector3 = nd2.position + Vector3(0, 0.3, 0)
+				var want: Vector3 = main.pos + Vector3(0, 4.2, 0) + (main.pos - look).normalized() * 3.5
+				_h.cam = (_h.cam as Vector3).lerp(want, 0.12)
+				_h.look = (_h.get("look", look) as Vector3).lerp(look, 0.25)
+				main.cam.global_position = _h.cam
+				main.cam.look_at(_h.look, Vector3.UP)
+			main.cam_idle = 0.0
+
+func _put(p: Vector3, yaw: float) -> void:
+	p.y = main.world.height_at(p.x, p.z)
+	main.pos = p; main.yaw = yaw; main.speed = 0.0
+	main.cast.land(p.y)
+	main.cam_yaw = yaw + PI - 0.45
+	main.cam_target = p + Vector3(0, 1.45, 0)
+
+func _walk(to: Vector3, kk: float) -> void:
+	var cy: float = main.cam_yaw
+	var f := Vector2(-sin(cy), -cos(cy))
+	var r := Vector2(cos(cy), -sin(cy))
+	var dir := Vector2(to.x - main.pos.x, to.z - main.pos.z).normalized()
+	main.stick_vec = Vector2(dir.dot(r), -dir.dot(f)) * kk
 
 # fixed cameras over the arena (the main camera is put there after main.gd's)
 func _view(ar: BattleArena) -> void:
@@ -154,3 +260,71 @@ func _view(ar: BattleArena) -> void:
 func _grab(path: String) -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
+
+# ---------- ambushes, scripted (the arena's thickets) ----------
+var _a := {}
+func _ambush(ar: BattleArena) -> void:
+	var act := String(A.get("act", "follow"))
+	var Am: Ambush = main.cast.wild.ambush
+	var Cm: AshCompanions = main.cast.companions
+	var tt := t - 1.0
+	if tt < 0.0: return
+	if _once("amb"):
+		Am.cooldown = 1e9
+		Am.battle_extra = {"auto": true, "seed": int(A.get("seed", "5")), "auto_delay": 0.5}
+		for k in range(Cm.out.size() - 1, -1, -1): Cm.recall(k, true)
+		var thk: Dictionary = ar.ambush.spots[0]
+		var at: Vector3 = thk.at
+		if act == "follow":
+			_put(ar.w(0.5, 37.0), PI)
+			_a.path = [ar.w(0.0, 33.0), ar.w(-4.0, 27.5), ar.w(-11.0, 24.0), ar.w(-16.0, 21.5)]
+		else:
+			# (the run: he comes down from the field, so he has room to bolt back up it)
+			var sgn := -1.0 if act == "run" else 1.0
+			_put(at + Vector3(-2.6, 0, 9.5 * sgn), 0.0 if act == "run" else PI)
+			_a.path = [at + Vector3(-2.6, 0, -8.0 * sgn)]
+			var n: int = {"bush": 1, "intercept": 2, "swarm": 4, "run": 1}.get(act, 1)
+			if act in ["intercept", "swarm"]:
+				Cm.send_out(0, true, main.pos + Vector3(0.9, 0, 1.4))
+				Cm.send_out(2 if act == "intercept" else 1, true, main.pos + Vector3(-0.9, 0, 1.6))
+			Am.force = {"species": String(A.get("species", "beedrill")), "n": n, "cover": thk, "level": int(A.get("level", "3" if act == "swarm" else "6")), "temper": "aggressive"}
+			if act == "run": Am.force_run = 1; Am.force_chase = 1
+		_a.i = 0
+	var st := String(Am.cur.get("state", ""))
+	# walking his path (upright, at a walk); the follow case stops, then crouches on the way
+	var walking := true
+	if act == "follow":
+		if tt > 0.4 and _once("f_t0"): Cm.send_out(0)
+		if tt > 2.0 and _once("f_t1"): Cm.send_out(1)
+		if tt < 3.8 or (tt > 10.5 and tt < 13.5): walking = false
+		if tt > 13.5 and _once("crouch"): main.cast.set_crouch(true)
+		if tt > 19.0 and _once("stand"): main.cast.set_crouch(false)
+	else:
+		walking = Am.lurking() or (Am.cur.is_empty() and tt < 1.0)
+	if walking and int(_a.i) < (_a.path as Array).size():
+		var to: Vector3 = _a.path[int(_a.i)]
+		if Wild._d2(main.pos, to) < 1.2: _a.i = int(_a.i) + 1
+		else: _walk(to, 0.42 if main.cast.crouching else 0.72)
+	elif act == "run" and st in ["chase", "leave"] and Wild._d2(main.pos, ar.w(3.0, -2.0)) > 2.0:
+		# he keeps running (up the open field, clear of the referee's stand): it gives up a little way on
+		_walk(ar.w(3.0, -2.0), 1.0)
+	else: main.stick_vec = Vector2.ZERO
+	# the standoff: a beat, then his pick (POKéMON: the first of his party), or RUN
+	if st == "standoff":
+		if not _a.has("so_t"): _a.so_t = tt
+		if tt - float(_a.so_t) > 1.6 and _once("pick"):
+			if act == "run": Am.input(false, true)
+			else: Am.input(true, false)
+	var pm: PartyMenu = main.cast.party_menu
+	if pm.is_open():
+		if not _a.has("pm_t"): _a.pm_t = tt
+		if tt - float(_a.pm_t) > 1.3 and _once("pm_go"): pm._pick(0)
+	# the camera: over his shoulder, a little to the side, so his Pokémon and the cover show
+	if not Battle.active and not main.trans_busy:
+		var want_yaw: float = main.yaw + PI + (-0.8 if act == "follow" else 0.7)
+		if st in ["strike", "standoff", "intercept", "throw", "menu", "chase", "dash"] and not Am.cur.is_empty():
+			var lp: Vector3 = (Am._lead().node as Node3D).position
+			want_yaw = atan2(main.pos.x - lp.x, main.pos.z - lp.z) + 0.65
+		main.cam_yaw = lerp_angle(main.cam_yaw, want_yaw, 0.06)
+		main.cam_idle = 0.0
+		main.cam_pitch = lerpf(main.cam_pitch, 0.38, 0.05)

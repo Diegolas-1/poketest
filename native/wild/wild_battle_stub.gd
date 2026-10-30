@@ -10,6 +10,8 @@ signal finished(result: Dictionary)
 
 static var active := false
 static var outcome := "ran"     # (dev: what the stand-in reports; --wild-outcome=fled ...)
+static var extra := {}          # (dev: more of the result, e.g. {"pkmn_outcome": "won"})
+static var last := {}           # (dev: the opts it was last started with)
 var opts := {}
 var _t := 0.0
 
@@ -17,6 +19,7 @@ static func start(game: Node, o: Dictionary) -> Node:
 	var b = load("res://wild/wild_battle_stub.gd").new()
 	b.name = "BattleStub"
 	b.opts = o
+	last = o
 	game.add_child(b)
 	active = true
 	print("wild: Battle.start (stand-in) ", {"species": o.get("species"), "temper": o.get("temper"), "state": o.get("state"), "where": o.get("where"), "first_strike": o.get("first_strike")})
@@ -27,6 +30,7 @@ func _process(dt: float) -> void:
 	if _t >= 1.0:
 		active = false
 		var r := {"outcome": outcome}
+		r.merge(extra)
 		print("wild: battle (stand-in) finished ", r)
 		finished.emit(r)
 		queue_free()

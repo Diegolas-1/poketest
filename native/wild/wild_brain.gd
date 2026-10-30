@@ -8,7 +8,9 @@ extends RefCounted
 # alertness builds and fades, which temperament an individual has and what a
 # startle makes it do (flee, attack, be curious), and where a fled one goes
 # to hide (a safe zone: tall grass, a bush, a tree). Also the tutorial's done
-# flag on disk. All numbers come from res://life/wild.json.
+# flag on disk. All numbers come from res://life/wild.json; a species with no
+# tracking data of its own there (all but Pidgey for now) borrows Pidgey's, its
+# temperaments leaned by its types and its flight by how it moves (info, flies).
 
 const PATH := "res://life/wild.json"
 
@@ -24,6 +26,62 @@ func _init(path := PATH) -> void:
 	T = D.get("tracking", {})
 
 func sp(id: String) -> Dictionary: return D.species.get(id, {})
+
+# ---------- a species' tracking keys: its own over the defaults ----------
+# (Pidgey's: tempers, reactions, senses, tells, how long it remembers; the flight
+# its own: wings or legs, flies())
+const SHARED := ["temper", "react", "senses", "temper_senses", "flee", "forget", "tells"]
+const RUN := {"speed": 5.5, "fly": false, "height": 0.0, "range": [16.0, 40.0], "safe": {"tall_grass": 1.0, "bush": 0.5}}
+const MODEL_ID := {"nidoran_f": "nidoranf", "nidoran_m": "nidoranm", "mr_mime": "mrmime"}
+var _info := {}
+
+func info(id: String) -> Dictionary:
+	if _info.has(id): return _info[id]
+	var own := sp(id)
+	var base := {}
+	var dflt := sp("pidgey")
+	for k in SHARED:
+		if dflt.has(k): base[k] = dflt[k].duplicate(true) if dflt[k] is Dictionary else dflt[k]
+	for k in own: base[k] = own[k]
+	if not base.has("name"): base["name"] = String(BattleEnergy.species_data(id).get("name", id.capitalize()))
+	if not own.has("temper") and id != "pidgey": base["temper"] = type_temper(id)
+	if not own.has("flee") and id != "pidgey":
+		if flies(id):
+			base["flee"] = (base.get("flee", {}) as Dictionary).duplicate(true)
+			base.flee["fly"] = true
+		else:
+			# on foot: low and fast through the grass to another patch (or under a bush),
+			# quicker the bigger it is
+			var F: Dictionary = RUN.duplicate(true)
+			var h := float(BattleEnergy.species_data(id).get("height_m", 0.5))
+			F["speed"] = clampf(3.2 + 6.5 * h, 4.2, 8.0)
+			base["flee"] = F
+			base["tells"] = {"feather": 0.0, "bob": float(base.get("tells", {}).get("bob", 0.45))}
+	_info[id] = base
+	return base
+
+# wings, or floating: a Flying type (bar the ones that run: Doduo, Dodrio), a ghost
+# that floats, a Pokémon that levitates or flies by its rig (creatures/species.json
+# "float": hover, flier); the rest run
+static func flies(id: String) -> bool:
+	if id in ["doduo", "dodrio"]: return false
+	var ty: Array = BattleEnergy.species_data(id).get("types", [])
+	var ci := Creature.species_info(String(MODEL_ID.get(id, id)))
+	if ty.has("flying"): return true
+	if ty.has("ghost") and String(ci.get("family", "")) != "legged": return true
+	return String(ci.get("family", "")) == "float" and String(ci.get("mode", "")) in ["hover", "flier"]
+
+# a temperament's odds by its types (a fighter quicker to attack, a fairy or psychic
+# more curious, a bug or a grass shyer): Pidgey's spread, leaned
+static func type_temper(id: String) -> Dictionary:
+	var w := {"flighty": 0.4, "curious": 0.22, "aggressive": 0.18, "timid": 0.2}
+	for ty in BattleEnergy.species_data(id).get("types", []):
+		match String(ty):
+			"fighting", "dragon", "poison", "fire", "rock", "ground": w.aggressive += 0.22
+			"fairy", "psychic", "normal", "electric": w.curious += 0.14
+			"bug", "grass", "water": w.timid += 0.12
+			"flying", "ghost": w.flighty += 0.1
+	return w
 func t(key: String, d = 0.0): return T.get(key, d)
 func tv(key: String, sub: String, d := 0.0) -> float: return float(T.get(key, {}).get(sub, d))
 func tv_arr(key: String, sub: String, d: Array) -> Array: return T.get(key, {}).get(sub, d)
@@ -103,19 +161,19 @@ func step_alert(a: float, s: float, dt: float, wary := false) -> float:
 	return clampf(a, 0.0, 1.0)
 
 func senses(id: String, temper: String) -> float:
-	var s := sp(id)
+	var s := info(id)
 	var base := float(s.get("senses", {}).get("hearing", 1.0))
 	return base * float(s.get("temper_senses", {}).get(temper, 1.0))
 
 # ---------- temperament and the startle ----------
 func pick_temper(id: String) -> String:
-	var w: Dictionary = sp(id).get("temper", {"flighty": 1.0})
+	var w: Dictionary = info(id).get("temper", {"flighty": 1.0})
 	return _weighted(w.keys().map(func(k): return [k, float(w[k])]))
 
 # flee | attack | curious, by its temper's weights; cornered (Ash right on it) the
 # timid and flighty lash out more often
 func pick_reaction(id: String, temper: String, d := 5.0) -> String:
-	var w: Dictionary = sp(id).get("react", {}).get(temper, {"flee": 1.0}).duplicate()
+	var w: Dictionary = info(id).get("react", {}).get(temper, {"flee": 1.0}).duplicate()
 	if d < 1.2 and temper in ["timid", "flighty"]: w["attack"] = float(w.get("attack", 0.0)) + 0.15
 	return _weighted(w.keys().map(func(k): return [k, float(w[k])]))
 
@@ -134,7 +192,7 @@ func _weighted(list: Array) -> String:
 # off; ash: where Ash is. Picks one in the species' flee range (else the nearest
 # range that has any), weighted by the kind it likes and by going away from Ash
 func pick_safe(id: String, from: Vector3, ash: Vector3, cands: Array) -> Dictionary:
-	var F: Dictionary = sp(id).get("flee", {})
+	var F: Dictionary = info(id).get("flee", {})
 	var rg: Array = F.get("range", [30.0, 60.0])
 	var pref: Dictionary = F.get("safe", {"tall_grass": 1.0})
 	var away := Vector2(from.x - ash.x, from.z - ash.z)

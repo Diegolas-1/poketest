@@ -16,8 +16,11 @@ const FENCE := 46.0
 const WALK := 45.2                   # Ash keeps inside this
 const FIELD := Vector2(6.5, 11.0)    # the clay field's half size (x across, z along)
 const TRAINER_Z := 7.6               # where the trainers stand (the chalk boxes), each end
-# tall grass: [x, z, half x, half z] (blobs round these boxes)
-const TALL := [[-28.0, -26.0, 8.0, 5.5], [27.0, -25.0, 6.5, 6.5], [-30.0, 23.0, 6.5, 5.0], [32.0, 15.0, 5.0, 7.5], [-19.0, -3.0, 3.5, 4.5]]
+# tall grass: [x, z, half x, half z] (blobs round these boxes): the hunt's fields
+# (arena/arena_hunt.gd), each path's end running into one, the clay field and the
+# gate's way in kept clear
+const TALL := [[-28.0, -26.0, 10.0, 7.0], [27.0, -25.0, 8.5, 7.5], [-31.0, 24.0, 9.0, 6.5], [32.0, 15.0, 7.0, 10.0],
+	[-19.0, -3.0, 4.5, 6.0], [-2.0, -31.0, 8.0, 5.0], [-38.0, -6.0, 4.5, 6.0]]
 
 var paths := []                      # segments [a, b, half width] (local)
 
@@ -66,12 +69,19 @@ func world_ground(x: float, z: float) -> float: return ground(x - C.x, z - C.y)
 # how much of a tall-grass patch is here (0..1, a ragged blob)
 static func tall_at(x: float, z: float) -> float:
 	var best := 0.0
-	for t in TALL:
-		var u := Vector2((x - t[0]) / t[2], (z - t[1]) / t[3])
-		var ang := atan2(u.y, u.x)
-		var r := 1.0 + 0.12 * sin(ang * 3.0 + t[0]) + 0.08 * sin(ang * 5.0 + t[1])
-		best = maxf(best, clampf((r - u.length()) * 3.0, 0.0, 1.0))
+	for i in TALL.size(): best = maxf(best, tall_blob(i, x, z))
 	return best
+
+# one patch's blob (0..1): its box scaled to a unit circle with a ragged rim
+static func tall_blob(i: int, x: float, z: float) -> float:
+	var t: Array = TALL[i]
+	var u := Vector2((x - t[0]) / t[2], (z - t[1]) / t[3])
+	return clampf((tall_rim(i, atan2(u.y, u.x)) - u.length()) * 3.0, 0.0, 1.0)
+
+# the rim's radius that way (in the box's units)
+static func tall_rim(i: int, ang: float) -> float:
+	var t: Array = TALL[i]
+	return 1.0 + 0.12 * sin(ang * 3.0 + t[0]) + 0.08 * sin(ang * 5.0 + t[1])
 
 # the dirt's signed distance (m; < 0 on it): the clay field (a rounded box) and the paths
 func dirt_sd(x: float, z: float) -> float:

@@ -31,6 +31,15 @@ extends Node
 #   tutorial    the first time Ash nears tall grass, Prof. Oak (over the
 #               Pokégear) walks him through it with a Pidgey set there for him
 #               (wild_tutorial.gd); done once, saved (WildBrain.set_tutorial_done)
+#   on foot     a species that can't fly (WildBrain.flies) runs instead: low and
+#               fast through the grass to another patch or under a bush, the
+#               blades parting along its way (the trail to follow)
+#   ambushes    opportunists lying in wait in cover that jump him (ambush.gd: its
+#               own encounter kind, its own data, wild.json "ambush")
+#   the hunt    the Battle Arena's (arena/arena_hunt.gd, hunt while one is on):
+#               many hidden at once through its patches (wild_arena_grass.gd),
+#               no luring, each with its level and the battle's mode; it hears
+#               how each battle ends (on_result) and when one goes (on_removed)
 #
 # cast.gd calls update(dt) each frame, use_pressed() on A (true = taken),
 # busy() / input() while the tutorial's dialog has the controls.
@@ -44,11 +53,15 @@ var game: Node
 var cast: Node
 var brain: WildBrain
 var sources: Array = []    # WildSource
-var encs: Array = []       # the encounters going on (one at a time for now)
+var arena_src: WildArenaGrass
+var hunt: Node = null      # the arena's hunt while one is on (arena/arena_hunt.gd)
+var encs: Array = []       # the encounters going on (one at a time on Route 1, a field of them in a hunt)
+var _prompt_d := INF       # (the nearest one's prompt wins)
 var cooldown := 4.0
 var hud: WildHud
 var toaster: UIToaster
 var tut: WildTutorial
+var ambush: Ambush         # the ambushes (ambush.gd)
 var feathers: Array = []   # {node, v, spin, t, life, rest}
 var t := 0.0
 var lunge := {}            # Ash's pounce: {t, from, to, e}
@@ -66,6 +79,8 @@ func setup(g: Node, c: Node, layer: CanvasLayer) -> void:
 	_rng.randomize()
 	brain = WildBrain.new()
 	sources.append(WildTallGrass.new(c.tall))
+	arena_src = WildArenaGrass.new()
+	sources.append(arena_src)
 	hud = WildHud.new()
 	hud.wild = self
 	layer.add_child(hud)
@@ -74,6 +89,10 @@ func setup(g: Node, c: Node, layer: CanvasLayer) -> void:
 	layer.add_child(toaster)
 	tut = WildTutorial.new()
 	tut.setup(self)
+	ambush = Ambush.new()
+	ambush.name = "Ambush"
+	add_child(ambush)
+	ambush.setup(self)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--wild-test="): shot = WildShot.new(self, a.substr(12))
 
@@ -81,15 +100,19 @@ func peek() -> bool: return String(Settings.get_value("wild_peek")) == "peek"
 
 # ---------- what cast.gd asks ----------
 func busy() -> bool:
-	return tut.busy() or not lunge.is_empty()
+	return tut.busy() or not lunge.is_empty() or (ambush != null and ambush.busy())
 
 func input(a: bool, b: bool) -> void:
 	tut.input(a, b)
 
 # A pressed on foot: the pounce, the grab, a word to a curious one (true = taken)
 func use_pressed() -> bool:
+	if ambush != null and ambush.use_pressed(): return true
 	var me: Vector3 = game.pos
-	for e in encs:
+	# (the nearest first: in a hunt there may be a few in reach)
+	var near := encs.duplicate()
+	near.sort_custom(func(a, b): return _d2(me, a.node.position if a.node else a.at) < _d2(me, b.node.position if b.node else b.at))
+	for e in near:
 		var d := _d2(me, e.node.position if e.node else e.at)
 		match String(e.state):
 			"hidden":
@@ -114,9 +137,9 @@ func use_pressed() -> bool:
 					return true
 	return false
 
-# the camera minds props between it and Ash while a hunt is on (main.gd _camera)
+# the camera minds props between it and Ash while a hunt is on, an ambush, or his Pokémon are out (main.gd _camera)
 func camera_care() -> bool:
-	return not encs.is_empty() or tut.running()
+	return not encs.is_empty() or tut.running() or (ambush != null and not ambush.cur.is_empty()) or (cast.get("companions") != null and not cast.companions.shown().is_empty())
 
 # the tutorial's steps keep its Pidgey's spot in view: {at} or {} (main.gd _wild_frame)
 func camera_hint() -> Dictionary:
@@ -127,25 +150,30 @@ func camera_hint() -> Dictionary:
 	return {"at": (n as Node3D).position, "side": 0.3}
 
 # the compass's goal while tracking one that fled (island.gd): {pos, name} or {}
+# (a few fled in a hunt: the latest)
 func track_hint() -> Dictionary:
+	var best = null
 	for e in encs:
 		if bool(e.tracked) and String(e.state) in ["fleeing", "hidden"]:
-			return {"pos": e.at, "name": _name(e)}
-	return {}
+			if best == null or float(e.fled_t) > float(best.fled_t): best = e
+	return {"pos": best.at, "name": _name(best)} if best != null else {}
 
 # ---------- the frame ----------
 func update(dt: float) -> void:
 	t += dt
 	if shot: shot.step(dt)
 	var outside: bool = not game.indoors
+	var held := Battle.world_paused()   # (an ambush's battle: the rest of the wild waits, out of its floor)
 	for e in encs:
-		if e.node: e.node.visible = outside and bool(e.shown)
+		# (in a battle only its own Pokémon shows: the others keep out of its round floor)
+		if e.node: e.node.visible = outside and bool(e.shown) and (not battle_on or e == _battle_e) and not held
 	if not outside:
 		if game.grass: game.grass.extra = []
 		return
 	_feathers(dt)
-	if battle_on:
-		_battle_poll()
+	if ambush and not battle_on: ambush.update(dt)
+	if battle_on or held:
+		if battle_on: _battle_poll()
 		if game.grass: game.grass.extra = []
 		hud.prompt = {}
 		return
@@ -156,12 +184,23 @@ func update(dt: float) -> void:
 	var crouched: bool = cast.crouching
 	cooldown -= dt
 	tut.update(dt)
-	# settling: one at a time, never during the tutorial's own
-	if encs.is_empty() and cooldown <= 0.0 and not tut.running():
+	# settling: one at a time, never during the tutorial's own, nor in a hunt (its field is set)
+	if encs.is_empty() and cooldown <= 0.0 and not tut.running() and hunt == null and (ambush == null or ambush.cur.is_empty()):
 		_try_spawn(dt, me, speed, crouched, riding)
 	var extra: Array = []
 	hud.prompt = {}
+	_prompt_d = INF
 	for e in encs.duplicate(): _step(e, dt, me, speed, crouched, riding, extra)
+	# the grass has a few push points to spare (grass.gd PUSH_MAX): the nearest twitches get them
+	if extra.size() > 4: extra.sort_custom(func(a, b): return Vector2(a.x - me.x, a.y - me.z).length_squared() < Vector2(b.x - me.x, b.y - me.z).length_squared())
+	# hunting, the camera comes down with him (crouched) into grass taller than it: the
+	# blades at the lens and between it and him lean aside, first in the list
+	if camera_care() and game.cam:
+		var cp: Vector3 = game.cam.global_position
+		if cp.y - game.world.height_at(cp.x, cp.z) < 1.9:
+			for f in [0.7, 0.45, 0.2, 0.0]:
+				var q := cp.lerp(me, f)
+				extra.push_front(Vector4(q.x, q.z, 1.1, 1.0))
 	if game.grass: game.grass.extra = extra
 	hud.queue_redraw()
 
@@ -195,7 +234,8 @@ func spawn(id: String, src: WildSource, spot: Vector3, temper: String, tutorial 
 	var e := {"species": id, "temper": temper, "source": src, "kind": src.tells if src else "grass", "at": spot, "node": node,
 		"state": "hidden", "alert": 0.0, "wary": false, "t": 0.0, "life": 0.0, "burst_t": 0.3, "burst": 0.0, "burst_len": 0.0,
 		"pts": [], "mash": 0.0, "mash_pop": 0.0, "grab": 0.0, "window": 0.0, "tutorial": tutorial, "tracked": false,
-		"fled_t": -1.0, "path": {}, "shown": false, "told": false, "trail_d": 0.0, "patch": src.patch_of(spot) if src else -1, "bob_t": 2.0}
+		"fled_t": -1.0, "path": {}, "shown": false, "told": false, "trail_d": 0.0, "patch": src.patch_of(spot) if src else -1, "bob_t": 2.0,
+		"hunt": false, "level": 0, "flies": bool(brain.info(id).get("flee", {}).get("fly", true)), "birdy": node.get("flying") != null}
 	node.mood("hide")
 	_burst(e, 1.0)   # (a rustle as it settles in)
 	encs.append(e)
@@ -203,13 +243,14 @@ func spawn(id: String, src: WildSource, spot: Vector3, temper: String, tutorial 
 	return e
 
 # Creature.make(id) when that species' model is in the build, else the stand-in
+# (Pidgey's own, or the battle's simple one for the rest)
 static func make_creature(id: String) -> Node3D:
-	if ResourceLoader.exists("res://creatures/%s.glb" % id):
-		return Creature.make(id)
-	return STANDIN.make()
+	if ResourceLoader.exists("res://creatures/%s.glb" % String(WildBrain.MODEL_ID.get(id, id))):
+		return Creature.make(String(WildBrain.MODEL_ID.get(id, id)))
+	return STANDIN.make() if id == "pidgey" else PkmnStandin.make(id)
 
 func _name(e: Dictionary) -> String:
-	return String(brain.sp(String(e.species)).get("name", String(e.species).capitalize()))
+	return String(brain.info(String(e.species)).get("name", String(e.species).capitalize()))
 
 static func _d2(a: Vector3, b: Vector3) -> float: return Vector2(a.x - b.x, a.z - b.z).length()
 
@@ -231,6 +272,8 @@ func _step(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool, 
 			_face(node, me, dt, 14.0)
 			if float(e.t) > 0.6: _start_battle(e, "attacking", "wild")
 		"curious": _curious(e, dt, me, d)
+		"out":
+			if float(e.t) > 1.8: _remove(e); return
 		"leaving":
 			var dir: Vector3 = e.get("dir", Vector3.FORWARD)
 			if float(e.t) < 1.6:
@@ -351,18 +394,21 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 	# close enough: the pounce prompt
 	var ed := float(brain.t("engage_d", 2.0))
 	e.mash = maxf(0.0, float(e.mash) - brain.tv("mash", "decay", 0.45) * dt)
-	if d <= ed + 0.6 and lunge.is_empty():
+	if d <= ed + 0.6 and lunge.is_empty() and d < _prompt_d:
+		_prompt_d = d
 		hud.prompt = {"at": node.position + Vector3(0, 0.9, 0), "kind": "mash", "fill": float(e.mash), "near": d <= ed, "pop": float(e.mash_pop)}
 	if alert >= 0.999:
 		_startle(e, d)
 		return
-	# it leaves when he goes away, or it has waited long enough (not the tutorial's, nor a fled one)
-	if not bool(e.tutorial) and not bool(e.tracked):
+	# it leaves when he goes away, or it has waited long enough (not the tutorial's, nor a
+	# fled one, nor a hunt's: that field stays till the hunt ends)
+	if not bool(e.tutorial) and not bool(e.tracked) and not bool(e.hunt):
 		if d > float(brain.t("leave_d", 40.0)) or (float(e.life) > float(brain.t("life_s", 120.0)) and d > 12.0): _remove(e)
-	# a fled one forgets him after a while
-	if bool(e.tracked) and t - float(e.fled_t) > float(brain.sp(String(e.species)).get("forget", 150.0)):
+	# a fled one forgets him after a while (a hunt's just stops being tracked)
+	if bool(e.tracked) and t - float(e.fled_t) > float(brain.info(String(e.species)).get("forget", 150.0)):
 		print("wild: %s forgot about Ash" % e.species)
-		_remove(e)
+		if bool(e.hunt): e.tracked = false
+		else: _remove(e)
 
 # down from a peek over the grass (it lands where it was)
 func _peek_down(e: Dictionary) -> void:
@@ -390,8 +436,8 @@ func _burst(e: Dictionary, amp: float) -> void:
 		for i in 3: _feather(at + Vector3(_rng.randf_range(-0.6, 0.6), (2.5 if String(e.kind) == "tree" else 0.9), _rng.randf_range(-0.6, 0.6)), true)
 	else:
 		Sfx.play("creature_rustle", at, {"vol": -7.0 + amp * 3.0, "dist": 22.0})
-	var tl: Dictionary = brain.sp(String(e.species)).get("tells", {})
-	if _rng.randf() < float(tl.get("feather", 0.3)): _feather(at + Vector3(0, 0.6, 0), false)
+	var tl: Dictionary = brain.info(String(e.species)).get("tells", {})
+	if _rng.randf() < float(tl.get("feather", 0.3)): _feather(at + Vector3(0, 0.6, 0), not bool(e.get("birdy", true)))
 	if _rng.randf() < 0.3: Sfx.play("critter_chirp", at, {"vol": -14.0, "pitch": 1.3, "dist": 16.0})
 
 # ---------- startled ----------
@@ -403,9 +449,15 @@ func _startle(e: Dictionary, d: float) -> void:
 	e.shown = true
 	node.visible = true
 	e.t = 0.0
-	Sfx.play("wing_flap_small", node.position, {"vol": -2.0})
-	Sfx.play("bird_call", node.position, {"vol": -6.0, "pitch": 1.25})
-	for i in 4: _feather(node.position + Vector3(0, 0.4, 0), false)
+	var birdy := bool(e.get("birdy", true))
+	if birdy:
+		Sfx.play("wing_flap_small", node.position, {"vol": -2.0})
+		Sfx.play("bird_call", node.position, {"vol": -6.0, "pitch": 1.25})
+	else:
+		# (no wings: a cry and the grass thrashed, bits of it flying)
+		Sfx.play("creature_call", node.position, {"vol": -5.0, "pitch": _rng.randf_range(1.0, 1.3)})
+		Sfx.play("creature_rustle", node.position, {"vol": -2.0})
+	for i in 4: _feather(node.position + Vector3(0, 0.4, 0), not birdy)
 	_burst(e, 1.6)
 	match r:
 		"attack":
@@ -425,14 +477,14 @@ func _startle(e: Dictionary, d: float) -> void:
 			e.window = brain.tv("grab", "window", 1.3)
 			e.grab = 0.0
 			e.zone_kind = String(zone.kind)
-			node.mood("takeoff")
+			node.mood("takeoff" if bool(e.get("flies", true)) else "startle")
 
 func _safe_zone(e: Dictionary) -> Dictionary:
 	var node: Node3D = e.node
 	var from: Vector3 = node.position
 	var cands := []
 	for s in sources: cands.append_array(s.safe_spots(from, 80.0))
-	var sw = game.get("sfx_world")
+	var sw = game.get("sfx_world") if BattleArena.I == null else null   # (the town's plants; the arena's come from its source)
 	if sw:
 		# bushes (the plant buckets) and trees round about
 		var key := Vector2i(floori(from.x / 4.0), floori(from.z / 4.0))
@@ -446,6 +498,8 @@ func _safe_zone(e: Dictionary) -> Dictionary:
 					break
 		for tr: Vector3 in sw.trees:
 			if absf(tr.x - from.x) < 70.0 and absf(tr.z - from.z) < 70.0: cands.append({"at": Vector3(tr.x, 0, tr.z), "kind": "tree", "r": tr.y})
+	# on foot: no perching up a tree
+	if not bool(e.get("flies", true)): cands = cands.filter(func(c): return String(c.kind) != "tree")
 	var z := brain.pick_safe(String(e.species), from, game.pos, cands)
 	var at: Vector3 = z.at
 	# a bush: at its edge facing back the way it came; a tree: up in it
@@ -457,14 +511,20 @@ func _safe_zone(e: Dictionary) -> Dictionary:
 	print("wild: %s flees to a %s %.0f m off" % [e.species, z.kind, _d2(from, at)])
 	return {"at": at, "kind": z.kind}
 
-# off through the air to `to` (where it lands; a tree's perch is up in it)
+# off through the air to `to` (where it lands; a tree's perch is up in it); one that
+# can't fly runs there instead (_run)
 func _fly_to(e: Dictionary, to: Vector3, kind: String, track: bool) -> void:
 	var node: Node3D = e.node
-	var F: Dictionary = brain.sp(String(e.species)).get("flee", {})
+	var F: Dictionary = brain.info(String(e.species)).get("flee", {})
 	var from := node.position
 	var dist := _d2(from, to)
 	var v := float(F.get("speed", 10.0))
 	e.path = {"from": from, "to": to, "dur": maxf(1.2, dist / v + 0.9), "h": float(F.get("height", 4.5)) + dist * 0.04, "kind": kind}
+	if not bool(e.get("flies", true)):
+		# on foot: a curve to one side (it breaks away, not straight), a weave in it
+		var side := 1.0 if _rng.randf() < 0.5 else -1.0
+		e.path.merge({"run": true, "dur": maxf(1.0, dist / v * 1.12 + 0.35), "bend": side * clampf(dist * 0.12, 1.0, 4.5),
+			"weave": _rng.randf_range(0.25, 0.5), "wn": float(_rng.randi_range(2, 4))}, true)
 	if track:
 		# (startled off the ground: the launch before it goes)
 		e.path.launch = true
@@ -477,9 +537,17 @@ func _fly_to(e: Dictionary, to: Vector3, kind: String, track: bool) -> void:
 	e.at = to
 	if track: e.fled_t = t
 
+# (a creature that floats, with no fly_height of its own, rises on its node)
+static func _fh(node: Node3D) -> float:
+	var v = node.get("fly_height")
+	return float(v) if v != null else 0.0
+
 func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void:
 	var node: Node3D = e.node
 	var P: Dictionary = e.path
+	if P.has("run"):
+		_run(e, dt, me, d, extra); return
+	var lifts := node.get("fly_height") != null
 	var u := clampf(float(e.t) / float(P.dur), 0.0, 1.0)
 	var from: Vector3 = P.from
 	var to: Vector3 = P.to
@@ -495,11 +563,11 @@ func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void
 	var base := maxf(g, lerpf(from.y, to.y, WildBrain.sm(0.6, 1.0, u)))
 	var h := float(P.h) * WildBrain.sm(0.0, 0.22, u) * (1.0 - WildBrain.sm(0.7, 1.0, u))
 	var prev := node.position
-	var prev_air := prev.y + float(node.get("fly_height")) * (1.0 if bool(node.get("flying")) else 0.0)
+	var prev_air := prev.y + _fh(node) * (1.0 if node.get("flying") == true else 0.0)
 	# the node stays on what is under it (the ground, or the branch it perches on at the
 	# end); the bird's height over that is its fly_height
-	node.position = Vector3(flat.x, base, flat.z)
-	node.set("fly_height", maxf(0.0, h))
+	node.position = Vector3(flat.x, base + (0.0 if lifts else maxf(0.0, h)), flat.z)
+	if lifts: node.set("fly_height", maxf(0.0, h))
 	var mv := node.position - prev
 	if Vector2(mv.x, mv.z).length() > 1e-4: node.rotation.y = atan2(mv.x, mv.z)
 	node.rotation.x = 0.0
@@ -509,7 +577,7 @@ func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void
 		node.set("auto", false)
 		if ph == "takeoff": node.set("flying", false)   # (from the ground: the take-off act lifts it)
 		node.mood(ph)
-	var air := node.position.y + float(node.get("fly_height"))
+	var air := node.position.y + _fh(node)
 	mv.y = air - prev_air
 	# the take-off blasts the grass flat round it
 	if float(e.t) < 0.5:
@@ -518,33 +586,99 @@ func _fly(e: Dictionary, dt: float, me: Vector3, d: float, extra: Array) -> void
 	e.trail_d = float(e.trail_d) + Vector2(mv.x, mv.z).length()
 	if bool(e.tracked) and float(e.trail_d) > 5.5:
 		e.trail_d = 0.0
-		_feather(node.position + Vector3(0, float(node.get("fly_height")), 0), false)
+		_feather(node.position + Vector3(0, _fh(node), 0), not bool(e.get("birdy", true)))
 	if fmod(float(e.t), 0.3) < dt and u < 0.8: Sfx.play("wing_flap_small", node.position, {"vol": -8.0, "dist": 26.0})
-	# grabbed in time?
-	if String(e.state) == "fleeing":
-		e.window = maxf(0.0, float(e.window) - dt)
-		e.grab = maxf(0.0, float(e.grab) - brain.tv("grab", "decay", 0.8) * dt)
-		if float(e.window) > 0.0 and d <= brain.tv("grab", "d", 3.2):
-			hud.prompt = {"at": node.position + Vector3(0, 0.5 + float(node.get("fly_height")), 0), "kind": "grab", "fill": float(e.grab), "near": true, "left": float(e.window) / brain.tv("grab", "window", 1.3), "pop": float(e.mash_pop)}
-		if float(e.window) <= 0.0 and not bool(e.told) and bool(e.tracked):
-			e.told = true
-			toaster.push("step", _name(e).to_upper() + " FLED!", "It flew off toward %s. Follow the feathers and your compass." % _kind_text(String(P.kind)), "bang", 3.2)
+	_grab_window(e, dt, d, _fh(node), "It flew off toward %s. Follow the feathers and your compass." % _kind_text(String(P.kind)))
+	if u >= 1.0: _landed(e)
+
+# grabbed in time? (the window right after it bolts), and the toast once it is away
+func _grab_window(e: Dictionary, dt: float, d: float, up: float, told: String) -> void:
+	if String(e.state) != "fleeing": return
+	var node: Node3D = e.node
+	e.window = maxf(0.0, float(e.window) - dt)
+	e.grab = maxf(0.0, float(e.grab) - brain.tv("grab", "decay", 0.8) * dt)
+	if float(e.window) > 0.0 and d <= brain.tv("grab", "d", 3.2) and d < _prompt_d:
+		_prompt_d = d
+		hud.prompt = {"at": node.position + Vector3(0, 0.5 + up, 0), "kind": "grab", "fill": float(e.grab), "near": true, "left": float(e.window) / brain.tv("grab", "window", 1.3), "pop": float(e.mash_pop)}
+	if float(e.window) <= 0.0 and not bool(e.told) and bool(e.tracked):
+		e.told = true
+		toaster.push("step", _name(e).to_upper() + " FLED!", told, "bang", 3.2)
+
+# there: hiding again, warier now (or gone, leaving for good)
+func _landed(e: Dictionary) -> void:
+	var node: Node3D = e.node
+	var P: Dictionary = e.path
+	if bool(e.get("gone", false)):
+		_remove(e); return
+	e.state = "hidden"
+	e.kind = "grass" if String(P.kind) in ["tall_grass", "open"] else String(P.kind)
+	e.wary = true
+	e.alert = 0.3
+	e.t = 0.0
+	e.burst_t = 0.8
+	e.mash = 0.0
+	e.patch = (e.source as WildSource).patch_of(node.position) if e.source else -1
+	e.fph = ""
+	e.pose = ""
+	if node.get("fly_height") != null: node.set("fly_height", 0.0)
+	print("wild: %s hides again in a %s at %s" % [e.species, P.kind, str(node.position)])
+
+# off on foot: a spring out of the grass (the startle: the moment he can grab it),
+# then a dash low and fast on a bending line, weaving a little, the blades parting
+# round it as it goes (its trail through the grass), easing into its new cover
+func _run(e: Dictionary, dt: float, _me: Vector3, d: float, extra: Array) -> void:
+	var node: Node3D = e.node
+	var P: Dictionary = e.path
+	var u := clampf(float(e.t) / float(P.dur), 0.0, 1.0)
+	var from: Vector3 = P.from
+	var to: Vector3 = P.to
+	var launch := float(brain.tv("flee_launch", "s", 0.4)) if P.has("launch") else 0.0
+	var ul := clampf((float(e.t) - launch) / maxf(0.1, float(P.dur) - launch), 0.0, 1.0)
+	# quick to full speed, a short slowing at the end
+	var k := ul * ul * (1.6 - 0.6 * ul) if ul < 0.25 else ul
+	k = lerpf(k, 1.0 - pow(1.0 - ul, 2.0), WildBrain.sm(0.75, 1.0, ul))
+	var dir := Vector3(to.x - from.x, 0, to.z - from.z)
+	var L := maxf(0.01, dir.length())
+	dir /= L
+	var side := Vector3(dir.z, 0, -dir.x)
+	var off := float(P.bend) * sin(k * PI) + float(P.weave) * sin(k * PI * float(P.wn)) * sin(k * PI)
+	var flat := from + dir * L * k + side * off
+	flat = game.world.collide(Vector3(flat.x, 0, flat.z), 0.3)
+	var prev := node.position
+	node.position = Vector3(flat.x, game.world.height_at(flat.x, flat.z), flat.z)
+	var mv := node.position - prev
+	if Vector2(mv.x, mv.z).length() > 1e-4: node.rotation.y = lerp_angle(node.rotation.y, atan2(mv.x, mv.z), 1.0 - exp(-dt * 16.0))
+	node.rotation.x = 0.0
+	var ph := "spring" if float(e.t) < launch else ("dash" if ul < 0.9 else "settle")
+	if ph != String(e.get("fph", "")):
+		e.fph = ph
+		node.set("auto", false)
+		match ph:
+			"spring": node.mood("startle")
+			"dash": node.mood("flee")
+			"settle": node.mood("hide")
+	var in_grass: bool = e.source != null and (e.source as WildSource).contains(node.position)
+	# the burst out of the grass, then the blades parting along its way (a short trail)
+	if float(e.t) < 0.4: extra.append(Vector4(from.x, from.z, 0.9, 1.0 - float(e.t) / 0.4))
+	if in_grass and ul < 0.97:
+		extra.append(Vector4(node.position.x, node.position.z, 0.65, 1.0))
+		var tr: Array = e.get("trail", [])
+		tr.push_front([node.position, 0.0])
+		for q in tr: q[1] = float(q[1]) + dt
+		e.trail = tr.filter(func(q): return float(q[1]) < 0.5).slice(0, 6)
+		for i in range(1, (e.trail as Array).size(), 2):
+			var q: Array = e.trail[i]
+			extra.append(Vector4(q[0].x, q[0].z, 0.55, 0.8 * (1.0 - float(q[1]) / 0.5)))
+	# its feet: a patter, louder in the grass
+	e.trail_d = float(e.trail_d) + Vector2(mv.x, mv.z).length()
+	if float(e.trail_d) > 0.9 and ul < 0.95:
+		e.trail_d = 0.0
+		Sfx.play("step_tallgrass_run" if in_grass else "patter_small", node.position, {"vol": -10.0, "dist": 24.0})
+		if in_grass and _rng.randf() < 0.25: _feather(node.position + Vector3(0, 0.5, 0), true)
+	_grab_window(e, dt, d, 0.0, "It ran off toward %s. Follow the rustling and your compass." % _kind_text(String(P.kind)))
 	if u >= 1.0:
-		if bool(e.get("gone", false)):
-			_remove(e); return
-		# landed: hiding again, warier now
-		e.state = "hidden"
-		e.kind = "grass" if String(P.kind) in ["tall_grass", "open"] else String(P.kind)
-		e.wary = true
-		e.alert = 0.3
-		e.t = 0.0
-		e.burst_t = 0.8
-		e.mash = 0.0
-		e.patch = (e.source as WildSource).patch_of(node.position) if e.source else -1
-		e.fph = ""
-		e.pose = ""
-		node.set("fly_height", 0.0)
-		print("wild: %s hides again in a %s at %s" % [e.species, P.kind, str(node.position)])
+		e.trail = []
+		_landed(e)
 
 func _kind_text(k: String) -> String:
 	return {"tall_grass": "another patch of tall grass", "bush": "a bush", "tree": "a tree"}.get(k, "the open")
@@ -634,6 +768,8 @@ func _start_battle(e: Dictionary, state: String, first: String) -> void:
 	var node: Node3D = e.node
 	var opts := {"species": String(e.species), "creature": node, "at": node.position, "temper": String(e.temper),
 		"state": state, "where": "tall_grass" if String(e.kind) in ["grass", "tall_grass"] else String(e.kind), "first_strike": first}
+	# a hunt's: its level, and Ash alone or with his party (arena_hunt.gd battle_opts)
+	if bool(e.get("hunt", false)) and hunt: opts.merge(hunt.battle_opts(e), true)
 	var B := _battle_script()
 	var r = B.call("start", game, opts)
 	_battle_src = null
@@ -669,13 +805,21 @@ func _on_battle_finished(result: Dictionary) -> void:
 		var gp := node.global_position
 		node.get_parent().remove_child(node); cast.add_child(node); node.global_position = gp
 	node.position.y = game.world.height_at(node.position.x, node.position.z)
+	# a hunt's: beaten by his Pokémon it is out of the field (the rest as on Route 1)
+	if bool(e.get("hunt", false)) and out == "ash_won" and String(result.get("pkmn_outcome", "")) == "won":
+		out = "defeated"
+	if bool(e.get("hunt", false)) and hunt: hunt.on_result(e, out)
 	match out:
+		"defeated":
+			# (it lies a moment where it fell, then it's gone)
+			e.state = "out"; e.t = 0.0; e.shown = true
+			node.mood("faint")
 		"fled", "ash_won":
 			var zone := _safe_zone(e)
 			_fly_to(e, zone.at, String(zone.kind), true)
 			e.state = "flying"; e.told = false
 			node.mood("takeoff")
-			toaster.push("step", _name(e).to_upper() + " FLED!", "It flew off toward %s. You can track it." % _kind_text(String(zone.kind)), "bang", 3.0)
+			toaster.push("step", _name(e).to_upper() + " FLED!", "It %s off toward %s. You can track it." % ["flew" if bool(e.get("flies", true)) else "ran", _kind_text(String(zone.kind))], "bang", 3.0)
 		"disengaged":
 			e.state = "leaving"; e.t = 0.0
 			e.dir = Vector3(node.position.x - game.pos.x, 0, node.position.z - game.pos.z).normalized()
@@ -689,8 +833,10 @@ func _on_battle_finished(result: Dictionary) -> void:
 
 func _remove(e: Dictionary) -> void:
 	if is_instance_valid(e.node): (e.node as Node).queue_free()
+	var had := encs.has(e)
 	encs.erase(e)
 	cooldown = maxf(cooldown, float(brain.t("cooldown_s", 15.0)) * 0.5)
+	if had and bool(e.get("hunt", false)) and hunt: hunt.on_removed(e)
 
 func clear() -> void:
 	for e in encs.duplicate(): _remove(e)
