@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Avatars</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}canvas{display:block}</style></head>
+<body><script type="module">
+// Preview of the town's people: the whole cast in a row, Ash close up from the
+// front and at 3/4, and Ash walking and running. ?pose=walk|run|jump&t=.. shows
+// one big Ash in that pose; ?look=oak picks another look, &zoom frames the head.
+// ?gait=walk|run|<m/s> (&v=m/s) runs Ash past a side camera at that speed over a
+// marked floor; window.gait.step(dt) advances it, .feet() gives the ankles and toes
+// in the world, .render() draws (for checking stride and planted feet).
+// ?base=calem shows the Ash made on the Calem base (web/world/local/ash.glb):
+// front, 3/4, back, side, walking, running, jumping and a head close-up.
+// ?base=cast shows the other people, made from the same base (cast.js): a row
+// each, front, 3/4, side, back, walking and the face (&who=delia,tom picks some). ?base=proc keeps every look procedural.
+import * as THREE from 'three';
+import { makeActor, LOOKS, calemReady } from './actor.js';
+import { buildSky } from './nature.js';
+const q = new URLSearchParams(location.search);
+const calem = q.get('base') !== 'proc' && await Promise.race([calemReady(), new Promise((r) => setTimeout(() => r(false), 20000))]);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+const sunDir = new THREE.Vector3(-0.6, 0.7, 0.5).normalize();
+scene.add(buildSky(sunDir)); scene.fog = new THREE.Fog('#cfe2e8', 40, 200);
+scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.2));
+const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(40); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 100 }); sun.shadow.bias = -0.0005; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
+ground.receiveShadow = true; scene.add(ground);
+// people made on the base model swap it in when it (and their variant) is ready,
+// so they are posed once that has happened
+const all = [];
+const put = (look, x, z, yaw = 0, speed = 0, t = 1.3, air = false) => {
+  const a = makeActor(look); a.root.position.set(x, 0, z); a.root.rotation.y = yaw; scene.add(a.root);
+  all.push({ a, look, speed, t, air }); return a;
+};
+const W = innerWidth, H = innerHeight;
+const cam = (fov, p, l, asp) => { const c = new THREE.PerspectiveCamera(fov, asp, 0.05, 2000); c.position.set(...p); c.lookAt(...l); return c; };
+const views = [];   // [camera, x, y, w, h] in pixels from the bottom left
+const CAST = q.get('who') ? q.get('who').split(',') : ['girl', 'fisher', 'kid', 'oak', 'delia', 'rose', 'bram', 'ada', 'mae', 'marina', 'ben', 'tom', 'gus'];
+if (q.has('gait')) {
+  const g = q.get('gait'), v = +(q.get('v') || { walk: 4.75, run: 8.5 }[g] || g);
+  // a floor marked every half metre
+  for (let i = -20; i <= 400; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.015, i % 2 ? 0.06 : 0.14, 0.01), new THREE.MeshBasicMaterial({ color: i % 10 ? '#2e4a22' : '#c23b2a' }));
+    m.position.set(i * 0.5, i % 2 ? 0.03 : 0.07, -0.6); scene.add(m);
+  }
+  scene.background = new THREE.Color('#cfe2e8');
+  const a = makeActor(LOOKS.red); a.root.rotation.y = Math.PI / 2; scene.add(a.root);
+  const c = new THREE.OrthographicCamera(-1.8 * W / H, 1.8 * W / H, 1.8, -1.8, 0.1, 100);
+  views.push([c, 0, 0, W, H]);
+  const bones = {}, wp = (o) => o.getWorldPosition(new THREE.Vector3());
+  let t = 0;
+  window.gait = {
+    v,
+    step(dt, n = 1) { for (let i = 0; i < n; i++) { t += dt; a.root.position.x += v * dt; a.animate(dt, v, false, t); } a.root.updateMatrixWorld(true); },
+    feet() {
+      if (!bones.LFoot) a.root.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+      return { x: a.root.position.x, f: ['LFoot', 'LToe', 'RFoot', 'RToe'].map((n) => bones[n] && wp(bones[n]).toArray()) };
+    },
+    render(fx) { c.position.set(fx ?? a.root.position.x, 0.75, 8); c.lookAt(c.position.x, 0.75, 0); r.render(scene, c); },
+  };
+} else if (q.get('base') === 'calem') {
+  // the Calem-based Ash: 4 turns standing, then walk, run, jump and the face
+  const yaws = [0, 0.75, Math.PI, Math.PI / 2], n = 8, w = Math.floor(W / 4), h2 = Math.floor(H / 2);
+  yaws.forEach((y, i) => put(LOOKS.red, i * 6, 0, y, 0, 1.3));
+  put(LOOKS.red, 24, 0, 1.2, 4.5, 0.45); put(LOOKS.red, 30, 0, 1.2, 8.5, 0.6); put(LOOKS.red, 36, 0, 0.5, 0, 0.3, true);
+  const head = put(LOOKS.red, 42, 0, 0.35, 0, 1.3);
+  for (let i = 0; i < n; i++) {
+    const x = i * 6, top = i < 4, vx = (i % 4) * w, vy = top ? h2 : 0;
+    const c = i === 7 ? cam(13, [x, 1.38, 3.0], [x, 1.3, 0], w / h2) : cam(24, [x, 0.9, 4.2], [x, 0.78, 0], w / h2);
+    views.push([c, vx, vy, w, h2]);
+  }
+} else if (q.get('base') === 'cast') {
+  // a row per person: front, 3/4, side, back, walking, the face
+  const cols = 6, w = Math.floor(W / cols), h = Math.floor(H / CAST.length);
+  const H_ = { girl: 1.5, fisher: 1.86, kid: 1.35, oak: 1.88, delia: 1.8, rose: 1.78, bram: 1.92, ada: 1.76, mae: 1.5, marina: 1.77, ben: 1.86, tom: 1.8, gus: 1.86, jenny: 1.86 };
+  CAST.forEach((k, row) => {
+    const z = row * 8, hh = H_[k], vy = H - (row + 1) * h;
+    [0, 0.75, Math.PI / 2, Math.PI].forEach((y, i) => put(LOOKS[k], i * 6, z, y));
+    put(LOOKS[k], 24, z, 1.3, 1.6, 0.4); put(LOOKS[k], 30, z, 0.35);
+    for (let i = 0; i < cols; i++) {
+      const x = i * 6, c = i === 5 ? cam(11, [x + 0.3, hh - 0.1, z + 2.6], [x, hh - 0.14, z], w / h) : cam(26, [x, hh * 0.55, z + 4.6], [x, hh * 0.5, z], w / h);
+      views.push([c, i * w, vy, i === cols - 1 ? W - i * w : w, h]);
+    }
+  });
+} else if (q.has('pose')) {
+  const pose = q.get('pose'), t = +(q.get('t') || 0.4), sp = { walk: 4.5, run: 8.5, jump: 0, idle: 0 }[pose] ?? 0;
+  const look = { ...LOOKS[q.get('look') || 'red'] }; if (q.has('hair')) look.hair = '#' + q.get('hair');
+  const a = put(look, 0, 0, +(q.get('yaw') || 0.6), sp, t, pose === 'jump');
+  views.push(q.has('zoom') ? [null, 0, 0, W, H, a] : [cam(26, [0, 1.1, 5.2], [0, 0.85, 0], W / H), 0, 0, W, H]);
+} else {
+  const names = Object.keys(LOOKS).filter((k) => k !== 'ash');
+  names.forEach((k, i) => put(LOOKS[k], (i - (names.length - 1) / 2) * 1.05, 0, 0.25));
+  put(LOOKS.red, 12, 0, 0); put(LOOKS.red, 18, 0, 0.75);
+  put(LOOKS.red, -12, 0, 1.2, 4.5, 0.45); put(LOOKS.red, -18, 0, 1.2, 8.5, 0.6);
+  const hh = Math.floor(H * 0.5), qw = Math.floor(W / 4);
+  views.push([cam(30, [0, 1.25, 7.6], [0, 0.95, 0], W / hh), 0, hh, W, H - hh]);
+  views.push([cam(16, [12, 1.45, 3.0], [12, 1.22, 0], qw / hh), 0, 0, qw, hh]);
+  views.push([cam(16, [18, 1.45, 3.0], [18, 1.22, 0], qw / hh), qw, 0, qw, hh]);
+  views.push([cam(26, [-12, 1.0, 4.4], [-12, 0.85, 0], qw / hh), qw * 2, 0, qw, hh]);
+  views.push([cam(26, [-18, 1.0, 4.4], [-18, 0.85, 0], qw / hh), qw * 3, 0, W - qw * 3, hh]);
+}
+if (calem) {
+  const t0 = performance.now();
+  while (all.some(({ a, look }) => look.base === 'calem' && !a.model) && performance.now() - t0 < 20000) await new Promise((res) => setTimeout(res, 50));
+}
+for (const { a, speed, t, air } of all) a.animate(t, speed, air, t);
+// a head close-up frames the head where it ended up
+for (const v of views) if (!v[0]) { const hy = v[5].head.getWorldPosition(new THREE.Vector3()).y; v[0] = cam(14, [0, hy + 0.3, 3], [0, hy, 0], W / H); }
+r.setScissorTest(true);
+if (!q.has('gait')) for (const [c, x, y, w, h] of views) { r.setViewport(x, y, w, h); r.setScissor(x, y, w, h); r.render(scene, c); }
+else { r.setViewport(0, 0, W, H); r.setScissor(0, 0, W, H); }
+window.ready = true; window.calem = calem;
+</script></body></html>
