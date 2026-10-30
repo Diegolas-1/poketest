@@ -229,6 +229,7 @@ func spawn(id: String, src: WildSource, spot: Vector3, temper: String, tutorial 
 	spot.y = game.world.height_at(spot.x, spot.z)
 	var node := make_creature(id)
 	cast.add_child(node)
+	node.set("track_tag", "wild:%s:%d" % [id, node.get_instance_id()])   # (its prints fresh and trackable: footprints.gd)
 	node.position = spot
 	node.rotation.y = _rng.randf() * TAU
 	var e := {"species": id, "temper": temper, "source": src, "kind": src.tells if src else "grass", "at": spot, "node": node,
