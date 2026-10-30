@@ -70,6 +70,7 @@ var fader: ColorRect
 var music: Node          # music.gd
 var sfx: Sfx             # sfx.gd: the sound effects library and players
 var sfx_world: Node      # sfx_world.gd: the town's footsteps, ambience, doors
+var footprints: Node3D   # footprints.gd: the prints left on soft ground
 var island: CanvasLayer  # island.gd
 var cam_boom := 7.5      # indoors: the camera's distance, shortened at once by walls, lengthened slowly
 var cam_shake := 0.0     # a knock (the bike into a wall): eases out
@@ -113,6 +114,9 @@ func _ready() -> void:
 	sfx_world.name = "SfxWorld"
 	add_child(sfx_world)
 	sfx_world.setup(self)
+	footprints = preload("res://footprints.gd").new()   # prints in sand, dirt, mud and clay (footprints.gd)
+	add_child(footprints)
+	footprints.setup(self)
 	island = preload("res://island.gd").new()   # the Dynamic Island's compass, menu and satellites (island.gd)
 	island.name = "Island"
 	island.main = self

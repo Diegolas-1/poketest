@@ -342,7 +342,9 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var half := int(phase * 2.0)
 	if half != _half:
 		_half = half
-		if speed > 0.3 and not air: steps += 1
+		if speed > 0.3 and not air:
+			steps += 1
+			Footprints.person(self, half)   # (a print where the foot comes down, on soft ground)
 	idle_t = fmod(idle_t + dt, float(anims.idle.length))
 	var times := {"idle": idle_t, "walk": fmod(phase + float(meta.walk.lead), 1.0) * dW, "run": fmod(phase + float(meta.run.lead), 1.0) * dR}
 	# blended clip pose (weights add to one; a clip without a track holds the rest pose)

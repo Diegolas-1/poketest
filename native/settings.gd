@@ -60,7 +60,7 @@ const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "inv
 	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
-	"wild_peek": "hidden",
+	"wild_peek": "hidden", "footprints": 1,
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
@@ -97,6 +97,7 @@ const ROWS := {
 		["plants", "Bushes and flowers", [0.25, 0.5, 0.75, 1.0, 1.25, 1.5], ""],
 		["fog", "Haze distance", [0.6, 0.8, 1.0, 1.25, 1.5, 2.0], ""],
 		["wild_peek", "Pokémon in the grass", ["hidden", "peek"], "a wild Pokémon hiding in tall grass: only the grass gives it away, or it peeks out"],
+		["footprints", "Footprints", [0, 1], "tracks left in sand, dirt and mud; follow a fleeing Pokémon's"],
 	],
 	"Controls": [
 		["face", "Face buttons", ["nintendo", "xbox"], "Switch / GameCube pads: A right"],

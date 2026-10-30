@@ -47,6 +47,8 @@ var footfalls := 0
 var pecks := 0
 var hops := 0
 var rng := RandomNumberGenerator.new()
+# footprints.gd: set (to who it is) on a wild one, its prints are a fresh, trackable trail
+var track_tag := ""
 var _tg := {}                        # bone -> global basis wanted this frame
 var _tl := {}                        # bone -> local rotation this frame
 var _tp := {}                        # bone -> local position this frame
@@ -207,6 +209,7 @@ func animate(dt: float, speed: float) -> void:
 	_tg.clear(); _tl.clear(); _tp.clear()
 	_pose(dt, speed)
 	apply()
+	Footprints.creature(self)   # (its prints on soft ground)
 
 func b(n: String) -> int: return bones.get(n, -1)
 
