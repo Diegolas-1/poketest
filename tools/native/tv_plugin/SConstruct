@@ -13,11 +13,8 @@ env = SConscript(os.path.join(cpp, "SConstruct"))
 env.Append(CPPPATH=["src"])
 sources = ["src/pallet_tv.cpp"]
 if env["platform"] == "ios":
-    objc = env.Clone()
-    # ARC, and modules so the frameworks it uses (AVKit, Metal, ...) are linked
-    # by the app without any change to the Xcode project
-    objc.Append(CCFLAGS=["-fobjc-arc", "-fmodules"])
-    sources.append(objc.Object("src/tv_ios.m"))
+    # (tv_ios.m is built by build_ios.sh on its own: with godot-cpp's include paths
+    # the SDK's modules refuse to build)
     lib = env.StaticLibrary("bin/libpallet_tv{}{}".format(env["suffix"], env["LIBSUFFIX"]), sources)
 else:
     sources.append("src/tv_stub.c")
