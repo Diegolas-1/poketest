@@ -178,9 +178,20 @@ func ground_at(p: Vector3) -> String:
 	if s == "sand" and W.height_at(p.x, p.z) < W.sea_y + 0.3: return "mud"
 	return s
 
+# the ground's height, smooth: height_at's own keeps a step (stairs, a deck edge) sharp,
+# which on a steep path is a staircase the ground's triangles run above
 func _height(x: float, z: float) -> float:
 	var W = game.get("world") if game else null
-	return W.height_at(x, z) if W else 0.0
+	if W == null: return 0.0
+	if not W is WorldData or W.gnx < 2: return W.height_at(x, z)
+	var fx: float = (x - W.gx0) / W.gres - 0.5
+	var fz: float = (z - W.gz0) / W.gres - 0.5
+	var i := clampi(floori(fx), 0, W.gnx - 2)
+	var j := clampi(floori(fz), 0, W.gnz - 2)
+	var tx := clampf(fx - i, 0.0, 1.0)
+	var tz := clampf(fz - j, 0.0, 1.0)
+	var k: int = j * W.gnx + i
+	return lerpf(lerpf(W._h(k), W._h(k + 1), tx), lerpf(W._h(k + W.gnx), W._h(k + W.gnx + 1), tx), tz)
 
 # ---------- laying prints ----------
 # one print at pos (its ground point) facing yaw (+z = 0), kind (KINDS), side +1

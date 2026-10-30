@@ -1,10 +1,13 @@
 extends Node
 # Dev only: footprints (footprints.gd) in the game, for renders.
-#   godot --path native res://dev/footprint_shot.tscn -- --case=beach|path|arena|fade|track [--frames=DIR --every=n] [--quit-at=s]
+#   godot --path native res://dev/footprint_shot.tscn -- --case=beach|kinds|path|arena|fade|track [--frames=DIR --every=n] [--quit-at=s]
 #   beach   Ash walks along the beach with Pikachu, Pidgey, Ponyta, Ekans, Psyduck
 #           and Grimer beside him (paw, bird, hoof, slither, webbed, slime); then a
 #           look down the trails
+#   kinds   eight Pokémon side by side in labelled lanes on the sand, seen from
+#           above, then close
 #   path    Ash on a dirt path (Route 1's, north of town), the game camera
+#           (--probe: the ground's triangles against the prints' height there)
 #   arena   into the Battle Arena: down the path and across the clay, a Growlithe
 #           running the field
 #   fade    a trail on the sand, its time run fast: fresh, fading, gone
@@ -142,9 +145,34 @@ func _path() -> void:
 		walk = true; walk_v = 0.8
 	lbl.text = "Footprints: Ash on a dirt path  t %.1f s  prints %d" % [t, Footprints.I.live()]
 	if t > 9.0: walk = false
+	if A.has("probe") and t > 9.4 and _once("probe"):
+		# the ground's triangles against the prints' height, round where he stands
+		var fp: Footprints = Footprints.I
+		var worst := 0.0
+		var n := 0
+		for mi in main.terrain_root.find_children("*", "MeshInstance3D", true, false):
+			var arr: Array = (mi as MeshInstance3D).mesh.surface_get_arrays(0)
+			var xf: Transform3D = (mi as MeshInstance3D).global_transform
+			for v: Vector3 in arr[Mesh.ARRAY_VERTEX]:
+				var w := xf * v
+				if absf(w.x - main.pos.x) > 6.0 or absf(w.z - main.pos.z) > 12.0: continue
+				var dh := w.y - fp._height(w.x, w.z)
+				n += 1
+				if absf(dh) > absf(worst): worst = dh
+		var tr: Array = Footprints.trail_near(main.pos, 15.0).get("ash", [])
+		var near_v := []
+		for mi in main.terrain_root.find_children("*", "MeshInstance3D", true, false):
+			var arr2: Array = (mi as MeshInstance3D).mesh.surface_get_arrays(0)
+			var xf2: Transform3D = (mi as MeshInstance3D).global_transform
+			for v: Vector3 in arr2[Mesh.ARRAY_VERTEX]:
+				var w := xf2 * v
+				for pr in tr:
+					if Vector2(w.x - pr.pos.x, w.z - pr.pos.z).length() < 1.0: near_v.append(snappedf(w.y - fp._height(w.x, w.z), 0.01)); break
+		print("probe: by the prints, mesh - height: ", near_v)
+		print("probe: %d ground verts, worst mesh - height %.3f; ash prints near %d, first %s, ash at %s" % [n, worst, tr.size(), str(tr[0].pos) if tr.size() > 0 else "-", str(main.pos)])
 	if t > 9.5 and _once("hold"):
 		var p: Vector3 = main.pos
-		hold_cam = {"from": p + Vector3(1.6, 2.4, -2.2), "at": p + Vector3(0, 0, 3.5)}
+		hold_cam = {"from": p + Vector3(1.2, 1.7, -0.6), "at": p + Vector3(-0.2, 0, 3.0)}
 
 func _arena() -> void:
 	if frame == 8 and _once("enter"): BattleArena.enter(main, true)

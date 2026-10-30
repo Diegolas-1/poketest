@@ -201,6 +201,19 @@ func _ready() -> void:
 		var dz := absf(ap[0].pos.z - ap[2].pos.z)
 		_check(dz > 1.0 and dz < 2.4, "a stride between two prints of a foot (%.2f m)" % dz)
 		_check(String(ap[0].kind) == "sneaker", "Ash's sneakers")
+	# a slow walk at 15 fps: still a print for each foot, left and right of his line
+	fp.clear()
+	var z0 := 0.0
+	for i in 150:
+		z0 += 2.5 / 15.0
+		a.position = sq + Vector3(0, 0, -6.0 + z0)
+		a.animate(1.0 / 15.0, 2.5, false)
+	var sl: Array = Footprints.trail_near(sq, 30.0).get("person:%d" % a.get_instance_id(), [])
+	var lefts := sl.filter(func(p): return p.pos.x > sq.x).size()
+	var rights := sl.size() - lefts
+	var gaps := []
+	for k in range(1, mini(8, sl.size())): gaps.append(snappedf(absf(sl[k - 1].pos.z - sl[k].pos.z), 0.01))
+	_check(sl.size() > 10 and absi(lefts - rights) <= 2, "slow walk: both feet (%d left, %d right, gaps %s)" % [lefts, rights, str(gaps)])
 	# ---- the setting ----
 	fp._on_setting("footprints", 0)
 	_check(not Footprints.step(sq, 0.0, "paw", 1, 0.1) and fp.used == 0, "off: none, and the old ones gone")

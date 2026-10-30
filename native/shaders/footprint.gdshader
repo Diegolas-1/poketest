@@ -1,14 +1,16 @@
 shader_type spatial;
 // footprints.gd: one print per instance of a flat quad laid on the ground. The
-// ground under it is multiplied darker by the print's depth (fx/footprints.png,
+// ground under it is darkened by the print's depth (fx/footprints.png,
 // one cell per kind), so it reads on any ground in any light. INSTANCE_CUSTOM:
 // x the cell (+ 16 for a mirrored, right foot), y its birth (s, mod 1024: the
 // shader's clock), z its life (s; 0 = gone), w its strength (how dark).
-render_mode unshaded, blend_mul, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+render_mode unshaded, blend_premul_alpha, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
 
 uniform sampler2D atlas : hint_default_white, filter_linear_mipmap, repeat_disable;
 uniform float now = 0.0;          // seconds, mod 1024
-uniform vec3 tint = vec3(0.27, 0.2, 0.15);   // the colour of the deepest part (multiplied in)
+// black over the ground by alpha (premultiplied): a pure darkening, the same on GL and
+// on the Mobile renderer (whose colour buffer is scaled, which a multiply blend is not)
+uniform float darkest = 0.9;    // how much of the ground's light the deepest part takes
 uniform float far_fade = 46.0;    // m from the camera where they are gone
 
 varying vec2 cuv;
@@ -46,5 +48,6 @@ void vertex() {
 
 void fragment() {
 	float k = texture(atlas, cuv).r * amt;
-	ALBEDO = mix(vec3(1.0), tint, clamp(k, 0.0, 1.0));
+	ALBEDO = vec3(0.0);
+	ALPHA = clamp(k, 0.0, 1.0) * darkest;
 }
