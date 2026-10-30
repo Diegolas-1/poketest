@@ -26,7 +26,7 @@ extends Node
 #                      in), intercept (Pikachu and Bulbasaur out cut off two Beedrill),
 #                      swarm (four Beedrill against his two, two at a time), run (RUN: away,
 #                      it chases a little way); --region=forest: up the forest's trail, the
-#                      bush by it (as the REGIONS page's AMBUSH)
+#                      bush by it (as the REGIONS page's AMBUSH); --amb-yaw=r: the camera this far round from behind him (0.65)
 #   --shot=PATH --shot-at=s     one still at s seconds, then quit
 #   --frames=DIR --every=n      the whole viewport every n-th frame (with --fixed-fps 15)
 #   --stats [--stats-every=n]   draw calls, triangles and objects every n frames (15)
@@ -518,7 +518,7 @@ func _ambush(ar: BattleArena) -> void:
 		var want_yaw: float = main.yaw + PI + (-0.8 if act == "follow" else 0.7)
 		if st in ["strike", "standoff", "intercept", "throw", "menu", "chase", "dash"] and not Am.cur.is_empty():
 			var lp: Vector3 = (Am._lead().node as Node3D).position
-			want_yaw = atan2(main.pos.x - lp.x, main.pos.z - lp.z) + 0.65
+			want_yaw = atan2(main.pos.x - lp.x, main.pos.z - lp.z) + float(A.get("amb-yaw", "0.65"))
 		main.cam_yaw = lerp_angle(main.cam_yaw, want_yaw, 0.06)
 		main.cam_idle = 0.0
 		main.cam_pitch = lerpf(main.cam_pitch, 0.38, 0.05)
