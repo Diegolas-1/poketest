@@ -38,6 +38,10 @@ func _process(dt: float) -> void:
 	if frame == 3:
 		main.cast.clock.real = false; main.cast.clock.ff = 1.0; main.cast.clock.set_time(float(A.get("hour", "10.5")))
 	if A.has("trainer"):
+		# Route 1's first patch of grass (dev/battle_dev.gd's spot)
+		if frame < 20:
+			main.pos = Vector3(-13.0, main.world.height_at(-13.0, -95.0), -95.0)
+			main.cast.land(main.pos.y)
 		if frame == 20 and _once("run"):
 			var st := PkmnStore.new("")
 			st.unlimited = true

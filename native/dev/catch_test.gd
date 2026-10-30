@@ -97,7 +97,7 @@ func _wobbles() -> void:
 	ok(CatchRules.break_line(3, "X") == "Shoot! It was so close too!", "three shakes: the games' line")
 	ok(CatchRules.break_line(1, "X") == "Darn! The Pokémon broke free!", "one shake: the games' line")
 	for k in ["blocked", "caught", "shake_0", "shake_2", "box", "party", "banner"]:
-		ok(not CatchRules.line(k).contains("—"), "no em dash in the %s line" % k)
+		ok(not CatchRules.line(k).contains(String.chr(0x2014)), "no em dash in the %s line" % k)
 
 func _dice() -> void:
 	# seeded: the same seed, the same throws
@@ -155,7 +155,7 @@ func _engine() -> void:
 	var e3 := T.throw_ball("a", "master_ball")
 	ok(e3.t == "ball_blocked" and not T.over, "a trainer blocks even a Master Ball")
 	ok(String(e3.text) == "The trainer blocked the ball! Don't be a thief!", "the trainer's line")
-	ok(not String(e3.text).contains("—"), "no em dash in it")
+	ok(not String(e3.text).contains(String.chr(0x2014)), "no em dash in it")
 	# the party layer's wild battle
 	var P := PkmnParty.new({"a": [{"species": "pikachu", "level": 20}, {"species": "squirtle", "level": 18}], "b": [{"species": "rattata", "level": 5, "ai": "wild"}], "kind": "wild", "seed": 2})
 	P.start(); P.begin_turn()

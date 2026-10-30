@@ -267,7 +267,7 @@ func _caught(nm: String, ev: Dictionary) -> void:
 	await _wait(1.2)
 	# Ash: a fist in the air
 	battle._act("fist")
-	battle.shot("ash_front", 2.5)
+	battle.shot("ash_front", 0.0)   # (a cut: a glide from the ball would pass through him)
 	ui.speak(["All right! I caught a %s!" % nm.capitalize(), "Yes! %s is mine!" % nm.capitalize(), "I did it! I caught %s!" % nm.capitalize()][randi() % 3], battle._bone("Head", 1.6) + Vector3(0, 0.35, 0), 1.8)
 	if to != "": battle.say_line(to, UITheme.SKY)
 	await _wait(0.9)
