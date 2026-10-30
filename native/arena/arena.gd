@@ -24,6 +24,16 @@ extends Node3D
 # pad's L3 / Tab, or A by the referee; arena/arena_stage.gd runs what it stages, and
 # arena/arena_hunt.gd a hunt (wild Pokémon hidden through the tall grass, wild.gd's
 # own tracking: crouch, tells, the pounce).
+#
+# The regions (arena/regions/*.gd, ArenaRegions): showcase places round the hub,
+# each through a gate in the fence with its sign over it, each its own palette
+# (arena/arena_region.gd builds it from its def) and its own life (a forest's
+# trees, hive and nest: arena/regions/forest_life.gd). The ground is one grid,
+# a mesh per region for its own floor and dirt.
+#   arena.regions                  {id: ArenaRegion}
+#   arena.life_of(id)              a region's mechanics node (or null)
+#   arena.go_region(id, done)      the wipe there (the hub: "")
+#   arena.region_now()             the region Ash is in ("" = the hub)
 
 const SUN := Vector3(-0.55, 0.75, 0.45)
 
@@ -42,6 +52,8 @@ var btn: Control               # the STAGE A BATTLE button
 var _ink_chunks: Array = []    # [{node, ink, c}]
 var hides: Array = []          # the bushes and trees inside the fence: {at, kind, r} (a fled Pokémon's cover, wild.gd)
 var hunt: Node                 # ArenaHunt (arena/arena_hunt.gd)
+var regions := {}              # id -> ArenaRegion (arena/arena_region.gd)
+var _region := ""              # the region Ash is in ("" = the hub)
 var ambush: Node               # the AMBUSH page's thickets and staged ambushes (arena/arena_ambush.gd)
 var _ink_t := 0.0
 var _saved := {}
@@ -180,6 +192,11 @@ func _build() -> void:
 	_props()
 	_people()
 	_ui()
+	for d in ArenaRegions.all():
+		var r := ArenaRegion.new()
+		add_child(r)
+		r.build(self, d)
+		regions[String(d.id)] = r
 	stage = preload("res://arena/arena_stage.gd").new()
 	stage.name = "Stage"
 	add_child(stage)
@@ -234,19 +251,42 @@ func _ground() -> void:
 			var v := 0.94 + 0.08 * sin(x * 0.17 + z * 0.09) * cos(z * 0.13 - x * 0.04) + 0.03 * sin(x * 0.7 + z * 0.5)
 			var warm := clampf(0.5 + 0.5 * sin(x * 0.05 - z * 0.08), 0.0, 1.0) * 0.06
 			cols2.append(Color(base.r * v + warm, base.g * v + warm * 0.4, base.b * v * 0.95))
-	var idx := PackedInt32Array()
+	# a region's floor: its own tint, darker under the trees, with mossy patches
+	for ri in ArenaData.RECTS.size():
+		var G: Dictionary = ArenaData.REG[ri].get("ground", {})
+		if not G.has("tint"): continue
+		var tint: Color = G.tint
+		var moss: Color = G.get("moss", tint)
+		for j in N + 1:
+			for i in N + 1:
+				var x := -H + i * STEP
+				var z := -H + j * STEP
+				var wgt := clampf(ArenaData.region_in(ri, x, z) / 6.0, 0.0, 1.0)
+				if wgt <= 0.0: continue
+				var v := 0.9 + 0.1 * sin(x * 0.21 + z * 0.13) * cos(z * 0.17 - x * 0.06)
+				var mk := clampf(0.5 + 0.9 * sin(x * 0.13 + 1.1) * sin(z * 0.11 - 0.6), 0.0, 1.0)
+				var k := j * (N + 1) + i
+				cols2[k] = cols2[k].lerp(tint.lerp(moss, mk) * v, wgt)
+	# the triangles: each to the mesh of the region its middle is in (the hub's the rest)
+	var idx_of := {"": PackedInt32Array()}
 	for j in N:
 		for i in N:
 			var a := j * (N + 1) + i
-			idx.append_array([a, a + 1, a + N + 1, a + 1, a + N + 2, a + N + 1])
-	var arrs := []
-	arrs.resize(Mesh.ARRAY_MAX)
-	arrs[Mesh.ARRAY_VERTEX] = verts
-	arrs[Mesh.ARRAY_NORMAL] = nrms
-	arrs[Mesh.ARRAY_COLOR] = cols2
-	arrs[Mesh.ARRAY_INDEX] = idx
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrs)
+			var rid := ArenaData.region_at(-H + (i + 0.5) * STEP, -H + (j + 0.5) * STEP)
+			if not idx_of.has(rid): idx_of[rid] = PackedInt32Array()
+			idx_of[rid].append_array([a, a + 1, a + N + 1, a + 1, a + N + 2, a + N + 1])
+	for rid in idx_of:
+		var arrs := []
+		arrs.resize(Mesh.ARRAY_MAX)
+		arrs[Mesh.ARRAY_VERTEX] = verts
+		arrs[Mesh.ARRAY_NORMAL] = nrms
+		arrs[Mesh.ARRAY_COLOR] = cols2
+		arrs[Mesh.ARRAY_INDEX] = idx_of[rid]
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrs)
+		_ground_mesh(mesh, String(rid))
+
+func _ground_mesh(mesh: ArrayMesh, rid: String) -> void:
 	var mat: ShaderMaterial = game.terrain_mat.duplicate()
 	mat.set_shader_parameter("path_map", data.path_tex)
 	mat.set_shader_parameter("pm_origin", data.pm_origin)
@@ -256,8 +296,12 @@ func _ground() -> void:
 	mat.set_shader_parameter("d_light", Color(0.86, 0.69, 0.5))
 	mat.set_shader_parameter("d_edge", Color(0.7, 0.52, 0.36))
 	mat.set_shader_parameter("d_pale", Color(0.86, 0.75, 0.58))
+	if rid != "":
+		# a region's dirt: its own palette (a forest's dark soil)
+		var dd: Dictionary = ArenaRegions.get_def(rid).get("ground", {}).get("dirt", {})
+		for k in dd: mat.set_shader_parameter(k, dd[k])
 	var gm := MeshInstance3D.new()
-	gm.name = "Ground"
+	gm.name = "Ground" if rid == "" else "Ground_" + rid
 	gm.mesh = mesh
 	gm.material_override = mat
 	gm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -307,8 +351,9 @@ func _chalk() -> void:
 	add_child(mi)
 
 # ---------- trees and bushes: the baked plants' meshes, placed here ----------
-func _veg_sets() -> Dictionary:
-	var out := {"tree": [], "bush": []}
+func _veg_sets(kinds := ["tree", "bush"]) -> Dictionary:
+	var out := {}
+	for k in kinds: out[k] = []
 	var veg: Node = game.scenery.veg if game.scenery else null
 	if veg == null: return out
 	var seen := {}
@@ -316,7 +361,7 @@ func _veg_sets() -> Dictionary:
 		var nm := String(h.name)
 		var kind := nm.get_slice("_", 0)
 		var si := nm.get_slice("_", 1)
-		if not kind in ["tree", "bush"] or seen.has(kind + si): continue
+		if not kind in kinds or seen.has(kind + si): continue
 		seen[kind + si] = true
 		var parts := []
 		var b0 := Basis()
@@ -335,7 +380,7 @@ func _veg_sets() -> Dictionary:
 			first = false
 			parts.append({"mesh": mmi.multimesh.mesh, "mat": mmi.material_override, "shadow": null})
 		if parts.is_empty(): continue
-		if not parts.any(func(pp): return pp.mat is ShaderMaterial and (pp.mat as ShaderMaterial).shader == preload("res://veg.gd").LEAF): continue   # (no bare winter trees)
+		if kind in ["tree", "bush"] and not parts.any(func(pp): return pp.mat is ShaderMaterial and (pp.mat as ShaderMaterial).shader == preload("res://veg.gd").LEAF): continue   # (no bare winter trees)
 		out[kind].append({"parts": parts, "scale": b0.get_scale(), "h": box.size.y, "w": maxf(box.size.x, box.size.z), "name": nm})
 	return out
 
@@ -356,6 +401,7 @@ func _plants() -> void:
 		if not place.has(key): place[key] = {"set": list[k], "xf": []}
 		var s: Dictionary = list[k]
 		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(s.scale * sc)
+		if _blocked(x, z): return
 		place[key].xf.append(Transform3D(b, w(x, z) - Vector3(0, 0.05, 0)))
 		if r > 0.0:
 			data.add_circle(x, z, r)
@@ -394,14 +440,35 @@ func _plants() -> void:
 		var p: Vector2 = [Vector2(u, -e), Vector2(e, u), Vector2(u, e), Vector2(-e, u)][side]
 		if side == 2 and absf(u) < 5.0: continue
 		add.call(bushes, p.x, p.y, rng.randf_range(0.9, 1.3), 0.7)
-	# the multimeshes, in 32 m chunks (ink switched on only near the camera)
+	_plant_chunks(place, Vector2(150.0, 160.0))
+
+# the hub's trees and bushes keep off the regions and the ways to their gates
+func _blocked(x: float, z: float) -> bool:
+	for rc in ArenaData.RECTS:
+		if (rc as Rect2).grow(1.5).has_point(Vector2(x, z)): return true
+	for r in ArenaData.REG:
+		var lk: Array = r.get("link", [])
+		for i in range(lk.size() - 1):
+			var a := Vector2(lk[i][0], lk[i][1]); var b := Vector2(lk[i + 1][0], lk[i + 1][1])
+			var ab := b - a
+			var h := clampf((Vector2(x, z) - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+			if (Vector2(x, z) - (a + ab * h)).length() < 3.2: return true
+	return false
+
+# the multimeshes of baked plants placed ({key: {set, xf}}), in chunks (ink switched on
+# only near the camera); fade: where each plant dithers out; vis: a chunk's range (0: none).
+# Gives each copy's instances by where it stands ({Vector3i(origin * 20): [[multimesh, i]...]}:
+# a region's life shakes a tree by its instances)
+# tint: {"bark": Color, "leaf": Color} (a region's own: a forest's darker trunks and leaves)
+func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tint := {}) -> Dictionary:
+	var handles := {}
 	var ink = get_node_or_null("/root/Ink")
 	for key in place:
 		var s: Dictionary = place[key].set
 		var all: Array = place[key].xf
 		var bins := {}
 		for xf in all:
-			var ck := Vector2i(floori(xf.origin.x / 32.0), floori(xf.origin.z / 32.0))
+			var ck := Vector2i(floori(xf.origin.x / cs), floori(xf.origin.z / cs))
 			if not bins.has(ck): bins[ck] = []
 			bins[ck].append(xf)
 		for ck in bins:
@@ -411,38 +478,50 @@ func _plants() -> void:
 			c /= xs.size()
 			for part in s.parts:
 				var mat: ShaderMaterial = (part.mat as ShaderMaterial).duplicate()
-				mat.set_shader_parameter("fade", Vector2(150.0, 160.0))
+				mat.set_shader_parameter("fade", fade)
+				if not tint.is_empty():
+					if mat.shader == preload("res://veg.gd").LEAF and tint.has("leaf"): mat.set_shader_parameter("tint", (mat.get_shader_parameter("tint") as Color) * (tint.leaf as Color))
+					elif mat.shader == preload("res://veg.gd").SOLID and tint.has("bark") and bool(mat.get_shader_parameter("use_tex")): mat.set_shader_parameter("color", (mat.get_shader_parameter("color") as Color) * (tint.bark as Color))
 				var mm := MultiMesh.new()
 				mm.transform_format = MultiMesh.TRANSFORM_3D
 				mm.mesh = part.mesh
 				mm.instance_count = xs.size()
-				for j in xs.size(): mm.set_instance_transform(j, Transform3D(xs[j].basis, xs[j].origin - c))
+				for j in xs.size():
+					mm.set_instance_transform(j, Transform3D(xs[j].basis, xs[j].origin - c))
+					var hk := Vector3i(roundi(xs[j].origin.x * 20.0), roundi(xs[j].origin.y * 20.0), roundi(xs[j].origin.z * 20.0))
+					if not handles.has(hk): handles[hk] = []
+					handles[hk].append([mm, j])
 				var mi := MultiMeshInstance3D.new()
 				mi.multimesh = mm
 				mi.material_override = mat
 				mi.position = c
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if part.shadow != null else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+				if vis > 0.0: mi.visibility_range_end = vis
 				add_child(mi)
 				if part.shadow != null:
 					var smm := MultiMesh.new()
 					smm.transform_format = MultiMesh.TRANSFORM_3D
 					smm.mesh = part.shadow
 					smm.instance_count = xs.size()
-					for j in xs.size(): smm.set_instance_transform(j, mm.get_instance_transform(j))
+					for j in xs.size():
+						smm.set_instance_transform(j, mm.get_instance_transform(j))
+						handles[Vector3i(roundi(xs[j].origin.x * 20.0), roundi(xs[j].origin.y * 20.0), roundi(xs[j].origin.z * 20.0))].append([smm, j])
 					var sh := MultiMeshInstance3D.new()
 					sh.multimesh = smm
 					sh.material_override = mat
 					sh.position = c
 					sh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+					if vis > 0.0: sh.visibility_range_end = vis
 					add_child(sh)
 				if ink and mat.shader == preload("res://veg.gd").LEAF:
 					var im: ShaderMaterial = ink.outline_plant(mi, mm.mesh.get_aabb().get_center(), {"double_sided": true})
 					if im:
 						im.set_shader_parameter("leaf_wind", mat.get_shader_parameter("wind"))
-						im.set_shader_parameter("leaf_fade", Vector2(150.0, 160.0))
+						im.set_shader_parameter("leaf_fade", fade)
 						im.set_shader_parameter("ink_far", Vector2(28.0, 36.0))
 						_ink_chunks.append({"node": mi, "ink": im, "c": c})
 						mi.material_overlay = null
+	return handles
 
 # ---------- the fence, the gate, benches, pennants ----------
 func _toon(col: Color, two_sided := false) -> ShaderMaterial:
@@ -474,16 +553,25 @@ func _fence() -> void:
 	var rails: Array = []
 	var E := ArenaData.FENCE
 	var step := 2.6
+	# the openings: the gate (south), and each region's (sides: 0 n, 1 e, 2 s, 3 w)
+	var gaps := [[2, 0.0, 2.4]]
+	for r in ArenaData.REG:
+		var g: Dictionary = r.get("gate", {})
+		gaps.append([{"n": 0, "e": 1, "s": 2, "w": 3}.get(String(g.get("side", "n")), 0), float(g.get("u", 0.0)), float(g.get("half", 2.2)) + 0.2])
+	var gap := func(sd: int, u: float) -> bool:
+		for gg in gaps:
+			if int(gg[0]) == sd and absf(u - float(gg[1])) < float(gg[2]): return true
+		return false
 	for side in 4:
 		var n := int(E * 2.0 / step)
 		for k in n + 1:
 			var u := -E + k * step
 			var p: Vector2 = [Vector2(u, -E), Vector2(E, u), Vector2(u, E), Vector2(-E, u)][side]
-			if side == 2 and absf(u) < 2.4: continue   # the gate
+			if gap.call(side, u): continue   # a gate
 			posts.append(p)
 			if k < n:
 				var u2 := u + step
-				if side == 2 and (absf(u2) < 2.4 or absf(u) < 2.4): continue
+				if gap.call(side, u2) or gap.call(side, u): continue
 				var q: Vector2 = [Vector2(u2, -E), Vector2(E, u2), Vector2(u2, E), Vector2(-E, u2)][side]
 				rails.append([p, q])
 	var post := BoxMesh.new(); post.size = Vector3(0.14, 1.15, 0.14)
@@ -523,6 +611,37 @@ func _fence() -> void:
 		lb.outline_size = 0
 		lb.position = w(0, E) + Vector3(0, 2.64, 0.07 * f)
 		lb.rotation.y = 0.0 if f > 0 else PI
+		lb.shaded = false
+		lb.double_sided = false
+		add_child(lb)
+	for r in ArenaData.REG: _region_gate(r, wood)
+
+# a region's gate in the fence: two posts, a beam, a board with its sign (both faces)
+func _region_gate(r: Dictionary, wood: Material) -> void:
+	var g := ArenaRegions.gate_at(r, ArenaData.FENCE)
+	var o := ArenaRegions.gate_out(r)
+	var hw := float(r.get("gate", {}).get("half", 2.2)) + 0.3
+	var yaw := atan2(o.x, o.y) + PI
+	var side := Vector2(o.y, -o.x)
+	for sx in [-hw, hw]:
+		var p: Vector2 = g + side * float(sx)
+		_box(Vector3(0.24, 3.2, 0.24), w(p.x, p.y) + Vector3(0, 1.5, 0), wood, yaw)
+		data.add_circle(p.x, p.y, 0.3)
+	var top := w(g.x, g.y)
+	_box(Vector3(hw * 2.0 + 0.7, 0.24, 0.28), top + Vector3(0, 3.05, 0), wood, yaw)
+	var col: Color = r.get("board", Color("2f5d34"))
+	_box(Vector3(hw * 2.0 - 0.4, 0.62, 0.08), top + Vector3(0, 2.45, 0), _toon(col), yaw)
+	_box(Vector3(hw * 2.0 - 0.3, 0.07, 0.1), top + Vector3(0, 2.1, 0), _toon(Color("e8c25a")), yaw)
+	for f in [1.0, -1.0]:
+		var lb := Label3D.new()
+		lb.text = String(r.get("sign", String(r.name).to_upper()))
+		lb.font = UITheme.font("display")
+		lb.font_size = 88
+		lb.pixel_size = 0.0038
+		lb.modulate = Color("f6efd8")
+		lb.outline_size = 0
+		lb.position = top + Vector3(0, 2.47, 0) + Basis(Vector3.UP, yaw) * Vector3(0, 0, 0.06 * f)
+		lb.rotation.y = yaw + (0.0 if f > 0 else PI)
 		lb.shaded = false
 		lb.double_sided = false
 		add_child(lb)
@@ -578,6 +697,53 @@ func _people() -> void:
 
 func referee_spot() -> Vector3: return w(-8.9, 0.0)
 
+# ---------- the regions ----------
+func life_of(id: String) -> Node:
+	var r = regions.get(id)
+	return r.life if r else null
+
+func region_now() -> String: return _region
+
+# the wipe to a region's spawn (or the hub's: ""), then done (a staged hunt)
+func go_region(id: String, done := Callable(), instant := false) -> void:
+	var at: Vector2
+	var yaw: float
+	if id == "":
+		var sp: Array = data.meta.spawn
+		at = Vector2(sp[0] - ArenaData.C.x, sp[2] - ArenaData.C.y); yaw = float(data.meta.yaw)
+	else:
+		var d := ArenaRegions.get_def(id)
+		if d.is_empty(): return
+		at = Vector2(d.spawn[0], d.spawn[1]); yaw = float(d.get("yaw", 0.0))
+	var put := func() -> void:
+		var g := game
+		g.pos = w(at.x, at.y)
+		g.yaw = yaw
+		g.speed = 0.0
+		g.cam_yaw = yaw + PI
+		g.cam_ty = g.pos.y
+		g.cam_target = g.pos + Vector3(0, 1.45, 0)
+		g.cam_floor = g.pos.y
+		g.cast.land(g.pos.y)
+		if grass: grass.update(g.pos)
+		if done.is_valid(): done.call()
+	if instant: put.call()
+	else: game._fade(put, false)
+
+func _region_watch() -> void:
+	var l := Vector2(game.pos.x - ArenaData.C.x, game.pos.z - ArenaData.C.y)
+	var r := ArenaData.region_at(l.x, l.y)
+	if r == _region: return
+	_region = r
+	var cast: Cast = game.cast
+	if r == "": cast.dialog.banner("Battle Arena", "Prof. Oak's training ground")
+	else:
+		var d := ArenaRegions.get_def(r)
+		cast.dialog.banner(String(d.get("name", r)), String(d.get("sub", "")))
+	for id in regions:
+		var lf = life_of(id)
+		if lf and lf.has_method("on_region"): lf.on_region(r == id)
+
 # ---------- the HUD: the STAGE A BATTLE button ----------
 func _ui() -> void:
 	layer = CanvasLayer.new()
@@ -616,6 +782,7 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func _process(dt: float) -> void:
 	if gone: return
+	if not Battle.active and not game.trans_busy: _region_watch()
 	if btn: btn.visible = not Battle.active and not menu.is_open() and not game.trans_busy and not (stage and stage.busy())
 	# the referee's prompt
 	var near_ref := referee and Vector2(game.pos.x - referee.global_position.x, game.pos.z - referee.global_position.z).length() < 2.4

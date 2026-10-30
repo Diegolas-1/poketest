@@ -1017,6 +1017,152 @@
    ]
   },
   {
+   "id": "beedrill_buzz",
+   "category": "creatures",
+   "vol": -3.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 4,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creatures",
+    "beedrill",
+    "buzz",
+    "wings"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "creatures/beedrill_buzz_1.ogg"
+   ]
+  },
+  {
+   "id": "beedrill_swarm",
+   "category": "creatures",
+   "vol": 0.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 50.0,
+   "unit": 6.0,
+   "loop": false,
+   "voices": 1,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creatures",
+    "beedrill",
+    "swarm"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "creatures/beedrill_swarm_1.ogg"
+   ]
+  },
+  {
+   "id": "silk_snap",
+   "category": "creatures",
+   "vol": -4.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 16.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creatures",
+    "silk",
+    "snap"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "creatures/silk_snap_1.ogg"
+   ]
+  },
+  {
+   "id": "cocoon_tick",
+   "category": "creatures",
+   "vol": -6.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 16.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creatures",
+    "cocoon",
+    "click"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "creatures/cocoon_tick_1.ogg"
+   ]
+  },
+  {
+   "id": "harden_clink",
+   "category": "creatures",
+   "vol": -6.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 20.0,
+   "unit": 2.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "creatures",
+    "harden",
+    "clink"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "creatures/harden_clink_1.ogg"
+   ]
+  },
+  {
    "id": "jump_dirt",
    "category": "footsteps",
    "vol": 0.5,
@@ -3780,6 +3926,95 @@
    ]
   },
   {
+   "id": "amb_forest",
+   "category": "nature",
+   "vol": -3.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "nature",
+    "forest",
+    "ambience",
+    "leaves"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "nature/amb_forest_1.ogg"
+   ]
+  },
+  {
+   "id": "hive_buzz",
+   "category": "nature",
+   "vol": -6.0,
+   "pitch": [
+    1,
+    1
+   ],
+   "vjit": 0,
+   "mode": "3d",
+   "dist": 34.0,
+   "unit": 4.0,
+   "loop": true,
+   "voices": 2,
+   "bus": "Ambience",
+   "gap": 0.0,
+   "tags": [
+    "nature",
+    "hive",
+    "buzz",
+    "beedrill"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "nature/hive_buzz_1.ogg"
+   ]
+  },
+  {
+   "id": "pebble_tap",
+   "category": "nature",
+   "vol": -2.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.5,
+   "mode": "3d",
+   "dist": 24.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 3,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "nature",
+    "pebble",
+    "knock"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "nature/pebble_tap_1.ogg"
+   ]
+  },
+  {
    "id": "bike_bell",
    "category": "town",
    "vol": 0.0,
@@ -4838,6 +5073,35 @@
    "license": "CC0 1.0 (Kenney, kenney.nl)",
    "files": [
     "ui/ui_toggle_on_1.ogg"
+   ]
+  },
+  {
+   "id": "spot_ping",
+   "category": "ui",
+   "vol": -8.0,
+   "pitch": [
+    0.95,
+    1.05
+   ],
+   "vjit": 1.5,
+   "mode": "2d",
+   "dist": 30.0,
+   "unit": 3.0,
+   "loop": false,
+   "voices": 2,
+   "bus": "SFX",
+   "gap": 0.0,
+   "tags": [
+    "ui",
+    "alert",
+    "spot"
+   ],
+   "source": [
+    "original"
+   ],
+   "license": "CC0 1.0 (original, made for this game: tools/sfx/forest_sfx.py)",
+   "files": [
+    "ui/spot_ping_1.ogg"
    ]
   },
   {

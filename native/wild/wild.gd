@@ -40,6 +40,11 @@ extends Node
 #               many hidden at once through its patches (wild_arena_grass.gd),
 #               no luring, each with its level and the battle's mode; it hears
 #               how each battle ends (on_result) and when one goes (on_removed)
+#   up a tree   one a source sets aloft (wild_arena_trees.gd: a cocoon on its
+#               thread, a bird on a perch) always shows, is out of the pounce's
+#               reach, and its source may take A first (a shake, a pebble:
+#               use_pressed) and its startle (startled); e.react forces the
+#               startle's reaction, e.battle adds to the battle's options
 #
 # cast.gd calls update(dt) each frame, use_pressed() on A (true = taken),
 # busy() / input() while the tutorial's dialog has the controls.
@@ -108,6 +113,8 @@ func input(a: bool, b: bool) -> void:
 # A pressed on foot: the pounce, the grab, a word to a curious one (true = taken)
 func use_pressed() -> bool:
 	if ambush != null and ambush.use_pressed(): return true
+	for s in sources:
+		if s.has_method("use_pressed") and s.use_pressed(self): return true
 	var me: Vector3 = game.pos
 	# (the nearest first: in a hunt there may be a few in reach)
 	var near := encs.duplicate()
@@ -116,7 +123,7 @@ func use_pressed() -> bool:
 		var d := _d2(me, e.node.position if e.node else e.at)
 		match String(e.state):
 			"hidden":
-				if d <= float(brain.t("engage_d", 2.0)):
+				if d <= float(brain.t("engage_d", 2.0)) and not bool(e.get("aloft", false)):
 					e.mash = minf(1.0, float(e.mash) + brain.tv("mash", "press", 0.3))
 					e.alert = minf(0.99, float(e.alert) + brain.tv("mash", "alert", 0.07))
 					e.mash_pop = 1.0
@@ -303,7 +310,7 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 	var node: Node3D = e.node
 	var pk := peek()
 	var in_tree: bool = String(e.kind) == "tree"
-	e.shown = pk
+	e.shown = pk or bool(e.get("aloft", false))
 	# what it notices of him
 	var fwd := Vector3(sin(node.rotation.y), 0, cos(node.rotation.y))
 	var to_me := Vector3(me.x - node.position.x, 0, me.z - node.position.z).normalized()
@@ -395,7 +402,7 @@ func _hidden(e: Dictionary, dt: float, me: Vector3, speed: float, crouched: bool
 	# close enough: the pounce prompt
 	var ed := float(brain.t("engage_d", 2.0))
 	e.mash = maxf(0.0, float(e.mash) - brain.tv("mash", "decay", 0.45) * dt)
-	if d <= ed + 0.6 and lunge.is_empty() and d < _prompt_d:
+	if d <= ed + 0.6 and lunge.is_empty() and d < _prompt_d and not bool(e.get("aloft", false)):
 		_prompt_d = d
 		hud.prompt = {"at": node.position + Vector3(0, 0.9, 0), "kind": "mash", "fill": float(e.mash), "near": d <= ed, "pop": float(e.mash_pop)}
 	if alert >= 0.999:
@@ -444,8 +451,11 @@ func _burst(e: Dictionary, amp: float) -> void:
 # ---------- startled ----------
 func _startle(e: Dictionary, d: float) -> void:
 	var node: Node3D = e.node
+	var src: WildSource = e.source
+	if src and src.has_method("startled") and src.startled(e, d): return
 	var r := "flee" if bool(e.tutorial) else brain.pick_reaction(String(e.species), String(e.temper), d)
 	if test_force.begins_with("react="): r = test_force.substr(6)
+	if e.has("react"): r = String(e.react); e.erase("react")
 	print("wild: %s startled at %.1f m: %s (%s)" % [e.species, d, r, e.temper])
 	e.shown = true
 	node.visible = true
@@ -771,6 +781,7 @@ func _start_battle(e: Dictionary, state: String, first: String) -> void:
 		"state": state, "where": "tall_grass" if String(e.kind) in ["grass", "tall_grass"] else String(e.kind), "first_strike": first}
 	# a hunt's: its level, and Ash alone or with his party (arena_hunt.gd battle_opts)
 	if bool(e.get("hunt", false)) and hunt: opts.merge(hunt.battle_opts(e), true)
+	if e.has("battle"): opts.merge(e.battle, true)
 	var B := _battle_script()
 	var r = B.call("start", game, opts)
 	_battle_src = null

@@ -17,6 +17,8 @@ extends Control
 #             look (the cast's looks), AI personality, singles or doubles; presets
 #             (Ash's anime team, Brock's, Misty's, Gary's, random)
 #   SAVED     save the setup, load or delete saved ones (user://arena_setups.json)
+#   REGIONS   the hub and the regions round it (arena/arena_menu_regions.gd): go
+#             there, stage a region's hunt, its ambush
 #   START     runs it on the real in-world stage (arena/arena_stage.gd); the end of
 #             a staged battle comes back here with a results card: REMATCH or EDIT
 # The layout is drawn each frame as a list of hot rects (widgets); a tap hits one,
@@ -181,6 +183,7 @@ func _draw() -> void:
 		"trainer": _trainer(body)
 		"slot": _slot(body)
 		"saved": _saved(body)
+		"regions": preload("res://arena/arena_menu_regions.gd").draw(self, body)
 		"results": _results(body)
 	_footer(P)
 	if not _toast.is_empty() and t - float(_toast.t) < 2.2:
@@ -206,7 +209,7 @@ func _header(P: Rect2) -> void:
 	x += UITheme.text(self, Vector2(x, y), "BATTLE ARENA", "display", 44, Color(UITheme.INK, k)) + 14.0
 	UITheme.chevrons(self, Vector2(x, y - 30.0), 22.0, Color(UITheme.RED, k), 3)
 	x += 60.0
-	var tabs := [["wild", "WILD"], ["hunt", "HUNT"], ["ambush", "AMBUSH"], ["trainer", "TRAINER"], ["saved", "SAVED"]]
+	var tabs := [["wild", "WILD"], ["hunt", "HUNT"], ["ambush", "AMBUSH"], ["trainer", "TRAINER"], ["saved", "SAVED"], ["regions", "REGIONS"]]
 	if page == "results": tabs = [["results", "RESULTS"]] + tabs
 	var rx := P.end.x - 30.0
 	# (the tabs share what is left between the title and LEAVE ARENA)
@@ -243,7 +246,7 @@ func _footer(P: Rect2) -> void:
 		if hon: _button("hunt_end", Rect2(r.position.x - 230.0, y, 210.0, 56.0), "END HUNT", _end_hunt, UITheme.RED)
 	elif page == "ambush":
 		_button("start", r, "START AMBUSH  ▶", func(): _start(), UITheme.ORANGE, true)
-	elif page != "saved":
+	elif not page in ["saved", "regions"]:
 		var lbl := "START BATTLE  ▶"
 		_button("start", r, lbl, func(): _start(), UITheme.RED, true)
 	# the summary at the left: what START will run

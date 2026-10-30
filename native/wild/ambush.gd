@@ -785,7 +785,7 @@ func _clear() -> void:
 func clear() -> void: _clear()
 
 static func _kind_text(k: String) -> String:
-	return {"bush": "bush", "thicket": "thicket", "tall_grass": "tall grass", "tree": "tree"}.get(k, "cover")
+	return {"bush": "bush", "thicket": "thicket", "tall_grass": "tall grass", "tree": "tree", "hive": "hive"}.get(k, "cover")
 
 # ---------- the HUD: the tell's "?", the "!" bang, the standoff's choice ----------
 class Hud extends Control:
