@@ -325,5 +325,387 @@
   "mode": "prologue",
   "early_k": 0.5,
   "_doc_prologue": "The prologue (no has_starter): Ash's menu is RUN, HIDE, THROW SOMETHING (rock / sand). cost: stamina points (100 = his full bar), his first action x(1 + early_k), the second x(1 + early_k/2). hide.found: the chance it finds him in the grass for each of its moves that turn; hide.disengage: added to its chance to lose interest (x0.3 for an aggressive one). run: base + fear_k x fear + anger_k x anger - per_acc_stage x its aim stage, clamped to min..max."
+ },
+ "ambush": {
+  "_doc": "Ambushes (wild/ambush.gd): opportunistic Pokemon lying in wait in cover (bushes, thickets, tall grass; tree tops later) jump Ash when he walks past carelessly. species.<id>: the cover it uses, the regions, its rate, its temperaments (temper) and for each the odds it lies in wait at all (strike), its level range, how close it lets him come (trigger_d), how likely it chases him when he runs (chase) and how fast, and a swarm (size and weight) for the ones that come in numbers. tuning: how often one is set (rate_s: the mean seconds of walking near cover per ambush), the cooldown after one, the warning beat (rustle, cry, bang), spotting it first (crouched and slow: spot_p within spot_d), the standoff (how long he has to choose), running away (run: base, per foe, min..max), the chase. swarm: rare by design (a per-area chance on top, its own cooldown and a minimum gap between two swarms), never more than max at once, two at a time in the battle (doubles) and the next two after.",
+  "species": {
+   "beedrill": {
+    "cover": {
+     "bush": 1.0,
+     "thicket": 1.4,
+     "tall_grass": 0.5
+    },
+    "regions": [
+     "route1",
+     "arena"
+    ],
+    "rate": 1.0,
+    "level": [
+     7,
+     11
+    ],
+    "temper": {
+     "aggressive": 0.7,
+     "territorial": 0.25,
+     "timid": 0.05
+    },
+    "strike": {
+     "aggressive": 0.95,
+     "territorial": 0.85,
+     "timid": 0.2
+    },
+    "trigger_d": 3.6,
+    "chase": {
+     "aggressive": 0.8,
+     "territorial": 0.55,
+     "timid": 0.1
+    },
+    "chase_v": 7.6,
+    "flies": true,
+    "swarm": {
+     "weight": 1.0,
+     "size": [
+      2,
+      4
+     ]
+    },
+    "cry": "buzz"
+   },
+   "spearow": {
+    "cover": {
+     "bush": 0.6,
+     "thicket": 0.8,
+     "tall_grass": 1.0
+    },
+    "regions": [
+     "route1",
+     "arena"
+    ],
+    "rate": 1.2,
+    "level": [
+     5,
+     9
+    ],
+    "temper": {
+     "aggressive": 0.6,
+     "territorial": 0.3,
+     "timid": 0.1
+    },
+    "strike": {
+     "aggressive": 0.9,
+     "territorial": 0.8,
+     "timid": 0.25
+    },
+    "trigger_d": 3.8,
+    "chase": {
+     "aggressive": 0.75,
+     "territorial": 0.5,
+     "timid": 0.1
+    },
+    "chase_v": 8.0,
+    "flies": true,
+    "swarm": {
+     "weight": 0.8,
+     "size": [
+      2,
+      4
+     ]
+    },
+    "cry": "screech"
+   },
+   "ekans": {
+    "cover": {
+     "tall_grass": 1.0,
+     "bush": 0.7,
+     "thicket": 0.9
+    },
+    "regions": [
+     "route1",
+     "arena"
+    ],
+    "rate": 0.8,
+    "level": [
+     6,
+     10
+    ],
+    "temper": {
+     "aggressive": 0.5,
+     "territorial": 0.35,
+     "timid": 0.15
+    },
+    "strike": {
+     "aggressive": 0.9,
+     "territorial": 0.7,
+     "timid": 0.2
+    },
+    "trigger_d": 2.6,
+    "chase": {
+     "aggressive": 0.35,
+     "territorial": 0.2,
+     "timid": 0.0
+    },
+    "chase_v": 5.0,
+    "cry": "hiss"
+   },
+   "arbok": {
+    "cover": {
+     "thicket": 1.0,
+     "tall_grass": 0.6,
+     "bush": 0.4
+    },
+    "regions": [
+     "arena"
+    ],
+    "rate": 0.25,
+    "level": [
+     20,
+     24
+    ],
+    "temper": {
+     "aggressive": 0.6,
+     "territorial": 0.4
+    },
+    "strike": {
+     "aggressive": 0.95,
+     "territorial": 0.8
+    },
+    "trigger_d": 3.2,
+    "chase": {
+     "aggressive": 0.4,
+     "territorial": 0.25
+    },
+    "chase_v": 5.5,
+    "cry": "hiss"
+   },
+   "rattata": {
+    "cover": {
+     "tall_grass": 1.0,
+     "bush": 0.8,
+     "thicket": 0.5
+    },
+    "regions": [
+     "route1",
+     "arena"
+    ],
+    "rate": 1.2,
+    "level": [
+     3,
+     7
+    ],
+    "temper": {
+     "aggressive": 0.45,
+     "territorial": 0.25,
+     "timid": 0.3
+    },
+    "strike": {
+     "aggressive": 0.85,
+     "territorial": 0.65,
+     "timid": 0.15
+    },
+    "trigger_d": 2.8,
+    "chase": {
+     "aggressive": 0.5,
+     "territorial": 0.3,
+     "timid": 0.0
+    },
+    "chase_v": 7.0,
+    "cry": "squeak"
+   },
+   "mankey": {
+    "cover": {
+     "thicket": 1.0,
+     "bush": 1.0,
+     "tall_grass": 0.3
+    },
+    "regions": [
+     "route1",
+     "arena"
+    ],
+    "rate": 0.6,
+    "level": [
+     6,
+     10
+    ],
+    "temper": {
+     "aggressive": 0.75,
+     "territorial": 0.2,
+     "timid": 0.05
+    },
+    "strike": {
+     "aggressive": 0.95,
+     "territorial": 0.8,
+     "timid": 0.2
+    },
+    "trigger_d": 3.4,
+    "chase": {
+     "aggressive": 0.85,
+     "territorial": 0.5,
+     "timid": 0.0
+    },
+    "chase_v": 7.8,
+    "cry": "screech"
+   }
+  },
+  "tuning": {
+   "check_s": 1.0,
+   "rate_s": 150.0,
+   "cooldown_s": 75.0,
+   "first_s": 20.0,
+   "set_d": [
+    5.0,
+    10.0
+   ],
+   "set_cone": 0.9,
+   "cover_r": 12.0,
+   "leave_d": 16.0,
+   "lurk_s": 45.0,
+   "careless_v": 1.7,
+   "spot_d": 7.5,
+   "spot_p": 0.85,
+   "spot_close": 0.55,
+   "notice_close_d": 1.3,
+   "notice_close_p": 0.35,
+   "warn": {
+    "rustle": 0.55,
+    "cry": 0.4,
+    "bang": 0.45
+   },
+   "strike_s": 0.65,
+   "land_d": [
+    1.8,
+    2.6
+   ],
+   "standoff_s": 3.2,
+   "intercept_s": 0.75,
+   "run": {
+    "base": 0.75,
+    "per_foe": 0.1,
+    "chaser_k": 0.08,
+    "min": 0.25,
+    "max": 0.92,
+    "dash_s": 0.8,
+    "dash_v": 9.0
+   },
+   "chase_s": 3.0,
+   "chase_catch_d": 1.1
+  },
+  "swarm": {
+   "chance": 0.18,
+   "cooldown_s": 600.0,
+   "min_gap_s": 900.0,
+   "max": 4,
+   "at_once": 2
+  },
+  "areas": {
+   "route1": {
+    "rate": 1.0,
+    "swarm": 1.0
+   },
+   "arena": {
+    "rate": 1.0,
+    "swarm": 1.0
+   }
+  }
+ },
+ "follow": {
+  "_doc": "Ash's Pokemon walking with him in the world (wild/ash_companions.gd): at most max out at once. defaults: how far behind each keeps (behind, side), how far it may fall back before it hurries (hurry_d) or is put back by his side out of view (teleport_d), its top speeds, how near it may come to him (personal). species.<id> over the family's: gait (walk | run | hop | fly | float | slither), water (no: never in water | wade: the shallows | swim), speed scale. A species not listed takes its family's gait (creatures/species.json) and stays out of the water.",
+  "max": 2,
+  "defaults": {
+   "behind": [
+    1.6,
+    2.6
+   ],
+   "side": 0.75,
+   "beside": 1.15,
+   "personal": 0.8,
+   "apart": 0.75,
+   "hurry_d": 4.0,
+   "teleport_d": 24.0,
+   "stuck_s": 2.5,
+   "walk_v": 4.6,
+   "run_v": 9.4,
+   "sneak_v": 1.5,
+   "accel": 9.0,
+   "turn": 10.0,
+   "crumb": 0.45
+  },
+  "families": {
+   "legged": {
+    "gait": "run"
+   },
+   "bird": {
+    "gait": "fly"
+   },
+   "float": {
+    "gait": "float"
+   },
+   "serpent": {
+    "gait": "slither"
+   }
+  },
+  "species": {
+   "pikachu": {
+    "gait": "run",
+    "water": "no"
+   },
+   "raichu": {
+    "gait": "run",
+    "water": "no"
+   },
+   "pidgeotto": {
+    "gait": "fly",
+    "water": "no"
+   },
+   "pidgey": {
+    "gait": "fly",
+    "water": "no"
+   },
+   "spearow": {
+    "gait": "fly",
+    "water": "no"
+   },
+   "bulbasaur": {
+    "gait": "walk",
+    "water": "wade",
+    "speed": 0.95
+   },
+   "charmander": {
+    "gait": "run",
+    "water": "no"
+   },
+   "squirtle": {
+    "gait": "walk",
+    "water": "swim"
+   },
+   "jigglypuff": {
+    "gait": "hop",
+    "water": "no"
+   },
+   "clefairy": {
+    "gait": "hop",
+    "water": "no"
+   },
+   "butterfree": {
+    "gait": "float",
+    "water": "no"
+   },
+   "caterpie": {
+    "gait": "walk",
+    "water": "no",
+    "speed": 0.8
+   },
+   "psyduck": {
+    "gait": "walk",
+    "water": "swim"
+   },
+   "staryu": {
+    "gait": "float",
+    "water": "swim"
+   },
+   "goldeen": {
+    "gait": "float",
+    "water": "swim"
+   }
+  }
  }
 }

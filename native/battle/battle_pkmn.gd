@@ -25,6 +25,9 @@ extends Node
 #   target: either foe or his other Pokémon), END TURN moves on to the next; the
 #   second pair is sent out at the start. Events carry their "place" (0, 1): the
 #   staging animates that one.
+# Ambushes (wild/ambush.gd): "partner_node2" his second Pokémon already out steps into
+#   place 1 (no throw); a wild side's next one comes in on its own (no ball); "waves":
+#   the wild side's next two only once both of the pair are down.
 # BALL (over the menu; battle/catch_rules.gd): the bag's balls (battle.store), one
 #   thrown takes Ash's turn (the foe still moves); a trainer blocks it (the games'
 #   line); a catch ends the battle (outcome caught). Staged by battle.throw_show.
@@ -421,7 +424,12 @@ func _on_end_turn() -> void:
 func _after_faints() -> void:
 	var P := party()
 	if D and not B.over:
-		for k in D.pending_places("b"):
+		# waves (a swarm): its next pair only once both of this one are down
+		var wait_b: bool = bool(battle.opts.get("waves", false)) and not D.alive_out("b").is_empty()
+		if bool(battle.opts.get("waves", false)) and not wait_b and D.pending_places("b").size() >= 2:
+			battle.ui.show_outcome("THE NEXT TWO!", "%d more coming in" % mini(2, D.bench("b").size()), UITheme.ORANGE)
+			await _wait(0.9)
+		for k in ([] if wait_b else D.pending_places("b")):
 			var i := D.ai_pick("b")
 			if i < 0: continue
 			_busy = true
@@ -498,6 +506,9 @@ func _play(evs: Array, gap: float) -> void:
 			if t in ["move", "strike"]:
 				_tg = {"side": String(e.get("tside", B.other(s))), "place": int(e.get("tp", 0))}
 		var txt := String(e.get("text_owner", e.get("text", ""))) if s == "a" else String(e.get("text", ""))
+		# (a wild side's team, a swarm: no trainer recalls or sends them, they come on their own)
+		if s == "b" and t in ["switch_out", "switch_in", "need_switch"] and String(battle.opts.get("kind", "wild")) == "wild" and battle.opts.has("party_b"):
+			txt = ("Another wild %s joins in!" % String(e.get("species", "")).to_upper()) if t == "switch_in" else ""
 		if txt != "" and not t in ["turn", "gain"]:
 			hud.say(txt, UITheme.SKY if s == "a" else UITheme.YELLOW)
 		match t:
@@ -632,6 +643,9 @@ func _recall(s: String) -> void:
 	await _wait(0.25)
 
 func _send_out(s: String, sp: String) -> void:
+	if s == "b" and String(battle.opts.get("kind", "wild")) == "wild" and battle.opts.has("party_b"):
+		await _come_in(s, sp)
+		return
 	var to := _home(s)
 	var from: Vector3 = battle.ash_pos + Vector3(0, 1.4, 0) if s == "a" else battle.foe_spot + battle.fwd * float(battle.opts.get("foe_trainer_back", 4.6)) + Vector3(0, 1.4, 0)
 	_set_appear(s, 0.0)
@@ -663,6 +677,23 @@ func _send_out(s: String, sp: String) -> void:
 	hud.bind(B)
 	_mood(s, _act(s, "taunt", "taunt", "taunt"))
 	await _wait(0.4)
+
+# a wild side's next one: no trainer, no ball; it comes in on its own from behind its side
+func _come_in(s: String, sp: String) -> void:
+	var to := _home(s)
+	_set_pos(s, to + battle.fwd * 4.5)
+	_semi[_key(s)] = ""
+	if D and int(_pl[s]) == 1: _make_x2(s, sp)
+	else: battle.swap_creature(s, sp)
+	_set_appear(s, 1.0)
+	var flies := WildBrain.flies(sp)
+	_mood(s, "fly" if flies else "run")
+	Sfx.play("whoosh", to, {"vol": -4.0, "pitch": 1.2})
+	await _move(s, to, 0.6, 1.2 if flies else 0.5)
+	battle.fx.dust(to, 6, Color("cdb68a"), 0.6, 0.3, 0.35)
+	_mood(s, "land" if flies else "taunt")
+	hud.bind(B)
+	await _wait(0.35)
 
 func _bolt(a: Vector3, b: Vector3, col: Color) -> void:
 	var n := 9
@@ -739,7 +770,16 @@ func _doubles_in() -> void:
 		if D.at(s, 1) == null: continue
 		_pl[s] = 1
 		_x2pos[s] = _home(s)
-		await _send_out(s, String(D.at(s, 1).species))
+		var own = battle.opts.get("partner_node2") if s == "a" else null
+		if own is Node3D and is_instance_valid(own):
+			# his second one is already out: it steps into its place
+			_x2[s] = own
+			_x2k[s] = 1.0
+			if "auto" in own: own.auto = false
+			_x2pos[s] = (own as Node3D).global_position
+			await _move(s, _home(s), 0.5, 0.25)
+		else:
+			await _send_out(s, String(D.at(s, 1).species))
 		_pl[s] = 0
 	if hud: hud.bind(B)
 
@@ -750,8 +790,26 @@ func _cut_doubles(s: String) -> void:
 	var f: Vector3 = battle.fwd
 	var sd: Vector3 = battle.side
 	var up := Vector3.UP
-	var sh := {"pos": from - f * 1.3 + sd * 2.6 + up * 1.8, "look": to + up * 0.3 - f * 0.9, "fov": 50.0}
-	if s == "b": sh = {"pos": from + f * 2.0 - sd * 2.5 + up * 2.0, "look": to + up * 0.3 + f * 0.6, "fov": 52.0}
+	# over its outer shoulder (the side away from its partner: place 0 is on the left, 1 on
+	# the right), so the partner is never between the lens and the shot
+	var out := 1.0 if int(_pl[s]) == 1 else -1.0
+	var sh := {"pos": from - f * 1.6 + sd * out * 2.4 + up * 2.0, "look": to + up * 0.3 - f * 0.9, "fov": 50.0}
+	if s == "b": sh = {"pos": from + f * 2.2 + sd * out * 2.4 + up * 2.2, "look": to + up * 0.3 + f * 0.6, "fov": 52.0}
+	# and clear of every one out (a wing, a bulb): pushed off and up from any too near the lens
+	var p: Vector3 = sh.pos
+	var near := [[battle.ash_pos, 2.4]]   # (Ash too: his head is not the shot)
+	for k in [["a", 0], ["a", 1], ["b", 0], ["b", 1]]:
+		var fk := D.at(String(k[0]), int(k[1]))
+		if fk == null or (String(k[0]) == s and int(k[1]) == int(_pl[s])): continue
+		near.append([_pos_at(String(k[0]), int(k[1])), 2.0 + 0.9 * clampf(float(Creature.species_info(String(fk.species)).get("height", 0.5)), 0.3, 1.5)])
+	for nq in near:
+		var q: Vector3 = nq[0]
+		var r: float = nq[1]
+		var fl := Vector3(p.x - q.x, 0, p.z - q.z)
+		var d := fl.length()
+		if d < r and d > 1e-3:
+			p += fl / d * (r - d) + up * (r - d) * 0.5
+	sh.pos = p
 	sh["rate"] = 4.0
 	sh["name"] = "_fixed"
 	battle._shot = sh

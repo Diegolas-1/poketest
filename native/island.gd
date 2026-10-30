@@ -35,6 +35,9 @@ func _entries() -> Array:
 	var on: bool = main != null and not main.indoors and main.cast != null and main.cast.bike != null
 	var riding: bool = on and main.cast.bike.riding()
 	e.insert(1, ["bike", "Get off" if riding else "Bike", on])
+	# his Pokémon (wild/party_menu.gd): send one out to walk with him, or call it back
+	var pm = main.cast.party_menu if main != null and main.cast != null else null
+	e.insert(0, ["party", "Pokémon", pm != null and on and not pm.party().is_empty()])
 	return e
 
 var main: Node
@@ -246,6 +249,7 @@ func _process(dt: float) -> void:
 				if q: q.open()
 			elif _pick == "settings": Settings.open_menu()
 			elif _pick == "bike" and main and main.cast and main.cast.bike: main.cast.bike.menu_toggle()
+			elif _pick == "party" and main and main.cast and main.cast.party_menu: main.cast.party_menu.open("field")
 			_pick = ""
 		hud.queue_redraw()
 	# the compass

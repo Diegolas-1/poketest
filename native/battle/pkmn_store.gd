@@ -16,6 +16,7 @@ extends RefCounted
 #   s.add_caught(mon) -> "party" | "box" | ""   and marks the dex
 #   s.mark_seen(id) / s.is_seen(id) / s.is_caught(id)
 #   s.save() / s.load_state()
+#   PkmnStore.party_source       AshParty.source (the companions, the ambushes): main()'s party
 # A mon: {species, level, hp, max_hp, status, ball, ot}
 
 const MAIN_PATH := "user://pkmn.save"
@@ -129,6 +130,19 @@ func mark_seen(id: String) -> void:
 
 func is_seen(id: String) -> bool: return dex.seen.has(id)
 func is_caught(id: String) -> bool: return dex.caught.has(id)
+
+# AshParty's source (wild/ash_party.gd): the save's party as the engine's dicts
+# (none inside the Battle Arena: its TRAINER page's party is used there)
+static func party_source(_game = null) -> Array:
+	if BattleArena.I != null: return []
+	var out := []
+	for m in main().party:
+		if not m is Dictionary: continue
+		var d := {"species": String(m.get("species", "")), "level": int(m.get("level", 5))}
+		for k in ["known", "equip"]:
+			if m.has(k): d[k] = m[k]
+		out.append(d)
+	return out
 
 # ---------- saving ----------
 func to_dict() -> Dictionary:

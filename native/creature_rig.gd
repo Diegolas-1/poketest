@@ -91,6 +91,8 @@ var emote := ""
 var act_reach := 1.0
 var fainted := false
 var hiding := false
+var sneak := 0.0                  # 0..1 low and careful while still on the move (hiding stops the gait)
+var _sneak_w := 0.0
 var burrowed := false             # gone under the ground (dig): until "emerge"
 var streak := false               # quick_attack's dash (speed lines)
 var sing_beat := 0.0              # sing: 0..1 through each sway (a note at 0)
@@ -578,6 +580,17 @@ func _base(dt: float, v: float) -> Dictionary:
 		P.tp -= 0.4 * k
 		P.hk = lerpf(1.0, 0.5, k)
 		P.eye = "half" if k > 0.5 else P.eye
+	# sneaking (Ash's Pokémon by him while he crouches: ash_companions.gd): low, ears back, still walking
+	if sneak > 0.001:
+		_sneak_w = damp(_sneak_w, sneak, 4.0, dt)
+	else:
+		_sneak_w = damp(_sneak_w, 0.0, 4.0, dt)
+	if _sneak_w > 0.001:
+		P.crouch += _sneak_w * 0.5
+		P.lean += _sneak_w * 0.08
+		P.earf -= 0.35 * _sneak_w
+		P.tp -= 0.25 * _sneak_w
+		P.hk = lerpf(float(P.hk), 0.7, _sneak_w)
 	# asleep: lying down, curled, the head down, slow breaths
 	if sleep_w > 0.001:
 		var k := sleep_w

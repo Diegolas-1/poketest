@@ -77,6 +77,7 @@ func update(dt: float) -> void:
 	match state:
 		"off":
 			if W.game.indoors or (cast.bike and cast.bike.riding()) or cast.dialog.open or cast.convo.busy() or W.battle_on: return
+			if BattleArena.I != null or W.hunt != null: return   # (never in the Battle Arena: its hunt is a test bed)
 			var src: WildSource = W.sources[0]
 			if src.region(me) == "" or src.distance(me) > 5.0: return
 			_start()
