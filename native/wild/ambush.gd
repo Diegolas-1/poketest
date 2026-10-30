@@ -413,7 +413,9 @@ func _strike() -> void:
 	var l := _lead()
 	var lp: Vector3 = (l.node as Node3D).position
 	var to_me := Vector3(me.x - lp.x, 0, me.z - lp.z).normalized()
-	var face := -to_me
+	# out in front of him, between it and the way he was going (not back into its cover)
+	var was := Vector3(sin(game.yaw), 0, cos(game.yaw))
+	var face := (-to_me + was * 0.8).normalized() if (-to_me + was * 0.8).length() > 0.2 else -to_me
 	# he spins round to it, jolted
 	cast.set_crouch(false)
 	game.speed = 0.0
@@ -492,7 +494,8 @@ func _send(i: int, first: String) -> void:
 	if c == null: _start_battle(first); return
 	var me: Vector3 = game.pos
 	var near := _nearest_member(me)
-	var at: Vector3 = me.lerp((near.node as Node3D).position, 0.45)
+	var np: Vector3 = (near.node as Node3D).position
+	var at: Vector3 = me + Vector3(np.x - me.x, 0, np.z - me.z).normalized() * clampf(Wild._d2(me, np) * 0.5, 1.3, 1.9)
 	var P := party()
 	var sp_id := String(P[clampi(i, 0, P.size() - 1)].species)
 	if c.is_out(sp_id):

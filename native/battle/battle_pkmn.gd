@@ -621,7 +621,7 @@ func _send_out(s: String, sp: String) -> void:
 # a wild side's next one: no trainer, no ball; it comes in on its own from behind its side
 func _come_in(s: String, sp: String) -> void:
 	var to := _home(s)
-	_set_pos(s, to + battle.fwd * 4.5 + Vector3(0, 0, 0))
+	_set_pos(s, to + battle.fwd * 4.5)
 	_semi[_key(s)] = ""
 	if D and int(_pl[s]) == 1: _make_x2(s, sp)
 	else: battle.swap_creature(s, sp)

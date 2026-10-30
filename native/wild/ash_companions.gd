@@ -254,6 +254,17 @@ func _goal(c: Dictionary, me: Vector3, spd: float) -> Vector3:
 		if String(c.info.gait) == "fly" and bool(c.fly): g -= (fwd * 0.6)
 	else:
 		g = me + rt * sg * num("beside", 1.15) - fwd * 0.25
+	# never in the camera's face: a place by the lens goes over to his other side
+	var cam: Camera3D = game.cam
+	if cam != null:
+		var cp := cam.global_position
+		var lim := 3.2 if String(c.info.gait) == "fly" else 2.2
+		var to_cam := Vector3(cp.x - me.x, 0, cp.z - me.z)
+		var axis := to_cam.normalized()
+		var lat := Vector3(g.x - me.x, 0, g.z - me.z)
+		var along := lat.dot(axis)
+		var most := to_cam.length() - lim
+		if along > most: g = me + lat - axis * (along - most)
 	var q: Vector3 = game.world.collide(Vector3(g.x, 0, g.z), 0.3)
 	return Vector3(q.x, 0, q.z)
 
@@ -336,7 +347,7 @@ func _gait_moods(c: Dictionary, node: Node3D, gait: String, spd: float, dist: fl
 	if gait != "fly" or node.get("flying") == null: return
 	var up: bool = bool(node.flying)
 	if not up and not crouched and (spd > 3.0 or dist > 5.0):
-		node.set("fly_height", 1.6)
+		node.set("fly_height", 2.4)
 		node.mood("fly")
 		c.fly = true
 		Sfx.play("wing_flap_small", node.global_position, {"vol": -10.0, "dist": 18.0})

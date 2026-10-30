@@ -144,7 +144,7 @@ func _panel() -> Rect2:
 	var S := UITheme.safe_rect(self)
 	var n := maxi(1, party().size())
 	var w := minf(560.0, S.size.x - 40.0)
-	var h := 120.0 + n * 66.0 + 60.0
+	var h := 84.0 + n * 66.0 + 64.0
 	return Rect2(S.get_center().x - w * 0.5, S.get_center().y - h * 0.5 + (1.0 - UITheme.ease_out(k)) * 40.0, w, h)
 
 func _draw() -> void:

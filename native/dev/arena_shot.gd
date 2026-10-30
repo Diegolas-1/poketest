@@ -35,11 +35,13 @@ var _did := {}
 
 func _ready() -> void:
 	process_priority = 100
+	process_mode = Node.PROCESS_MODE_ALWAYS   # (a menu that pauses the game: the script still drives it)
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		A[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if A.has("device"): UIInput.force(String(A.device))
 	main = load("res://main.tscn").instantiate()
+	main.process_mode = Node.PROCESS_MODE_PAUSABLE   # (the game itself still pauses)
 	add_child(main)
 
 func _once(key: String) -> bool:
@@ -51,11 +53,17 @@ func _process(dt: float) -> void:
 	frame += 1
 	t += dt
 	if A.has("frames") and frame % maxi(1, int(A.get("every", "1"))) == 0: _grab.call_deferred("%s/f%05d.png" % [A.frames, frame])
+	# --skip-draw: only the frames kept are drawn (the game runs every frame as ever; a render
+	# on a busy machine goes several times faster)
+	if A.has("frames") and A.has("skip-draw"): RenderingServer.render_loop_enabled = frame % maxi(1, int(A.get("every", "1"))) == 0 or frame < 3
 	if A.has("shot") and t >= float(A.get("shot-at", "3")) and _once("shot"):
 		_grab.call_deferred(String(A.shot))
 		get_tree().create_timer(0.3).timeout.connect(func(): get_tree().quit())
 	if A.has("quit-at") and t >= float(A.get("quit-at")) and _once("quit"): get_tree().quit()
 	if frame == 3:
+		# (his Pokémon out with him: a save of the shots' own, never the player's)
+		main.cast.companions.save_path = "user://companions_shot.save"
+		main.cast.companions.autosave = false
 		main.cast.clock.real = false; main.cast.clock.ff = 1.0; main.cast.clock.set_time(float(A.get("hour", "10.5")))
 	if frame == 8 and not String(A.get("case", "")) in ["town", "oak"] and _once("enter"): BattleArena.enter(main, true)
 	# --case=oak (with -- --cast-test=convo --convo-who=oak --convo-picks=...): Oak's talk takes
@@ -271,8 +279,8 @@ func _ambush(ar: BattleArena) -> void:
 			_put(ar.w(0.5, 37.0), PI)
 			_a.path = [ar.w(0.0, 33.0), ar.w(-4.0, 27.5), ar.w(-11.0, 24.0), ar.w(-16.0, 21.5)]
 		else:
-			_put(at + Vector3(-1.3, 0, 12.0), PI)
-			_a.path = [at + Vector3(-1.4, 0, -8.0)]
+			_put(at + Vector3(-2.6, 0, 12.0), PI)
+			_a.path = [at + Vector3(-2.6, 0, -8.0)]
 			var n: int = {"bush": 1, "intercept": 2, "swarm": 4, "run": 1}.get(act, 1)
 			if act in ["intercept", "swarm"]:
 				Cm.send_out(0, true, main.pos + Vector3(0.9, 0, 1.4))

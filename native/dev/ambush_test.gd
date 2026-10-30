@@ -35,6 +35,7 @@ func _ready() -> void:
 	AshParty.source = func(_g): return [{"species": "pikachu", "level": 25}, {"species": "pidgeotto", "level": 22}, {"species": "bulbasaur", "level": 22}]
 	if FileAccess.file_exists(SAVE): DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
 	main = load("res://main.tscn").instantiate()
+	main.process_mode = Node.PROCESS_MODE_PAUSABLE   # (the game itself still pauses)
 	add_child(main)
 
 func _place(p: Vector3, yaw: float) -> void:
@@ -403,6 +404,7 @@ func _finish() -> void:
 	phase = 99
 	Wild.battle_override = null
 	AshParty.source = Callable()
+	if FileAccess.file_exists(SAVE): DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
 	print("ambush_test: %d checks, %d failures" % [checks, fails])
 	print("AMBUSH TEST GREEN" if fails == 0 else "AMBUSH TEST RED")
 	get_tree().quit(0 if fails == 0 else 1)
