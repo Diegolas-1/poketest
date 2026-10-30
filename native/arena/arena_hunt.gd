@@ -14,6 +14,9 @@ extends Node
 #   on_result       a toast per outcome; beaten by his party, it is out of the field
 #   on_removed      one less in the grass (with refill on, another settles in a while)
 # The counter under the STAGE A BATTLE button: "3 LEFT IN THE GRASS".
+# A region's hunt (setup.hunt.region: arena/regions/*.gd): its species hide in its
+# own sources (its tall grass, a forest's trees: the region's life gives them,
+# sources()), each species where the region's def says it lives.
 #
 #   hunt.start(setup.hunt, ash_party, with_party)   hunt.stop()   hunt.on
 
@@ -43,6 +46,22 @@ func setup_(a) -> void:
 
 func src() -> WildArenaGrass: return wild.arena_src
 
+# the hunt's region ("" = the hub), its def, and its sources ({source id: WildSource})
+func region() -> String: return String(cfg.get("region", ""))
+func region_def() -> Dictionary: return ArenaRegions.get_def(region()) if region() != "" else {}
+func sources() -> Dictionary:
+	var out := {"tall_grass": src()}
+	var life = arena.life_of(region()) if region() != "" and arena.has_method("life_of") else null
+	if life and life.has_method("sources"): out.merge(life.sources(), true)
+	return out
+
+# which source a species hides in here (the region's def; tall grass otherwise)
+func source_of(id: String) -> String:
+	var S: Dictionary = region_def().get("sources", {})
+	for k in S:
+		if (S[k] as Array).has(id) and sources().has(k): return String(k)
+	return "tall_grass"
+
 # ---------- on / off ----------
 func start(h: Dictionary, party: Array, with_party: bool) -> void:
 	cfg = h.duplicate(true)
@@ -50,17 +69,21 @@ func start(h: Dictionary, party: Array, with_party: bool) -> void:
 	cfg["with_party"] = with_party and not party.is_empty()
 	on = true
 	wild.hunt = self
-	src().on = true
+	src().zone = region() if region() != "" else "hub"
+	for s in sources().values(): s.on = true
 	populate()
 	var n := left()
-	wild.toaster.push("start", "THE HUNT IS ON!", "%d Pokémon are hiding in the tall grass. Crouch (B) and creep up on the twitching grass." % n, "ball", 3.6)
+	var rd := region_def()
+	if rd.is_empty(): wild.toaster.push("start", "THE HUNT IS ON!", "%d Pokémon are hiding in the tall grass. Crouch (B) and creep up on the twitching grass." % n, "ball", 3.6)
+	else: wild.toaster.push("start", "THE HUNT IS ON!", String(rd.get("hunt_text", "%d Pokémon are hiding in %s.")) % [n, String(rd.name)], "ball", 3.6)
 	print("hunt: on, %d in the grass (%s, Lv%d-%d, %s, %s)" % [n, ", ".join(cfg.species), int(cfg.lv[0]), int(cfg.lv[1]), String(cfg.temper), "with his party" if cfg.with_party else "alone"])
 
 func stop(say := true) -> void:
 	if not on: return
 	on = false
 	wild.hunt = null
-	src().on = false
+	for s in sources().values(): s.on = false
+	src().zone = "hub"
 	_clear()
 	_refill = []
 	if say: wild.toaster.push("info", "HUNT OVER", "The grass is quiet again.", "check", 2.2)
@@ -101,14 +124,19 @@ func populate() -> void:
 		order.append_array(r)
 	var taken: Array = []
 	for i in n:
-		var p = _spot(taken, game.pos, CLEAR_ASH)
-		if p == null: break
+		var id := String(order[i])
+		var p = _spot(taken, game.pos, CLEAR_ASH, source_of(id), id)
+		if p == null: continue
 		taken.append(p)
-		_settle(String(order[i]), p)
+		_settle(id, p)
 
 # a spot: the patch with the most room left (its area over how many it has),
 # then anywhere hidden in it, MIN_GAP from the rest and away from Ash
-func _spot(taken: Array, ash: Vector3, away: float) -> Variant:
+func _spot(taken: Array, ash: Vector3, away: float, from := "tall_grass", id := "") -> Variant:
+	if from != "tall_grass":
+		# (another source picks its own: a tree's branch, a perch)
+		var s = sources().get(from)
+		return s.random_spot(_rng, taken, ash, away, id) if s else null
 	var per := {}
 	for p in taken:
 		var i: int = src().patch_of(p)
@@ -116,15 +144,16 @@ func _spot(taken: Array, ash: Vector3, away: float) -> Variant:
 	for k in 50:
 		var tot := 0.0
 		var w := []
-		for i in ArenaData.TALL.size():
+		var ids: Array = src().ids()
+		for i in ids:
 			var c := int(per.get(i, 0))
 			w.append(WildArenaGrass.area(i) / pow(1.0 + c, 2.0))
-			tot += w[i]
+			tot += w.back()
 		var x := _rng.randf() * tot
-		var pick := 0
-		for i in w.size():
-			x -= w[i]
-			if x <= 0.0: pick = i; break
+		var pick: int = ids[0]
+		for k2 in w.size():
+			x -= w[k2]
+			if x <= 0.0: pick = ids[k2]; break
 		var p = src().random_spot(_rng, pick)
 		if p == null: continue
 		if Wild._d2(p, ash) < away: continue
@@ -139,7 +168,10 @@ func _settle(id: String, p: Vector3) -> Dictionary:
 		"species": temper = wild.brain.pick_temper(id)
 		"fixed": temper = String(cfg.get("fixed", "flighty"))
 		_: temper = ArenaSetups.TEMPERS[_rng.randi() % ArenaSetups.TEMPERS.size()]
-	var e := wild.spawn(id, src(), p, temper)
+	var from := source_of(id)
+	var s: WildSource = sources().get(from, src())
+	var e := wild.spawn(id, s, p, temper)
+	if s.has_method("settle"): s.settle(e, p)
 	e.hunt = true
 	e.level = _rng.randi_range(int(lv[0]), maxi(int(lv[0]), int(lv[1])))
 	return e
@@ -184,10 +216,11 @@ func _process(dt: float) -> void:
 		_refill.remove_at(i)
 		if left() >= total(): continue
 		var taken: Array = wild.encs.filter(func(x): return bool(x.get("hunt", false))).map(func(x): return (x.node as Node3D).position)
-		var p = _spot(taken, game.pos, REFILL_AWAY)
-		if p == null: _refill.append(5.0); continue
 		var sp: Array = cfg.species
-		var e := _settle(String(sp[_rng.randi() % sp.size()]), p)
+		var id := String(sp[_rng.randi() % sp.size()])
+		var p = _spot(taken, game.pos, REFILL_AWAY, source_of(id), id)
+		if p == null: _refill.append(5.0); continue
+		var e := _settle(id, p)
 		print("hunt: refilled with a %s" % e.species)
 
 # ---------- the counter: "3 LEFT IN THE GRASS", a pip for each of the field ----------
@@ -217,7 +250,8 @@ class Counter extends Control:
 		var n := _shown
 		var tot := maxi(n, int(hunt.total()))
 		var done := n <= 0
-		var label := "HUNT CLEARED" if done else ("1 LEFT IN THE GRASS" if n == 1 else "%d LEFT IN THE GRASS" % n)
+		var where := String(hunt.region_def().get("left", "IN THE GRASS")) if hunt.on else "IN THE GRASS"
+		var label := "HUNT CLEARED" if done else ("1 LEFT %s" % where if n == 1 else "%d LEFT %s" % [n, where])
 		var tw := UITheme.text_w(label, "heading", 22)
 		var pips := mini(tot, 12)
 		var pw := pips * 13.0

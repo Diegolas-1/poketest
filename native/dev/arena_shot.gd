@@ -14,6 +14,11 @@ extends Node
 #                      patch, a few hiding round him twitching the grass), pounce (on in,
 #                      the A-mash, into the battle), run (a Rattata startled runs off to
 #                      another patch, the camera after it); --species=a,b --n=8
+#   --case=forest      the forest region (arena/regions/forest_life.gd): --act=spot (Ash
+#                      stops under a tree with a Kakuna on its thread, looks up, a pebble),
+#                      shake (he shakes the trunk, it drops: the battle), hive (he walks up
+#                      to the hive upright: the buzz, BEEDRILL ARE COMING!), nest (crouched
+#                      by the Pidgey nest, then upright: the parent dives); --species=kakuna
 #   --shot=PATH --shot-at=s     one still at s seconds, then quit
 #   --frames=DIR --every=n      the whole viewport every n-th frame (with --fixed-fps 15)
 #   --quit-at=s                 quit at s seconds
@@ -48,6 +53,9 @@ func _process(dt: float) -> void:
 		_grab.call_deferred(String(A.shot))
 		get_tree().create_timer(0.3).timeout.connect(func(): get_tree().quit())
 	if A.has("quit-at") and t >= float(A.get("quit-at")) and _once("quit"): get_tree().quit()
+	if A.has("stats") and frame % 15 == 0:
+		print("stats: wall %d t %.1f draws %d prims %dk objects %d real %.0f ms" % [Time.get_ticks_msec(), t, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000.0), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0])
 	if frame == 3:
 		main.cast.clock.real = false; main.cast.clock.ff = 1.0; main.cast.clock.set_time(float(A.get("hour", "10.5")))
 	if frame == 8 and not String(A.get("case", "")) in ["town", "oak"] and _once("enter"): BattleArena.enter(main, true)
@@ -69,6 +77,12 @@ func _process(dt: float) -> void:
 	var ar: BattleArena = BattleArena.I
 	if ar == null or frame < 12: return
 	var c := String(A.get("case", "play"))
+	if A.has("nolife") and _once("nolife"):
+		for id in ar.regions:
+			var r = ar.regions[id]
+			if r.life: r.life.set_process(false); r.life.hud.set_process(false)
+			for n in r.find_children("*", "Node3D", true, false):
+				if n is Creature: n.visible = false
 	match c:
 		"view":
 			# --cams=a,b,c: each one held 1.2 s from 3 s, a still of each (view_<cam>.png in --out)
@@ -116,6 +130,7 @@ func _process(dt: float) -> void:
 				s.wild.with_party = not A.has("alone")
 				ar.stage.run(s, {"auto": true, "seed": int(A.get("seed", "3"))})
 		"hunt": _hunt(ar)
+		"forest": _forest(ar)
 		"results":
 			if _once("res"):
 				var s := ArenaSetups.default_setup()
@@ -206,6 +221,118 @@ func _hunt(ar: BattleArena) -> void:
 				main.cam.look_at(_h.look, Vector3.UP)
 			main.cam_idle = 0.0
 
+# ---------- the forest, scripted ----------
+var _f := {}
+func _forest(ar: BattleArena) -> void:
+	var L = ar.life_of("forest")
+	if L == null: return
+	var W: Wild = main.cast.wild
+	var act := String(A.get("act", "spot"))
+	if _once("forest"):
+		L.auto_hunt = false
+		L.test_odds = 0.0
+		W.cooldown = 999.0
+		var R = ar.regions.forest
+		if act in ["spot", "shake"]:
+			# the search tree nearest the trail's first bend whose cocoon limb faces the trail
+			var best = null
+			var bd := INF
+			for t in L.src.trees:
+				var s: Dictionary = t.slots[0]
+				var d := Vector2(t.at.x - (ArenaData.C.x + 10.0), t.at.z - (ArenaData.C.y - 64.0)).length()
+				if d < bd: bd = d; best = t
+			var s: Dictionary = best.slots[0]
+			var sp := String(A.get("species", "kakuna"))
+			L.src._pending.append(s)
+			var e := W.spawn(sp, L.src, s.at, "timid")
+			L.src.settle(e, s.at)
+			e.hunt = false
+			e.life = -999.0
+			_f.e = e
+			_f.t = best
+			var dir: Vector3 = s.dir
+			# Ash on the trail side of it, a few metres out, facing it
+			var stand: Vector3 = (best.at as Vector3) + dir * (3.2 if act == "spot" else 4.2) + Vector3(dir.z, 0, -dir.x) * 0.8
+			_put(stand, atan2(-dir.x, -dir.z))
+			_f.dir = dir
+		elif act == "hive":
+			var hv: Dictionary = L.hive
+			var to: Vector3 = (hv.base as Vector3)
+			var from: Vector3 = to + ((ar.w(27.0, -66.5)) - to).normalized() * 15.0
+			_put(from, atan2(to.x - from.x, to.z - from.z))
+			_f.to = to
+		elif act == "nest":
+			var ns: Dictionary = L.nest
+			var at: Vector3 = (ns.base as Vector3) + (ns.dir as Vector3) * 7.5
+			_put(at, atan2(-ns.dir.x, -ns.dir.z))
+			_f.to = ns.base
+	var tt := t - 1.0
+	if tt < 0.0: return
+	var cam: Camera3D = main.cam
+	match act:
+		"spot", "shake":
+			var e: Dictionary = _f.e
+			var tr: Dictionary = _f.t
+			var dir: Vector3 = _f.dir
+			var side := Vector3(dir.z, 0, -dir.x)
+			if act == "spot":
+				# still: he looks up; a pebble at 4.5 s
+				main.stick_vec = Vector2.ZERO
+				if tt > 4.5 and _once("pebble") and not L.prompt.is_empty(): L.throw_pebble(tr, e)
+			else:
+				# up to the trunk, then A: the shake
+				var to: Vector3 = (tr.at as Vector3) + dir * (float(tr.trunk) + 0.9)
+				if Wild._d2(main.pos, to) > 0.4 and tt < 4.0 and not _did.has("shook"): _walk(to, 0.5)
+				else: main.stick_vec = Vector2.ZERO
+				e.loosened = 1.0
+				if tt > 2.5 and not L.prompt.is_empty() and String(L.prompt.kind) == "shake" and _once("shook"): W.use_pressed()
+			# over his shoulder, low, looking up into the crown at it
+			var np: Vector3 = (e.node as Node3D).position if is_instance_valid(e.node) else (tr.at as Vector3) + Vector3.UP * 3.0
+			var look: Vector3 = main.pos.lerp(np, 0.62) + Vector3.UP * (0.4 if act == "spot" else -0.6)
+			var want: Vector3 = main.pos + dir * 3.4 + side * 1.6 + Vector3.UP * (1.1 if act == "spot" else 1.6)
+			_f.cam = (_f.get("cam", want) as Vector3).lerp(want, 0.1)
+			_f.look = (_f.get("look", look) as Vector3).lerp(look, 0.15)
+			cam.global_position = _f.cam
+			cam.look_at(_f.look, Vector3.UP)
+			cam.fov = 62.0
+			main.cam_idle = 0.0
+		"hive":
+			var hv: Dictionary = L.hive
+			var to: Vector3 = _f.to
+			if L.swarm.is_empty() and Wild._d2(main.pos, to) > 3.0: _walk(to, 0.45)
+			elif not L.swarm.is_empty() and String(L.swarm.phase) == "chase": _walk(main.pos + (main.pos - to).normalized() * 5.0, 1.0)
+			else: main.stick_vec = Vector2.ZERO
+			var hp: Vector3 = hv.at
+			var want: Vector3 = main.pos + (main.pos - hp).normalized() * 4.5 + Vector3.UP * 2.2 + Vector3(0.0, 0, 0)
+			want = want + (hp - main.pos).cross(Vector3.UP).normalized() * 2.0
+			var look: Vector3 = main.pos.lerp(hp, 0.55)
+			_f.cam = (_f.get("cam", want) as Vector3).lerp(want, 0.08)
+			_f.look = (_f.get("look", look) as Vector3).lerp(look, 0.12)
+			cam.global_position = _f.cam
+			cam.look_at(_f.look, Vector3.UP)
+			cam.fov = 60.0
+			main.cam_idle = 0.0
+		"nest":
+			var ns: Dictionary = L.nest
+			var to: Vector3 = _f.to
+			# crouched up to 3.8 m, a pause, then up he stands
+			if tt < 0.5 and _once("cr"): main.cast._btn_crouch = true
+			var d: float = Wild._d2(main.pos, to)
+			if tt < 5.0 and d > 4.6: _walk(to, 0.6)
+			elif tt > 5.5 and tt < 6.0 and main.cast.crouching: main.cast.set_crouch(false)
+			elif tt > 6.0 and d > 3.6 and String(ns.state) in ["calm", "watch"]: _walk(to, 0.3)
+			else: main.stick_vec = Vector2.ZERO
+			var np: Vector3 = ns.at
+			var side: Vector3 = (np - main.pos).cross(Vector3.UP).normalized()
+			var want: Vector3 = main.pos + (main.pos - np).normalized() * 2.8 + side * 1.5 + Vector3.UP * 1.3
+			var look: Vector3 = main.pos.lerp(np, 0.7)
+			_f.cam = (_f.get("cam", want) as Vector3).lerp(want, 0.08)
+			_f.look = (_f.get("look", look) as Vector3).lerp(look, 0.12)
+			cam.global_position = _f.cam
+			cam.look_at(_f.look, Vector3.UP)
+			cam.fov = 60.0
+			main.cam_idle = 0.0
+
 func _put(p: Vector3, yaw: float) -> void:
 	p.y = main.world.height_at(p.x, p.z)
 	main.pos = p; main.yaw = yaw; main.speed = 0.0
@@ -231,7 +358,17 @@ func _view(ar: BattleArena) -> void:
 		"walk": [Vector3(C.x - 4, 1.7, C.y + 30), Vector3(C.x, 1.0, C.y + 5), 55.0],
 		"low": [Vector3(C.x + 2.5, 0.9, C.y + 13.5), Vector3(C.x, 0.6, C.y), 50.0],
 		"side": [Vector3(C.x + 16, 3.0, C.y + 2), Vector3(C.x, 0.5, C.y), 48.0],
-		"tall": [Vector3(C.x - 20, 1.8, C.y - 14), Vector3(C.x - 28, 0.5, C.y - 26), 52.0]}
+		"tall": [Vector3(C.x - 20, 1.8, C.y - 14), Vector3(C.x - 28, 0.5, C.y - 26), 52.0],
+		# the forest region (arena/regions/forest.gd): the whole arena from high in the south
+		# east, the gate from the hub, the trail at eye level, the hive's glade, the nest
+		"aerial2": [Vector3(C.x + 70, 78, C.y + 40), Vector3(C.x + 6, 0, C.y - 50), 50.0],
+		"fgate": [Vector3(C.x + 10.5, 1.8, C.y - 33), Vector3(C.x + 14, 2.2, C.y - 47), 55.0],
+		"ftrail": [Vector3(C.x + 13.2, 1.65, C.y - 55), Vector3(C.x + 8.5, 1.4, C.y - 69), 58.0],
+		"fdeep": [Vector3(C.x + 10.5, 1.7, C.y - 82), Vector3(C.x + 4.5, 1.5, C.y - 97), 58.0],
+		"fclear": [Vector3(C.x + 6, 2.2, C.y - 70), Vector3(C.x - 6, 0.6, C.y - 77), 58.0],
+		"fhive": [Vector3(C.x + 26, 2.0, C.y - 69), Vector3(C.x + 36, 4.4, C.y - 63), 55.0],
+		"fnest": [Vector3(C.x - 4.5, 2.2, C.y - 97), Vector3(C.x - 9.5, 3.2, C.y - 101), 55.0],
+		"fup": [Vector3(C.x + 12, 1.5, C.y - 64), Vector3(C.x + 12, 6.0, C.y - 72), 60.0]}
 	var v: Array = at.get(cv, at.aerial)
 	# Ash where the camera looks (the grass field is drawn round him)
 	var tp: Vector3 = v[1]

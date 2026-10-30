@@ -11,6 +11,7 @@ extends WildSource
 const DEEP := 0.85         # tall_at a spot needs (1 = well inside the rim)
 const ROUND := 0.9         # and the grass still tall this far round it (m)
 var on := false
+var zone := "hub"           # the hub's patches, or a region's (its id)
 var data: ArenaData        # (null: the arena's, BattleArena.data_now())
 var rng := RandomNumberGenerator.new()
 
@@ -26,12 +27,24 @@ func _d() -> ArenaData:
 
 func active() -> bool: return on and BattleArena.I != null
 
+# the patches it uses (indices into ArenaData.PATCHES)
+var _ids := []
+var _ids_zone := ""
+func ids() -> Array:
+	if _ids_zone != zone or _ids.is_empty():
+		_ids = ArenaData.zone_patches(zone)
+		if _ids.is_empty() and zone == "hub": _ids = range(ArenaData.TALL.size())
+		_ids_zone = zone
+	return _ids
+
+static func patch(i: int) -> Array: return ArenaData.PATCHES[i] if i < ArenaData.PATCHES.size() else ArenaData.TALL[i]
+
 static func local(p: Vector3) -> Vector2: return Vector2(p.x - ArenaData.C.x, p.z - ArenaData.C.y)
 static func world(l: Vector2) -> Vector3: return Vector3(ArenaData.C.x + l.x, 0.0, ArenaData.C.y + l.y)
 
 func region(p: Vector3) -> String:
 	var l := local(p)
-	return "arena" if active() and absf(l.x) < ArenaData.HALF and absf(l.y) < ArenaData.HALF else ""
+	return "arena" if active() and ArenaData.BOX.has_point(l) else ""
 
 # how tall the grass draws at l (local): the blob where the dirt leaves it
 func tall(l: Vector2) -> float:
@@ -45,8 +58,8 @@ func distance(p: Vector3) -> float:
 	var l := local(p)
 	if tall(l) > 0.0: return 0.0
 	var best := INF
-	for i in ArenaData.TALL.size():
-		var t: Array = ArenaData.TALL[i]
+	for i in ids():
+		var t: Array = patch(i)
 		var v := l - Vector2(t[0], t[1])
 		var u := Vector2(v.x / t[2], v.y / t[3])
 		var L := u.length()
@@ -58,7 +71,7 @@ func patch_of(p: Vector3) -> int:
 	var l := local(p)
 	var bi := -1
 	var bv := 0.35
-	for i in ArenaData.TALL.size():
+	for i in ids():
 		var v := ArenaData.tall_blob(i, l.x, l.y)
 		if v > bv: bv = v; bi = i
 	return bi
@@ -74,10 +87,10 @@ func good(p: Vector3) -> bool:
 	return (_d().collide(q, 0.75) - q).length() < 0.01
 
 # somewhere hidden in patch i (-1: any, by size), or null
-func random_spot(r: RandomNumberGenerator, patch := -1) -> Variant:
+func random_spot(r: RandomNumberGenerator, patch_i := -1) -> Variant:
 	for k in 60:
-		var i := patch if patch >= 0 else _pick_patch(r)
-		var t: Array = ArenaData.TALL[i]
+		var i := patch_i if patch_i >= 0 else _pick_patch(r)
+		var t: Array = patch(i)
 		var a := r.randf() * TAU
 		var d := sqrt(r.randf()) * 0.95
 		var p := world(Vector2(t[0], t[1]) + Vector2(cos(a) * t[2], sin(a) * t[3]) * d)
@@ -86,14 +99,14 @@ func random_spot(r: RandomNumberGenerator, patch := -1) -> Variant:
 
 func _pick_patch(r: RandomNumberGenerator) -> int:
 	var tot := 0.0
-	for t in ArenaData.TALL: tot += float(t[2]) * float(t[3])
+	for i in ids(): tot += float(patch(i)[2]) * float(patch(i)[3])
 	var x := r.randf() * tot
-	for i in ArenaData.TALL.size():
-		x -= float(ArenaData.TALL[i][2]) * float(ArenaData.TALL[i][3])
+	for i in ids():
+		x -= float(patch(i)[2]) * float(patch(i)[3])
 		if x <= 0.0: return i
-	return ArenaData.TALL.size() - 1
+	return ids().back()
 
-static func area(i: int) -> float: return PI * float(ArenaData.TALL[i][2]) * float(ArenaData.TALL[i][3])
+static func area(i: int) -> float: return PI * float(patch(i)[2]) * float(patch(i)[3])
 
 func pick_spot(ash: Vector3, yaw: float, dmin: float, dmax: float, r: RandomNumberGenerator) -> Variant:
 	var best = null
@@ -113,9 +126,9 @@ func safe_spots(from: Vector3, r: float) -> Array:
 	if not active(): return out
 	var me := patch_of(from)
 	var lf := local(from)
-	for i in ArenaData.TALL.size():
+	for i in ids():
 		if i == me: continue
-		var t: Array = ArenaData.TALL[i]
+		var t: Array = patch(i)
 		# the side of that patch facing the one fleeing, a way in, else anywhere in it
 		var c := Vector2(t[0], t[1])
 		var dir := (lf - c).normalized()
@@ -128,7 +141,10 @@ func safe_spots(from: Vector3, r: float) -> Array:
 		if Vector2(p.x - from.x, p.z - from.z).length() <= r: out.append({"at": p, "kind": "tall_grass", "patch": i})
 	var ar = BattleArena.I
 	if ar:
+		# (the hides of the zone it is in: one in the hub keeps to the hub's bushes and trees)
+		var hz := ArenaData.region_at(lf.x, lf.y)
 		for h in ar.hides:
+			if String(h.get("zone", "")) != hz: continue
 			var at: Vector3 = h.at
 			if Vector2(at.x - from.x, at.z - from.z).length() <= r: out.append({"at": Vector3(at.x, 0.0, at.z), "kind": h.kind, "r": h.r})
 	return out
