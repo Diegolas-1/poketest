@@ -185,14 +185,14 @@ func _nest() -> void:
 	var base: Vector3 = tr.at
 	var tw := _to_trail(tr.local)
 	var dir := Vector3(tw.x, 0, tw.y)
-	var y := float(N.get("h", 3.4))
+	var y := clampf(minf(float(N.get("h", 3.4)), float(tr.cy0) - 0.35), 2.3, 4.2)   # (under the crown: in sight)
 	var at := base + dir * (float(tr.trunk) + 0.45) + UP * y
 	# a fork to sit in: two limbs splaying from the trunk under it
 	var b := PropMesh.new()
 	var side := dir.cross(UP).normalized()
 	for s in [-1.0, 1.0]:
 		var f := base + UP * (y - 0.45) + dir * float(tr.trunk) * 0.4
-		ForestProps.limb(b, f - base, (at + side * s * 0.55 + dir * 0.7 + UP * 0.25) - base, 0.12, s > 0.0, 11 + int(s))
+		ForestProps.limb(b, f - base, (at + side * s * 0.55 + dir * 0.7 + UP * 0.25) - base, 0.12, false, 11 + int(s))
 	PropScatter.single(region, b.mesh(ForestProps.mats()), base, {"shadow": true, "range": 90.0}).name = "NestLimbs"
 	var node := PropScatter.single(region, ForestProps.nest(int(N.get("eggs", 2))), at, {"shadow": true, "range": 90.0, "ink": true})
 	node.name = "Nest"
