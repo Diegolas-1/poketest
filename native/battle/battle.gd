@@ -113,7 +113,7 @@ const ARENA_R := 5.6           # the floor kept clear (m): a ~11 m circle (the 1
 const GAP := 4.4               # Ash to the Pokémon (m)
 const PARTNER_AHEAD := 1.8     # mode "pkmn": his Pokémon this far ahead of him
 const PARTNER_SIDE := 0.7      # and this far to his right (he stands behind and beside it)
-const FOE_SCALE := 1.7        # the Pokémon's battle presence (the foe's, a partner's): it swells to this as the arena opens (a 40 cm bird reads from the high camera), back after
+const FOE_SCALE := 1.0        # the Pokémon's battle presence (the foe's, a partner's): 1 = the size it is in the world (Creature.SIZE), so nothing swells as the arena opens
 const OPEN_T := 1.35           # the spread (s)
 const CLOSE_T := 1.1
 
