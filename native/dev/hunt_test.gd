@@ -70,6 +70,15 @@ func _process(dt: float) -> void:
 			ok(W.sources[0].region(me) == "", "Route 1's source is silent in the arena")
 			ok(W.arena_src.region(me) == "", "and the arena's too with no hunt on")
 			ok(W.tut.state == "off", "the tutorial did not start in the arena")
+			# the touch A by the referee opens the staging menu (cast.gd routes it)
+			if not log.has("ref"):
+				log.ref = true
+				_place(BattleArena.I.referee_spot() + Vector3(1.2, 0, 0), -PI / 2.0)
+				main.cast._btn_a = true
+				return
+			ok(BattleArena.I.menu.is_open(), "A by the referee opens the staging menu")
+			BattleArena.I.menu.close_now()
+			_place(main.world.meta.spawn_v if main.world.meta.has("spawn_v") else Vector3(main.world.meta.spawn[0], 0, main.world.meta.spawn[2]), PI)
 			var h := ArenaSetups.default_hunt()
 			h.species = ["pidgey", "rattata", "caterpie"]
 			h.count = 9

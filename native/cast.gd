@@ -452,6 +452,7 @@ func update(dt: float) -> void:
 		if crouching and (jmp or (run_held() and absf(game.speed) > 1.0) or bike.riding()): set_crouch(false)
 		# A near a wild Pokémon: the pounce (wild.gd), before anything else in reach
 		if use and wild.use_pressed(): use = false
+		if use and BattleArena.I and BattleArena.I.use_pressed(): use = false   # (the referee: the staging menu)
 		if bike.riding():
 			# on the bike: the jump hops (a pad's north face button rings the bell, its west
 			# one is the wheelie, held (bike.gd), its R hops)

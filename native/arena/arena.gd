@@ -849,19 +849,26 @@ func open_menu() -> void:
 
 func _unhandled_input(e: InputEvent) -> void:
 	if gone or menu == null or menu.is_open() or Battle.active: return
-	var near_ref := referee and Vector2(game.pos.x - referee.global_position.x, game.pos.z - referee.global_position.z).length() < 2.4
 	if (e is InputEventKey and e.pressed and not e.echo and e.physical_keycode == KEY_TAB) \
-		or (e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_LEFT_STICK) \
-		or (near_ref and e.is_action_pressed("use")):
+		or (e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_LEFT_STICK):
 		open_menu()
 		get_viewport().set_input_as_handled()
+
+# A by the referee (cast.gd asks, so the touch A button counts too): true = taken
+func use_pressed() -> bool:
+	if gone or menu == null or menu.is_open() or Battle.active or not near_referee(): return false
+	open_menu()
+	return true
+
+func near_referee() -> bool:
+	return referee != null and Vector2(game.pos.x - referee.global_position.x, game.pos.z - referee.global_position.z).length() < 2.4
 
 func _process(dt: float) -> void:
 	if gone: return
 	if not Battle.active and not game.trans_busy: _region_watch()
 	if btn: btn.visible = not Battle.active and not menu.is_open() and not game.trans_busy and not (stage and stage.busy())
 	# the referee's prompt
-	var near_ref := referee and Vector2(game.pos.x - referee.global_position.x, game.pos.z - referee.global_position.z).length() < 2.4
+	var near_ref := near_referee()
 	if btn: btn.ref_prompt = near_ref and not Battle.active and not menu.is_open()
 	if btn and near_ref: btn.ref_at = game.cam.unproject_position(referee.global_position + Vector3(0, 2.1, 0))
 	# keep the referee watching Ash while he roams
