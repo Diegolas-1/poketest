@@ -290,6 +290,7 @@ func _forest(ar: BattleArena) -> void:
 			_f.to = ns.base
 	var tt := t - 1.0
 	if tt < 0.0: return
+	if Battle.active and act != "hive": return   # (the battle frames its own shots)
 	var cam: Camera3D = main.cam
 	match act:
 		"spot", "shake":
@@ -362,6 +363,13 @@ func _forest(ar: BattleArena) -> void:
 			var want: Vector3 = main.pos + away * 4.2 + side * 1.8 + Vector3.UP * 1.5
 			want.y = maxf(want.y, main.world.height_at(want.x, want.z) + 1.3)
 			var look: Vector3 = main.pos.lerp(np, 0.6) + Vector3.UP * 0.2
+			if tt < 2.4:
+				# first a close look at the nest: the chicks, the eggs, the parent on its rim
+				var nd: Vector3 = ns.dir
+				var ns_side: Vector3 = nd.cross(Vector3.UP)
+				want = np + nd * 2.3 + ns_side * 0.9 + Vector3.UP * 0.55
+				look = np + Vector3.UP * 0.1
+				_f.cam = want; _f.look = look
 			_f.cam = (_f.get("cam", want) as Vector3).lerp(want, 0.08)
 			_f.look = (_f.get("look", look) as Vector3).lerp(look, 0.12)
 			cam.global_position = _f.cam
