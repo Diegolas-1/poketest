@@ -279,8 +279,10 @@ func _ambush(ar: BattleArena) -> void:
 			_put(ar.w(0.5, 37.0), PI)
 			_a.path = [ar.w(0.0, 33.0), ar.w(-4.0, 27.5), ar.w(-11.0, 24.0), ar.w(-16.0, 21.5)]
 		else:
-			_put(at + Vector3(-2.6, 0, 12.0), PI)
-			_a.path = [at + Vector3(-2.6, 0, -8.0)]
+			# (the run: he comes down from the field, so he has room to bolt back up it)
+			var sgn := -1.0 if act == "run" else 1.0
+			_put(at + Vector3(-2.6, 0, 9.5 * sgn), 0.0 if act == "run" else PI)
+			_a.path = [at + Vector3(-2.6, 0, -8.0 * sgn)]
 			var n: int = {"bush": 1, "intercept": 2, "swarm": 4, "run": 1}.get(act, 1)
 			if act in ["intercept", "swarm"]:
 				Cm.send_out(0, true, main.pos + Vector3(0.9, 0, 1.4))
@@ -303,6 +305,10 @@ func _ambush(ar: BattleArena) -> void:
 		var to: Vector3 = _a.path[int(_a.i)]
 		if Wild._d2(main.pos, to) < 1.2: _a.i = int(_a.i) + 1
 		else: _walk(to, 0.42 if main.cast.crouching else 0.72)
+	elif act == "run" and st == "chase":
+		# he keeps running: it gives up a little way on
+		var lp2: Vector3 = (Am._lead().node as Node3D).position
+		_walk(main.pos + (main.pos - lp2).normalized() * 10.0, 1.0)
 	else: main.stick_vec = Vector2.ZERO
 	# the standoff: a beat, then his pick (POKéMON: the first of his party), or RUN
 	if st == "standoff":
@@ -316,7 +322,7 @@ func _ambush(ar: BattleArena) -> void:
 		if tt - float(_a.pm_t) > 1.3 and _once("pm_go"): pm._pick(0)
 	# the camera: over his shoulder, a little to the side, so his Pokémon and the cover show
 	if not Battle.active and not main.trans_busy:
-		var want_yaw: float = main.yaw + PI + (0.8 if act == "follow" else 0.7)
+		var want_yaw: float = main.yaw + PI + (-0.8 if act == "follow" else 0.7)
 		if st in ["strike", "standoff", "intercept", "throw", "menu", "chase", "dash"] and not Am.cur.is_empty():
 			var lp: Vector3 = (Am._lead().node as Node3D).position
 			want_yaw = atan2(main.pos.x - lp.x, main.pos.z - lp.z) + 0.65

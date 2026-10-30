@@ -271,7 +271,7 @@ func _process(dt: float) -> void:
 				ok(bool(o.get("doubles", false)) and bool(o.get("waves", false)) and (o.party_b as Array).size() == 3, "a swarm: doubles, in waves, all 3 on their side")
 				ok(o.get("partner_node") is Node3D and o.get("partner_node2") is Node3D and bool(o.get("keep_partner", false)), "his two out are the battle's, kept after")
 				ok(bool(o.get("pause_world", false)), "the world waits during it")
-				ok(String(o.get("banner", "")).begins_with("A SWARM OF"), "the banner: %s" % o.get("banner"))
+				ok(String(o.get("banner", "")).ends_with("SWARM"), "the banner: WILD %s!" % o.get("banner"))
 			if L.has("ob") and A.cur.is_empty() and not Wild.STUB.active:
 				ok(C.count() == 2 and C.out.all(func(c): return String(c.state) == "out"), "after it, his two are back with him")
 				_next()

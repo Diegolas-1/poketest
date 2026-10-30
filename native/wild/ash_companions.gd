@@ -293,6 +293,8 @@ func _follow(c: Dictionary, dt: float, me: Vector3) -> void:
 		want = (spd if spd > 0.4 else 0.0) + clampf((dist - 0.35) * (2.2 if dist < num("hurry_d", 4.0) else 3.4), 0.0, 8.0)
 		if spd <= 0.4: want = clampf(dist * 2.0, 0.5, num("walk_v", 4.6))
 	want = minf(want, top)
+	# in the camera's face (a bird trailing at its height): out of it quickly
+	if game.cam != null and Vector2(pos.x - game.cam.global_position.x, pos.z - game.cam.global_position.z).length() < 3.0: want = maxf(want, minf(top, spd + 3.0))
 	c.v = move_toward(float(c.v), want, num("accel", 9.0) * dt)
 	var dir := to / maxf(dist, 1e-4)
 	# clear of his feet, and of the other one

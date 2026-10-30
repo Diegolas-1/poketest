@@ -730,8 +730,26 @@ func _cut_doubles(s: String) -> void:
 	var f: Vector3 = battle.fwd
 	var sd: Vector3 = battle.side
 	var up := Vector3.UP
-	var sh := {"pos": from - f * 1.3 + sd * 2.6 + up * 1.8, "look": to + up * 0.3 - f * 0.9, "fov": 50.0}
-	if s == "b": sh = {"pos": from + f * 2.0 - sd * 2.5 + up * 2.0, "look": to + up * 0.3 + f * 0.6, "fov": 52.0}
+	# over its outer shoulder (the side away from its partner: place 0 is on the left, 1 on
+	# the right), so the partner is never between the lens and the shot
+	var out := 1.0 if int(_pl[s]) == 1 else -1.0
+	var sh := {"pos": from - f * 1.6 + sd * out * 2.4 + up * 2.0, "look": to + up * 0.3 - f * 0.9, "fov": 50.0}
+	if s == "b": sh = {"pos": from + f * 2.2 + sd * out * 2.4 + up * 2.2, "look": to + up * 0.3 + f * 0.6, "fov": 52.0}
+	# and clear of every one out (a wing, a bulb): pushed off and up from any too near the lens
+	var p: Vector3 = sh.pos
+	var near := [[battle.ash_pos, 2.4]]   # (Ash too: his head is not the shot)
+	for k in [["a", 0], ["a", 1], ["b", 0], ["b", 1]]:
+		var fk := D.at(String(k[0]), int(k[1]))
+		if fk == null or (String(k[0]) == s and int(k[1]) == int(_pl[s])): continue
+		near.append([_pos_at(String(k[0]), int(k[1])), 2.0 + 0.9 * clampf(float(Creature.species_info(String(fk.species)).get("height", 0.5)), 0.3, 1.5)])
+	for nq in near:
+		var q: Vector3 = nq[0]
+		var r: float = nq[1]
+		var fl := Vector3(p.x - q.x, 0, p.z - q.z)
+		var d := fl.length()
+		if d < r and d > 1e-3:
+			p += fl / d * (r - d) + up * (r - d) * 0.5
+	sh.pos = p
 	sh["rate"] = 4.0
 	sh["name"] = "_fixed"
 	battle._shot = sh

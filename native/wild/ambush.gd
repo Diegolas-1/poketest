@@ -688,7 +688,7 @@ func _start_battle(first: String) -> void:
 	var opts := {"species": String(cur.species), "creature": ln, "at": ln.global_position, "temper": "aggressive" if temper != "timid" else "timid",
 		"state": "attacking" if first == "wild" else "startled", "where": "tall_grass" if String(cur.kind) == "tall_grass" else "bush",
 		"first_strike": first, "level": int(lead.level), "pause_world": true, "ambush": true, "kind": "wild"}
-	if bool(cur.swarm): opts["banner"] = "A SWARM OF %s!" % name_of(String(cur.species)).to_upper()
+	if bool(cur.swarm): opts["banner"] = "%s SWARM" % name_of(String(cur.species)).to_upper()   # ("WILD BEEDRILL SWARM!")
 	if P.is_empty():
 		opts["mode"] = "prologue"
 	else:
