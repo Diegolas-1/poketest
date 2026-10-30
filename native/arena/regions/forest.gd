@@ -36,7 +36,7 @@ static func def() -> Dictionary:
 		"yaw": PI,
 		# the ground: the grass's tint, how dense the short grass is under the trees,
 		# the dirt's palette (the terrain shader's), how much the floor rolls
-		"ground": {"tint": Color(0.3, 0.42, 0.21), "moss": Color(0.25, 0.35, 0.17), "dens": 0.07, "roll": 1.6,
+		"ground": {"tint": Color(0.25, 0.37, 0.17), "moss": Color(0.21, 0.31, 0.14), "dens": 0.07, "roll": 1.6,
 			"dirt": {"d_mid": Color(0.55, 0.4, 0.27), "d_light": Color(0.64, 0.5, 0.34), "d_edge": Color(0.45, 0.34, 0.23),
 				"d_dark": Color(0.3, 0.2, 0.13), "d_pale": Color(0.62, 0.52, 0.38)}},
 		# the trail: [a, b, half width], from the gate winding north to the far clearing,

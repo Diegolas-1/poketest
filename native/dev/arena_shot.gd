@@ -100,6 +100,12 @@ func _process(dt: float) -> void:
 				if n is Creature: n.visible = false
 	match c:
 		"view":
+			# (stills: the forest's hive and nest left be as the camera's Ash hops about)
+			var fl = ar.life_of("forest")
+			if fl and _once("calm"):
+				fl.auto_hunt = A.has("hunt")
+				if not fl.hive.is_empty(): fl.hive.cool = 1e9
+				if not fl.nest.is_empty(): fl.nest.cool = 1e9
 			# --cams=a,b,c: each one held 1.2 s from 3 s, a still of each (view_<cam>.png in --out)
 			var cams: Array = Array(String(A.get("cams", A.get("cam", "aerial"))).split(","))
 			var i := int((t - 3.0) / 1.2)
@@ -304,8 +310,13 @@ func _forest(ar: BattleArena) -> void:
 				if tt > 2.5 and not L.prompt.is_empty() and String(L.prompt.kind) == "shake" and _once("shook"): W.use_pressed()
 			# over his shoulder, low, looking up into the crown at it
 			var np: Vector3 = (e.node as Node3D).position if is_instance_valid(e.node) else (tr.at as Vector3) + Vector3.UP * 3.0
-			var look: Vector3 = main.pos.lerp(np, 0.62) + Vector3.UP * (0.4 if act == "spot" else -0.6)
-			var want: Vector3 = main.pos + dir * 3.4 + side * 1.6 + Vector3.UP * (1.1 if act == "spot" else 1.6)
+			var look: Vector3 = main.pos.lerp(np, 0.62) + Vector3.UP * 0.4
+			var want: Vector3 = main.pos + dir * 3.4 + side * 1.6 + Vector3.UP * 1.1
+			if act == "shake":
+				# wide: the trunk, Ash at it and the crown over him, the fall in frame
+				var base: Vector3 = tr.at
+				look = base + Vector3.UP * 2.3 + dir * 1.0
+				want = base + dir * 7.0 + side * 2.8 + Vector3.UP * 1.9
 			_f.cam = (_f.get("cam", want) as Vector3).lerp(want, 0.1)
 			_f.look = (_f.get("look", look) as Vector3).lerp(look, 0.15)
 			cam.global_position = _f.cam
@@ -315,13 +326,18 @@ func _forest(ar: BattleArena) -> void:
 		"hive":
 			var hv: Dictionary = L.hive
 			var to: Vector3 = _f.to
-			if L.swarm.is_empty() and Wild._d2(main.pos, to) > 3.0: _walk(to, 0.45)
-			elif not L.swarm.is_empty() and String(L.swarm.phase) == "chase": _walk(main.pos + (main.pos - to).normalized() * 5.0, 1.0)
+			# upright up to it (the agitation fills), then he stands his ground: the swarm
+			# catches him (--run: he runs for it, out of their reach)
+			if L.swarm.is_empty() and Wild._d2(main.pos, to) > 4.0: _walk(to, 0.45)
+			elif A.has("run") and not L.swarm.is_empty() and String(L.swarm.phase) == "chase": _walk(main.pos + (main.pos - to).normalized() * 5.0, 1.0)
 			else: main.stick_vec = Vector2.ZERO
 			var hp: Vector3 = hv.at
-			var want: Vector3 = main.pos + (main.pos - hp).normalized() * 4.5 + Vector3.UP * 2.2 + Vector3(0.0, 0, 0)
-			want = want + (hp - main.pos).cross(Vector3.UP).normalized() * 2.0
-			var look: Vector3 = main.pos.lerp(hp, 0.55)
+			var away: Vector3 = main.pos - hp
+			away.y = 0.0
+			away = away.normalized()
+			var want: Vector3 = main.pos + away * 4.8 + away.cross(Vector3.UP) * 1.8 + Vector3.UP * 2.0
+			want.y = maxf(want.y, main.world.height_at(want.x, want.z) + 1.4)
+			var look: Vector3 = main.pos.lerp(hp, 0.5) + Vector3.UP * 0.4
 			_f.cam = (_f.get("cam", want) as Vector3).lerp(want, 0.08)
 			_f.look = (_f.get("look", look) as Vector3).lerp(look, 0.12)
 			cam.global_position = _f.cam
@@ -377,7 +393,7 @@ func _view(ar: BattleArena) -> void:
 		"tall": [Vector3(C.x - 20, 1.8, C.y - 14), Vector3(C.x - 28, 0.5, C.y - 26), 52.0],
 		# the forest region (arena/regions/forest.gd): the whole arena from high in the south
 		# east, the gate from the hub, the trail at eye level, the hive's glade, the nest
-		"aerial2": [Vector3(C.x + 70, 78, C.y + 40), Vector3(C.x + 6, 0, C.y - 50), 50.0],
+		"aerial2": [Vector3(C.x + 58, 64, C.y - 2), Vector3(C.x + 4, 0, C.y - 62), 58.0],
 		"fgate": [Vector3(C.x + 10.5, 1.8, C.y - 33), Vector3(C.x + 14, 2.2, C.y - 47), 55.0],
 		"ftrail": [Vector3(C.x + 13.2, 1.65, C.y - 55), Vector3(C.x + 8.5, 1.4, C.y - 69), 58.0],
 		"fdeep": [Vector3(C.x + 10.5, 1.7, C.y - 82), Vector3(C.x + 4.5, 1.5, C.y - 97), 58.0],

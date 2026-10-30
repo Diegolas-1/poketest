@@ -513,7 +513,8 @@ func _falls_step(dt: float) -> void:
 				f.landed = float(f.t)
 				Sfx.play("thump" if Sfx.has("thump") else "scuff", node.position, {"vol": -4.0})
 				for i in 4: wild._feather(node.position + UP * 0.2, true)
-				node.call("mood", "hurt")
+				node.call("mood", "startle")
+				if String(f.then) == "battle": wild.toaster.push("warn", "%s DROPPED!" % wild._name(e).to_upper(), "It fell right in front of you!", "bang", 1.8)
 			continue
 		if not f.has("landed"): f.landed = float(f.t)
 		if float(f.t) - float(f.landed) < 0.45: continue
@@ -522,7 +523,6 @@ func _falls_step(dt: float) -> void:
 		e.kind = "grass"
 		e.aloft = false
 		if String(f.then) == "battle" and not wild.battle_on:
-			wild.toaster.push("warn", "%s DROPPED!" % wild._name(e).to_upper(), "It fell right in front of you!", "bang", 1.8)
 			_note("battle %s" % e.species)
 			wild._start_battle(e, "startled", "ash")
 		else:
