@@ -42,6 +42,7 @@ var btn: Control               # the STAGE A BATTLE button
 var _ink_chunks: Array = []    # [{node, ink, c}]
 var hides: Array = []          # the bushes and trees inside the fence: {at, kind, r} (a fled Pokémon's cover, wild.gd)
 var hunt: Node                 # ArenaHunt (arena/arena_hunt.gd)
+var ambush: Node               # the AMBUSH page's thickets and staged ambushes (arena/arena_ambush.gd)
 var _ink_t := 0.0
 var _saved := {}
 var _built := false
@@ -187,6 +188,10 @@ func _build() -> void:
 	hunt.name = "Hunt"
 	add_child(hunt)
 	hunt.setup_(self)
+	ambush = preload("res://arena/arena_ambush.gd").new()
+	ambush.name = "Ambush"
+	add_child(ambush)
+	ambush.setup_(self)
 
 func w(x: float, z: float) -> Vector3:
 	return Vector3(ArenaData.C.x + x, ArenaData.ground(x, z), ArenaData.C.y + z)

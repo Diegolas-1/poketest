@@ -14,6 +14,13 @@ extends Node
 #                      patch, a few hiding round him twitching the grass), pounce (on in,
 #                      the A-mash, into the battle), run (a Rattata startled runs off to
 #                      another patch, the camera after it); --species=a,b --n=8
+#   --case=ambush      Ash's Pokémon out with him and the ambushes (wild/ash_companions.gd,
+#                      wild/ambush.gd): --act=follow (Pikachu and Pidgeotto thrown out, they
+#                      follow him up the path, wait by him, sneak when he crouches), bush (a
+#                      Beedrill jumps him from a thicket: the standoff, POKéMON, Pikachu runs
+#                      in), intercept (Pikachu and Bulbasaur out cut off two Beedrill),
+#                      swarm (four Beedrill against his two, two at a time), run (RUN: away,
+#                      it chases a little way)
 #   --shot=PATH --shot-at=s     one still at s seconds, then quit
 #   --frames=DIR --every=n      the whole viewport every n-th frame (with --fixed-fps 15)
 #   --quit-at=s                 quit at s seconds
@@ -28,11 +35,13 @@ var _did := {}
 
 func _ready() -> void:
 	process_priority = 100
+	process_mode = Node.PROCESS_MODE_ALWAYS   # (a menu that pauses the game: the script still drives it)
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		A[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if A.has("device"): UIInput.force(String(A.device))
 	main = load("res://main.tscn").instantiate()
+	main.process_mode = Node.PROCESS_MODE_PAUSABLE   # (the game itself still pauses)
 	add_child(main)
 
 func _once(key: String) -> bool:
@@ -44,11 +53,17 @@ func _process(dt: float) -> void:
 	frame += 1
 	t += dt
 	if A.has("frames") and frame % maxi(1, int(A.get("every", "1"))) == 0: _grab.call_deferred("%s/f%05d.png" % [A.frames, frame])
+	# --skip-draw: only the frames kept are drawn (the game runs every frame as ever; a render
+	# on a busy machine goes several times faster)
+	if A.has("frames") and A.has("skip-draw"): RenderingServer.render_loop_enabled = frame % maxi(1, int(A.get("every", "1"))) == 0 or frame < 3
 	if A.has("shot") and t >= float(A.get("shot-at", "3")) and _once("shot"):
 		_grab.call_deferred(String(A.shot))
 		get_tree().create_timer(0.3).timeout.connect(func(): get_tree().quit())
 	if A.has("quit-at") and t >= float(A.get("quit-at")) and _once("quit"): get_tree().quit()
 	if frame == 3:
+		# (his Pokémon out with him: a save of the shots' own, never the player's)
+		main.cast.companions.save_path = "user://companions_shot.save"
+		main.cast.companions.autosave = false
 		main.cast.clock.real = false; main.cast.clock.ff = 1.0; main.cast.clock.set_time(float(A.get("hour", "10.5")))
 	if frame == 8 and not String(A.get("case", "")) in ["town", "oak"] and _once("enter"): BattleArena.enter(main, true)
 	# --case=oak (with -- --cast-test=convo --convo-who=oak --convo-picks=...): Oak's talk takes
@@ -116,6 +131,7 @@ func _process(dt: float) -> void:
 				s.wild.with_party = not A.has("alone")
 				ar.stage.run(s, {"auto": true, "seed": int(A.get("seed", "3"))})
 		"hunt": _hunt(ar)
+		"ambush": _ambush(ar)
 		"results":
 			if _once("res"):
 				var s := ArenaSetups.default_setup()
@@ -244,3 +260,71 @@ func _view(ar: BattleArena) -> void:
 func _grab(path: String) -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
+
+# ---------- ambushes, scripted (the arena's thickets) ----------
+var _a := {}
+func _ambush(ar: BattleArena) -> void:
+	var act := String(A.get("act", "follow"))
+	var Am: Ambush = main.cast.wild.ambush
+	var Cm: AshCompanions = main.cast.companions
+	var tt := t - 1.0
+	if tt < 0.0: return
+	if _once("amb"):
+		Am.cooldown = 1e9
+		Am.battle_extra = {"auto": true, "seed": int(A.get("seed", "5")), "auto_delay": 0.5}
+		for k in range(Cm.out.size() - 1, -1, -1): Cm.recall(k, true)
+		var thk: Dictionary = ar.ambush.spots[0]
+		var at: Vector3 = thk.at
+		if act == "follow":
+			_put(ar.w(0.5, 37.0), PI)
+			_a.path = [ar.w(0.0, 33.0), ar.w(-4.0, 27.5), ar.w(-11.0, 24.0), ar.w(-16.0, 21.5)]
+		else:
+			# (the run: he comes down from the field, so he has room to bolt back up it)
+			var sgn := -1.0 if act == "run" else 1.0
+			_put(at + Vector3(-2.6, 0, 9.5 * sgn), 0.0 if act == "run" else PI)
+			_a.path = [at + Vector3(-2.6, 0, -8.0 * sgn)]
+			var n: int = {"bush": 1, "intercept": 2, "swarm": 4, "run": 1}.get(act, 1)
+			if act in ["intercept", "swarm"]:
+				Cm.send_out(0, true, main.pos + Vector3(0.9, 0, 1.4))
+				Cm.send_out(2 if act == "intercept" else 1, true, main.pos + Vector3(-0.9, 0, 1.6))
+			Am.force = {"species": String(A.get("species", "beedrill")), "n": n, "cover": thk, "level": int(A.get("level", "3" if act == "swarm" else "6")), "temper": "aggressive"}
+			if act == "run": Am.force_run = 1; Am.force_chase = 1
+		_a.i = 0
+	var st := String(Am.cur.get("state", ""))
+	# walking his path (upright, at a walk); the follow case stops, then crouches on the way
+	var walking := true
+	if act == "follow":
+		if tt > 0.4 and _once("f_t0"): Cm.send_out(0)
+		if tt > 2.0 and _once("f_t1"): Cm.send_out(1)
+		if tt < 3.8 or (tt > 10.5 and tt < 13.5): walking = false
+		if tt > 13.5 and _once("crouch"): main.cast.set_crouch(true)
+		if tt > 19.0 and _once("stand"): main.cast.set_crouch(false)
+	else:
+		walking = Am.lurking() or (Am.cur.is_empty() and tt < 1.0)
+	if walking and int(_a.i) < (_a.path as Array).size():
+		var to: Vector3 = _a.path[int(_a.i)]
+		if Wild._d2(main.pos, to) < 1.2: _a.i = int(_a.i) + 1
+		else: _walk(to, 0.42 if main.cast.crouching else 0.72)
+	elif act == "run" and st in ["chase", "leave"] and Wild._d2(main.pos, ar.w(3.0, -2.0)) > 2.0:
+		# he keeps running (up the open field, clear of the referee's stand): it gives up a little way on
+		_walk(ar.w(3.0, -2.0), 1.0)
+	else: main.stick_vec = Vector2.ZERO
+	# the standoff: a beat, then his pick (POKéMON: the first of his party), or RUN
+	if st == "standoff":
+		if not _a.has("so_t"): _a.so_t = tt
+		if tt - float(_a.so_t) > 1.6 and _once("pick"):
+			if act == "run": Am.input(false, true)
+			else: Am.input(true, false)
+	var pm: PartyMenu = main.cast.party_menu
+	if pm.is_open():
+		if not _a.has("pm_t"): _a.pm_t = tt
+		if tt - float(_a.pm_t) > 1.3 and _once("pm_go"): pm._pick(0)
+	# the camera: over his shoulder, a little to the side, so his Pokémon and the cover show
+	if not Battle.active and not main.trans_busy:
+		var want_yaw: float = main.yaw + PI + (-0.8 if act == "follow" else 0.7)
+		if st in ["strike", "standoff", "intercept", "throw", "menu", "chase", "dash"] and not Am.cur.is_empty():
+			var lp: Vector3 = (Am._lead().node as Node3D).position
+			want_yaw = atan2(main.pos.x - lp.x, main.pos.z - lp.z) + 0.65
+		main.cam_yaw = lerp_angle(main.cam_yaw, want_yaw, 0.06)
+		main.cam_idle = 0.0
+		main.cam_pitch = lerpf(main.cam_pitch, 0.38, 0.05)

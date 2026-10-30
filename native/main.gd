@@ -309,6 +309,7 @@ func _input(e: InputEvent) -> void:
 		if e.pressed and Settings.blocks_touch(e.position): return   # the settings cog
 		if e.pressed and cast and cast.life and cast.life.quests.blocks_touch(e.position): return   # the quest log button
 		if e.pressed and cast and cast.cond_ui and cast.cond_ui.blocks(e.position): return   # the condition badges
+		if e.pressed and cast and cast.party_menu and cast.party_menu.blocks(e.position): return   # the POKéMON button and menu
 		if e.pressed:
 			if e.position.x < half and stick_id == -1:
 				stick_id = e.index; stick_origin = e.position; stick_vec = Vector2.ZERO
