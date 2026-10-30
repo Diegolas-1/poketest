@@ -69,6 +69,9 @@ func bind(e: BattleEnergy, moves = null) -> void:
 	queue_redraw()
 
 func _on_changed() -> void:
+	# nothing left he can pay for: END TURN comes up (it sits below a long list)
+	if show_end and not ids.is_empty() and not ids.any(func(id): return state_of(String(id)) == "ready"):
+		select(count() - 1)
 	if not _hold: _preview()
 	queue_redraw()
 

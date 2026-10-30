@@ -588,6 +588,15 @@ func _widgets() -> void:
 	ok(picked[0] == "", "an unaffordable move isn't picked")
 	ml.pick_id("quick_attack")
 	ok(picked[0] == "quick_attack", "an affordable one is")
+	# spent out: END TURN comes up instead of staying below the list
+	ml.show_end = true
+	ml.select(0)
+	var guard := 0
+	while ml.ids.any(func(id): return ml.state_of(String(id)) == "ready") and guard < 8:
+		var r = ml.ids.filter(func(id): return ml.state_of(String(id)) == "ready")[0]
+		me.use_move(String(r)); guard += 1
+	await get_tree().process_frame
+	ok(ml.id_at(ml.selected) == EnergyMoveList.END_ID, "nothing left to pay for: END TURN is selected (%s)" % ml.id_at(ml.selected))
 	host.queue_free()
 
 # ---- the hook: the old calls, a fake battle and none at all ----
