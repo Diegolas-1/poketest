@@ -13,7 +13,8 @@ extends Control
 #   slots     energy_slot("foe") / energy_slot("ally"): the anchor rects kept
 #             free for the energy bars (battle/energy.gd's widget: the foe's
 #             above its name plate, an ally Pokémon's above Ash's later)
-#   menu      Ash's choices (RUN, HIDE, THROW SOMETHING > a rock / sand), stacked
+#   menu      Ash's choices (RUN, HIDE, THROW SOMETHING > a rock / sand; POKé BALL >
+#             the bag's balls once set_balls has any), stacked
 #             skewed buttons with an icon, a line of
 #             what it does and the pad's glyph on the selected one; touch, pad
 #             (up / down, A) and keys (arrows, E / Enter, 1-4)
@@ -67,7 +68,9 @@ var mood := "calm"
 var mood_t := 9.0
 # the menu
 var menu_on := false
-var items: Array = ITEMS     # the list showing (ITEMS, or one of SUBS)
+var top_items: Array = ITEMS  # the top list (ITEMS, and POKé BALL when the bag has balls)
+var subs := SUBS.duplicate()  # the second lists (SUBS, and "ball")
+var items: Array = ITEMS     # the list showing (top, or one of subs)
 var sub := ""                # which of SUBS is open ("" = the top list)
 var menu_k := 0.0
 var sel := 0
@@ -111,9 +114,22 @@ func open_menu() -> void:
 	_press_t = -1.0
 	_open_sub("")
 
+# the bag's balls ([{id, name, n}], n -1 unlimited): POKé BALL on the menu with them as its list
+func set_balls(list: Array) -> void:
+	top_items = ITEMS.duplicate()
+	subs.erase("ball")
+	if list.is_empty(): return
+	var bl := []
+	for b in list:
+		var n := int(b.get("n", 0))
+		bl.append({"id": "ball:" + String(b.id), "label": String(b.name).to_upper() + ("  x%d" % n if n >= 0 else ""), "desc": "Throw it and try to catch it", "ball": String(b.id), "col": Color(String(CatchRules.ball(String(b.id)).get("col", "e8352e")))})
+	bl.append({"id": "", "label": "BACK", "desc": "", "icon": "close", "col": Color("8a94a6")})
+	subs["ball"] = bl
+	top_items.insert(2, {"id": "ball", "label": "POKé BALL", "desc": "Try to catch it", "ball": "poke_ball", "col": Color("ee3b33"), "sub": "ball"})
+
 func _open_sub(id: String) -> void:
 	sub = id
-	items = SUBS.get(id, ITEMS)
+	items = subs.get(id, top_items)
 	sel = 0
 	menu_k = minf(menu_k, 0.35) if menu_on and id != "" else menu_k   # (the new list slides in)
 
@@ -389,7 +405,7 @@ func _menu(safe: Rect2) -> void:
 	var dev: String = UIInput.device if UIInput.I else "touch"
 	# the header
 	var hx := safe.end.x - bw - 48 + (1.0 - k) * 300.0
-	UITheme.text(self, Vector2(hx + 8, top - 14), "THROW WHAT?" if sub == "throw" else "WHAT WILL ASH DO?", "heading", 22, Color(UITheme.TEXT, k), 0, -1.0, 4, Color(0, 0, 0, 0.45 * k))
+	UITheme.text(self, Vector2(hx + 8, top - 14), {"throw": "THROW WHAT?", "ball": "WHICH BALL?"}.get(sub, "WHAT WILL ASH DO?"), "heading", 22, Color(UITheme.TEXT, k), 0, -1.0, 4, Color(0, 0, 0, 0.45 * k))
 	for i in n:
 		var it: Dictionary = items[i]
 		var on := i == sel and dev != "touch"
@@ -407,7 +423,10 @@ func _menu(safe: Rect2) -> void:
 		UITheme.para(self, Rect2(rr.position, Vector2(UITheme.BAR + (4.0 if on else 0.0), rr.size.y)), Color(col, a))
 		if on:
 			UITheme.outline(self, UITheme.para_points(rr, UITheme.SKEW), Color(UITheme.YELLOW, a), 2.5)
-		UIWidgets.icon_disc(self, rr.position + Vector2(44, rr.size.y * 0.5), 20.0, col, String(it.icon), a)
+		if it.has("ball"):
+			draw_circle(rr.position + Vector2(44, rr.size.y * 0.5), 21.0, Color(UITheme.INK, 0.6 * a))
+			PkmnHud.draw_ball_kind(self, rr.position + Vector2(44, rr.size.y * 0.5), 17.0, String(it.ball))
+		else: UIWidgets.icon_disc(self, rr.position + Vector2(44, rr.size.y * 0.5), 20.0, col, String(it.icon), a)
 		var fs := 28
 		while fs > 20 and UITheme.text_w(String(it.label), "display", fs) > rr.size.x - 128.0: fs -= 1
 		UITheme.text(self, rr.position + Vector2(78, 31), String(it.label), "display", fs, Color(UITheme.TEXT, a))

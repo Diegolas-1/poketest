@@ -14,6 +14,10 @@ extends RefCounted
 
 static var source: Callable = Callable()
 
+# the caught party (battle/pkmn_store.gd) is the source unless something else set one
+static func _static_init() -> void:
+	if not source.is_valid(): source = PkmnStore.party_source
+
 static func members(game: Node) -> Array:
 	if source.is_valid():
 		var v = source.call(game)

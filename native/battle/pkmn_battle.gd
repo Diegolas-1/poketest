@@ -24,9 +24,10 @@ extends RefCounted
 #     B.ai_queue("b")                   # the opponent's plan (PkmnAI)
 #     B.resolve() -> events             # actions interleaved by speed, then the end of the turn
 #       (or B.begin_resolve(); while B.resolving(): animate(B.step()): one action at a time)
-#     until B.over                      # B.outcome: won | lost | fled | blown_away | wild_fled
+#     until B.over                      # B.outcome: won | lost | fled | blown_away | wild_fled | caught
 #   B.finish()                          # each side's after_battle (persistence, warm-up, faint)
-# Other: B.flee("a") -> bool, B.use_item("a", id), B.fighter(side), B.order_fn
+# Other: B.flee("a") -> bool, B.use_item("a", id), B.throw_ball("a", ball) -> event (ball | ball_blocked),
+# B.fighter(side), B.order_fn
 # (the action ordering: a Callable(battle, queues) -> [[side, action]],
 # default PkmnBattle.speed_interleave; swap it to change the turn order).
 # Events are Dictionaries with t (the kind) and text (one line for the log):
@@ -1061,8 +1062,27 @@ func use_item(s: String, id: String) -> int:
 	if n > 0: _ev({"t": "item", "side": s, "item": id, "n": n, "text": "%s used a %s." % [_nm(F[s]), String(BattleEnergy.items().get(id, {}).get("name", id))]})
 	return n
 
+# a Poké Ball at the other side (battle/catch_rules.gd): blocked by a trainer; a
+# catch ends the battle (outcome caught). force: {caught, wobbles} (scripted renders)
+func throw_ball(s: String, ball: String, force := {}) -> Dictionary:
+	var tg: Fighter = F[other(s)]
+	var bn := CatchRules.ball_name(ball)
+	if kind != "wild":
+		return _ev({"t": "ball_blocked", "side": s, "ball": ball, "text": CatchRules.line("blocked")})
+	var r := CatchRules.throw({"species": tg.species, "hp": tg.hp, "max_hp": tg.max_hp, "status": tg.status, "ball": ball}, rng)
+	if force.has("caught"):
+		r.caught = bool(force.caught)
+		r.wobbles = 3 if r.caught else int(force.get("wobbles", r.wobbles))
+	if r.caught:
+		over = true
+		outcome = "caught"
+	var nm := tg.name.to_upper()
+	return _ev({"t": "ball", "side": s, "ball": ball, "caught": r.caught, "wobbles": int(r.wobbles), "species": tg.species, "level": tg.level,
+		"hp": tg.hp, "max_hp": tg.max_hp, "status": tg.status,
+		"text": CatchRules.line("caught", {"NAME": nm}) if r.caught else CatchRules.break_line(int(r.wobbles), nm), "throw": CatchRules.line("throw", {"BALL": bn.to_upper()})})
+
 # persistence: each side's after_battle (the player's warm-up, a faint to zero)
 func finish() -> void:
 	for s in SIDES:
 		var f: Fighter = F[s]
-		f.e.after_battle({"kind": kind, "won": (outcome == "won") == (s == "a"), "fainted": f.fainted()})
+		f.e.after_battle({"kind": kind, "won": (outcome in ["won", "caught"]) == (s == "a"), "fainted": f.fainted()})

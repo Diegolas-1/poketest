@@ -1153,6 +1153,7 @@ for s in species_order:
         "weakness": [TCG_IDS[t[3]]] if t[3] else [], "resistance": [TCG_IDS[t[4][0]]] if t[4] else [],
         "base": battle_base(s),
         "base_game": [st["hp"], st["attack"], st["defense"], st["special-attack"], st["special-defense"], st["speed"]],
+        "catch_rate": CATCH_RATE.get(s, 45),
         "stat_group": stat_group(s),
         "wild_levels": wild_levels(s),
         "learnset": rows,
@@ -1234,6 +1235,29 @@ MOVE_SCHEMA = {
 }
 SKILL_SCHEMA = {"_doc": "Passive skills: TCG abilities (source tcg) and main-series abilities for the rarer species (source game). owner (the first), owners, effects (tags in the balance file), desc."}
 
+# the catch rates of Red and Blue (pret/pokered data/pokemon/base_stats)
+CATCH_RATE = {
+    "bulbasaur": 45, "ivysaur": 45, "venusaur": 45, "charmander": 45, "charmeleon": 45, "charizard": 45, "squirtle": 45, "wartortle": 45,
+    "blastoise": 45, "caterpie": 255, "metapod": 120, "butterfree": 45, "weedle": 255, "kakuna": 120, "beedrill": 45, "pidgey": 255,
+    "pidgeotto": 120, "pidgeot": 45, "rattata": 255, "raticate": 90, "spearow": 255, "fearow": 90, "ekans": 255, "arbok": 90,
+    "pikachu": 190, "raichu": 75, "sandshrew": 255, "sandslash": 90, "nidoran_f": 235, "nidorina": 120, "nidoqueen": 45, "nidoran_m": 235,
+    "nidorino": 120, "nidoking": 45, "clefairy": 150, "clefable": 25, "vulpix": 190, "ninetales": 75, "jigglypuff": 170, "wigglytuff": 50,
+    "zubat": 255, "golbat": 90, "oddish": 255, "gloom": 120, "vileplume": 45, "paras": 190, "parasect": 75, "venonat": 190,
+    "venomoth": 75, "diglett": 255, "dugtrio": 50, "meowth": 255, "persian": 90, "psyduck": 190, "golduck": 75, "mankey": 190,
+    "primeape": 75, "growlithe": 190, "arcanine": 75, "poliwag": 255, "poliwhirl": 120, "poliwrath": 45, "abra": 200, "kadabra": 100,
+    "alakazam": 50, "machop": 180, "machoke": 90, "machamp": 45, "bellsprout": 255, "weepinbell": 120, "victreebel": 45, "tentacool": 190,
+    "tentacruel": 60, "geodude": 255, "graveler": 120, "golem": 45, "ponyta": 190, "rapidash": 60, "slowpoke": 190, "slowbro": 75,
+    "magnemite": 190, "magneton": 60, "farfetchd": 45, "doduo": 190, "dodrio": 45, "seel": 190, "dewgong": 75, "grimer": 190,
+    "muk": 75, "shellder": 190, "cloyster": 60, "gastly": 190, "haunter": 90, "gengar": 45, "onix": 45, "drowzee": 190,
+    "hypno": 75, "krabby": 225, "kingler": 60, "voltorb": 190, "electrode": 60, "exeggcute": 90, "exeggutor": 45, "cubone": 190,
+    "marowak": 75, "hitmonlee": 45, "hitmonchan": 45, "lickitung": 45, "koffing": 190, "weezing": 60, "rhyhorn": 120, "rhydon": 60,
+    "chansey": 30, "tangela": 45, "kangaskhan": 45, "horsea": 225, "seadra": 75, "goldeen": 225, "seaking": 60, "staryu": 225,
+    "starmie": 60, "mr_mime": 45, "scyther": 45, "jynx": 45, "electabuzz": 45, "magmar": 45, "pinsir": 45, "tauros": 45,
+    "magikarp": 255, "gyarados": 45, "lapras": 45, "ditto": 35, "eevee": 45, "vaporeon": 45, "jolteon": 45, "flareon": 45,
+    "porygon": 45, "omanyte": 45, "omastar": 45, "kabuto": 45, "kabutops": 45, "aerodactyl": 45, "snorlax": 25, "articuno": 3,
+    "zapdos": 3, "moltres": 3, "dratini": 45, "dragonair": 45, "dragonite": 45, "mewtwo": 3, "mew": 45,
+}
+
 SPECIES_SCHEMA = {
     "_file": "Species data in the pokemon.json schema ({\"species\": {id: species}}, plus energy_types, type_energy, energy_names and type_chart), a drop-in dataset for the engine (Kanto151Data.install()). The Kanto 151, keyed by id, in Pokédex order. Built by tools/native/kanto151/gen.py. Engine keys first, then the design's extra keys.",
     "name": "the shown name", "types": "its Pokemon types; its pools are their energy kinds (type_energy) plus Colorless",
@@ -1241,7 +1265,7 @@ SPECIES_SCHEMA = {
     "weakness": "energy kinds it is weak to (its SV151 card; battle_config matchups.weakness_mult); [] for the Dragon line (their cards have none)",
     "resistance": "energy kinds it resists (battle_config matchups.resistance_mult / resistance_sub)",
     "base": "[hp, atk, def, spa, spd, spe] battle base stats: base_game pulled toward its stat_group's mean total (balance stats.spread), plus the rarity bonus and its tuning",
-    "base_game": "extra: the main-series base stats", "stat_group": "extra: basic | middle | final | single (its place in its line)",
+    "base_game": "extra: the main-series base stats", "catch_rate": "extra: its catch rate in Red and Blue (3..255; battle/catch_rules.gd)", "stat_group": "extra: basic | middle | final | single (its place in its line)",
     "wild_levels": "[lo, hi]: a placeholder band by stage and rarity",
     "learnset": "[{level, move, src: game | tcg | anime | new | design | added, inherited, anime, tcg, _note (why an added move fits)}] in level order (never forgotten)",
     "tm": "move ids it can be taught (TM, HM or tutor, in any game)", "ai": "aggressive | strategic | evasive",

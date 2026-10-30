@@ -7,7 +7,7 @@ extends Node3D
 #       "temper": "flighty" | "aggressive" | "curious" | "timid",
 #       "state": "hidden" | "startled" | "fleeing" | "attacking",
 #       "where": "tall_grass", "first_strike": "ash" | "wild"})
-#   b.finished.connect(func(result): ...)   # {outcome: fled | disengaged | ash_won | ash_down | ran, ...}
+#   b.finished.connect(func(result): ...)   # {outcome: fled | disengaged | ash_won | ash_down | ran | caught, ...}
 #   Battle.active                            # true while one is on (other systems pause)
 #   Battle.current                           # the one on, or null
 #   Battle.world_paused()                    # one with opts.pause_world is on: the world
@@ -92,6 +92,17 @@ extends Node3D
 #   "partner_node2"       doubles: his second one already out, it steps in (battle_pkmn.gd)
 #   "banner": text        the intro's name ("BEEDRILL SWARM": WILD BEEDRILL SWARM!)
 #   "waves": true         doubles against a team: the next two only once both are down
+#
+# ---- Poké Balls (battle/catch_rules.gd, catch_show.gd, pkmn_store.gd) ----
+# A wild one can be caught: BALL in either mode (the prologue's menu only once
+# the bag has balls: the story gives him none before his first Pokémon), the
+# throw takes his turn; a catch ends the battle with outcome "caught" (the
+# result's "caught": {species, level, ball, to: party | box, store}). The bag,
+# the party and the PC are PkmnStore.main()'s (the save), or opts:
+#   "store": a PkmnStore      "catch_store": "arena" (PkmnStore.arena(): kept apart)
+#   "balls": "unlimited"      (a staging option: no count kept)
+#   "script_ball": {"ball", "turn", "caught", "wobbles"} or a list of them (scripted
+#                  renders: that throw on that turn, its result forced)
 #
 # Dev: dev/battle_dev.tscn starts one in Route 1's tall grass (scripted for
 # renders: --acts=, --moves=, --hit=1); dev/battle_test.tscn checks the rules.
@@ -188,6 +199,9 @@ var _hidden: Array = []
 var gap := GAP                  # Ash to the foe (opts.gap)
 var partner_ahead := PARTNER_AHEAD
 var appear := 1.0               # staged: the Pokémon grow out of the release flash (0 -> 1)
+var store: PkmnStore            # the bag's balls, the party and the PC (a catch goes there)
+var catch_off := Vector3.ZERO   # the foe drawn into a ball (catch_show.gd)
+var caught_info := {}           # a catch: what the result's "caught" carries
 
 static func start(g: Node3D, o: Dictionary = {}) -> Battle:
 	if active and current and is_instance_valid(current): return current
@@ -252,6 +266,7 @@ func _begin(g: Node3D, o: Dictionary) -> void:
 	ui.foe_name = R.display_name(); ui.foe_lv = R.level()
 	ui.foe_max = R.foe_max; ui.foe_hp = R.foe_hp; ui.foe_show = R.foe_hp
 	ui.set_mood(R.mood())
+	_store_setup()
 	_place()
 	if mode == MODE_PKMN:
 		pk = BattlePkmn.new()
@@ -367,7 +382,7 @@ func _lie(dt: float) -> void:
 func _put_foe(dt: float) -> void:
 	if foe == null or not is_instance_valid(foe): return
 	foe_pos.y = _gy(foe_pos)
-	foe.global_position = foe_pos + Vector3(0, foe_lift, 0)
+	foe.global_position = foe_pos + Vector3(0, foe_lift, 0) + catch_off
 	foe.rotation = Vector3(0, foe_yaw, 0)
 	foe.scale = _foe_scale0 * lerpf(1.0, FOE_SCALE, clampf(arena_k, 0.0, 1.0)) * maxf(appear * foe_appear, 0.001)
 	_foe_vel = (foe_pos - _foe_last) / maxf(dt, 1e-4)
@@ -771,11 +786,11 @@ func _choose() -> String:
 		var want := String(script_acts.pop_front())
 		# (a throw goes through THROW SOMETHING's list, as a player would)
 		var path: Array = [want]
-		for i in BattleUI.ITEMS.size():
-			var sub_id := String(BattleUI.ITEMS[i].get("sub", ""))
+		for i in ui.top_items.size():
+			var sub_id := String(ui.top_items[i].get("sub", ""))
 			if sub_id != "":
-				for it in BattleUI.SUBS[sub_id]:
-					if String(it.id) == want: path = [String(BattleUI.ITEMS[i].id), want]
+				for it in ui.subs.get(sub_id, []):
+					if String(it.id) == want: path = [String(ui.top_items[i].id), want]
 		for step in path:
 			var idx := 0
 			for i in ui.items.size():
@@ -796,6 +811,11 @@ func _ash_turn(act: String) -> void:
 	var e: Dictionary
 	# (each action takes it out of him: the bar drops as he acts)
 	get_tree().create_timer(0.5).timeout.connect(_show_sta)
+	if act.begins_with("ball:"):
+		await _do_ball(act.substr(5))
+		ui.set_mood(R.mood())
+		await _wait(0.4)
+		return
 	match act:
 		"sand": e = await _do_sand()
 		"hide": e = await _do_hide()
@@ -1016,6 +1036,90 @@ func _do_run() -> Dictionary:
 		foe_yaw = atan2(-fwd.x, -fwd.z)
 		await _wait(0.3)
 	return e
+
+# ---------- Poké Balls ----------
+# where the balls and a catch go (opts store / catch_store / balls), the BALL choice
+func _store_setup() -> void:
+	var st = opts.get("store")
+	if st is PkmnStore: store = st
+	elif String(opts.get("catch_store", "")) == "arena": store = PkmnStore.arena()
+	else: store = PkmnStore.main()
+	if String(opts.get("balls", "")) == "unlimited": store.unlimited = true
+	elif opts.has("balls") and store != PkmnStore.main():
+		# "bag": counted, a stocked bag when it's run dry (the arena's staging)
+		store.unlimited = false
+		if store.balls().is_empty():
+			var sb = BattleConfig.sect("catch").get("start_bag", {})
+			for id in sb: store.give(String(id), int(sb[id]))
+	# his first Pokémon comes with the start bag (the story's: none before it)
+	var q := _quests()
+	if store == PkmnStore.main() and q != null and q.flag("has_starter"): store.stock_once()
+	store.mark_seen(species)
+	if mode != MODE_PKMN: ui.set_balls(store.balls() if wild() else [])
+
+func wild() -> bool:
+	if opts.has("trainer"): return false
+	return String(opts.get("kind", "wild")) == "wild"
+
+func foe_name() -> String:
+	if pk: return String(pk.B.fighter("b").name)
+	return R.display_name()
+
+# a line for the battle's text (the HUD's log in mode "pkmn", a word under the banner else)
+func say_line(text: String, col := UITheme.YELLOW) -> void:
+	if text == "": return
+	if pk and pk.hud: pk.hud.say(text, col)
+	else:
+		var vs := get_viewport().get_visible_rect().size
+		ui.pop(text.to_upper(), Vector2(vs.x * 0.5, vs.y * 0.68), col, 20, "word")
+
+# scripted renders: opts.script_ball (one {ball, turn, caught, wobbles} or a list) for a turn
+func script_ball_for(turn: int) -> Dictionary:
+	var v = opts.get("script_ball", {})
+	var list: Array = v if v is Array else [v]
+	for d in list:
+		if d is Dictionary and not d.is_empty() and int(d.get("turn", turn)) == turn: return d
+	return {}
+
+# a throw on the stage (catch_show.gd), the same in both modes
+func throw_show(ball: String, ev: Dictionary) -> void:
+	var cs := CatchShow.new()
+	cs.name = "Catch"
+	add_child(cs)
+	await cs.play(ball, ev)
+	cs.queue_free()
+
+# a catch into the store: the party, else the PC; the line that says where
+func record_catch(ev: Dictionary) -> String:
+	var sp := String(ev.get("species", species))
+	var nm := String(ev.get("name", foe_name())).to_upper()
+	if pk: store.ensure_party(pk.party().team.a.map(func(f): return {"species": f.species, "level": f.level}) if pk.party() else [{"species": pk.B.fighter("a").species, "level": pk.B.fighter("a").level}])
+	var first := not store.is_caught(sp)
+	var to := store.add_caught({"species": sp, "level": int(ev.get("level", R.level())), "hp": int(ev.get("hp", R.foe_hp)), "max_hp": int(ev.get("max_hp", R.foe_max)),
+		"status": String(ev.get("status", "")), "ball": String(ev.get("ball", "poke_ball"))})
+	caught_info = {"species": sp, "level": int(ev.get("level", R.level())), "ball": String(ev.get("ball", "poke_ball")), "to": to,
+		"store": "main" if store == PkmnStore.main() else ("arena" if store == PkmnStore.arena() else "other"), "new_dex": first}
+	var line := CatchRules.line("party" if to == "party" else "box", {"NAME": nm})
+	if first and pk: pk.hud.say(CatchRules.line("dex", {"NAME": nm}), UITheme.SKY)
+	return line
+
+# the prologue's throw: the rules on its HP (no status in the prologue), then the show
+func _do_ball(id: String) -> void:
+	if not store.can_take():
+		ui.pop(CatchRules.line("box_full").to_upper(), ash_pos + Vector3(0, 2.0, 0), UITheme.RED, 20, "word")
+		await _wait(1.2)
+		return
+	store.use_ball(id)
+	var r := CatchRules.throw({"species": species, "hp": int(ceil(R.foe_hp)), "max_hp": int(ceil(R.foe_max)), "status": "", "ball": id}, _rng)
+	var sb := script_ball_for(R.turn + 1)
+	if sb.has("caught"):
+		r.caught = bool(sb.caught)
+		r.wobbles = 3 if r.caught else int(sb.get("wobbles", r.wobbles))
+	var ev := {"t": "ball", "ball": id, "caught": r.caught, "wobbles": int(r.wobbles), "species": species, "level": R.level(),
+		"hp": int(ceil(R.foe_hp)), "max_hp": int(ceil(R.foe_max)), "status": "", "name": R.display_name()}
+	await throw_show(id, ev)
+	if r.caught: R.outcome = "caught"
+	ui.set_balls(store.balls())
 
 # ---------- the wild side's turn ----------
 # one action of the wild side's turn: a plan {kind, move} (or a bare move id)
@@ -1250,6 +1354,7 @@ func _outcome() -> void:
 	var oc := R.outcome
 	_show_sta()
 	result = {"outcome": oc, "species": species, "stamina": R.ash_sta / maxf(1.0, R.ash_sta_max), "foe_hp": R.foe_hp, "turns": R.turn, "creature": foe if not own_foe else null}
+	if not caught_info.is_empty(): result["caught"] = caught_info
 	match oc:
 		"fled":
 			shot("flee", 3.0)
@@ -1278,6 +1383,8 @@ func _outcome() -> void:
 		"ran":
 			ui.show_outcome("GOT AWAY SAFELY!", "", UITheme.GREEN)
 			await _wait(1.2)
+		"caught":
+			await _wait(0.4)
 		"ash_down":
 			await _ash_down()
 			return
@@ -1363,6 +1470,7 @@ func _finish() -> void:
 	if foe and is_instance_valid(foe):
 		foe.scale = _foe_scale0
 		foe.remove_meta("battle")
+		if String(result.get("outcome", "")) == "caught": foe.visible = false   # (in the ball: its owner removes it)
 		if own_foe: foe.queue_free()
 	active = false
 	if current == self: current = null

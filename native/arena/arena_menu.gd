@@ -696,9 +696,9 @@ func _load(i: int) -> void:
 # ---------- RESULTS ----------
 func _results(body: Rect2) -> void:
 	var r: Dictionary = results
-	var won := String(r.get("outcome", "")) == "ash_won"
+	var won := String(r.get("outcome", "")) in ["ash_won", "caught"]
 	var oc := String(r.get("outcome", ""))
-	var head: String = {"ash_won": "ASH WINS!", "ash_down": "ASH LOST", "ran": "GOT AWAY", "fled": "IT FLED", "disengaged": "IT LOST INTEREST"}.get(oc, oc.to_upper())
+	var head: String = {"ash_won": "ASH WINS!", "ash_down": "ASH LOST", "ran": "GOT AWAY", "fled": "IT FLED", "disengaged": "IT LOST INTEREST", "caught": "GOTCHA!"}.get(oc, oc.to_upper())
 	if String(setup.type) == "trainer" and oc == "ash_down": head = "%s WINS" % String(setup.foe.name).to_upper()
 	var col := UITheme.GREEN if won else (UITheme.RED if oc == "ash_down" else UITheme.SKY)
 	var hr := Rect2(body.position.x, body.position.y, body.size.x, 76.0)

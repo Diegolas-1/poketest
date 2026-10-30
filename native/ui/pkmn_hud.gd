@@ -29,6 +29,9 @@ extends Control
 #   first foe, a smaller plate each the other one out; hud.choosing names whose
 #   turn it is to choose; hud.show_targets(labels) asks where a move goes
 #   ("WHO|NAME" each); signals target_picked(index), target_cancel()
+# Poké Balls (battle/catch_rules.gd): hud.ball_on puts a BALL bar over the menu
+#   (command "ball"); hud.show_balls(list) lists the bag's balls ({id, name, n}, n -1:
+#   unlimited); signals ball_picked(id), ball_cancel()
 
 signal command(name: String)
 signal move_picked(id: String)
@@ -39,6 +42,8 @@ signal party_picked(index: int)
 signal party_cancel()
 signal target_picked(index: int)
 signal target_cancel()
+signal ball_picked(id: String)
+signal ball_cancel()
 
 const MENU := [["fight", "FIGHT", "ee3b33"], ["pokemon", "POKéMON", "3fcf72"], ["items", "ITEMS", "ffcb05"], ["flee", "FLEE", "3fb6f5"]]
 const PLATE_W := 400.0
@@ -68,6 +73,10 @@ var doubles: PkmnDoubles
 var choosing := ""
 var targets: Array = []
 var target_sel := 0
+var ball_on := false             # the BALL bar over the menu (index 4)
+var ball_list: Array = []        # show_balls: [{id, name, n}]
+var ball_sel := 0
+const BALL := 4
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -168,6 +177,24 @@ func show_party(forced := false) -> void:
 		if party.can_switch("a", i): party_sel = i; break
 	_appear["party"] = 0.0
 
+# the bag's balls: pick one to throw (B backs out)
+func show_balls(list: Array) -> void:
+	mode = "balls"
+	ball_list = list
+	ball_sel = clampi(ball_sel, 0, maxi(0, list.size() - 1))
+	moves.visible = false
+	_appear["balls"] = 0.0
+
+func balls_rect() -> Rect2:
+	var S := sr()
+	var w := 440.0
+	var h := 64.0 + ball_list.size() * 58.0
+	return Rect2(S.end.x - M - w - 10.0, S.end.y - M - 110.0 - h, w, h)
+
+func balls_row(i: int) -> Rect2:
+	var r := balls_rect()
+	return Rect2(r.position.x + 18.0, r.position.y + 54.0 + i * 58.0, r.size.x - 36.0, 50.0)
+
 func show_targets(labels: Array) -> void:
 	mode = "target"
 	targets = labels
@@ -223,6 +250,10 @@ func _layout() -> void:
 
 func menu_rect(i: int) -> Rect2:
 	var r: Rect2 = _rects().menu
+	if i == BALL:
+		# the BALL bar: the width of the grid, one row above it
+		var bh := 44.0
+		return Rect2(r.position + Vector2((bh + 10.0) * UITheme.SKEW, -bh - 10.0), Vector2(r.size.x, bh))
 	var w := (r.size.x - 12.0) * 0.5
 	var h := (r.size.y - 10.0) * 0.5
 	return Rect2(r.position + Vector2((i % 2) * (w + 12.0) - (i / 2) * h * UITheme.SKEW, (i / 2) * (h + 10.0)), Vector2(w, h))
@@ -236,6 +267,9 @@ func _unhandled_input(e: InputEvent) -> void:
 	if mode == "target":
 		_target_input(e)
 		return
+	if mode == "balls":
+		_balls_input(e)
+		return
 	if mode == "fight":
 		if (e.is_action_pressed("back") or e.is_action_pressed("ui_cancel")) and not battle.queued("a").is_empty():
 			undo.emit(); get_viewport().set_input_as_handled(); return
@@ -247,10 +281,10 @@ func _unhandled_input(e: InputEvent) -> void:
 			pool_picked.emit(pk[e.keycode - KEY_1]); get_viewport().set_input_as_handled()
 		return
 	if mode != "menu": return
-	if e.is_action_pressed("ui_left") or e.is_action_pressed("move_left"): _sel(sel - 1 if sel % 2 == 1 else sel)
-	elif e.is_action_pressed("ui_right") or e.is_action_pressed("move_right"): _sel(sel + 1 if sel % 2 == 0 else sel)
-	elif e.is_action_pressed("ui_up") or e.is_action_pressed("move_up"): _sel(sel - 2 if sel >= 2 else sel)
-	elif e.is_action_pressed("ui_down") or e.is_action_pressed("move_down"): _sel(sel + 2 if sel < 2 else sel)
+	if e.is_action_pressed("ui_left") or e.is_action_pressed("move_left"): _sel(sel - 1 if sel % 2 == 1 and sel != BALL else sel)
+	elif e.is_action_pressed("ui_right") or e.is_action_pressed("move_right"): _sel(sel + 1 if sel % 2 == 0 and sel != BALL else sel)
+	elif e.is_action_pressed("ui_up") or e.is_action_pressed("move_up"): _sel(sel - 2 if sel >= 2 and sel != BALL else (BALL if ball_on and sel < 2 else sel))
+	elif e.is_action_pressed("ui_down") or e.is_action_pressed("move_down"): _sel(0 if sel == BALL else (sel + 2 if sel < 2 else sel))
 	elif e.is_action_pressed("use") or e.is_action_pressed("ui_accept"): _cmd(sel)
 	else:
 		var pos := Vector2.INF
@@ -259,7 +293,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		if pos == Vector2.INF or Engine.get_process_frames() == _tap_frame: return
 		_tap_frame = Engine.get_process_frames()
 		var lp: Vector2 = get_global_transform_with_canvas().affine_inverse() * pos
-		for i in 4:
+		for i in (5 if ball_on else 4):
 			if UITheme.touch_rect(self, menu_rect(i)).has_point(lp): _cmd(i); break
 		return
 	get_viewport().set_input_as_handled()
@@ -307,6 +341,30 @@ func _target_input(e: InputEvent) -> void:
 				if UITheme.touch_rect(self, target_rect(i)).has_point(lp): target_sel = i; Sfx.ui("ui_confirm"); target_picked.emit(i)
 	if handled: get_viewport().set_input_as_handled()
 
+func _balls_input(e: InputEvent) -> void:
+	var n := ball_list.size()
+	if n == 0: return
+	var handled := true
+	if e.is_action_pressed("ui_up") or e.is_action_pressed("move_up"): ball_sel = (ball_sel - 1 + n) % n; Sfx.ui("ui_cursor")
+	elif e.is_action_pressed("ui_down") or e.is_action_pressed("move_down"): ball_sel = (ball_sel + 1) % n; Sfx.ui("ui_cursor")
+	elif e.is_action_pressed("use") or e.is_action_pressed("ui_accept"): Sfx.ui("ui_confirm"); ball_picked.emit(String(ball_list[ball_sel].id))
+	elif e.is_action_pressed("back") or e.is_action_pressed("ui_cancel"): Sfx.ui("ui_back"); ball_cancel.emit()
+	else:
+		handled = false
+		var pos := Vector2.INF
+		if e is InputEventScreenTouch and e.pressed: pos = e.position
+		elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: pos = e.position
+		if pos != Vector2.INF and Engine.get_process_frames() != _tap_frame:
+			_tap_frame = Engine.get_process_frames()
+			var lp: Vector2 = get_global_transform_with_canvas().affine_inverse() * pos
+			handled = true
+			var hit := false
+			for i in n:
+				if UITheme.touch_rect(self, balls_row(i)).has_point(lp):
+					hit = true; ball_sel = i; Sfx.ui("ui_confirm"); ball_picked.emit(String(ball_list[i].id))
+			if not hit and not balls_rect().has_point(lp): Sfx.ui("ui_back"); ball_cancel.emit()
+	if handled: get_viewport().set_input_as_handled()
+
 func _party_pick(i: int) -> void:
 	if not party.can_switch("a", i):
 		Sfx.ui("ui_toggle_off")
@@ -316,12 +374,12 @@ func _party_pick(i: int) -> void:
 
 func _sel(i: int) -> void:
 	if i != sel: Sfx.ui("ui_cursor")
-	sel = clampi(i, 0, 3)
+	sel = clampi(i, 0, BALL if ball_on else 3)
 
 func _cmd(i: int) -> void:
 	sel = i
 	Sfx.ui("ui_confirm")
-	command.emit(String(MENU[i][0]))
+	command.emit("ball" if i == BALL else String(MENU[i][0]))
 
 # ---------- frame ----------
 func _process(dt: float) -> void:
@@ -353,6 +411,7 @@ func _draw() -> void:
 	if mode == "fight": _queued(R)
 	if mode == "party": _party_list()
 	if mode == "target": _target_list()
+	if mode == "balls": _ball_list()
 	if doubles: _doubles_plates(R)
 	if choosing != "" and mode in ["menu", "fight", "pick"]:
 		var cw := UITheme.text_w("CHOOSING FOR " + choosing, "label", 15) + 30.0
@@ -435,6 +494,53 @@ static func draw_ball(ci: CanvasItem, c: Vector2, r: float, state: String, out :
 	ci.draw_circle(c, r * 0.22, bot, true, -1.0, true)
 	if state == "fainted": ci.draw_line(c + Vector2(-r, -r) * 0.7, c + Vector2(r, r) * 0.7, Color(UITheme.RED, 0.9), 2.0, true)
 
+# a ball of a type (battle_config catch.balls: its top colour and marks)
+static func draw_ball_kind(ci: CanvasItem, c: Vector2, r: float, id: String) -> void:
+	var B := CatchRules.ball(id)
+	var top := Color(String(B.get("col", "e8352e")))
+	var bot := UITheme.WHITE
+	ci.draw_circle(c, r, bot, true, -1.0, true)
+	var pts := PackedVector2Array()
+	for k in 17: pts.append(c + Vector2(cos(PI + PI * k / 16.0), sin(PI + PI * k / 16.0)) * r)
+	ci.draw_colored_polygon(pts, top)
+	if B.has("band"):
+		var bc := Color(String(B.band))
+		match id:
+			"ultra_ball":
+				for sx in [-1.0, 1.0]: ci.draw_line(c + Vector2(sx * r * 0.5, -r * 0.82), c + Vector2(sx * r * 0.5, -r * 0.18), bc, maxf(1.5, r * 0.26), true)
+			"master_ball":
+				for sx in [-1.0, 1.0]: ci.draw_circle(c + Vector2(sx * r * 0.52, -r * 0.5), r * 0.2, bc, true, -1.0, true)
+				ci.draw_polyline(PackedVector2Array([c + Vector2(-r * 0.2, -r * 0.2), c + Vector2(-r * 0.2, -r * 0.62), c + Vector2(0, -r * 0.4), c + Vector2(r * 0.2, -r * 0.62), c + Vector2(r * 0.2, -r * 0.2)]), UITheme.WHITE, maxf(1.0, r * 0.1), true)
+			_:
+				for sx in [-1.0, 1.0]: ci.draw_line(c + Vector2(sx * r * 0.28, -r * 0.62), c + Vector2(sx * r * 0.7, -r * 0.3), bc, maxf(1.5, r * 0.24), true)
+	ci.draw_line(c - Vector2(r, 0), c + Vector2(r, 0), UITheme.INK, maxf(1.5, r * 0.22), true)
+	ci.draw_circle(c, r * 0.36, UITheme.INK, true, -1.0, true)
+	ci.draw_circle(c, r * 0.22, bot, true, -1.0, true)
+
+func _ball_list() -> void:
+	var ap := UITheme.ease_out(float(_appear.get("balls", 1.0)))
+	var r := balls_rect()
+	r.position.x += (1.0 - ap) * 60.0
+	UITheme.panel(self, r, UITheme.RED, ap)
+	UITheme.text(self, r.position + Vector2(22, 38), "THROW A BALL", "display", 30, Color(UITheme.INK, ap))
+	UITheme.text(self, Vector2(r.end.x - 22.0, r.position.y + 36.0), "B: BACK" if UIInput.device != "touch" else "TAP OUTSIDE: BACK", "label", 14, Color(UITheme.INK_SOFT, ap), 2)
+	for i in ball_list.size():
+		var b: Dictionary = ball_list[i]
+		var rr := balls_row(i)
+		rr.position.x += (1.0 - ap) * (30.0 + i * 12.0)
+		var on: bool = i == ball_sel
+		if on:
+			UITheme.shadow(self, UITheme.para_points(rr), ap, Vector2(0, 3))
+			UITheme.fill(self, UITheme.para_points(rr), Color(UITheme.INK, ap))
+		else:
+			UITheme.fill(self, UITheme.para_points(rr), Color(UITheme.INK, 0.08 * ap))
+		var tc := UITheme.TEXT if on else UITheme.INK
+		draw_ball_kind(self, rr.position + Vector2(32, 25), 13.0, String(b.id))
+		UITheme.text_mid(self, rr.position + Vector2(58, 26), String(b.name).to_upper(), "heading", 26, Color(tc, ap))
+		var n := int(b.get("n", 0))
+		UITheme.text_mid(self, Vector2(rr.end.x - 22.0, rr.position.y + 26.0), "x%d" % n if n >= 0 else "UNLIMITED", "number" if n >= 0 else "label", 22 if n >= 0 else 14, Color(tc, ap), 2)
+		if on and UIInput.device != "touch": UITheme.glyph(self, Vector2(rr.end.x - 110.0, rr.get_center().y), "use", 24.0, ap)
+
 func _party_list() -> void:
 	var ap := UITheme.ease_out(float(_appear.get("party", 1.0)))
 	var r := party_rect()
@@ -509,6 +615,19 @@ func _plate(r: Rect2, f, own: bool) -> void:
 
 func _menu() -> void:
 	var ap := UITheme.ease_out(float(_appear.menu))
+	if ball_on:
+		var r := menu_rect(BALL)
+		r.position.x += (1.0 - ap) * 40.0
+		var on := sel == BALL
+		if on:
+			UITheme.shadow(self, UITheme.para_points(r), ap, Vector2(0, 4))
+			UITheme.fill_v(self, UITheme.para_points(r), Color(UITheme.WHITE, ap), Color(UITheme.PAPER, ap))
+		else:
+			UITheme.plate(self, r, ap)
+		UITheme.accent_bar(self, r, Color(UITheme.RED, ap), ap, UITheme.SKEW, 8.0 if on else 6.0)
+		draw_ball(self, r.position + Vector2(36, r.size.y * 0.5), 12.0, "ok")
+		UITheme.text_mid(self, r.position + Vector2(58, r.size.y * 0.5), "BALL", "display", 28, Color(UITheme.INK if on else UITheme.TEXT, ap))
+		if on and UIInput.device != "touch": UITheme.glyph(self, Vector2(r.end.x - 30, r.get_center().y), "use", 24.0, ap)
 	for i in 4:
 		var r := menu_rect(i)
 		r.position.x += (1.0 - ap) * 40.0

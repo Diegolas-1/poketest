@@ -825,6 +825,9 @@ func _on_battle_finished(result: Dictionary) -> void:
 			e.dir = Vector3(node.position.x - game.pos.x, 0, node.position.z - game.pos.z).normalized()
 		"ash_down":
 			_remove(e)
+		"caught":
+			# in Ash's ball now: gone from the world
+			_remove(e)
 		_:
 			# he ran: it stays hidden where it is, on edge
 			e.state = "hidden"; e.alert = 0.6; e.wary = true; e.mash = 0.0
