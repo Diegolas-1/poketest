@@ -149,7 +149,7 @@ func _place() -> void:
 		_placed = true
 	if main and main.cast and main.cast.cond_ui and fake != "": main.cast.cond_ui.safe_override = safe if not on_tv else Rect2()
 	if main and main.cast and main.cast.get("clock") and main.cast.clock.hud and "right_gap" in main.cast.clock.hud:
-		main.cast.clock.hud.right_gap = 0.0 if side != 0 else 76.0
+		main.cast.clock.hud.right_gap = 0.0 if side != 0 and not on_tv else 76.0
 		main.cast.clock.hud._place()
 	var ov = Settings.overlay
 	if ov and ov.panel:

@@ -232,6 +232,7 @@ func pause_tv(on: bool) -> void:
 # size, so positions need no change). On a TV, touches stay on the phone; the
 # controller and the keyboard play the game, and Start pauses.
 func _input(e: InputEvent) -> void:
+	if e is InputEventAction or e is InputEventJoypadButton: print("[tv] input ", e)
 	var pointer := e is InputEventScreenTouch or e is InputEventScreenDrag or e is InputEventMouse or e is InputEventGesture
 	if tv_on:
 		if pointer: return

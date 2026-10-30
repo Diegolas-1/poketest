@@ -41,13 +41,14 @@ func _snap(vp: Viewport, name: String) -> void:
 	img.save_png(shots.path_join(name + ".png"))
 	print("shot %s %s" % [name, img.get_size()])
 
-func _press(action: String) -> void:
-	var e := InputEventAction.new()
-	e.action = action
+# a controller's button (Start = + is button 6), pressed and let go
+func _press(button: int) -> void:
+	var e := InputEventJoypadButton.new()
+	e.button_index = button
 	e.pressed = true
 	Input.parse_input_event(e)
-	var u := InputEventAction.new()
-	u.action = action
+	var u := InputEventJoypadButton.new()
+	u.button_index = button
 	u.pressed = false
 	Input.parse_input_event.call_deferred(u)
 
@@ -73,8 +74,9 @@ func _process(_dt: float) -> void:
 			step = 1
 		1:
 			screens.tv.fake_connect(Vector2i(1920, 1080), "Living Room TV")
-			step = 2; wait = 4
+			step = 2; wait = 10
 		2:
+			_snap(screens.game, "tv_banner")
 			check(screens.tv_on, "TV: connected (fake 1920 x 1080)")
 			check(g.size == Vector2i(1920, 1080), "TV: the game renders at the TV's 1920 x 1080 (got %s)" % [g.size])
 			check(g.size_2d_override == Vector2i(1280, 720), "TV: the HUD's canvas is 16:9, 1280 x 720 (got %s)" % [g.size_2d_override])
@@ -96,7 +98,7 @@ func _process(_dt: float) -> void:
 			_snap(root, "phone_frame")
 			if screens.tv.fake_window(): _snap(screens.tv.fake_window(), "tv_window")
 			# Start pauses on the TV
-			_press("menu")
+			_press(JOY_BUTTON_START)
 			step = 4; wait = 3
 		4:
 			check(screens.tv_paused and get_tree().paused, "TV: Start pauses the game")
@@ -105,7 +107,7 @@ func _process(_dt: float) -> void:
 		5:
 			_snap(screens.game, "tv_paused")
 			_snap(root, "phone_paused")
-			_press("menu")
+			_press(JOY_BUTTON_START)
 			step = 6; wait = 3
 		6:
 			check(not screens.tv_paused and not get_tree().paused, "TV: Start again resumes")

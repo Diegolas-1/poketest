@@ -131,6 +131,9 @@ func fake_connect(size: Vector2i, name := "Fake TV") -> void:
 	w.position = Vector2i(40, 40)
 	w.unresizable = false
 	w.transient = false
+	w.visible = false
+	w.force_native = true   # (its own window, never drawn inside the phone's)
+	w.unfocusable = true    # (the controller and keys stay with the game's window, as with a real TV)
 	w.close_requested.connect(fake_disconnect)
 	var tr := TextureRect.new()
 	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -144,6 +147,7 @@ func fake_connect(size: Vector2i, name := "Fake TV") -> void:
 	bg.show_behind_parent = true
 	tr.add_child(bg)
 	get_tree().root.add_child(w)
+	w.visible = true
 	_fake_win = w
 	status = {"supported": true, "connected": true, "name": name, "width": size.x, "height": size.y, "hz": 60, "route": "fake", "insets": Rect2()}
 	_gen += 1

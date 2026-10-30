@@ -31,8 +31,9 @@ xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=16.0 -fobjc-arc -fm
 otool -l bin/tv_ios.o | grep -A4 LC_LINKER_OPTION | grep -E "string" | head -12 || true
 libtool -static -o "$OUT/libpallet_tv.a" "$LIB" bin/tv_ios.o "$CPPLIB"
 # the entry point and the Objective-C side are in it, for arm64
-nm -g "$OUT/libpallet_tv.a" 2>/dev/null | grep -q " T _pallet_tv_init" || { echo "build_ios: no _pallet_tv_init"; exit 1; }
-nm -g "$OUT/libpallet_tv.a" 2>/dev/null | grep -q " T _pt_tv_status" || { echo "build_ios: no _pt_tv_status"; exit 1; }
+nm -g "$OUT/libpallet_tv.a" > bin/syms.txt 2>/dev/null || true
+grep " T _pallet_tv_init" bin/syms.txt || { echo "build_ios: no _pallet_tv_init"; exit 1; }
+grep " T _pt_tv_status" bin/syms.txt || { echo "build_ios: no _pt_tv_status"; exit 1; }
 lipo -info "$OUT/libpallet_tv.a"
 cat > "$OUT/pallet_tv.gdextension" <<'GDE'
 [configuration]
