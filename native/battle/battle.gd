@@ -10,6 +10,9 @@ extends Node3D
 #   b.finished.connect(func(result): ...)   # {outcome: fled | disengaged | ash_won | ash_down | ran, ...}
 #   Battle.active                            # true while one is on (other systems pause)
 #   Battle.current                           # the one on, or null
+#   Battle.world_paused()                    # one with opts.pause_world is on: the world
+#                                            # outside waits (the clock, the townspeople,
+#                                            # the other wild Pokémon: cast.gd, wild.gd)
 # opts may also carry "on_finished": a Callable called with the result.
 #
 # ---- the show ----
@@ -83,6 +86,12 @@ extends Node3D
 #                      release flash, the camera cranes up from where it is
 #   "party_a" / "party_b": teams (battle_pkmn.gd, battle/pkmn_party.gd); "log": the HUD's log
 # swap_creature(side, species) puts a new Pokémon on a side's spot (a switch).
+# Ambushes (wild/ambush.gd) may also pass:
+#   "pause_world": true   the world outside waits while it runs (world_paused)
+#   "keep_partner": true  partner_node is his own Pokémon from the world: left there at the end
+#   "partner_node2"       doubles: his second one already out, it steps in (battle_pkmn.gd)
+#   "banner": text        the intro's name ("A SWARM OF BEEDRILL!")
+#   "waves": true         doubles against a team: the next two only once both are down
 #
 # Dev: dev/battle_dev.tscn starts one in Route 1's tall grass (scripted for
 # renders: --acts=, --moves=, --hit=1); dev/battle_test.tscn checks the rules.
@@ -99,6 +108,9 @@ const CLOSE_T := 1.1
 
 static var active := false
 static var current: Battle = null
+
+static func world_paused() -> bool:
+	return active and current != null and is_instance_valid(current) and bool(current.opts.get("pause_world", false))
 
 var game: Node3D
 var cast: Node
@@ -647,6 +659,7 @@ func _run() -> void:
 
 # the banner: "WILD PIDGEY!" (or a trainer's name), and a line under it
 func _intro_name() -> String:
+	if opts.has("banner"): return String(opts.banner)
 	if pk: return pk.intro_name()
 	return R.display_name()
 
@@ -1340,7 +1353,9 @@ func _finish() -> void:
 	fx.clear()
 	var h := get_node_or_null("EnergyHook")
 	if h: h.detach()
-	if partner and is_instance_valid(partner): partner.queue_free()
+	if partner and is_instance_valid(partner):
+		if bool(opts.get("keep_partner", false)) and partner == opts.get("partner_node"): partner.scale = Vector3.ONE
+		else: partner.queue_free()
 	if foe and is_instance_valid(foe):
 		foe.scale = _foe_scale0
 		foe.remove_meta("battle")

@@ -25,6 +25,9 @@ extends Node
 #   target: either foe or his other Pokémon), END TURN moves on to the next; the
 #   second pair is sent out at the start. Events carry their "place" (0, 1): the
 #   staging animates that one.
+# Ambushes (wild/ambush.gd): "partner_node2" his second Pokémon already out steps into
+#   place 1 (no throw); a wild side's next one comes in on its own (no ball); "waves":
+#   the wild side's next two only once both of the pair are down.
 # The result (battle.result): outcome ash_won | ash_down | ran | fled (the
 # contract's), and pkmn_outcome: PkmnBattle's own (won | lost | fled | wild_fled | blown_away).
 #
@@ -367,7 +370,12 @@ func _on_end_turn() -> void:
 func _after_faints() -> void:
 	var P := party()
 	if D and not B.over:
-		for k in D.pending_places("b"):
+		# waves (a swarm): its next pair only once both of this one are down
+		var wait_b: bool = bool(battle.opts.get("waves", false)) and not D.alive_out("b").is_empty()
+		if bool(battle.opts.get("waves", false)) and not wait_b and D.pending_places("b").size() >= 2:
+			battle.ui.show_outcome("THE NEXT TWO!", "%d more coming in" % mini(2, D.bench("b").size()), UITheme.ORANGE)
+			await _wait(0.9)
+		for k in ([] if wait_b else D.pending_places("b")):
 			var i := D.ai_pick("b")
 			if i < 0: continue
 			_busy = true
@@ -575,6 +583,9 @@ func _recall(s: String) -> void:
 	await _wait(0.25)
 
 func _send_out(s: String, sp: String) -> void:
+	if s == "b" and String(battle.opts.get("kind", "wild")) == "wild" and battle.opts.has("party_b"):
+		await _come_in(s, sp)
+		return
 	var to := _home(s)
 	var from: Vector3 = battle.ash_pos + Vector3(0, 1.4, 0) if s == "a" else battle.foe_spot + battle.fwd * float(battle.opts.get("foe_trainer_back", 4.6)) + Vector3(0, 1.4, 0)
 	_set_appear(s, 0.0)
@@ -606,6 +617,23 @@ func _send_out(s: String, sp: String) -> void:
 	hud.bind(B)
 	_mood(s, _act(s, "taunt", "taunt", "taunt"))
 	await _wait(0.4)
+
+# a wild side's next one: no trainer, no ball; it comes in on its own from behind its side
+func _come_in(s: String, sp: String) -> void:
+	var to := _home(s)
+	_set_pos(s, to + battle.fwd * 4.5 + Vector3(0, 0, 0))
+	_semi[_key(s)] = ""
+	if D and int(_pl[s]) == 1: _make_x2(s, sp)
+	else: battle.swap_creature(s, sp)
+	_set_appear(s, 1.0)
+	var flies := WildBrain.flies(sp)
+	_mood(s, "fly" if flies else "run")
+	Sfx.play("whoosh", to, {"vol": -4.0, "pitch": 1.2})
+	await _move(s, to, 0.6, 1.2 if flies else 0.5)
+	battle.fx.dust(to, 6, Color("cdb68a"), 0.6, 0.3, 0.35)
+	_mood(s, "land" if flies else "taunt")
+	hud.bind(B)
+	await _wait(0.35)
 
 func _bolt(a: Vector3, b: Vector3, col: Color) -> void:
 	var n := 9
@@ -682,7 +710,16 @@ func _doubles_in() -> void:
 		if D.at(s, 1) == null: continue
 		_pl[s] = 1
 		_x2pos[s] = _home(s)
-		await _send_out(s, String(D.at(s, 1).species))
+		var own = battle.opts.get("partner_node2") if s == "a" else null
+		if own is Node3D and is_instance_valid(own):
+			# his second one is already out: it steps into its place
+			_x2[s] = own
+			_x2k[s] = 1.0
+			if "auto" in own: own.auto = false
+			_x2pos[s] = (own as Node3D).global_position
+			await _move(s, _home(s), 0.5, 0.25)
+		else:
+			await _send_out(s, String(D.at(s, 1).species))
 		_pl[s] = 0
 	if hud: hud.bind(B)
 
