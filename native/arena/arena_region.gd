@@ -20,6 +20,8 @@ const RANGE := 95.0            # a region's props past this from the camera are 
 # open world's (48, 25): a grove stands thick, and past this its trunks hide each other
 const BILL_TREE := 32.0
 const BILL_BUSH := 20.0
+const TREE_CHUNK := 32.0       # the borrowed plants' chunks (m): a draw call per set, part and chunk
+const BUSH_CHUNK := 48.0
 
 var arena                       # BattleArena
 var def := {}
@@ -167,7 +169,7 @@ func _trees(sets: Dictionary, P: Dictionary) -> void:
 		if on_trail(p.x, p.y, 2.6) or in_clear(p.x, p.y, 1.5): continue
 		if not free_at(p.x, p.y, 3.0 * sc): continue
 		take(p.x, p.y, 2.2 * sc)
-		add.call(list[rng.randi() % list.size()], p.x, p.y, sc, true)
+		add.call(_stand(list, p, TREE_CHUNK), p.x, p.y, sc, true)
 		n += 1
 	# the border: rows just past the walk's edge (a wall of trunks), then up the hills
 	var rows := int(P.get("border", 2))
@@ -186,11 +188,11 @@ func _trees(sets: Dictionary, P: Dictionary) -> void:
 			if on_trail(p.x, p.y, 2.4): continue
 			if row >= rows and rng.randf() < 0.5: continue
 			var sc := rng.randf_range(0.95, 1.35) * (1.0 + row * 0.06)
-			add.call(list[rng.randi() % list.size()], p.x, p.y, sc, row < rows)
+			add.call(_stand(list, p, TREE_CHUNK), p.x, p.y, sc, row < rows)
 	var tris := 0
 	for key in place: tris += _tris(place[key].set) * (place[key].xf as Array).size()
 	print("region %s: %d trees of %d sets, %dk triangles" % [def.id, trees.size(), place.size(), tris / 1000])
-	var hd: Dictionary = arena._plant_chunks(place, Vector2(150.0, 160.0), 32.0, 190.0, def.get("tint", {}), BILL_TREE, {"shadow": 20.0, "ink": Vector2(14.0, 20.0)})
+	var hd: Dictionary = arena._plant_chunks(place, Vector2(150.0, 160.0), TREE_CHUNK, 190.0, def.get("tint", {}), BILL_TREE, {"shadow": 20.0, "ink": Vector2(14.0, 20.0)})
 	for e in trees:
 		var o: Vector3 = (e.at as Vector3) - Vector3(0, 0.08, 0)
 		e.mm = hd.get(Vector3i(roundi(o.x * 20.0), roundi(o.y * 20.0), roundi(o.z * 20.0)), [])
@@ -214,6 +216,17 @@ static func _tris(s: Dictionary) -> int:
 		var m: Mesh = p.mesh
 		for si in m.get_surface_count(): n += m.surface_get_array_index_len(si) / 3
 	return n
+
+# a set for a plant at p (local): the plants stand in stands, two sets to a chunk
+# of the plant chunks (cs: arena._plant_chunks bins by the world grid), so a chunk
+# costs two sets' draw calls, not the whole palette's (one draw of rng as ever)
+func _stand(list: Array, p: Vector2, cs: float) -> Dictionary:
+	var k := rng.randi() % 2
+	if list.size() <= 2: return list[k % list.size()]
+	var wp := w(p.x, p.y)
+	var cell := Vector2i(floori(wp.x / cs), floori(wp.z / cs))
+	var h := absi(cell.x * 73856093 ^ cell.y * 19349663) % list.size()
+	return list[(h + k) % list.size()]
 
 # n of the sets, spread over their heights
 static func _few(list: Array, n: int) -> Array:
@@ -244,7 +257,7 @@ func _undergrowth(sets: Dictionary, P: Dictionary) -> void:
 	var place := {}
 	var put := func(list: Array, x: float, z: float, sc: float, hide: float) -> void:
 		if list.is_empty(): return
-		var s: Dictionary = list[rng.randi() % list.size()]
+		var s: Dictionary = _stand(list, Vector2(x, z), BUSH_CHUNK)
 		var key := String(s.name)
 		if not place.has(key): place[key] = {"set": s, "xf": []}
 		place[key].xf.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(s.scale * sc), w(x, z) - Vector3(0, 0.05, 0)))
@@ -286,7 +299,7 @@ func _undergrowth(sets: Dictionary, P: Dictionary) -> void:
 		if on_trail(p.x, p.y, 1.2) or in_clear(p.x, p.y) or not free_at(p.x, p.y, 1.0): continue
 		take(p.x, p.y, 0.9)
 		put.call(rocks, p.x, p.y, rng.randf_range(0.9, 1.6), 0.5)
-	arena._plant_chunks(place, Vector2(55.0, 62.0), 48.0, 90.0, def.get("tint", {}), BILL_BUSH, {"shadow": 18.0, "ink": Vector2(12.0, 16.0)})
+	arena._plant_chunks(place, Vector2(55.0, 62.0), BUSH_CHUNK, 90.0, def.get("tint", {}), BILL_BUSH, {"shadow": 18.0, "ink": Vector2(12.0, 16.0)})
 
 # ---------- the props library's own: logs, stumps, toadstools, ferns, limbs, litter, shafts ----------
 func _forest_props(P: Dictionary) -> void:
