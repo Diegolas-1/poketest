@@ -130,11 +130,14 @@ func _limbs() -> void:
 		var slots := []
 		var mk := func(kind: String, a: float, y: float, L: float) -> Dictionary:
 			var dir := Vector3(cos(a), 0, sin(a))
+			# (as high over the floor out under the limb's end as by the trunk: the forest floor rolls)
+			var tip := base + dir * L * 0.85
+			y += maxf(0.0, arena.data.height_at(tip.x, tip.z) - base.y)
 			var from := base + UP * y + dir * trunk * 0.5
 			var to := base + dir * L + UP * (y - 0.2)
 			ForestProps.limb(b, from - o, to - o, 0.1 + 0.02 * L, true, ti * 3 + slots.size())
 			return {"kind": kind, "tree": src.trees.size(), "from": from, "to": to, "e": null, "dir": dir}
-		var hs: Dictionary = mk.call("hang", ta + 0.55, clampf(cy0 + 0.35, 3.1, 5.6), clampf(cr * 0.62, 1.7, 2.7))
+		var hs: Dictionary = mk.call("hang", ta + 0.55, clampf(cy0 + 0.35, 3.5, 5.6), clampf(cr * 0.62, 1.7, 2.7))
 		hs.attach = (hs.from as Vector3).lerp(hs.to, 0.8) - UP * 0.06
 		hs.len = rng.randf_range(0.45, 0.85)
 		hs.at = (hs.attach as Vector3) - UP * float(hs.len)
