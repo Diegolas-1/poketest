@@ -125,14 +125,17 @@ func _wild() -> void:
 	var foe_at: Vector3 = ash_at + Vector3(-4.4, 0, 0)
 	foe_at.y = arena.data.height_at(foe_at.x, foe_at.z)
 	var cr: Node3D
+	var made := []   # (a lambda captures cr by value: the new one comes back through this)
 	await _warp(ash_at, yaw, func():
 		cr = Creature.make(sp) if ResourceLoader.exists("res://creatures/%s.glb" % sp) else (PidgeyStandin.new() if sp == "pidgey" else PkmnStandin.make(sp))
+		made.append(cr)
 		arena.add_child(cr)
 		cr.top_level = true
 		cr.global_position = foe_at
 		cr.rotation.y = PI / 2.0
 		if "auto" in cr: cr.auto = false
 		if start == "hidden" and cr.has_method("mood"): cr.mood("hide"))
+	cr = made[0] if not made.is_empty() else null
 	_nodes = [cr]
 	await get_tree().create_timer(0.9 if start == "hidden" else 0.4).timeout
 	var state: String = {"hidden": "hidden", "startled": "startled", "open": "default"}.get(start, "hidden")
@@ -145,6 +148,11 @@ func _wild() -> void:
 		opts["mode"] = "prologue"
 		if bool(_extra.get("auto", false)): opts["script_acts"] = ["sand", "rock", "sand", "rock", "rock", "run"]
 	if _extra.has("seed"): opts["seed"] = int(_extra.seed)
+	# Poké Balls: the arena's own store (its catches kept apart from the save), unlimited unless the setup says
+	opts["catch_store"] = "arena"
+	opts["balls"] = String(w.get("balls", "unlimited"))
+	if _extra.has("script_ball"): opts["script_ball"] = _extra.script_ball
+	if _extra.has("script_acts"): opts["script_acts"] = _extra.script_acts
 	battle = Battle.start(game, opts)
 	var res: Dictionary = await battle.finished
 	await _done(res)

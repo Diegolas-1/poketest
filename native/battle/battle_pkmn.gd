@@ -25,8 +25,11 @@ extends Node
 #   target: either foe or his other Pokémon), END TURN moves on to the next; the
 #   second pair is sent out at the start. Events carry their "place" (0, 1): the
 #   staging animates that one.
-# The result (battle.result): outcome ash_won | ash_down | ran | fled (the
-# contract's), and pkmn_outcome: PkmnBattle's own (won | lost | fled | wild_fled | blown_away).
+# BALL (over the menu; battle/catch_rules.gd): the bag's balls (battle.store), one
+#   thrown takes Ash's turn (the foe still moves); a trainer blocks it (the games'
+#   line); a catch ends the battle (outcome caught). Staged by battle.throw_show.
+# The result (battle.result): outcome ash_won | ash_down | ran | fled | caught (the
+# contract's), and pkmn_outcome: PkmnBattle's own (won | lost | fled | wild_fled | blown_away | caught).
 #
 # Staging, by the move's anim key (life/moves.json):
 #   contact      tackle, quick_attack (white afterimages), scratch, bite, iron_tail,
@@ -229,6 +232,9 @@ func run() -> void:
 	hud.party_cancel.connect(func(): if hud.mode == "party" and not hud.party_forced: hud.show_menu())
 	hud.target_picked.connect(_on_target)
 	hud.target_cancel.connect(func(): _aim_id = ""; hud.show_fight())
+	hud.ball_picked.connect(_on_ball)
+	hud.ball_cancel.connect(func(): if hud.mode == "balls": hud.show_menu())
+	hud.ball_on = D == null
 	hud.log_on = bool(battle.opts.get("log", false))
 	for s in ["a", "b", "a1", "b1"]: _make_mound(s)
 	await _play(B.start(), 0.2)
@@ -259,6 +265,18 @@ func _open_menu() -> void:
 	battle.shot("overview", 2.5)
 	if auto:
 		await get_tree().create_timer(0.6).timeout
+		# scripted runs: "script_ball": {ball, turn, caught, wobbles} throws that ball on that turn
+		var sbl := battle.script_ball_for(B.turn)
+		if not sbl.is_empty() and not _over:
+			hud.show_menu()
+			hud.sel = PkmnHud.BALL
+			await get_tree().create_timer(0.7).timeout
+			hud.show_balls(battle.store.balls())
+			for i in hud.ball_list.size():
+				if String(hud.ball_list[i].id) == String(sbl.get("ball", "poke_ball")): hud.ball_sel = i
+			await get_tree().create_timer(0.8).timeout
+			_on_ball(String(sbl.get("ball", "poke_ball")))
+			return
 		# scripted runs: "script_switch": [turn, team index] switches Ash's by choice on that turn
 		var sw: Array = battle.opts.get("script_switch", [])
 		if party() and D == null and sw.size() == 2 and B.turn == int(sw[0]) and party().can_switch("a", int(sw[1])):
@@ -292,6 +310,10 @@ func _on_command(c: String) -> void:
 		"items":
 			if B.use_item("a", "energy_shard") > 0: hud.say("Used an Energy Shard: +1 chip.", UITheme.YELLOW)
 			else: hud.say("No room for more chips.", UITheme.RED)
+		"ball":
+			var bl := battle.store.balls()
+			if bl.is_empty(): hud.say(CatchRules.line("none"), UITheme.RED)
+			else: hud.show_balls(bl)
 		"pokemon":
 			if party() and not party().bench("a").is_empty(): hud.show_party(false)
 			elif party() and party().alive("a") > 1: hud.say("%s can't be switched out now!" % B.fighter("a").name, UITheme.RED)
@@ -326,6 +348,38 @@ func _on_party(i: int) -> void:
 	_busy = true
 	await _play(party().switch_to("a", i), 0.2)
 	_busy = false
+	_on_end_turn()
+
+# a ball from the bag: thrown (Ash's turn), staged, then the foe's turn unless it's caught
+func _on_ball(id: String) -> void:
+	if _busy or B.over: return
+	if B.kind == "wild" and not battle.store.can_take():
+		hud.say(CatchRules.line("box_full"), UITheme.RED)
+		hud.show_menu()
+		return
+	var T: Dictionary = BattleConfig.sect("catch").get("trainer", {})
+	if B.kind == "wild" or bool(T.get("uses_ball", true)):
+		if not battle.store.use_ball(id):
+			hud.say(CatchRules.line("none"), UITheme.RED)
+			hud.show_menu()
+			return
+	while B.unqueue("a") != "": pass
+	_busy = true
+	hud.busy()
+	var sb := battle.script_ball_for(B.turn)
+	var ev := B.throw_ball("a", id, sb if String(sb.get("ball", id)) == id else {})
+	ev["name"] = String(B.fighter("b").name)
+	hud.say(String(ev.get("throw", CatchRules.line("throw", {"BALL": CatchRules.ball_name(id).to_upper()}))), UITheme.SKY)
+	var cb = battle.opts.get("on_event")
+	if cb is Callable and cb.is_valid(): cb.call(ev)
+	await battle.throw_show(id, ev)
+	_busy = false
+	if B.over:
+		_over = true
+		return
+	if String(ev.t) == "ball_blocked" and not bool(T.get("takes_turn", true)):
+		_open_menu()
+		return
 	_on_end_turn()
 
 func _on_move(id: String) -> void:
@@ -408,12 +462,13 @@ func _after_faints() -> void:
 func _end() -> void:
 	hud.busy()
 	var oc := B.outcome
-	hud.say({"won": "You won!", "lost": "%s fainted..." % B.fighter("a").name, "fled": "Got away safely!", "wild_fled": "The wild one fled!", "blown_away": "Blown away!"}.get(oc, "The battle is over."), UITheme.YELLOW)
+	if oc != "caught": hud.say({"won": "You won!", "lost": "%s fainted..." % B.fighter("a").name, "fled": "Got away safely!", "wild_fled": "The wild one fled!", "blown_away": "Blown away!"}.get(oc, "The battle is over."), UITheme.YELLOW)
 	B.finish()
 	var pr := party().results() if party() else {}
-	battle.result = {"party": pr,"outcome": {"won": "ash_won", "lost": "ash_down", "fled": "ran", "wild_fled": "fled", "blown_away": "ran"}.get(oc, "ran"),
+	battle.result = {"party": pr,"outcome": {"won": "ash_won", "lost": "ash_down", "fled": "ran", "wild_fled": "fled", "blown_away": "ran", "caught": "caught"}.get(oc, "ran"),
 		"pkmn_outcome": oc, "species": String(B.fighter("b").species), "foe_hp": B.fighter("b").hp, "partner_hp": B.fighter("a").hp, "turns": B.turn,
 		"creature": battle.foe if not battle.own_foe else null}
+	if not battle.caught_info.is_empty(): battle.result["caught"] = battle.caught_info
 	match oc:
 		"won":
 			battle.ui.show_outcome("YOU WON!", "%s did it!" % B.fighter("a").name, UITheme.GREEN)
@@ -424,6 +479,8 @@ func _end() -> void:
 			battle.ui.show_outcome("%s FLED!" % String(B.fighter("b").name).to_upper(), "", UITheme.PURPLE)
 			_mood("b", "flee")
 			await _move("b", _pos("b") + battle.fwd * 9.0, 1.3, 2.5)
+		"caught":
+			_mood("a", "taunt")   # (the banner was the throw's)
 		_:
 			battle.ui.show_outcome("GOT AWAY SAFELY!", "", UITheme.GREEN)
 	await _wait(1.8)

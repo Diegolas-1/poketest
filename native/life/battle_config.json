@@ -297,5 +297,40 @@
     "reaction_rate_scale": 1.0,
     "status_scale": 1.0
   },
+
+  "catch": {
+    "_doc": "Poke Balls: Red and Blue's capture rules (battle/catch_rules.gd; pret/pokered ItemUseBall). balls.<id>: rand_max (Rand1 is 0..rand_max), hp_div (W = floor(MaxHP x 255 / hp_div) / max(floor(HP / 4), 1)), shake_div (a failure's Y = CatchRate x 100 / shake_div), always (the Master Ball), col / band (the model's top and its marks). status: [Status, Status2] (Rand1 under Status catches; Status2 is added to a failure's Z). shakes: the Z steps for 1, 2 and 3 shakes. default_rate: a species with no catch_rate. party_max / box_max / boxes: where a catch goes (the party, else the PC). trainer: a ball at a trainer's Pokemon is blocked; uses_ball and takes_turn as in the games. start_bag: what Ash's bag holds once he has his first Pokemon (a stock for testing). lines: the battle's text ({NAME}, {BALL}).",
+    "balls": {
+      "poke_ball": {"name": "Poké Ball", "rand_max": 255, "hp_div": 12, "shake_div": 255, "col": "e8352e"},
+      "great_ball": {"name": "Great Ball", "rand_max": 200, "hp_div": 8, "shake_div": 200, "col": "2f6fd6", "band": "e8352e"},
+      "ultra_ball": {"name": "Ultra Ball", "rand_max": 150, "hp_div": 12, "shake_div": 150, "col": "2b2a30", "band": "f7c51e"},
+      "master_ball": {"name": "Master Ball", "always": true, "col": "7a3fb8", "band": "ef6fb6"}
+    },
+    "order": ["poke_ball", "great_ball", "ultra_ball", "master_ball"],
+    "status": {"sleep": [25, 10], "freeze": [25, 10], "para": [12, 5], "burn": [12, 5], "poison": [12, 5]},
+    "shakes": [10, 30, 70],
+    "default_rate": 45,
+    "party_max": 6,
+    "box_max": 20,
+    "boxes": 12,
+    "trainer": {"uses_ball": true, "takes_turn": true},
+    "start_bag": {"poke_ball": 10, "great_ball": 5, "ultra_ball": 3, "master_ball": 1},
+    "lines": {
+      "throw": "Ash threw a {BALL}!",
+      "shake_0": "Oh no! The Pokémon broke free!",
+      "shake_1": "Darn! The Pokémon broke free!",
+      "shake_2": "Aww! It appeared to be caught!",
+      "shake_3": "Shoot! It was so close too!",
+      "caught": "All right! {NAME} was caught!",
+      "banner": "GOTCHA!",
+      "banner_sub": "{NAME} was caught!",
+      "dex": "New Pokédex data will be added for {NAME}!",
+      "party": "{NAME} joined Ash's party.",
+      "box": "{NAME} was transferred to someone's PC!",
+      "blocked": "The trainer blocked the ball! Don't be a thief!",
+      "box_full": "The Pokémon box is full! Can't use that item!",
+      "none": "You have no Poké Balls!"
+    }
+  },
   "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.4, "tcg_chart_resist_mult": 0.8, "weakness_by_level": {"levels": [8, 22, 40], "mult": [1.4, 1.3, 1.7]}, "tcg_chart_super_mult": 1.15}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}, "level_stat": {"levels": [8, 20, 35], "min": 0.6, "max": 1.6, "bonus": {"common": [0.0, 0.0, 0.0], "uncommon": [-0.1895, 0.0347, 0.2142], "rare": [-0.3439, 0.0345, 0.2861], "very_rare": [-0.3639, 0.0844, 0.1926], "legendary": [-0.3639, 0.0844, 0.1926]}}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.253, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6, "disruption": 1.25}}, "min_action_value": 4.0, "wild_styles": {"evasive": {"status": 1.3}}, "finisher_value": 1.23, "two_phase_value": 0.9, "reaction_value": 40.0, "status_scale": 1.75, "reaction_rate_scale": 1.818}, "slots": {"wild_equip": "balanced", "gain_per_slot": 2.75}, "trainer_moves": {"fill": [], "places": ["opener", "mid", "finisher", "two_phase", "reaction"]}}}
 }
