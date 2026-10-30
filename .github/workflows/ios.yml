@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ios
+  group: ios-${{ github.ref }}
   cancel-in-progress: true
 
 env:
