@@ -305,10 +305,9 @@ func _ambush(ar: BattleArena) -> void:
 		var to: Vector3 = _a.path[int(_a.i)]
 		if Wild._d2(main.pos, to) < 1.2: _a.i = int(_a.i) + 1
 		else: _walk(to, 0.42 if main.cast.crouching else 0.72)
-	elif act == "run" and st == "chase":
-		# he keeps running: it gives up a little way on
-		var lp2: Vector3 = (Am._lead().node as Node3D).position
-		_walk(main.pos + (main.pos - lp2).normalized() * 10.0, 1.0)
+	elif act == "run" and st in ["chase", "leave"] and Wild._d2(main.pos, ar.w(3.0, -2.0)) > 2.0:
+		# he keeps running (up the open field, clear of the referee's stand): it gives up a little way on
+		_walk(ar.w(3.0, -2.0), 1.0)
 	else: main.stick_vec = Vector2.ZERO
 	# the standoff: a beat, then his pick (POKéMON: the first of his party), or RUN
 	if st == "standoff":
