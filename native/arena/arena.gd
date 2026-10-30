@@ -463,7 +463,7 @@ func _blocked(x: float, z: float) -> bool:
 # a region's life shakes a tree by its instances)
 # tint: {"bark": Color, "leaf": Color} (a region's own: a forest's darker trunks and leaves)
 # bill > 0: a set with a billboard (veg.gd's) hands its model over to it at bill metres
-# (as the open world's: one draw a 64 m chunk for every far plant), out to fade.y or vis
+# (as the open world's: one draw a chunk for every far plant), out to fade.y or vis
 # o: {shadow: m (a chunk's shadow casters only nearer than this, its edge included),
 #     ink: Vector2 (where each plant's leaf ink thins out; the chunk's is off past it)}
 func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tint := {}, bill := 0.0, o := {}) -> Dictionary:
@@ -518,7 +518,9 @@ func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tin
 				mi.multimesh = mm
 				mi.material_override = mat
 				mi.position = c
-				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if part.shadow != null else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+				# (no stand-in: the model casts; a region's flowers not at all, their shadow a few pixels)
+				var bare := part.shadow == null and not (o.has("shadow") and float(s.h) < 1.5 and mat.shader == preload("res://veg.gd").LEAF)
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if bare else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				if cv > 0.0: mi.visibility_range_end = cv
 				add_child(mi)
 				if part.shadow != null:
@@ -549,16 +551,17 @@ func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tin
 	return handles
 
 # far plants as billboards (veg.gd's atlas and shader): [origin, yaw, scale, impostor,
-# hand over at, half width, bottom, height] each, a MultiMesh a 64 m chunk
+# hand over at, half width, bottom, height] each, a MultiMesh a 128 m chunk (a draw
+# each: a far plant's quad costs next to nothing, the near ones fold away in the shader)
 func _bill_chunks(bills: Array, bm: ShaderMaterial, far: float, tint := {}) -> void:
 	var mat := bm
-	if tint.has("leaf"):
+	if tint.has("bill") or tint.has("leaf"):
 		mat = bm.duplicate()
-		mat.set_shader_parameter("tint", tint.leaf)
+		mat.set_shader_parameter("tint", tint.get("bill", tint.get("leaf")))
 	var quad: Mesh = null
 	var bins := {}
 	for b in bills:
-		var k := Vector2i(floori(b[0].x / 64.0), floori(b[0].z / 64.0))
+		var k := Vector2i(floori(b[0].x / 128.0), floori(b[0].z / 128.0))
 		if not bins.has(k): bins[k] = []
 		bins[k].append(b)
 	for k in bins:

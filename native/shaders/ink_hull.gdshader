@@ -18,20 +18,18 @@ uniform vec2 focus_range = vec2(10.0, 55.0);
 // the hull steps back a little so it never pokes through the front faces
 uniform float push = 0.03;
 // a prop in the plants' shaders (veg.gdshaderinc, props/prop_scatter.gd): its ink slides
-// with it when a battle's arena opens, and goes with it (arena_hide, m) near the middle
+// with it when a battle's arena opens (arena_each: vertex by vertex, a merged mesh's)
 uniform bool arena_follow = false;
-uniform float arena_hide = 0.0;
+uniform bool arena_each = false;
 
 varying float v_alpha;
 varying vec3 v_col;
 
 void vertex() {
 	// DEFORM: a mesh that moves its vertices in its own shader repeats that here
-	bool hull_gone = false;
 	if (arena_follow && arena_on()) {
-		vec3 hp = MODEL_MATRIX[3].xyz;
-		hull_gone = arena_hide > 0.0 && battle_arena.w > 0.3 && distance(hp.xz, battle_arena.xy) * 5.6 / battle_arena.z < arena_hide * 0.92;
-		VERTEX += inverse(mat3(MODEL_MATRIX)) * arena_push(hp, (mat3(MODEL_MATRIX) * VERTEX).y);
+		vec3 hp = arena_each ? (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz : MODEL_MATRIX[3].xyz;
+		VERTEX += inverse(mat3(MODEL_MATRIX)) * arena_push(hp, arena_each ? 0.0 : (mat3(MODEL_MATRIX) * VERTEX).y);
 	}
 	vec3 vp = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 vn = normalize(MODELVIEW_NORMAL_MATRIX * NORMAL);
@@ -49,7 +47,7 @@ void vertex() {
 	float l = length(nd);
 	if (l > 1e-5) c.xy += nd / l * px / (0.5 * VIEWPORT_SIZE) * c.w;
 	POSITION = c;
-	if (fl * w <= 0.003 || hull_gone) POSITION = vec4(0.0, 0.0, -2.0, 1.0);   // too far (or gone in a battle): nothing to draw
+	if (fl * w <= 0.003) POSITION = vec4(0.0, 0.0, -2.0, 1.0);   // too far: nothing to draw
 	v_alpha = fl * min(core, 1.0) * ink_color.a;
 	v_col = aces_three(ink_color.rgb);
 }

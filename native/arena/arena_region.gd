@@ -18,8 +18,8 @@ extends Node3D
 const RANGE := 95.0            # a region's props past this from the camera are dropped (m)
 # where the borrowed trees and bushes hand over to their billboards (m): nearer than the
 # open world's (48, 25): a grove stands thick, and past this its trunks hide each other
-const BILL_TREE := 38.0
-const BILL_BUSH := 24.0
+const BILL_TREE := 32.0
+const BILL_BUSH := 20.0
 
 var arena                       # BattleArena
 var def := {}
@@ -190,7 +190,7 @@ func _trees(sets: Dictionary, P: Dictionary) -> void:
 	var tris := 0
 	for key in place: tris += _tris(place[key].set) * (place[key].xf as Array).size()
 	print("region %s: %d trees of %d sets, %dk triangles" % [def.id, trees.size(), place.size(), tris / 1000])
-	var hd: Dictionary = arena._plant_chunks(place, Vector2(150.0, 160.0), 32.0, 190.0, def.get("tint", {}), BILL_TREE, {"shadow": 30.0, "ink": Vector2(16.0, 22.0)})
+	var hd: Dictionary = arena._plant_chunks(place, Vector2(150.0, 160.0), 32.0, 190.0, def.get("tint", {}), BILL_TREE, {"shadow": 20.0, "ink": Vector2(14.0, 20.0)})
 	for e in trees:
 		var o: Vector3 = (e.at as Vector3) - Vector3(0, 0.08, 0)
 		e.mm = hd.get(Vector3i(roundi(o.x * 20.0), roundi(o.y * 20.0), roundi(o.z * 20.0)), [])
@@ -215,6 +215,15 @@ static func _tris(s: Dictionary) -> int:
 		for si in m.get_surface_count(): n += m.surface_get_array_index_len(si) / 3
 	return n
 
+# n of the sets, spread over their heights
+static func _few(list: Array, n: int) -> Array:
+	if list.size() <= n: return list
+	var by := list.duplicate()
+	by.sort_custom(func(a, b): return a.h < b.h if a.h != b.h else String(a.name) < String(b.name))
+	var out := []
+	for i in n: out.append(by[int(round(float(i) * (by.size() - 1) / maxf(1, n - 1)))])
+	return out
+
 static func _perimeter(rc: Rect2, u: float) -> Vector2:
 	var W := rc.size.x; var H := rc.size.y
 	u = fposmod(u, 2.0 * (W + H))
@@ -228,9 +237,10 @@ static func _perimeter(rc: Rect2, u: float) -> Vector2:
 
 # ---------- bushes, thickets, baked ferns, flowers and rocks ----------
 func _undergrowth(sets: Dictionary, P: Dictionary) -> void:
-	var bushes: Array = sets.get("bush", []).filter(func(s): return s.h > 0.8 and s.h < 2.6 and s.w < 3.6)
-	var flowers: Array = sets.get("flower", [])
-	var rocks: Array = sets.get("rock", []).filter(func(s): return s.h < 1.4 and s.w < 2.2)
+	# (a few sets of each: a draw call per set and chunk; P.bush_sets, flower_sets, rock_sets)
+	var bushes: Array = _few(sets.get("bush", []).filter(func(s): return s.h > 0.8 and s.h < 2.6 and s.w < 3.6), int(P.get("bush_sets", 99)))
+	var flowers: Array = _few(sets.get("flower", []), int(P.get("flower_sets", 99)))
+	var rocks: Array = _few(sets.get("rock", []).filter(func(s): return s.h < 1.4 and s.w < 2.2), int(P.get("rock_sets", 99)))
 	var place := {}
 	var put := func(list: Array, x: float, z: float, sc: float, hide: float) -> void:
 		if list.is_empty(): return
@@ -306,8 +316,6 @@ func _forest_props(P: Dictionary) -> void:
 		arena.data.add_box(p.x, p.y, L * 0.5, 0.45, -yaw)
 		arena.hides.append({"at": at, "kind": "bush", "r": 1.0, "zone": String(def.id)})
 		n += 1
-	# (a log near a battle goes as its arena opens: pushed out whole, its far end would reach back in)
-	for v in 3: PropScatter.place(self, logs[v], lx[v], {"shadow": true, "range": RANGE, "ink": true, "chunk": 80.0, "hide": 7.5})
 	# stumps
 	var stumps := [ForestProps.stump(1), ForestProps.stump(2, 0.36, 0.5), ForestProps.stump(3, 0.6, 0.9)]
 	var sx := [[], [], []]
@@ -319,7 +327,11 @@ func _forest_props(P: Dictionary) -> void:
 			sx[j % 3].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), w(p.x, p.y) - Vector3(0, 0.04, 0)))
 			arena.data.add_circle(p.x, p.y, 0.55)
 			break
-	for v in 3: PropScatter.place(self, stumps[v], sx[v], {"shadow": true, "range": RANGE, "ink": true, "chunk": 80.0})
+	# the logs and the stumps one mesh a chunk (in a battle they slide vertex by vertex:
+	# a long log pushed whole would reach back in across the floor)
+	var wood := []
+	for v in 3: wood.append([logs[v], lx[v]]); wood.append([stumps[v], sx[v]])
+	for mi in PropScatter.merged(self, wood, {"shadow": true, "range": RANGE - 20.0, "ink": true, "chunk": 40.0}): mi.name = "Wood"
 	# toadstools at the trees' feet and by the logs
 	var shrooms := [ForestProps.mushrooms(1, true), ForestProps.mushrooms(2, true), ForestProps.mushrooms(3, false), ForestProps.mushrooms(4, false)]
 	var mx := [[], [], [], []]
@@ -330,7 +342,6 @@ func _forest_props(P: Dictionary) -> void:
 		var p: Vector2 = t.local + Vector2(cos(a), sin(a)) * (float(t.trunk) + rng.randf_range(0.5, 1.2))
 		if on_trail(p.x, p.y, 0.4): continue
 		mx[j % 4].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3.ONE * rng.randf_range(0.8, 1.3)), w(p.x, p.y)))
-	for v in 4: PropScatter.place(self, shrooms[v], mx[v], {"range": 45.0, "chunk": 40.0})
 	# ferns: thick at the trees' feet, along the trail's edges, under the thickets
 	var ferns := [ForestProps.fern(1), ForestProps.fern(2, 1.25), ForestProps.fern(3, 0.8)]
 	var fx := [[], [], []]
@@ -344,7 +355,11 @@ func _forest_props(P: Dictionary) -> void:
 			p = _rand_in(inner)
 		if on_trail(p.x, p.y, 0.5) or in_clear(p.x, p.y, -2.5) or not _walk.has_point(p): continue
 		fx[j % 3].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3.ONE * rng.randf_range(0.8, 1.4)), w(p.x, p.y) - Vector3(0, 0.03, 0)))
-	for v in 3: PropScatter.place(self, ferns[v], fx[v], {"range": 50.0, "chunk": 40.0})
+	# the ferns and the toadstools one mesh a chunk
+	var low := []
+	for v in 3: low.append([ferns[v], fx[v]])
+	for v in 4: low.append([shrooms[v], mx[v]])
+	for mi in PropScatter.merged(self, low, {"range": 45.0, "chunk": 40.0}): mi.name = "Ferns"
 	# the litter: fallen leaves and twigs, thick on the trail and under the trees, one mesh a chunk
 	var lit := {}
 	var nl := int(P.get("litter", 1000))
@@ -449,10 +464,12 @@ func _signs() -> void:
 		var board: Material = arena._toon(Color(s.get("board", "f3ead6")))
 		for sx in [-0.55, 0.55]:
 			var mi: MeshInstance3D = arena._box(Vector3(0.1, 1.5, 0.1), p + Basis(Vector3.UP, yaw) * Vector3(sx, 0.72, 0), wood, yaw)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF   # (the board's shadow is the sign's)
 			mi.reparent(self)
 		var bd: MeshInstance3D = arena._box(Vector3(1.4, 0.62, 0.06), p + Vector3(0, 1.25, 0), board, yaw)
 		bd.reparent(self)
 		var stripe: MeshInstance3D = arena._box(Vector3(1.44, 0.07, 0.07), p + Vector3(0, 0.92, 0), arena._toon(Color(s.get("stripe", "d23a2e"))), yaw)
+		stripe.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		stripe.reparent(self)
 		arena.data.add_circle(float(at[0]), float(at[1]), 0.4)
 		for f in [1.0, -1.0]:
@@ -467,4 +484,5 @@ func _signs() -> void:
 			lb.rotation.y = yaw + (0.0 if f > 0 else PI)
 			lb.shaded = false
 			lb.double_sided = false
+			lb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(lb)

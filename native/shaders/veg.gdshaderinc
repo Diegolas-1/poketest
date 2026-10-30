@@ -18,25 +18,16 @@ uniform float detail = 0.0;
 uniform float mid = 0.3;
 uniform float gain = 1.0;
 // a battle's arena (arena.gdshaderinc): push_each, every vertex slides by where it is
-// (one merged mesh of many things: a grove's litter, its limbs); arena_hide > 0, a
-// thing rooted nearer than that (m, at the arena's size) to the middle goes instead
-// (a long log would reach back in across the floor)
+// (one merged mesh of many things: a grove's litter, its logs and ferns; a long log
+// pushed whole would reach back in across the floor)
 uniform bool push_each = false;
-uniform float arena_hide = 0.0;
 
 float fd_b2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
 float fd_b4(vec2 a) { return fd_b2(0.5 * a) * 0.25 + fd_b2(a); }
 float fd_b8(vec2 a) { return fd_b4(0.5 * a) * 0.25 + fd_b2(a); }
 
 // 0 shown .. 1 gone, for a plant standing at p
-float fade_k(vec3 p) {
-	float k = smoothstep(fade.x, fade.y, distance(p, veg_cam));
-	if (arena_hide > 0.0 && arena_on()) {
-		float hr = distance(p.xz, battle_arena.xy) * 5.6 / battle_arena.z;
-		k = max(k, (1.0 - smoothstep(arena_hide * 0.85, arena_hide, hr)) * clamp(battle_arena.w * 1.5, 0.0, 1.0));
-	}
-	return k;
-}
+float fade_k(vec3 p) { return smoothstep(fade.x, fade.y, distance(p, veg_cam)); }
 
 // the web's swayGLSL: phase from the plant's place, bend grows with height
 vec3 sway(vec3 v, vec3 ip, float t) {

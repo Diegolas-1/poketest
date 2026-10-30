@@ -197,6 +197,7 @@ var _choice := ""
 var _prev_stance := ""
 var _hidden: Array = []
 var gap := GAP                  # Ash to the foe (opts.gap)
+var ceiling := 0.0              # under a canopy: the camera kept this low over the ground (m, 0: no limit)
 var partner_ahead := PARTNER_AHEAD
 var appear := 1.0               # staged: the Pokémon grow out of the release flash (0 -> 1)
 var store: PkmnStore            # the bag's balls, the party and the PC (a catch goes there)
@@ -268,6 +269,7 @@ func _begin(g: Node3D, o: Dictionary) -> void:
 	ui.set_mood(R.mood())
 	_store_setup()
 	_place()
+	ceiling = float(o.get("ceiling", _ceiling_at(c)))
 	if mode == MODE_PKMN:
 		pk = BattlePkmn.new()
 		pk.name = "Pkmn"
@@ -295,6 +297,14 @@ func _place() -> void:
 	foe_yaw = atan2(-fwd.x, -fwd.z)
 
 func _gy(p: Vector3) -> float: return game.world.height_at(p.x, p.z)
+
+# a Battle Arena region under trees (its def's "battle_ceiling", arena/regions/*.gd):
+# the shots stay below the crowns, so they look across at the Pokémon, not down
+# through the leaves
+static func _ceiling_at(p: Vector3) -> float:
+	if BattleArena.I == null: return 0.0
+	var id := ArenaRegions.at(p.x - ArenaData.C.x, p.z - ArenaData.C.y)
+	return float(ArenaRegions.get_def(id).get("battle_ceiling", 0.0)) if id != "" else 0.0
 
 func _make_foe() -> void:
 	var given = opts.get("creature")
@@ -509,6 +519,7 @@ func _camera(dt: float, real: float) -> void:
 	var p := cam_pos
 	var gy := _gy(p) + 0.45
 	if p.y < gy: p.y = gy
+	if ceiling > 0.0: p.y = minf(p.y, maxf(gy, _gy(p) + ceiling))
 	shake = maxf(0.0, shake - real * 2.4)
 	var sh := Vector3.ZERO
 	if shake > 0.001:

@@ -293,7 +293,7 @@ func _forest(ar: BattleArena) -> void:
 			_f.to = ns.base
 	var tt := t - 1.0
 	if tt < 0.0: return
-	if Battle.active and act != "hive": return   # (the battle frames its own shots)
+	if Battle.active: return   # (the battle frames its own shots)
 	var cam: Camera3D = main.cam
 	match act:
 		"spot", "shake":

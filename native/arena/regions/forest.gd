@@ -28,7 +28,8 @@ static func def() -> Dictionary:
 		"gate": {"side": "n", "u": 14.0, "half": 2.2},
 		"board": Color(0.2, 0.36, 0.2),
 		# the grove's trunks a warmer brown and its leaves a deeper green than the meadow's trees
-		"tint": {"bark": Color(0.82, 0.7, 0.58), "leaf": Color(0.8, 0.9, 0.74)},
+		# (and its far trees' billboards, lit in the open: darker here under the canopy)
+		"tint": {"bark": Color(0.82, 0.7, 0.58), "leaf": Color(0.8, 0.9, 0.74), "bill": Color(0.56, 0.6, 0.46)},
 		# the way there from the hub's paths: points (local) to the gate
 		"link": [[8.0, -13.8], [12.0, -30.0], [14.0, -46.5]],
 		# where the menu's GO puts him (just inside, facing in)
@@ -51,7 +52,7 @@ static func def() -> Dictionary:
 		# the clearings kept open of trees (x, z, r): the tall grass, the hive's glade, the nest's
 		"clear": [[-6.0, -76.0, 10.0], [33.0, -95.0, 9.5], [18.0, -112.0, 8.0], [34.0, -64.0, 6.5], [-9.0, -100.0, 4.5]],
 		# the palette (props/forest/): how many of each, scattered off the trail
-		"props": {"trees": 46, "border": 1, "palette": 5, "max_tris": 7000, "search": 14, "bushes": 70, "ferns": 150, "logs": 7, "stumps": 9,
+		"props": {"trees": 46, "border": 1, "palette": 3, "max_tris": 7000, "search": 14, "bushes": 70, "bush_sets": 3, "flower_sets": 3, "rock_sets": 2, "ferns": 150, "logs": 7, "stumps": 9,
 			"mushrooms": 26, "litter": 1600, "shafts": 16, "rocks": 10, "flowers": 40},
 		# the encounter sources and their species (the default hunt)
 		"sources": {"tall_grass": ["weedle"], "tree": ["kakuna", "metapod", "pidgey", "spearow", "caterpie"]},
@@ -66,5 +67,7 @@ static func def() -> Dictionary:
 		"hive": {"at": [36.0, -63.0], "h": 5.4, "warn": 13.0, "provoke": 7.5, "patrol": 3},
 		"nest": {"at": [-9.5, -101.0], "h": 3.4, "guard": "pidgeotto", "chicks": 2, "eggs": 2, "warn": 8.0, "disturb": 4.2},
 		"life": "res://arena/regions/forest_life.gd",
+		# a battle's camera stays under the crowns (battle/battle.gd)
+		"battle_ceiling": 3.3,
 		"ambience": {"bed": "amb_forest", "birds": 0.7},
 	}

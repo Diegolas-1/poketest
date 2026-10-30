@@ -42,7 +42,7 @@ bool arena_on() { return battle_arena.w != 0.0 && battle_arena.z > 0.0; }
 // (the shadows stay whole). (oc_ names: grass.gdshader has a uniform cam)
 float arena_occ(vec3 oc_p, float oc_g, vec3 oc_cam, vec3 oc_eye) {
 	if (!arena_on() || distance(oc_eye, oc_cam) > 3.0) return 0.0;
-	vec3 oc_ab = vec3(battle_arena.x, oc_g + 0.8, battle_arena.y) - oc_cam;
+	vec3 oc_ab = vec3(battle_arena.x, oc_g + 1.2, battle_arena.y) - oc_cam;
 	float oc_u = dot(oc_p - oc_cam, oc_ab) / max(dot(oc_ab, oc_ab), 1e-4);
 	float oc_d = distance(oc_p, oc_cam + oc_ab * clamp(oc_u, 0.0, 1.0));
 	float oc_r = mix(2.4, 3.6, clamp(oc_u, 0.0, 1.0));
