@@ -34,6 +34,8 @@ extends Node
 #   on foot     a species that can't fly (WildBrain.flies) runs instead: low and
 #               fast through the grass to another patch or under a bush, the
 #               blades parting along its way (the trail to follow)
+#   ambushes    opportunists lying in wait in cover that jump him (ambush.gd: its
+#               own encounter kind, its own data, wild.json "ambush")
 #   the hunt    the Battle Arena's (arena/arena_hunt.gd, hunt while one is on):
 #               many hidden at once through its patches (wild_arena_grass.gd),
 #               no luring, each with its level and the battle's mode; it hears
@@ -64,6 +66,7 @@ var cooldown := 4.0
 var hud: WildHud
 var toaster: UIToaster
 var tut: WildTutorial
+var ambush: Ambush         # the ambushes (ambush.gd)
 var feathers: Array = []   # {node, v, spin, t, life, rest}
 var t := 0.0
 var lunge := {}            # Ash's pounce: {t, from, to, e}
@@ -91,6 +94,10 @@ func setup(g: Node, c: Node, layer: CanvasLayer) -> void:
 	layer.add_child(toaster)
 	tut = WildTutorial.new()
 	tut.setup(self)
+	ambush = Ambush.new()
+	ambush.name = "Ambush"
+	add_child(ambush)
+	ambush.setup(self)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--wild-test="): shot = WildShot.new(self, a.substr(12))
 
@@ -98,13 +105,14 @@ func peek() -> bool: return String(Settings.get_value("wild_peek")) == "peek"
 
 # ---------- what cast.gd asks ----------
 func busy() -> bool:
-	return tut.busy() or not lunge.is_empty()
+	return tut.busy() or not lunge.is_empty() or (ambush != null and ambush.busy())
 
 func input(a: bool, b: bool) -> void:
 	tut.input(a, b)
 
 # A pressed on foot: the pounce, the grab, a word to a curious one (true = taken)
 func use_pressed() -> bool:
+	if ambush != null and ambush.use_pressed(): return true
 	for s in sources:
 		if s.has_method("use_pressed") and s.use_pressed(self): return true
 	var me: Vector3 = game.pos
@@ -136,9 +144,9 @@ func use_pressed() -> bool:
 					return true
 	return false
 
-# the camera minds props between it and Ash while a hunt is on (main.gd _camera)
+# the camera minds props between it and Ash while a hunt is on, an ambush, or his Pokémon are out (main.gd _camera)
 func camera_care() -> bool:
-	return not encs.is_empty() or tut.running()
+	return not encs.is_empty() or tut.running() or (ambush != null and not ambush.cur.is_empty()) or (cast.get("companions") != null and not cast.companions.shown().is_empty())
 
 # the tutorial's steps keep its Pidgey's spot in view: {at} or {} (main.gd _wild_frame)
 func camera_hint() -> Dictionary:
@@ -162,15 +170,17 @@ func update(dt: float) -> void:
 	t += dt
 	if shot: shot.step(dt)
 	var outside: bool = not game.indoors
+	var held := Battle.world_paused()   # (an ambush's battle: the rest of the wild waits, out of its floor)
 	for e in encs:
 		# (in a battle only its own Pokémon shows: the others keep out of its round floor)
-		if e.node: e.node.visible = outside and bool(e.shown) and (not battle_on or e == _battle_e)
+		if e.node: e.node.visible = outside and bool(e.shown) and (not battle_on or e == _battle_e) and not held
 	if not outside:
 		if game.grass: game.grass.extra = []
 		return
 	_feathers(dt)
-	if battle_on:
-		_battle_poll()
+	if ambush and not battle_on: ambush.update(dt)
+	if battle_on or held:
+		if battle_on: _battle_poll()
 		if game.grass: game.grass.extra = []
 		hud.prompt = {}
 		return
@@ -182,7 +192,7 @@ func update(dt: float) -> void:
 	cooldown -= dt
 	tut.update(dt)
 	# settling: one at a time, never during the tutorial's own, nor in a hunt (its field is set)
-	if encs.is_empty() and cooldown <= 0.0 and not tut.running() and hunt == null:
+	if encs.is_empty() and cooldown <= 0.0 and not tut.running() and hunt == null and (ambush == null or ambush.cur.is_empty()):
 		_try_spawn(dt, me, speed, crouched, riding)
 	var extra: Array = []
 	hud.prompt = {}

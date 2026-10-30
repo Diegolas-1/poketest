@@ -5,9 +5,11 @@ extends RefCounted
 # user://arena_setups.json.
 #
 # A setup:
-#   {"type": "wild" | "trainer" | "hunt",
+#   {"type": "wild" | "trainer" | "hunt" | "ambush",
 #    "wild": {"species", "level", "temper": flighty|aggressive|curious|timid,
 #             "start": hidden|startled|open, "with_party": bool (the hunt's too)},
+#    "ambush": {"species", "n": 1..4, "level", "cover": thicket|bush|tall_grass,
+#             "comps": "0"|"1"|"2" (his out with him), "random": bool}   (arena_ambush.gd)
 #    "hunt": {"species": [ids], "count": 3..12, "lv": [lo, hi],
 #             "temper": random|species|fixed, "fixed": a temper, "refill": bool}   (arena_hunt.gd)
 #    "ash": [{"species", "level", "equip": [move ids] (optional)}, ...]   up to 6
@@ -105,6 +107,11 @@ static func mon(d: Dictionary) -> Dictionary:
 	return o
 
 static func title(s: Dictionary) -> String:
+	if String(s.get("type", "")) == "ambush":
+		var a: Dictionary = s.get("ambush", {})
+		var n := int(a.get("n", 1))
+		var nm := species_name(String(a.get("species", "beedrill")))
+		return ("Ambush: a %s" % nm) if n <= 1 else "Ambush: a swarm of %d %s" % [n, nm]
 	if String(s.get("type", "")) == "hunt":
 		var h: Dictionary = s.get("hunt", default_hunt())
 		var lv: Array = h.lv

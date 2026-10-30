@@ -17,11 +17,11 @@ extends Node
 #   the hive     a Beedrill hive on a big tree's limb, Beedrill patrolling round it,
 #                the buzz rising as Ash nears: walking up upright (or running near,
 #                or shaking its tree) agitates it; full, it is provoked
-#   provoked     an ambush system's swarm if the arena has one (arena "ambush":
-#                swarm({...})), else the warning event here: the buzz swells,
-#                "BEEDRILL ARE COMING!", the patrol comes after him; out of reach
-#                they give up, caught, one attacks (a wild battle); the provoked
-#                signal either way
+#   provoked     the warning: the buzz swells, "BEEDRILL ARE COMING!", the patrol
+#                comes after him; out of reach they give up; caught, the ambush
+#                system's swarm (wild/ambush.gd: two to four land in front of him,
+#                his Pokémon out intercept, else RUN or POKéMON, two at a time),
+#                or one attacks where there is none; the provoked signal either way
 #   the nest     a Pidgey nest in a fork with chicks (and eggs), the parent on its
 #                rim: it watches and cries as Ash nears; too close upright (or a
 #                shake, a pebble), it dives at him: the battle; then home again
@@ -672,13 +672,9 @@ func provoke(why: String) -> void:
 	_note("provoked: " + why)
 	hive.k = 1.0
 	provoked.emit(why, hive.at)
-	var amb = arena.get("ambush")
-	if amb == null: amb = arena.get_node_or_null("Ambush")
-	if amb != null and is_instance_valid(amb) and amb.has_method("swarm"):
-		hive.cool = 30.0
-		amb.swarm({"species": "beedrill", "at": hive.at, "why": why, "region": String(def.id), "count": hive.bees.size(), "level": _lv(10, 14)})
-		return
-	swarm = {"phase": "buzz", "t": 0.0, "why": why}
+	# how many come: two for a disturbed Kakuna, three for him too close, all four for its tree shaken
+	var n := 2 if why.contains("Kakuna") else (4 if why.contains("hive") else 3)
+	swarm = {"phase": "buzz", "t": 0.0, "why": why, "n": n}
 	Sfx.bed("hive", "hive_buzz", 1.0, hive.at, 0.3)
 	_snd("beedrill_swarm", "encounter", hive.at, {"vol": 0.0, "dist": 60.0})
 	game.cam_shake = maxf(float(game.cam_shake), 0.35)
@@ -726,6 +722,13 @@ func _swarm_step(dt: float, me: Vector3) -> void:
 				_sting(caught)
 			elif float(swarm.t) > 9.0:
 				swarm.phase = "home"; swarm.t = 0.0; hive.cool = 15.0
+		"ambush":
+			for b in bees: (b.node as Node3D).visible = false
+			var A = wild.get("ambush")
+			if (A == null or A.cur.is_empty()) and not Battle.active and float(swarm.t) > 0.5:
+				swarm.phase = "home"; swarm.t = 0.0
+				hive.cool = 25.0
+				for b in bees: (b.node as Node3D).position = at; b.pos = at
 		"battle":
 			for b in bees: (b.node as Node3D).visible = false
 			if not wild.battle_on and not Battle.active and float(swarm.t) > 0.5:
@@ -742,6 +745,18 @@ func _sting(b: Dictionary) -> void:
 	var n: Node3D = b.node
 	var p := n.position
 	p.y = game.world.height_at(p.x, p.z)
+	# the ambush system's swarm (wild/ambush.gd): they land in front of him, his Pokémon
+	# out intercept, else the standoff (RUN or POKéMON), a swarm two at a time
+	var A = wild.get("ambush")
+	if A != null and A.cur.is_empty() and A.has_method("_set_one"):
+		A.force = {}
+		A._set_one({"species": "beedrill", "n": int(swarm.get("n", 3)), "cover": {"at": Vector3(p.x, 0.0, p.z), "kind": "hive", "r": 0.0},
+			"level": _lv(10, 14), "temper": "aggressive"})
+		A._strike()
+		for x in hive.bees: (x.node as Node3D).visible = false
+		swarm.phase = "ambush"; swarm.t = 0.0
+		_note("swarm ambush")
+		return
 	_sw = _battle_with("beedrill", p, _lv(10, 14))
 	n.visible = false
 	swarm.phase = "battle"; swarm.t = 0.0
@@ -903,7 +918,7 @@ class Hud extends Control:
 			if not cam.is_position_behind(at):
 				var p := cam.unproject_position(at)
 				var s := 1.0 + 0.12 * absf(sin(_t * 5.0))
-				var r := Rect2(p.x - 15.0 * s, p.y - 40.0 * s, 30.0 * s, 34.0 * s)
+				var r := Rect2(p.x - 15.0 * s - 46.0, p.y - 4.0 * s, 30.0 * s, 34.0 * s)
 				UITheme.plate(self, r, 0.95, UITheme.SKEW, UITheme.YELLOW)
 				UITheme.text_mid(self, r.get_center(), "!", "display", int(26 * s), UITheme.INK, 1)
 		# the prompt: A, and what it does

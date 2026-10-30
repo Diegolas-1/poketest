@@ -10,6 +10,9 @@ extends Node3D
 #   b.finished.connect(func(result): ...)   # {outcome: fled | disengaged | ash_won | ash_down | ran, ...}
 #   Battle.active                            # true while one is on (other systems pause)
 #   Battle.current                           # the one on, or null
+#   Battle.world_paused()                    # one with opts.pause_world is on: the world
+#                                            # outside waits (the clock, the townspeople,
+#                                            # the other wild Pokémon: cast.gd, wild.gd)
 # opts may also carry "on_finished": a Callable called with the result.
 #
 # ---- the show ----
@@ -83,6 +86,12 @@ extends Node3D
 #                      release flash, the camera cranes up from where it is
 #   "party_a" / "party_b": teams (battle_pkmn.gd, battle/pkmn_party.gd); "log": the HUD's log
 # swap_creature(side, species) puts a new Pokémon on a side's spot (a switch).
+# Ambushes (wild/ambush.gd) may also pass:
+#   "pause_world": true   the world outside waits while it runs (world_paused)
+#   "keep_partner": true  partner_node is his own Pokémon from the world: left there at the end
+#   "partner_node2"       doubles: his second one already out, it steps in (battle_pkmn.gd)
+#   "banner": text        the intro's name ("BEEDRILL SWARM": WILD BEEDRILL SWARM!)
+#   "waves": true         doubles against a team: the next two only once both are down
 #
 # Dev: dev/battle_dev.tscn starts one in Route 1's tall grass (scripted for
 # renders: --acts=, --moves=, --hit=1); dev/battle_test.tscn checks the rules.
@@ -99,6 +108,9 @@ const CLOSE_T := 1.1
 
 static var active := false
 static var current: Battle = null
+
+static func world_paused() -> bool:
+	return active and current != null and is_instance_valid(current) and bool(current.opts.get("pause_world", false))
 
 var game: Node3D
 var cast: Node
@@ -443,6 +455,7 @@ func _shot_xf(n: String) -> Dictionary:
 				# further back when they stand further apart (a staged field)
 				var m := partner_pos.lerp(foe_p, 0.5)
 				var k := clampf(partner_pos.distance_to(foe_p) / 2.6 * 0.5, 1.0, 1.5)
+				if pk.D != null: k *= 1.35   # (doubles: four out, wider)
 				return {"pos": m - fwd * 3.7 * k + side * 3.3 * k + up * 4.4 * k, "look": m + up * 0.15, "fov": 44.0}
 			return {"pos": c - fwd * 3.9 + side * 2.9 + up * 5.0, "look": c + fwd * 0.45 + up * 0.2, "fov": 46.0}
 		"overview2": return {"pos": c - fwd * 3.6 - side * 4.8 + up * 6.0, "look": c + up * 0.4, "fov": 50.0}
@@ -455,7 +468,10 @@ func _shot_xf(n: String) -> Dictionary:
 		"run": return {"pos": ash_spot - fwd * 4.6 + side * 3.4 + up * 2.4, "look": ash_pos - fwd * 0.4 + up * 0.7, "fov": 50.0}
 		# mode "pkmn": over his partner's shoulder at the foe, and over the foe's at his partner
 		"pk_a": return {"pos": partner_pos - fwd * 1.1 + side * 2.3 + up * 1.6, "look": foe_p + up * 0.3 - fwd * 0.9, "fov": 46.0}
-		"pk_b": return {"pos": foe_p + fwd * 1.8 - side * 2.2 + up * 1.8, "look": partner_pos + up * 0.3 + fwd * 0.6, "fov": 48.0}
+		"pk_b":
+			# (a big foe, a Beedrill's wings at its battle size: the lens further off it)
+			var kb := clampf(float(Creature.species_info(species).get("height", 0.5)) / 0.75, 1.0, 1.5)
+			return {"pos": foe_p + fwd * 1.8 * kb - side * 2.2 * kb + up * 1.8 * sqrt(kb), "look": partner_pos + up * 0.3 + fwd * 0.6, "fov": 48.0}
 		"hide": return {"pos": ash_pos + fwd * 2.3 + side * 1.3 + up * 1.0, "look": ash_pos + up * 0.45, "fov": 44.0}
 		"down": return {"pos": ash_pos - side * 2.0 + fwd * 1.4 + up * 1.1, "look": ash_pos + up * 0.3, "fov": 46.0}
 		"flee": return {"pos": c - fwd * 5.5 + side * 3.0 + up * 3.2, "look": foe_p + up * 1.2, "fov": 52.0}
@@ -647,6 +663,7 @@ func _run() -> void:
 
 # the banner: "WILD PIDGEY!" (or a trainer's name), and a line under it
 func _intro_name() -> String:
+	if opts.has("banner"): return String(opts.banner)
 	if pk: return pk.intro_name()
 	return R.display_name()
 
@@ -1340,7 +1357,9 @@ func _finish() -> void:
 	fx.clear()
 	var h := get_node_or_null("EnergyHook")
 	if h: h.detach()
-	if partner and is_instance_valid(partner): partner.queue_free()
+	if partner and is_instance_valid(partner):
+		if bool(opts.get("keep_partner", false)) and partner == opts.get("partner_node"): partner.scale = Vector3.ONE
+		else: partner.queue_free()
 	if foe and is_instance_valid(foe):
 		foe.scale = _foe_scale0
 		foe.remove_meta("battle")

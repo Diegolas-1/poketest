@@ -10,6 +10,8 @@ extends Control
 #             species' own, or one for all), refill, Ash alone or with his party
 #             (WILD's switch, TRAINER's party); START HUNT closes the menu and the
 #             hunt is on (arena/arena_hunt.gd), RESTART HUNT re-populates, END HUNT
+#   AMBUSH    an ambush to try (arena/arena_ambush.gd): the species, how many (a swarm
+#             of up to 4), the level, the cover, Ash alone or with 1 or 2 of his out
 #   TRAINER   Ash's party and the opponent's, up to six each (a slot: species,
 #             level, the moves equipped from what it knows); the opponent's name,
 #             look (the cast's looks), AI personality, singles or doubles; presets
@@ -115,7 +117,7 @@ func _process(dt: float) -> void:
 	t += dt
 	k = clampf(k + (dt / 0.22 if _open else -dt / 0.16), 0.0, 1.0)
 	if k <= 0.0 and not _open: visible = false
-	search.visible = _open and k > 0.9 and page in ["wild", "slot", "hunt"]
+	search.visible = _open and k > 0.9 and page in ["wild", "slot", "hunt", "ambush"]
 	name_edit.visible = _open and k > 0.9 and page == "trainer"
 	queue_redraw()
 
@@ -177,6 +179,7 @@ func _draw() -> void:
 	match page:
 		"wild": _wild(body)
 		"hunt": _hunt(body)
+		"ambush": _ambush(body)
 		"trainer": _trainer(body)
 		"slot": _slot(body)
 		"saved": _saved(body)
@@ -206,7 +209,7 @@ func _header(P: Rect2) -> void:
 	x += UITheme.text(self, Vector2(x, y), "BATTLE ARENA", "display", 44, Color(UITheme.INK, k)) + 14.0
 	UITheme.chevrons(self, Vector2(x, y - 30.0), 22.0, Color(UITheme.RED, k), 3)
 	x += 60.0
-	var tabs := [["wild", "WILD"], ["hunt", "HUNT"], ["trainer", "TRAINER"], ["saved", "SAVED"], ["regions", "REGIONS"]]
+	var tabs := [["wild", "WILD"], ["hunt", "HUNT"], ["ambush", "AMBUSH"], ["trainer", "TRAINER"], ["saved", "SAVED"], ["regions", "REGIONS"]]
 	if page == "results": tabs = [["results", "RESULTS"]] + tabs
 	var rx := P.end.x - 30.0
 	# (the tabs share what is left between the title and LEAVE ARENA)
@@ -226,7 +229,7 @@ func _go(p: String) -> void:
 	if page != "slot": _back_page = page
 	page = p
 	focus = ""
-	if p in ["wild", "slot", "hunt"]: search.text = ""; _filter = ""
+	if p in ["wild", "slot", "hunt", "ambush"]: search.text = ""; _filter = ""
 
 func _footer(P: Rect2) -> void:
 	var y := P.end.y - 74.0
@@ -241,20 +244,29 @@ func _footer(P: Rect2) -> void:
 		var hon := _hunt_on()
 		_button("start", r, "RESTART HUNT  ▶" if hon else "START HUNT  ▶", func(): _start(), UITheme.GREEN, true)
 		if hon: _button("hunt_end", Rect2(r.position.x - 230.0, y, 210.0, 56.0), "END HUNT", _end_hunt, UITheme.RED)
+	elif page == "ambush":
+		_button("start", r, "START AMBUSH  ▶", func(): _start(), UITheme.ORANGE, true)
 	elif not page in ["saved", "regions"]:
 		var lbl := "START BATTLE  ▶"
 		_button("start", r, lbl, func(): _start(), UITheme.RED, true)
 	# the summary at the left: what START will run
-	var s := ArenaSetups.title({"type": page if page in ["wild", "trainer", "hunt"] else setup.type, "wild": setup.wild, "hunt": setup.hunt, "ash": setup.ash, "foe": setup.foe})
+	var s := ArenaSetups.title({"type": page if page in ["wild", "trainer", "hunt", "ambush"] else setup.type, "wild": setup.wild, "hunt": setup.hunt, "ash": setup.ash, "foe": setup.foe, "ambush": setup.get("ambush", {})})
 	_label(Vector2(P.position.x + 34.0, y + 22.0), "STAGED", UITheme.INK_SOFT, 14)
 	UITheme.text(self, Vector2(P.position.x + 34.0, y + 48.0), s.to_upper(), "heading", 24, Color(UITheme.INK, k))
 	var hint := "TAP TO PICK · DRAG TO SCROLL" if UIInput.device == "touch" else "D-PAD MOVE · A PICK · B BACK"
 	_label(Vector2(P.position.x + 34.0 + UITheme.text_w(s.to_upper(), "heading", 24) + 30.0, y + 48.0), hint, UITheme.INK_SOFT, 13)
 
 func _start() -> void:
-	if page in ["wild", "trainer", "hunt"]: setup.type = page
+	if page in ["wild", "trainer", "hunt", "ambush"]: setup.type = page
 	if setup.type == "hunt":
 		_start_hunt(); return
+	if setup.type == "ambush":
+		# (arena/arena_ambush.gd: Ash on the path, the ambusher in the cover ahead)
+		Sfx.ui("ui_confirm")
+		close()
+		if _hunt_on(): arena.hunt.stop(false)
+		arena.ambush.start(arena.ambush.cfg(setup), setup.ash.map(func(m): return ArenaSetups.mon(m)))
+		return
 	if setup.type == "trainer" and (setup.ash.is_empty() or setup.foe.party.is_empty()):
 		toast("Both sides need a Pokémon", UITheme.RED); Sfx.ui("ui_error"); return
 	if setup.type == "wild" and setup.wild.with_party and setup.ash.is_empty():
@@ -486,6 +498,10 @@ func _start_hunt() -> void:
 func _end_hunt() -> void:
 	arena.hunt.stop(false)
 	toast("Hunt over: the grass is empty", UITheme.SKY)
+
+# ---------- AMBUSH (arena/arena_ambush.gd draws it with these widgets) ----------
+func _ambush(body: Rect2) -> void:
+	if arena and arena.ambush: arena.ambush.page(self, body)
 
 # ---------- TRAINER ----------
 func _trainer(body: Rect2) -> void:

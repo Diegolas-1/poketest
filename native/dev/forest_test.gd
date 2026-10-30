@@ -197,11 +197,14 @@ func _process(dt: float) -> void:
 				Wild.STUB.outcome = "ran"
 				_next()
 		11:
-			if L.log.has("swarm battle") or pt > 14.0:
-				ok(L.log.has("swarm battle") and String(Wild.STUB.last.get("species", "")) == "beedrill", "standing his ground, a Beedrill catches him: a battle")
+			if L.log.has("swarm ambush") or L.log.has("swarm battle") or pt > 14.0:
+				var am = W.get("ambush")
+				ok(L.log.has("swarm ambush") and am != null and String(am.cur.get("species", "")) == "beedrill" and (am.cur.members as Array).size() == 3 and am.log.any(func(x): return String(x.what) == "strike"),
+					"standing his ground, the swarm catches him: the ambush system's three Beedrill strike")
+				if am: am.clear()
 				_next()
 		12:
-			if W.battle_on or not L.swarm.is_empty() and String(L.swarm.phase) != "home" or pt < 1.0: return
+			if W.battle_on or Battle.active or not L.swarm.is_empty() and String(L.swarm.phase) != "home" or pt < 1.0: return
 			# the nest: crouched he may watch it, upright too close the parent dives
 			var ns: Dictionary = L.nest
 			ok(not ns.is_empty() and ns.chicks.size() >= 1, "a nest with %d chicks and a %s" % [ns.chicks.size(), ns.species])

@@ -27,6 +27,9 @@ var meal: Meal               # eating: the menu, the walk to a seat, the meal it
 var bike: AshBike            # his bicycle (bike/bike.gd)
 var convo: Conversation      # the conversation mode (conversation.gd)
 var wild: Wild               # wild Pokémon in the tall grass, and the tutorial (wild/wild.gd)
+var companions: AshCompanions   # his own Pokémon out walking with him (wild/ash_companions.gd)
+var party_menu: PartyMenu       # the POKéMON menu: send one out, call it back (wild/party_menu.gd)
+var _held := false              # an ambush's battle has the world waiting (Battle.world_paused)
 # crouching (B on a pad, Ctrl on a keyboard, the touch CROUCH button: a toggle):
 # slow (main.gd crouch_speed), quiet steps (sfx_world.gd), the camera lower; not on the bike
 var crouching := false
@@ -132,6 +135,14 @@ func setup(g: Node3D) -> void:
 	wild.name = "Wild"
 	add_child(wild)
 	wild.setup(game, self, layer)
+	# his Pokémon out with him, and the POKéMON menu (wild/ash_companions.gd, wild/party_menu.gd)
+	companions = AshCompanions.new()
+	add_child(companions)
+	companions.setup(game, self)
+	party_menu = PartyMenu.new()
+	party_menu.cast = self
+	party_menu.game = game
+	layer.add_child(party_menu)
 
 # the actions worker settings define in project.godot; added here only when missing
 func _actions() -> void:
@@ -148,7 +159,7 @@ func _actions() -> void:
 			InputMap.action_add_event(a, jb)
 
 func busy() -> bool:
-	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy()) or (meal != null and meal.busy()) or (wild != null and wild.busy()) or Battle.active
+	return dialog.open or script_phase >= 0 or bool(game.get("trans_busy")) or (convo != null and convo.busy()) or (meal != null and meal.busy()) or (wild != null and wild.busy()) or (companions != null and companions.busy()) or Battle.active
 
 # someone is being talked to (the text box or a conversation): people stand still
 func talking() -> bool:
@@ -431,7 +442,9 @@ func update(dt: float) -> void:
 		use = false; jmp = false
 	elif Battle.active: pass   # (a battle has the controls: battle/battle.gd)
 	elif wild.busy():
-		wild.input(use or jmp, back)
+		# an ambush's standoff: A the POKéMON menu, Jump / B / Run the run; else the tutorial's
+		if wild.ambush and wild.ambush.busy(): wild.ambush.input(use, jmp or back or rjust)
+		else: wild.input(use or jmp, back)
 		use = false; jmp = false
 	elif script_phase < 0 and not convo.busy() and not meal.busy():
 		# crouch: B / Ctrl toggles it; a jump or a run stands him up
@@ -544,8 +557,15 @@ func update(dt: float) -> void:
 	player.animate(dt, absf(game.speed), (not ground or _air_y - g > 0.3) and not bike.riding())
 	body.update(dt)
 	wild.update(dt)
-	_villagers(dt)
-	life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
+	if companions: companions.update(dt)
+	# an ambush's battle: the world outside waits (the clock, the townspeople, Route 1's people)
+	var held := Battle.world_paused()
+	if held != _held:
+		_held = held
+		clock.paused = held
+	if not held:
+		_villagers(dt)
+		life.update(dt)   # the town's day goes on while you're inside, hidden (life.set_hidden)
 	if indoors:
 		_residents_tick(dt)
 		var n3 := nearby() if not dialog.open and not convo.busy() and not meal.busy() else {}

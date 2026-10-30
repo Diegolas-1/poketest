@@ -308,9 +308,9 @@ static func glyph_label(action: String, device := "") -> String:
 	if device == "": device = UIInput.device
 	if device == "keys":
 		return {"use": "E", "back": "ESC", "jump": "SPACE", "menu": "M", "quests": "J", "run": "SHIFT", "crouch": "CTRL",
-			"tab_l": "Q", "tab_r": "E", "recenter": "C", "up": "W", "down": "S"}.get(action, action.to_upper())
+			"tab_l": "Q", "tab_r": "E", "recenter": "C", "up": "W", "down": "S", "party": "P"}.get(action, action.to_upper())
 	return {"use": "A", "back": "B", "crouch": "B", "jump": "X", "menu": "+", "quests": "-", "run": "R",
-		"tab_l": "L", "tab_r": "R", "recenter": "L", "up": "", "down": ""}.get(action, action.to_upper())
+		"tab_l": "L", "tab_r": "R", "recenter": "L", "up": "", "down": "", "party": "R3"}.get(action, action.to_upper())
 
 # a button glyph centred on c, h high: a disc for face buttons, a keycap on
 # the keyboard, a shoulder pill for L / R. Returns its width.

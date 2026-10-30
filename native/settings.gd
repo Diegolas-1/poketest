@@ -137,6 +137,12 @@ var _cfg := ConfigFile.new()
 var _ar := {"acc": 0.0, "n": 0, "gpu": 0.0, "good": 0, "need": 4, "hold": 0.0, "up_at": -100.0, "t": 0.0,
 	"was": -1.0, "was_gpu": 0.0, "quiet": 0.0}
 
+func _init() -> void:
+	# shader globals added after an app was built (its project.godot lacks them):
+	# made here, before any shader that reads them compiles, so a patch works on it
+	for g in [["battle_arena", RenderingServer.GLOBAL_VAR_TYPE_VEC4, Vector4.ZERO], ["battle_arena_v", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0]]:
+		if not ProjectSettings.has_setting("shader_globals/" + g[0]): RenderingServer.global_shader_parameter_add(g[0], g[1], g[2])
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load()

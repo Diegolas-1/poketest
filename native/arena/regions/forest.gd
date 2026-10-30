@@ -56,6 +56,8 @@ static func def() -> Dictionary:
 		# the encounter sources and their species (the default hunt)
 		"sources": {"tall_grass": ["weedle"], "tree": ["kakuna", "metapod", "pidgey", "spearow", "caterpie"]},
 		"left": "IN THE FOREST",
+		# the REGIONS page's AMBUSH: a Beedrill in a thicket by the trail (wild/ambush.gd)
+		"ambush": {"species": "beedrill", "n": 2, "level": 10},
 		"hunt_text": "%d Pokémon are hiding in %s. Look up into the trees, and stalk the grass.",
 		"signs": [{"at": [22.5, -60.5], "yaw": -0.9, "text": "DANGER!\nBEEDRILL", "board": "f6d24a", "stripe": "1f2440"},
 			{"at": [10.6, -52.5], "yaw": 0.4, "text": "VIRIDIAN\nFOREST", "board": "f3ead6", "stripe": "2f5d34"}],

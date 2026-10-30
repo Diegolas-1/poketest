@@ -25,12 +25,12 @@ vec3 arena_push(vec3 root, float h) {
 	if (r >= reach) return vec3(0.0);
 	vec2 dir = r > 1e-3 ? d / r : vec2(0.7071, 0.7071);
 	float f = 1.0 - r / reach;
-	float push = battle_arena.w * R * 1.05 * f * sqrt(f);
+	float a_out = battle_arena.w * R * 1.05 * f * sqrt(f);
 	// the top lags the root while it slides (and swings past it as it settles)
-	float lean = clamp(-battle_arena_v * 0.09 * f, -0.5, 0.5) * h;
+	float a_lean = clamp(-battle_arena_v * 0.09 * f, -0.5, 0.5) * h;
 	// a little sink as it goes (what reaches the ring is half hidden in it)
 	float sink = -0.12 * battle_arena.w * f * clamp(h, 0.0, 1.0);
-	return vec3(dir.x * (push + lean), sink, dir.y * (push + lean));
+	return vec3(dir.x * (a_out + a_lean), sink, dir.y * (a_out + a_lean));
 }
 
 bool arena_on() { return battle_arena.w != 0.0 && battle_arena.z > 0.0; }
