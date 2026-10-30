@@ -355,9 +355,13 @@ func _forest(ar: BattleArena) -> void:
 			elif tt > 6.0 and d > 3.6 and String(ns.state) in ["calm", "watch"]: _walk(to, 0.3)
 			else: main.stick_vec = Vector2.ZERO
 			var np: Vector3 = ns.at
-			var side: Vector3 = (np - main.pos).cross(Vector3.UP).normalized()
-			var want: Vector3 = main.pos + (main.pos - np).normalized() * 2.8 + side * 1.5 + Vector3.UP * 1.3
-			var look: Vector3 = main.pos.lerp(np, 0.7)
+			var away: Vector3 = main.pos - np
+			away.y = 0.0
+			away = away.normalized()
+			var side: Vector3 = away.cross(Vector3.UP)
+			var want: Vector3 = main.pos + away * 4.2 + side * 1.8 + Vector3.UP * 1.5
+			want.y = maxf(want.y, main.world.height_at(want.x, want.z) + 1.3)
+			var look: Vector3 = main.pos.lerp(np, 0.6) + Vector3.UP * 0.2
 			_f.cam = (_f.get("cam", want) as Vector3).lerp(want, 0.08)
 			_f.look = (_f.get("look", look) as Vector3).lerp(look, 0.12)
 			cam.global_position = _f.cam

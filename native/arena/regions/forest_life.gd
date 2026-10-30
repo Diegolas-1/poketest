@@ -666,7 +666,7 @@ func _hive_step(dt: float, me: Vector3) -> void:
 	Sfx.bed("hive", "hive_buzz", amt * (0.55 + 0.45 * float(hive.k)), at, 0.8)
 	Sfx.bed_pitch("hive", 1.0 + 0.25 * float(hive.k) + (0.25 if not swarm.is_empty() and String(swarm.phase) != "home" else 0.0))
 
-# the hive roused: an ambush system's swarm if the arena has one, else the warning here
+# the hive roused: the warning here, then (caught) the ambush system's swarm
 func provoke(why: String) -> void:
 	if hive.is_empty() or float(hive.cool) > 0.0 or (not swarm.is_empty() and String(swarm.phase) != "home"): return
 	_note("provoked: " + why)
@@ -941,8 +941,8 @@ class Hud extends Control:
 		var hv: Dictionary = life.hive
 		if not hv.is_empty():
 			var d := Vector2(life.game.pos.x - hv.base.x, life.game.pos.z - hv.base.z).length()
-			var roused: bool = not life.swarm.is_empty() and String(life.swarm.phase) != "home"
-			if roused or (life.inside and d < float(hv.warn)):
+			var roused: bool = not life.swarm.is_empty() and String(life.swarm.phase) in ["buzz", "chase"]
+			if roused or (life.inside and d < float(hv.warn) and life.swarm.is_empty()):
 				var k := float(hv.k)
 				var label := "BEEDRILL ARE COMING!" if roused else "BEEDRILL HIVE"
 				var tw := UITheme.text_w(label, "heading", 22)
