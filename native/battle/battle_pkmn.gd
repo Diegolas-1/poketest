@@ -449,6 +449,9 @@ func _play(evs: Array, gap: float) -> void:
 			if t in ["move", "strike"]:
 				_tg = {"side": String(e.get("tside", B.other(s))), "place": int(e.get("tp", 0))}
 		var txt := String(e.get("text_owner", e.get("text", ""))) if s == "a" else String(e.get("text", ""))
+		# (a wild side's team, a swarm: no trainer recalls or sends them, they come on their own)
+		if s == "b" and t in ["switch_out", "switch_in", "need_switch"] and String(battle.opts.get("kind", "wild")) == "wild" and battle.opts.has("party_b"):
+			txt = ("Another wild %s joins in!" % String(e.get("species", "")).to_upper()) if t == "switch_in" else ""
 		if txt != "" and not t in ["turn", "gain"]:
 			hud.say(txt, UITheme.SKY if s == "a" else UITheme.YELLOW)
 		match t:
