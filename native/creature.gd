@@ -58,9 +58,27 @@ var _touched := {}                   # bones written last frame (back to rest wh
 # raticate, pikachu, raichu: the female's model is creatures/<species>_f.glb); a variant
 # it has no model for is the default. The species of creatures/species.json (#019 on) are
 # CreatureRig's families (creature_rig.gd), each with its own subclass where it has one.
-# every Pokémon a little over its dex height beside Ash (one size everywhere: the
-# battle no longer swells them, battle.gd FOE_SCALE)
-const SIZE := 1.35
+# one size everywhere (the battle no longer swells them, battle.gd FOE_SCALE): the
+# dex heights pulled together round Pikachu's, so the small ones read beside Ash
+# and the big ones don't tower (Pikachu 0.4 m -> 0.65, Pidgeotto 1.1 -> 1.0,
+# Bulbasaur 0.7 -> 0.83, Onix 8.8 -> 2.6)
+const SIZE_AT := 0.4       # (m) the dex height that shows at SIZE_TO
+const SIZE_TO := 0.65
+const SIZE_POW := 0.45
+
+static var _dex_h := {}
+static func size_k(sp: String) -> float:
+	var h := float(species_info(sp).get("height", 0.0))
+	if h <= 0.0:
+		# (the hand-built ones, Pidgey, Caterpie...: the dex's height, life/kanto151.json)
+		if _dex_h.is_empty():
+			var f := FileAccess.open("res://life/kanto151.json", FileAccess.READ)
+			var d = JSON.parse_string(f.get_as_text()) if f else null
+			if d is Dictionary:
+				for k in d.get("species", {}): _dex_h[k] = float(d.species[k].get("height_m", 0.0))
+		h = float(_dex_h.get(sp, 0.0))
+	if h <= 0.0: return 1.0
+	return SIZE_TO * pow(h / SIZE_AT, SIZE_POW) / h
 
 static func make(sp: String, variant := "") -> Creature:
 	# (the battle data's ids for the Nidoran: life/kanto151.json)
@@ -89,7 +107,7 @@ func _build(sp: String) -> void:
 	var root: Node3D = _scenes[key].instantiate()
 	add_child(root)
 	_root_ready(root)
-	root.scale *= SIZE   # (the same size in the world and in a battle)
+	root.scale *= size_k(sp)   # (the same size in the world and in a battle)
 	skel = root.find_child("Skeleton3D", true, false)
 	var n := skel.get_bone_count()
 	parent.resize(n)
