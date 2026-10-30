@@ -34,7 +34,7 @@ static func place(parent: Node3D, mesh: Mesh, xfs: Array, o := {}) -> Array:
 		mi.multimesh = mm
 		mi.position = c
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if o.get("shadow", false) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		if o.has("range"): mi.visibility_range_end = float(o.range) + cs
+		if o.has("range"): mi.visibility_range_end = float(o.range) + cs * 0.5
 		if o.has("material"): mi.material_override = o.material
 		parent.add_child(mi)
 		if ink: ink.outline_mesh(mi, {"width": 1.0})

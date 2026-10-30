@@ -209,7 +209,7 @@ def main():
     one = {'pitch': [0.95, 1.05], 'vjit': 1.5, 'loop': False, 'voices': 3, 'bus': 'SFX'}
     made = {
         'amb_forest': (amb_forest(), {'cat': 'nature', 'vol': -3.0, 'pitch': [1, 1], 'vjit': 0, 'mode': '2d', 'dist': 30.0, 'unit': 3.0, 'loop': True, 'voices': 2, 'bus': 'Ambience', 'tags': ['nature', 'forest', 'ambience', 'leaves']}),
-        'hive_buzz': (hive_buzz(), {'cat': 'nature', 'vol': -2.0, 'pitch': [1, 1], 'vjit': 0, 'mode': '3d', 'dist': 34.0, 'unit': 4.0, 'loop': True, 'voices': 2, 'bus': 'Ambience', 'tags': ['nature', 'hive', 'buzz', 'beedrill']}),
+        'hive_buzz': (hive_buzz(), {'cat': 'nature', 'vol': -6.0, 'pitch': [1, 1], 'vjit': 0, 'mode': '3d', 'dist': 34.0, 'unit': 4.0, 'loop': True, 'voices': 2, 'bus': 'Ambience', 'tags': ['nature', 'hive', 'buzz', 'beedrill']}),
         'beedrill_buzz': (beedrill_buzz(), dict(one, cat='creatures', vol=-3.0, mode='3d', dist=30.0, unit=3.0, voices=4, tags=['creatures', 'beedrill', 'buzz', 'wings'])),
         'beedrill_swarm': (beedrill_swarm(), dict(one, cat='creatures', vol=0.0, mode='2d', dist=50.0, unit=6.0, voices=1, tags=['creatures', 'beedrill', 'swarm'])),
         'pebble_tap': (pebble_tap(), dict(one, cat='nature', vol=-2.0, mode='3d', dist=24.0, unit=3.0, tags=['nature', 'pebble', 'knock'])),

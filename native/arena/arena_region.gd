@@ -302,7 +302,7 @@ func _forest_props(P: Dictionary) -> void:
 		arena.data.add_box(p.x, p.y, L * 0.5, 0.45, -yaw)
 		arena.hides.append({"at": at, "kind": "bush", "r": 1.0, "zone": String(def.id)})
 		n += 1
-	for v in 3: PropScatter.place(self, logs[v], lx[v], {"shadow": true, "range": RANGE, "ink": true})
+	for v in 3: PropScatter.place(self, logs[v], lx[v], {"shadow": true, "range": RANGE, "ink": true, "chunk": 80.0})
 	# stumps
 	var stumps := [ForestProps.stump(1), ForestProps.stump(2, 0.36, 0.5), ForestProps.stump(3, 0.6, 0.9)]
 	var sx := [[], [], []]
@@ -314,7 +314,7 @@ func _forest_props(P: Dictionary) -> void:
 			sx[j % 3].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), w(p.x, p.y) - Vector3(0, 0.04, 0)))
 			arena.data.add_circle(p.x, p.y, 0.55)
 			break
-	for v in 3: PropScatter.place(self, stumps[v], sx[v], {"shadow": true, "range": RANGE, "ink": true})
+	for v in 3: PropScatter.place(self, stumps[v], sx[v], {"shadow": true, "range": RANGE, "ink": true, "chunk": 80.0})
 	# toadstools at the trees' feet and by the logs
 	var shrooms := [ForestProps.mushrooms(1, true), ForestProps.mushrooms(2, true), ForestProps.mushrooms(3, false), ForestProps.mushrooms(4, false)]
 	var mx := [[], [], [], []]
@@ -325,7 +325,7 @@ func _forest_props(P: Dictionary) -> void:
 		var p: Vector2 = t.local + Vector2(cos(a), sin(a)) * (float(t.trunk) + rng.randf_range(0.5, 1.2))
 		if on_trail(p.x, p.y, 0.4): continue
 		mx[j % 4].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3.ONE * rng.randf_range(0.8, 1.3)), w(p.x, p.y)))
-	for v in 4: PropScatter.place(self, shrooms[v], mx[v], {"range": 45.0})
+	for v in 4: PropScatter.place(self, shrooms[v], mx[v], {"range": 45.0, "chunk": 40.0})
 	# ferns: thick at the trees' feet, along the trail's edges, under the thickets
 	var ferns := [ForestProps.fern(1), ForestProps.fern(2, 1.25), ForestProps.fern(3, 0.8)]
 	var fx := [[], [], []]
@@ -339,7 +339,7 @@ func _forest_props(P: Dictionary) -> void:
 			p = _rand_in(inner)
 		if on_trail(p.x, p.y, 0.5) or in_clear(p.x, p.y, -2.5) or not _walk.has_point(p): continue
 		fx[j % 3].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3.ONE * rng.randf_range(0.8, 1.4)), w(p.x, p.y) - Vector3(0, 0.03, 0)))
-	for v in 3: PropScatter.place(self, ferns[v], fx[v], {"range": 50.0})
+	for v in 3: PropScatter.place(self, ferns[v], fx[v], {"range": 50.0, "chunk": 40.0})
 	# the litter: fallen leaves and twigs, thick on the trail and under the trees, one mesh a chunk
 	var lit := {}
 	var nl := int(P.get("litter", 1000))
@@ -348,7 +348,7 @@ func _forest_props(P: Dictionary) -> void:
 		var sd: float = arena.data.dirt_sd(p.x, p.y)
 		if in_clear(p.x, p.y, -3.0): continue
 		if sd > 1.5 and rng.randf() < 0.45: continue
-		var key := Vector2i(floori(p.x / 24.0), floori(p.y / 24.0))
+		var key := Vector2i(floori(p.x / 40.0), floori(p.y / 40.0))
 		if not lit.has(key): lit[key] = []
 		lit[key].append(p)
 	for key in lit:

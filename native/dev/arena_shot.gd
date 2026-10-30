@@ -377,6 +377,8 @@ func _view(ar: BattleArena) -> void:
 	main.cam.global_position = v[0]
 	main.cam.look_at(v[1], Vector3.UP)
 	main.cam.fov = v[2]
+	# (the overview: the plants fade from the middle of it, not from up here)
+	if cv == "aerial2": RenderingServer.global_shader_parameter_set("veg_cam", Vector3(C.x + 10, 0, C.y - 45))
 
 func _grab(path: String) -> void:
 	await RenderingServer.frame_post_draw
