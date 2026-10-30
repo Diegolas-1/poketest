@@ -17,6 +17,7 @@ uniform vec2 far = vec2(500.0, 600.0);
 uniform float fade_w = 5.0;
 uniform vec4 imp_rect[64];   // place in the atlas (0..1): x, y, w, h
 uniform vec4 imp_geo[64];    // width, height, bottom (m), sun azimuth
+uniform vec3 tint : source_color = vec3(1.0);   // a borrower's own (the arena forest's deeper leaves)
 
 varying vec2 v_uv;
 varying vec2 v_row;
@@ -63,5 +64,5 @@ void fragment() {
 	if (al * (1.0 + lod * 0.3) < 0.5) discard;
 	// (the importer fills clear texels with their neighbours' colour, so no
 	// dark rim to divide out)
-	ALBEDO = aces_three(mix(a.rgb, b.rgb, v_row.y));
+	ALBEDO = aces_three(mix(a.rgb, b.rgb, v_row.y) * tint);
 }

@@ -19,6 +19,7 @@ uniform float alpha_scissor = 0.45;   // (names as the town material, for Ink.ou
 
 varying float v_ao;
 varying float v_k;
+varying float v_occ;
 varying vec3 v_base;
 
 void vertex() {
@@ -32,11 +33,13 @@ void vertex() {
 		v += NORMAL * sin(TIME * 4.0 + fl * 30.0) * 0.03 * fl;
 		VERTEX = arena_vertex(v * mix(1.0, shrink, v_k), MODEL_MATRIX);
 	}
+	v_occ = arena_occ((MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz, ip.y, veg_cam, CAMERA_POSITION_WORLD);
 	v_ao = COLOR.r;
 }
 
 void fragment() {
-	if (v_k > 0.0 && fd_b8(FRAGCOORD.xy) < v_k) discard;
+	float kk = max(v_k, v_occ);
+	if (kk > 0.0 && fd_b8(FRAGCOORD.xy) < kk) discard;
 	vec4 tx = texture(albedo_tex, UV);
 	// (no cut by the angle to the camera: it shrank and grew each lobe as the
 	// camera turned, and in the shadow pass it followed the shadow camera, so

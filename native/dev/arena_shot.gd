@@ -25,7 +25,8 @@ extends Node
 #                      Beedrill jumps him from a thicket: the standoff, POKéMON, Pikachu runs
 #                      in), intercept (Pikachu and Bulbasaur out cut off two Beedrill),
 #                      swarm (four Beedrill against his two, two at a time), run (RUN: away,
-#                      it chases a little way)
+#                      it chases a little way); --region=forest: up the forest's trail, the
+#                      bush by it (as the REGIONS page's AMBUSH)
 #   --shot=PATH --shot-at=s     one still at s seconds, then quit
 #   --frames=DIR --every=n      the whole viewport every n-th frame (with --fixed-fps 15)
 #   --stats [--stats-every=n]   draw calls, triangles and objects every n frames (15)
@@ -444,7 +445,31 @@ func _ambush(ar: BattleArena) -> void:
 		for k in range(Cm.out.size() - 1, -1, -1): Cm.recall(k, true)
 		var thk: Dictionary = ar.ambush.spots[0]
 		var at: Vector3 = thk.at
-		if act == "follow":
+		if A.has("region") and act != "follow":
+			# --region=forest: up the region's trail from its gate, the bush by it ahead
+			# (as the REGIONS page's AMBUSH, arena/arena_menu_regions.gd)
+			var id := String(A.region)
+			var d := ArenaRegions.get_def(id)
+			var rl = ar.life_of(id)
+			if rl: rl.auto_hunt = false   # (no hunt: an ambush waits for none)
+			var sp: Array = d.spawn
+			_put(ar.w(float(sp[0]), float(sp[1])), float(d.get("yaw", PI)))
+			var ahead: Vector3 = main.pos + Vector3(sin(main.yaw), 0, cos(main.yaw)) * 11.0
+			var bd := INF
+			for h in ar.hides:
+				if String(h.get("zone", "")) != id or String(h.kind) != "bush": continue
+				var dd := Vector2(h.at.x - ahead.x, h.at.z - ahead.z).length()
+				if dd < bd: bd = dd; thk = {"at": Vector3(h.at.x, 0, h.at.z), "kind": "bush", "r": float(h.r)}
+			var bat: Vector3 = thk.at
+			var to_me := Vector3(main.pos.x - bat.x, 0, main.pos.z - bat.z).normalized()
+			_a.path = [bat + to_me * 2.2 + Vector3(to_me.z, 0, -to_me.x) * 1.2]
+			var n: int = {"bush": 1, "intercept": 2, "swarm": 4, "run": 1}.get(act, 1)
+			if act in ["intercept", "swarm"]:
+				Cm.send_out(0, true, main.pos + Vector3(0.9, 0, 1.4))
+				Cm.send_out(2 if act == "intercept" else 1, true, main.pos + Vector3(-0.9, 0, 1.6))
+			Am.force = {"species": String(A.get("species", "beedrill")), "n": n, "cover": thk, "level": int(A.get("level", "3" if act == "swarm" else "6")), "temper": "aggressive"}
+			if act == "run": Am.force_run = 1; Am.force_chase = 1
+		elif act == "follow":
 			_put(ar.w(0.5, 37.0), PI)
 			_a.path = [ar.w(0.0, 33.0), ar.w(-4.0, 27.5), ar.w(-11.0, 24.0), ar.w(-16.0, 21.5)]
 		else:

@@ -49,13 +49,14 @@ var menu: Control              # ArenaMenu
 var stage: Node                # ArenaStage
 var referee: ScenePerson
 var btn: Control               # the STAGE A BATTLE button
-var _ink_chunks: Array = []    # [{node, ink, c}]
+var _ink_chunks: Array = []    # [{node, ink, c, d}]: d, the chunk's ink switched on nearer than this (m)
 var hides: Array = []          # the bushes and trees inside the fence: {at, kind, r} (a fled Pokémon's cover, wild.gd)
 var hunt: Node                 # ArenaHunt (arena/arena_hunt.gd)
 var regions := {}              # id -> ArenaRegion (arena/arena_region.gd)
 var _region := ""              # the region Ash is in ("" = the hub)
 var ambush: Node               # the AMBUSH page's thickets and staged ambushes (arena/arena_ambush.gd)
 var _ink_t := 0.0
+const FADE_W := 2.5            # a plant hands over to its billboard over this many metres (veg.gd's)
 var _saved := {}
 var _built := false
 var gone := false
@@ -356,6 +357,7 @@ func _veg_sets(kinds := ["tree", "bush"]) -> Dictionary:
 	for k in kinds: out[k] = []
 	var veg: Node = game.scenery.veg if game.scenery else null
 	if veg == null: return out
+	var bills: Dictionary = veg.get("set_bill") if veg.get("set_bill") != null else {}
 	var seen := {}
 	for h in veg.get_children():
 		var nm := String(h.name)
@@ -381,7 +383,7 @@ func _veg_sets(kinds := ["tree", "bush"]) -> Dictionary:
 			parts.append({"mesh": mmi.multimesh.mesh, "mat": mmi.material_override, "shadow": null})
 		if parts.is_empty(): continue
 		if kind in ["tree", "bush"] and not parts.any(func(pp): return pp.mat is ShaderMaterial and (pp.mat as ShaderMaterial).shader == preload("res://veg.gd").LEAF): continue   # (no bare winter trees)
-		out[kind].append({"parts": parts, "scale": b0.get_scale(), "h": box.size.y, "w": maxf(box.size.x, box.size.z), "name": nm})
+		out[kind].append({"parts": parts, "scale": b0.get_scale(), "h": box.size.y, "w": maxf(box.size.x, box.size.z), "name": nm, "bill": bills.get(int(si), {})})
 	return out
 
 func _plants() -> void:
@@ -440,7 +442,7 @@ func _plants() -> void:
 		var p: Vector2 = [Vector2(u, -e), Vector2(e, u), Vector2(u, e), Vector2(-e, u)][side]
 		if side == 2 and absf(u) < 5.0: continue
 		add.call(bushes, p.x, p.y, rng.randf_range(0.9, 1.3), 0.7)
-	_plant_chunks(place, Vector2(150.0, 160.0))
+	_plant_chunks(place, Vector2(150.0, 160.0), 32.0, 0.0, {}, 46.0)
 
 # the hub's trees and bushes keep off the regions and the ways to their gates
 func _blocked(x: float, z: float) -> bool:
@@ -460,12 +462,27 @@ func _blocked(x: float, z: float) -> bool:
 # Gives each copy's instances by where it stands ({Vector3i(origin * 20): [[multimesh, i]...]}:
 # a region's life shakes a tree by its instances)
 # tint: {"bark": Color, "leaf": Color} (a region's own: a forest's darker trunks and leaves)
-func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tint := {}) -> Dictionary:
+# bill > 0: a set with a billboard (veg.gd's) hands its model over to it at bill metres
+# (as the open world's: one draw a 64 m chunk for every far plant), out to fade.y or vis
+# o: {shadow: m (a chunk's shadow casters only nearer than this, its edge included),
+#     ink: Vector2 (where each plant's leaf ink thins out; the chunk's is off past it)}
+func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tint := {}, bill := 0.0, o := {}) -> Dictionary:
 	var handles := {}
 	var ink = get_node_or_null("/root/Ink")
+	var veg: Node = game.scenery.veg if game.scenery else null
+	var bm: ShaderMaterial = veg.get("bill_mat") if veg else null
+	var far_bills := []
 	for key in place:
 		var s: Dictionary = place[key].set
 		var all: Array = place[key].xf
+		var bd: Dictionary = s.get("bill", {})
+		var fd := fade
+		var by_bill := bill > 0.0 and not bd.is_empty() and bm != null
+		if by_bill:
+			fd = Vector2(bill, bill + FADE_W)
+			for xf: Transform3D in all:
+				var sc: float = xf.basis.get_scale().x
+				far_bills.append([xf.origin, atan2(xf.basis.z.x, xf.basis.z.z), sc, int(bd.imp), bill, float(bd.w) * sc, float(bd.bottom) * sc, float(bd.h) * sc])
 		var bins := {}
 		for xf in all:
 			var ck := Vector2i(floori(xf.origin.x / cs), floori(xf.origin.z / cs))
@@ -476,9 +493,15 @@ func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tin
 			var c := Vector3.ZERO
 			for xf in xs: c += xf.origin
 			c /= xs.size()
+			var cv := vis
+			var cr := 0.0
+			for xf in xs: cr = maxf(cr, Vector2(xf.origin.x - c.x, xf.origin.z - c.z).length() + float(s.w) * xf.basis.get_scale().x / maxf(s.scale.x, 1e-3) * 0.5)
+			# (the chunk's models gone past the handover, its edge included)
+			if by_bill: cv = fd.y + cr + 2.0
+			var sv := minf(cv if cv > 0.0 else INF, float(o.get("shadow", INF)) + cr)
 			for part in s.parts:
 				var mat: ShaderMaterial = (part.mat as ShaderMaterial).duplicate()
-				mat.set_shader_parameter("fade", fade)
+				mat.set_shader_parameter("fade", fd)
 				if not tint.is_empty():
 					if mat.shader == preload("res://veg.gd").LEAF and tint.has("leaf"): mat.set_shader_parameter("tint", (mat.get_shader_parameter("tint") as Color) * (tint.leaf as Color))
 					elif mat.shader == preload("res://veg.gd").SOLID and tint.has("bark") and bool(mat.get_shader_parameter("use_tex")): mat.set_shader_parameter("color", (mat.get_shader_parameter("color") as Color) * (tint.bark as Color))
@@ -496,7 +519,7 @@ func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tin
 				mi.material_override = mat
 				mi.position = c
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if part.shadow != null else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-				if vis > 0.0: mi.visibility_range_end = vis
+				if cv > 0.0: mi.visibility_range_end = cv
 				add_child(mi)
 				if part.shadow != null:
 					var smm := MultiMesh.new()
@@ -511,17 +534,67 @@ func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tin
 					sh.material_override = mat
 					sh.position = c
 					sh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-					if vis > 0.0: sh.visibility_range_end = vis
+					if sv < INF: sh.visibility_range_end = sv
 					add_child(sh)
 				if ink and mat.shader == preload("res://veg.gd").LEAF:
 					var im: ShaderMaterial = ink.outline_plant(mi, mm.mesh.get_aabb().get_center(), {"double_sided": true})
 					if im:
 						im.set_shader_parameter("leaf_wind", mat.get_shader_parameter("wind"))
-						im.set_shader_parameter("leaf_fade", fade)
-						im.set_shader_parameter("ink_far", Vector2(28.0, 36.0))
-						_ink_chunks.append({"node": mi, "ink": im, "c": c})
+						im.set_shader_parameter("leaf_fade", fd)
+						var ik: Vector2 = o.get("ink", Vector2(28.0, 36.0))
+						im.set_shader_parameter("ink_far", ik)
+						_ink_chunks.append({"node": mi, "ink": im, "c": c, "d": ik.y + cr if o.has("ink") else 44.0})
 						mi.material_overlay = null
+	if not far_bills.is_empty(): _bill_chunks(far_bills, bm, vis if vis > 0.0 else fade.y, tint)
 	return handles
+
+# far plants as billboards (veg.gd's atlas and shader): [origin, yaw, scale, impostor,
+# hand over at, half width, bottom, height] each, a MultiMesh a 64 m chunk
+func _bill_chunks(bills: Array, bm: ShaderMaterial, far: float, tint := {}) -> void:
+	var mat := bm
+	if tint.has("leaf"):
+		mat = bm.duplicate()
+		mat.set_shader_parameter("tint", tint.leaf)
+	var quad: Mesh = null
+	var bins := {}
+	for b in bills:
+		var k := Vector2i(floori(b[0].x / 64.0), floori(b[0].z / 64.0))
+		if not bins.has(k): bins[k] = []
+		bins[k].append(b)
+	for k in bins:
+		var list: Array = bins[k]
+		var c := Vector3.ZERO
+		for b in list: c += b[0]
+		c /= list.size()
+		var lo := Vector3(INF, INF, INF); var hi := -lo
+		var r := 0.0
+		var near := INF
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		if quad == null: quad = game.scenery.veg._quad()
+		mm.mesh = quad
+		mm.instance_count = list.size()
+		for j in list.size():
+			var b: Array = list[j]
+			var p: Vector3 = b[0] - c
+			mm.set_instance_transform(j, Transform3D(Basis(), p))
+			mm.set_instance_custom_data(j, Color(b[1], b[2], b[3], b[4]))
+			var hw: float = b[5]
+			lo = lo.min(p + Vector3(-hw, b[6], -hw))
+			hi = hi.max(p + Vector3(hw, b[6] + b[7], hw))
+			r = maxf(r, Vector2(p.x, p.z).length() + hw)
+			near = minf(near, b[4])
+		var mi := MultiMeshInstance3D.new()
+		mi.name = "Bills"
+		mi.multimesh = mm
+		mi.material_override = mat
+		mi.position = c
+		mi.custom_aabb = AABB(lo, hi - lo).grow(6.5)   # (and a battle's push)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_begin = maxf(0.0, near - r - 2.0)
+		mi.visibility_range_end = far + r
+		add_child(mi)
 
 # ---------- the fence, the gate, benches, pennants ----------
 func _toon(col: Color, two_sided := false) -> ShaderMaterial:
@@ -795,7 +868,7 @@ func _process(dt: float) -> void:
 	if _ink_t <= 0.0:
 		_ink_t = 0.3
 		var cp: Vector3 = game.cam.global_position
-		var on := Ink.is_enabled() if get_node_or_null("/root/Ink") else false
+		var on := Ink.is_enabled() and Ink.quality >= 0.75 if get_node_or_null("/root/Ink") else false
 		for ch in _ink_chunks:
-			var want: Material = ch.ink if on and Vector2(ch.c.x - cp.x, ch.c.z - cp.z).length() < 44.0 else null
+			var want: Material = ch.ink if on and Vector2(ch.c.x - cp.x, ch.c.z - cp.z).length() < float(ch.d) else null
 			if ch.node.material_overlay != want: ch.node.material_overlay = want

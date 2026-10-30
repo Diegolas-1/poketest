@@ -59,6 +59,10 @@ var _reach_r := 0.0      # the largest chunk radius in the grid
 var _reach_k := 0.0      # the largest shadow factor
 var _reach_ink := 0.0    # the largest ink distance
 var stats := {"chunks": 0, "bill": 0, "copies": 0}
+# what others borrowing a set need for its billboard (the Battle Arena's trees):
+# set index -> {imp, w, bottom, h}; bill_mat: the billboards' shared material
+var set_bill := {}
+var bill_mat: ShaderMaterial
 
 static func _rgb(hex: String) -> Color:
 	return Color(hex)
@@ -194,6 +198,8 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 			stats.copies += ids.size()
 		if s.impostor != null:
 			var imp: Dictionary = meta.impostors[int(s.impostor)]
+			# (a copy's billboard turns with the azimuth of its basis' z: Basis(UP, rot))
+			set_bill[si] = {"imp": int(s.impostor), "w": float(imp.w) * 0.5, "bottom": float(imp.bottom), "h": float(imp.h)}
 			for k in bbins:
 				for i in bbins[k]:
 					bills.append([Vector3(ip[i * 5], ip[i * 5 + 1], ip[i * 5 + 2]), ip[i * 5 + 3], ip[i * 5 + 4], int(s.impostor), fade.x,
@@ -230,6 +236,7 @@ func _billboards(meta: Dictionary, bills: Array, atlas: Texture2D) -> void:
 		rects.append(Vector4(r[0] / AW, r[1] / AH, r[2] / AW, r[3] / AH))
 		geos.append(Vector4(imp.w, imp.h, imp.bottom, imp.sunAz))
 	var bm := ShaderMaterial.new()
+	bill_mat = bm
 	bm.shader = BILL
 	bm.set_shader_parameter("map", atlas)
 	bm.set_shader_parameter("imp_rect", rects)

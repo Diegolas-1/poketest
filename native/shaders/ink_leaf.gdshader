@@ -50,6 +50,8 @@ void vertex() {
 	float w = 1.0 - smoothstep(focus_range.x, focus_range.y, distance(vc, (VIEW_MATRIX * vec4(ink_focus, 1.0)).xyz));
 	w *= 1.0 - smoothstep(fade.x, fade.y, -vc.z);
 	w *= 1.0 - smoothstep(ink_far.x, ink_far.y, distance(MODEL_MATRIX[3].xyz, veg_cam));
+	// a battle: gone with the leaves that dither away before its camera
+	w *= 1.0 - smoothstep(0.1, 0.4, arena_occ((MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz, MODEL_MATRIX[3].y, veg_cam, CAMERA_POSITION_WORLD));
 	float px = max(1.0, width_1080 * VIEWPORT_SIZE.y / 1080.0) * w;
 	vec4 cv = PROJECTION_MATRIX * vec4(vp, 1.0);
 	vec2 d;

@@ -14,6 +14,7 @@ uniform bool mossy = false;
 uniform vec3 color : source_color = vec3(1.0);
 
 varying float v_k;
+varying float v_occ;
 varying vec3 v_mp;
 varying vec3 v_mn;
 
@@ -23,10 +24,12 @@ void vertex() {
 	v_mp = VERTEX; v_mn = NORMAL;
 	if (v_k >= 0.999) VERTEX = vec3(0.0);
 	else VERTEX = arena_vertex(sway(VERTEX, ip, TIME) * mix(1.0, shrink, v_k), MODEL_MATRIX);
+	v_occ = arena_occ((MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz, ip.y, veg_cam, CAMERA_POSITION_WORLD);
 }
 
 void fragment() {
-	if (v_k > 0.0 && fd_b8(FRAGCOORD.xy) < v_k) discard;
+	float kk = max(v_k, v_occ);
+	if (kk > 0.0 && fd_b8(FRAGCOORD.xy) < kk) discard;
 	vec3 c = color;
 	if (use_tex) c *= texture(bark_tex, UV).rgb;
 	if (use_vc) c *= COLOR.rgb;

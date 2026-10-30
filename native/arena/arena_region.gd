@@ -16,6 +16,10 @@ extends Node3D
 #   region.tree_at(id)    a named tree ("hive", "nest"): its entry
 
 const RANGE := 95.0            # a region's props past this from the camera are dropped (m)
+# where the borrowed trees and bushes hand over to their billboards (m): nearer than the
+# open world's (48, 25): a grove stands thick, and past this its trunks hide each other
+const BILL_TREE := 38.0
+const BILL_BUSH := 24.0
 
 var arena                       # BattleArena
 var def := {}
@@ -186,7 +190,7 @@ func _trees(sets: Dictionary, P: Dictionary) -> void:
 	var tris := 0
 	for key in place: tris += _tris(place[key].set) * (place[key].xf as Array).size()
 	print("region %s: %d trees of %d sets, %dk triangles" % [def.id, trees.size(), place.size(), tris / 1000])
-	var hd: Dictionary = arena._plant_chunks(place, Vector2(150.0, 160.0), 32.0, 190.0, def.get("tint", {}))
+	var hd: Dictionary = arena._plant_chunks(place, Vector2(150.0, 160.0), 32.0, 190.0, def.get("tint", {}), BILL_TREE, {"shadow": 30.0, "ink": Vector2(16.0, 22.0)})
 	for e in trees:
 		var o: Vector3 = (e.at as Vector3) - Vector3(0, 0.08, 0)
 		e.mm = hd.get(Vector3i(roundi(o.x * 20.0), roundi(o.y * 20.0), roundi(o.z * 20.0)), [])
@@ -272,7 +276,7 @@ func _undergrowth(sets: Dictionary, P: Dictionary) -> void:
 		if on_trail(p.x, p.y, 1.2) or in_clear(p.x, p.y) or not free_at(p.x, p.y, 1.0): continue
 		take(p.x, p.y, 0.9)
 		put.call(rocks, p.x, p.y, rng.randf_range(0.9, 1.6), 0.5)
-	arena._plant_chunks(place, Vector2(55.0, 62.0), 48.0, 90.0, def.get("tint", {}))
+	arena._plant_chunks(place, Vector2(55.0, 62.0), 48.0, 90.0, def.get("tint", {}), BILL_BUSH, {"shadow": 18.0, "ink": Vector2(12.0, 16.0)})
 
 # ---------- the props library's own: logs, stumps, toadstools, ferns, limbs, litter, shafts ----------
 func _forest_props(P: Dictionary) -> void:
@@ -302,7 +306,8 @@ func _forest_props(P: Dictionary) -> void:
 		arena.data.add_box(p.x, p.y, L * 0.5, 0.45, -yaw)
 		arena.hides.append({"at": at, "kind": "bush", "r": 1.0, "zone": String(def.id)})
 		n += 1
-	for v in 3: PropScatter.place(self, logs[v], lx[v], {"shadow": true, "range": RANGE, "ink": true, "chunk": 80.0})
+	# (a log near a battle goes as its arena opens: pushed out whole, its far end would reach back in)
+	for v in 3: PropScatter.place(self, logs[v], lx[v], {"shadow": true, "range": RANGE, "ink": true, "chunk": 80.0, "hide": 7.5})
 	# stumps
 	var stumps := [ForestProps.stump(1), ForestProps.stump(2, 0.36, 0.5), ForestProps.stump(3, 0.6, 0.9)]
 	var sx := [[], [], []]
