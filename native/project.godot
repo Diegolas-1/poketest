@@ -4,7 +4,7 @@ config_version=5
 [application]
 
 config/name="Pallet Town"
-run/main_scene="res://main.tscn"
+run/main_scene="res://screens.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.png"
 

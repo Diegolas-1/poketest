@@ -8,7 +8,7 @@ extends CanvasLayer
 # and gamepad: up / down picks a row, left / right (or A) steps it, L / R
 # (Q / E) switch tabs, B or Start closes.
 
-const TABS := ["Display", "World", "Controls", "Time", "Audio", "Updates"]
+const TABS := ["Display", "World", "Controls", "Time", "Audio", "TV", "Updates"]
 const COG := Rect2(20, 16, 60, 56)
 const PANEL_W := 840.0
 
@@ -58,7 +58,8 @@ func place_cog(r: Rect2, left := 16.0) -> void:
 func open(pad := false) -> void:
 	if root.visible: return
 	was_paused = get_tree().paused
-	get_tree().paused = true
+	# (on a TV the game plays on while the phone shows the settings: screens.gd)
+	if not Screens.on_tv(): get_tree().paused = true
 	root.visible = true
 	Sfx.ui("ui_menu_open")
 	_fill()
@@ -204,6 +205,7 @@ func _fill() -> void:
 	tabs._kick()
 	for r in Settings.ROWS[tab]:
 		_row(r[0], r[1], r[2], r[3])
+	if tab == "TV": _tv()
 	if tab == "Controls": _legend()
 	if tab == "Updates": _updates()
 	if tab == "Audio": _audio_credits()
@@ -352,6 +354,76 @@ func _audio_credits() -> void:
 	m.add_theme_constant_override("margin_right", 8)
 	m.add_child(t)
 	list.add_child(m)
+
+# the TV tab: Connect to TV (the system's AirPlay picker; a fake TV window on a
+# desktop run with -- --fake-tv), what the game is on now, how to stop; then the
+# TV's rows (safe margin, frame rate)
+func _tv() -> void:
+	var sc: Screens = Screens.I
+	var link: TVLink = sc.tv if sc else null
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_top", 8)
+	m.add_theme_constant_override("margin_left", 16)
+	m.add_theme_constant_override("margin_right", 8)
+	m.add_theme_constant_override("margin_bottom", 10)
+	m.add_child(box)
+	list.add_child(m)
+	list.move_child(m, 0)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 16)
+	box.add_child(head)
+	var b := UIButton.new()
+	b.name = "ConnectTV"
+	b.icon_id = "tv"
+	b.variant = "primary"
+	b.font_size = 22
+	b.custom_minimum_size = Vector2(300, 60)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(b)
+	var sv := VBoxContainer.new()
+	sv.alignment = BoxContainer.ALIGNMENT_CENTER
+	sv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sv.add_theme_constant_override("separation", -2)
+	head.add_child(sv)
+	var st := UITheme.label("", "label", 22, UITheme.TEXT)
+	st.name = "TVStatus"
+	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sv.add_child(st)
+	var sub := UITheme.label("", "body", 16, UITheme.TEXT_DIM)
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sv.add_child(sub)
+	var hint := UITheme.label("", "body", 16, UITheme.TEXT_DIM)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(hint)
+	var refresh := func():
+		if not is_instance_valid(st): return
+		var on: bool = link != null and link.connected()
+		b.text = "Connect to TV" if not on else "Change TV"
+		b.disabled = link == null or not bool(link.status.supported)
+		st.text = (link.describe() if link else "Not available").to_upper()
+		st.add_theme_color_override("font_color", UITheme.GREEN if on else UITheme.TEXT)
+		if link == null or not bool(link.status.supported):
+			sub.text = "Playing on a TV needs the iPhone app (a desktop run: -- --fake-tv=1920x1080)."
+		elif on:
+			sub.text = "The world and the HUD are on the TV, the menu is on your phone. Start pauses."
+		else:
+			sub.text = "Picks your Apple TV or AirPlay TV; a USB-C to HDMI adapter switches over by itself."
+		if link and link.backend == "fake":
+			hint.text = "Desktop stand-in: the button opens or closes a second window as the TV."
+		elif on:
+			hint.text = "To disconnect: open Control Centre, Screen Mirroring, Stop Mirroring (or unplug the adapter). The game comes straight back to the phone."
+		else:
+			hint.text = "If the TV keeps showing the phone's screen, open Control Centre, tap Screen Mirroring and choose the TV there: the game takes it over."
+	refresh.call()
+	b.pressed.connect(func():
+		Sfx.ui("ui_confirm")
+		if link: link.pick_route(b, Rect2(b.global_position, b.size)))
+	if link:
+		link.changed.connect(refresh)
+		box.tree_exiting.connect(func(): if link.changed.is_connected(refresh): link.changed.disconnect(refresh))
 
 # the Updates tab: version in use, the updater's status, Check for updates
 # (updater.gd at /root/Updater; absent in a dev run from the project folder)

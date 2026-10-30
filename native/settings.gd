@@ -61,6 +61,7 @@ const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "inv
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
 	"wild_peek": "hidden", "footprints": 1,
+	"tv_margin": 3, "tv_fps": 60,
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
@@ -121,6 +122,11 @@ const ROWS := {
 		["amb_vol", "Ambience", [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "wind, sea, stream, birds and crickets"],
 		["ui_sfx", "Menu sounds", [0, 1], "clicks, text blips and chimes"],
 	],
+	# the TV (screens.gd, tv/): the settings menu's TV tab shows Connect to TV above these
+	"TV": [
+		["tv_margin", "TV safe margin", [0, 2, 3, 5, 7], "keeps the HUD clear of the TV's edges (% of each side)"],
+		["tv_fps", "Frame rate on the TV", [30, 60], "60 matches most TVs; 30 saves battery"],
+	],
 	"Updates": [
 		["auto_update", "Auto-update", [0, 1], "download new versions in the background"],
 	],
@@ -147,7 +153,7 @@ func _init() -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load()
-	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	RenderingServer.viewport_set_measure_render_time(viewport().get_viewport_rid(), true)
 	_setup_input()
 	add_child(UIInput.new())   # which input was used last, for the button glyphs (ui/ui_input.gd)
 	overlay = preload("res://perf_overlay.gd").new()
@@ -265,7 +271,7 @@ func render_scale() -> float:
 	return clampf(s, 0.25, 1.0)
 
 func _apply_scale() -> void:
-	var vp := get_viewport()
+	var vp := viewport()
 	var s := render_scale()
 	var up: String = get_value("upscale")
 	if up == "auto": up = "metalfx" if metalfx_ok() else ("fsr" if fsr_ok() else "bilinear")
@@ -279,14 +285,14 @@ func _apply_scale() -> void:
 	vp.fsr_sharpness = 0.4
 
 func _apply(key: String, v) -> void:
-	var vp := get_viewport()
+	var vp := viewport()
 	match key:
 		"scale", "upscale": _apply_scale()
 		"auto_res":
 			if int(v) == 0: auto_scale = 1.0
 			_apply_scale()
-		"fps_cap":
-			Engine.max_fps = int(v)
+		"fps_cap", "tv_fps":
+			Engine.max_fps = _max_fps()
 			_ar.need = 4; _ar.good = 0
 		"aa":
 			vp.msaa_3d = {"msaa2": Viewport.MSAA_2X, "msaa4": Viewport.MSAA_4X}.get(v, Viewport.MSAA_DISABLED)
@@ -307,11 +313,40 @@ func _ink(method: String, arg) -> void:
 	if ink and ink.has_method(method): ink.call(method, arg)
 
 # ---------- auto resolution ----------
+# The viewport the game renders its 3D into: the "Game" SubViewport of screens.gd
+# (the phone's picture, or the TV's), else this window (a test running main.tscn).
+# The render scale, upscaler, anti-aliasing and the timings go to it.
+var target_vp: Viewport = null
+var tv_hz := 0   # the TV's refresh while the game is on one (screens.gd), 0 = none
+
+func viewport() -> Viewport:
+	return target_vp if is_instance_valid(target_vp) else get_viewport()
+
+func use_viewport(vp: Viewport) -> void:
+	target_vp = vp
+	RenderingServer.viewport_set_measure_render_time(viewport().get_viewport_rid(), true)
+	for k in ["scale", "aa"]: _apply(k, get_value(k))
+
+# on a TV: the game runs at the TV's pace (tv_fps, never above its refresh);
+# back on the phone: the frame cap of the preset (120 = ProMotion)
+func set_tv_hz(hz: int) -> void:
+	tv_hz = hz
+	Engine.max_fps = _max_fps()
+	_ar.need = 4; _ar.good = 0
+
+func _max_fps() -> int:
+	var cap := int(get_value("fps_cap"))
+	if tv_hz <= 0: return cap
+	var t := mini(int(get_value("tv_fps")), tv_hz)
+	return t if cap <= 0 else mini(cap, t)
+
 func refresh_rate() -> float:
+	if tv_hz > 0: return float(tv_hz)
 	var hz := DisplayServer.screen_get_refresh_rate()
 	return hz if is_finite(hz) and hz >= 20.0 and hz <= 500.0 else 60.0
 
 func target_fps() -> float:
+	if tv_hz > 0: return float(_max_fps())
 	var cap := int(get_value("fps_cap"))
 	var hz := refresh_rate()
 	return float(cap) if cap > 0 and cap < hz + 1.0 else hz
@@ -321,7 +356,7 @@ func _process(dt: float) -> void:
 	if int(get_value("auto_res")) != 1 or get_tree().paused or dt > 0.25 or Engine.get_write_movie_path() != "": return
 	var now := Time.get_ticks_msec() / 1000.0
 	_ar.acc += dt; _ar.n += 1
-	_ar.gpu += RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
+	_ar.gpu += RenderingServer.viewport_get_measured_render_time_gpu(viewport().get_viewport_rid())
 	if _ar.acc < 1.0: return
 	var ms: float = _ar.acc / _ar.n * 1000.0
 	var gpu: float = _ar.gpu / _ar.n

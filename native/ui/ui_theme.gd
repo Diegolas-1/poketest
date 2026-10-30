@@ -112,6 +112,9 @@ static func safe_rect(ci: CanvasItem, override := Rect2()) -> Rect2:
 	var vs := ci.get_viewport_rect().size if ci != null and ci.is_inside_tree() else Vector2(1280, 720)
 	var full := Rect2(Vector2.ZERO, vs)
 	if override.size != Vector2.ZERO: return override
+	# on a TV (screens.gd): its safe margin, not the phone's notch and corners
+	var vp := ci.get_viewport() if ci != null and ci.is_inside_tree() else null
+	if vp != null and vp.has_meta("tv_safe"): return (vp.get_meta("tv_safe") as Rect2).intersection(full)
 	if not OS.has_feature("mobile"): return full
 	var sa := DisplayServer.get_display_safe_area()
 	var ws := DisplayServer.window_get_size()
@@ -122,6 +125,7 @@ static func safe_rect(ci: CanvasItem, override := Rect2()) -> Rect2:
 # viewport units per point (1.0 on a desktop window; ~1.83 on an iPhone in landscape)
 static func units_per_pt(ci: CanvasItem) -> float:
 	if not OS.has_feature("mobile") or ci == null or not ci.is_inside_tree(): return 1.0
+	if ci.get_viewport().has_meta("tv"): return 1.0   # (on a TV: nothing is touched)
 	var ws := DisplayServer.window_get_size()
 	var sc := DisplayServer.screen_get_scale()
 	if ws.y <= 0 or sc <= 0.0: return 1.0
@@ -401,6 +405,24 @@ static func icon(ci: CanvasItem, id: String, c: Vector2, r: float, col := Color.
 			ci.draw_colored_polygon(bot, Color(WHITE, col.a))
 			ci.draw_circle(c, 4.6 * k, Color(INK, col.a), true, -1.0, true)
 			ci.draw_circle(c, 2.8 * k, Color(WHITE, col.a), true, -1.0, true)
+		"tv":
+			# a flat screen on a stand, a play mark on it
+			var sr := Rect2(c + Vector2(-13, -10) * k, Vector2(26, 17) * k)
+			ci.draw_colored_polygon(rounded_points(sr, 2.5 * k), col)
+			ci.draw_colored_polygon(rounded_points(sr.grow(-2.6 * k), 1.2 * k), Color(INK, col.a))
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-2.5, -5.5) * k, c + Vector2(4.5, -1.5) * k, c + Vector2(-2.5, 2.5) * k]), col)
+			ci.draw_line(c + Vector2(0, 7) * k, c + Vector2(0, 11) * k, col, 2.6 * k)
+			ci.draw_line(c + Vector2(-7, 12) * k, c + Vector2(7, 12) * k, col, 2.6 * k, true)
+		"pause":
+			ci.draw_colored_polygon(rounded_points(Rect2(c + Vector2(-9, -11) * k, Vector2(6.5, 22) * k), 1.5 * k), col)
+			ci.draw_colored_polygon(rounded_points(Rect2(c + Vector2(2.5, -11) * k, Vector2(6.5, 22) * k), 1.5 * k), col)
+		"play":
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -11) * k, c + Vector2(11, 0) * k, c + Vector2(-7, 11) * k]), col)
+		"phone":
+			var pr2 := Rect2(c + Vector2(-8, -13) * k, Vector2(16, 26) * k)
+			ci.draw_colored_polygon(rounded_points(pr2, 3.5 * k), col)
+			ci.draw_colored_polygon(rounded_points(pr2.grow(-2.2 * k), 2.0 * k), Color(INK, col.a))
+			ci.draw_colored_polygon(rounded_points(Rect2(c + Vector2(-3, -10.5) * k, Vector2(6, 2.2) * k), 1.1 * k), col)
 		"close":
 			ci.draw_line(c + Vector2(-7, -7) * k, c + Vector2(7, 7) * k, col, 3.2 * k, true)
 			ci.draw_line(c + Vector2(7, -7) * k, c + Vector2(-7, 7) * k, col, 3.2 * k, true)

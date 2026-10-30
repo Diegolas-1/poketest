@@ -143,10 +143,11 @@ func _place() -> void:
 		if side < 0: left = isle.end.x + 12.0
 	if Settings.menu and Settings.menu.has_method("place_cog"): Settings.menu.place_cog(cog_r, left)
 	if qui:
-		if fake != "": qui.safe_override = safe
-		qui.place_btn(q_r)
+		var here: bool = qui.get_viewport() == hud.get_viewport()   # (on a TV the log stays on the TV, in its own corner)
+		if fake != "": qui.safe_override = safe if here else Rect2()
+		qui.place_btn(q_r if here else Rect2())
 		_placed = true
-	if main and main.cast and main.cast.cond_ui and fake != "": main.cast.cond_ui.safe_override = safe
+	if main and main.cast and main.cast.cond_ui and fake != "": main.cast.cond_ui.safe_override = safe if not on_tv else Rect2()
 	if main and main.cast and main.cast.get("clock") and main.cast.clock.hud and "right_gap" in main.cast.clock.hud:
 		main.cast.clock.hud.right_gap = 0.0 if side != 0 else 76.0
 		main.cast.clock.hud._place()
@@ -169,6 +170,7 @@ func _tap_zone() -> Rect2:
 	return Rect2(hr.end.x if side < 0 else hr.position.x - w, hr.position.y, w, hr.size.y).merge(hr)
 
 func blocks(pos: Vector2) -> bool:
+	if on_tv: return false
 	if open or p > 0.02: return true
 	return side != 0 and _tap_zone().has_point(pos)
 
@@ -188,7 +190,7 @@ func _input(e: InputEvent) -> void:
 					if _row_rect(i).has_point(pos): _choose(i)
 		get_viewport().set_input_as_handled()
 		return
-	if p < 0.05 and not get_tree().paused and _tap_zone().has_point(pos) and not _busy():
+	if p < 0.05 and not on_tv and not get_tree().paused and _tap_zone().has_point(pos) and not _busy():
 		open_menu()
 		get_viewport().set_input_as_handled()
 
@@ -218,6 +220,28 @@ func _choose(i: int) -> void:
 	close()
 	_pick = e[0]   # opened as the panel shrinks back
 
+# what a menu row does (the island's menu, and the phone's menu while the game is on
+# a TV: tv/companion.gd)
+func entries() -> Array:
+	return _entries()
+
+func run_entry(id: String) -> void:
+	if id == "quests":
+		var q = _quest_ui()
+		if q: q.open()
+	elif id == "settings": Settings.open_menu()
+	elif id == "bike" and main and main.cast and main.cast.bike: main.cast.bike.menu_toggle()
+	elif id == "party" and main and main.cast and main.cast.party_menu: main.cast.party_menu.open("field")
+
+# the game on a TV (screens.gd): this HUD has moved to the phone's viewport; the
+# compass stays round the island, the menu is the phone's own (tv/companion.gd)
+var on_tv := false
+func set_tv(on: bool) -> void:
+	on_tv = on
+	if on and open: close()
+	_key = ""
+	_placed = false
+
 func _satellites(on: bool) -> void:
 	if Settings.menu and Settings.menu.cog: Settings.menu.cog.visible = on
 	var q = _quest_ui()
@@ -244,12 +268,7 @@ func _process(dt: float) -> void:
 		if not open and p < 0.01:
 			p = 0.0; pv = 0.0
 			_satellites(true)
-			if _pick == "quests":
-				var q = _quest_ui()
-				if q: q.open()
-			elif _pick == "settings": Settings.open_menu()
-			elif _pick == "bike" and main and main.cast and main.cast.bike: main.cast.bike.menu_toggle()
-			elif _pick == "party" and main and main.cast and main.cast.party_menu: main.cast.party_menu.open("field")
+			run_entry(_pick)
 			_pick = ""
 		hud.queue_redraw()
 	# the compass

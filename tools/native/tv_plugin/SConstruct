@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+# The TV output GDExtension (see README.md). Run from this folder with GODOT_CPP
+# pointing at a godot-cpp checkout:
+#   scons platform=ios arch=arm64 target=template_release   -> bin/libpallet_tv.ios.template_release.arm64.a
+#   scons platform=linux target=template_debug             -> a desktop build on the stub (bindings test)
+import os
+
+cpp = os.environ.get("GODOT_CPP", "godot-cpp")
+# the build database next to godot-cpp's objects, so a cached godot-cpp is not rebuilt
+SConsignFile(os.path.join(cpp, ".sconsign_pallet_tv"))
+env = SConscript(os.path.join(cpp, "SConstruct"))
+
+env.Append(CPPPATH=["src"])
+sources = ["src/pallet_tv.cpp"]
+if env["platform"] == "ios":
+    objc = env.Clone()
+    # ARC, and modules so the frameworks it uses (AVKit, Metal, ...) are linked
+    # by the app without any change to the Xcode project
+    objc.Append(CCFLAGS=["-fobjc-arc", "-fmodules"])
+    sources.append(objc.Object("src/tv_ios.m"))
+    lib = env.StaticLibrary("bin/libpallet_tv{}{}".format(env["suffix"], env["LIBSUFFIX"]), sources)
+else:
+    sources.append("src/tv_stub.c")
+    lib = env.SharedLibrary("bin/libpallet_tv{}{}".format(env["suffix"], env["SHLIBSUFFIX"]), sources)
+Default(lib)
