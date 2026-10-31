@@ -993,6 +993,7 @@ class _TouchButtons extends Control:
 	func _update() -> void:
 		var touch := DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
 		shown = OS.get_cmdline_user_args().has("--touch") or (touch and Input.get_connected_joypads().is_empty())
+		if get_viewport().has_meta("tv"): shown = false   # (the game on a TV: touches stay on the phone, screens.gd)
 		visible = shown
 		if not shown:
 			for k in down: down[k] = false
@@ -1019,7 +1020,11 @@ class _TouchButtons extends Control:
 		for k in c:
 			if p.distance_to(c[k]) < (34.0 if k in ["bell", "crouch", "wheelie"] else 42.0): return k
 		return ""
+	var _tv := false
 	func _process(_dt: float) -> void:
+		if get_viewport().has_meta("tv") != _tv:
+			_tv = not _tv
+			_update()
 		var on: bool = cast != null and cast.bike != null and cast.bike.riding()
 		if on != _bell_on:
 			_bell_on = on

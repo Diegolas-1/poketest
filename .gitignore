@@ -17,3 +17,12 @@ web/world/lineup.html
 web/world/local/*
 !web/world/local/ash.glb
 __pycache__/
+
+# the TV output plugin's builds (tools/native/tv_plugin; ios.yml copies the
+# phone's into native/tv/ios/ with its .gdextension just before the export)
+tools/native/tv_plugin/bin/
+tools/native/tv_plugin/src/*.o
+tools/native/tv_plugin/src/*.os
+.sconsign.dblite
+native/tv/ios/
+native/tv/linux/

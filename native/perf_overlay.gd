@@ -52,7 +52,7 @@ func refresh() -> void:
 
 func _process(dt: float) -> void:
 	if not fps_label.visible and not panel.visible: return
-	var rid := get_viewport().get_viewport_rid()
+	var rid: RID = Settings.viewport().get_viewport_rid()
 	acc += dt; n += 1; worst = maxf(worst, dt)
 	cpu += RenderingServer.viewport_get_measured_render_time_cpu(rid)
 	gpu += RenderingServer.viewport_get_measured_render_time_gpu(rid)

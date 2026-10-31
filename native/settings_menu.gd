@@ -8,7 +8,7 @@ extends CanvasLayer
 # and gamepad: up / down picks a row, left / right (or A) steps it, L / R
 # (Q / E) switch tabs, B or Start closes.
 
-const TABS := ["Display", "World", "Controls", "Time", "Audio", "Updates"]
+const TABS := ["Display", "World", "Controls", "Time", "Audio", "TV", "Updates"]
 const COG := Rect2(20, 16, 60, 56)
 const PANEL_W := 840.0
 
@@ -58,7 +58,8 @@ func place_cog(r: Rect2, left := 16.0) -> void:
 func open(pad := false) -> void:
 	if root.visible: return
 	was_paused = get_tree().paused
-	get_tree().paused = true
+	# (on a TV the game plays on while the phone shows the settings: screens.gd)
+	if not Screens.on_tv(): get_tree().paused = true
 	root.visible = true
 	Sfx.ui("ui_menu_open")
 	_fill()
@@ -204,6 +205,7 @@ func _fill() -> void:
 	tabs._kick()
 	for r in Settings.ROWS[tab]:
 		_row(r[0], r[1], r[2], r[3])
+	if tab == "TV": _tv()
 	if tab == "Controls": _legend()
 	if tab == "Updates": _updates()
 	if tab == "Audio": _audio_credits()
@@ -352,6 +354,137 @@ func _audio_credits() -> void:
 	m.add_theme_constant_override("margin_right", 8)
 	m.add_child(t)
 	list.add_child(m)
+
+# the TV tab: how to put the game on the TV (iOS has no way for an app to start
+# Screen Mirroring itself, and the AirPlay picker only moves the sound, so the tab
+# shows the three steps in Control Centre, drawn), what the game is on now, a
+# warning when only the sound went to the TV, how to stop; then the TV's rows
+# (picture, safe margin, frame rate, pacing overlay). A desktop run with
+# -- --fake-tv gets a button that opens or closes the stand-in TV window.
+func _tv() -> void:
+	var sc: Screens = Screens.I
+	var link: TVLink = sc.tv if sc else null
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_top", 8)
+	m.add_theme_constant_override("margin_left", 16)
+	m.add_theme_constant_override("margin_right", 8)
+	m.add_theme_constant_override("margin_bottom", 10)
+	m.add_child(box)
+	list.add_child(m)
+	list.move_child(m, 0)
+	var st := UITheme.label("", "label", 20, UITheme.TEXT)
+	st.name = "TVStatus"
+	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(st)
+	var sub := UITheme.label("", "body", 16, UITheme.TEXT_DIM)
+	sub.name = "TVHint"
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(sub)
+	var guide := Control.new()
+	guide.name = "TVGuide"
+	guide.custom_minimum_size = Vector2(0, 236)
+	guide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	guide.draw.connect(_draw_tv_guide.bind(guide))
+	box.add_child(guide)
+	var b := UIButton.new()
+	b.name = "ConnectTV"
+	b.icon_id = "tv"
+	b.variant = "secondary"
+	b.font_size = 20
+	b.custom_minimum_size = Vector2(320, 54)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.visible = link != null and link.backend == "fake"
+	b.pressed.connect(func():
+		Sfx.ui("ui_confirm")
+		if link: link.pick_route(b, Rect2(b.global_position, b.size)))
+	box.add_child(b)
+	var refresh := func():
+		if not is_instance_valid(st): return
+		var on: bool = link != null and link.connected()
+		var audio: bool = link != null and link.audio_only()
+		guide.visible = not on
+		b.text = "Disconnect the fake TV" if on else "Connect the fake TV"
+		if link == null or not bool(link.status.supported):
+			st.text = "PLAYING ON A TV NEEDS THE IPHONE APP"
+			st.add_theme_color_override("font_color", UITheme.TEXT)
+			sub.text = "A desktop run: -- --fake-tv=1920x1080 opens a second window as the TV."
+		elif on:
+			st.text = link.describe().to_upper()
+			st.add_theme_color_override("font_color", UITheme.GREEN)
+			sub.text = "The world and the HUD are on the TV, the menu is on your phone, Start pauses. To stop: Control Centre, Screen Mirroring, Stop Mirroring (or unplug the adapter). The game comes straight back to the phone."
+		elif audio:
+			st.text = "ONLY SOUND IS ON THE TV (%s)" % link.display_name().to_upper()
+			st.add_theme_color_override("font_color", UITheme.ORANGE)
+			sub.text = "Only sound is on the TV: start Screen Mirroring from Control Centre, as below, and the game takes the TV over."
+		else:
+			st.text = "NOT CONNECTED"
+			st.add_theme_color_override("font_color", UITheme.TEXT)
+			sub.text = "Put the game on an Apple TV or AirPlay TV with Screen Mirroring (a USB-C to HDMI adapter switches over by itself):"
+	refresh.call()
+	if link:
+		link.changed.connect(refresh)
+		box.tree_exiting.connect(func(): if link.changed.is_connected(refresh): link.changed.disconnect(refresh))
+
+# the three steps, drawn: swipe down from the top right corner; tap Screen
+# Mirroring; choose the TV
+func _draw_tv_guide(c: Control) -> void:
+	var w := (c.size.x - 32.0) / 3.0
+	var h := c.size.y - 8.0
+	var steps := [["1", "OPEN CONTROL CENTRE", "Swipe down from the top right corner"],
+		["2", "TAP SCREEN MIRRORING", "The tile with two screens"],
+		["3", "CHOOSE YOUR TV", "The game moves to the TV; the phone shows the menu"]]
+	for i in 3:
+		var r := Rect2(i * (w + 16.0), 0, w, h)
+		var pts := UITheme.chamfer_points(r, UITheme.CUT)
+		UITheme.fill(c, pts, Color(1, 1, 1, 0.05))
+		UITheme.outline(c, pts, Color(1, 1, 1, 0.12), 1.0)
+		var art := Rect2(r.position + Vector2(14, 12), Vector2(r.size.x - 28, h - 92))
+		var cx := art.get_center().x
+		match i:
+			0:
+				# a phone turned sideways, a finger's path down from its top right corner
+				var ph := Rect2(cx - 92, art.position.y + 14, 184, 104)
+				c.draw_colored_polygon(UITheme.rounded_points(ph, 16), Color(1, 1, 1, 0.9))
+				c.draw_colored_polygon(UITheme.rounded_points(ph.grow(-5), 12), Color("1b2442"))
+				c.draw_colored_polygon(UITheme.rounded_points(Rect2(ph.position.x + 9, ph.get_center().y - 20, 9, 40), 4.5), Color.BLACK)
+				var p0 := Vector2(ph.end.x - 14, ph.position.y - 4)
+				var p1 := Vector2(ph.end.x - 14, ph.end.y - 16)
+				c.draw_line(p0, p1, UITheme.YELLOW, 4.0, true)
+				c.draw_colored_polygon(PackedVector2Array([p1 + Vector2(-9, -6), p1 + Vector2(9, -6), p1 + Vector2(0, 8)]), UITheme.YELLOW)
+				c.draw_circle(p0, 9.0, Color(UITheme.YELLOW, 0.5), true, -1.0, true)
+				c.draw_circle(p0, 5.0, UITheme.YELLOW, true, -1.0, true)
+			1:
+				# Control Centre's tiles, Screen Mirroring lit
+				for k in 4:
+					var tr := Rect2(cx - 92 + (k % 2) * 50, art.position.y + 10 + (k / 2) * 50, 42, 42)
+					c.draw_colored_polygon(UITheme.rounded_points(tr, 11), Color(1, 1, 1, 0.16))
+				var sm := Rect2(cx + 12, art.position.y + 10, 80, 92)
+				c.draw_colored_polygon(UITheme.rounded_points(sm, 16), Color(1, 1, 1, 0.92))
+				var a := Rect2(sm.position + Vector2(14, 18), Vector2(38, 26))
+				c.draw_colored_polygon(UITheme.rounded_points(a, 4), UITheme.INK)
+				c.draw_colored_polygon(UITheme.rounded_points(a.grow(-3), 2), Color(1, 1, 1, 0.92))
+				var b2 := Rect2(a.position + Vector2(14, 12), a.size)
+				c.draw_colored_polygon(UITheme.rounded_points(b2, 4), UITheme.INK)
+				c.draw_circle(sm.end - Vector2(14, 14), 8.0, Color(UITheme.YELLOW, 0.5), true, -1.0, true)
+			2:
+				# the list of receivers, the TV ticked
+				var lr := Rect2(cx - 100, art.position.y + 8, 200, 104)
+				c.draw_colored_polygon(UITheme.rounded_points(lr, 14), Color(1, 1, 1, 0.92))
+				for k in 3:
+					var y := lr.position.y + 22 + k * 30
+					UITheme.icon(c, "tv", Vector2(lr.position.x + 24, y), 9.0, UITheme.INK if k == 1 else UITheme.INK_SOFT)
+					c.draw_rect(Rect2(lr.position.x + 42, y - 4, 96 - k * 14, 8), UITheme.INK if k == 1 else UITheme.INK_SOFT)
+					if k == 1:
+						c.draw_circle(Vector2(lr.end.x - 22, y), 9.0, UITheme.BLUE, true, -1.0, true)
+						UITheme.icon(c, "check", Vector2(lr.end.x - 22, y), 6.0, Color.WHITE)
+		UIWidgets.icon_disc(c, Vector2(r.position.x + 26, r.end.y - 58), 15.0, UITheme.RED, "")
+		UITheme.text_mid(c, Vector2(r.position.x + 26, r.end.y - 58), steps[i][0], "label", 18, Color.WHITE, 1)
+		UITheme.text(c, Vector2(r.position.x + 50, r.end.y - 50), steps[i][1], "label", 18, UITheme.TEXT, 0, r.size.x - 60)
+		var ls := UITheme.wrap(steps[i][2], "body", 15, r.size.x - 28)
+		for k in mini(ls.size(), 2):
+			UITheme.text(c, Vector2(r.position.x + 14, r.end.y - 26 + k * 18), ls[k], "body", 15, UITheme.TEXT_DIM)
 
 # the Updates tab: version in use, the updater's status, Check for updates
 # (updater.gd at /root/Updater; absent in a dev run from the project folder)
