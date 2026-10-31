@@ -313,7 +313,7 @@ def belt_obj():
             if all(R): break
             R = [x if x else max(R[(i - 1) % 64], R[(i + 1) % 64]) for i, x in enumerate(R)]
         # one smooth band round him, over the belt loops (not following every bump of them)
-        for _ in range(3): R = [max(R[(i + j) % 64] for j in range(-4, 5)) for i in range(64)]
+        R = [max(R[(i + j) % 64] for j in range(-1, 2)) for i in range(64)]
         for _ in range(4): R = [sum(R[(i + j) % 64] for j in range(-3, 4)) / 7 for i in range(64)]
         ring.append([(c[0] + math.sin(2 * math.pi * k / 64) * (R[k] + 0.3 * CM), c[1] - math.cos(2 * math.pi * k / 64) * (R[k] + 0.3 * CM), z) for k in range(64)])
     bm = bmesh.new(); rows = [[bm.verts.new(Vector(p)) for p in r] for r in ring]
