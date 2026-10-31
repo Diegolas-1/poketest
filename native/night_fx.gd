@@ -10,8 +10,11 @@ extends Node3D
 #
 # The town's glass and lamp globes are found by their look (main.gd toon_for):
 # glass by its picture (the web build's glassTex, the town's few window
-# textures), a lamp's globe by its plain warm white. render.json can list
-# others: "night_glass" (texture file names), "night_lamps" (colours).
+# textures), a lamp's globe by its plain warm white; most globes are painted in
+# a merged mesh's vertex colours, so those meshes are marked to check theirs
+# (toon.gdshaderinc dn_is_lamp) and their places come from
+# world/base/night_lamps.json (dev/night_bake.gd). render.json can list other
+# glass and lamps: "night_glass" (texture file names), "night_lamps" (colours).
 
 const T := preload("res://tunables.gd")
 const GLASS := ["c22689634c0b394c.png", "a68d746faa4921d1.png", "c2d6449cb01e9349.png"]
@@ -57,6 +60,7 @@ func setup(m: Node3D) -> void:
 				var kind := _kind(sm, glass, lamp_cols)
 				if kind == 0: continue
 				sm.set_shader_parameter("night_glow", float(kind))
+				if kind == 3: continue
 				if kind == 1:
 					if not seen.has(sm): windows += 1
 					seen[sm] = true
@@ -66,13 +70,16 @@ func setup(m: Node3D) -> void:
 				var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 				for xf in xfs:
 					for v in vs: pts.append(xf * v)
+	var baked = JSON.parse_string(FileAccess.get_file_as_string("res://world/base/night_lamps.json")) if FileAccess.file_exists("res://world/base/night_lamps.json") else null
+	if baked is Dictionary:
+		for l in baked.get("lamps", []): pts.append(Vector3(l[0], l[1], l[2]))
 	lamps = _cluster(pts, 0.7)
 	_build_halos()
 	_build_flies()
 	visible = false
 	print("night: %d lamps, %d window materials, %d fireflies, %d ms" % [lamps.size(), windows, FLY_N, (Time.get_ticks_usec() - t0) / 1000])
 
-# 1 window glass, 2 a lamp's globe, 0 neither
+# 1 window glass, 2 a lamp's globe, 3 vertex coloured (may hold globes), 0 none
 func _kind(sm: ShaderMaterial, glass: Array, lamp_cols: Array) -> int:
 	var sh := sm.shader
 	if sh == null or not String(sh.resource_path).contains("toon"): return 0
@@ -84,7 +91,7 @@ func _kind(sm: ShaderMaterial, glass: Array, lamp_cols: Array) -> int:
 	if not c is Color: return 0
 	for lc in lamp_cols:
 		if absf(c.r - lc.r) + absf(c.g - lc.g) + absf(c.b - lc.b) < 0.02: return 2
-	return 0
+	return 3 if sm.get_shader_parameter("use_vc") else 0
 
 # points within r of each other become one lamp (its globe's middle)
 func _cluster(pts: Array, r: float) -> Array:
@@ -134,18 +141,20 @@ func _build_halos() -> void:
 			var y := -1.0 if k < 2 else 1.0
 			hp.append(c); hc.append(Vector2(x, y) * s); huv.append(Vector2(x, y))
 		hi.append_array([b, b + 1, b + 2, b, b + 2, b + 3])
-		# the pool on the ground: wider under a tall lamp
-		var r := 4.2 if high else 2.4
-		var g: float = l.g
+		# the pool on the ground, wider under a tall lamp: a 5 x 5 grid laid on the
+		# ground's heights (a flat quad would sink into a bump or a slope)
+		var r := 4.5 if high else 2.6
 		b = pp.size()
-		for k in 4:
-			var x2 := -1.0 if k == 0 or k == 3 else 1.0
-			var z2 := -1.0 if k < 2 else 1.0
-			var q := Vector3(c.x + x2 * r, 0.0, c.z + z2 * r)
-			q.y = _ground(q) + 0.06
-			q.y = maxf(q.y, g + 0.06)
-			pp.append(q); puv.append(Vector2(x2, z2))
-		pi.append_array([b, b + 1, b + 2, b, b + 2, b + 3])
+		for j in 5:
+			for i in 5:
+				var u := Vector2(i / 2.0 - 1.0, j / 2.0 - 1.0)
+				var q := Vector3(c.x + u.x * r, 0.0, c.z + u.y * r)
+				q.y = _ground(q) + 0.09
+				pp.append(q); puv.append(u)
+		for j in 4:
+			for i in 4:
+				var o := b + j * 5 + i
+				pi.append_array([o, o + 1, o + 6, o, o + 6, o + 5])
 	halos = _mesh("lamp_halos", HALO, {Mesh.ARRAY_VERTEX: hp, Mesh.ARRAY_TEX_UV: huv, Mesh.ARRAY_TEX_UV2: hc, Mesh.ARRAY_INDEX: hi}, 2)
 	pools = _mesh("lamp_pools", POOL, {Mesh.ARRAY_VERTEX: pp, Mesh.ARRAY_TEX_UV: puv, Mesh.ARRAY_INDEX: pi}, 1)
 

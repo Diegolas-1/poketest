@@ -35,6 +35,9 @@ extends Node3D
 #   arena.go_region(id, done)      the wipe there (the hub: "")
 #   arena.region_now()             the region Ash is in ("" = the hub)
 
+# the fixed sun's direction, for the grass field's build; the light itself follows
+# the clock here too (daynight.gd: the arena is outdoors at Oak's, so a battle
+# staged at night is fought by moonlight; the shaders take the live sun)
 const SUN := Vector3(-0.55, 0.75, 0.45)
 
 static var I: BattleArena = null

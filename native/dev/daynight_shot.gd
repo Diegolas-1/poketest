@@ -4,7 +4,7 @@ extends Node
 # saves the picture (no movie frames on disk).
 #   godot --path native --resolution 1280x590 res://dev/daynight_shot.tscn -- --out=<dir>
 #     [--hours=4,6,8] [--places=town,route1,street,pond] [--day=1] [--interior=oak_lab]
-#     [--calendar] (the calendar screen) [--stats] (draw calls and frame times)
+#     [--calendar] (the calendar screen) [--stats] (draw calls and frame times) [--off]
 # Places: town (Ash's house, the square beyond), route1 (the tall grass),
 # street (by a street lamp, houses behind), pond (the fresh water by Route 1);
 # with --interior the same hours inside it. Saved as <place>_<hhmm>.png.
@@ -16,6 +16,7 @@ var day := 1
 var interior := ""
 var calendar := false
 var stats := false
+var off := false            # --off: the cycle switched off (the fixed midday look)
 var frame := 0
 var jobs: Array = []        # [place, hour]
 var job := -1
@@ -34,6 +35,7 @@ func _ready() -> void:
 		elif a.begins_with("--interior="): interior = a.substr(11)
 		elif a == "--calendar": calendar = true
 		elif a == "--stats": stats = true
+		elif a == "--off": off = true
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
 	if interior != "": places = ["in_" + interior]
@@ -112,6 +114,7 @@ func _process(dt: float) -> void:
 	if spots.is_empty(): _spots()
 	if stats and job >= 0: _times.append(dt)
 	if not _eye.is_empty(): main.cam.look_at_from_position(_eye[0], _eye[1])
+	if main.cast and main.cast.dialog: main.cast.dialog.visible = false   # (Oak's call at Route 1, the banners)
 	if wait > 0:
 		wait -= 1
 		var j: Array = jobs[job]
@@ -128,6 +131,7 @@ func _process(dt: float) -> void:
 	c.set_time(fmod(float(jj[1]), 24.0) if float(jj[1]) < 24.0 else 23.99, day)
 	_place(jj[0])
 	if jj[0] == "calendar": c.open_calendar()
+	if off: main.daynight.enabled = false
 	main.daynight.force_update()
 	wait = 14
 	_times.clear()

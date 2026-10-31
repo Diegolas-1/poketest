@@ -3,7 +3,8 @@
 // the cycle switched off, draws exactly as before). Every name here starts
 // with dn_: the shaders that include this keep their own locals clear of them.
 //   dn_sun      the tint of lit surfaces (rgb); a: night 0 (day) .. 1 (deep night)
-//   dn_amb      the tint of surfaces in shade (rgb); a: unused
+//   dn_amb      the tint of surfaces in shade (rgb); a: how far night colours fade
+//               toward the moonlight's blue (aces.gdshaderinc dn_desat)
 //   dn_dir      toward the light that casts the shadows (sun, or moon at night);
 //               w 1 while daynight.gd drives it (else the shader's own sun uniform)
 //   dn_sun_pos  toward the sun itself, below the horizon too; w: its disc 0..1
@@ -34,4 +35,6 @@ vec3 dn_light_dir(vec3 dn_fallback) { return dn_dir.w > 0.5 ? dn_dir.xyz : dn_fa
 vec3 dn_tint(float dn_lit) { return mix(dn_amb.rgb, dn_sun.rgb, smoothstep(0.1, 0.5, dn_lit)); }
 // unshaded surfaces (water, grass blades, clouds, ranges): mostly the sun's tint
 vec3 dn_unlit() { return mix(dn_amb.rgb, dn_sun.rgb, 0.65); }
+// water: more of the shade's (it mirrors the sky, not the sun)
+vec3 dn_water() { return mix(dn_amb.rgb, dn_sun.rgb, 0.35); }
 #endif

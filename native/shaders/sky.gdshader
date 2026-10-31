@@ -22,7 +22,7 @@ void sky() {
 	float glow = dn_sky_mid.a > 0.0 ? dn_sky_mid.a : 1.0;
 	c += vec3(1.0, 0.92, 0.7) * pow(s, 64.0) * 0.8 * disc + vec3(1.0, 0.85, 0.6) * pow(s, 6.0) * 0.18 * glow;
 	c += vec3(1.0, 0.55, 0.3) * pow(s, 3.0) * 0.35 * low * glow * smoothstep(-0.25, 0.05, y) * (1.0 - smoothstep(0.0, 0.5, y));
-	// night: stars on a fixed grid of the sky dome, twinkling; the moon
+	// night: stars on a fixed grid of the sky dome; the moon
 	float st = dn_sky_top.a;
 	if (st > 0.001 && y > -0.02) {
 		vec3 q = d * 140.0;
@@ -30,8 +30,8 @@ void sky() {
 		float r = sk_hash(qi);
 		vec3 qf = fract(q) - 0.5 - (vec3(sk_hash(qi + 1.7), sk_hash(qi + 3.1), sk_hash(qi + 5.3)) - 0.5) * 0.6;
 		float star = step(0.986, r) * (1.0 - smoothstep(0.04, 0.16, length(qf)));
-		float tw = 0.65 + 0.35 * sin(TIME * (1.5 + r * 3.0) + r * 40.0);
-		c += vec3(0.85, 0.9, 1.0) * star * tw * st * smoothstep(-0.02, 0.25, y) * (0.6 + 0.4 * fract(r * 91.0));
+		// (no TIME here: a sky shader that reads it is redrawn into its radiance map every frame)
+		c += vec3(0.85, 0.9, 1.0) * star * st * smoothstep(-0.02, 0.25, y) * (0.6 + 0.4 * fract(r * 91.0));
 		// a faint milky band
 		float band = 1.0 - smoothstep(0.0, 0.32, abs(dot(d, normalize(vec3(0.5, 0.35, -0.8)))));
 		c += vec3(0.12, 0.13, 0.2) * band * st * smoothstep(0.05, 0.4, y) * (0.6 + 0.4 * sk_hash(floor(d * 30.0)));

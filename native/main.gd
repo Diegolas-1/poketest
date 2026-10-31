@@ -134,6 +134,9 @@ func _environment() -> void:
 	sm.shader = SKY
 	sm.set_shader_parameter("sun_dir", SUN_DIR.normalized())
 	sky.sky_material = sm
+	# (no ambient or reflections come from it: its radiance map can stay tiny, cheap
+	# to redraw as the day and night changes its colours)
+	sky.radiance_size = Sky.RADIANCE_SIZE_32
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED

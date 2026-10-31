@@ -180,7 +180,7 @@ func _draw_frame() -> void:
 	var lead := _weekday_of(first)   # Monday first
 	var n := GameCalendar.month_len(view_y, view_m)
 	var rows := int(ceil((lead + n) / 7.0))
-	var ch := minf(cw * 0.78, (h - gy - 46.0) / rows)
+	var ch := minf(cw * 0.9, (h - gy - 46.0) / rows)
 	for i in 7:
 		UITheme.text(f, Vector2(gx + cw * (i + 0.5), gy - 8.0), DOW[i], "label", 15, UITheme.ORANGE if i == 5 else (UITheme.RED if i == 6 else UITheme.INK_SOFT), 1)
 	var today := clock.day()
@@ -206,11 +206,11 @@ func _draw_frame() -> void:
 			f.draw_circle(Vector2(r.end.x - 11.0, r.end.y - 11.0), 4.0, UITheme.ORANGE if not is_today else Color.WHITE, true, -1.0, true)
 		var tc := Color.WHITE if is_today else (Color(UITheme.INK, 0.45) if past else UITheme.INK)
 		UITheme.text(f, Vector2(r.position.x + 10.0, r.position.y + 28.0), str(dd), "number", 24, tc)
-		# the moon on full and new moon days
-		var ph := GameCalendar.moon_phase(float(day) + 0.5)
-		var near := minf(absf(ph - 0.5), minf(ph, 1.0 - ph))
-		if near < 0.5 / GameCalendar.SYNODIC:
-			_moon(f, Vector2(r.end.x - 14.0, r.position.y + 15.0), 7.0, ph, Color.WHITE if is_today else UITheme.INK)
+		# the moon on the days the full moon or the new moon falls
+		var p0 := GameCalendar.moon_phase(float(day))
+		var p1 := GameCalendar.moon_phase(float(day) + 1.0)
+		if (p0 <= 0.5 and p1 > 0.5) or p1 < p0:
+			_moon(f, Vector2(r.end.x - 14.0, r.position.y + 15.0), 7.0, 0.5 if p1 > 0.5 and p0 <= 0.5 else 0.0, Color.WHITE if is_today else UITheme.INK)
 		if is_sel:
 			var pts := UITheme.chamfer_points(r.grow(2.0), 8.0)
 			pts.append(pts[0])
@@ -274,9 +274,9 @@ func _hm(hh: float) -> String:
 	if h12 == 0: h12 = 12
 	return "%d:%02d %s" % [h12, m % 60, "AM" if h24 < 12 else "PM"]
 
-# a little moon: its lit part by the phase (0 new .. 0.5 full)
+# a little moon: its lit part (pale gold) by the phase (0 new .. 0.5 full), col its rim
 func _moon(ci: CanvasItem, c: Vector2, r: float, ph: float, col: Color) -> void:
-	ci.draw_circle(c, r, Color(col, 0.16), true, -1.0, true)
+	ci.draw_circle(c, r, Color(UITheme.INK, 0.55), true, -1.0, true)
 	var k := cos(ph * TAU)    # 1 new .. -1 full
 	var pts := PackedVector2Array()
 	var side := 1.0 if ph < 0.5 else -1.0
@@ -286,6 +286,6 @@ func _moon(ci: CanvasItem, c: Vector2, r: float, ph: float, col: Color) -> void:
 	for i in 17:
 		var t2 := PI * 0.5 - PI * i / 16.0
 		pts.append(c + Vector2(cos(t2) * r * side * k, sin(t2) * r))
-	if k < 0.97:   # (a new moon draws only its rim)
-		ci.draw_colored_polygon(pts, col)
+	if k < 0.97:   # (a new moon draws only its dark disc)
+		ci.draw_colored_polygon(pts, Color("ffe7a0"))
 	ci.draw_arc(c, r, 0.0, TAU, 24, Color(col, 0.6), 1.5, true)

@@ -24,10 +24,17 @@ vec3 tone_factor(vec3 albedo, vec3 lit_color) {
 // lit faces dn_sun (both white at midday: tone_factor exactly)
 // an unshaded colour under the same light: darkened through the curve the
 // way a cel surface of that colour is (identity while dn_glow.w is 0: midday)
+// night colours fade toward the moonlight's blue (dn_amb.a: how much)
+vec3 dn_desat(vec3 dn_x) {
+	if (dn_amb.a <= 0.0) return dn_x;
+	const vec3 DN_LW = vec3(0.2126, 0.7152, 0.0722);
+	vec3 dn_b = dn_sun.rgb / max(dot(dn_sun.rgb, DN_LW), 1e-3);
+	return mix(dn_x, dot(dn_x, DN_LW) * dn_b, dn_amb.a);
+}
 vec3 dn_relight(vec3 dn_c, vec3 dn_t) {
 	if (dn_glow.w <= 0.0) return dn_c;
-	return dn_c * aces_three(dn_c * dn_t) / max(aces_three(dn_c), vec3(1e-4));
+	return dn_c * aces_three(dn_desat(dn_c * dn_t)) / max(aces_three(dn_c), vec3(1e-4));
 }
 vec3 dn_tone(vec3 albedo, vec3 lit_color, float lit_amount) {
-	return aces_three(lit_color * dn_tint(lit_amount)) / max(albedo, vec3(1e-4));
+	return aces_three(dn_desat(lit_color * dn_tint(lit_amount))) / max(albedo, vec3(1e-4));
 }

@@ -25,6 +25,6 @@ void fragment() {
 	float pdark;
 	float pf = bike_part(v_w.xz, pdark);
 	c = mix(c * (1.0 - 0.16 * pdark), vec3(0.97, 1.0, 1.0), pf);
-	ALBEDO = dn_relight(c, dn_unlit());
+	ALBEDO = dn_relight(c, dn_water());
 	ALPHA = max(0.9, pf);
 }

@@ -57,7 +57,7 @@ void fragment() {
 	float tw = h(g); float on = step(0.985, tw) * step(0.5, fract(TIME * 0.35 + tw * 7.0));
 	vec2 fp = fract(v_w.xz * vec2(0.9, 2.2)) - 0.5;
 	c = mix(c, vec3(1.0), on * step(length(fp * vec2(1.0, 0.5)), 0.18) * smoothstep(3.0, 6.0, depth));
-	ALBEDO = dn_relight(c, dn_unlit());
+	ALBEDO = dn_relight(c, dn_water());
 #ifndef SEA_DEEP
 	ALPHA = max(mix(0.72, 1.0, smoothstep(0.2, 1.6, depth)), foam);
 #endif

@@ -20,6 +20,11 @@ func ok(cond: bool, msg: String) -> void:
 		printerr("FAIL: " + msg)
 
 func _ready() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--table"):   # --table[=doy]: the day's light, hour by hour
+			_table(int(a.substr(8)) if a.length() > 8 else 90)
+			get_tree().quit(0)
+			return
 	_dates()
 	_seasons()
 	_moon()
@@ -32,6 +37,15 @@ func _ready() -> void:
 	print("calendar_test: %d checks, %d failures" % [checks, fails])
 	print("CALENDAR TEST " + ("GREEN" if fails == 0 else "RED"))
 	get_tree().quit(1 if fails > 0 else 0)
+
+func _table(doy: int) -> void:
+	var season := GameCalendar.season_of(int(GameCalendar.from_day(GameCalendar.to_day(1, 1, 1) + doy).month))
+	for i in 48:
+		var h := i * 0.5
+		var s := DayNight.sample(h, doy, 0.5, season)
+		print("%5.2f e=%6.1f sun=%s amb=%s night=%.2f lamps=%.2f win=%.2f ff=%.2f stars=%.2f light=%s" % [h, s.elev, _c(s.sun), _c(s.amb), s.night, s.lamps, s.windows, s.fireflies, s.stars, s.light_dir])
+
+func _c(c: Color) -> String: return "(%.2f %.2f %.2f)" % [c.r, c.g, c.b]
 
 # ---------- dates ----------
 func _dates() -> void:
@@ -217,8 +231,9 @@ func _blend() -> void:
 		ok((s.fog as Color).is_equal_approx(D.FOG0), "%.1f h: the midday haze" % hr)
 	var n := D.sample(23.0, 90, 0.5, "spring")
 	ok(n.night > 0.95 and n.lamps > 0.95 and n.stars > 0.5, "23:00: night, lamps lit, stars out")
-	var lum := (n.sun as Color).get_luminance()
-	ok(lum > 0.15 and lum < 0.5, "the night is dim but readable (lit tint luminance %.2f)" % lum)
+	# a white wall in the moonlight as it shows on screen (tone mapped, sRGB)
+	var lum := D.aces(Color(0.95, 0.95, 0.95) * (n.sun as Color)).linear_to_srgb().get_luminance()
+	ok(lum > 0.25 and lum < 0.55, "the night is dim but readable (a white wall at %.2f on screen)" % lum)
 	var dusk := D.sample(GameCalendar.sun_hours(90).y, 90, 0.5, "spring")
 	ok((dusk.sun as Color).r > (dusk.sun as Color).b + 0.3, "sunset: warm light")
 	var dawn := D.sample(GameCalendar.sun_hours(90).x, 90, 0.5, "spring")

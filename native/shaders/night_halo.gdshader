@@ -15,5 +15,5 @@ void fragment() {
 	float ha = pow(max(0.0, 1.0 - hr), 2.4) * 0.6 + pow(max(0.0, 1.0 - hr * 3.0), 2.0) * 0.5;
 	// fainter close up (a halo seen from under the lamp would wash the screen)
 	float hd = smoothstep(1.5, 5.0, -VERTEX.z);
-	ALBEDO = vec3(1.0, 0.8, 0.5) * ha * dn_glow.x * hd;
+	ALBEDO = vec3(1.0, 0.8, 0.5) * ha * 1.4 * dn_glow.x * hd;
 }

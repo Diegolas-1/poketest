@@ -48,6 +48,6 @@ void fragment() {
 		c = vec3(0.95, 0.98, 1.0);
 		a = (1.0 - smoothstep(0.15, 1.0, r)) * smoothstep(0.35, 0.75, p) * 0.42 * smoothstep(0.0, 0.25, UV.y);
 	}
-	ALBEDO = dn_relight(c, dn_unlit());
+	ALBEDO = dn_relight(c, dn_water());
 	ALPHA = clamp(a, 0.0, 1.0);
 }

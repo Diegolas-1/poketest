@@ -18,8 +18,19 @@ uniform float soft = 0.025;
 uniform float lift = 0.0;
 // lit at night (main.gd marks the town's glass and lamp globes; daynight.gdshaderinc):
 // 1 = window glass (a house's windows lit or dark by where they are and the hour's
-// share, dn_glow.y), 2 = a lamp's globe (dn_glow.x)
+// share, dn_glow.y), 2 = a lamp's globe (dn_glow.x), 3 = a merged mesh whose lamp
+// globes are painted in its vertex colours (the web's lamp whites, either space)
 uniform float night_glow = 0.0;
+
+bool dn_is_lamp(vec3 dn_v) {
+	const vec3 DN_L[8] = vec3[](vec3(1.0, 0.945, 0.769), vec3(1.0, 0.906, 0.651), vec3(1.0, 0.984, 0.918), vec3(1.0, 0.953, 0.753),
+		vec3(1.0, 0.88, 0.552), vec3(1.0, 0.799, 0.381), vec3(1.0, 0.965, 0.823), vec3(1.0, 0.896, 0.527));
+	for (int dn_i = 0; dn_i < 8; dn_i++) {
+		vec3 dn_d = abs(dn_v - DN_L[dn_i]);
+		if (dn_d.x + dn_d.y + dn_d.z < 0.025) return true;
+	}
+	return false;
+}
 
 void vertex() {
 	if (lift > 0.0) VERTEX += NORMAL * lift;
@@ -39,7 +50,7 @@ void fragment() {
 			vec3 dn_room = mix(vec3(1.0, 0.66, 0.3), vec3(1.0, 0.82, 0.5), fract(dn_r * 17.0));
 			EMISSION = mix(c.rgb * 0.25, dn_room, 0.85) * dn_on * dn_sun.a * 1.15;
 			ALBEDO = c.rgb * (1.0 - 0.6 * dn_on * dn_sun.a);
-		} else {
+		} else if (night_glow < 2.5 || (dn_glow.x > 0.0 && dn_is_lamp(albedo.rgb * COLOR.rgb))) {
 			EMISSION = mix(c.rgb, vec3(1.0, 0.86, 0.56), 0.4) * dn_glow.x * 1.25;
 		}
 	}

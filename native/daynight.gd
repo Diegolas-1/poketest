@@ -39,26 +39,29 @@ const REF_HOUR := 13.0
 const LIGHT_MIN_E := 9.0      # the shadow light never lower than this (degrees)
 
 # the light by the sun's height (degrees), morning and evening: tints of lit and
-# shaded surfaces, the sky's three bands, its sun glow. Above the last key: midday.
+# shaded surfaces (linear: the cel shaders tone map them, so a night at a tenth of
+# the light still reads on screen as about a third), the sky's three bands, its
+# sun glow. Above the last key: midday.
 const W := Color(1, 1, 1)
 const KEYS_AM := [
-	{"e": -14.0, "sun": Color(0.22, 0.28, 0.50), "amb": Color(0.13, 0.16, 0.32), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
-	{"e": -6.0, "sun": Color(0.40, 0.38, 0.62), "amb": Color(0.25, 0.25, 0.44), "top": Color(0.05, 0.08, 0.22), "mid": Color(0.17, 0.17, 0.36), "hor": Color(0.50, 0.36, 0.50), "glow": 0.5},
-	{"e": 0.0, "sun": Color(1.0, 0.72, 0.66), "amb": Color(0.62, 0.58, 0.80), "top": Color(0.16, 0.24, 0.52), "mid": Color(0.62, 0.52, 0.72), "hor": Color(1.0, 0.70, 0.58), "glow": 1.6},
-	{"e": 7.0, "sun": Color(1.08, 0.93, 0.80), "amb": Color(0.80, 0.82, 0.98), "top": Color(0.10, 0.30, 0.74), "mid": Color(0.40, 0.60, 0.90), "hor": Color(0.96, 0.86, 0.76), "glow": 1.3},
+	{"e": -14.0, "sun": Color(0.10, 0.13, 0.27), "amb": Color(0.055, 0.07, 0.15), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
+	{"e": -6.0, "sun": Color(0.20, 0.17, 0.30), "amb": Color(0.12, 0.11, 0.21), "top": Color(0.05, 0.08, 0.22), "mid": Color(0.17, 0.17, 0.36), "hor": Color(0.50, 0.36, 0.50), "glow": 0.5},
+	{"e": 0.0, "sun": Color(0.90, 0.55, 0.50), "amb": Color(0.48, 0.38, 0.56), "top": Color(0.16, 0.24, 0.52), "mid": Color(0.62, 0.52, 0.72), "hor": Color(1.0, 0.70, 0.58), "glow": 1.6},
+	{"e": 7.0, "sun": Color(1.08, 0.88, 0.74), "amb": Color(0.76, 0.74, 0.92), "top": Color(0.10, 0.30, 0.74), "mid": Color(0.40, 0.60, 0.90), "hor": Color(0.96, 0.86, 0.76), "glow": 1.3},
 	{"e": 14.0, "sun": Color(1.04, 0.99, 0.93), "amb": Color(0.93, 0.94, 1.0), "top": Color(0.08, 0.30, 0.80), "mid": Color(0.31, 0.60, 0.94), "hor": Color(0.86, 0.90, 0.92), "glow": 1.1},
 	{"e": 22.0, "sun": W, "amb": W, "top": Color(0.07, 0.30, 0.82), "mid": Color(0.28, 0.60, 0.95), "hor": Color(0.80, 0.92, 0.96), "glow": 1.0},
 ]
 const KEYS_PM := [
-	{"e": -14.0, "sun": Color(0.22, 0.28, 0.50), "amb": Color(0.13, 0.16, 0.32), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
-	{"e": -6.0, "sun": Color(0.42, 0.35, 0.58), "amb": Color(0.25, 0.22, 0.42), "top": Color(0.05, 0.07, 0.21), "mid": Color(0.18, 0.15, 0.34), "hor": Color(0.52, 0.30, 0.42), "glow": 0.5},
-	{"e": 0.0, "sun": Color(1.0, 0.60, 0.44), "amb": Color(0.56, 0.48, 0.74), "top": Color(0.14, 0.19, 0.46), "mid": Color(0.58, 0.40, 0.60), "hor": Color(1.0, 0.54, 0.30), "glow": 1.8},
-	{"e": 7.0, "sun": Color(1.12, 0.90, 0.66), "amb": Color(0.78, 0.76, 0.94), "top": Color(0.10, 0.28, 0.70), "mid": Color(0.40, 0.56, 0.84), "hor": Color(1.0, 0.82, 0.58), "glow": 1.4},
-	{"e": 14.0, "sun": Color(1.06, 0.98, 0.88), "amb": Color(0.92, 0.92, 0.99), "top": Color(0.08, 0.30, 0.79), "mid": Color(0.31, 0.60, 0.93), "hor": Color(0.88, 0.90, 0.90), "glow": 1.15},
+	{"e": -14.0, "sun": Color(0.10, 0.13, 0.27), "amb": Color(0.055, 0.07, 0.15), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
+	{"e": -6.0, "sun": Color(0.22, 0.16, 0.30), "amb": Color(0.12, 0.10, 0.21), "top": Color(0.05, 0.07, 0.21), "mid": Color(0.18, 0.15, 0.34), "hor": Color(0.52, 0.30, 0.42), "glow": 0.5},
+	{"e": 0.0, "sun": Color(0.85, 0.45, 0.27), "amb": Color(0.42, 0.30, 0.50), "top": Color(0.14, 0.19, 0.46), "mid": Color(0.58, 0.40, 0.60), "hor": Color(1.0, 0.54, 0.30), "glow": 1.8},
+	{"e": 7.0, "sun": Color(1.12, 0.82, 0.55), "amb": Color(0.72, 0.66, 0.86), "top": Color(0.10, 0.28, 0.70), "mid": Color(0.40, 0.56, 0.84), "hor": Color(1.0, 0.82, 0.58), "glow": 1.4},
+	{"e": 14.0, "sun": Color(1.06, 0.97, 0.86), "amb": Color(0.90, 0.90, 0.98), "top": Color(0.08, 0.30, 0.79), "mid": Color(0.31, 0.60, 0.93), "hor": Color(0.88, 0.90, 0.90), "glow": 1.15},
 	{"e": 22.0, "sun": W, "amb": W, "top": Color(0.07, 0.30, 0.82), "mid": Color(0.28, 0.60, 0.95), "hor": Color(0.80, 0.92, 0.96), "glow": 1.0},
 ]
 const FOG0 := Color("c4e2f0")
-# a season's slight palette: warmer summer, cooler winter (spring and autumn as is)
+# a season's slight palette: warmer summer, cooler winter (spring as is). No snow
+# or autumn leaves yet: the clock's season_changed is where they would hook in.
 const SEASON_TINT := {"spring": Color(1, 1, 1), "summer": Color(1.025, 1.0, 0.965), "autumn": Color(1.02, 0.995, 0.97), "winter": Color(0.97, 0.99, 1.03)}
 
 static var SUN0 := T.vec3("render", "sun_dir", Vector3(-0.55, 0.75, 0.45)).normalized()
@@ -212,7 +215,7 @@ static func sample(hour: float, doy: int, phase: float, season := "") -> Diction
 	# the moon: brighter nights at full moon (0.5), darker at new
 	var full := 0.5 - 0.5 * cos(phase * TAU)
 	var moon_up := smoothstep(-2.0, 12.0, _elev(md))
-	var mk := lerpf(0.9, 1.12, full * moon_up)
+	var mk := lerpf(0.85, 1.2, full * moon_up)
 	var sun_c: Color = k.sun
 	var amb_c: Color = k.amb
 	sun_c = sun_c.lerp(sun_c * mk, night)
@@ -274,7 +277,7 @@ func _apply(s: Dictionary, indoors: bool) -> void:
 		_gset("dn_view", _v4(view if not mid else W, 0.0))
 	else:
 		_gset("dn_sun", _v4(s.sun, night))
-		_gset("dn_amb", _v4(s.amb, 0.0))
+		_gset("dn_amb", _v4(s.amb, night * 0.3))
 		_gset("dn_dir", Vector4(ld.x, ld.y, ld.z, 1.0))
 		_gset("dn_glow", Vector4(s.lamps, s.windows, s.fireflies, 0.0 if mid else 1.0))
 		_gset("dn_view", Vector4(1, 1, 1, 0))
