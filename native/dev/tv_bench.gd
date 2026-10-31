@@ -50,7 +50,7 @@ func _process(dt: float) -> void:
 		if frame < 20: return
 		screens.tv.fake_connect(Vector2i(1920, 1080), "Bench TV")
 		phase = 0; wait = 40
-		_set(0)
+		_apply_cfg(0)
 		return
 	_place()
 	if wait > 0:
@@ -79,11 +79,11 @@ func _process(dt: float) -> void:
 	if phase >= configs.size():
 		get_tree().quit()
 		return
-	_set(phase)
+	_apply_cfg(phase)
 	wait = 40
 
 var _saved := {}
-func _set(i: int) -> void:
+func _apply_cfg(i: int) -> void:
 	_saved = {}
 	for k in configs[i][1]:
 		if not Settings.EXTRA.has(k) and not Settings.PRESETS[Settings.preset].has(k): continue
