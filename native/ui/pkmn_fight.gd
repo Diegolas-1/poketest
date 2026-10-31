@@ -205,7 +205,7 @@ func _head_r() -> Rect2:
 func list_rect() -> Rect2:
 	var W := win_rect()
 	var top := W.position.y + 96.0
-	return Rect2(W.position.x + 30.0, top, W.size.x * 0.6 - 44.0, W.end.y - 44.0 - top)
+	return Rect2(W.position.x + 30.0, top, W.size.x * 0.6 - 44.0, W.end.y - 58.0 - top)
 
 func queue_rect() -> Rect2:
 	var W := win_rect()
@@ -500,7 +500,7 @@ func _draw() -> void:
 func _header(a: float) -> void:
 	var H := _head_r()
 	var fi := f()
-	var y := H.position.y + 30.0
+	var y := H.position.y + 36.0
 	var x := H.position.x + 8.0
 	x += UITheme.text(self, Vector2(x, y + 10.0), "FIGHT", "display", 40, Color(UITheme.TEXT, a)) + 18.0
 	var who := choosing if choosing != "" else "%s  Lv%d" % [String(fi.name).to_upper(), int(fi.level)]
@@ -578,7 +578,7 @@ func _list(a: float) -> void:
 		var r := row_rect(i)
 		if r.end.y < clip.position.y or r.position.y > clip.end.y: continue
 		# rows fade at the scrolled edges
-		var edge := clampf(minf(r.end.y - L.position.y + 10.0, L.end.y + 10.0 - r.position.y) / 26.0, 0.0, 1.0)
+		var edge := clampf(minf(r.end.y - L.position.y + 10.0, L.end.y + 6.0 - r.end.y) / 26.0, 0.0, 1.0)
 		var stg := clampf(_ap * 2.2 - i * 0.06, 0.0, 1.0) if on else 1.0
 		var ra := a * edge * UITheme.ease_out(stg)
 		if ra <= 0.01: continue
@@ -615,8 +615,9 @@ func _row(r: Rect2, i: int, a: float) -> void:
 		UITheme.fill_v(self, pts, Color(UITheme.PLATE_HI, a * 0.9), Color(UITheme.PLATE, a * 0.9))
 	UITheme.accent_bar(self, r, Color(tc, a * dim), a, UITheme.SKEW * 0.5, 6.0 + 3.0 * k)
 	if _flash.has("row:%d" % i): UITheme.fill(self, pts, Color(UITheme.YELLOW, 0.5 * maxf(0.0, 1.0 - float(_flash["row:%d" % i]) / 0.3) * a))
-	var fg := Color(UITheme.TEXT, a * dim).lerp(Color(UITheme.INK, a * dim), k)
-	var sub := Color(UITheme.TEXT_DIM, a * dim).lerp(Color(UITheme.INK_SOFT, a * dim), k)
+	# (on the white of the selection the text stays dark enough to read, even dimmed)
+	var fg := Color(UITheme.TEXT, a * dim).lerp(Color(UITheme.INK, a * maxf(dim, 0.72)), k)
+	var sub := Color(UITheme.TEXT_DIM, a * dim).lerp(Color(UITheme.INK_SOFT, a * maxf(dim, 0.85)), k)
 	var cy := r.get_center().y
 	EnergyIcon.draw_icon(self, kind, Vector2(r.position.x + 32.0, cy), 17.0, a * maxf(dim, 0.6))
 	var nx := r.position.x + 60.0
@@ -755,8 +756,8 @@ func _card(r: Rect2, i: int, slot: int, a: float, q: Dictionary) -> void:
 		var ks: Array = q.get("kinds", [])
 		var x := r.position.x + 88.0
 		for kd in ks:
-			EnergyIcon.draw_icon(self, String(kd), Vector2(x + 6.0, cy + 14.0), 7.0, a)
-			x += 17.0
+			EnergyIcon.draw_icon(self, String(kd), Vector2(x + 8.0, cy + 14.0), 8.5, a)
+			x += 21.0
 		if ks.is_empty(): sub = "NO CHIPS"
 	if sub != "": UITheme.text_mid(self, Vector2(r.position.x + 88.0, cy + 14.0), sub, "label", 11, Color(fg, a * 0.7))
 	if lifted:
@@ -768,7 +769,8 @@ func _card(r: Rect2, i: int, slot: int, a: float, q: Dictionary) -> void:
 		xr.position.y = r.position.y + 6.0
 		xr.position.x = r.end.x - 52.0
 		var xc := xr.get_center()
-		draw_circle(xc, 15.0, Color(UITheme.RED if on_it else Color(1, 1, 1, 0.12), a), true, -1.0, true)
+		var xb := UITheme.RED if on_it or lifted else Color(1, 1, 1, 0.14)
+		draw_circle(xc, 15.0, Color(xb, xb.a * a), true, -1.0, true)
 		var xs := 5.5
 		var xcol := Color(UITheme.WHITE, a)
 		draw_line(xc + Vector2(-xs, -xs), xc + Vector2(xs, xs), xcol, 2.5, true)
@@ -802,7 +804,10 @@ func _buttons(a: float) -> void:
 			var gx := r.position.x + 34.0
 			if UIInput.device != "touch": gx += UITheme.glyph(self, Vector2(gx, cy), "menu" if not on_it else "use", 28.0, a) * 0.5 + 12.0
 			else: gx -= 8.0
-			UITheme.text_mid(self, Vector2(gx, cy - (7.0 if _q().is_empty() else 0.0)), lbl, "display", 28, Color(UITheme.WHITE, a))
+			# (a long label, NEXT: BULBASAUR, a size down to stay clear of the chevrons)
+			var fsz := 28
+			while fsz > 18 and UITheme.text_w(lbl, "display", fsz) > r.end.x - 64.0 - gx: fsz -= 2
+			UITheme.text_mid(self, Vector2(gx, cy - (7.0 if _q().is_empty() else 0.0)), lbl, "display", fsz, Color(UITheme.WHITE, a))
 			if _q().is_empty(): UITheme.text_mid(self, Vector2(gx + 1.0, cy + 17.0), "PASS: NO MOVES", "label", 11, Color(1, 1, 1, 0.8 * a))
 			UITheme.chevrons(self, Vector2(r.end.x - 40.0, cy), 18.0, Color(UITheme.WHITE, a * (0.7 + 0.3 * sin(t * 5.0))), 2)
 		else:

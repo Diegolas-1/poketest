@@ -674,10 +674,10 @@ func _pick_card() -> void:
 		if full:
 			UITheme.text(self, Vector2(tr.position.x + 22.0, ly), "NO ROOM", "label", 14, Color(fg, a * 0.8))
 		elif unl.is_empty():
-			UITheme.text(self, Vector2(tr.position.x + 22.0, ly), "NOTHING NEW", "label", 13, Color(fg, a * 0.6))
-			UITheme.text(self, Vector2(tr.position.x + 22.0, ly + 22.0), "%d MOVE%s READY" % [int(o.ready), "" if int(o.ready) == 1 else "S"], "label", 13, Color(fg, a * 0.6))
+			UITheme.text(self, Vector2(tr.position.x + 22.0, ly), "NOTHING NEW", "label", 15, Color(fg, a * 0.7))
+			UITheme.text(self, Vector2(tr.position.x + 22.0, ly + 24.0), "%d MOVE%s READY" % [int(o.ready), "" if int(o.ready) == 1 else "S"], "label", 15, Color(fg, a * 0.7))
 		else:
-			UITheme.text(self, Vector2(tr.position.x + 22.0, ly), "UNLOCKS", "label", 13, Color(UITheme.GREEN.darkened(0.25 if on else 0.0), a))
+			UITheme.text(self, Vector2(tr.position.x + 22.0, ly), "UNLOCKS", "label", 15, Color(UITheme.GREEN.darkened(0.25 if on else 0.0), a))
 			for j in mini(2, unl.size()):
 				var nm := String(BattleEnergy.move(String(unl[j])).get("name", unl[j])).to_upper()
 				UITheme.text(self, Vector2(tr.position.x + 22.0, ly + 22.0 + j * 21.0), nm + ("  +%d" % (unl.size() - 2) if j == 1 and unl.size() > 2 else ""), "heading", 17, Color(fg, a), 0, tr.size.x - 34.0)

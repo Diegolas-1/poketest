@@ -503,8 +503,8 @@ func _shot_xf(n: String) -> Dictionary:
 		"duel":
 			var fd := _pk_frame()
 			var kd: float = fd.k
-			var md: Vector3 = (fd.c as Vector3).lerp(partner_pos.lerp(foe_p, 0.5), 0.5)
-			return {"pos": md - fwd * 4.0 * kd + side * 5.6 * kd + up * 3.0 * kd, "look": md + up * 0.45, "fov": 44.0}
+			var md: Vector3 = (fd.c as Vector3).lerp(partner_pos.lerp(foe_p, 0.5), 0.25)
+			return {"pos": md - fwd * 4.4 * kd + side * 5.4 * kd + up * 3.0 * kd, "look": md + up * 0.45, "fov": 44.0}
 		# a big move: over his partner's shoulder at the foe, and over the foe's at his partner
 		"pk_a": return {"pos": partner_pos - fwd * 1.1 + side * 2.3 + up * 1.6, "look": foe_p + up * 0.3 - fwd * 0.9, "fov": 46.0}
 		"pk_b":

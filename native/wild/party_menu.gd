@@ -21,6 +21,8 @@ var _rows: Array = []            # [Rect2] this frame's rows
 var _toast := {}
 var t := 0.0
 
+var nav := UIInput.Nav.new()   # (the pad and keys: one step a press)
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -79,6 +81,10 @@ func close(picked := -1) -> void:
 func _process(dt: float) -> void:
 	t += dt
 	k = clampf(k + (dt / 0.18 if _open else -dt / 0.14), 0.0, 1.0)
+	if _open:
+		var nd := nav.tick(dt)
+		var n := party().size()
+		if nd.y != 0 and n > 0: sel = clampi(sel + nd.y, 0, n - 1); Sfx.ui("ui_cursor")
 	queue_redraw()
 
 func _input(e: InputEvent) -> void:
@@ -93,8 +99,9 @@ func _input(e: InputEvent) -> void:
 		return
 	get_viewport().set_input_as_handled()
 	var n := party().size()
-	if e.is_action_pressed("move_up") or e.is_action_pressed("ui_up"): sel = (sel - 1 + n) % maxi(1, n); Sfx.ui("ui_cursor")
-	elif e.is_action_pressed("move_down") or e.is_action_pressed("ui_down"): sel = (sel + 1) % maxi(1, n); Sfx.ui("ui_cursor")
+	var d := nav.event(e)   # (one step a press: the stick never floods; held, it repeats in _process)
+	if d.y != 0: sel = (sel + d.y + n) % maxi(1, n); Sfx.ui("ui_cursor")
+	elif d != Vector2i.ZERO or nav.swallow(e): pass
 	elif e.is_action_pressed("use") or e.is_action_pressed("ui_accept"): _pick(sel)
 	elif e.is_action_pressed("back") or e.is_action_pressed("ui_cancel") or e.is_action_pressed("party"): close(-1)
 	else:

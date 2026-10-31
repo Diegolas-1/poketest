@@ -10,7 +10,8 @@ extends Node
 # stick's flood and the key echo step once); taps hit the menu, the tiles, the rows;
 # the camera stays on one side of the line while choosing and while the turn plays;
 # the spacing (the two Pokémon apart, Ash back behind his); Ash in his battle stance
-# and acting, never a random idle. --shots=DIR (with a renderer) saves labelled stills.
+# and acting, never a random idle. --shots=DIR (with a renderer) saves labelled stills;
+# --frames=DIR --every=n every n-th frame of the first turn played out (singles, doubles).
 # Prints PASS / FAIL lines and "BATTLE UI TEST GREEN".
 
 var main: Node
@@ -24,6 +25,10 @@ var cam_min := INF               # the camera's least distance to the +side of t
 var cam_frames := 0
 var watching := false
 var ash_acts := {}
+var frames_dir := ""
+var every := 8
+var grab := ""
+var _f := 0
 
 func ok(c: bool, what: String) -> void:
 	checks += 1
@@ -34,6 +39,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shots="): shots = a.get_slice("=", 1)
+		if a.begins_with("--frames="): frames_dir = a.get_slice("=", 1)
+		if a.begins_with("--every="): every = maxi(1, int(a.get_slice("=", 1)))
 	UIInput.force("pad")
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
@@ -68,6 +75,8 @@ func shot(label: String) -> void:
 	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [shots, label])
 
 func _process(_dt: float) -> void:
+	_f += 1
+	if frames_dir != "" and grab != "" and _f % every == 0: _grab.call_deferred("%s/%s_%05d.png" % [frames_dir, grab, _f])
 	if not watching or battle == null or not is_instance_valid(battle): return
 	# the camera: which side of the line (partner to foe) it is on
 	var d: float = (battle.cam_pos - battle.partner_pos).dot(battle.side)
@@ -77,6 +86,10 @@ func _process(_dt: float) -> void:
 	if p and p.idles:
 		var n: String = p.idles.acting()
 		if n != "": ash_acts[n] = true
+
+func _grab(path: String) -> void:
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
 
 func _wait_mode(modes: Array, secs := 30.0) -> bool:
 	var t := 0.0
@@ -272,10 +285,13 @@ func _singles() -> void:
 	await _frames(2)
 	ok(hud.mode == "busy" and pk._busy, "CONFIRM commits the turn")
 	ok(not pk.turn_log.is_empty() and pk.turn_log.back().a == ["thunder_shock", "growl"], "the committed queue is the reordered one (%s)" % [pk.turn_log.back().a if not pk.turn_log.is_empty() else []])
+	grab = "s"
 	await shot("04_resolve_a")
 	await _wait(1.6)
 	await shot("04_resolve_b")
 	await _wait_mode(["pick", "menu"], 40.0)
+	await _wait(1.0)
+	grab = ""
 	var moves_a := pk.B.history.slice(hist0).filter(func(e): return String(e.get("t", "")) == "move" and String(e.get("side", "")) == "a").map(func(e): return String(e.move))
 	ok(moves_a.size() >= 1 and moves_a[0] == "thunder_shock", "the moves resolved in the queue's order (%s)" % [moves_a])
 	ok(cam_min > 0.0, "the turn played out on the same side of the line (%.2f over %d frames)" % [cam_min, cam_frames])
@@ -316,20 +332,22 @@ func _singles() -> void:
 	var asked := plog.filter(func(p): return bool(p.prompted)).size()
 	ok(missed.is_empty() and asked >= 2, "the energy pick came up every turn a chip waited (%d of %d turns; missed %s)" % [asked, plog.size(), missed])
 	ok(cam_min > 0.0, "the whole battle kept one side of the line (%.2f)" % cam_min)
-	# the rest by the AI, to the end
-	if is_instance_valid(pk): pk.auto = true
-	if is_instance_valid(pk) and hud.mode in ["menu", "pick", "fight"]:
-		if pk.B.needs_pick("a"): pk.B.pick_pool("a", "")
-		hud.busy()
-		pk.B.ai_queue("a")
-		pk._on_end_turn()
-	var t := 0.0
-	while is_instance_valid(battle) and not battle.done and t < 120.0:
-		await get_tree().process_frame
-		t += get_process_delta_time()
+	# the rest skipped: Ash runs (at his next choice), the battle closes
+	await _end_battle()
 	watching = false
 	ok(not is_instance_valid(battle) or battle.done, "the battle ran to its end")
 	await _wait(2.5)
+
+# ends the battle at Ash's next choice (as if it fled), and waits for it to close
+func _end_battle() -> void:
+	if is_instance_valid(battle) and is_instance_valid(pk) and not pk.B.over:
+		await _wait_mode(["pick", "menu"], 60.0)
+		if is_instance_valid(pk):
+			pk.B.over = true; pk.B.outcome = "fled"; pk._over = true
+	var t := 0.0
+	while is_instance_valid(battle) and not battle.done and t < 30.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
 
 func _doubles() -> void:
 	cam_min = INF
@@ -360,9 +378,12 @@ func _doubles() -> void:
 	ok(hud.fight.confirm_label == "CONFIRM", "doubles: the last one's button is CONFIRM")
 	send(_act("menu"))
 	await _frames(2)
+	grab = "d"
 	ok(pk._busy, "doubles: the second CONFIRM plays the turn")
 	await _wait(1.5)
 	await shot("09_doubles_resolve")
 	await _wait_mode(["pick", "menu"], 60.0)
+	grab = ""
+	await _end_battle()
 	ok(cam_min > 0.0, "doubles: the camera kept one side of the line (%.2f over %d frames)" % [cam_min, cam_frames])
 	watching = false
