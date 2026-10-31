@@ -693,14 +693,30 @@ def growl(x):
 
 # ---------- render ----------
 
-def render_song(P, tempo, ls, le, work, reps=4, target=-16.0, name=ID, intro=True):
+# mix trims (dB) on top of each part's own gain
+MIX = {}
+
+
+def level(x):
+    """Loudness while playing: 90th percentile of 0.4 s RMS windows, dB."""
+    m = x.mean(1)
+    w = int(0.4 * SR)
+    n = len(m) // w
+    if n == 0:
+        return -99.0
+    r = np.sqrt((m[:n * w].reshape(n, w) ** 2).mean(1))
+    r = r[r > 1e-5]
+    return float(20 * np.log10(np.percentile(r, 90))) if len(r) else -99.0
+
+
+def make_stems(P, tempo, ls, le, work, reps, intro):
+    """name -> (dry, send, base gain dB, send amount), placed on the stage."""
     intro_s = tempo.sec(ls) if intro else 0.0
     loop_s = tempo.sec(le) - tempo.sec(ls)
     intro_n = int(round(intro_s * SR))
     N = int(round(loop_s * SR))
     total = intro_n + reps * N + 6 * SR
-    dry = np.zeros((total, 2), np.float32)
-    send = np.zeros((total, 2), np.float32)
+    stems = {}
     for p in P:
         if not any(ls <= n[0] < le or (intro and n[0] < ls) for n in p.notes):
             continue
@@ -716,10 +732,8 @@ def render_song(P, tempo, ls, le, work, reps=4, target=-16.0, name=ID, intro=Tru
             seg = lp[:max(0, total - i)]
             stem[i:i + len(seg)] += seg
         d, s = render.place(stem, seat)
-        g = 10 ** (p.perf.get('gain', 0) / 20)
-        dry += d * g
-        send += s * g * p.perf.get('send', 1.0)
-        print('  part %-18s peak %.2f' % (p.name, float(np.max(np.abs(d * g)))), flush=True)
+        stems[p.name] = (d, s, p.perf.get('gain', 0), p.perf.get('send', 1.0))
+        print('  part %-18s' % p.name, flush=True)
     tr = gm_tracks()
     for nmk, evs in tr.items():
         if not intro:
@@ -729,10 +743,23 @@ def render_song(P, tempo, ls, le, work, reps=4, target=-16.0, name=ID, intro=Tru
             x = growl(x)
         prog, drum, bank, seat, gdb, snd = GM[nmk]
         d, s = render.place(x * 2.2, render.SEAT[seat])
-        g = 10 ** (gdb / 20)
+        stems[nmk] = (d, s, gdb, snd)
+        print('  gm   %-18s' % nmk, flush=True)
+    return stems, intro_n, N, total
+
+
+def render_song(P, tempo, ls, le, work, reps=4, target=-16.0, name=ID, intro=True, stems=None):
+    if stems is None:
+        stems, intro_n, N, total = make_stems(P, tempo, ls, le, work, reps, intro)
+    else:
+        stems, intro_n, N, total = stems
+    dry = np.zeros((total, 2), np.float32)
+    send = np.zeros((total, 2), np.float32)
+    for nmk, (d, s, gdb, snd) in stems.items():
+        g = 10 ** ((gdb + MIX.get(nmk, 0)) / 20)
         dry += d * g
         send += s * g * snd
-        print('  gm   %-18s peak %.2f' % (nmk, float(np.max(np.abs(d * g)))), flush=True)
+        print('  %-18s level %6.1f dB  peak %.2f' % (nmk, level(d * g), float(np.max(np.abs(d * g)))))
     ir = render.hall_ir(seconds=2.8, rt_low=2.0, rt_mid=1.7, rt_high=1.0)
     wet = render.reverb(send, ir)
     mix = dry + wet * 0.6
@@ -834,10 +861,16 @@ def main():
         a, b = float(sys.argv[i + 1]), float(sys.argv[i + 2])     # loop bars, 1-based; 0 = from the intro
         ls = S_G + 4 * (a - 1) if a > 0 else 0
         le = S_G + 4 * b
-        if a > 0:
-            info = render_song(P, tempo, ls, le, work, reps=1, name='excerpt', intro=False)
+        import pickle
+        cache = os.path.join(work, 'stems_%g_%g.pkl' % (a, b))
+        intro = a <= 0
+        ls = ls if a > 0 else S_G
+        if '--remix' in sys.argv and os.path.exists(cache):
+            st = pickle.load(open(cache, 'rb'))
         else:
-            info = render_song(P, tempo, S_G, le, work, reps=1, name='excerpt', intro=True)
+            st = make_stems(P, tempo, ls, le, work, 1, intro)
+            pickle.dump(st, open(cache, 'wb'), protocol=4)
+        info = render_song(P, tempo, ls, le, work, reps=1, name='excerpt', intro=intro, stems=st)
         render.to_mp3(info['wav'], os.path.join(out, 'excerpt.mp3'))
         build.spectrogram(info['wav'], os.path.join(out, 'excerpt_spectrogram.png'), 'excerpt')
         print('excerpt', info)

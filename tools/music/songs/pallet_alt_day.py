@@ -740,10 +740,10 @@ def orchestra():
     P.append(vpart('Violins I long', 'vln', vhi, [(S['P1'] * 4, 'mf'), (S['D'] * 4 + 24, 'p<'), (S['D'] * 4 + 32, 'mf')],
                    legato=True, swell=0.08, humanize=0.01, seat='vln1'))
     # --- violins II: harmony / pads / octave melody
+    P.append(vpart('Violins II mel', 'vln', shift(M['ch2'], -12) + shift(M['tag'], -12),
+                   [(S['C2'] * 4, 'f'), (S['T'] * 4, 'f')], legato=True, swell=0.05, humanize=0.012, cents=-3, seat='vln2'))
     v2 = []
     v2 += below(M['ch1'], lo=60)
-    v2 += shift(M['ch2'], -12)
-    v2 += shift(M['tag'], -12)
     a2pad = pad_lines(*bars(S['A2'], 8), 60, 74, 3, [[0]])[0]
     a3pad = pad_lines(*bars(S['A3'], 8), 62, 76, 3, [[0]])[0]
     bpad = pad_lines(*bars(S['B'] + 8, 8), 64, 76, 3, [[0]])[0]
@@ -853,7 +853,7 @@ def orchestra():
     return P
 
 
-SEATS = {'Violins I': 'vln1', 'Violins I long': 'vln1', 'Violins II': 'vln2', 'Violas': 'vla', 'Cellos': 'vc',
+SEATS = {'Violins I': 'vln1', 'Violins I long': 'vln1', 'Violins II': 'vln2', 'Violins II mel': 'vln2', 'Violas': 'vla', 'Cellos': 'vc',
          'Horns': 'hn', 'Horns 2': 'hn', 'Flute': 'fl', 'Oboe': 'ob', 'Clarinet': 'cl', 'Bassoon': 'bn',
          'Violins pizz': 'vln1', 'Cellos pizz': 'vc', 'Glockenspiel': 'glock', 'Xylophone': 'xylo',
          'Timpani roll': 'timp', 'Timpani': 'timp'}
@@ -870,7 +870,7 @@ GM = {
 # active-RMS mix targets (dBFS of each stem where it plays)
 TARGET = {
     'Drums': -17.0, 'Percussion': -27.0, 'Bass': -18.5, 'Guitar': -24.0, 'Piano': -22.0,
-    'Violins I': -19.0, 'Violins I long': -24.0, 'Violins II': -23.5, 'Violas': -26.5, 'Cellos': -23.5,
+    'Violins I': -19.0, 'Violins I long': -24.0, 'Violins II': -23.5, 'Violins II mel': -23.0, 'Violas': -26.5, 'Cellos': -23.5,
     'Horns': -21.0, 'Horns 2': -25.5, 'Flute': -23.0, 'Oboe': -21.5, 'Clarinet': -23.0, 'Bassoon': -26.5,
     'Violins pizz': -27.0, 'Cellos pizz': -26.0, 'Glockenspiel': -25.0, 'Xylophone': -24.5,
     'Timpani roll': -27.0, 'Timpani': -25.0,

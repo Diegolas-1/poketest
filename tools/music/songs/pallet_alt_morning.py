@@ -338,7 +338,7 @@ def build_score():
         return P[-1]
 
     # melody winds
-    fl = part('Flute', 'fl', legato=True, humanize=0.007, swell=0.05)
+    fl = part('Flute', 'fl', legato=True, humanize=0.007, swell=0.05, gain=1.5)
     fl.add('@mp ' + MEL_A, S_A)
     fl.add('@p ' + FL_DESC + ' @mp ' + FL_FILL_D7, S_A2)
     fl.add('@mp ' + FL_ANS_B, S_B)
@@ -400,7 +400,7 @@ def build_score():
     # harp, piano, glockenspiel
     harp = part('Harp', 'harp', humanize=0.006, gate=1.4, spread=0.035)
     harp.add('@mp G2,D3,B3,F#4:w | @p A3:e D4:e E4:e G4:e A4:e C#5:e E5:e G5:e |', S_INTRO)
-    harp.add('@mp ' + harp_rolls(A2_SEC[:14]) + ' ' + harp_rolls(A2_SEC[14:]), S_A2)
+    harp.add('@p ' + harp_rolls(A2_SEC[:14]) + ' ' + harp_rolls(A2_SEC[14:]), S_A2)
     harp.add('@mp ' + harp_quarters(B_SEC[:16]) + ' @mf ' + harp_eighths(B_SEC[16:]), S_B)
     harp.add('@mp< ' + 'r:w | r:w | r:w | r:h ' + gliss_up(chord('A7'), midi('A3'), 8) + ' @mf', S_BR + 32)
     harp.add('@mp ' + harp_eighths(A3_SEC), S_A3)
@@ -490,7 +490,7 @@ def perc_events(rng):
         else:
             acc = [.55, .9, .5, .95, .55, .9, .5, 1.0]
             for j in range(8):
-                v = (30 + 55 * lv) * acc[j]
+                v = (26 + 46 * lv) * acc[j]
                 ev.append((b0 + j * 0.5, 0.25, 9, SHAKER, int(np.clip(v + rng.normal(0, 4), 8, 110))))
             if b0 >= S_A3 and b0 < S_LINK:          # sixteenth ghosts in A''
                 for j in range(8):
@@ -559,7 +559,7 @@ def fluid(mid, wav):
     return x
 
 
-GM_GAIN = {'Guitar': 1.6, 'Brushes': 1.4}
+GM_GAIN = {'Guitar': 1.3, 'Brushes': 1.2}
 
 
 def gm_stems(tempo, work, loop_start, loop_end, b_lo=None, b_hi=None):

@@ -537,6 +537,9 @@ def excerpt(P, tempo, bar0, bar1, out):
         g = 10 ** (p.perf.get('gain', 0) / 20)
         dry += d * g
         send += s * g
+        r = np.sqrt(np.mean((d * g) ** 2))
+        if r > 0:
+            print('  %-16s rms %6.1f dB  peak %6.1f dB' % (p.name, 20 * np.log10(r + 1e-12), 20 * np.log10(np.abs(d * g).max() + 1e-12)))
     mix = dry + render.reverb(send, render.hall_ir()) * 0.75
     m, l0, l1 = render.loudness(render.master(mix))
     sf.write(out, m, render.SR)
