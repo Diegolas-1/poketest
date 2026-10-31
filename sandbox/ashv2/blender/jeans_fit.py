@@ -301,7 +301,7 @@ for p in jeans.data.polygons: p.use_smooth = True
 
 # ---------- the belt: round the waistband ----------
 def belt_obj():
-    zs = [(Z_WAIST + 0.4 * CM), (Z_WAIST - 2.6 * CM)]      # over the waistband's top edge
+    zs = [(Z_WAIST + 1.0 * CM), (Z_WAIST - 2.6 * CM)]      # over the waistband's top edge
     ring = []
     for z in zs:
         pts = [(v.co.x, v.co.y) for v in jeans.data.vertices if abs(v.co.z - z) < 0.7 * CM]
@@ -312,6 +312,9 @@ def belt_obj():
         for _ in range(64):
             if all(R): break
             R = [x if x else max(R[(i - 1) % 64], R[(i + 1) % 64]) for i, x in enumerate(R)]
+        # one smooth band round him, over the belt loops (not following every bump of them)
+        for _ in range(3): R = [max(R[(i + j) % 64] for j in range(-4, 5)) for i in range(64)]
+        for _ in range(4): R = [sum(R[(i + j) % 64] for j in range(-3, 4)) / 7 for i in range(64)]
         ring.append([(c[0] + math.sin(2 * math.pi * k / 64) * (R[k] + 0.3 * CM), c[1] - math.cos(2 * math.pi * k / 64) * (R[k] + 0.3 * CM), z) for k in range(64)])
     bm = bmesh.new(); rows = [[bm.verts.new(Vector(p)) for p in r] for r in ring]
     for k in range(64): bm.faces.new((rows[0][k], rows[0][(k + 1) % 64], rows[1][(k + 1) % 64], rows[1][k]))
