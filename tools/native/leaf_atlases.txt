@@ -1,0 +1,5 @@
+base/tex/987b6cd69fc71cf2.png green flip
+plants/leaf_autumn_ea88039ec5e3a0d1.png autumn up
+plants/leaf_crop_9d560b8b1105e104.png crop up
+plants/leaf_green_23b9e9a194403acc.png green up
+plants/leaf_meadow_9ab79ab93d709dbe.png meadow up

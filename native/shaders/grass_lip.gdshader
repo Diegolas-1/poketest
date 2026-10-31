@@ -2,10 +2,11 @@
 // clump (the same blades, colours, light and wind as grass.gdshader) planted
 // on a brim and bent out over the edge. Instance transform: local +x out over
 // the edge, its scale; INSTANCE_CUSTOM = droop, stretch (blade length), a
-// random number. No ink.
+// random number. Ink along the blades as the field's (grass_ink.gdshaderinc).
 shader_type spatial;
 render_mode unshaded, cull_disabled;
 #include "res://shaders/aces.gdshaderinc"
+#include "res://shaders/grass_ink.gdshaderinc"
 
 uniform vec3 sun_dir = vec3(-0.55, 0.75, 0.45);
 
@@ -45,10 +46,13 @@ void vertex() {
 	// what hangs below the brim is in the turf's shade
 	v_light = mix(0.78, 1.08, step(0.15, dot(nrm, normalize(dn_light_dir(sun_dir)))) * step(-0.15, ca));
 	if (dn_glow.w > 0.0) v_col = dn_relight(v_col * v_light, dn_tint(step(0.9, v_light))) / v_light;
+	vec3 wp = (MODEL_MATRIX * vec4(lp, 1.0)).xyz;
+	v_side = UV2.y;
+	v_ink_px = grass_ink_px(wp, distance(wp, CAMERA_POSITION_WORLD), VIEWPORT_SIZE);
 }
 
 void fragment() {
 	vec3 c = v_col * v_light;
 	if (v_light < 0.9) c *= vec3(0.86, 0.95, 1.05);
-	ALBEDO = c;
+	ALBEDO = grass_ink(c);
 }

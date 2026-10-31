@@ -40,7 +40,23 @@ void fragment() {
 	vec4 c = albedo;
 	if (use_vc) c *= COLOR;
 	if (use_tex) c *= texture(albedo_tex, UV);
+#ifdef TOON_CUT
+	// cut-out cards (toon_cut / toon_ds_cut: render_mode alpha_to_coverage): with
+	// MSAA the cut's edge is smoothed by coverage instead of stair steps
+	ALPHA = c.a;
+	// (the coverage is half at alpha = threshold + edge, at the cut; the threshold
+	// just under the edge's ramp (from its screen derivative), so a smooth alpha
+	// (the leaf atlases' distance field: veg_leaf) keeps its whole soft edge under
+	// MSAA and grows by under a pixel without it)
+	float m = clamp(fwidth(c.a) * 0.75, 0.02, 0.15);
+	ALPHA_SCISSOR_THRESHOLD = max(alpha_scissor - m, 0.02);
+	ALPHA_ANTIALIASING_EDGE = alpha_scissor - max(alpha_scissor - m, 0.02);
+	// (UV, not texels: Godot then adds no mip-level boost to the alpha, which made
+	// distant cards fuller than the cut drew them)
+	ALPHA_TEXTURE_COORDINATE = UV;
+#else
 	if (alpha_scissor > 0.0 && c.a < alpha_scissor) discard;
+#endif
 	ALBEDO = c.rgb;
 	if (night_glow > 0.0 && dn_glow.x + dn_glow.y > 0.0) {
 		if (night_glow < 1.5) {
