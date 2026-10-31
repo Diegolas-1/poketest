@@ -441,11 +441,11 @@ def build_score():
     vc = part('Cellos', 'vc', 'vc', legato=True, swell=0.04, humanize=0.012)
     pv = part('Violins pizz', 'vln_pizz', 'pvln', humanize=0.008)
     pa = part('Violas pizz', 'vla_pizz', 'pvla', humanize=0.008)
-    cbp = part('Bass', 'cb_pizz', 'bass', humanize=0.007)
+    cbp = part('Bass', 'cb_pizz', 'bass', humanize=0.007, hp=42)
     xy = part('Xylophone', 'xylo', 'xylo', humanize=0.004)
     gl = part('Glockenspiel', 'glock', 'glock', humanize=0.004, gate=2.0)
     gtr = part('Guitar', 'gm:24', 'guitar', humanize=0.008)
-    bgm = part('Bass GM', 'gm:32', 'bass', humanize=0.007)
+    bgm = part('Bass GM', 'gm:32', 'bass', humanize=0.007, hp=42)
     sh = part('Shaker', 'gm:drum', 'shaker', humanize=0.006)
     rm = part('Rim', 'gm:drum', 'rim', humanize=0.006)
     wb = part('Clock', 'gm:drum', 'wood', humanize=0.003)
@@ -770,6 +770,8 @@ def mix_down(parts, tempo, work, loop=True, ex=None):
             a = stem_audio(p, tempo, ex[0], ex[1], ex[0], work, 'ex')
             stem[:min(len(a), total)] += a[:total]
         seat = dict(render.SEAT[p.seat], **{k: p.perf[k] for k in ('pan', 'width', 'depth') if k in p.perf})
+        if p.perf.get('hp'):
+            stem = render.sfz.highpass(stem, p.perf['hp'], 2)
         d, s = render.place(stem, seat)
         g = 10 ** ((p.perf.get('gain', 0) + GAINS.get(p.name, 0)) / 20)
         dry += d * g
@@ -779,6 +781,9 @@ def mix_down(parts, tempo, work, loop=True, ex=None):
         levels[p.name] = 20 * np.log10(rms + 1e-9)
         print('  %-16s active rms %6.1f dB  peak %.2f' % (p.name, levels[p.name], float(np.max(np.abs(d * g)))))
         del stem, d, s
+        render._INST.clear()          # sample caches: keep the memory low
+        import gc
+        gc.collect()
     wet = render.reverb(send, room)
     mix = dry + wet * 0.55
     del dry, send, wet
@@ -801,11 +806,11 @@ def mix_down(parts, tempo, work, loop=True, ex=None):
 
 # stem trims (dB), set from measured active RMS so the piano leads
 GAINS.update({
-    'Piano': 0, 'Piano harmony': -3, 'Piano LH': -5, 'Piano fill': -2, 'Piano bridge': -2,
-    'Clarinet': -1, 'Clarinet stacc': 0, 'Bassoon stacc': 0, 'Violins I': 0,
-    'Violins II': -6, 'Violas': -5, 'Cellos': -6, 'Violins pizz': -5, 'Violas pizz': -5,
-    'Bass': -1, 'Bass GM': -4, 'Xylophone': -4, 'Glockenspiel': -8, 'Guitar': -3,
-    'Shaker': -10, 'Rim': -9, 'Clock': -10, 'Triangle': -14,
+    'Piano': 0, 'Piano harmony': -8, 'Piano LH': -5, 'Piano fill': 0, 'Piano bridge': -4,
+    'Clarinet': -6, 'Clarinet stacc': -5, 'Bassoon stacc': -7, 'Violins I': -7,
+    'Violins II': -13, 'Violas': -8, 'Cellos': -4, 'Violins pizz': -8, 'Violas pizz': -5,
+    'Bass': -5, 'Bass GM': -6, 'Xylophone': -8, 'Glockenspiel': 0, 'Guitar': -3,
+    'Shaker': -7, 'Rim': -8, 'Clock': -4, 'Triangle': -3,
 })
 
 

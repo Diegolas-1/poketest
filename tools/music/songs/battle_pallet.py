@@ -222,6 +222,10 @@ def mel(p, bl, start, level=None, shift=0):
 
 # generators -------------------------------------------------------------
 
+# playable ranges (sounding MIDI keys) for the run generator
+PLAY = {'vln_spic': (55, 93), 'vla_spic': (48, 86), 'vc_spic': (36, 77)}
+
+
 def runs(p, b0, nbars, lo, alt=True):
     """Spiccato 16th runs: up from the root and back (or down from the fifth
     and back), so every beat lands on a chord tone and the 16ths between are
@@ -241,8 +245,16 @@ def runs(p, b0, nbars, lo, alt=True):
             k = lo
             while k % 12 != pc:
                 k += 1
-            for j, st in enumerate(pt):
-                addn(p, s + j * 0.25, 0.25, [step(k, -st if down else st, ch)])
+            ks = [step(k, -st if down else st, ch) for st in pt]
+            # keep the whole run inside the section's playable range (an
+            # octave shift of the run, never of a single note)
+            rlo, rhi = PLAY.get(p.patch, (0, 127))
+            while max(ks) > rhi and min(ks) - 12 >= rlo:
+                ks = [x - 12 for x in ks]
+            while min(ks) < rlo and max(ks) + 12 <= rhi:
+                ks = [x + 12 for x in ks]
+            for j, x in enumerate(ks):
+                addn(p, s + j * 0.25, 0.25, [x])
 
 
 def pump(p, b0, nbars, voice, shift=0, pos=(0, 1, 1.5, 2, 3, 3.5), dur=0.42):
@@ -627,7 +639,7 @@ def build_parts():
     mel(tpt, MEL_B[8:], B2, 'f', shift=-1)
     dyn(tpt, B2 + 24, 'f', True), dyn(tpt, B2 + 31, 'ff')
     mel(vln1, MEL_B[8:], B2, 'f')
-    mel(picc, MEL_B[8:], B2, 'mp')
+    mel(picc, MEL_B[8:], B2, 'mf', shift=1)   # an octave over the violins (its low octave is weak)
     mel(hn, HN_B, B2, 'mf')
     dyn(tbn, B2, 'mf')
     tbn_pads(tbn, B2, 8)
@@ -873,7 +885,11 @@ def mix_parts(parts, layout, total, ranges=()):
 
 
 GAINS = {
-    # mix balance (dB), set by measuring stem RMS per section
+    # mix balance (dB), set by measuring stem RMS per section: the staccato
+    # brass samples are hot (their stabs sat 4-6 dB over the strings and kit)
+    'Trumpets stac': -5.5,
+    'Trombones stac': -5.5,
+    'Horns stac': -2.5,
 }
 
 

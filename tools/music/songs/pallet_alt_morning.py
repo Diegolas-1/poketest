@@ -553,7 +553,7 @@ def write_mid(path, events, tempo, origin, programs):
 
 def fluid(mid, wav):
     subprocess.run(['fluidsynth', '-ni', '-R', '0', '-C', '0', '-g', '0.5', '-r', str(SR), '-O', 'float', '-T', 'wav',
-                    '-F', wav, GUGS, mid], check=True, capture_output=True)
+                    '-F', wav, GUGS, mid], check=True, capture_output=True, timeout=900)
     x, sr = sf.read(wav, dtype='float32', always_2d=True)
     assert sr == SR
     return x

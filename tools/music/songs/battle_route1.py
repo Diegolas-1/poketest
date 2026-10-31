@@ -285,7 +285,7 @@ def build_parts():
     # ===== fiddle (solo violin) =====
     fid = part('Fiddle', 'svln', 'svln', legato=True, humanize=0.006, swell=0.02, gain=1.5)
     fid.add('@f ' + HOOK, S_A)
-    fid.add('@mf ' + C_FID.replace('A5:e C6:e F6:e C6:e A5:e C6:e F6:e C6:e', '@mf< A5:e C6:e F6:e C6:e A5:e C6:e F6:e C6:e', 1).rstrip() + ' @f', S_C)
+    fid.add('@f ' + C_FID.replace('A5:e C6:e F6:e C6:e A5:e C6:e F6:e C6:e', '@f< A5:e C6:e F6:e C6:e A5:e C6:e F6:e C6:e', 1).rstrip() + ' @ff', S_C)
     fid.add('@f ' + HOOK, S_A2)
     fid.add('@f ' + LINK_TOP, S_LINK)
 
@@ -348,12 +348,12 @@ def build_parts():
     hn.add('@f E4:q. D4:e E4:q A4:q | G4:e E4:e D4:q E4:h | r:w | r:w |', S_G)
     hn.add('@mp ' + pad(H_A, 2), S_A)
     hn2.add('@mp ' + pad(H_A, 1), S_A)
-    hn.add('@f ' + BTUNE1, S_B)
-    hn.add('@mf ' + BHARM2, S_B + 32)
+    hn.add('@mf ' + BTUNE1, S_B)
+    hn.add('@mp ' + BHARM2, S_B + 32)
     hn2.add('@mp ' + pad(H_B, 0), S_B)
     hn.add(rests(8) + ' @p< ' + pad(H_C[8:], 2) + ' @ff', S_C)
     hn2.add(rests(8) + ' @p< ' + pad(H_C[8:], 1) + ' @ff', S_C)
-    hn.add('@mf ' + pad(H_A2, 2), S_A2)
+    hn.add('@f ' + pad(H_A2, 2), S_A2)
     hn2.add('@mf ' + pad(H_A2, 1), S_A2)
     hns = part('Horns stac', 'hn_stac', 'hn', humanize=0.008)
     hns.add('@ff ' + 'A3,C4,E4:q r:q r:h | A3,C4,F4:e r:e r:e G3,B3,D4:e r:e r:e A3,C4,E4:e r:e | '
@@ -399,6 +399,15 @@ def build_parts():
     troll.add('@mp ' + rests(6) + ' @mp< E2:w~ | E2:h. r:q | @ff', S_LINK)
     xyl = part('Xylophone', 'xylo', 'xylo', humanize=0.004, gate=1.0)
     xyl.add('@mf ' + '\n'.join(HOOK.split('\n')[:4]), S_A2)
+    # a ramp that ends where the next section sets its own level: the
+    # earlier mark moves just before the bar line
+    for p in P:
+        seen = {}
+        for i, d in enumerate(p.dyn):
+            key = round(d[0], 4)
+            if key in seen:
+                p.dyn[seen[key]][0] -= 0.01
+            seen[key] = i
     return P
 
 
@@ -673,6 +682,7 @@ def gm_render(name, events, tempo, ls, le, intro_s, loop_s, reps, total, work):
     subprocess.run(['fluidsynth', '-ni', '-R', '0', '-C', '0', '-g', '0.5', '-r', str(SR), '-O', 'float',
                     '-F', wav, SF2, mid], check=True, capture_output=True)
     x, sr = sf.read(wav, dtype='float32', always_2d=True)
+    os.remove(wav)
     lat = int(0.003 * SR)                       # fluidsynth's onset latency
     x = x[lat:]
     out = np.zeros((total, 2), np.float32)
@@ -694,7 +704,12 @@ def growl(x):
 # ---------- render ----------
 
 # mix trims (dB) on top of each part's own gain
-MIX = {}
+MIX = {
+    'Trumpets stac': -10.0, 'Horns stac': -6.0, 'Trombones stac': -2.0, 'Tuba stac': 1.0,
+    'Cellos spic': -4.0, 'Violas spic': -4.0, 'Violins II spic': -3.0, 'Piccolo': 5.0, 'Timpani': 7.0, 'Timpani roll': 3.0,
+    'Horns': -5.0, 'Fiddle': 1.0, 'Bass': -1.0, 'Basses spic': -6.0, 'Clarinet': 4.0, 'Flute': 2.0,
+    'Taiko': 2.0,
+}
 
 
 def level(x):
@@ -710,13 +725,14 @@ def level(x):
 
 
 def make_stems(P, tempo, ls, le, work, reps, intro):
-    """name -> (dry, send, base gain dB, send amount), placed on the stage."""
+    """Yields (name, dry, send, base gain dB, send amount), placed on the
+    stage, one stem at a time (a full render holds only the sums)."""
     intro_s = tempo.sec(ls) if intro else 0.0
     loop_s = tempo.sec(le) - tempo.sec(ls)
     intro_n = int(round(intro_s * SR))
     N = int(round(loop_s * SR))
     total = intro_n + reps * N + 6 * SR
-    stems = {}
+    yield intro_n, N, total
     for p in P:
         if not any(ls <= n[0] < le or (intro and n[0] < ls) for n in p.notes):
             continue
@@ -732,8 +748,7 @@ def make_stems(P, tempo, ls, le, work, reps, intro):
             seg = lp[:max(0, total - i)]
             stem[i:i + len(seg)] += seg
         d, s = render.place(stem, seat)
-        stems[p.name] = (d, s, p.perf.get('gain', 0), p.perf.get('send', 1.0))
-        print('  part %-18s' % p.name, flush=True)
+        yield p.name, d, s, p.perf.get('gain', 0), p.perf.get('send', 1.0)
     tr = gm_tracks()
     for nmk, evs in tr.items():
         if not intro:
@@ -743,19 +758,15 @@ def make_stems(P, tempo, ls, le, work, reps, intro):
             x = growl(x)
         prog, drum, bank, seat, gdb, snd = GM[nmk]
         d, s = render.place(x * 2.2, render.SEAT[seat])
-        stems[nmk] = (d, s, gdb, snd)
-        print('  gm   %-18s' % nmk, flush=True)
-    return stems, intro_n, N, total
+        yield nmk, d, s, gdb, snd
 
 
 def render_song(P, tempo, ls, le, work, reps=4, target=-16.0, name=ID, intro=True, stems=None):
-    if stems is None:
-        stems, intro_n, N, total = make_stems(P, tempo, ls, le, work, reps, intro)
-    else:
-        stems, intro_n, N, total = stems
+    it = iter(stems if stems is not None else make_stems(P, tempo, ls, le, work, reps, intro))
+    intro_n, N, total = next(it)
     dry = np.zeros((total, 2), np.float32)
     send = np.zeros((total, 2), np.float32)
-    for nmk, (d, s, gdb, snd) in stems.items():
+    for nmk, d, s, gdb, snd in it:
         g = 10 ** ((gdb + MIX.get(nmk, 0)) / 20)
         dry += d * g
         send += s * g * snd
@@ -868,8 +879,9 @@ def main():
         if '--remix' in sys.argv and os.path.exists(cache):
             st = pickle.load(open(cache, 'rb'))
         else:
-            st = make_stems(P, tempo, ls, le, work, 1, intro)
-            pickle.dump(st, open(cache, 'wb'), protocol=4)
+            st = list(make_stems(P, tempo, ls, le, work, 1, intro))
+            if '--cache' in sys.argv:
+                pickle.dump(st, open(cache, 'wb'), protocol=4)
         info = render_song(P, tempo, ls, le, work, reps=1, name='excerpt', intro=intro, stems=st)
         render.to_mp3(info['wav'], os.path.join(out, 'excerpt.mp3'))
         build.spectrogram(info['wav'], os.path.join(out, 'excerpt_spectrogram.png'), 'excerpt')

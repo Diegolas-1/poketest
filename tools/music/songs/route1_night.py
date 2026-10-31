@@ -294,9 +294,9 @@ def build_parts():
         return P[-1]
 
     # harp: the firefly ostinato
-    harp = part('Harp', 'harp', humanize=0.006, gate=1.6, gain=-1.0)
+    harp = part('Harp', 'harp', humanize=0.006, gate=1.6, gain=-2.5, pan=-0.42)
     harp.add('@pp< ' + harp_ost(INTRO) + ' @p', S_IN)
-    harp.add('@p ' + harp_ost(A_SEC[:28]), S_A)
+    harp.add('@pp ' + harp_ost(A_SEC[:16]) + ' @p ' + harp_ost(A_SEC[16:28]), S_A)
     # bar 16 of A: a run up into F major
     harp.add('@p C3:e G3:e E4:e G4:e @p< C4:s D4:s E4:s F4:s G4:s A4:s Bb4:s C5:s |', S_A + 60)
     harp.add('@mp ' + harp_ost(B_SEC[:30], wide=True), S_B)
@@ -307,7 +307,7 @@ def build_parts():
     harp.add('@p> ' + harp_ost(A2_SEC[20:]) + ' @pp', S_A2 + 40)
 
     # celesta (GM): twinkles
-    cel = part('Celesta', 'gm:8', humanize=0.005, gate=1.0, gain=0.0)
+    cel = part('Celesta', 'gm:8', humanize=0.005, gate=1.0, gain=8.0)
     cel.add('@p ' + celesta_ost(INTRO), S_IN)
     cel.add('@pp< ' + celesta_ost(A_SEC[16:]) + ' @p', S_A + 32)
     cel.add('@pp ' + celesta_ost(B_SEC[:30], light=True) + ' r:w |', S_B)
@@ -323,12 +323,12 @@ def build_parts():
     cl.add('@p r:h r:e A3:e D4:e F4:e | A4:h. r:q | r:h r:e G3:e Bb3:e D4:e | F4:h. r:q | r:w | r:w | '
            '@mp r:e A3:e D4:e E4:e F4:q. E4:e | D4:h r:h | @p< Bb3:q D4:q F4:q G4:q | C4:q E4:q G4:q A4:q | '
            'D4:h F4:h | @mp> E4:h. r:q |', S_C)
-    cl.add('@p F4:h A4:h | G4:h D4:h | F4:h A4:h | G4:h E4:h | F4:h D4:h | E4:h G4:h | E4:h C4:h | D4:w | '
-           'D4:w | E4:w | @p> E4:h D4:h | C#4:h. r:q | @pp', S_A2)
+    cl.add('@pp F4:h A4:h | G4:h D4:h | F4:h A4:h | G4:h E4:h | F4:h D4:h | E4:h G4:h | E4:h C4:h | D4:w | '
+           'D4:w | E4:w | @pp> E4:h D4:h | C#4:h. r:q | @ppp', S_A2)
 
-    fl = part('Flute', 'fl', legato=True, humanize=0.008, swell=0.05)
+    fl = part('Flute', 'fl', legato=True, humanize=0.008, swell=0.05, gain=3.0)
     fl.add('@pp r:w | r:w | r:h. A4:e D5:e | E5:w |', S_IN)
-    fl.add('@mp ' + MEL_B, S_B)
+    fl.add('@mp< ' + MEL_B[:MEL_B.index('A5:h.')] + '@mf ' + MEL_B[MEL_B.index('A5:h.'):], S_B)
     fl.add('@pp r:w | r:w | r:w | r:w | r:e F4:e A4:e D5:e C5:h | G4:h. r:q | r:w | r:w | '
            '@p< D4:q F4:q A4:q Bb4:q | E4:q G4:q A4:q C5:q | A4:h D5:h | @mp D5:h C#5:h |', S_C)
     fl.add('@mp ' + octv(MEL_A1, 1) + ' @mp> ' + TAIL_A2 + ' @pp', S_A2)
@@ -336,7 +336,7 @@ def build_parts():
     # high violin counterline in A bars 9-16
     v1 = part('Violins I', 'vln_q', legato=True, humanize=0.012, swell=0.06, cents=2)
     v1.add('@ppp< A4:w | B4:w | C5:w | G4:w | F4:w | Bb4:w | C5:w | @pp> Bb4:w | @ppp', S_A + 32)
-    v1.add('@pp< ' + pad_line(B_SEC, 2, 1) + ' @pp', S_B)
+    v1.add('@pp< ' + pad_line(B_SEC[:16], 2, 1) + ' @p ' + pad_line(B_SEC[16:], 2, 1) + ' @pp', S_B)
 
     # string pad
     v2 = part('Violins II', 'vln_q', legato=True, humanize=0.012, swell=0.05, cents=-3)
@@ -347,9 +347,9 @@ def build_parts():
     v2.add('@pp ' + pad_line(A_SEC, 2), S_A)
     va.add('@pp ' + pad_line(A_SEC, 1), S_A)
     vc.add('@ppp ' + rests(8) + ' ' + bass_line(A_SEC[16:], 1, 'arco'), S_A)
-    v2.add('@pp< ' + pad_line(B_SEC, 2) + ' @pp', S_B)
-    va.add('@pp< ' + pad_line(B_SEC, 1) + ' @pp', S_B)
-    vc.add('@pp< ' + bass_line(B_SEC, 1, 'arco') + ' @pp', S_B)
+    v2.add('@pp< ' + pad_line(B_SEC[:16], 2) + ' @p ' + pad_line(B_SEC[16:], 2) + ' @pp', S_B)
+    va.add('@pp< ' + pad_line(B_SEC[:16], 1) + ' @p ' + pad_line(B_SEC[16:], 1) + ' @pp', S_B)
+    vc.add('@pp< ' + bass_line(B_SEC[:16], 1, 'arco') + ' @pp ' + bass_line(B_SEC[16:], 1, 'arco') + ' @pp', S_B)
     va.add('@ppp ' + pad_line(C_SEC, 0), S_C)
     vc.add('@ppp ' + rests(8) + ' ' + bass_line(C_SEC[16:], 1, 'arco'), S_C)
     v2.add('@pp ' + pad_line(A2_SEC, 2) + ' @ppp', S_A2)
@@ -374,13 +374,13 @@ def build_parts():
     v1p.add('@pp ' + vln_sprinkle(A2_SEC[:20]), S_A2)
 
     # marimba, soft mallets
-    mar = part('Marimba', 'marimba', humanize=0.006, gate=1.3, gain=-1.5)
+    mar = part('Marimba', 'marimba', humanize=0.006, gate=1.3, gain=3.5)
     mar.add('@pp ' + marimba_q(B_SEC[:30]) + ' r:w |', S_B)
     mar.add('@pp< ' + marimba_rustle(C_SEC[:16]) + ' @p ' + marimba_rustle(C_SEC[16:22]) + ' r:w |', S_C)
 
     # percussion: shaker (GM), woodblock, finger cymbals, bell tree (VSCO map)
-    sh = part('Shaker', 'gmdrum', humanize=0.004, gate=0.5, gain=0.0,
-              accent=[1.0, 0.42, 0.68, 0.45])
+    sh = part('Shaker', 'gmdrum', humanize=0.004, gate=0.5,
+              accent=[1.0, 0.42, 0.68, 0.45], gain=8.0)
     sh.add(shaker(8, '@pp<') + ' @p', S_A + 32)
     sh.add(shaker(4, '@pp') + ' ' + shaker(12, '@p'), S_B)
     sh.add(shaker(6, '@pp<') + ' @p', S_C + 16)
@@ -393,7 +393,7 @@ def build_parts():
     wood.add('@pp ' + 'r:w | r:h. E5:q | ' * 4 + 'r:w | r:w | r:w | r:w |', S_A2)
     wood.add('@pp r:w | r:w | r:w | r:h. E5:q | r:w | r:w | r:w | r:h. E5:q | r:w | r:w | r:w | r:h. E5:q | r:w | r:w | r:w | r:w |', S_B)
 
-    glint = part('Glints', 'perc', humanize=0.004, gate=1.0, gain=2)
+    glint = part('Glints', 'perc', humanize=0.004, gate=1.0, gain=8)
     # G#5 = small triangle muted (finger cymbal), F#5 = triangle muted, C6 / D6 = bell tree
     glint.add('@pp C6:w | r:w | G#5:q r:h. | r:w |', S_IN)
     glint.add('@pp G#5:q r:h. | r:w | r:w | r:h r:e G#5:e r:q | G#5:q r:h. | r:w | r:w | r:w | '
@@ -512,9 +512,13 @@ def render_song(P, tempo, ls, le, work, seats):
         dry += d * g
         send += s * g * p.perf.get('send', 1.0)
         seg = d[intro_n + 2 * N: intro_n + 3 * N] * g
-        rms = 20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-12)
-        report.append((p.name, rms, 20 * np.log10(np.abs(seg).max() + 1e-12)))
-        print('  part %-16s loop rms %6.1f dB  peak %6.1f dB' % report[-1])
+        secs = []
+        for (n_, b0_), (_, b1_) in zip(SECTIONS[1:], SECTIONS[2:]):
+            i0 = int((tempo.sec(b0_) - intro_s) * SR)
+            i1 = int((tempo.sec(b1_) - intro_s) * SR)
+            secs.append('%s %6.1f' % (n_, 20 * np.log10(np.sqrt(np.mean(seg[i0:i1] ** 2)) + 1e-12)))
+        print('  part %-16s peak %6.1f dB | rms by section: %s' % (
+            p.name, 20 * np.log10(np.abs(seg).max() + 1e-12), '  '.join(secs)))
         del stem, d, s
     ir = render.hall_ir(seconds=3.6, rt_low=2.8, rt_mid=2.3, rt_high=1.2)
     wet = render.reverb(send, ir)

@@ -623,16 +623,16 @@ def gm_drums(D, P, start, nbars, style, seed=0):
             for o in (1, 3):
                 D.add(t + o, .25, SS, 52 if o == 3 else 44, hum=0.004)
             for o in np.arange(0, 4, .5):
-                P.add(t + o, .2, SHK, 56 if abs(o - round(o)) < 1e-6 else 40, hum=0.005)
+                P.add(t + o, .2, SHK, 84 if abs(o - round(o)) < 1e-6 else 66, hum=0.005)
             if last:
                 for j, o in enumerate(np.arange(2, 4, .25)):
-                    P.add(t + o, .15, SHK, 40 - 3 * j, hum=0.004)
+                    P.add(t + o, .15, SHK, 72 - 3 * j, hum=0.004)
         elif style == 'breakdown':
             if b >= 6:
                 for o in (0, 2):
                     D.add(t + o, .25, K, 44 + 6 * (b - 6), hum=0.003)
                 for o in np.arange(0, 4, .5):
-                    P.add(t + o, .2, SHK, 30 + 8 * (b - 6), hum=0.005)
+                    P.add(t + o, .2, SHK, 54 + 10 * (b - 6), hum=0.005)
         elif style == 'build':
             for o in range(4):
                 D.add(t + o, .25, K, 60 + 5 * b, hum=0.002)
@@ -729,7 +729,7 @@ def build_song():
     # brass
     hn = part('Horns', 'hn', 'hn', legato=True, swell=0.04, humanize=0.01, layers=2, gain=1.5)
     hn.add('@v48 A3:e D4:e D4:q. E4:e F#4:q | E4:h. r:q |', S_IN + 8)
-    hn.add('@v58 ' + MEL_V, S_V1)
+    hn.add('@v50 ' + MEL_V, S_V1)
     hn.add('@v40 ' + guide(CHORUS1, 57, 67, 61), S_C1)
     hn.add('@v30 ' + guide(BSEC[16:], 56, 66, 61, dyn={7: .26}), S_B + 32)
     hn.add('@v46< ' + bars_of(MEL_BLD, 0, 2), S_BLD)
@@ -749,19 +749,19 @@ def build_song():
     tbn.add('@v52 ' + guide(CHORUS2, 50, 60, 54, pref=(0, 2, 1, 3)), S_C2)
 
     # woodwinds
-    fl = part('Flute', 'fl', 'fl', legato=True, swell=0.04, humanize=0.008)
-    fl.add('@v44 ' + rests(7) + ' ' + BIRD8 + ' ' + rests(7) + ' ' + BIRD16, S_V1)
-    fl.add('@v46 ' + rests(7) + ' ' + BIRD8, S_B)
-    fl.add('@v50 ' + octv(bars_of(MEL_B, 8, 16), 1), S_B + 32)
-    fl.add('@v38 ' + rests(3) + ' r:h. C#6:s A5:s F#5:e | ' + rests(3) + ' r:h. E6:s B5:s G#5:e |', S_BR)
+    fl = part('Flute', 'fl', 'fl', legato=True, swell=0.04, humanize=0.008, gain=3)
+    fl.add('@v60 ' + rests(7) + ' ' + BIRD8 + ' ' + rests(7) + ' ' + BIRD16, S_V1)
+    fl.add('@v58 ' + rests(7) + ' ' + BIRD8, S_B)
+    fl.add('@v44 ' + octv(bars_of(MEL_B, 8, 16), 1), S_B + 32)
+    fl.add('@v44 ' + rests(3) + ' r:h. C#6:s A5:s F#5:e | ' + rests(3) + ' r:h. E6:s B5:s G#5:e |', S_BR)
     fl.add('@v50 ' + guide(CHORUS2, 76, 88, 81, pref=(1, 2, 0, 3)), S_C2)
-    ob = part('Oboe', 'ob', 'ob', legato=True, swell=0.05, humanize=0.008)
-    ob.add('@v54 ' + bars_of(MEL_B, 0, 8), S_B)
+    ob = part('Oboe', 'ob', 'ob', legato=True, swell=0.05, humanize=0.008, gain=4)
+    ob.add('@v60 ' + bars_of(MEL_B, 0, 8), S_B)
     ob.add('@v40 ' + bars_of(MEL_B, 8, 16), S_B + 32)
     ob.add('@v46 ' + guide(CHORUS2, 69, 81, 76, pref=(2, 1, 0, 3)), S_C2)
     cl = part('Clarinet', 'cl', 'cl', legato=True, swell=0.04, humanize=0.008)
     cl.add('@v40 ' + bars_of(MEL_V, 8, 16), S_V1 + 32)
-    cl.add('@v42 ' + guide(BSEC, 57, 69, 61), S_B)
+    cl.add('@v36 ' + guide(BSEC, 57, 69, 61), S_B)
     bn = part('Bassoon', 'bn', 'bn', legato=True, swell=0.03, humanize=0.008)
     bn.add('@v40 ' + roots_text(BSEC, 1, 'h', lo=40), S_B)
 
@@ -780,15 +780,15 @@ def build_song():
     pnl.add(piano_lh(CHORUS2, 0.46, 'oct'), S_C2)
     hp = part('Harp', 'harp', 'harp', humanize=0.006, gate=1.4)
     hp.add(harp_arp(BSEC, 0.36), S_B)
-    gl = part('Glockenspiel', 'glock', 'glock', humanize=0.004, gate=2.0)
+    gl = part('Glockenspiel', 'glock', 'glock', humanize=0.004, gate=2.0, gain=6)
     gl.add('@v36 ' + rests(7) + ' ' + BIRD8 + ' ' + rests(7) + ' ' + BIRD16, S_V2)
     gl.add('@v40 ' + octv(MEL_C, 1), S_C2)
-    tp = part('Timpani', 'timp', 'timp', humanize=0.003, gate=1.0)
+    tp = part('Timpani', 'timp', 'timp', humanize=0.003, gate=1.0, gain=8)
     tp.add('@v56 A2:q r:q r:h |', S_V1)
     tp.add('@v52 D3:q r:q r:h |', S_C1)
     tp.add('@v56 A2:q r:q r:h |', S_V2)
     tp.add('@v62 D3:q r:q r:h | ' + rests(7) + ' D3:q r:q r:h |', S_C2)
-    tr = part('Timpani roll', 'timp_roll', 'timp', humanize=0.0, gate=1.0)
+    tr = part('Timpani roll', 'timp_roll', 'timp', humanize=0.0, gate=1.0, gain=8)
     tr.add('@v20< E2:w | @v44', S_IN + 12)
     tr.add('@v30< E2:w~ | E2:w | @v70', S_BLD + 24)
 
@@ -810,7 +810,7 @@ def build_song():
     gm_bass(B, VERSE, S_V2, 'walk', vel=92)
     gm_bass(B, CHORUS2, S_C2, 'drive', vel=96)
     D = GM('Drums', 0, drum=True, seat='drums', gain=0.0, send=0.45)
-    PC_ = GM('Hand perc', 0, drum=True, seat='perc', gain=0.0, send=0.6)
+    PC_ = GM('Hand perc', 0, drum=True, seat='perc', gain=8.0, send=0.6)
     gm_drums(D, PC_, S_IN, 4, 'intro', 1)
     gm_drums(D, PC_, S_V1, 16, 'verse', 2)
     gm_drums(D, PC_, S_C1, 16, 'chorus', 3)
@@ -928,7 +928,8 @@ def render_song(P, gms, tempo, outdir, work, excerpt=None):
         intro_n = int(round(tempo.sec(LS) * SR))
         N = int(round((tempo.sec(END) - tempo.sec(LS)) * SR))
         total = intro_n + reps * N + 6 * SR
-    pre_n = int(round((tempo.sec(lo) - tempo.sec(lo - PRE)) * SR)) if lo >= PRE else 0
+    pre = PRE if lo >= PRE else 0.0
+    pre_n = int(round((tempo.sec(lo) - tempo.sec(lo - pre)) * SR))
     dry = np.zeros((total, 2), np.float32)
     send = np.zeros((total, 2), np.float32)
     rms = {}
@@ -943,22 +944,29 @@ def render_song(P, gms, tempo, outdir, work, excerpt=None):
         a = int(intro_n + (N if reps > 1 else 0))
         seg = d[a:a + N] * g
         rms[name] = float(20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-12))
-        print('  %-18s peak %.2f  rms %.1f dB' % (name, float(np.max(np.abs(d * g))), rms[name]), flush=True)
+        import resource
+        print('  %-18s peak %.2f  rms %.1f dB  (max rss %d MB)' % (name, float(np.max(np.abs(d * g))), rms[name],
+              resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024), flush=True)
 
-    for p in P:
+    for i, p in enumerate(P):
         stem = np.zeros((total, 2), np.float32)
         if not excerpt and LS > 0:
             add_at(stem, render.render_part(p, tempo, 0, LS, 0), 0)
-        body = render.render_part(p, tempo, lo, hi, lo - PRE)
+        body = render.render_part(p, tempo, lo, hi, lo - pre)
         for k in range(reps):
             add_at(stem, body, intro_n + k * N - pre_n)
+        del body
         if np.any(stem):
             lay(stem, SEATS[p.name], p.perf, p.name)
+        # the sampler keeps every sample it has read: drop an instrument once no
+        # later part plays it, or a whole song's worth of samples piles up (OOM)
+        if p.patch not in {q.patch for q in P[i + 1:]}:
+            render._INST.pop(p.patch, None)
     for g in gms:
         stem = np.zeros((total, 2), np.float32)
         if not excerpt and LS > 0:
             add_at(stem, gm_render(g, tempo, 0, LS, 0, work, 'intro'), 0)
-        body = gm_render(g, tempo, lo, hi, lo - PRE, work, 'body')
+        body = gm_render(g, tempo, lo, hi, lo - pre, work, 'body')
         for k in range(reps):
             add_at(stem, body, intro_n + k * N - pre_n)
         if np.any(stem):

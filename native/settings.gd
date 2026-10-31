@@ -121,7 +121,7 @@ const ROWS := {
 		["town_debug", "Town debug overlay", [0, 1], "who is doing what (also F3)"],
 	],
 	"Audio": [
-		["music", "Music", [0, 1], "the town theme for each time of day, and the lab theme"],
+		["music", "Music", [0, 1], "a song for each place and time of day, and for battles"],
 		["music_vol", "Music volume", [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], ""],
 		["sfx_vol", "Sound effects", [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "footsteps, doors, creatures, menus"],
 		["amb_vol", "Ambience", [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "wind, sea, stream, birds and crickets"],

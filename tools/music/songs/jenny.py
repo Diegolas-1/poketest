@@ -57,20 +57,20 @@ GUGS = '/tmp/claude-0/samples/gugs/GeneralUser-GS.sf2'
 # ---------------------------------------------------------------- instruments
 
 NEW_ORCH = {
-    'tbn': ('TromboneSus.sfz', 4.0, 0.45, 0.06),
-    'tbn_stac': ('TromboneStac.sfz', 7.0, None, None),
+    'tbn': ('TromboneSus.sfz', 8.0, 0.45, 0.06),
+    'tbn_stac': ('TromboneStac.sfz', -5.0, None, None),
     'tuba': ('TubaSus.sfz', 5.0, 0.5, 0.07),
     'tuba_stac': ('TubaStac.sfz', 6.5, None, None),
-    'hn_stac': ('FHornStac.sfz', -4.0, None, None),
-    'tpt_mute': ('TrumpetStraightMuteSus.sfz', -3.5, 0.3, 0.025),
+    'hn_stac': ('FHornStac.sfz', -13.0, None, None),
+    'tpt_mute': ('TrumpetStraightMuteSus.sfz', 0.0, 0.3, 0.025),
     'vln_spic': ('ViolinEnsSpic.sfz', 0.0, None, None),
-    'vla_spic': ('ViolaEnsSpic.sfz', 1.0, None, None),
-    'vc_spic': ('CelloEnsSpic.sfz', 1.0, None, None),
-    'cb_spic': ('ContrabassSpic.sfz', 5.0, None, None),
+    'vla_spic': ('ViolaEnsSpic.sfz', -2.0, None, None),
+    'vc_spic': ('CelloEnsSpic.sfz', -2.0, None, None),
+    'cb_spic': ('ContrabassSpic.sfz', -5.0, None, None),
     'vln_trem': ('ViolinEnsTrem.sfz', 2.0, 0.5, 0.1),
     'vla_trem': ('ViolaEnsTrem.sfz', -4.0, 0.5, 0.1),
-    'piano': ('UprightPiano.sfz', -10.0, 0.5, None),
-    'perc': ('GM-StylePerc.sfz', -6.0, None, None),
+    'piano': ('UprightPiano.sfz', -12.0, 0.5, None),
+    'perc': ('GM-StylePerc.sfz', -9.0, None, None),
     'rim': (None, 0.0, None, None),          # file filled in by setup()
 }
 NEW_SEAT = {
@@ -89,6 +89,7 @@ NEW_SEAT = {
 def setup(work):
     """Register this song's instruments (at run time, the shared files stay
     as they are) and make the rim-click SFZ from the GM soundfont."""
+    work = os.path.abspath(work)
     os.makedirs(work, exist_ok=True)
     sfzp = os.path.join(work, 'rim.sfz')
     if not os.path.exists(sfzp):
@@ -117,10 +118,46 @@ def setup(work):
             regs.append('<region> sample=%s\nlokey=0 hikey=127 pitch_keycenter=60 lovel=%d hivel=%d\n' % (p, lo, hi))
         open(sfzp, 'w').write('<global> ampeg_release=0.2\n' + ''.join(regs))
     orch = dict(NEW_ORCH)
-    orch['rim'] = (sfzp, 9.0, None, None)    # absolute path: os.path.join keeps it
+    orch['rim'] = (sfzp, 21.0, None, None)    # absolute path: os.path.join keeps it
     render.ORCH.update(orch)
     render.SEAT.update(NEW_SEAT)
     render.SUSTAINED.update({'tbn', 'tuba', 'tpt_mute', 'vln_trem', 'vla_trem'})
+    for k in LEVEL:
+        level_zones(k)
+
+
+# patches whose key zones are levelled (the library's zones jump by up to
+# 9 dB between neighbouring samples, e.g. horn F#4 -> G4)
+LEVEL = ['hn', 'hn_stac', 'tbn', 'tbn_stac', 'tuba', 'tuba_stac', 'tpt_mute', 'vln', 'vla', 'vc',
+         'vln_spic', 'vla_spic', 'vc_spic', 'cb_spic', 'vln_trem', 'cb_pizz']
+
+
+def level_zones(k):
+    """Give every key zone of a patch the same body loudness within each
+    velocity layer (median of the layer), so a melody does not jump in level
+    when it crosses into another sample. Runtime only (this process)."""
+    ins = render.inst(k)
+    short = k.endswith(('stac', 'spic', 'pizz'))
+    lv = []
+    for r in ins.regions:
+        a = ins._load(r['sample'])
+        on, body = ins.marks[r['sample']]
+        st = 0 if short else body - on
+        seg = a[st: st + int((0.3 if short else 1.0) * render.SR)].mean(1)
+        lv.append(20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-9) + r['vol'])
+    bands = {}
+    for r, l in zip(ins.regions, lv):
+        bands.setdefault((r['lovel'], r['hivel']), []).append(l)
+    med = {b: float(np.median(v)) for b, v in bands.items()}
+    # a zone recorded with one layer only (0-127) sits at the level the
+    # layered zones have around velocity 75 (a mid dynamic)
+    mid = [l for r, l in zip(ins.regions, lv) if r['lovel'] <= 75 <= r['hivel'] and r['hivel'] - r['lovel'] < 100]
+    if mid:
+        for b in med:
+            if b[1] - b[0] >= 100:
+                med[b] = float(np.median(mid))
+    for r, l in zip(ins.regions, lv):
+        r['vol'] += float(np.clip(med[(r['lovel'], r['hivel'])] - l, -12, 12))
 
 
 # ---------------------------------------------------------------- harmony
@@ -288,7 +325,7 @@ def build():
 
     # --- low brass ---
     tb1 = part('Trombone 1', 'tbn', humanize=0.008, gate=0.92, swell=0.03, layers=2)
-    tb2 = part('Trombone 2', 'tbn', humanize=0.009, gate=0.92, swell=0.03, layers=2, cents=-3)
+    tb2 = part('Trombone 2', 'tbn', gain=-2, humanize=0.009, gate=0.92, swell=0.03, layers=2, cents=-3)
     tb1.add('@mf ' + MEL_A, S_A)
     tb2.add('@mf ' + octv(MEL_A, -1), S_A)
     tb1.add('@mp ' + pad(A2_SEC, 1, -1) + ' @p', S_A2)       # under the horns
@@ -308,8 +345,8 @@ def build():
     tuba = part('Tuba', 'tuba_stac', humanize=0.007, gate=1.0)
     tuba.add('@mf ' + march_bass(INTRO), S_IN)
     tuba.add('@mf ' + march_bass(A_SEC + A2_SEC), S_A)
-    tuba.add('@f ' + march_bass(A3_SEC[:-2]) + ' C2:q r:q G1:q G1:q |', S_A3)
-    tubal = part('Tuba sus', 'tuba', humanize=0.01, swell=0.05)
+    tuba.add('@mf ' + march_bass(A3_SEC[:-2]) + ' C2:q r:q G1:q G1:q |', S_A3)
+    tubal = part('Tuba sus', 'tuba', gain=-3, humanize=0.01, swell=0.05)
     tubal.add('@pp ' + 'G1:w | F1:w | ' + '@p< Ab1:w | G1:w | @mp', S_B2 + 16)   # B' turn
     tubal.add('@p C2:w~ | C2:w~ | C2:w~ | C2:w | @mp< Ab1:w | F1:w | D2:w | G1:w | @f', S_C)
 
@@ -354,12 +391,10 @@ def build():
         return [vk(h, 0), vk(h, 1), vk(h, 0), vk(h, 1)]
 
     def vln2(h, half):
-        t = vk(h, 2)
-        return [t, t, t, t]
+        return [vk(h, 2) + 12, vk(h, 1) + 12, vk(h, 2) + 12, vk(h, 1) + 12]
 
     def vln1(h, half):
-        t = vk(h, 2) + 12
-        return [t, vk(h, 1) + 12, t, vk(h, 1) + 12]
+        return [vk(h, 1) + 12, vk(h, 2) + 12, vk(h, 0) + 24, vk(h, 2) + 12]
 
     def cpedal(h, half):
         return [key('C3'), key('C3'), key('C4'), key('C3')]
@@ -396,7 +431,7 @@ def build():
     v1.add('@pp ' + pad(B_SEC, 2, 1), S_B)
     v2.add('@pp ' + pad(B_SEC, 2), S_B)
     va.add('@pp ' + pad(B_SEC, 1), S_B)
-    vc.add('@mp ' + MEL_B, S_B)
+    vc.add('@mf ' + MEL_B, S_B)
     v1.add('@p ' + pad(B2_SEC, 2, 1) + ' @mp', S_B2)
     v2.add('@pp ' + pad(B2_SEC, 2) + ' @p', S_B2)
     va.add('@pp ' + pad(B2_SEC[:8], 1), S_B2)
@@ -428,18 +463,18 @@ def build():
     pno.add('@mf ' + piano_oct(A3_SEC), S_A3)
 
     # --- timpani ---
-    tim = part('Timpani', 'timp', humanize=0.004, gate=1.0)
+    tim = part('Timpani', 'timp', humanize=0.004, gate=1.0, gain=4)
     tim.add('@mf C2:q r:q r:h |', S_IN)
     tim.add('@mf C2:q r:q r:h | r:w | r:w | G2:q r:q r:h | C2:q r:q r:h | r:w | G2:q r:q G2:q r:q | C2:q r:h G2:e. G2:s |', S_A)
     tim.add('@f C2:q r:q r:h | r:w | r:w | G2:q r:q r:h | Ab2:q r:q r:h | F2:q r:q r:h | r:w | @mf Bb2:q r:q r:h |', S_A2)
     tim.add('@pp ' + 'r:w | ' * 6 + 'G2:q r:q r:h | G2:q r:q G2:q G2:q |', S_B2)
     tim.add('@mp C2:q r:q r:h | r:w | r:w | C2:q r:q r:h | Ab2:q r:q r:h | F2:q r:q r:h | r:w | r:w |', S_C)
     tim.add('@f C2:q r:q r:h | r:w | r:w | G2:q r:q r:h | C2:q r:q r:h | F2:q r:q r:h | G2:q r:q G2:q r:q | C2:q r:q G2:q r:q |', S_A3)
-    timr = part('Timpani roll', 'timp_roll', humanize=0.0, gate=1.0)
+    timr = part('Timpani roll', 'timp_roll', humanize=0.0, gate=1.0, gain=4)
     timr.add('@p< ' + 'r:w | ' * 6 + 'G2:w~ | G2:h. r:q | @f', S_C)
 
     # --- snare, rim, cymbals, bass drum ---
-    sn = part('Snare', 'perc', humanize=0.004, gate=4.0)
+    sn = part('Snare', 'perc', humanize=0.004, gate=4.0, gain=4)
     sn.add(snare(['fill']), S_IN)
     sn.add(snare(['mar', 'mar2', 'mar', 'roll', 'mar', 'mar2', 'mar', 'fill']), S_A)
     sn.add(snare(['mar', 'mar2', 'mar', 'roll', 'mar', 'mar2', 'quiet', 'rest']), S_A2)
@@ -447,6 +482,12 @@ def build():
     sn.add(snare(['quiet', 'quiet', 'quiet', 'quiet', 'mar', 'mar2', 'mar', 'rest']) , S_C)
     sn.add('@p< D#2:h. @f D2:e D2:e |', S_C + 28)
     sn.add(snare(['mar', 'mar2', 'mar', 'roll', 'mar', 'mar2', 'mar', 'fill']), S_A3)
+
+    # rolls stop at the next downbeat: their own part without the long gate
+    snr = part('Snare roll', 'perc', humanize=0.002, gate=1.0, gain=4)
+    snr.notes = [n for n in sn.notes if n[2] == [midi('D#2')]]
+    snr.dyn = list(sn.dyn)
+    sn.notes = [n for n in sn.notes if n[2] != [midi('D#2')]]
 
     rim = part('Rim', 'rim', humanize=0.005, gate=1.0)
     rimb = '@p r:q C4:q r:e @pp C4:e @p C4:q |'
@@ -473,9 +514,9 @@ SEATS = {
     'Cellos spic': 'vc', 'Basses spic': 'cb', 'Violas spic': 'vla', 'Violins II spic': 'vln2', 'Violins I spic': 'vln1',
     'Violins I': 'vln1', 'Violins II': 'vln2', 'Violas': 'vla', 'Cellos': 'vc', 'Basses pizz': 'cb',
     'Violins I trem': 'vln1', 'Violins II trem': 'vln2',
-    'Piano': 'piano', 'Timpani': 'timp', 'Timpani roll': 'timp', 'Snare': 'snare', 'Rim': 'rim', 'Perc': 'perc',
+    'Piano': 'piano', 'Timpani': 'timp', 'Timpani roll': 'timp', 'Snare': 'snare', 'Snare roll': 'snare', 'Rim': 'rim', 'Perc': 'perc',
 }
-UNPITCHED = {'Snare', 'Rim', 'Perc', 'Timpani', 'Timpani roll'}
+UNPITCHED = {'Snare', 'Snare roll', 'Rim', 'Perc', 'Timpani', 'Timpani roll'}
 MELODIC = {'Trombone 1', 'Horn 1', 'Cellos', 'Violins I', 'Trumpet mute', 'Trombone 2'}
 
 
@@ -546,6 +587,77 @@ def excerpt(P, tempo, bar0, bar1, out):
     print('excerpt', out, '%.1f LUFS' % l1)
 
 
+def render_piece_lowmem(name, parts, tempo, loop_start, loop_end, outdir, seats):
+    """render.render_piece with the same loop layout and signal path, built
+    for a score with many parts: each part's intro and loop are placed on the
+    stage once (placement is linear and time-invariant, so placing the loop
+    then laying it down four times equals laying down then placing), no stem
+    copies are kept, and a patch's sample cache is freed after its last part."""
+    import soundfile as sf
+    SR = render.SR
+    intro_s = tempo.sec(loop_start)
+    loop_s = tempo.sec(loop_end) - intro_s
+    intro_n = int(round(intro_s * SR))
+    N = int(round(loop_s * SR))
+    reps = 4
+    total = intro_n + reps * N + 6 * SR
+    dry = np.zeros((total, 2), np.float32)
+    send = np.zeros((total, 2), np.float32)
+    last_use = {p.patch: i for i, p in enumerate(parts)}
+
+    def lay(buf, at, g, sg):
+        d, s_ = render.place(buf, seat)
+        n = min(len(d), total - at)
+        if n > 0:
+            dry[at:at + n] += d[:n] * g
+            send[at:at + n] += s_[:n] * sg
+
+    for i, p in enumerate(parts):
+        seat = render.SEAT[seats.get(p.name, p.name)]
+        seat = dict(seat, **{k: p.perf[k] for k in ('pan', 'width', 'depth') if k in p.perf})
+        g = 10 ** (p.perf.get('gain', 0) / 20)
+        sg = g * p.perf.get('send', 1.0)
+        pk = 0.0
+        if loop_start > 0:
+            a = render.render_part(p, tempo, 0, loop_start, 0)
+            lay(a, 0, g, sg)
+            pk = max(pk, float(np.max(np.abs(a))) * g)
+        lp = render.render_part(p, tempo, loop_start, loop_end, loop_start)
+        pk = max(pk, float(np.max(np.abs(lp))) * g)
+        d, s_ = render.place(lp, seat)
+        for k in range(reps):
+            at = intro_n + k * N
+            n = min(len(d), total - at)
+            dry[at:at + n] += d[:n] * g
+            send[at:at + n] += s_[:n] * sg
+        del lp, d, s_
+        if last_use[p.patch] == i:
+            render._INST.pop(p.patch, None)
+        print('  part %-16s peak %.2f' % (p.name, pk), flush=True)
+    wet = render.reverb(send, render.hall_ir())
+    del send
+    mix = dry + wet * 0.75
+    del dry, wet
+    m = render.master(mix)
+    del mix
+    k = 2
+    body = m[intro_n + k * N: intro_n + (k + 1) * N].copy()
+    if intro_n:
+        head = m[:intro_n].copy()
+        f = int(0.06 * SR)
+        w = np.linspace(0, 1, f)[:, None]
+        e = intro_n + k * N
+        head[-f:] = head[-f:] * (1 - w) + m[e - f:e] * w
+        out = np.concatenate([head, body])
+    else:
+        out = body
+    del m
+    out, l0, l1 = render.loudness(out)
+    wav = os.path.join(outdir, name + '.wav')
+    sf.write(wav, out, SR, subtype='FLOAT')
+    return dict(wav=wav, intro_s=intro_n / SR, loop_s=N / SR, total_s=len(out) / SR, lufs=l1, intro_n=intro_n, N=N)
+
+
 def main():
     out = sys.argv[sys.argv.index('--out') + 1] if '--out' in sys.argv else os.getcwd()
     os.makedirs(out, exist_ok=True)
@@ -561,7 +673,7 @@ def main():
         excerpt(P, tempo, a, b, os.path.join(out, '%s_excerpt_%d_%d.wav' % (ID, a, b)))
         return
     import build as B
-    info = render.render_piece(ID, P, tempo, ls, le, work, SEATS)
+    info = render_piece_lowmem(ID, P, tempo, ls, le, work, SEATS)
     ogg = os.path.join(out, ID + '.ogg')
     render.to_ogg(info['wav'], ogg, q=6)
     render.to_mp3(info['wav'], os.path.join(out, ID + '.mp3'))
@@ -576,6 +688,11 @@ def main():
     x, sr = sf.read(info['wav'])
     print('peak %.2f dBFS' % (20 * np.log10(np.abs(x).max())))
     o = int(round(info['intro_s'] * sr))
+    import pyloudnorm as pyln
+    meter = pyln.Meter(sr)
+    for nm, s0, s1 in [('A', S_A, S_A2), ("A'", S_A2, S_B), ('B', S_B, S_B2), ("B'", S_B2, S_C), ('C', S_C, S_A3), ("A''", S_A3, END)]:
+        a0, a1 = int(tempo.sec(s0) * sr), int(tempo.sec(s1) * sr)
+        print('  %-4s %5.1f-%5.1f s  %6.1f LUFS' % (nm, a0 / sr, a1 / sr, meter.integrated_loudness(x[a0:a1])))
     sm = np.concatenate([x[-4 * sr:], x[o:o + 4 * sr]])
     sf.write(os.path.join(work, ID + '_seam.wav'), sm, sr)
 

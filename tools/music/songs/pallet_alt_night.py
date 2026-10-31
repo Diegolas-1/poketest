@@ -122,6 +122,7 @@ LINK = bars('F', 'G/F', 'Bbmaj7', ('Gm7/C', 'C7'))
 
 S_IN, S_A, S_A2, S_B, S_C, S_A3, S_L = [b * BPB for b in (0, 4, 20, 36, 52, 60, 76)]
 END = 80 * BPB
+SECS = [S_A, S_A2, S_B, S_C, S_A3, S_L, 80 * BPB]
 HARM = INTRO + A_SEC + A_SEC + B_SEC + C_SEC + A_SEC + LINK
 assert len(HARM) == END
 
@@ -305,18 +306,18 @@ def build_score():
         P.append(Part(n, patch, '', 0, BPB, **perf))
         return P[-1]
 
-    cel = part('Celesta', 'gm:8', humanize=0.006)
-    mbox = part('Music box', 'gm:10', humanize=0.004)
-    harp = part('Harp', 'harp', humanize=0.007, gate=1.6, spread=0.0)
-    hroll = part('Harp rolls', 'harp', humanize=0.004, gate=1.3, spread=0.07)
-    fl = part('Flute', 'fl', legato=True, humanize=0.008, swell=0.06)
-    vs = part('Solo violin', 'svln', legato=True, humanize=0.01, swell=0.07)
-    pno = part('Piano', 'piano', humanize=0.01, gate=1.5)
-    pnm = part('Piano melody', 'piano', humanize=0.012, gate=1.25)
+    cel = part('Celesta', 'gm:8', humanize=0.006, gain=11)
+    mbox = part('Music box', 'gm:10', humanize=0.004, gain=14)
+    harp = part('Harp', 'harp', humanize=0.007, gate=1.6, spread=0.0, gain=-4)
+    hroll = part('Harp rolls', 'harp', humanize=0.004, gate=1.3, spread=0.07, gain=1)
+    fl = part('Flute', 'fl', legato=True, humanize=0.008, swell=0.06, gain=4)
+    vs = part('Solo violin', 'svln', legato=True, humanize=0.01, swell=0.07, gain=-3)
+    pno = part('Piano', 'piano', humanize=0.01, gate=1.5, gain=-10)
+    pnm = part('Piano melody', 'piano', humanize=0.012, gate=1.25, gain=-3)
     v1 = part('Violins', 'vlnq', legato=True, humanize=0.012, swell=0.05, cents=2)
     va = part('Violas', 'vlaq', legato=True, humanize=0.012, swell=0.05)
-    vc = part('Cellos', 'vcq', legato=True, humanize=0.012, swell=0.05, cents=-2)
-    cb = part('Basses', 'cbq', legato=True, humanize=0.012, swell=0.03)
+    vc = part('Cellos', 'vcq', legato=True, humanize=0.012, swell=0.05, cents=-2, gain=-3)
+    cb = part('Basses', 'cbq', legato=True, humanize=0.012, swell=0.03, gain=-6)
 
     # Intro: the lighthouse
     hroll.add('@p ' + harp_arp(INTRO, low=29, kind='roll'), S_IN)
@@ -346,7 +347,7 @@ def build_score():
     cb.add('@pp ' + bassline(A_SEC, 0, 28), S_A2)
 
     # B: violin sings, flute answers
-    vs.add('@mp< ' + bars_of(MEL_B, 0, 8) + ' @mf ' + bars_of(MEL_B, 8, 16) + ' @mp', S_B)
+    vs.add('@p< ' + bars_of(MEL_B, 0, 8) + ' @mp ' + bars_of(MEL_B, 8, 16) + ' @p', S_B)
     fl.add('@p ' + FL_ANS_B, S_B)
     harp.add('@p ' + harp_arp(B_SEC, low=41, kind='arp6'), S_B)
     pno.add('@pp ' + piano(B_SEC, 'rock'), S_B)
@@ -368,7 +369,7 @@ def build_score():
 
     # A'': music box, violin countermelody, flute joins
     mbox.add('@mf ' + octv(MEL_A, 1), S_A3)
-    vs.add('@p ' + VLN_CTR, S_A3)
+    vs.add('@pp ' + VLN_CTR, S_A3)
     fl.add('@p ' + R * 8 + ' @mp ' + bars_of(MEL_A, 8, 16), S_A3)
     harp.add('@mp ' + harp_arp(A_SEC, low=41, kind='arp6'), S_A3)
     pno.add('@p ' + piano(A_SEC, 'waltz'), S_A3)
@@ -533,6 +534,16 @@ def render_song(P, tempo, swells, outdir, loop_start, loop_end, target=-20.0, in
             a = render.render_part(p, tempo, 0, loop_start, 0) if intro_n else None
             lp = render.render_part(p, tempo, loop_start, loop_end, loop_start)
         lay(stem, a, lp)
+        g0 = 10 ** (p.perf.get('gain', 0) / 20)
+        secs = []
+        for b0, b1 in zip(SECS[:-1], SECS[1:]):
+            if b0 < loop_start or b1 > loop_end:
+                continue
+            i0 = int((tempo.sec(b0) - intro_s) * SR)
+            i1 = int((tempo.sec(b1) - intro_s) * SR)
+            seg = lp[i0:i1] * g0
+            secs.append('%5.0f' % (20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-12) if len(seg) else -99))
+        print('  %-14s per section: %s' % (p.name, ' '.join(secs)))
         d, s = render.place(stem, seat)
         g = 10 ** (p.perf.get('gain', 0) / 20)
         dry += d * g
@@ -576,7 +587,7 @@ def render_song(P, tempo, swells, outdir, loop_start, loop_end, target=-20.0, in
     return dict(wav=wav, intro_s=intro_n / SR, loop_s=N / SR, total_s=len(out) / SR, lufs=l1, levels=level)
 
 
-CYM_DB = -21.0
+CYM_DB = -15.0
 
 
 def main():

@@ -869,7 +869,7 @@ GM = {
 
 # active-RMS mix targets (dBFS of each stem where it plays)
 TARGET = {
-    'Drums': -17.0, 'Percussion': -27.0, 'Bass': -18.5, 'Guitar': -24.0, 'Piano': -22.0,
+    'Drums': -17.0, 'Percussion': -28.0, 'Bass': -18.5, 'Guitar': -24.0, 'Piano': -22.0,
     'Violins I': -19.0, 'Violins I long': -24.0, 'Violins II': -23.5, 'Violins II mel': -23.0, 'Violas': -26.5, 'Cellos': -23.5,
     'Horns': -21.0, 'Horns 2': -25.5, 'Flute': -23.0, 'Oboe': -21.5, 'Clarinet': -23.0, 'Bassoon': -26.5,
     'Violins pizz': -27.0, 'Cellos pizz': -26.0, 'Glockenspiel': -25.0, 'Xylophone': -24.5,
@@ -1073,6 +1073,9 @@ def render_song(outdir, work, excerpt=None):
     levels = {}
 
     def add(nm, stem, seat, sendlv):
+        if nm == 'Percussion':        # the tambourine's jingle ring sits at 7.8 kHz
+            import pedalboard as pb
+            stem = pb.Pedalboard([pb.PeakFilter(cutoff_frequency_hz=7800, gain_db=-6, q=1.6)])(stem.T.copy(), SR).T
         a_ = active_rms(stem[:min(total, intro_n + N + 2 * SR)] if not excerpt else stem)
         g = 10 ** ((TARGET[nm] - a_) / 20) if a_ > -100 else 0.0
         levels[nm] = (a_, 20 * np.log10(g + 1e-12))
@@ -1181,6 +1184,13 @@ def main():
                 total_s=round(info['total_s'], 3), lufs=round(info['lufs'], 2), bpm=BPM, key='C major (last chorus D major)',
                 seam=[round(v, 5) for v in seam])
     json.dump(meta, open(os.path.join(a.out, 'info.json'), 'w'), indent=1)
+    import pyloudnorm as pyln
+    meter = pyln.Meter(SR)
+    print('section loudness (LUFS) in the file:')
+    for sname, b0, n, _ in SECTIONS:
+        t0 = int(b0 * 4 * BEAT * SR)
+        t1 = int((b0 + n) * 4 * BEAT * SR)
+        print('  %-6s %6.1f' % (sname, meter.integrated_loudness(x[t0:t1])))
     print('done', meta, 'peak %.2f dBFS' % info['peak'])
 
 

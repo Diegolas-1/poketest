@@ -366,8 +366,8 @@ def build():
             sm += [dict(b=b0 + 3.5, d=0.5, k=L[-1], lv=0.3, m={'sk', 'st'})]
     S['shamisen'] = sm
 
-    # ---- kotsuzumi (pon / ta) ----
-    PON, TA = midi('C4'), midi('G4')
+    # ---- kotsuzumi (pon / ta), from the GM kit's hand drums, bent down like a relaxing grip ----
+    PON, TA = 63, 60          # kit: open high conga (pon), high bongo (ta)
     kz = []
     for i in (0, 2, 4, 6):
         kz.append(dict(b=S_A2 + 4 * i, d=1, k=PON, lv=0.36, m={'pon'}))
@@ -437,7 +437,7 @@ def build_vsco():
 # ---------------------------------------------------------------- performance (MIDI)
 GM = {   # stem: (bank, program, drum?, rr channels, curves?)
     'koto': (0, 107, False), 'koto_mel': (0, 107, False), 'shaku': (0, 77, False),
-    'shamisen': (0, 106, False), 'kotsuzumi': (0, 116, False), 'taiko': (0, 116, False),
+    'shamisen': (0, 106, False), 'kotsuzumi': (0, 0, True), 'taiko': (0, 116, False),
     'hyoshigi': (0, 0, True), 'chime': (5, 124, False),
 }
 SEATS = {
@@ -643,7 +643,7 @@ def write_midi(path, stem, evs, tail=4.0):
         free[c] = t + e['dur'] + rel
         on = int(round(t * TPS))
         offt = int(round((t + e['dur']) * TPS))
-        if not drum:
+        if True:   # also on the drum channel (the kotsuzumi bends)
             msgs.append((on - 2, 10, mido.Message('pitchwheel', channel=c, pitch=_pw(e['bend'](0.0) if e['bend'] else 0.0))))
             msgs.append((on - 2, 11, mido.Message('control_change', channel=c, control=11,
                                                   value=_cc(e['expr'](0.0) if e['expr'] else 1.0))))
@@ -734,7 +734,7 @@ def check(S, P, verbose=True):
     held together across parts (harsh clashes); long or downbeat melody notes
     against the harmony field; a section map."""
     probs = []
-    pitched = ['koto', 'koto_mel', 'shaku', 'shamisen']
+    pitched = ['koto', 'koto_mel', 'shaku', 'shamisen']   # drums, clappers, chimes unpitched
     allnotes = []
     for s in pitched:
         for n in S[s]:
@@ -892,7 +892,7 @@ def render_song(outdir, work, excerpt=None):
     e = intro_n + k * N
     head[-f:] = head[-f:] * (1 - w) + m[e - f:e] * w
     out = np.concatenate([head, body])
-    out, l0, l1 = render.loudness(out, -18.0)
+    out, l0, l1 = render.loudness(out, -18.0, ceiling_db=-1.6)   # Vorbis adds ~.3 dB on peaks
     wav = os.path.join(work, ID + '.wav')
     sf.write(wav, out, SR, subtype='FLOAT')
     return dict(wav=wav, intro_s=intro_n / SR, loop_s=N / SR, total_s=len(out) / SR, lufs=l1,

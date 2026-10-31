@@ -120,6 +120,10 @@ Bb4:q. A4:e G4:h | G4:q Bb4:q Eb5:h | C5:q. Bb4:e A4:q F#4:q | G4:h. r:q |"""
 MEL_B2 = """Bb4:q. C5:e D5:q G5:q | F5:q. Eb5:e C5:q A4:q | D5:q. C5:e D5:q F5:q | G5:h F5:h |
 Eb5:q. D5:e C5:q Bb4:q | A4:q. Bb4:e C5:q Eb5:q | F5:q D5:q D5:q Bb4:q | C5:h A4:h |"""
 
+_b2 = [x.strip() for x in MEL_B2.split('|') if x.strip()]
+B2a = ' | '.join(_b2[:4]) + ' |'
+B2b = ' | '.join(_b2[4:]) + ' |'
+
 MEL_C = """G4:h. Bb4:q | A4:h F4:h | G4:q. F4:e Eb4:q G4:q | F4:h D4:h |
 Eb4:q G4:q Bb4:q D5:q | C5:h Bb4:q Gb4:q | F4:h G4:q Bb4:q | C5:h A4:h |"""
 
@@ -336,7 +340,7 @@ def build_parts():
         return P[-1]
 
     # ---------- piano (lead) ----------
-    pr = part('Piano RH', 'piano', humanize=0.008, gate=1.35, pan=-0.12)
+    pr = part('Piano RH', 'piano', humanize=0.008, gate=1.35, pan=-0.12, gain=4.0)
     pl = part('Piano LH', 'piano', humanize=0.01, gate=1.05, pan=-0.02, dyn=-0.06)
     pr.add('@mp ' + INTRO_MEL, S_I)
     pl.add('@p ' + tenths(INTRO), S_I)
@@ -350,12 +354,13 @@ def build_parts():
     pr.add('@p F#5:e A5:e D6:q', S_A2 + 15 * 4 + 2)
     pl.add('@p ' + tenths(A2_SEC), S_A2)
     # B: high twinkle under the cellos, then quarter chords building
-    pr.add('@p ' + twinkle(B_SEC[:16]), S_B)
-    pr.add('@p< ' + quarter_chords(B_SEC[16:24]) + ' @mf ' + quarter_chords(B_SEC[24:28]) + ' @mp> '
+    pb = part('Piano B', 'piano', humanize=0.009, gate=1.3, pan=-0.1, gain=-2.0)
+    pb.add('@pp ' + twinkle(B_SEC[:16]), S_B)
+    pb.add('@p< ' + quarter_chords(B_SEC[16:24]) + ' @mf ' + quarter_chords(B_SEC[24:28]) + ' @mp> '
            + quarter_chords(B_SEC[28:]) + ' @p', S_B + 32)
     pl.add('@p ' + tenths(B_SEC[:16]) + ' @mp ' + tenths(B_SEC[16:28]) + ' @p ' + tenths(B_SEC[28:]), S_B)
     # C: a nocturne in one flowing hand pair
-    pn = part('Piano nocturne', 'piano', humanize=0.012, gate=2.2, pan=-0.05, dyn=-0.04)
+    pn = part('Piano nocturne', 'piano', humanize=0.012, gate=2.2, pan=-0.05, dyn=-0.04, gain=1.0)
     pn.add('@p ' + nocturne(C_SEC[:14]) + ' @pp ' + nocturne(C_SEC[14:]), S_C)
     # A'': the theme in octaves
     pr.add('@mf ' + MEL_A_BODY + ' @mp> Bb4:h. F4:q | @p', S_A3)
@@ -367,7 +372,7 @@ def build_parts():
     cl = part('Clarinet', 'cl', legato=True, humanize=0.007, swell=0.05, gain=1.0)
     cl.add('@mp ' + CL_FILLS, S_A)
     cl.add('@mp ' + MEL_A2, S_A2)
-    cl.add('@p< ' + octv(MEL_C, 0).replace('| C5:h Bb4:q Gb4:q |', '| @mp C5:h Bb4:q Gb4:q | @mp>') + ' @p', S_C)
+    cl.add('@pp< ' + octv(MEL_C, 0).replace('| C5:h Bb4:q Gb4:q |', '| @p C5:h Bb4:q Gb4:q | @p>') + ' @pp', S_C)
     cl.add('@mp ' + CL_FILLS3, S_A3)
 
     # ---------- cellos (countermelody, B theme) ----------
@@ -375,7 +380,7 @@ def build_parts():
     vc.add('@pp ' + arco_bass(INTRO, 1), S_I)
     vc.add('@pp ' + arco_bass(A_SEC, 1), S_A)
     vc.add('@mp ' + COUNTER_A2, S_A2)
-    vc.add('@mp ' + octv(MEL_B1, -1), S_B)
+    vc.add('@mf ' + octv(MEL_B1, -1), S_B)
     vc.add('@mp ' + arco_bass(B_SEC[16:], 1), S_B + 32)
     vc.add('@mp ' + COUNTER_A3, S_A3)
 
@@ -386,13 +391,13 @@ def build_parts():
     hn.add('@p ' + pad_text(A2_SEC[16:], 2), S_A2 + 32)
     hn2.add('@p ' + pad_text(A2_SEC[16:], 1), S_A2 + 32)
     hn.add('@pp ' + pad_text(B_SEC[:16], 2), S_B)
-    hn.add('@mp< ' + octv(MEL_B2, -1) + ' @mf', S_B + 32)
+    hn.add('@mp< ' + octv(B2a, -1) + ' @mf> ' + octv(B2b, -1) + ' @p', S_B + 32)
     hn2.add('@p< ' + pad_text(B_SEC[16:], 1) + ' @mp', S_B + 32)
     hn.add('@p ' + pad_text(A_SEC[:28], 2) + ' @pp ' + pad_text(A_SEC[28:], 2), S_A3)
     hn2.add('@p ' + pad_text(A_SEC[:28], 1) + ' @pp ' + pad_text(A_SEC[28:], 1), S_A3)
 
     # ---------- harp ----------
-    hp = part('Harp', 'harp', humanize=0.006, gate=1.4, gain=-1.0)
+    hp = part('Harp', 'harp', humanize=0.006, gate=1.4, gain=-3.0)
     hp.add('@p ' + harp_text(INTRO), S_I)
     hp.add('@p ' + harp_text(A_SEC), S_A)
     hp.add('@pp ' + harp_text(A2_SEC), S_A2)
@@ -403,16 +408,15 @@ def build_parts():
     hp.add('@mp ' + harp_text(A_SEC[:28]) + ' @p ' + harp_text(A_SEC[28:]), S_A3)
 
     # ---------- strings: pad and violins ----------
-    vln1 = part('Violins I', 'vln', legato=True, swell=0.05, humanize=0.01, cents=2, gain=-1.0)
-    vln2 = part('Violins II', 'vln', legato=True, swell=0.05, humanize=0.012, cents=-3, gain=-2.0)
-    vla = part('Violas', 'vla', legato=True, swell=0.05, humanize=0.012, gain=-1.0)
+    vln1 = part('Violins I', 'vln', legato=True, swell=0.05, humanize=0.01, cents=2, gain=-3.0)
+    vln2 = part('Violins II', 'vln', legato=True, swell=0.05, humanize=0.012, cents=-3, gain=-5.0)
+    vla = part('Violas', 'vla', legato=True, swell=0.05, humanize=0.012, gain=-4.0)
     for h, s, d in ((INTRO, S_I, '@pp '), (A_SEC, S_A, '@pp '), (A2_SEC, S_A2, '@p '), (B_SEC, S_B, '@p '),
                     (C_SEC, S_C, '@pp '), (A_SEC, S_A3, '@p ')):
         vln2.add(d + pad_text(h, 2), s)
         vla.add(d + pad_text(h, 0), s)
     vln1.add('@pp ' + pad_text(INTRO, 1, 12), S_I)
-    vln1.add('@p< ' + MEL_B2 + ' @mp', S_B + 32)
-    vln1.add('@pp ' + pad_text(C_SEC, 1, 12), S_C)
+    vln1.add('@p< ' + B2a + ' @mp> ' + B2b, S_B + 32)
     vln1.add('@mp ' + MEL_A_BODY + ' @p> Bb4:h. r:q | @pp', S_A3)
 
     # ---------- bass ----------
@@ -433,7 +437,7 @@ def build_parts():
     return P, tempo
 
 
-SEATS = {'Piano RH': 'piano', 'Piano LH': 'piano', 'Piano nocturne': 'piano', 'Piano octave': 'piano',
+SEATS = {'Piano RH': 'piano', 'Piano B': 'piano', 'Piano LH': 'piano', 'Piano nocturne': 'piano', 'Piano octave': 'piano',
          'Clarinet': 'cl', 'Cellos': 'vc', 'Horn': 'hn', 'Horn 2': 'hn', 'Harp': 'harp', 'Harp rolled': 'harp',
          'Violins I': 'vln1', 'Violins II': 'vln2', 'Violas': 'vla', 'Upright bass': 'cb', 'Basses arco': 'cb'}
 
@@ -547,8 +551,8 @@ def render_song(parts, tempo, outdir):
     loop_s = tempo.sec(loop_end) - intro_s
     intro_n = int(round(intro_s * SR))
     N = int(round(loop_s * SR))
-    reps = 4
-    total = intro_n + reps * N + 6 * SR
+    reps = 3                     # the third pass is the loop; nothing after it is needed
+    total = intro_n + reps * N + SR
     dry = np.zeros((total, 2), np.float32)
     send = np.zeros((total, 2), np.float32)
     stems = {}
@@ -566,21 +570,46 @@ def render_song(parts, tempo, outdir):
         nonlocal dry, send
         dry += d * g
         send += s * g * sendk
-        stems[name] = d * g
-        print('  part %-15s peak %.3f rms %.1f dB' % (name, float(np.max(np.abs(d * g))),
-                                                     20 * np.log10(np.sqrt(np.mean((d * g) ** 2)) + 1e-12)))
+        lv = d[intro_n:intro_n + N] * g
+        secs = []
+        for _, s0, h in SECTIONS[1:]:
+            a0 = int(round((tempo.sec(s0) - intro_s) * SR))
+            a1 = int(round((tempo.sec(s0 + 2 * len(h)) - intro_s) * SR))
+            secs.append(20 * np.log10(np.sqrt(np.mean(lv[a0:a1] ** 2)) + 1e-12))
+        stems[name] = (float(np.max(np.abs(lv))), 20 * np.log10(np.sqrt(np.mean(lv ** 2)) + 1e-12))
+        print('  part %-15s peak %.3f rms %5.1f dB  by section %s' % ((name,) + stems[name] + (
+            ' '.join('%5.1f' % x for x in secs),)), flush=True)
+        del stem, d, s
 
-    for p in parts:
+    last = None
+    for p in sorted(parts, key=lambda p: p.patch):
+        if p.patch != last:
+            render._INST.clear()       # sample caches are big: one instrument at a time
+            last = p.patch
         seat = render.SEAT[SEATS.get(p.name, p.name)]
         seat = dict(seat, **{k: p.perf[k] for k in ('pan', 'width', 'depth') if k in p.perf})
-        a = render.render_part(p, tempo, 0, loop_start, 0) if any(n[0] < loop_start for n in p.notes) else None
-        lp = render.render_part(p, tempo, loop_start, loop_end, loop_start)
+        # cache the sampled stems: a mix-only change (gain, seat) reuses them
+        import hashlib
+        perf = {k: v for k, v in p.perf.items() if k not in ('gain', 'pan', 'width', 'depth', 'send')}
+        h = hashlib.sha1(repr((p.patch, p.notes, p.dyn, sorted(perf.items()), tempo.pts,
+                               render.ORCH[p.patch])).encode()).hexdigest()[:16]
+        cdir = os.path.join(WORK, 'cache')
+        os.makedirs(cdir, exist_ok=True)
+        cf = os.path.join(cdir, '%s_%s.npz' % (p.name.replace(' ', '_'), h))
+        if os.path.exists(cf):
+            z = np.load(cf)
+            a = z['a'] if z['a'].size else None
+            lp = z['lp']
+        else:
+            a = render.render_part(p, tempo, 0, loop_start, 0) if any(n[0] < loop_start for n in p.notes) else None
+            lp = render.render_part(p, tempo, loop_start, loop_end, loop_start)
+            np.savez(cf, a=a if a is not None else np.zeros((0, 2), np.float32), lp=lp)
         lay(p.name, a, lp, seat, p.perf.get('gain', 0), p.perf.get('send', 1.0))
 
     ev = drum_events()
     dl = fluid_stem(ev, tempo, loop_start, loop_end, loop_start)
     dl = render.sfz.lowpass(render.sfz.highpass(dl, 45, 1), 9000, 1)
-    lay('Brushes', None, dl, render.SEAT['drums'], 1.0, 0.8)
+    lay('Brushes', None, dl, render.SEAT['drums'], 11.0, 0.8)
 
     ir = render.hall_ir()
     wet = render.reverb(send, ir)

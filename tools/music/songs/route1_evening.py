@@ -161,7 +161,7 @@ OB_BUILD = """Ab4:q. C5:q. | Bb4:q. D5:q. | D5:q. G5:q. | Eb5:h. | C5:q. F5:q. |
 F5:q. D5:e Bb4:e Ab4:e |"""
 
 ACC_CODA = """G4:q. Bb4:e Ab4:e G4:e | Eb4:e F4:e Ab4:e C5:q. | Bb4:h. | Cb5:q. Ab4:q. | G4:h. | Ab4:q. F4:q. | Eb4:h. | r:h. |"""
-VLN_CODA = """r:h. | r:q. Eb5:q. | G5:h. | Eb5:q. Cb5:q. | Bb4:h. | C5:q. D5:q. | D5:h. | Eb5:q. D5:q. |"""
+VLN_CODA = """r:h. | r:q. Eb5:q. | G5:h. | Eb5:q. Cb5:q. | Bb4:h. | C5:q. D5:q. | Bb4:h. | Eb5:q. D5:q. |"""
 
 NOTE = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
 
@@ -304,7 +304,7 @@ def shaker(part, b0, nbars, v=1.0):
     for k in range(nbars):
         for j in range(6):
             acc = 1.0 if j in (0, 3) else (0.7 if j in (2, 5) else 0.55)
-            drum(part, b0 + 3 * k + 0.5 * j, 'shaker', 0.55 * acc * v)
+            drum(part, b0 + 3 * k + 0.5 * j, 'shaker', 0.42 * acc * v)
 
 
 def brushes(part, b0, nbars, v=1.0, fill_last=False):
@@ -646,7 +646,7 @@ def mixdown(parts, total, lay, work):
 
 
 # stem gains (dB) after the stage: balance the GM synth against VSCO
-GAIN = {'Accordion': 13.0, 'Guitar': 3.0, 'Bass': 4.5, 'Drums': 3.5, 'Woodblock': 0.0,
+GAIN = {'Accordion': 13.0, 'Guitar': 3.0, 'Bass': 4.5, 'Drums': 3.5, 'Woodblock': 3.0,
         'Oboe': 0.5, 'Solo violin': 1.0, 'Violins': -2.0, 'Violas': -1.0, 'Cellos': -1.5, 'Basses': -8.0,
         'Cellos pizz': -2.0, 'Violins pizz': -4.0}
 SEND = {'Bass': 0.5, 'Drums': 0.7, 'Guitar': 0.8}
