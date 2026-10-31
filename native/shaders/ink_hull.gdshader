@@ -28,6 +28,7 @@ uniform float push = 0.03;
 uniform bool arena_follow = false;
 uniform bool arena_each = false;
 uniform bool edge_aa = true;
+uniform float edge_out = 1.0;
 
 varying float v_alpha;
 varying vec3 v_col;
@@ -65,9 +66,12 @@ void fragment() {
 	if (v_alpha <= 0.003) discard;
 	float a = 1.0;
 	if (edge_aa) {
-		// pixels to the outer edge (the back faces drawn here have N.V < 0)
+		// pixels to the outer edge (the back faces drawn here have N.V < 0).
+		// The smooth normals' N.V = 0 runs a little inside the hull's polygon
+		// edge, so the soft edge is centred edge_out pixels past it (else the
+		// line's outer half would fade and it would draw thinner than set)
 		float fw = max(fwidth(v_ndv), 1e-5);
-		a = ink_even((-v_ndv / fw) / (2.0 * INK_SOFT) + 0.5);
+		a = ink_even((-v_ndv / fw + edge_out) / (2.0 * INK_SOFT) + 0.5);
 	}
 	ALBEDO = v_col;
 	ALPHA = v_alpha * a;
