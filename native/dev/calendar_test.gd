@@ -243,11 +243,14 @@ func _blend() -> void:
 	ok((dawn.sun as Color).r > (dawn.sun as Color).g and (dawn.hor as Color).r > 0.9, "dawn: pink-orange")
 	ok(D.sample(1.0, 172, 0.5, "summer").fireflies > 0.0 and D.sample(22.0, 355, 0.5, "winter").fireflies == 0.0, "fireflies on summer nights, none in winter")
 
-# the globals' defaults: project.godot's and daynight.gd's are the same
+# the globals: made at runtime by settings.gd (an over-the-air patch can't add
+# them to the app's project.godot); where project.godot has one, the same default
 func _globals() -> void:
+	var src := FileAccess.get_file_as_string("res://settings.gd")
+	ok(src.contains("for d in DayNight.GLOBALS") and src.contains("global_shader_parameter_add"), "settings.gd makes the day and night's globals at runtime")
 	for g in DayNight.GLOBALS:
 		var key := "shader_globals/" + String(g[0])
-		ok(ProjectSettings.has_setting(key), "%s is in project.godot" % g[0])
+		ok(g[1] is Vector4, "%s: a vec4 default" % g[0])
 		if ProjectSettings.has_setting(key):
 			var v = ProjectSettings.get_setting(key).get("value")
-			ok(v is Vector4 and (v as Vector4).is_equal_approx(g[1]), "%s: the same default (%s, %s)" % [g[0], v, g[1]])
+			ok(v is Vector4 and (v as Vector4).is_equal_approx(g[1]), "%s: the same default as project.godot's" % g[0])
