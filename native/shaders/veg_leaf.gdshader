@@ -55,5 +55,5 @@ void light() {
 	float lit_ = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION * SUN_LUM;
 	float t = lit_ * 0.8 + (v_ao - 0.72) * 0.9;
 	t += (dot(ALBEDO, LW) / max(dot(tint, LW), 1e-3) - mid) * detail;
-	DIFFUSE_LIGHT += tone_factor(ALBEDO, cel(ALBEDO, t));
+	DIFFUSE_LIGHT += dn_tone(ALBEDO, cel(ALBEDO, t), t);
 }

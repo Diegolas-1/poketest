@@ -30,7 +30,7 @@ void vertex() {
 	int id = int(INSTANCE_CUSTOM.b + 0.5);
 	vec4 geo = imp_geo[id];
 	vec3 size = geo.xyz;
-	float sun_az = geo.w;
+	float sun_az = dn_dir.w > 0.5 ? atan(dn_dir.x, dn_dir.z) : geo.w;   // the live sun (daynight.gdshaderinc)
 	v_rect = imp_rect[id];
 	vec3 to_cam = veg_cam - c;
 	float d = length(to_cam);
@@ -64,5 +64,5 @@ void fragment() {
 	if (al * (1.0 + lod * 0.3) < 0.5) discard;
 	// (the importer fills clear texels with their neighbours' colour, so no
 	// dark rim to divide out)
-	ALBEDO = aces_three(mix(a.rgb, b.rgb, v_row.y) * tint);
+	ALBEDO = aces_three(mix(a.rgb, b.rgb, v_row.y) * tint * dn_tint(0.3));
 }

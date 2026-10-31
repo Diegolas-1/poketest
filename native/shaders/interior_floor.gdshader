@@ -50,5 +50,5 @@ void light() {
 	vec3 k = mix(deep, shade, s0);
 	k = mix(k, vec3(1.0), s1);
 	k = mix(k, lit, s2);
-	DIFFUSE_LIGHT += tone_factor(ALBEDO, ALBEDO * k + lit_add * s2);
+	DIFFUSE_LIGHT += dn_tone(ALBEDO, ALBEDO * k + lit_add * s2, t);
 }

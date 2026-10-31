@@ -3,6 +3,7 @@
 // offset in metres), the whole sky of them turning slowly about the y axis.
 shader_type spatial;
 render_mode unshaded, fog_disabled, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+#include "res://shaders/aces.gdshaderinc"
 
 uniform sampler2D atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform float spin = 0.003;
@@ -17,6 +18,6 @@ void vertex() {
 
 void fragment() {
 	vec4 t = texture(atlas, UV);
-	ALBEDO = t.rgb;
+	ALBEDO = dn_relight(t.rgb, mix(dn_unlit(), dn_sun.rgb, 0.5));
 	ALPHA = t.a * COLOR.a;
 }

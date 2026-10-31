@@ -2,6 +2,7 @@
 // scaled to the ring's radius; INSTANCE_CUSTOM.x = its age 0..1, .y = radius (m).
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+#include "res://shaders/aces.gdshaderinc"
 
 varying float v_age;
 varying float v_r;
@@ -17,6 +18,6 @@ void fragment() {
 	float ring = smoothstep(1.0 - w * 2.0, 1.0 - w, d) * (1.0 - smoothstep(1.0 - w * 0.5, 1.0, d));
 	float inner = smoothstep(0.55, 0.95, d) * 0.12;   // a faint sheen inside it
 	float fade = (1.0 - v_age) * (1.0 - v_age);
-	ALBEDO = vec3(0.93, 0.98, 1.0);
+	ALBEDO = dn_relight(vec3(0.93, 0.98, 1.0), dn_unlit());
 	ALPHA = clamp((ring * 0.75 + inner) * fade, 0.0, 1.0);
 }

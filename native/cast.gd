@@ -98,6 +98,8 @@ func setup(g: Node3D) -> void:
 	_air_y = game.pos.y
 	clock = GameClock.new()
 	add_child(clock)
+	# an event day (life/calendar.json): its banner in the morning
+	clock.event_day.connect(func(evs: Array): dialog.banner(String(evs[0].get("name", "")), String(evs[0].get("toast", ""))))
 	# before the town: its talk (Quests) asks the conditions what people notice
 	conditions = Conditions.new()
 	add_child(conditions)

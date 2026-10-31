@@ -4,6 +4,7 @@
 // player (node position); INSTANCE_CUSTOM = clump x, z in the tile, two randoms.
 shader_type spatial;
 render_mode unshaded, cull_disabled;
+#include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/arena.gdshaderinc"
 
 uniform sampler2D height_map : filter_linear, repeat_disable;   // R height, G density
@@ -86,7 +87,9 @@ void vertex() {
 		v_col = mix(mix(root, body, smoothstep(0.0, 0.35, t)), tip, smoothstep(0.4, 0.85, t)) * mix(vec3(0.55, 0.75, 0.9), vec3(1.0), UV2.x);
 		float fa = UV.x + ra;
 		vec3 nrm = normalize(vec3(cos(fa), 0.7, sin(fa)));
-		v_light = mix(0.78, 1.08, step(0.15, dot(nrm, normalize(sun_dir))));
+		v_light = mix(0.78, 1.08, step(0.15, dot(nrm, normalize(dn_light_dir(sun_dir)))));
+		// night and the warm hours (daynight.gdshaderinc): darkened like the ground
+		if (dn_glow.w > 0.0) v_col = dn_relight(v_col * v_light, dn_tint(step(0.9, v_light))) / v_light;
 		VERTEX = wp - MODEL_MATRIX[3].xyz;
 	}
 }

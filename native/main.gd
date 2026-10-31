@@ -60,6 +60,7 @@ var terrain_mat: ShaderMaterial
 var outdoor_world: WorldData
 var outdoor_ink: Array = []
 var we: WorldEnvironment
+var daynight: DayNight
 var sun: DirectionalLight3D
 var indoors := false
 var interior: Interior
@@ -121,6 +122,9 @@ func _ready() -> void:
 	island.name = "Island"
 	island.main = self
 	add_child(island)
+	daynight = DayNight.new()   # the sun's arc, dusk, night and dawn, the night's lights (daynight.gd, night_fx.gd)
+	add_child(daynight)
+	daynight.setup(self)
 
 # ---------- sky, sun, haze ----------
 func _environment() -> void:
@@ -314,6 +318,7 @@ func _input(e: InputEvent) -> void:
 		if e.pressed and cast and cast.life and cast.life.quests.blocks_touch(e.position): return   # the quest log button
 		if e.pressed and cast and cast.cond_ui and cast.cond_ui.blocks(e.position): return   # the condition badges
 		if e.pressed and cast and cast.party_menu and cast.party_menu.blocks(e.position): return   # the POKéMON button and menu
+		if e.pressed and cast and cast.clock and cast.clock.blocks_touch(e.position): return   # the clock (a tap: the calendar)
 		if e.pressed:
 			if e.position.x < half and stick_id == -1:
 				stick_id = e.index; stick_origin = e.position; stick_vec = Vector2.ZERO
@@ -550,6 +555,7 @@ func _outdoor_shown(on: bool) -> void:
 		if on and not Ink.line_nodes.has(n): Ink.line_nodes.append(n)
 		elif not on: Ink.line_nodes.erase(n)
 	scenery.process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
+	if daynight: daynight.force_update.call_deferred()   # indoors or out: the light's profile
 
 func _enter_now(id: String, spawn_id: String) -> void:
 	var it := Interior.new()

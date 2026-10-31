@@ -55,5 +55,5 @@ void light() {
 	const vec3 LW = vec3(0.2126, 0.7152, 0.0722);
 	float t = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION * SUN_LUM;
 	t += (dot(ALBEDO, LW) / max(dot(color, LW), 1e-3) - mid) * detail;
-	DIFFUSE_LIGHT += tone_factor(ALBEDO, cel(ALBEDO, t));
+	DIFFUSE_LIGHT += dn_tone(ALBEDO, cel(ALBEDO, t), t);
 }

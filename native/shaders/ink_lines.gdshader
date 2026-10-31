@@ -88,7 +88,7 @@ void vertex() {
 		POSITION = c;
 	}
 	v_side = side;
-	v_col = aces_three(ink_color.rgb);   // the web's lines are tone mapped like the lit surfaces
+	v_col = aces_three(ink_color.rgb * dn_unlit());   // the web's lines are tone mapped like the lit surfaces
 	v_alpha = fl * ink_color.a;
 	v_core = core * w;
 	v_half = half_w;

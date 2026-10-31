@@ -96,7 +96,20 @@ func _material(src: Material, pal: Dictionary) -> Material:
 				m.set_shader_parameter("albedo_tex", b.albedo_texture)
 				m.set_shader_parameter("use_tex", true)
 		m.set_shader_parameter("use_vc", nm.contains("_vc"))
-		if nm.begins_with("glow"): m.render_priority = 1
+		if nm.begins_with("glow"):
+			m.render_priority = 1
+			# the day and night (daynight.gd): sunlight through the windows (web
+			# interior.js: #fff1cc patches, white streaks on the glass) goes at night,
+			# the doorway's glow (#fff4cc) dims, the lamps' pools grow brighter
+			var gc := b.albedo_color if b else Color.WHITE
+			var hx := gc.to_html(false)
+			if hx == "fff1cc" or (hx == "ffffff" and b and b.albedo_texture and gc.a < 0.5): m.set_shader_parameter("daylight", 1.0)
+			elif hx == "fff4cc": m.set_shader_parameter("daylight", 0.6)
+			else: m.set_shader_parameter("lamp", 1.0)
+		elif b and b.albedo_texture:
+			# a view out of a window (the bake's square painted views): the hour's colour
+			var ts := b.albedo_texture.get_size()
+			if ts.x == ts.y and ts.x >= 256: m.set_shader_parameter("view", 1.0)
 		return m
 	m.shader = FLOOR if nm.begins_with("floor") else TOON
 	# 'floor_g<k>': a floor with its own gloss (k / 100: waxed boards shine less than tiles)

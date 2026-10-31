@@ -3,6 +3,7 @@
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_always, cull_disabled;
 
+#include "res://shaders/aces.gdshaderinc"
 uniform float flow = 0.0;
 varying vec3 v_w;
 
@@ -24,6 +25,6 @@ void fragment() {
 	float pdark;
 	float pf = bike_part(v_w.xz, pdark);
 	c = mix(c * (1.0 - 0.16 * pdark), vec3(0.97, 1.0, 1.0), pf);
-	ALBEDO = c;
+	ALBEDO = dn_relight(c, dn_unlit());
 	ALPHA = max(0.9, pf);
 }

@@ -5,6 +5,7 @@
 // random number. No ink.
 shader_type spatial;
 render_mode unshaded, cull_disabled;
+#include "res://shaders/aces.gdshaderinc"
 
 uniform vec3 sun_dir = vec3(-0.55, 0.75, 0.45);
 
@@ -42,7 +43,8 @@ void vertex() {
 	float fa = UV.x + ra + atan(MODEL_MATRIX[0].z, MODEL_MATRIX[0].x);
 	vec3 nrm = normalize(vec3(cos(fa), 0.7, sin(fa)));
 	// what hangs below the brim is in the turf's shade
-	v_light = mix(0.78, 1.08, step(0.15, dot(nrm, normalize(sun_dir))) * step(-0.15, ca));
+	v_light = mix(0.78, 1.08, step(0.15, dot(nrm, normalize(dn_light_dir(sun_dir)))) * step(-0.15, ca));
+	if (dn_glow.w > 0.0) v_col = dn_relight(v_col * v_light, dn_tint(step(0.9, v_light))) / v_light;
 }
 
 void fragment() {

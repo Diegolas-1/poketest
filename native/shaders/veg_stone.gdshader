@@ -36,5 +36,5 @@ void light() {
 	float t = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION * SUN_LUM;
 	vec3 c = cel(ALBEDO, t);
 	c += (ALBEDO * 0.3 + vec3(0.05, 0.05, 0.03)) * v_rim * smoothstep(0.5, 0.58, t);
-	DIFFUSE_LIGHT += tone_factor(ALBEDO, c);
+	DIFFUSE_LIGHT += dn_tone(ALBEDO, c, t);
 }

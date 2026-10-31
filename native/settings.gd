@@ -16,7 +16,8 @@ extends Node
 # outlines, outline_q, shadow, shadow_dist, shadow_soft, grass, grass_size,
 # lod (view distance), trees, plants, fog (haze distance), exposure, fps, perf,
 # face, cam_speed, invert_y, deadzone, clock ("game" | "real"), day_len (real
-# minutes per game day), clock_hud, town_debug (clock.gd, life.gd), bike_assist / bike_goal / bike_cruise
+# minutes per game day), daynight (the day and night's light, daynight.gd; off =
+# the fixed midday look), clock_hud, town_debug (clock.gd, life.gd), bike_assist / bike_goal / bike_cruise
 # (the road assist, its routing to the compass's goal, double-tap cruise: bike/assist.gd), auto_update
 # (updater.gd), music, music_vol (music.gd), sfx_vol, amb_vol, ui_sfx (sfx.gd), wild_peek
 # ("hidden" | "peek": a wild Pokémon in the tall grass shows only by the grass, or peeks out; wild/wild.gd).
@@ -29,6 +30,7 @@ extends Node
 signal changed(key: String, value)
 
 const PATH := "user://settings.cfg"
+var path := PATH   # (a test points it elsewhere)
 
 # graphics presets; "high" is the default, tuned for an iPhone 17 at 120 Hz
 const PRESETS0 := {
@@ -57,7 +59,7 @@ static func _presets() -> Dictionary:
 
 # settings that are not part of a preset
 const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "invert_y": 0, "deadzone": 0.15,
-	"clock": "game", "day_len": 48, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
+	"clock": "game", "day_len": 120, "daynight": 1, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
 	"wild_peek": "hidden", "footprints": 1,
@@ -111,7 +113,8 @@ const ROWS := {
 	],
 	"Time": [
 		["clock", "Time of day", ["game", "real"], "Real time follows the phone's clock"],
-		["day_len", "Length of a day", [24, 48, 96, 144], "real minutes per game day"],
+		["day_len", "Length of a day", [48, 72, 96, 120, 180, 240, 360], "real minutes per game day"],
+		["daynight", "Day/night cycle", [0, 1], "the sun moves, dusk, night and dawn; off keeps the midday look"],
 		["clock_hud", "Clock on screen", [0, 1], ""],
 		["town_debug", "Town debug overlay", [0, 1], "who is doing what (also F3)"],
 	],
@@ -149,7 +152,10 @@ var _ar := {"acc": 0.0, "n": 0, "gpu": 0.0, "good": 0, "need": 4, "hold": 0.0, "
 func _init() -> void:
 	# shader globals added after an app was built (its project.godot lacks them):
 	# made here, before any shader that reads them compiles, so a patch works on it
-	for g in [["battle_arena", RenderingServer.GLOBAL_VAR_TYPE_VEC4, Vector4.ZERO], ["battle_arena_v", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0]]:
+	var gl := [["battle_arena", RenderingServer.GLOBAL_VAR_TYPE_VEC4, Vector4.ZERO], ["battle_arena_v", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0]]
+	# the day and night's (daynight.gd, shaders/daynight.gdshaderinc): the midday look
+	for d in DayNight.GLOBALS: gl.append([d[0], RenderingServer.GLOBAL_VAR_TYPE_VEC4, d[1]])
+	for g in gl:
 		if not ProjectSettings.has_setting("shader_globals/" + g[0]): RenderingServer.global_shader_parameter_add(g[0], g[1], g[2])
 
 func _ready() -> void:
@@ -242,7 +248,7 @@ func fmt(key: String, v) -> String:
 		"face": return "A right (Nintendo)" if v == "nintendo" else "A bottom (Xbox)"
 		"deadzone": return "%d%%" % roundi(float(v) * 100.0)
 		"clock": return "Real time" if v == "real" else "Game time"
-		"day_len": return "%d min" % int(v)
+		"day_len": return "%d min" % int(v) if int(v) < 60 else ("%d h" % (int(v) / 60) if int(v) % 60 == 0 else "%d h %d min" % [int(v) / 60, int(v) % 60])
 		"island_side": return "Left" if v == "left" else "Right"
 		"tv_res": return "Auto" if str(v) == "auto" else "%dp" % int(v)
 		"wild_peek": return "Peeking (model visible)" if v == "peek" else "Hidden (grass only)"
@@ -427,7 +433,7 @@ func open_menu() -> void:
 
 # ---------- file ----------
 func _load() -> void:
-	if _cfg.load(PATH) != OK: return
+	if _cfg.load(path) != OK: return
 	var p: String = _cfg.get_value("gfx", "preset", DEFAULT_PRESET)
 	preset = p if PRESETS.has(p) else DEFAULT_PRESET
 	var ov = _cfg.get_value("gfx", "o", {})
@@ -438,9 +444,21 @@ func _load() -> void:
 	if ex is Dictionary:
 		for k in ex:
 			if EXTRA.has(k): extra[k] = ex[k]
+	migrate()
+
+# settings saved by an older version: version 1 had 48 real minutes a day as the
+# default, so a 48 kept from then is the old default (the new one, 120, takes
+# over); any other length was chosen and stays
+const VERSION := 2
+func migrate() -> void:
+	var ver := int(_cfg.get_value("more", "ver", 1))
+	if ver >= VERSION: return
+	if extra.has("day_len") and int(extra.day_len) == 48: extra.erase("day_len")
+	_save()
 
 func _save() -> void:
 	_cfg.set_value("gfx", "preset", preset)
 	_cfg.set_value("gfx", "o", o)
 	_cfg.set_value("more", "v", extra)
-	_cfg.save(PATH)
+	_cfg.set_value("more", "ver", VERSION)
+	_cfg.save(path)

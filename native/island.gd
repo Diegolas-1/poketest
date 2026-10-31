@@ -25,7 +25,7 @@ const RED := UITheme.RED
 const GOLD := UITheme.YELLOW
 const CREAM := UITheme.WHITE
 const EDGE_PT := 11.0          # island's distance from the screen edge, points
-const ENTRIES := [["quests", "Quest log", true], ["settings", "Settings", true],
+const ENTRIES := [["quests", "Quest log", true], ["calendar", "Calendar", true], ["settings", "Settings", true],
 	["dex", "Pokédex", false], ["bag", "Bag", false], ["map", "Map", false]]
 
 # the menu's rows: a Bike row (bike/bike.gd menu_toggle) calls his bike to him outdoors,
@@ -230,6 +230,7 @@ func run_entry(id: String) -> void:
 		var q = _quest_ui()
 		if q: q.open()
 	elif id == "settings": Settings.open_menu()
+	elif id == "calendar" and main and main.cast and main.cast.clock: main.cast.clock.open_calendar()
 	elif id == "bike" and main and main.cast and main.cast.bike: main.cast.bike.menu_toggle()
 	elif id == "party" and main and main.cast and main.cast.party_menu: main.cast.party_menu.open("field")
 
@@ -499,10 +500,10 @@ func _draw_menu() -> void:
 				hud.draw_circle(dp, 8.0, Color(RED, ca), true, -1.0, true)
 
 func _icon_col(id: String) -> Color:
-	return {"quests": UITheme.YELLOW, "settings": UITheme.BLUE, "dex": UITheme.RED, "bag": UITheme.ORANGE, "map": UITheme.GREEN, "bike": UITheme.SKY}.get(id, Color.GRAY)
+	return {"quests": UITheme.YELLOW, "settings": UITheme.BLUE, "dex": UITheme.RED, "bag": UITheme.ORANGE, "map": UITheme.GREEN, "bike": UITheme.SKY, "calendar": UITheme.SKY}.get(id, Color.GRAY)
 
 func _icon(id: String, c: Vector2, a: float) -> void:
-	var ic: String = {"quests": "log", "settings": "cog", "dex": "ball", "bag": "bag", "map": "map", "bike": "bike"}.get(id, id)
+	var ic: String = {"quests": "log", "settings": "cog", "dex": "ball", "bag": "bag", "map": "map", "bike": "bike", "calendar": "calendar"}.get(id, id)
 	var col := Color(1, 1, 1, a)
 	UITheme.icon(hud, ic, c, 13.0, col)
 
