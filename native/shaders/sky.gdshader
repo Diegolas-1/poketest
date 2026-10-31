@@ -34,12 +34,13 @@ void sky() {
 		c += vec3(0.85, 0.9, 1.0) * star * st * smoothstep(-0.02, 0.25, y) * (0.6 + 0.4 * fract(r * 91.0));
 		// a faint milky band
 		float band = 1.0 - smoothstep(0.0, 0.32, abs(dot(d, normalize(vec3(0.5, 0.35, -0.8)))));
-		c += vec3(0.12, 0.13, 0.2) * band * st * smoothstep(0.05, 0.4, y) * (0.6 + 0.4 * sk_hash(floor(d * 30.0)));
+		float wisp = 0.6 + 0.2 * sin(d.x * 23.0 + d.z * 11.0) + 0.2 * sin(d.z * 31.0 - d.y * 17.0);
+		c += vec3(0.1, 0.11, 0.18) * band * st * smoothstep(0.05, 0.4, y) * wisp;
 	}
 	vec3 md = normalize(dn_moon.xyz);
 	float mv = clamp(smoothstep(-0.03, 0.05, md.y), 0.0, 1.0) * max(st, 0.18 * (1.0 - step(0.5, disc * smoothstep(0.1, 0.3, sd.y))));
 	if (dn_sun_pos.w > 0.5 && mv > 0.001) {
-		float mr = 0.026;   // the disc's radius (radians)
+		float mr = 0.036;   // the disc's radius (radians)
 		float md_cos = dot(d, md);
 		if (md_cos > cos(mr * 4.0)) {
 			// the disc's own frame: x across, y up the sky

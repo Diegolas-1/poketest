@@ -36,7 +36,7 @@ const RATE := 0.2             # seconds between updates
 const SWEEP := deg_to_rad(105.0)   # the sun's azimuth from noon to its rising (and setting)
 const REF_DOY := 90           # 1 April: the day the fixed sun is matched
 const REF_HOUR := 13.0
-const LIGHT_MIN_E := 9.0      # the shadow light never lower than this (degrees)
+const LIGHT_MIN_E := 14.0     # the shadow light never lower than this (degrees: longer shadows draw many more casters)
 
 # the light by the sun's height (degrees), morning and evening: tints of lit and
 # shaded surfaces (linear: the cel shaders tone map them, so a night at a tenth of
@@ -44,7 +44,7 @@ const LIGHT_MIN_E := 9.0      # the shadow light never lower than this (degrees)
 # sun glow. Above the last key: midday.
 const W := Color(1, 1, 1)
 const KEYS_AM := [
-	{"e": -14.0, "sun": Color(0.10, 0.13, 0.27), "amb": Color(0.055, 0.07, 0.15), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
+	{"e": -14.0, "sun": Color(0.115, 0.15, 0.30), "amb": Color(0.065, 0.08, 0.17), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
 	{"e": -6.0, "sun": Color(0.20, 0.17, 0.30), "amb": Color(0.12, 0.11, 0.21), "top": Color(0.05, 0.08, 0.22), "mid": Color(0.17, 0.17, 0.36), "hor": Color(0.50, 0.36, 0.50), "glow": 0.5},
 	{"e": 0.0, "sun": Color(0.90, 0.55, 0.50), "amb": Color(0.48, 0.38, 0.56), "top": Color(0.16, 0.24, 0.52), "mid": Color(0.62, 0.52, 0.72), "hor": Color(1.0, 0.70, 0.58), "glow": 1.6},
 	{"e": 7.0, "sun": Color(1.08, 0.88, 0.74), "amb": Color(0.76, 0.74, 0.92), "top": Color(0.10, 0.30, 0.74), "mid": Color(0.40, 0.60, 0.90), "hor": Color(0.96, 0.86, 0.76), "glow": 1.3},
@@ -52,7 +52,7 @@ const KEYS_AM := [
 	{"e": 22.0, "sun": W, "amb": W, "top": Color(0.07, 0.30, 0.82), "mid": Color(0.28, 0.60, 0.95), "hor": Color(0.80, 0.92, 0.96), "glow": 1.0},
 ]
 const KEYS_PM := [
-	{"e": -14.0, "sun": Color(0.10, 0.13, 0.27), "amb": Color(0.055, 0.07, 0.15), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
+	{"e": -14.0, "sun": Color(0.115, 0.15, 0.30), "amb": Color(0.065, 0.08, 0.17), "top": Color(0.012, 0.02, 0.065), "mid": Color(0.03, 0.05, 0.14), "hor": Color(0.07, 0.10, 0.21), "glow": 0.0},
 	{"e": -6.0, "sun": Color(0.22, 0.16, 0.30), "amb": Color(0.12, 0.10, 0.21), "top": Color(0.05, 0.07, 0.21), "mid": Color(0.18, 0.15, 0.34), "hor": Color(0.52, 0.30, 0.42), "glow": 0.5},
 	{"e": 0.0, "sun": Color(0.85, 0.45, 0.27), "amb": Color(0.42, 0.30, 0.50), "top": Color(0.14, 0.19, 0.46), "mid": Color(0.58, 0.40, 0.60), "hor": Color(1.0, 0.54, 0.30), "glow": 1.8},
 	{"e": 7.0, "sun": Color(1.12, 0.82, 0.55), "amb": Color(0.72, 0.66, 0.86), "top": Color(0.10, 0.28, 0.70), "mid": Color(0.40, 0.56, 0.84), "hor": Color(1.0, 0.82, 0.58), "glow": 1.4},
@@ -295,7 +295,11 @@ func _apply(s: Dictionary, indoors: bool) -> void:
 		var to := ld * 50.0
 		if sun.position.distance_to(to) > 0.0005 or state.is_empty():
 			sun.look_at_from_position(to, Vector3.ZERO, Vector3.UP if absf(ld.y) < 0.999 else Vector3.FORWARD)
-		sun.light_color = (s.sun as Color).lerp(W, 0.0)
+		sun.light_color = s.sun   # (only the few standard materials read it)
+		# a low light's shadows reach far and take in many more casters: a shorter
+		# shadow distance while it is low keeps dawn and dusk as cheap as midday
+		var le := _elev(ld)
+		sun.directional_shadow_max_distance = float(Settings.get_value("shadow_dist")) * lerpf(0.6, 1.0, smoothstep(16.0, 40.0, le))
 	if fx: fx.apply(s, indoors)
 
 func _apply_off() -> void:
@@ -304,4 +308,5 @@ func _apply_off() -> void:
 	if sun and is_instance_valid(sun):
 		sun.look_at_from_position(main.SUN_DIR.normalized() * 50.0, Vector3.ZERO)
 		sun.light_color = W
+		sun.directional_shadow_max_distance = float(Settings.get_value("shadow_dist"))
 	if fx: fx.apply({}, main.indoors)

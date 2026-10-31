@@ -19,8 +19,8 @@ vec3 aces_three(vec3 c) {
 vec3 tone_factor(vec3 albedo, vec3 lit_color) {
 	return aces_three(lit_color) / max(albedo, vec3(1e-4));
 }
-// the same, under the day and night's light (daynight.gdshaderinc): lit_amount
-// is the light() function's N.L times attenuation, so shade takes dn_amb and
+// the same, under the day and night's light (daynight.gdshaderinc): dn_la is
+// the light() function's N.L times attenuation, so shade takes dn_amb and
 // lit faces dn_sun (both white at midday: tone_factor exactly)
 // an unshaded colour under the same light: darkened through the curve the
 // way a cel surface of that colour is (identity while dn_glow.w is 0: midday)
@@ -35,6 +35,6 @@ vec3 dn_relight(vec3 dn_c, vec3 dn_t) {
 	if (dn_glow.w <= 0.0) return dn_c;
 	return dn_c * aces_three(dn_desat(dn_c * dn_t)) / max(aces_three(dn_c), vec3(1e-4));
 }
-vec3 dn_tone(vec3 albedo, vec3 lit_color, float lit_amount) {
-	return aces_three(dn_desat(lit_color * dn_tint(lit_amount))) / max(albedo, vec3(1e-4));
+vec3 dn_tone(vec3 dn_alb, vec3 dn_lc, float dn_la) {
+	return aces_three(dn_desat(dn_lc * dn_tint(dn_la))) / max(dn_alb, vec3(1e-4));
 }

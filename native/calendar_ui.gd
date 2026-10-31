@@ -180,7 +180,7 @@ func _draw_frame() -> void:
 	var lead := _weekday_of(first)   # Monday first
 	var n := GameCalendar.month_len(view_y, view_m)
 	var rows := int(ceil((lead + n) / 7.0))
-	var ch := minf(cw * 0.9, (h - gy - 46.0) / rows)
+	var ch := minf(cw * 1.05, (h - gy - 62.0) / rows)
 	for i in 7:
 		UITheme.text(f, Vector2(gx + cw * (i + 0.5), gy - 8.0), DOW[i], "label", 15, UITheme.ORANGE if i == 5 else (UITheme.RED if i == 6 else UITheme.INK_SOFT), 1)
 	var today := clock.day()
@@ -263,9 +263,18 @@ func _draw_frame() -> void:
 				y += 28.0
 		if seen.is_empty():
 			UITheme.text(f, Vector2(ix, y + 16.0), "Market every Saturday in the square.", "body", 17, UITheme.INK_SOFT, 0, iw)
-	# the hint along the foot
+	# the key along the foot, the hint at its end
+	var lx := pad
+	var ly := h - 24.0
+	for kk in [["holiday", "Holiday"], ["birthday", "Birthday"], ["league", "League"]]:
+		f.draw_rect(Rect2(lx, ly - 3.0, 18.0, 5.0), KIND_COL[kk[0]])
+		lx += 24.0 + UITheme.text(f, Vector2(lx + 24.0, ly + 5.0), kk[1], "body", 15, UITheme.INK_SOFT) + 18.0
+	f.draw_circle(Vector2(lx + 5.0, ly), 4.0, UITheme.ORANGE, true, -1.0, true)
+	lx += 16.0 + UITheme.text(f, Vector2(lx + 16.0, ly + 5.0), "Market", "body", 15, UITheme.INK_SOFT) + 18.0
+	_moon(f, Vector2(lx + 7.0, ly), 6.0, 0.5, UITheme.INK)
+	lx += 18.0 + UITheme.text(f, Vector2(lx + 18.0, ly + 5.0), "Full moon", "body", 15, UITheme.INK_SOFT) + 18.0
 	var hint := "Tap a day" if UIInput.device == "touch" else "Move to pick a day.  A: today"
-	UITheme.text(f, Vector2(pad, h - 18.0), hint, "body", 16, UITheme.INK_SOFT)
+	UITheme.text(f, Vector2(w - pad, ly + 5.0), hint, "body", 15, UITheme.INK_SOFT, 2)
 
 func _hm(hh: float) -> String:
 	var m := int(round(hh * 60.0))

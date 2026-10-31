@@ -3,7 +3,7 @@ extends Node
 # The town's clock. Game time by default: one game day = 120 real minutes
 # (Settings "day_len"; 5 real minutes a game hour), starting at 08:00 on day 1
 # (a Friday, so Saturday's market and Sunday's rest come round soon); or the
-# device's own clock (Settings "clock" = "real"). Debug: T = +1 h, Shift+T = +6 h,
+# device's own clock and date (Settings "clock" = "real"). Debug: T = +1 h, Shift+T = +6 h,
 # F4 = fast-forward (x30) on / off. A small readout sits at the top right
 # (Settings "clock_hud"); a tap on it opens the calendar (calendar_ui.gd).
 # The date and time are saved (user://clock.save) and come back in the next
@@ -41,7 +41,6 @@ var paused := false
 var real := false
 var _last_hour := -1
 var _last_day := -1
-var _real_day0 := 0
 var hud: Control           # the clock readout (_Readout: a small dark plate, top right)
 var _hud_acc := 1.0
 var cal_ui: CanvasLayer    # the calendar screen (calendar_ui.gd), made when first opened
@@ -59,7 +58,6 @@ func _init() -> void:
 func _ready() -> void:
 	name = "GameClock"
 	process_priority = -10   # before the scene's _process, so the town sees this frame's time
-	_real_day0 = int(Time.get_unix_time_from_system() / 86400.0)
 	var layer := CanvasLayer.new()
 	layer.layer = 3
 	add_child(layer)
@@ -114,8 +112,9 @@ func _on_setting(key: String, v) -> void:
 			if hud: hud.visible = int(v) == 1
 
 func _sync_real() -> void:
+	# the phone's date too: the calendar's (year 1 = 2005) day for today
 	var t := Time.get_datetime_dict_from_system()
-	var d := int(Time.get_unix_time_from_system() / 86400.0) - _real_day0 + 1
+	var d := GameCalendar.to_day(int(t.year) - GameCalendar.REAL_YEAR0, int(t.month), int(t.day))
 	minutes = d * 1440.0 + t.hour * 60.0 + t.minute + t.second / 60.0
 
 # game minutes per real second

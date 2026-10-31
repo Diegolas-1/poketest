@@ -24,7 +24,7 @@ const REAL_YEAR0 := 2004        # year 1 is 2005 in the real calendar (leap year
 const START_MONTH := 4          # day 1: 1 April, year 1
 const START_DATE := 1
 const SYNODIC := 29.530588      # days from new moon to new moon
-const NEW_MOON_DAY := 8.0       # the first new moon (day 8: 8 April, as in 2005)
+const NEW_MOON_DAY := 8.5       # the first new moon (day 8, 8 April, as in 2005; at noon)
 const EVENTS_PATH := "res://life/calendar.json"
 
 static var _events: Array = []

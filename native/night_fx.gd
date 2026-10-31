@@ -22,7 +22,7 @@ const LAMPS := ["fff1c4", "ffe7a6", "fffbea", "fff3c0"]
 const HALO := preload("res://shaders/night_halo.gdshader")
 const POOL := preload("res://shaders/night_pool.gdshader")
 const FLIES := preload("res://shaders/night_flies.gdshader")
-const FLY_N := 320
+const FLY_N := 560
 
 var main: Node3D
 var lamps: Array = []         # [{pos: Vector3, kind: "street" | "wall"}]
@@ -171,7 +171,7 @@ func _build_flies() -> void:
 		for j in range(0, img.get_height(), 2):
 			for i in range(0, img.get_width(), 2):
 				if img.get_pixel(i, j).g >= 1.5: tall.append(Vector2(ga.x + (i + 0.5) * ga.z / img.get_width(), ga.y + (j + 0.5) * ga.w / img.get_height()))
-		for k in mini(int(FLY_N * 0.7), tall.size()):
+		for k in mini(int(FLY_N * 0.75), tall.size()):
 			var p: Vector2 = tall[rng.randi() % tall.size()]
 			anchors.append(Vector3(p.x, w.height_at(p.x, p.y), p.y))
 	if main.water_root:

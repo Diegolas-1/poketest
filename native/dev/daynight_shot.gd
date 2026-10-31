@@ -6,7 +6,8 @@ extends Node
 #     [--hours=4,6,8] [--places=town,route1,street,pond] [--day=1] [--interior=oak_lab]
 #     [--calendar] (the calendar screen) [--stats] (draw calls and frame times) [--off]
 # Places: town (Ash's house, the square beyond), route1 (the tall grass),
-# street (by a street lamp, houses behind), pond (the fresh water by Route 1);
+# street (by a street lamp, houses behind), pond (the fresh water by Route 1),
+# west and east (the sky toward the sunset and the sunrise); "place@k" orbits;
 # with --interior the same hours inside it. Saved as <place>_<hhmm>.png.
 var main: Node
 var out := ""
@@ -72,6 +73,14 @@ func _spots() -> void:
 	var fp := Vector3(0, 0, -120)
 	if not fresh.is_empty(): fp = (fresh[0] as MeshInstance3D).global_transform * (fresh[0] as MeshInstance3D).mesh.get_aabb().get_center()
 	spots["pond"] = {"pos": Vector3(fp.x + 6.0, 0, fp.z + 6.0), "yaw": 0.785, "pitch": 0.2, "dist": 9.0}
+	# the sky: from the street, toward the sunset (west) and the sunrise (east)
+	for k in ["west", "east"]:
+		var hrs := GameCalendar.sun_hours(main.cast.clock.day_of_year())
+		var sd := DayNight.sun_dir_at(hrs.y if k == "west" else hrs.x, main.cast.clock.day_of_year())
+		var base: Vector3 = spots.street.pos
+		base.y = main.world.height_at(base.x, base.z)
+		var hz := Vector3(sd.x, 0.0, sd.z).normalized()
+		spots[k] = {"pos": base, "yaw": 0.0, "pitch": 0.2, "eye": base + Vector3(0, 7.0, 0) - hz * 6.0, "look": base + hz * 30.0 + Vector3(0, 9.0, 0)}
 	print("spots ", spots)
 
 # "place@k": an orbit view round the place (k * 45 degrees, 22 m out, 11 up)
@@ -88,6 +97,14 @@ func _orbit(p: String) -> void:
 
 func _place(p: String) -> void:
 	if p.contains("@"): _orbit(p)
+	if p == "moon" and spots.has("street"):
+		# toward the moon, wherever it is at this hour
+		var c: GameClock = main.cast.clock
+		var md := DayNight.moon_dir_at(c.hour(), c.day_of_year(), c.moon_phase())
+		var base: Vector3 = spots.street.pos
+		base.y = main.world.height_at(base.x, base.z)
+		var e := base + Vector3(0, 2.0, 0)
+		spots["moon"] = {"pos": base, "yaw": 0.0, "pitch": 0.2, "eye": e, "look": e + Vector3(md.x, maxf(md.y, 0.05) * 0.8, md.z) * 30.0}
 	if p.begins_with("in_"):
 		if not main.indoors: main.enter_space(p.substr(3), "", true)
 		return
@@ -114,7 +131,9 @@ func _process(dt: float) -> void:
 	if spots.is_empty(): _spots()
 	if stats and job >= 0: _times.append(dt)
 	if not _eye.is_empty(): main.cam.look_at_from_position(_eye[0], _eye[1])
-	if main.cast and main.cast.dialog: main.cast.dialog.visible = false   # (Oak's call at Route 1, the banners)
+	if main.cast and main.cast.dialog: main.cast.dialog.visible = false   # (the banners)
+	if wait > 0:
+		for n in get_tree().root.find_children("*", "UIDialogPanel", true, false): n.visible = false   # (Oak's call at Route 1)
 	if wait > 0:
 		wait -= 1
 		var j: Array = jobs[job]

@@ -18,6 +18,6 @@ void vertex() {
 
 void fragment() {
 	vec4 t = texture(atlas, UV);
-	ALBEDO = dn_relight(t.rgb, mix(dn_unlit(), dn_sun.rgb, 0.5));
+	ALBEDO = dn_relight(t.rgb, mix(dn_unlit(), dn_sun.rgb, 0.5) * (1.0 - 0.3 * dn_sun.a));
 	ALPHA = t.a * COLOR.a;
 }

@@ -14,12 +14,12 @@ void vertex() {
 	// a blink: slow on, a short glow, off for a while
 	float fb = smoothstep(0.55, 0.75, sin(TIME * (0.9 + fr.z * 0.9) + fr.x * 31.0)) * 0.85 + 0.15;
 	v_fa = fb * dn_glow.z * (1.0 - smoothstep(30.0, 48.0, fd)) * step(0.5, fd);
-	fv.xy += UV * (0.09 + fd * 0.004);
+	fv.xy += UV * (0.16 + fd * 0.006);
 	POSITION = PROJECTION_MATRIX * vec4(fv, 1.0);
 	if (v_fa <= 0.002) POSITION = vec4(0.0, 0.0, -2.0, 1.0);
 }
 void fragment() {
 	float fr2 = length(UV);
 	float fc = pow(max(0.0, 1.0 - fr2), 3.0) + (1.0 - smoothstep(0.0, 0.28, fr2)) * 0.9;
-	ALBEDO = vec3(0.78, 1.0, 0.42) * fc * v_fa * 1.3;
+	ALBEDO = vec3(0.78, 1.0, 0.42) * fc * v_fa * 1.8;
 }
