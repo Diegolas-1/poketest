@@ -1094,6 +1094,9 @@ func _store_setup() -> void:
 		if store.balls().is_empty():
 			var sb = BattleConfig.sect("catch").get("start_bag", {})
 			for id in sb: store.give(String(id), int(sb[id]))
+		if store.items("medicine").is_empty() and store.items("battle").is_empty():
+			var si = BattleConfig.sect("bag").get("start", {})
+			for id in si: store.give(String(id), int(si[id]))
 	# his first Pokémon comes with the start bag (the story's: none before it)
 	var q := _quests()
 	if store == PkmnStore.main() and q != null and q.flag("has_starter"): store.stock_once()

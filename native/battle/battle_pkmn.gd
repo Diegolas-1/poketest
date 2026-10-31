@@ -28,9 +28,12 @@ extends Node
 # Ambushes (wild/ambush.gd): "partner_node2" his second Pokémon already out steps into
 #   place 1 (no throw); a wild side's next one comes in on its own (no ball); "waves":
 #   the wild side's next two only once both of the pair are down.
-# BALL (over the menu; battle/catch_rules.gd): the bag's balls (battle.store), one
-#   thrown takes Ash's turn (the foe still moves); a trainer blocks it (the games'
-#   line); a catch ends the battle (outcome caught). Staged by battle.throw_show.
+# ITEMS: the bag (battle.store; battle_config bag), a pocket a tab. Poké Balls
+#   (battle/catch_rules.gd): one thrown takes Ash's turn (the foe still moves); a
+#   trainer blocks it (the games' line); a catch ends the battle (outcome caught);
+#   staged by battle.throw_show; none in doubles (two out: no aiming). Medicine and
+#   the battle items (the energy ones): used on his Pokémon (doubles: which of his
+#   two first), it takes that one's turn; one that would do nothing isn't spent.
 # The result (battle.result): outcome ash_won | ash_down | ran | fled | caught (the
 # contract's), and pkmn_outcome: PkmnBattle's own (won | lost | fled | wild_fled | blown_away | caught).
 #
@@ -78,6 +81,7 @@ var _x2k := {"a": 1.0, "b": 1.0}     # its grow-in
 var _tg := {"side": "b", "place": 0} # the move being staged: its target
 var _inp := 0                        # the place Ash is choosing for
 var _aim_id := ""
+var _item_id := ""                   # doubles: an item waiting for which of his it's for
 var _aims: Array = []
 var _fill_k := -1
 const DX := 1.6                      # doubles: each place this far to the side
@@ -85,6 +89,7 @@ const DX := 1.6                      # doubles: each place this far to the side
 # each turn's start ({turn, pending, prompted}: whether the energy pick came up)
 var turn_log: Array = []
 var pick_log: Array = []
+var item_log: Array = []             # each item used: {turn, item, target}
 
 func setup(b: Battle) -> void:
 	battle = b
@@ -250,10 +255,9 @@ func run() -> void:
 	hud.party_picked.connect(_on_party)
 	hud.party_cancel.connect(func(): if hud.mode == "party" and not hud.party_forced: hud.show_menu())
 	hud.target_picked.connect(_on_target)
-	hud.target_cancel.connect(func(): _aim_id = ""; hud.show_fight())
-	hud.ball_picked.connect(_on_ball)
-	hud.ball_cancel.connect(func(): if hud.mode == "balls": hud.show_menu())
-	hud.ball_on = D == null
+	hud.target_cancel.connect(_on_target_cancel)
+	hud.item_picked.connect(_on_item)
+	hud.bag_cancel.connect(func(): if hud.mode == "bag": hud.show_menu())
 	hud.log_on = bool(battle.opts.get("log", false))
 	for s in ["a", "b", "a1", "b1"]: _make_mound(s)
 	await _play(B.start(), 0.2)
@@ -296,11 +300,13 @@ func _open_menu() -> void:
 		var sbl := battle.script_ball_for(B.turn)
 		if not sbl.is_empty() and not _over:
 			hud.show_menu()
-			hud.sel = PkmnHud.BALL
+			hud.sel = 2
 			await get_tree().create_timer(0.7).timeout
-			hud.show_balls(battle.store.balls())
-			for i in hud.ball_list.size():
-				if String(hud.ball_list[i].id) == String(sbl.get("ball", "poke_ball")): hud.ball_sel = i
+			hud.bag_tab = 0
+			hud.show_bag(bag_pockets())
+			var bl := hud.bag_items()
+			for i in bl.size():
+				if String(bl[i].id) == String(sbl.get("ball", "poke_ball")): hud.bag_sel = i
 			await get_tree().create_timer(0.8).timeout
 			_on_ball(String(sbl.get("ball", "poke_ball")))
 			return
@@ -340,12 +346,7 @@ func _on_command(c: String) -> void:
 			else:
 				hud.say("Can't escape!", UITheme.RED); _on_end_turn()
 		"items":
-			if B.use_item("a", "energy_shard") > 0: hud.say("Used an Energy Shard: +1 chip.", UITheme.YELLOW)
-			else: hud.say("No room for more chips.", UITheme.RED)
-		"ball":
-			var bl := battle.store.balls()
-			if bl.is_empty(): hud.say(CatchRules.line("none"), UITheme.RED)
-			else: hud.show_balls(bl)
+			hud.show_bag(bag_pockets())
 		"pokemon":
 			if party() and not party().bench("a").is_empty(): hud.show_party(false)
 			elif party() and party().alive("a") > 1: hud.say("%s can't be switched out now!" % B.fighter("a").name, UITheme.RED)
@@ -383,6 +384,76 @@ func _on_party(i: int) -> void:
 	hud.busy()
 	_busy = true
 	await _play(party().switch_to("a", i), 0.2)
+	_busy = false
+	_on_end_turn()
+
+# ---------- ITEMS ----------
+# the bag's pockets for the HUD: the balls, medicine, the battle items (the store's counts)
+func bag_pockets() -> Array:
+	var st: PkmnStore = battle.store
+	var names := {}
+	for pk in BattleConfig.sect("bag").get("pockets", []): names[String(pk[0])] = String(pk[1])
+	var bd: Dictionary = BattleConfig.sect("bag").get("ball_desc", {})
+	var balls := []
+	for b in st.balls():
+		var d: Dictionary = b.duplicate()
+		d["desc"] = String(bd.get(String(b.id), ""))
+		balls.append(d)
+	var note := ""
+	if D: note = "TWO OUT: NO AIMING"
+	elif B.kind != "wild": note = "A TRAINER BLOCKS BALLS"
+	return [{"id": "balls", "label": names.get("balls", "POKé BALLS"), "items": balls, "note": note, "dim": D != null},
+		{"id": "medicine", "label": names.get("medicine", "MEDICINE"), "items": st.items("medicine")},
+		{"id": "battle", "label": names.get("battle", "BATTLE ITEMS"), "items": st.items("battle")}]
+
+func _on_item(pocket: String, id: String) -> void:
+	if _busy or B.over or hud.mode != "bag": return
+	if pocket == "balls":
+		if D:
+			hud.say(PkmnBattle.bag_line("two_out"), UITheme.RED)
+			return
+		_on_ball(id)
+		return
+	if battle.store.count(id) == 0:
+		hud.say(PkmnBattle.bag_line("none"), UITheme.RED)
+		return
+	if D:
+		# doubles: which of his two it's for
+		var mine := [0, 1].filter(func(k): return D.at("a", k) != null and not D.at("a", k).fainted())
+		if mine.size() >= 2:
+			_item_id = id
+			_aims = mine.map(func(k): return {"side": "a", "k": k})
+			hud.show_targets(_aims.map(func(t2): return "%s|%s" % ["LEFT" if int(t2.k) == 0 else "RIGHT", String(D.at("a", int(t2.k)).name).to_upper()]), "USE IT ON?")
+			return
+		_use_item(id, D.at("a", mine[0]) if not mine.is_empty() else B.fighter("a"))
+		return
+	_use_item(id, B.fighter("a"))
+
+func _on_target_cancel() -> void:
+	if _item_id != "":
+		_item_id = ""
+		hud.show_bag(bag_pockets())
+		return
+	_aim_id = ""
+	hud.show_fight()
+
+# an item on one of his: refused (nothing spent, the bag stays open) if it would do
+# nothing; else spent, staged, and the turn goes on (the foe still moves)
+func _use_item(id: String, f: PkmnBattle.Fighter) -> void:
+	var why := B.item_refusal("a", id, f)
+	if why != "":
+		Sfx.ui("ui_error")
+		hud.say(why, UITheme.RED)
+		if hud.mode != "bag": hud.show_bag(bag_pockets())
+		return
+	if not battle.store.use(id):
+		hud.say(PkmnBattle.bag_line("none"), UITheme.RED)
+		return
+	while B.unqueue("a") != "": pass
+	_busy = true
+	hud.busy()
+	item_log.append({"turn": B.turn, "item": id, "target": f.name})
+	await _play(B.use_bag("a", id, f), 0.3)
 	_busy = false
 	_on_end_turn()
 
@@ -644,6 +715,17 @@ func _play(evs: Array, gap: float) -> void:
 				await _send_out(s, String(e.get("species", B.fighter(s).species)))
 			"need_switch", "dragged_out":
 				await _wait(0.5)
+			"item_used":
+				_ash("pk_command")
+				await _wait(0.55)
+			"healed", "cured", "charged":
+				var ip := _pos(s)
+				var ic := Color(0.55, 1.0, 0.65, 0.9) if t != "charged" else Color(1.0, 0.85, 0.3, 0.9)
+				battle.fx.spawn("ring", ip + Vector3(0, 0.3, 0), Vector3.ZERO, {"life": 0.7, "size": 0.5, "size_end": 1.7, "col": ic})
+				battle.fx.spawn("ring", ip + Vector3(0, 0.7, 0), Vector3.ZERO, {"life": 0.6, "size": 0.3, "size_end": 1.2, "col": ic})
+				Sfx.play("sparkle", ip, {"vol": -3.0, "pitch": 1.1})
+				if t == "healed": battle.ui.pop("+%d HP" % int(e.get("n", 0)), ip + Vector3(0, 1.0, 0), UITheme.GREEN, 24, "word")
+				await _wait(0.8)
 			"turn", "gain", "pick", "picked":
 				pass
 			_:
@@ -1036,6 +1118,11 @@ func _aim_label(t: Dictionary) -> String:
 	return "%s|%s" % [who, String(f.name).to_upper() if f else "?"]
 
 func _on_target(i: int) -> void:
+	if _item_id != "" and i >= 0 and i < _aims.size():
+		var it := _item_id
+		_item_id = ""
+		_use_item(it, D.at("a", int(_aims[i].k)))
+		return
 	if _aim_id == "" or i < 0 or i >= _aims.size(): return
 	var id := _aim_id
 	_aim_id = ""

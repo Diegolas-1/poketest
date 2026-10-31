@@ -27,6 +27,13 @@ extends Control
 #   bar.preview_cost(cost); bar.clear_preview()
 #   bar.show_bar(true)                # slides in (false: out)
 #   bar.pool_at(global_point) -> kind ("" if none)
+# Two lighter looks for the battle HUD (ui/pkmn_hud.gd):
+#   bar.focus_row = false   the pools only (the focus rides in the HP bar: draw_strip)
+#   bar.compact = true      no plate: one icon and a count per pool (the opponent's,
+#                           on its nameplate's name line); the animations come and go there
+#   bar.draw_strip(canvas, rect)   the focus as a thin strip, on another canvas (the
+#                           HUD's HP bar): fill, the red a disruption took, the chip ticks
+#   EnergyBar.draw_counters(canvas, e, right_end, h)   the counters, static (the doubles plates)
 
 signal pool_tapped(kind: String)
 
@@ -47,6 +54,10 @@ const FOCUS_Y := 17.0
 const POOLS_Y := 45.0
 const TRAP := "_trap"            # the opponent's view: locked chips face down in a tray of their own (their pool hidden)
 const TRAP_COL := Color("9d6cf0")
+const H_POOLS := 46.0            # the plate's height without the focus row
+const POOLS_Y_ONLY := 23.0
+const CMP_H := 28.0              # compact: the counters' height at scale 1
+const CMP_PITCH := 52.0          # compact: one counter's width (icon and count)
 
 var energy: BattleEnergy
 var side := "foe":
@@ -59,6 +70,8 @@ var align_right := false         # draw from the right edge of the rect (the foe
 var sounds := true
 var scale_k := 1.0               # set from the rect's height by fit()
 var input_enabled := true        # taps on the trays during a pool pick
+var focus_row := true            # false: the pools only
+var compact := false             # one icon and a count per pool, no plate
 
 var vis: Array = []              # the chips shown, in chip_list order: {kind, pool, state, lock, t, delay, st_t}
 var flying: Array = []           # {kind, from, to, t, delay, spin}
@@ -134,7 +147,7 @@ static func width_for(n: int, s := 1.0) -> float:
 func fit(r: Rect2) -> void:
 	position = r.position
 	size = r.size
-	scale_k = clampf(r.size.y / H, 0.5, 2.0) if r.size.y > 0.0 else 1.0
+	scale_k = clampf(r.size.y / _hh(), 0.5, 2.0) if r.size.y > 0.0 else 1.0
 	queue_redraw()
 
 func show_bar(on: bool, instant := false) -> void:
@@ -289,7 +302,16 @@ func _cap_of(pool: String) -> int:
 	if pool == TRAP or pool == BattleEnergy.ANY or energy == null: return 0
 	return energy.pool_cap(pool)
 
+func _hh() -> float:
+	if compact: return CMP_H
+	return H if focus_row else H_POOLS
+
+func _py() -> float:
+	if compact: return CMP_H * 0.5
+	return POOLS_Y if focus_row else POOLS_Y_ONLY
+
 func _content_w() -> float:
+	if compact: return maxf(1.0, _pools().size()) * CMP_PITCH
 	var tr := _trays()
 	var w: float = (float(tr.back().x1) if not tr.is_empty() else 100.0) + LEFT
 	if energy and not energy.commit.is_empty(): w += UITheme.text_w(_commit_text(), "label", 13) + 30.0
@@ -303,6 +325,9 @@ func _commit_text() -> String:
 func _plate_w() -> float:
 	return _content_w() * _s()
 
+# the width drawn (the plate, or compact: the counters)
+func shown_w() -> float: return _plate_w()
+
 func _origin() -> Vector2:
 	var w := _plate_w()
 	var x := size.x - w if align_right and size.x > w else 0.0
@@ -311,7 +336,7 @@ func _origin() -> Vector2:
 func _plate_rect() -> Rect2:
 	var dir := 1.0 if side == "ally" else -1.0
 	var o := _origin() + Vector2((1.0 - UITheme.ease_out_expo(k)) * 70.0 * -dir, 0.0)
-	return Rect2(o, Vector2(_plate_w(), H * _s()))
+	return Rect2(o, Vector2(_plate_w(), _hh() * _s()))
 
 func _tray(pool: String) -> Dictionary:
 	for tr in _trays():
@@ -324,31 +349,40 @@ func _chip_c(i: int) -> Vector2:
 	var s := _s()
 	if i < 0 or i >= vis.size(): return r.get_center()
 	var pool: String = vis[i].pool
+	if compact: return _counter_c(pool)
 	var nth := 0
 	for j in i:
 		if vis[j].pool == pool: nth += 1
 	var tr := _tray(pool)
 	if tr.is_empty(): return r.get_center()
-	return r.position + Vector2((float(tr.x0) + TRAY_PAD + HEAD + PITCH * 0.5 + nth * PITCH) * s, POOLS_Y * s)
+	return r.position + Vector2((float(tr.x0) + TRAY_PAD + HEAD + PITCH * 0.5 + nth * PITCH) * s, _py() * s)
+
+# compact: the centre of a pool's icon
+func _counter_c(pool: String) -> Vector2:
+	var r := _plate_rect()
+	var s := _s()
+	var i := maxi(0, _pools().find(pool))
+	return r.position + Vector2((i * CMP_PITCH + 13.0) * s, CMP_H * 0.5 * s)
 
 func _slot_in(pool: String, nth: int) -> Vector2:
+	if compact: return _counter_c(pool)
 	var r := _plate_rect()
 	var s := _s()
 	var tr := _tray(pool)
 	if tr.is_empty(): tr = _trays().back()
-	return r.position + Vector2((float(tr.x0) + TRAY_PAD + HEAD + PITCH * 0.5 + nth * PITCH) * s, POOLS_Y * s)
+	return r.position + Vector2((float(tr.x0) + TRAY_PAD + HEAD + PITCH * 0.5 + nth * PITCH) * s, _py() * s)
 
 func _tray_rect(tr: Dictionary) -> Rect2:
 	var r := _plate_rect()
 	var s := _s()
-	return Rect2(r.position + Vector2(float(tr.x0) * s, (POOLS_Y - 15.0) * s), Vector2((float(tr.x1) - float(tr.x0)) * s, 30.0 * s))
+	return Rect2(r.position + Vector2(float(tr.x0) * s, (_py() - 15.0) * s), Vector2((float(tr.x1) - float(tr.x0)) * s, 30.0 * s))
 
 # the pool under a point (global canvas coordinates), "" if none
 func pool_at(p: Vector2) -> String:
 	var lp: Vector2 = get_global_transform_with_canvas().affine_inverse() * p
 	for tr in _trays():
 		if tr.pool == BattleEnergy.ANY: continue
-		if _tray_rect(tr).grow(6.0 * _s()).has_point(lp): return tr.pool
+		if _tray_rect(tr).grow_individual(6.0 * _s(), 12.0 * _s(), 6.0 * _s(), 12.0 * _s()).has_point(lp): return tr.pool
 	return ""
 
 func pool_rect(pool: String) -> Rect2:
@@ -434,6 +468,10 @@ func _draw() -> void:
 	var s := _s()
 	var a := clampf(k * 1.4, 0.0, 1.0)
 	var r := _plate_rect()
+	if compact:
+		_draw_compact(r, s, a)
+		_draw_moving(s, a)
+		return
 	r.position.x += sin(t * 70.0) * 5.0 * s * _shake
 	var pts := UITheme.plate(self, r, a, UITheme.SKEW, UITheme.PLATE, UITheme.CUT * s)
 	UITheme.outline(self, pts, Color(1, 1, 1, 0.1 * a), 1.0)
@@ -467,9 +505,12 @@ func _draw() -> void:
 			draw_circle(c, SLOT_R * 0.95 * s, Color(UITheme.WHITE, a), true, -1.0, true)
 			draw_arc(c, SLOT_R * 0.95 * s, 0.0, TAU, 24, Color(UITheme.YELLOW, a), 2.0 * s, true)
 			UITheme.text_mid(self, c + Vector2(0, 1), "+", "display", int(18 * s), Color(UITheme.INK, a), 1)
-	_draw_focus(r, s, a)
+	if focus_row: _draw_focus(r, s, a)
 	_draw_pools(r, s, a)
 	_draw_commit(r, s, a)
+	_draw_moving(s, a)
+
+func _draw_moving(s: float, a: float) -> void:
 	# chips fading (lost to a disruption, or gone)
 	for f in fading:
 		var fk: float = f.t / FADE_T
@@ -483,6 +524,89 @@ func _draw() -> void:
 		var R2 := SLOT_R * s
 		draw_circle(b.at, R2 * (0.6 + 1.6 * bk), Color(bc.lightened(0.4), 0.55 * (1.0 - bk) * a), false, 3.0 * s * (1.0 - bk) + 1.0, true)
 		draw_circle(b.at, R2 * 0.7 * (1.0 - bk), Color(1, 1, 1, 0.8 * (1.0 - bk) * a), true, -1.0, true)
+
+# compact: an icon and a count per pool (ready chips; the trap's: face-down ones)
+func _draw_compact(r: Rect2, s: float, a: float) -> void:
+	var pools := _pools()
+	for i in pools.size():
+		var pool: String = pools[i]
+		var c := _counter_c(pool)
+		var n := 0
+		var young := 9.0
+		for v in vis:
+			if v.pool != pool: continue
+			if pool == TRAP or v.state == "ready": n += 1
+			var lt: float = v.t - v.delay
+			if lt >= 0.0: young = minf(young, lt)
+		var pk := 1.0 + 0.35 * maxf(0.0, 1.0 - absf(young - CHARGE_T) / 0.25)
+		counter(self, pool, c, CMP_H * 0.5 * s * 0.82 * pk, n, s, a, picking() and pool != TRAP and energy.pool_room(pool) > 0)
+		if young < CHARGE_T + 0.3:
+			var gk := clampf(young / (CHARGE_T + 0.3), 0.0, 1.0)
+			draw_arc(c, CMP_H * 0.5 * s * (0.9 + 1.0 * gk), 0.0, TAU, 24, Color(EnergyIcon.color(pool).lightened(0.4), a * (1.0 - gk)), 2.5 * s, true)
+
+# one counter: the pool's icon and its count to the right (dim at zero)
+static func counter(ci: CanvasItem, pool: String, c: Vector2, R: float, n: int, s: float, a: float, hilite := false) -> void:
+	var on := n > 0
+	if pool == TRAP:
+		ci.draw_circle(c, R * 1.05, Color(TRAP_COL, 0.85 * a), true, -1.0, true)
+		_lock_static(ci, c, R * 0.8, a)
+	else:
+		if on: UITheme.glow(ci, c, R * 1.1, EnergyIcon.color(pool), a * 0.35)
+		EnergyIcon.draw_icon(ci, pool, c, R, a * (1.0 if on else 0.45), {"dim": 0.0 if on else 0.6})
+	if hilite: ci.draw_arc(c, R + 3.0 * s, 0.0, TAU, 24, Color(UITheme.YELLOW, a), 2.0 * s, true)
+	UITheme.text_mid(ci, c + Vector2(R + 5.0 * s, 1.0 * s), str(n), "number", int(20 * s), Color(UITheme.TEXT if on else UITheme.TEXT_DIM, a), 0, 3, Color(0, 0, 0, 0.5 * a))
+
+# the counters, static (no animation): right-aligned to end (canvas coordinates), h tall
+static func draw_counters(ci: CanvasItem, e: BattleEnergy, end: Vector2, h: float, owner := false, a := 1.0) -> float:
+	if e == null: return 0.0
+	var pools: Array = e.pool_kinds()
+	if int(e.bonus.ready) + int(e.bonus.spent) > 0: pools.append(BattleEnergy.ANY)
+	var locked := e.chip_list().filter(func(c): return c.state == "locked").size()
+	if not owner and locked > 0: pools.append(TRAP)
+	var s := h / CMP_H
+	var x0 := end.x - pools.size() * CMP_PITCH * s
+	for i in pools.size():
+		var pool: String = pools[i]
+		var n := locked if pool == TRAP else e.chip_list().filter(func(c): return c.pool == pool and c.state == "ready").size()
+		counter(ci, pool, Vector2(x0 + (i * CMP_PITCH + 13.0) * s, end.y), h * 0.5 * 0.82, n, s, a)
+	return pools.size() * CMP_PITCH * s
+
+static func _lock_static(ci: CanvasItem, c: Vector2, r: float, a: float) -> void:
+	var col := Color(1, 1, 1, 0.95 * a)
+	var lw := maxf(1.2, r * 0.18)
+	ci.draw_arc(c + Vector2(0, -r * 0.12), r * 0.32, PI, TAU, 10, col, lw, true)
+	ci.draw_line(c + Vector2(-r * 0.32, -r * 0.12), c + Vector2(-r * 0.32, r * 0.08), col, lw, true)
+	ci.draw_line(c + Vector2(r * 0.32, -r * 0.12), c + Vector2(r * 0.32, r * 0.08), col, lw, true)
+	ci.draw_colored_polygon(UITheme.rounded_points(Rect2(c + Vector2(-r * 0.48, 0.0), Vector2(r * 0.96, r * 0.62)), r * 0.12, 3), col)
+
+# the focus as a strip on another canvas (the HUD's HP bar): r is a skewed bar's rect
+func draw_strip(ci: CanvasItem, r: Rect2, a := 1.0) -> void:
+	if energy == null: return
+	r.position.x += sin(t * 70.0) * 3.0 * _shake
+	strip(ci, r, energy, _focus_shown, _focus_hurt, t, a)
+
+static func strip(ci: CanvasItem, r: Rect2, e: BattleEnergy, shown: float, hurt: float, tt: float, a := 1.0) -> void:
+	var fm := e.fmax()
+	var li := e.locked_in
+	var fk := clampf(shown / fm, 0.0, 1.0)
+	UITheme.para(ci, r, Color(1, 1, 1, 0.12 * a))
+	if hurt > 0.0:
+		var hk := clampf(hurt / fm, 0.0, 1.0)
+		if (hk - fk) * r.size.x > 2.0: UITheme.para(ci, Rect2(r.position + Vector2(r.size.x * fk, 0), Vector2(r.size.x * (hk - fk), r.size.y)), Color(UITheme.RED, 0.9 * a))
+	if fk > 0.003:
+		var fr := Rect2(r.position, Vector2(maxf(r.size.y, r.size.x * fk), r.size.y))
+		UITheme.para(ci, fr, Color(UITheme.YELLOW if li else Color("dfe8f5"), a))
+		if li:
+			var sweep := clampf(fmod(tt * 0.7, 1.4) - 0.2, 0.0, 1.0)
+			UITheme.glow(ci, Vector2(fr.position.x + fr.size.x * sweep, fr.get_center().y), 10.0, Color.WHITE, a * 0.6)
+	# a tick at each chip threshold, lit once reached
+	for th in e.thresholds():
+		var px := r.position.x + r.size.x * float(th) / fm
+		var on: bool = e.focus >= float(th) - 0.001
+		var top := Vector2(px + r.size.y * UITheme.SKEW, r.position.y - 1.0)
+		var bot := Vector2(px, r.end.y + 1.0)
+		ci.draw_line(top, bot, Color(0, 0, 0, 0.75 * a), 2.4, true)
+		if on: ci.draw_line(top + Vector2(0, 1), bot - Vector2(0, 1), Color(1, 1, 1, 0.5 * a), 1.0, true)
 
 func _draw_focus(r: Rect2, s: float, a: float) -> void:
 	var fm := energy.fmax()
@@ -525,7 +649,7 @@ func _draw_focus(r: Rect2, s: float, a: float) -> void:
 func _draw_pools(r: Rect2, s: float, a: float) -> void:
 	var R := SLOT_R * s
 	var pick := picking()
-	var cy := r.position.y + POOLS_Y * s
+	var cy := r.position.y + _py() * s
 	for tr in _trays():
 		var pool: String = tr.pool
 		var trr := _tray_rect(tr)
@@ -578,7 +702,7 @@ func _draw_commit(r: Rect2, s: float, a: float) -> void:
 	var txt := _commit_text()
 	var col: Color = cols.get(semi, UITheme.ORANGE)
 	var tr := _trays()
-	var at := Vector2(r.position.x + (float(tr.back().x1) + 12.0) * s, r.position.y + (POOLS_Y - 10.5) * s)
+	var at := Vector2(r.position.x + (float(tr.back().x1) + 12.0) * s, r.position.y + (_py() - 10.5) * s)
 	var pulse := 0.8 + 0.2 * sin(t * 5.0)
 	UITheme.chip(self, at, txt, col, UITheme.INK, int(13 * s), 21.0 * s, a * pulse)
 

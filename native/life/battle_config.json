@@ -333,5 +333,28 @@
       "none": "You have no Poké Balls!"
     }
   },
+  "bag": {
+    "_doc": "The battle's ITEMS bag (ui/pkmn_hud.gd, battle/pkmn_store.gd): three pockets. balls: catch.balls (wild battles only). medicine: heal (HP restored) or cure (the status it clears). battle: the energy items (items.<id>, their own names and effects). Using one takes the turn. start: what the bag holds once he has his first Pokemon, next to catch.start_bag (a stock for testing); the arena's bag is unlimited.",
+    "pockets": [["balls", "POKé BALLS"], ["medicine", "MEDICINE"], ["battle", "BATTLE ITEMS"]],
+    "medicine": {
+      "potion": {"name": "Potion", "heal": 20, "desc": "Restores 20 HP to one Pokémon."},
+      "super_potion": {"name": "Super Potion", "heal": 50, "desc": "Restores 50 HP to one Pokémon."},
+      "antidote": {"name": "Antidote", "cure": "poison", "desc": "Cures a poisoned Pokémon."},
+      "paralyze_heal": {"name": "Paralyze Heal", "cure": "para", "desc": "Cures a paralysed Pokémon."}
+    },
+    "battle": ["focus_tonic", "full_charge", "energy_shard"],
+    "ball_desc": {"poke_ball": "A device for catching wild Pokémon.", "great_ball": "A good ball. It catches more often.", "ultra_ball": "A very good ball. Better than a Great Ball.", "master_ball": "The best ball. It never fails."},
+    "start": {"potion": 5, "super_potion": 2, "antidote": 2, "paralyze_heal": 2, "focus_tonic": 3, "full_charge": 1, "energy_shard": 3},
+    "lines": {
+      "used": "Ash used a {ITEM}!",
+      "healed": "{NAME} regained {N} HP.",
+      "cured": "{NAME} was cured!",
+      "focus": "{NAME}'s focus rose!",
+      "chips": "{NAME} gained {N} chip{S}!",
+      "no_effect": "It won't have any effect.",
+      "none": "None left!",
+      "two_out": "Two Pokémon are out! You can't aim a ball!"
+    }
+  },
   "dataset_overrides": {"kanto": {"matchups": {"tcg_immunity_mult": 0.25, "weakness_mult": 1.4, "tcg_chart_resist_mult": 0.8, "weakness_by_level": {"levels": [8, 22, 40], "mult": [1.4, 1.3, 1.7]}, "tcg_chart_super_mult": 1.15}, "rarity": {"shared_power_mult": {"common": 1.0, "uncommon": 1.01, "rare": 1.02, "very_rare": 1.03, "legendary": 1.16}, "level_stat": {"levels": [8, 20, 35], "min": 0.6, "max": 1.6, "bonus": {"common": [0.0, 0.0, 0.0], "uncommon": [-0.1895, 0.0347, 0.2142], "rare": [-0.3439, 0.0345, 0.2861], "very_rare": [-0.3639, 0.0844, 0.1926], "legendary": [-0.3639, 0.0844, 0.1926]}}}, "stats": {"level_offset": 50.0}, "focus": {"disruption_skips_gain": false}, "damage": {"scale": 0.253, "sleep_turns": [1, 2], "random_min": 0.72}, "disruption": {"repeat_mult": 0.5, "floor": 20}, "ai": {"personalities": {"balanced": {"two_phase_rate": 0.7, "reaction_rate": 0.5}, "cautious": {"reaction_rate": 0.85, "two_phase_rate": 0.5}, "aggressive": {"two_phase_rate": 0.85}, "tricky": {"two_phase_rate": 0.9, "reaction_rate": 0.6, "disruption": 1.25}}, "min_action_value": 4.0, "wild_styles": {"evasive": {"status": 1.3}}, "finisher_value": 1.23, "two_phase_value": 0.9, "reaction_value": 40.0, "status_scale": 1.75, "reaction_rate_scale": 1.818}, "slots": {"wild_equip": "balanced", "gain_per_slot": 2.75}, "trainer_moves": {"fill": [], "places": ["opener", "mid", "finisher", "two_phase", "reaction"]}}}
 }
