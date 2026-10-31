@@ -73,7 +73,7 @@ var _inp := 0                        # the place Ash is choosing for
 var _aim_id := ""
 var _aims: Array = []
 var _fill_k := -1
-const DX := 1.3                      # doubles: each place this far to the side
+const DX := 1.6                      # doubles: each place this far to the side
 # for tests: each of Ash's turns as committed ({turn, a: [move ids in order]}), and
 # each turn's start ({turn, pending, prompted}: whether the energy pick came up)
 var turn_log: Array = []
@@ -421,6 +421,7 @@ func _on_move(id: String) -> void:
 # his other Pokémon first)
 func _on_confirm() -> void:
 	if _busy or not hud.mode == "fight": return
+	if not B.queued("a").is_empty(): _ash("pk_command")
 	_on_end_turn()
 
 func _confirm_label() -> String:
@@ -587,6 +588,7 @@ func _play(evs: Array, gap: float) -> void:
 			txt = ("Another wild %s joins in!" % String(e.get("species", "")).to_upper()) if t == "switch_in" else ""
 		if txt != "" and not t in ["turn", "gain"]:
 			hud.say(txt, UITheme.SKY if s == "a" else UITheme.YELLOW)
+		_ash_react(t, s, e)
 		match t:
 			"move", "strike":
 				await _stage_move(s, String(e.move), t == "strike")
@@ -948,6 +950,40 @@ func _queue_aimed(id: String, target: Dictionary) -> void:
 		hud.show_fight()
 		hud.refresh_moves()
 	else: hud.show_fight()
+
+# ---------- Ash, the trainer (battle/pkmn_acts.gd) ----------
+# his acting to what happens: a command for each of his moves, a wince at a big hit on
+# his Pokémon, a fist pump at a KO or a super-effective hit, worry when it faints, a
+# shout for a switch; the worried stance while his Pokémon is low on HP
+func _ash(n: String) -> void:
+	var p = battle.player
+	if p == null or p.idles == null: return
+	# (a command never cuts off a worry or a cheer still playing)
+	var cur: String = p.idles.acting()
+	if n == "pk_command" and cur in ["pk_worry", "pk_cheer"]: return
+	battle._act(n)
+
+func _ash_react(t: String, s: String, e: Dictionary) -> void:
+	match t:
+		"move":
+			if s == "a": _ash("pk_command")
+		"hit", "counter":
+			var f := _f(s)
+			var dmg := int(e.get("dmg", 0))
+			if s == "a" and (dmg >= f.max_hp * 0.22 or bool(e.get("crit", false)) or float(e.get("eff", 1.0)) > 1.0): _ash("pk_wince")
+			elif s == "b" and (float(e.get("eff", 1.0)) > 1.0 or bool(e.get("crit", false))): _ash("pk_cheer")
+		"faint":
+			_ash("pk_worry" if s == "a" else "pk_cheer")
+		"switch_out", "switch_in":
+			if s == "a": _ash("pk_call")
+	_ash_stance()
+
+func _ash_stance() -> void:
+	var p = battle.player
+	if p == null or p.idles == null: return
+	var f := B.fighter("a")
+	var low := not f.fainted() and float(f.hp) / maxf(1.0, f.max_hp) <= 0.25
+	p.idles.stance = "pk_worried" if low else "pk_ready"
 
 func _make_mound(s: String) -> void:
 	var mound := MeshInstance3D.new()
