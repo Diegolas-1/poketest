@@ -33,6 +33,8 @@ func build(sun_dir: Vector3) -> void:
 	var meshes := [Grass._clump(blades, 4, 1), Grass._clump(blades, 2, 0), Grass._clump(blades, 1, 0)]
 	mat = ShaderMaterial.new()
 	mat.shader = SHADER
+	var ink_n = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Ink")
+	if ink_n: ink_n.track(mat, 0.8)   # (the blades' sides: shaders/grass_ink.gdshaderinc)
 	mat.set_shader_parameter("sun_dir", sun_dir)
 	var by := {}
 	for f in WorldRegions.files("lips.bin"):

@@ -542,4 +542,6 @@ await b.close();
 const stats = splitWorld(OUT, DEST, ['world']);
 report(stats, DEST);
 fs.rmSync(OUT, { recursive: true, force: true });
+// the leaf atlases again, sharper and with a distance-field alpha (bake_leaves.mjs)
+await (await import('./bake_leaves.mjs')).bakeLeaves();
 godotImport(path.join(ROOT, 'native'));

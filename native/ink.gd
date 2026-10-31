@@ -56,6 +56,9 @@ extends Node
 #       cut (float), double_sided (default: as the leaf material). The leaf shader's wind sway must be copied into
 #       ink_leaf.gdshader (marked WIND) if the leaves move.
 #   Ink.outline_town(root, lists)   the baked town's trunks and bushes (WorldRegions.ink_meshes())
+#   Ink.track(material, width)      a material that draws its own ink (the grass:
+#                                   shaders/grass_ink.gdshaderinc): its width_1080 follows
+#                                   the weight and the on / off switch
 # Both outline_* return the ink ShaderMaterial (set its uniforms to tune it).
 
 signal changed(on: bool)
@@ -74,6 +77,7 @@ var line_nodes: Array = []
 var weight := 1.0
 var _mats := {}   # ink material's id -> [weakref, its width at weight 1] (set_weight)
 var overlays: Array = []   # [GeometryInstance3D, ink material, near (bool)]
+var _builtin: Array = []   # [weakref(material), width at weight 1]: ink inside a material's own shader (track)
 # The world's ink never shows past FOCUS_FAR metres from the player (the
 # shaders thin it to nothing there), so the line cells and the town's ink
 # overlays that lie wholly past it are switched off instead of drawn as
@@ -126,6 +130,7 @@ func set_enabled(on: bool) -> void:
 		if is_instance_valid(n): n.visible = on and _cells_near.get(n, true)
 	for p in overlays:
 		if is_instance_valid(p[0]): _chain(p[0], p[1], on and p[2] and (quality >= 0.75 or p[1].shader != LEAF))
+	_apply_builtin()
 	changed.emit(on)
 
 func is_enabled() -> bool:
@@ -149,11 +154,24 @@ func set_weight(k: float) -> void:
 		var m = _mats[id][0].get_ref()
 		if m == null: _mats.erase(id)
 		else: m.set_shader_parameter("width_1080", _mats[id][1] * _k(m))
+	_apply_builtin()
 
 # the weight for one ink: the leaf ink (already wider, a canopy's whole outline)
 # grows more gently, so a bold TV weight does not blacken the trees
 func _k(m: ShaderMaterial) -> float:
 	return pow(weight, 0.6) if m.shader == LEAF else weight
+
+# a material that draws its own ink (the grass blades' sides: shaders/
+# grass_ink.gdshaderinc): its width_1080 follows the Outline weight, 0 while the
+# outlines are off
+func track(m: ShaderMaterial, width := 0.8) -> void:
+	_builtin.append([weakref(m), width])
+	_apply_builtin()
+
+func _apply_builtin() -> void:
+	_builtin = _builtin.filter(func(e): return e[0].get_ref() != null)
+	for e in _builtin:
+		e[0].get_ref().set_shader_parameter("width_1080", e[1] * weight if enabled else 0.0)
 
 func toggle() -> void:
 	set_enabled(not enabled)

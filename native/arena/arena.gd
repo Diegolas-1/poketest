@@ -550,6 +550,17 @@ func _plant_chunks(place: Dictionary, fade: Vector2, cs := 32.0, vis := 0.0, tin
 						im.set_shader_parameter("ink_far", ik)
 						_ink_chunks.append({"node": mi, "ink": im, "c": c, "d": ik.y + cr if o.has("ink") else 44.0})
 						mi.material_overlay = null
+				elif ink and mat.shader == preload("res://veg.gd").SOLID and mat.get_shader_parameter("use_tex") == true:
+					# the trees' wood: an inverted hull, as the town's (veg.gd)
+					var hm: ShaderMaterial = ink.outline_mesh(mi, {"width": 1.0})
+					if hm:
+						hm.set_shader_parameter("veg", true)
+						hm.set_shader_parameter("veg_wind", mat.get_shader_parameter("wind"))
+						hm.set_shader_parameter("veg_fade", fd)
+						var hk2: Vector2 = o.get("ink", Vector2(28.0, 36.0))
+						hm.set_shader_parameter("ink_far", hk2)
+						_ink_chunks.append({"node": mi, "ink": hm, "c": c, "d": hk2.y + cr if o.has("ink") else 44.0})
+						mi.material_overlay = null
 	if not far_bills.is_empty(): _bill_chunks(far_bills, bm, vis if vis > 0.0 else fade.y, tint)
 	return handles
 

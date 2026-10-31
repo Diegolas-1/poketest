@@ -3,6 +3,7 @@ extends Node
 # heavy view: Pallet Town's pier looking north over the houses and the grass.
 #   xvfb-run ... godot --path native --rendering-driver vulkan --rendering-method mobile \
 #     --resolution 1565x720 res://dev/tv_bench.tscn -- --fake-tv=1920x1080 --fake-tv-later [--shot=dir]
+#     [--only=0,2]   (only those rows of configs, by index; the software renderer is slow)
 # For each configuration: the engine's frame time, the game viewport's CPU and GPU
 # render time (RenderingServer's measurements) and the phone's own render time,
 # averaged over 40 frames after 20 to settle. Prints BENCH lines.
@@ -15,12 +16,14 @@ var wait := 0
 var acc := {}
 var configs: Array = []
 var shot := ""
+var only := []
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	process_priority = 3000
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shot="): shot = a.substr(7)
+		elif a.begins_with("--only="): only = Array(a.substr(7).split(",", false)).map(func(x): return int(x))
 	screens = load("res://screens.tscn").instantiate()
 	add_child(screens)
 	Settings.set_value("tv_res", 1080)
@@ -38,6 +41,10 @@ func _ready() -> void:
 		["TV sharpness 150%", {"tv_scale": 1.5}],
 		["TV sharpness 85%", {"tv_scale": 0.85}],
 	]
+	if not only.is_empty():
+		var keep := []
+		for i in only: if i < configs.size(): keep.append(configs[i])
+		configs = keep
 
 func _place() -> void:
 	var m = screens.main

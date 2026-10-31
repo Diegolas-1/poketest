@@ -34,10 +34,12 @@ var shadow_far := 60.0     # plants cast shadows nearer than this (to the chunk'
 # phone, the billboards' own size. (web veg.js: trees 75, bushes 70,
 # ferns 60, flowers 55 x its view distance; the town's bushes never faded)
 const KINDS := {
-	"tree": {"fade": Vector2(48, 50.5), "shadow": 45.0, "ink": 32.0, "chunk": 24.0},   # (billboarded kinds fade over FADE_W)
+	"tree": {"fade": Vector2(48, 50.5), "shadow": 45.0, "ink": 48.0, "chunk": 24.0},   # (billboarded kinds fade over FADE_W)
 	"bush": {"fade": Vector2(25, 27.5), "shadow": 45.0, "ink": 24.0, "chunk": 24.0},
-	"fern": {"fade": Vector2(38, 42), "shadow": 0.0},
-	"flower": {"fade": Vector2(32, 36), "shadow": 0.0},
+	# (ink: metres from the camera the plants' ink reaches; ink_w its width, thinner
+	# on the small plants of the ground, which stand in their hundreds)
+	"fern": {"fade": Vector2(38, 42), "shadow": 0.0, "ink": 18.0, "ink_w": 1.1, "chunk": 24.0},
+	"flower": {"fade": Vector2(32, 36), "shadow": 0.0, "ink": 16.0, "ink_w": 1.0, "chunk": 24.0},
 	"rock": {"fade": Vector2(-1, -1), "shadow": 45.0},   # (-1: keep the baked range)
 }
 var last_pos := Vector3(INF, INF, INF)
@@ -182,17 +184,31 @@ func build(lod: float = 1.0, trees: float = 1.0, plants: float = 1.0) -> void:
 					sh.extra_cull_margin = 1.0
 					holder.add_child(sh)
 					ch.sh = sh
-				# leaf ink (ink.gd): one silhouette per tree or bush, swaying
-				# with it and gone with its model
-				if (kind == "tree" or kind == "bush") and part_mats[pi].shader == LEAF and ink:
-					var im: ShaderMaterial = ink.outline_plant(mi, mm.mesh.get_aabb().get_center(), {"double_sided": true})
+				# ink (ink.gd), swaying with the plant and gone with its model: leaf
+				# cards get one silhouette per plant (trees, bushes, ferns and
+				# flowers), wood (trunks and limbs) and solid crops an inverted hull
+				var ink_d: float = float(KINDS[kind].get("ink", 0.0))
+				if ink_d > 0.0 and ink:
+					var im: ShaderMaterial = null
+					if part_mats[pi].shader == LEAF:
+						var lo := {"double_sided": true}
+						if KINDS[kind].has("ink_w"): lo.width = KINDS[kind].ink_w
+						im = ink.outline_plant(mi, mm.mesh.get_aabb().get_center(), lo)
+						if im:
+							im.set_shader_parameter("leaf_wind", part_mats[pi].get_shader_parameter("wind"))
+							im.set_shader_parameter("leaf_fade", fade)
+					elif part_mats[pi].shader == SOLID and (kind == "tree" or kind == "bush"):
+						im = ink.outline_mesh(mi, {"width": 1.0})
+						if im:
+							im.set_shader_parameter("veg", true)
+							im.set_shader_parameter("veg_wind", part_mats[pi].get_shader_parameter("wind"))
+							im.set_shader_parameter("veg_fade", fade)
 					if im:
-						im.set_shader_parameter("leaf_wind", part_mats[pi].get_shader_parameter("wind"))
-						im.set_shader_parameter("leaf_fade", fade)
 						# each plant's ink thins to nothing before the chunk's ink is
-						# switched off (update), so no chunk's lines pop
-						var ink_d: float = float(KINDS[kind].get("ink", 0.0))
-						im.set_shader_parameter("ink_far", Vector2(ink_d - 8.0, ink_d))
+						# switched off (update), so no chunk's lines pop; a tree's
+						# just as its billboard (which carries its own ink line:
+						# veg_bill.gdshader) takes over
+						im.set_shader_parameter("ink_far", Vector2(ink_d - 3.0 if kind == "tree" else ink_d * 0.75, ink_d))
 						ch.ink = im
 				stats.chunks += 1
 			stats.copies += ids.size()
@@ -242,6 +258,8 @@ func _billboards(meta: Dictionary, bills: Array, atlas: Texture2D) -> void:
 	bm.set_shader_parameter("imp_rect", rects)
 	bm.set_shader_parameter("imp_geo", geos)
 	bm.set_shader_parameter("fade_w", FADE_W)
+	var ink_n = get_node_or_null("/root/Ink")
+	if ink_n: ink_n.track(bm, 1.1)   # (a line inside each billboard's edge: veg_bill.gdshader)
 	var bins := {}
 	for b in bills:
 		var k := Vector2i(floori(b[0].x / BILL_CHUNK), floori(b[0].z / BILL_CHUNK))

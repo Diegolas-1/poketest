@@ -16,7 +16,7 @@ render_mode cull_disabled, ambient_light_disabled, specular_disabled, shadows_di
 
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform vec3 tint : source_color = vec3(1.0);
-uniform float alpha_scissor = 0.45;   // (names as the town material, for Ink.outline_plant)
+uniform float alpha_scissor = 0.5;   // the cut (names as the town material, for Ink.outline_plant)
 
 varying float v_ao;
 varying float v_k;
@@ -46,10 +46,15 @@ void fragment() {
 	// camera turned, and in the shadow pass it followed the shadow camera, so
 	// the leaves' own shadows crawled whenever the view moved)
 	ALPHA = tx.a;
-	// (the coverage is half at alpha = threshold + edge: there, as the old cut;
-	// without MSAA the cut falls back to the threshold, a little under the old one)
-	ALPHA_SCISSOR_THRESHOLD = max(alpha_scissor - 0.15, 0.02);
-	ALPHA_ANTIALIASING_EDGE = alpha_scissor - max(alpha_scissor - 0.15, 0.02);
+	// The leaf atlases' alpha is a distance field (tools/native/bake_leaves.mjs:
+	// 0.5 on the leaf's edge, a smooth ramp across it), so the cut follows a
+	// smooth curve at any zoom. Coverage is half at alpha = threshold + edge, on
+	// the edge; the threshold sits just under the ramp's last pixel (from the
+	// alpha's screen derivative), so MSAA gets the whole soft edge and without
+	// MSAA the cut grows by under a pixel.
+	float m = clamp(fwidth(tx.a) * 0.75, 0.02, 0.15);
+	ALPHA_SCISSOR_THRESHOLD = max(alpha_scissor - m, 0.02);
+	ALPHA_ANTIALIASING_EDGE = alpha_scissor - max(alpha_scissor - m, 0.02);
 	// (UV, not texels: Godot then adds no mip-level boost to the alpha, which made
 	// distant cards fuller than the cut drew them)
 	ALPHA_TEXTURE_COORDINATE = UV;

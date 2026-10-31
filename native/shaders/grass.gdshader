@@ -6,6 +6,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled;
 #include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/arena.gdshaderinc"
+#include "res://shaders/grass_ink.gdshaderinc"
 
 uniform sampler2D height_map : filter_linear, repeat_disable;   // R height, G density
 uniform vec4 area;   // x0, z0, w, d
@@ -40,6 +41,7 @@ void vertex() {
 		// no grass here: every vertex to one point, so nothing is drawn
 		VERTEX = vec3(0.0);
 		v_col = vec3(0.0); v_light = 0.0;
+		v_side = 0.0; v_ink_px = 0.0;
 	} else {
 		float ra = off.z * 40.0, c = cos(ra), s = sin(ra);
 		vec3 lp = vec3(VERTEX.x * c - VERTEX.z * s, VERTEX.y, VERTEX.x * s + VERTEX.z * c) * sc * vec3(1.0 + tall * 0.35, 1.0 + tall * 1.3, 1.0 + tall * 0.35);
@@ -91,11 +93,13 @@ void vertex() {
 		// night and the warm hours (daynight.gdshaderinc): darkened like the ground
 		if (dn_glow.w > 0.0) v_col = dn_relight(v_col * v_light, dn_tint(step(0.9, v_light))) / v_light;
 		VERTEX = wp - MODEL_MATRIX[3].xyz;
+		v_side = UV2.y;
+		v_ink_px = grass_ink_px(wp, distance(wp, CAMERA_POSITION_WORLD), VIEWPORT_SIZE);
 	}
 }
 
 void fragment() {
 	vec3 c = v_col * v_light;
 	if (v_light < 0.9) c *= vec3(0.86, 0.95, 1.05);
-	ALBEDO = c;
+	ALBEDO = grass_ink(c);
 }

@@ -57,6 +57,8 @@ func build(w, count: int, field_size: float, sun_dir: Vector3) -> void:
 		offs[i * 4] = r.call() * size; offs[i * 4 + 1] = r.call() * size; offs[i * 4 + 2] = r.call(); offs[i * 4 + 3] = r.call()
 	mat = ShaderMaterial.new()
 	mat.shader = SHADER
+	var ink_n = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Ink")
+	if ink_n: ink_n.track(mat, 0.8)   # (the blades' sides: shaders/grass_ink.gdshaderinc)
 	mat.set_shader_parameter("height_map", world.grass_tex)
 	mat.set_shader_parameter("area", world.grass_area)
 	mat.set_shader_parameter("field_size", size)
@@ -156,8 +158,9 @@ static func _clump(blades: Array, segs: int, max_role: int, outer := 0.0) -> Arr
 			var tw := twist * t
 			var ux := sx * cos(tw) - dx * sin(tw); var uz := sz * cos(tw) - dz * sin(tw)
 			var wl := w * (2.4 if notch and absf(t - 0.4) < 0.11 else 1.0)
-			st.set_uv(Vector2(ang, t)); st.set_uv2(Vector2(layer, 0)); st.add_vertex(Vector3(cx - ux * wl, y, cz - uz * wl))
-			st.set_uv(Vector2(ang, t)); st.set_uv2(Vector2(layer, 0)); st.add_vertex(Vector3(cx + ux * w, y, cz + uz * w))
+			# (uv2.y: -1 .. 1 across the blade, for the ink along its sides: grass_ink.gdshaderinc)
+			st.set_uv(Vector2(ang, t)); st.set_uv2(Vector2(layer, -1.0)); st.add_vertex(Vector3(cx - ux * wl, y, cz - uz * wl))
+			st.set_uv(Vector2(ang, t)); st.set_uv2(Vector2(layer, 1.0)); st.add_vertex(Vector3(cx + ux * w, y, cz + uz * w))
 			if i < segs:
 				var q := base + i * 2
 				st.add_index(q); st.add_index(q + 1); st.add_index(q + 2)

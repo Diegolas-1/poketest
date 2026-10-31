@@ -18,6 +18,15 @@ uniform float fade_w = 5.0;
 uniform vec4 imp_rect[64];   // place in the atlas (0..1): x, y, w, h
 uniform vec4 imp_geo[64];    // width, height, bottom (m), sun azimuth
 uniform vec3 tint : source_color = vec3(1.0);   // a borrower's own (the arena forest's deeper leaves)
+// Ink: a line just inside the billboard's cut edge (the near model's ink ends
+// where its billboard takes over), thinning with distance from the player like
+// the other ink (Ink.track sets width_1080; 0 = off)
+#include "res://shaders/ink_aa.gdshaderinc"
+global uniform vec3 ink_focus;
+uniform float width_1080 = 0.0;
+uniform vec4 ink_color : source_color = vec4(0.165, 0.129, 0.196, 1.0);
+uniform vec2 focus_range = vec2(10.0, 55.0);
+varying float v_ink;
 
 varying vec2 v_uv;
 varying vec2 v_row;
@@ -34,6 +43,8 @@ void vertex() {
 	v_rect = imp_rect[id];
 	vec3 to_cam = veg_cam - c;
 	float d = length(to_cam);
+	float iw = (1.0 - smoothstep(focus_range.x, focus_range.y, distance(c, ink_focus))) * (1.0 - smoothstep(70.0, 170.0, d));
+	v_ink = width_1080 > 0.0 ? width_1080 * VIEWPORT_SIZE.y / 1080.0 * iw : 0.0;
 	v_k = smoothstep(INSTANCE_CUSTOM.a, INSTANCE_CUSTOM.a + fade_w, d) * (1.0 - clamp((d - far.x) / (far.y - far.x), 0.0, 1.0));
 	if (v_k <= 0.0) {
 		VERTEX = vec3(0.0);
@@ -61,8 +72,16 @@ void fragment() {
 	float al = mix(a.a, b.a, v_row.y);
 	vec2 px = v_uv * vec2(textureSize(map, 0)) * v_rect.zw * vec2(1.0, 1.0 / rows);
 	float lod = max(0.0, 0.5 * log2(max(dot(dFdx(px), dFdx(px)), dot(dFdy(px), dFdy(px)))));
-	if (al * (1.0 + lod * 0.3) < 0.5) discard;
+	float ab = al * (1.0 + lod * 0.3);
+	if (ab < 0.5) discard;
+	float ink_k = 0.0;
+	if (v_ink > 0.02) {
+		// pixels in from the cut edge (the alpha's screen derivative)
+		float dpx = (ab - 0.5) / max(fwidth(ab), 1e-4);
+		ink_k = ink_even(clamp((max(v_ink, 1.0) - dpx) / (2.0 * INK_SOFT) + 0.5, 0.0, 1.0)) * min(v_ink, 1.0);
+	}
 	// (the importer fills clear texels with their neighbours' colour, so no
 	// dark rim to divide out)
 	ALBEDO = aces_three(mix(a.rgb, b.rgb, v_row.y) * tint * dn_tint(0.3));
+	ALBEDO = mix(ALBEDO, aces_three(ink_color.rgb * dn_unlit()), ink_k);
 }

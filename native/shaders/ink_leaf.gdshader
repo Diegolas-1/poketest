@@ -34,7 +34,15 @@ uniform bool atlas_cut = true;   // the leaf texture is the 4 x 4 leaf atlas
 uniform vec2 leaf_fade = vec2(100000.0, 100001.0);
 uniform vec2 ink_far = vec2(100000.0, 100001.0);   // the ink thins out over these metres from the camera (veg.gd switches it off past them)
 
+// Part of the width is taken by growing each card's own leaf shape in texture
+// space (the leaf atlases' alpha is a distance field: bake_leaves.mjs) instead of
+// pushing the card out on screen: every card's ink then reaches past all of its
+// edges, so a sliver between two cards inside a canopy shows ink, not the sky
+// behind (a light line along the leaves' edges), and the outline keeps its width.
+uniform float fill_px = 2.0;
+
 varying float v_w;
+varying float v_fill;
 
 void vertex() {
 	// WIND: the plants' sway and distance fade (veg_leaf.gdshader, veg.gd):
@@ -67,6 +75,8 @@ void vertex() {
 		d = (PROJECTION_MATRIX * vec4(normalize(MODELVIEW_NORMAL_MATRIX * NORMAL), 0.0)).xy * VIEWPORT_SIZE;
 	}
 	float l = length(d);
+	float fill = use_tex ? min(fill_px, px * 0.8) : 0.0;
+	px -= fill;
 	vp += normalize(vp) * push;
 	vec4 c = PROJECTION_MATRIX * vec4(vp, 1.0);
 	if (l > 1e-4) c.xy += d / l * px / (0.5 * VIEWPORT_SIZE) * c.w;
@@ -76,6 +86,7 @@ void vertex() {
 	if (use_center && w <= 0.01) POSITION = vec4(0.0, 0.0, -2.0, 1.0);
 	if (plant_gone) { POSITION = vec4(0.0, 0.0, -2.0, 1.0); w = 0.0; }
 	v_w = w;
+	v_fill = fill;
 }
 
 void fragment() {
@@ -91,7 +102,10 @@ void fragment() {
 	}
 	// the cut's edge: pixels from where the alpha crosses it
 	float cov = 1.0;
-	if (use_tex) cov = clamp((a - cut) / (max(fwidth(a), 1e-4) * 2.0 * INK_SOFT) + 0.5, 0.0, 1.0);
+	if (use_tex) {
+		float fa = max(fwidth(a), 1e-4);
+		cov = clamp((a - cut + v_fill * fa) / (fa * 2.0 * INK_SOFT) + 0.5, 0.0, 1.0);
+	}
 	if (cov <= 0.004) discard;
 	ALBEDO = aces_three(ink_color.rgb * dn_unlit());
 	ALPHA = ink_even(cov);
