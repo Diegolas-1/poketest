@@ -14,7 +14,7 @@ base64 -w0 ashv2.glb > ashv2.glb.txt
   printf '</head><body>\n'
   sed -e '1,/<\/style>/d' -e '/<script src="stage.js"><\/script>/d' index.html
   printf '<script>window.ASHV2 = {glb: "%s"' "$(cat ashv2.glb.txt)"
-  for k in color normal orm; do printf ', "ashv2_%s.webp": "%s"' $k "$(base64 -w0 ashv2_$k.webp)"; done
+  for f in *.webp; do printf ', "%s": "%s"' "$f" "$(base64 -w0 "$f")"; done
   printf ', "clothes.json": %s' "$(node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync("clothes.json","utf8")))')"
   [ -n "$WEAR" ] && printf ', "wear": "%s"' "$WEAR"
   printf '};</script>\n<script>\n'

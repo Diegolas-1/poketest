@@ -117,12 +117,21 @@ for (const gm of baked.garments) {
     for (const pc of gm.pieces) { c.set(gm.pieceColors[pc.name] || gm.color).convertSRGBToLinear(); for (let i = pc.start; i < pc.start + pc.n; i++) col.set([c.r, c.g, c.b], i * 3); }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   }
-  const mat = new THREE.MeshStandardMaterial({ color: gm.pieceColors ? '#ffffff' : gm.color, vertexColors: !!gm.pieceColors, roughness: 0.9, side: THREE.DoubleSide, map: fabric(gm.fabric) });
+  // a garment with its own texture (a modelled one: pockets, seams, wear) takes it, tinted by its colour
+  let map = fabric(gm.fabric);
+  if (gm.texture) { map = await tex(gm.texture, true); map.anisotropy = 8; }
+  const mat = new THREE.MeshStandardMaterial({ color: gm.pieceColors ? '#ffffff' : gm.color, vertexColors: !!gm.pieceColors, roughness: 0.9, side: gm.texture ? THREE.FrontSide : THREE.DoubleSide, map });
   const m = new THREE.SkinnedMesh(g, mat); m.name = gm.name + ' (sewn)'; m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
   body.parent.add(m); m.bind(body.skeleton, body.bindMatrix); sewn[gm.name] = m;
 }
 const setFitted = outfit.set.bind(outfit);
-outfit.set = (on) => { setFitted(on); for (const p of outfit.pieces) if (sewn[p.name]) { sewn[p.name].visible = p.visible; p.visible = false; } };
+// pieces worn with another (the belt with the jeans)
+const WITH = { belt: 'jeans' };
+outfit.set = (on) => {
+  setFitted(on);
+  for (const p of outfit.pieces) if (sewn[p.name]) { sewn[p.name].visible = p.visible; p.visible = false; }
+  for (const [k, with_] of Object.entries(WITH)) if (sewn[k]) sewn[k].visible = on.has(with_);
+};
 outfit.set(worn);
 mixer = new THREE.AnimationMixer(model);
 // the clips travel forward on their own (root motion on the hips, +Z); "in place" takes out
