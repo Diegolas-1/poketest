@@ -24,14 +24,19 @@ func _ready() -> void:
 	screens = load("res://screens.tscn").instantiate()
 	add_child(screens)
 	Settings.set_value("tv_res", 1080)
+	Settings.set_value("auto_res", 0)   # (the software renderer is slow: keep the scale as set)
 	configs = [
 		["tv 1080, as the game sets it", {}],
 		["no phone preview", {"tv_preview": 0}],
 		["no ink outlines", {"outlines": 0}],
 		["no shadows", {"shadow": 0}],
 		["no grass", {"grass": 0}],
-		["no MSAA", {"aa": "off"}],
-		["3D scale 0.85", {"scale": 0.85}],
+		["TV MSAA 2x", {"tv_aa": "msaa2"}],
+		["TV no MSAA", {"tv_aa": "off"}],
+		["TV outline weight 1.1 px", {"tv_ink_px": 1.1}],
+		["TV sharpness 125%", {"tv_scale": 1.25}],
+		["TV sharpness 150%", {"tv_scale": 1.5}],
+		["TV sharpness 85%", {"tv_scale": 0.85}],
 	]
 
 func _place() -> void:

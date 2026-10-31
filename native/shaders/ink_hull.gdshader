@@ -5,10 +5,16 @@
 // they show as a line around the silhouette and where one part passes in front
 // of another (an arm against the body). Skinned meshes work: Godot skins the
 // vertices before this shader runs. Needs smooth normals.
+// Smooth edges (edge_aa): the hull's outer edge is where the mesh's smooth
+// normal turns away from the camera (N.V = 0). The fragment knows how far it is
+// from there in pixels (N.V over its screen derivative), so the line's outer
+// side gets an analytic soft edge like the vector ink's, instead of the
+// polygon's stair steps (MSAA alone gives a few shades along them).
 shader_type spatial;
 render_mode unshaded, cull_front, blend_mix, depth_draw_never, shadows_disabled;
 #include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/arena.gdshaderinc"
+#include "res://shaders/ink_aa.gdshaderinc"
 
 global uniform vec3 ink_focus;
 uniform vec4 ink_color : source_color = vec4(0.165, 0.129, 0.196, 1.0);
@@ -21,9 +27,11 @@ uniform float push = 0.03;
 // with it when a battle's arena opens (arena_each: vertex by vertex, a merged mesh's)
 uniform bool arena_follow = false;
 uniform bool arena_each = false;
+uniform bool edge_aa = true;
 
 varying float v_alpha;
 varying vec3 v_col;
+varying float v_ndv;   // the smooth normal against the view: 0 on the outline's outer edge
 
 void vertex() {
 	// DEFORM: a mesh that moves its vertices in its own shader repeats that here
@@ -33,6 +41,7 @@ void vertex() {
 	}
 	vec3 vp = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 vn = normalize(MODELVIEW_NORMAL_MATRIX * NORMAL);
+	v_ndv = dot(vn, -normalize(vp));
 	// width and fade from the object's origin (a character is small), so the
 	// whole hull goes at once when it is too far
 	vec3 vo = (MODELVIEW_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -54,6 +63,12 @@ void vertex() {
 
 void fragment() {
 	if (v_alpha <= 0.003) discard;
+	float a = 1.0;
+	if (edge_aa) {
+		// pixels to the outer edge (the back faces drawn here have N.V < 0)
+		float fw = max(fwidth(v_ndv), 1e-5);
+		a = ink_even((-v_ndv / fw) / (2.0 * INK_SOFT) + 0.5);
+	}
 	ALBEDO = v_col;
-	ALPHA = v_alpha;
+	ALPHA = v_alpha * a;
 }

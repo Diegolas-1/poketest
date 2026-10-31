@@ -20,13 +20,21 @@ extends Node
 #     screen space from the plant's centre and pushed back in depth
 #     (shaders/ink_leaf.gdshader), so the real leaves cover the inside and
 #     only one silhouette per plant shows; small holes stay clean.
-# All widths are in pixels (about 1.1 px at 1080p, scaled to the screen) and
-# thin from 1 to 0 with distance from the player (set_focus, 10-55 m), then
-# fade 70-170 m from the camera, as on the web.
+# All widths are in pixels (about 1.1 px at 1080p, scaled to the screen, times
+# the Outline weight: set_weight) and thin from 1 to 0 with distance from the
+# player (set_focus, 10-55 m), then fade 70-170 m from the camera, as on the web.
+# Every kind is anti-aliased (shaders/ink_aa.gdshaderinc): a soft edge from the
+# pixel distance to the line (vector lines: the quad's own coordinate; hull: N.V
+# over its screen derivative; leaf ink, now blended: the alpha's distance to the
+# cut), evened out for the linear blend, so outlines read as clean strokes, also
+# on a TV over AirPlay. The leaves' own cut-out edges (veg_leaf, toon_cut) use
+# alpha to coverage under MSAA.
 #
 # API for other scripts:
 #   Ink.set_enabled(on: bool) / Ink.is_enabled() / Ink.toggle()   (O key: Settings "outlines")
 #   Ink.set_quality(q: float)   Outline quality setting (< 0.75: no leaf ink)
+#   Ink.set_weight(k: float)    Outline weight: every width times k (Settings ink_px /
+#                               tv_ink_px: k = px / 1.1)
 #   Ink.changed signal (bool)                                      (for a settings menu)
 #   Characters: any node in the group "characters" with a .meshes array
 #       (actor.gd) is outlined automatically; meta no_ink / ink_group on a
@@ -63,6 +71,8 @@ var hull_mat: ShaderMaterial    # shared by the characters
 var scan_t := 0.0
 var line_mat: ShaderMaterial
 var line_nodes: Array = []
+var weight := 1.0
+var _mats := {}   # ink material's id -> [weakref, its width at weight 1] (set_weight)
 var overlays: Array = []   # [GeometryInstance3D, ink material, near (bool)]
 # The world's ink never shows past FOCUS_FAR metres from the player (the
 # shaders thin it to nothing there), so the line cells and the town's ink
@@ -78,6 +88,8 @@ func _ready() -> void:
 	line_mat = ShaderMaterial.new()
 	line_mat.shader = LINES
 	line_mat.render_priority = Material.RENDER_PRIORITY_MAX
+	_mats[line_mat.get_instance_id()] = [weakref(line_mat), 1.1]
+	line_mat.set_shader_parameter("width_1080", 1.1 * weight)
 	hull_mat = ShaderMaterial.new()
 	hull_mat.shader = HULL
 	_common(hull_mat, {})
@@ -126,6 +138,22 @@ func set_quality(q: float) -> void:
 	var leaf_on := q >= 0.75
 	for p in overlays:
 		if is_instance_valid(p[0]) and p[1].shader == LEAF: _chain(p[0], p[1], enabled and leaf_on and p[2])
+
+# the Outline weight: every ink's width times k (the TV wants bolder lines than
+# the phone: they are seen from across a room and pass a video encoder)
+func set_weight(k: float) -> void:
+	k = clampf(k, 0.5, 4.0)
+	if is_equal_approx(k, weight): return
+	weight = k
+	for id in _mats.keys():
+		var m = _mats[id][0].get_ref()
+		if m == null: _mats.erase(id)
+		else: m.set_shader_parameter("width_1080", _mats[id][1] * _k(m))
+
+# the weight for one ink: the leaf ink (already wider, a canopy's whole outline)
+# grows more gently, so a bold TV weight does not blacken the trees
+func _k(m: ShaderMaterial) -> float:
+	return pow(weight, 0.6) if m.shader == LEAF else weight
 
 func toggle() -> void:
 	set_enabled(not enabled)
@@ -294,7 +322,9 @@ func _meshes(n: Node, out: Array) -> Array:
 	return out
 
 func _common(ink: ShaderMaterial, opts: Dictionary, width := 1.1) -> void:
-	ink.set_shader_parameter("width_1080", opts.get("width", width))
+	var w: float = opts.get("width", width)
+	ink.set_shader_parameter("width_1080", w * _k(ink))
+	_mats[ink.get_instance_id()] = [weakref(ink), w]
 	if opts.has("color"): ink.set_shader_parameter("ink_color", opts.color)
 	ink.render_priority = Material.RENDER_PRIORITY_MAX - 1
 

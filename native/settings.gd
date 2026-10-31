@@ -64,6 +64,7 @@ const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "inv
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
 	"wild_peek": "hidden", "footprints": 1,
 	"tv_margin": 3, "tv_fps": 60, "tv_res": 1080, "tv_debug": 0, "tv_preview": 1,
+	"ink_px": 1.1, "tv_ink_px": 2.0, "tv_aa": "msaa4", "tv_scale": 1.0,
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
@@ -71,7 +72,7 @@ var EXTRA := T.dict("settings", "extra", EXTRA0)
 const ROWS := {
 	"Display": [
 		["preset", "Preset", PRESET_NAMES, "sets every graphics row"],
-		["scale", "Resolution", [0.5, 0.6, 0.67, 0.75, 0.85, 1.0], "3D render scale"],
+		["scale", "Resolution", [0.5, 0.6, 0.67, 0.75, 0.85, 1.0], "3D render scale (on the phone; the TV tab has TV sharpness)"],
 		["upscale", "Upscaling", ["auto", "bilinear", "fsr", "metalfx"], "how the 3D image is scaled up"],
 		["auto_res", "Auto resolution", [0, 1], "lower scale while frames run late"],
 		["fps_cap", "Frame rate cap", [30, 60, 120, 0], "120 = ProMotion"],
@@ -90,6 +91,7 @@ const ROWS := {
 	"World": [
 		["outlines", "Outlines", [0, 1], ""],
 		["outline_q", "Outline quality", [0.5, 0.75, 1.0, 1.25, 1.5, 2.0], ""],
+		["ink_px", "Outline weight", [0.8, 1.1, 1.4, 1.7, 2.0, 2.4], "how bold the ink lines are on the phone (the TV has its own)"],
 		["shadow", "Shadow detail", [0, 1024, 2048, 4096], ""],
 		["shadow_dist", "Shadow distance", [30, 45, 60, 80, 100], ""],
 		["shadow_soft", "Shadow edges", [0, 1, 2, 3], ""],
@@ -130,6 +132,9 @@ const ROWS := {
 		["tv_margin", "TV safe margin", [0, 2, 3, 5, 7], "keeps the HUD clear of the TV's edges (% of each side)"],
 		["tv_res", "TV picture", [720, 1080], "1080p is sharpest; 720p streams more easily over AirPlay"],
 		["tv_fps", "Frame rate on the TV", [30, 60], "one game frame per TV refresh at 60; every second one at 30"],
+		["tv_ink_px", "Outline weight on the TV", [1.1, 1.4, 1.7, 2.0, 2.4, 2.8], "bolder lines read cleanly from the sofa and through AirPlay's video"],
+		["tv_aa", "Anti-aliasing on the TV", ["same", "off", "fxaa", "msaa2", "msaa4"], "Same = the Display tab's"],
+		["tv_scale", "TV sharpness", [0.75, 0.85, 1.0, 1.25, 1.5, 2.0], "over 100% supersamples: smoother edges and lines, more GPU (auto resolution never goes under 100% on the TV)"],
 		["tv_preview", "Live picture on the phone", [0, 1], "the TV's picture in the phone's menu (off saves a little work)"],
 		["tv_debug", "TV pacing overlay", [0, 1], "frame time, frames shown, repeated and dropped, the link's rate"],
 	],
@@ -223,7 +228,7 @@ func step(key: String, values: Array, d: int) -> void:
 			for k in values.size():
 				if absf(float(values[k]) - float(v)) < absf(float(values[i]) - float(v)): i = k
 	var n := values.size()
-	if key in ["preset", "face", "upscale", "aa", "clock", "island_side", "wild_peek", "tv_res"] or values == [0, 1]:
+	if key in ["preset", "face", "upscale", "aa", "tv_aa", "clock", "island_side", "wild_peek", "tv_res"] or values == [0, 1]:
 		i = (i + d + n) % n                      # choices wrap round
 	else:
 		i = clampi(i + d, 0, n - 1)
@@ -240,7 +245,9 @@ func fmt(key: String, v) -> String:
 		"outline_q": return _num(v) + "x"
 		"upscale": return {"auto": "Auto (%s)" % ("MetalFX" if metalfx_ok() else ("FSR 1" if fsr_ok() else "Bilinear")), "bilinear": "Bilinear", "fsr": "FSR 1", "metalfx": "MetalFX"}.get(v, str(v))
 		"fps_cap": return "Unlimited" if int(v) == 0 else "%d fps" % v
-		"aa": return {"off": "Off", "fxaa": "FXAA", "msaa2": "MSAA 2x", "msaa4": "MSAA 4x"}.get(v, str(v))
+		"aa", "tv_aa": return {"same": "Same as the phone", "off": "Off", "fxaa": "FXAA", "msaa2": "MSAA 2x", "msaa4": "MSAA 4x"}.get(v, str(v))
+		"ink_px", "tv_ink_px": return "%s px" % _num(v)
+		"tv_scale": return ("%d%%" % roundi(float(v) * 100.0)) + (" (supersampled)" if float(v) > 1.001 else "")
 		"shadow": return "Off" if int(v) == 0 else str(v)
 		"shadow_dist": return "%d m" % v
 		"shadow_soft": return ["Crisp", "Soft, fast", "Soft", "Softer"][clampi(int(v), 0, 3)]
@@ -275,7 +282,17 @@ func metalfx_ok() -> bool:
 func fsr_ok() -> bool:
 	return RenderingServer.get_current_rendering_method() == "forward_plus"
 
+func on_tv() -> bool:
+	return tv_hz > 0
+
+# On a TV: TV sharpness (tv_scale), above 1 = supersampled; auto resolution
+# may take the supersampling back but never goes under 1 (pixelated ink on a
+# big screen) unless the player picked a lower TV sharpness.
 func render_scale() -> float:
+	if on_tv():
+		var t := float(get_value("tv_scale"))
+		var st := t * (auto_scale if int(get_value("auto_res")) == 1 else 1.0)
+		return clampf(st, minf(1.0, t), 2.0)
 	var s := float(get_value("scale"))
 	if int(get_value("auto_res")) == 1: s *= auto_scale
 	return clampf(s, 0.25, 1.0)
@@ -297,16 +314,20 @@ func _apply_scale() -> void:
 func _apply(key: String, v) -> void:
 	var vp := viewport()
 	match key:
-		"scale", "upscale": _apply_scale()
+		"scale", "upscale", "tv_scale": _apply_scale()
 		"auto_res":
 			if int(v) == 0: auto_scale = 1.0
 			_apply_scale()
 		"fps_cap", "tv_fps":
 			Engine.max_fps = _max_fps()
 			_ar.need = 4; _ar.good = 0
-		"aa":
-			vp.msaa_3d = {"msaa2": Viewport.MSAA_2X, "msaa4": Viewport.MSAA_4X}.get(v, Viewport.MSAA_DISABLED)
-			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if v == "fxaa" else Viewport.SCREEN_SPACE_AA_DISABLED
+		"aa", "tv_aa":
+			var a = get_value("aa")
+			if on_tv() and str(get_value("tv_aa")) != "same": a = get_value("tv_aa")
+			vp.msaa_3d = {"msaa2": Viewport.MSAA_2X, "msaa4": Viewport.MSAA_4X}.get(a, Viewport.MSAA_DISABLED)
+			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if a == "fxaa" else Viewport.SCREEN_SPACE_AA_DISABLED
+		"ink_px", "tv_ink_px":
+			_ink("set_weight", float(get_value("tv_ink_px" if on_tv() else "ink_px")) / 1.1)
 		"shadow":
 			if int(v) > 0: RenderingServer.directional_shadow_atlas_set_size(int(v), true)
 		"shadow_soft":
@@ -336,7 +357,7 @@ func viewport() -> Viewport:
 func use_viewport(vp: Viewport) -> void:
 	target_vp = vp
 	RenderingServer.viewport_set_measure_render_time(viewport().get_viewport_rid(), true)
-	for k in ["scale", "aa"]: _apply(k, get_value(k))
+	for k in ["scale", "aa", "ink_px"]: _apply(k, get_value(k))
 
 # on a TV: the game runs at the TV's pace (tv_fps, never above its refresh);
 # back on the phone: the frame cap of the preset (120 = ProMotion)
@@ -345,6 +366,9 @@ func set_tv_hz(hz: int, paced := false) -> void:
 	tv_paced = paced and hz > 0
 	Engine.max_fps = _max_fps()
 	_ar.need = 4; _ar.good = 0
+	# the TV's own render scale, anti-aliasing and outline weight (or the phone's again)
+	auto_scale = 1.0
+	for k in ["scale", "aa", "ink_px"]: _apply(k, get_value(k))
 
 func _max_fps() -> int:
 	var cap := int(get_value("fps_cap"))

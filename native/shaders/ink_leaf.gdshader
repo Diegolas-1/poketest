@@ -5,9 +5,14 @@
 // pushed back in depth: the real leaves cover the inside, so only one
 // silhouette per plant shows (no line per card).
 shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_opaque, shadows_disabled;
+// Smooth edges: the ink is blended (transparent pass, after the leaves, depth
+// tested against them) with an analytic soft edge where the card's alpha
+// crosses the cut (the alpha's screen derivative gives the distance in pixels),
+// so the canopy's outline is a clean stroke instead of the cut's stair steps.
+render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, shadows_disabled;
 #include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/arena.gdshaderinc"
+#include "res://shaders/ink_aa.gdshaderinc"
 
 global uniform vec3 ink_focus;
 uniform vec4 ink_color : source_color = vec4(0.165, 0.129, 0.196, 1.0);
@@ -75,7 +80,7 @@ void vertex() {
 
 void fragment() {
 	float a = use_tex ? texture(leaf_tex, UV).a : 1.0;
-	if (a < cut || v_w <= 0.01 || (!double_sided && !FRONT_FACING)) discard;
+	if (v_w <= 0.01 || (!double_sided && !FRONT_FACING)) discard;
 	// a leaf card seen edge-on draws no ink (its grown copy would streak
 	// across the canopy). Only the whole card goes, and only when it is
 	// nearly a line: the leaf shader no longer trims the cards by the view
@@ -84,5 +89,10 @@ void fragment() {
 		vec3 fN = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 		if (abs(dot(fN, VIEW)) < 0.12) discard;
 	}
+	// the cut's edge: pixels from where the alpha crosses it
+	float cov = 1.0;
+	if (use_tex) cov = clamp((a - cut) / (max(fwidth(a), 1e-4) * 2.0 * INK_SOFT) + 0.5, 0.0, 1.0);
+	if (cov <= 0.004) discard;
 	ALBEDO = aces_three(ink_color.rgb * dn_unlit());
+	ALPHA = ink_even(cov);
 }

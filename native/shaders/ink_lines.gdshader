@@ -5,7 +5,12 @@
 //   - a hard crease (kind 1) with at least one of its faces toward the camera,
 //   - or a silhouette right now (one face toward the camera, the other away),
 // and drops the rest. Lines are a constant number of pixels wide (about
-// width_1080 at 1080p) with soft anti-aliased sides; they thin to nothing with
+// width_1080 at 1080p, set by Ink.set_weight: Settings "Outline weight") with
+// analytic anti-aliased sides (the fragment's coverage of the line from its
+// distance to the line's centre in pixels, over a filter a little wider than a
+// pixel, then evened out for the linear blend: see ink_cover), so they read as
+// clean vector strokes; below a pixel a line keeps one pixel and fades instead
+// of thinning (no shimmer). They thin to nothing with
 // distance from the player (ink_focus) and fade into the distance, creases
 // sooner than silhouettes. A silhouette quad sits wholly outside the shape so
 // the shape's own faces never cover half of it.
@@ -16,6 +21,7 @@
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 #include "res://shaders/aces.gdshaderinc"
+#include "res://shaders/ink_aa.gdshaderinc"
 
 global uniform vec3 ink_focus;
 uniform vec4 ink_color : source_color = vec4(0.165, 0.129, 0.196, 1.0);   // #2a2132
@@ -57,7 +63,9 @@ void vertex() {
 	fl *= smoothstep(0.0, 0.2, w);
 	if (!sil) fl *= 1.0 - smoothstep(fade.x * 0.35, fade.x * 0.85, dist);
 	float core = max(1.0, width_1080 * VIEWPORT_SIZE.y / 1080.0);
-	float half_w = (core + 1.5) * 0.5 * w;
+	// the quad: the core (never under a pixel) plus room for the soft sides
+	float cw = max(core * w, 1.0);
+	float half_w = cw * 0.5 + INK_SOFT;
 	// trim at the near plane
 	float nz = 0.3;
 	if (a.z > -nz && b.z > -nz) show = false;
@@ -77,12 +85,13 @@ void vertex() {
 		d = l > 1e-4 ? d / l : vec2(1.0, 0.0);
 		vec2 perp = vec2(-d.y, d.x);
 		vec2 off = perp * side * half_w;
-		// a silhouette: the whole quad moves outside the shape
+		// a silhouette: the line's core moves just outside the shape (its soft
+		// inner side lies over the shape's own edge pixels and smooths them)
 		// (outn into screen axes: the projection may flip y)
 		vec2 outs = outn.xy * vec2(sign(PROJECTION_MATRIX[0][0]), sign(PROJECTION_MATRIX[1][1]));
-		if (sil && length(outs) > 1e-4) off += perp * half_w * sign(dot(perp, outs));
+		if (sil && length(outs) > 1e-4) off += perp * cw * 0.5 * sign(dot(perp, outs));
 		// a little overhang at both ends so joined lines meet without gaps
-		off += d * (is_b ? 1.0 : -1.0) * min(half_w, 0.5 * core * w);
+		off += d * (is_b ? 1.0 : -1.0) * 0.5 * cw;
 		vec4 c = is_b ? cb : ca;
 		c.xy += off / (0.5 * VIEWPORT_SIZE) * c.w;
 		POSITION = c;
@@ -96,7 +105,6 @@ void vertex() {
 
 void fragment() {
 	float dpx = abs(v_side) * v_half;
-	float a = clamp(v_core * 0.5 - dpx + 0.5, 0.0, 1.0);
 	ALBEDO = v_col;
-	ALPHA = a * v_alpha;
+	ALPHA = ink_cover(dpx, v_core) * v_alpha;
 }

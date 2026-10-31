@@ -9,7 +9,8 @@ shader_type spatial;
 // blotches that crawled with the wind and jumped as the camera moved (the
 // shadow cascades follow it). The cel bands come from the puff normals and
 // the baked occlusion instead.
-render_mode cull_disabled, ambient_light_disabled, specular_disabled, shadows_disabled;
+// alpha_to_coverage: with MSAA the cards' cut-out edges are smoothed by coverage
+render_mode cull_disabled, ambient_light_disabled, specular_disabled, shadows_disabled, alpha_to_coverage;
 #include "res://shaders/aces.gdshaderinc"
 #include "res://shaders/veg.gdshaderinc"
 
@@ -44,7 +45,14 @@ void fragment() {
 	// (no cut by the angle to the camera: it shrank and grew each lobe as the
 	// camera turned, and in the shadow pass it followed the shadow camera, so
 	// the leaves' own shadows crawled whenever the view moved)
-	if (tx.a < alpha_scissor) discard;
+	ALPHA = tx.a;
+	// (the coverage is half at alpha = threshold + edge: there, as the old cut;
+	// without MSAA the cut falls back to the threshold, a little under the old one)
+	ALPHA_SCISSOR_THRESHOLD = max(alpha_scissor - 0.15, 0.02);
+	ALPHA_ANTIALIASING_EDGE = alpha_scissor - max(alpha_scissor - 0.15, 0.02);
+	// (UV, not texels: Godot then adds no mip-level boost to the alpha, which made
+	// distant cards fuller than the cut drew them)
+	ALPHA_TEXTURE_COORDINATE = UV;
 	ALBEDO = tx.rgb * tint;   // before the occlusion (celify divides it back out)
 	// keep the puff normal on the back faces too (celify noflip)
 	if (!FRONT_FACING) NORMAL = -NORMAL;

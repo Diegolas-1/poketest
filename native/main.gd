@@ -6,6 +6,9 @@ extends Node3D
 
 const TOON := preload("res://shaders/toon.gdshader")
 const TOON_DS := preload("res://shaders/toon_ds.gdshader")
+# cut-out materials: their edges anti-aliased by alpha to coverage (MSAA)
+const TOON_CUT := preload("res://shaders/toon_cut.gdshader")
+const TOON_DS_CUT := preload("res://shaders/toon_ds_cut.gdshader")
 const TERRAIN := preload("res://shaders/terrain.gdshader")
 const EARTH := preload("res://shaders/earth.gdshader")   # earth faces: banks, ledges (web props/earth.js)
 const GrassLip := preload("res://grass_lip.gd")
@@ -233,6 +236,7 @@ func toon_for(src: Material) -> ShaderMaterial:
 		if src.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 			m.set_shader_parameter("alpha_scissor", maxf(0.5, src.alpha_scissor_threshold) if src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR else 0.5)
 		if src.cull_mode == BaseMaterial3D.CULL_DISABLED: m.shader = TOON_DS   # double sided on the web too
+		if src.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED: m.shader = TOON_DS_CUT if m.shader == TOON_DS else TOON_CUT
 	m.set_shader_parameter("use_vc", nm.contains("_vc"))
 	if nm.contains("_decal"): m.set_shader_parameter("lift", 0.004)
 	mats[src] = m
