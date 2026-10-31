@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { dressAsh } from './clothes.src.js';
 
 const status = document.getElementById('status');
 const fail = (e) => { status.textContent = 'Could not load Ash V2: ' + (e && (e.message || e)); status.classList.add('err'); console.error(e); };
@@ -82,6 +83,47 @@ model.traverse((o) => {
   if (o.isBone && o.name === 'Hips') hips = o;
 });
 scene.add(model);
+
+// ---------- his clothes (clothes.src.js) ----------
+status.textContent = 'Dressing\u2026';
+await new Promise((r) => setTimeout(r, 30));
+let body; model.traverse((o) => { if (o.isSkinnedMesh && !body) body = o; });
+const outfit = dressAsh(body);
+for (const m of outfit.pieces) { body.parent.add(m); m.bind(body.skeleton, body.bindMatrix); }
+const WEAR = { shirt: 'Shirt', jacket: 'Jacket', jeans: 'Jeans', gloves: 'Gloves', shoes: 'Shoes' };
+const wearQ = new URLSearchParams(location.search).get('wear') ?? (window.ASHV2 || {}).wear;
+const worn = new Set(wearQ != null ? wearQ.split(',').filter((k) => WEAR[k]) : Object.keys(WEAR));
+const wear = document.getElementById('wear');
+for (const [k, label] of Object.entries(WEAR)) {
+  const b = document.createElement('button'); b.className = 'tog'; b.textContent = label; b.setAttribute('aria-pressed', String(worn.has(k)));
+  b.addEventListener('click', () => { worn.has(k) ? worn.delete(k) : worn.add(k); b.setAttribute('aria-pressed', String(worn.has(k))); outfit.set(worn); });
+  wear.appendChild(b);
+}
+// the clothes made from patterns (tailor/bake.mjs), each in place of the fitted one of its name
+const packedClothes = (window.ASHV2 || {})['clothes.json'];
+const baked = packedClothes ? JSON.parse(packedClothes) : await (await fetch('clothes.json')).json();
+const sewn = {};
+for (const gm of baked.garments) {
+  const f32 = (s) => new Float32Array(unb64(s).buffer), g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(f32(gm.position), 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(f32(gm.normal), 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(f32(gm.uv), 2));
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(unb64(gm.skinIndex).buffer), 4));
+  g.setAttribute('skinWeight', new THREE.BufferAttribute(f32(gm.skinWeight), 4));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(unb64(gm.index).buffer), 1));
+  // pieces cut from a different cloth (the jacket's white sleeves): colour per vertex
+  if (gm.pieceColors) {
+    const col = new Float32Array(gm.count * 3), c = new THREE.Color();
+    for (const pc of gm.pieces) { c.set(gm.pieceColors[pc.name] || gm.color).convertSRGBToLinear(); for (let i = pc.start; i < pc.start + pc.n; i++) col.set([c.r, c.g, c.b], i * 3); }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  }
+  const mat = new THREE.MeshStandardMaterial({ color: gm.pieceColors ? '#ffffff' : gm.color, vertexColors: !!gm.pieceColors, roughness: 0.9, side: THREE.DoubleSide, map: fabric(gm.fabric) });
+  const m = new THREE.SkinnedMesh(g, mat); m.name = gm.name + ' (sewn)'; m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
+  body.parent.add(m); m.bind(body.skeleton, body.bindMatrix); sewn[gm.name] = m;
+}
+const setFitted = outfit.set.bind(outfit);
+outfit.set = (on) => { setFitted(on); for (const p of outfit.pieces) if (sewn[p.name]) { sewn[p.name].visible = p.visible; p.visible = false; } };
+outfit.set(worn);
 mixer = new THREE.AnimationMixer(model);
 // the clips travel forward on their own (root motion on the hips, +Z); "in place" takes out
 // the drift so a loop doesn't snap back, and walking around moves the body instead
@@ -220,6 +262,34 @@ renderer.setAnimationLoop(() => {
   controls.update();
   renderer.render(scene, camera);
 });
-window.ash = { THREE, model, gltf, scene, camera, controls, renderer, mixer, actions, play };
+// for checking shots: ?cam=x,y,z,tx,ty,tz&clip=Name&t=seconds&ui=0
+const q = new URLSearchParams(location.search);
+if (q.get('cam')) { const c = q.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
+if (q.get('clip') && actions[q.get('clip')]) { play(q.get('clip'), 0); if (q.get('t')) { mixer.update(+q.get('t')); pause.setAttribute('aria-pressed', 'true'); } }
+if (q.get('rest') === '1') { mixer.stopAllAction(); body.skeleton.pose(); pause.setAttribute('aria-pressed', 'true'); }
+if (q.get('ui') === '0') document.querySelector('.rail').style.display = 'none';
+window.ash = { THREE, model, gltf, outfit, body, scene, camera, controls, renderer, mixer, actions, play };
 window.stageReady = true;
+}
+
+function unb64(s) { const bin = atob(s), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+
+// cloth: a fine right-hand twill (denim: white weft flecks through indigo; the jacket's twill
+// finer and flatter), or a jersey knit; the cloth's UVs are its pattern's centimetres, so a
+// tile is a real size on him
+function fabric(kind) {
+  if (!kind) return null;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d'), img = x.createImageData(256, 256);
+  for (let j = 0; j < 256; j++) for (let i = 0; i < 256; i++) {
+    const n = Math.random();
+    let v;
+    if (kind === 'jersey') v = 0.93 + 0.05 * Math.sin((i % 6) / 6 * Math.PI * 2) * (j % 2 ? 1 : -1) + 0.03 * (n - 0.5);
+    else if (kind === 'twill') v = 0.92 + 0.05 * (((i + j) % 6) < 3 ? 1 : 0) + 0.03 * (n - 0.5);
+    else v = 0.86 + 0.1 * (((i + j) % 8) < 4 ? 1 : 0) + 0.08 * (n - 0.5) + (n > 0.985 ? 0.12 : 0);
+    const k = (j * 256 + i) * 4; img.data[k] = img.data[k + 1] = img.data[k + 2] = Math.min(255, v * 255); img.data[k + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 4, 1 / 4); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
 }
