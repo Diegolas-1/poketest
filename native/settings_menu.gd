@@ -388,7 +388,7 @@ func _tv() -> void:
 	sv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sv.add_theme_constant_override("separation", -2)
 	head.add_child(sv)
-	var st := UITheme.label("", "label", 22, UITheme.TEXT)
+	var st := UITheme.label("", "label", 20, UITheme.TEXT)
 	st.name = "TVStatus"
 	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sv.add_child(st)

@@ -178,7 +178,7 @@ func _choose(i: int) -> void:
 	var r: Array = _rows[i]
 	if not r[3]:
 		Sfx.ui("ui_toggle_off")
-		_say("Coming soon")
+		_say({"party": "No Pokémon with you yet", "bike": "The bike waits outdoors"}.get(r[1], "Coming soon"))
 		return
 	Sfx.ui("ui_confirm")
 	_flash[i] = 0.35
@@ -276,7 +276,7 @@ func _draw_preview_frame() -> void:
 	UITheme.shadow(preview_frame, UITheme.chamfer_points(r, UITheme.CUT), 1.0, Vector2(0, 8))
 	preview_frame.draw_colored_polygon(UITheme.chamfer_points(r, UITheme.CUT), Color("05070d"))
 	UITheme.outline(preview_frame, UITheme.chamfer_points(r, UITheme.CUT), Color(1, 1, 1, 0.22), 1.5)
-	UITheme.accent_bar(preview_frame, Rect2(r.position.x, r.end.y - 4.0, r.size.x, 4.0), UITheme.RED, 1.0, 0.0, 4.0)
+	preview_frame.draw_rect(Rect2(r.position.x + 6.0, r.end.y - 4.0, r.size.x - 6.0 - UITheme.CUT, 3.0), UITheme.RED)
 	# on top of the picture: drawn by a child after it
 	if not preview_frame.has_node("Over"):
 		var ov := Control.new()
@@ -311,7 +311,8 @@ func _draw_rows() -> void:
 		var ty := rr.get_center().y + (10.0 if on else -2.0)
 		UITheme.text(rows_c, Vector2(rr.position.x + 86.0, ty), String(r[2]).to_upper(), "label", 30, Color(1, 1, 1, k))
 		if not on:
-			UITheme.chip(rows_c, Vector2(rr.position.x + 86.0, ty + 10.0), "COMING SOON", Color(UITheme.YELLOW, 0.9), UITheme.INK, 13, 20.0)
+			var why: String = {"party": "NO POKÉMON YET", "bike": "OUTDOORS ONLY"}.get(r[1], "COMING SOON")
+			UITheme.chip(rows_c, Vector2(rr.position.x + 86.0, ty + 10.0), why, Color(UITheme.YELLOW, 0.9), UITheme.INK, 13, 20.0)
 		else:
 			var where := "ON THIS PHONE" if r[1] == "settings" else "ON THE TV"
 			UITheme.text(rows_c, Vector2(rr.end.x - 28.0, rr.get_center().y + 7.0), where, "label_semi", 15, UITheme.TEXT_DIM, 2)

@@ -61,7 +61,8 @@ func _draw_card() -> void:
 		if k > 0.001:
 			var w := 560.0
 			var h := 92.0
-			var r := Rect2(S.position.x + (UITheme.ease_out_expo(k) - 1.0) * 80.0, S.position.y + 6.0, w, h)
+			# (at the bottom, in the middle: the HUD's corners have the badges and the clock)
+			var r := Rect2(S.get_center().x - w * 0.5, S.end.y - h - 26.0 + (1.0 - UITheme.ease_out_expo(k)) * 60.0, w, h)
 			var pts := UITheme.plate(draw_c, r, k, UITheme.SKEW, UITheme.PLATE, UITheme.CUT)
 			UITheme.outline(draw_c, pts, Color(1, 1, 1, 0.16 * k), 1.0)
 			UITheme.accent_bar(draw_c, r, Color(UITheme.YELLOW, k), 1.0, UITheme.SKEW, UITheme.BAR)
@@ -73,7 +74,7 @@ func _draw_card() -> void:
 			UITheme.text(draw_c, Vector2(r.position.x + 106.0, y), line, "body", 19, Color(UITheme.TEXT_DIM, k))
 			var x := r.position.x + 106.0 + UITheme.text_w(line, "body", 19)
 			var gw := UITheme.glyph(draw_c, Vector2(x + 14.0, y - 6.0), "menu", 26.0, k, "pad")
-			UITheme.text(draw_c, Vector2(x + 18.0 + gw, y), "pauses", "body", 19, Color(UITheme.TEXT_DIM, k))
+			UITheme.text(draw_c, Vector2(x + 8.0 + gw, y), "pauses", "body", 19, Color(UITheme.TEXT_DIM, k))
 	# the pause screen
 	if _pause_a > 0.001:
 		var a := UITheme.ease_out(_pause_a)
