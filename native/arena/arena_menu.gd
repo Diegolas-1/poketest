@@ -49,6 +49,8 @@ var name_edit: LineEdit
 var _moves_scroll := 0
 var _scroll_to := ""
 
+var nav := UIInput.Nav.new()   # (the pad and keys: one step a press)
+
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -116,6 +118,9 @@ func toast(text: String, col := UITheme.GREEN) -> void:
 func _process(dt: float) -> void:
 	t += dt
 	k = clampf(k + (dt / 0.22 if _open else -dt / 0.16), 0.0, 1.0)
+	if _open and k >= 0.6 and not (search.has_focus() or name_edit.has_focus()):
+		var nd := nav.tick(dt)
+		if nd != Vector2i.ZERO: _nav(Vector2(nd))
 	if k <= 0.0 and not _open: visible = false
 	search.visible = _open and k > 0.9 and page in ["wild", "slot", "hunt", "ambush"]
 	name_edit.visible = _open and k > 0.9 and page == "trainer"
@@ -774,14 +779,11 @@ func _input(e: InputEvent) -> void:
 		if _drag.grid and _drag.moved:
 			_rows.grid = int(_drag.row) - int(round(dy / (Vector2(_grid.cell).y + 8.0)))
 		_h(); return
-	# pad / keys
-	var dir := Vector2.ZERO
-	if e.is_action_pressed("ui_left") or e.is_action_pressed("move_left"): dir = Vector2.LEFT
-	elif e.is_action_pressed("ui_right") or e.is_action_pressed("move_right"): dir = Vector2.RIGHT
-	elif e.is_action_pressed("ui_up") or e.is_action_pressed("move_up"): dir = Vector2.UP
-	elif e.is_action_pressed("ui_down") or e.is_action_pressed("move_down"): dir = Vector2.DOWN
-	if dir != Vector2.ZERO:
-		_nav(dir); _h(); return
+	# pad / keys: one step a press (UIInput.Nav: the stick never floods; held, it repeats in _process)
+	var d := nav.event(e)
+	if d != Vector2i.ZERO:
+		_nav(Vector2(d)); _h(); return
+	if nav.swallow(e): _h(); return
 	if e.is_action_pressed("use") or e.is_action_pressed("ui_accept"):
 		for x in W:
 			if x.id == focus: _press(x); break

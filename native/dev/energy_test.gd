@@ -144,10 +144,14 @@ func _pools() -> void:
 	ok(_fresh("pidgey", 5).pool_kinds() == ["flying", "colorless"], "Pidgey: Normal folds into Colorless")
 	ok(_fresh("bulbasaur", 5).pool_kinds() == ["grass", "poison", "colorless"], "Bulbasaur: three pools")
 	ok(_fresh("snorlax", 30).pool_kinds() == ["colorless"], "Snorlax: Colorless only")
-	# one typed pool: zero taps (it fills its typed pool, then Colorless)
+	# one typed pool: the player picks each new chip's type (battle_config focus.auto_fill_single_type
+	# false); with the rule on, zero taps (it fills its typed pool, then Colorless)
 	p.pick_mode = "player"
-	for i in 4: p.begin_turn()
-	ok(not p.needs_pick() and p.pending == 0, "single-type: no pick needed")
+	p.begin_turn(); p.begin_turn()
+	ok(p.needs_pick() == not bool(BattleConfig.val("focus", "auto_fill_single_type", true)), "single-type: a pick each new chip unless auto_fill_single_type")
+	p.pick_pool("electric")
+	ok(not p.needs_pick() and p.pending == 0 and int(p.pools.electric.ready) >= 1, "single-type: picked into Lightning")
+	p.pick_mode = "auto"
 	p.set_focus(100.0, "test")
 	ok(int(p.pools.electric.ready) == 3 and int(p.pools.colorless.ready) == 2, "typed pool fills to its cap, the rest Colorless (%s)" % [p.pools])
 	# Colorless only: zero taps, always Colorless
@@ -452,6 +456,7 @@ func _focus_loop() -> void:
 	var kinds := []
 	for t in 10:
 		g.begin_turn()
+		if g.needs_pick(): g.pick_pool("electric")   # (the player picks each new chip's type: its own)
 		kinds.append(g.total())
 	ok(kinds == [0, 1, 1, 2, 2, 3, 3, 4, 4, 5], "gain: a chip every two turns up to the cap (%s)" % [kinds])
 	ok(_pools_of(g) == {"electric": 3, "colorless": 2}, "gain: its own type first, then Colorless (%s)" % [_pools_of(g)])
@@ -668,15 +673,33 @@ func _widgets() -> void:
 	ok(picked[0] == "", "an unaffordable move isn't picked")
 	ml.pick_id("quick_attack")
 	ok(picked[0] == "quick_attack", "an affordable one is")
-	# spent out: END TURN comes up instead of staying below the list
-	ml.show_end = true
-	ml.select(0)
-	var guard := 0
-	while ml.ids.any(func(id): return ml.state_of(String(id)) == "ready") and guard < 8:
-		var r = ml.ids.filter(func(id): return ml.state_of(String(id)) == "ready")[0]
-		me.use_move(String(r)); guard += 1
-	await get_tree().process_frame
-	ok(ml.id_at(ml.selected) == EnergyMoveList.END_ID, "nothing left to pay for: END TURN is selected (%s)" % ml.id_at(ml.selected))
+	# no END TURN row: the list is the moves and nothing else, and B on it does nothing
+	ok(ml.count() == ml.ids.size(), "no END TURN row in the move list")
+	var bk := InputEventAction.new(); bk.action = "back"; bk.pressed = true
+	ok(not ml.handle(bk), "B on the move list isn't taken (it never ends a turn)")
+	# the battle's FIGHT window (ui/pkmn_fight.gd): the moves grouped, CONFIRM the only way out of the turn
+	var pb := PkmnBattle.new({"a": {"species": "pikachu", "level": 9, "ai": "player", "focus": 60.0,
+		"known": ["thunder_shock", "quick_attack", "dodge", "thunder_wave", "growl"]}, "b": {"species": "pidgey", "level": 5, "ai": "wild"}, "seed": 3})
+	pb.start(); pb.begin_turn()
+	if pb.needs_pick("a"): pb.pick_pool("a", "electric")
+	var fw := PkmnFightWindow.new()
+	host.add_child(fw)
+	fw.open(pb)
+	var got := {"add": [], "confirm": 0, "cancel": 0}
+	fw.add_move.connect(func(id): got.add.append(id); pb.queue("a", id); fw.refresh())
+	fw.confirm.connect(func(): got.confirm += 1)
+	fw.cancel.connect(func(): got.cancel += 1)
+	ok(not fw.rows.is_empty() and fw.rows[0].has("head") and String(fw.rows[0].head) == "OPENERS", "the window groups the moves (OPENERS first: %s)" % [fw.rows.map(func(r): return r.get("head", r.get("id")))])
+	ok(fw.move_rows().size() == 5 and fw.state_of(fw.id_sel()) == "ready", "every known move listed, the cursor on a ready one")
+	var ua := InputEventAction.new(); ua.action = "use"; ua.pressed = true
+	fw.handle(ua)
+	ok(got.add.size() == 1 and pb.queued("a").size() == 1, "A adds the selected move to the queue (%s)" % [got.add])
+	fw.handle(bk)
+	ok(got.cancel == 1 and got.confirm == 0, "B in the window goes back; it doesn't confirm")
+	fw.open(pb)
+	var st := InputEventAction.new(); st.action = "menu"; st.pressed = true
+	fw.handle(st)
+	ok(got.confirm == 1, "START confirms")
 	host.queue_free()
 
 # ---- the hook: the old calls, a fake battle and none at all ----

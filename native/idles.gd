@@ -463,7 +463,8 @@ func limit(allowed: Array) -> void:
 
 func update(dt: float, wI: float) -> void:
 	# the stance: in while standing, out while an arm is busy with an action
-	var arms_busy: bool = P.act != null and (P.act.def.has("armL") or P.act.def.has("armR"))
+	# (an "over_stance" action plays on top of the stance: its null keys are the stance's pose)
+	var arms_busy: bool = P.act != null and (P.act.def.has("armL") or P.act.def.has("armR")) and not P.act.def.get("over_stance", false)
 	var want := wI if stance != "" and not arms_busy else 0.0
 	_sw += (want - _sw) * (1.0 - exp(-dt * (5.0 if want < _sw else 3.0)))
 	_swi = wI

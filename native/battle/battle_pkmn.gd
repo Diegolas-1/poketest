@@ -80,7 +80,11 @@ var _inp := 0                        # the place Ash is choosing for
 var _aim_id := ""
 var _aims: Array = []
 var _fill_k := -1
-const DX := 1.3                      # doubles: each place this far to the side
+const DX := 1.6                      # doubles: each place this far to the side
+# for tests: each of Ash's turns as committed ({turn, a: [move ids in order]}), and
+# each turn's start ({turn, pending, prompted}: whether the energy pick came up)
+var turn_log: Array = []
+var pick_log: Array = []
 
 func setup(b: Battle) -> void:
 	battle = b
@@ -237,9 +241,12 @@ func run() -> void:
 	hud.bind(B)
 	hud.command.connect(_on_command)
 	hud.move_picked.connect(_on_move)
-	hud.end_turn.connect(_on_end_turn)
+	hud.end_turn.connect(_on_confirm)
 	hud.pool_picked.connect(_on_pool)
 	hud.undo.connect(func(): B.unqueue("a"); hud.refresh_moves())
+	hud.queue_remove.connect(_on_remove)
+	hud.queue_reorder.connect(_on_reorder)
+	hud.fight_cancel.connect(func(): if hud.mode == "fight": hud.show_menu())   # (BACK: the queue is kept for when FIGHT opens again)
 	hud.party_picked.connect(_on_party)
 	hud.party_cancel.connect(func(): if hud.mode == "party" and not hud.party_forced: hud.show_menu())
 	hud.target_picked.connect(_on_target)
@@ -262,19 +269,27 @@ func run() -> void:
 
 func _next_turn() -> void:
 	if B.over: _over = true; return
+	var had: int = B.fighter("a").e.total()
 	await _play(B.begin_turn(), 0.3)
 	if D and not auto:
 		_inp = 0 if D.at("a", 0) != null and not D.at("a", 0).fainted() else 1
 		_select_inp()
+	var e: BattleEnergy = B.fighter("a").e
+	pick_log.append({"turn": B.turn, "pending": e.pending, "prompted": B.needs_pick("a") and not auto})
 	if B.needs_pick("a"):
 		if auto: B.pick_pool("a", "")
 		else:
 			hud.show_pick()
 			return
+	elif not auto and e.pending == 0 and e.total() <= had and D == null:
+		# no new chip this turn: say when the next one comes
+		var nxt := e.thresholds().filter(func(th): return float(th) > e.focus + 0.001)
+		if not nxt.is_empty() and e.held() < e.chip_cap():
+			hud.say("No new chip this turn: focus %d%%, the next at %d%%." % [int(e.focus / e.fmax() * 100.0), int(float(nxt[0]) / e.fmax() * 100.0)], UITheme.TEXT_DIM)
 	_open_menu()
 
 func _open_menu() -> void:
-	battle.shot("overview", 2.5)
+	battle.shot("overview", 2.0)   # (the choosing frame: Ash's side near, the foe facing; held while he picks)
 	if auto:
 		await get_tree().create_timer(0.6).timeout
 		# scripted runs: "script_ball": {ball, turn, caught, wobbles} throws that ball on that turn
@@ -305,15 +320,20 @@ func _open_menu() -> void:
 
 func _on_pool(k: String) -> void:
 	if hud.mode != "pick": return
-	B.pick_pool("a", k)
+	var placed := B.pick_pool("a", k)
 	Sfx.ui("ui_confirm")
+	if not placed.is_empty():
+		hud.say("%s: +%d %s chip%s." % [String(B.fighter("a").name).to_upper(), placed.size(), BattleEnergy.energy_name(String(placed[0])).to_upper(), "" if placed.size() == 1 else "s"], EnergyIcon.color(String(placed[0])).lightened(0.25))
 	if B.needs_pick("a"): return
 	_open_menu()
 
 func _on_command(c: String) -> void:
 	match c:
-		"fight": hud.show_fight()
+		"fight":
+			hud.set_confirm_label(_confirm_label())
+			hud.show_fight()
 		"flee":
+			while B.unqueue("a") != "": pass   # (running is the whole turn: the queue back)
 			if B.flee("a"):
 				hud.say("Got away safely!", UITheme.SKY); hud.busy()
 				_over = true
@@ -408,9 +428,64 @@ func _on_move(id: String) -> void:
 		_queue_aimed(id, _aims[0] if _aims.size() == 1 else {})
 		return
 	if B.queue("a", id):
-		hud.say("%s queued." % String(BattleEnergy.move(id).name), UITheme.SKY)
 		hud.refresh_moves()
-		if B.committed_now("a") or BattleEnergy.is_all(id): _on_end_turn()
+
+# the FIGHT window's CONFIRM: the only thing that ends Ash's choosing (doubles: on to
+# his other Pokémon first)
+func _on_confirm() -> void:
+	if _busy or not hud.mode == "fight": return
+	if not B.queued("a").is_empty(): _ash("pk_command")
+	_on_end_turn()
+
+func _confirm_label() -> String:
+	if D and not auto and _inp == 0 and D.at("a", 1) != null and not D.at("a", 1).fainted() and not _done_for(1):
+		return "NEXT: %s" % String(D.at("a", 1).name).to_upper()
+	return "CONFIRM"
+
+# the queue in the window: one taken out, or one moved to another place in the order.
+# The engine takes moves back only from the end (unqueue), so the rest come back
+# and go in again in the new order (each paid again; the old order if one can't be)
+func _on_remove(i: int) -> void:
+	var q := _entries()
+	var j := i - _n_free()
+	if j < 0 or j >= q.size(): return
+	var want := q.duplicate()
+	want.remove_at(j)
+	_requeue(want, q)
+	hud.refresh_moves()
+
+func _on_reorder(from: int, to: int) -> void:
+	var q := _entries()
+	var a := from - _n_free()
+	var b := to - _n_free()
+	if a < 0 or b < 0 or a >= q.size() or b >= q.size() or a == b: return
+	var want := q.duplicate()
+	var x = want[a]
+	want.remove_at(a)
+	want.insert(b, x)
+	_requeue(want, q)
+	hud.refresh_moves()
+
+func _n_free() -> int: return B.fighter("a").queue.filter(func(q): return bool(q.get("free", false))).size()
+
+func _entries() -> Array: return B.fighter("a").queue.filter(func(q): return not bool(q.get("free", false))).duplicate()
+
+func _requeue(want: Array, was: Array) -> bool:
+	while B.unqueue("a") != "": pass
+	for q in want:
+		if not _queue_entry(q):
+			while B.unqueue("a") != "": pass
+			for q2 in was: _queue_entry(q2)
+			return false
+	return true
+
+func _queue_entry(q: Dictionary) -> bool:
+	if D:
+		var tg = q.get("target")
+		var target := {}
+		if tg is PkmnBattle.Fighter and D.place_of(tg) >= 0: target = {"side": tg.side, "k": D.place_of(tg)}
+		return D.queue_at("a", _inp, String(q.move), target)
+	return B.queue("a", String(q.move))
 
 func _on_end_turn() -> void:
 	if _busy: return
@@ -424,6 +499,8 @@ func _on_end_turn() -> void:
 	if D: D.select("a", 0 if D.at("a", 0) != null and not D.at("a", 0).fainted() else 1)
 	_busy = true
 	hud.busy()
+	turn_log.append({"turn": B.turn, "a": B.queued("a").duplicate()})
+	battle.shot("duel", 2.2)   # (a glide down from the choosing frame, same side)
 	B.ai_queue("b")
 	B.begin_resolve()
 	while B.resolving():
@@ -527,6 +604,7 @@ func _play(evs: Array, gap: float) -> void:
 			txt = ("Another wild %s joins in!" % String(e.get("species", "")).to_upper()) if t == "switch_in" else ""
 		if txt != "" and not t in ["turn", "gain"]:
 			hud.say(txt, UITheme.SKY if s == "a" else UITheme.YELLOW)
+		_ash_react(t, s, e)
 		match t:
 			"move", "strike":
 				await _stage_move(s, String(e.move), t == "strike", _whiff(evs, ei))
@@ -550,6 +628,7 @@ func _play(evs: Array, gap: float) -> void:
 				await _wait(0.5)
 			"faint":
 				_land(s)
+				_cam_faint(s)
 				_mood(s, "faint")
 				battle.fx.dust(_pos(s), 8, Color("cdb68a"), 0.7, 0.3, 0.45)
 				Sfx.play("land_dirt", _pos(s), {"vol": 0.0})
@@ -654,10 +733,8 @@ func _stage_move(s: String, id: String, strike: bool, whiff := false) -> void:
 		battle.shake = 0.4
 		if was == "airborne": anim = "tackle"   # (Fly, Bounce: a dive at it)
 		elif was in ["underground", "underwater"]: anim = "tackle"   # (Dig, Dive: up under it)
-	if D: _cut_doubles(s)
-	else:
-		battle.shot("pk_" + s, 0.0)   # (a cut: a glide between the two sides passes overhead)
-		_aim_shot(s, tside)
+	_cam_move(s, id, strike)
+	if D == null and String(battle._shot.get("name", "")) == "pk_" + s: _aim_shot(s, tside)   # (one up in the air: the lens follows it up)
 	var from := _pos(s)
 	var to := _real_at(tside, tpl)
 	to.y = maxf(to.y, battle._gy(to))
@@ -882,6 +959,25 @@ func _doubles_in() -> void:
 		_pl[s] = 0
 	if hud: hud.bind(B)
 
+# the camera for a move: the duel's frame holds for most; a big one (a finisher, a
+# strike from under the ground or out of the air, power 70 or more) glides in over the
+# user's shoulder. Every shot is on the same side of the line (battle.gd _shot_xf).
+func _cam_move(s: String, id: String, strike: bool) -> void:
+	var m := BattleEnergy.move(id)
+	var big := strike or BattleEnergy.tier_of(id) == "finisher" or int(m.get("power", 0)) >= 70
+	if not big:
+		if String(battle._shot.get("name", "")) != "duel": battle.shot("duel", 2.5)
+		return
+	if D: _cut_doubles(s)
+	else: battle.shot("pk_" + s, 3.2)
+
+# a faint: in on the one going down (the same side of the line)
+func _cam_faint(s: String) -> void:
+	var p := _pos(s)
+	var f: Vector3 = battle.fwd
+	var sh := {"pos": p + battle.side * 2.6 - f * (0.5 if s == "a" else 0.9) + Vector3.UP * 1.3, "look": p + Vector3.UP * 0.3, "fov": 42.0, "rate": 2.8, "name": "_fixed"}
+	battle._shot = sh
+
 # doubles: the battle's over-the-shoulder shots, from whichever place acts at its target
 func _cut_doubles(s: String) -> void:
 	var from := _pos(s)
@@ -889,9 +985,9 @@ func _cut_doubles(s: String) -> void:
 	var f: Vector3 = battle.fwd
 	var sd: Vector3 = battle.side
 	var up := Vector3.UP
-	# over its outer shoulder (the side away from its partner: place 0 is on the left, 1 on
-	# the right), so the partner is never between the lens and the shot
-	var out := 1.0 if int(_pl[s]) == 1 else -1.0
+	# over its right shoulder (the battle's side of the line, whichever place acts: the
+	# 180 degree rule); pushed clear of whoever stands near the lens below
+	var out := 1.0
 	var sh := {"pos": from - f * 1.6 + sd * out * 2.4 + up * 2.0, "look": to + up * 0.3 - f * 0.9, "fov": 50.0}
 	if s == "b": sh = {"pos": from + f * 2.2 + sd * out * 2.4 + up * 2.2, "look": to + up * 0.3 + f * 0.6, "fov": 52.0}
 	# and clear of every one out (a wing, a bulb): pushed off and up from any too near the lens
@@ -909,12 +1005,9 @@ func _cut_doubles(s: String) -> void:
 		if d < r and d > 1e-3:
 			p += fl / d * (r - d) + up * (r - d) * 0.5
 	sh.pos = p
-	sh["rate"] = 4.0
+	sh["rate"] = 3.2   # (a glide, never a jump: it stays on the same side)
 	sh["name"] = "_fixed"
 	battle._shot = sh
-	battle.cam_pos = sh.pos
-	battle.cam_look = sh.look
-	battle.cam_fov = sh.fov
 
 func _make_x2(s: String, sp: String) -> void:
 	if _x2[s] != null and is_instance_valid(_x2[s]): _x2[s].queue_free()
@@ -953,9 +1046,42 @@ func _queue_aimed(id: String, target: Dictionary) -> void:
 	if D.queue_at("a", _inp, id, target):
 		hud.bind(B)
 		hud.show_fight()
-		hud.say("%s queued%s." % [String(BattleEnergy.move(id).name), "" if target.is_empty() else " at " + String(D.at(String(target.side), int(target.k)).name).to_upper()], UITheme.SKY)
 		hud.refresh_moves()
-		if B.committed_now("a") or BattleEnergy.is_all(id): _on_end_turn()
+	else: hud.show_fight()
+
+# ---------- Ash, the trainer (battle/pkmn_acts.gd) ----------
+# his acting to what happens: a command for each of his moves, a wince at a big hit on
+# his Pokémon, a fist pump at a KO or a super-effective hit, worry when it faints, a
+# shout for a switch; the worried stance while his Pokémon is low on HP
+func _ash(n: String) -> void:
+	var p = battle.player
+	if p == null or p.idles == null: return
+	# (a command never cuts off a worry or a cheer still playing)
+	var cur: String = p.idles.acting()
+	if n == "pk_command" and cur in ["pk_worry", "pk_cheer"]: return
+	battle._act(n)
+
+func _ash_react(t: String, s: String, e: Dictionary) -> void:
+	match t:
+		"move":
+			if s == "a": _ash("pk_command")
+		"hit", "counter":
+			var f := _f(s)
+			var dmg := int(e.get("dmg", 0))
+			if s == "a" and (dmg >= f.max_hp * 0.22 or bool(e.get("crit", false)) or float(e.get("eff", 1.0)) > 1.0): _ash("pk_wince")
+			elif s == "b" and (float(e.get("eff", 1.0)) > 1.0 or bool(e.get("crit", false))): _ash("pk_cheer")
+		"faint":
+			_ash("pk_worry" if s == "a" else "pk_cheer")
+		"switch_out", "switch_in":
+			if s == "a": _ash("pk_call")
+	_ash_stance()
+
+func _ash_stance() -> void:
+	var p = battle.player
+	if p == null or p.idles == null: return
+	var f := B.fighter("a")
+	var low := not f.fainted() and float(f.hp) / maxf(1.0, f.max_hp) <= 0.25
+	p.idles.stance = "pk_worried" if low else "pk_ready"
 
 func _make_mound(s: String) -> void:
 	var mound := MeshInstance3D.new()
@@ -1005,14 +1131,14 @@ func _state(st: String) -> void:
 			for id in ["swift", "dig", "counter", "protect"]: a.e.teach(id, true)
 			B.queue("a", "quick_attack")
 			hud.show_fight()
-			hud.moves.select(6)
+			hud.fight.sel = hud.fight._next_move(hud.fight.rows.size() - 1, -1)
 		"lockedin":
 			a.e.set_focus(90.0, "shot")
 			B.begin_turn()
 			b.e.set_focus(50.0, "shot")
 			hud.say("PIKACHU is LOCKED IN!", UITheme.YELLOW)
 			hud.show_fight()
-			hud.moves.select(0)
+			pass
 		_:
 			B.begin_turn()
 			hud.show_menu()

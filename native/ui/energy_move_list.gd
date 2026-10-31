@@ -13,28 +13,27 @@ extends Control
 #            big): a lock, and the level the next slot opens
 # The selected row turns white with a slide; a bar bound with bar_preview
 # lights the chips it would use. Touch: tap a row to select it (the preview),
-# tap it again to use it. Pad / keys: up / down, A (E / Enter), 1-9; B / Esc
-# ends the turn (when show_end). Mouse: hover selects, click uses.
+# tap it again to use it. Pad / keys: up / down (one step a press: UIInput.Nav),
+# A (E / Enter), 1-9. Mouse: hover selects, click uses. It never ends a turn
+# (the battle's FIGHT window, ui/pkmn_fight.gd, has CONFIRM for that).
 #
 #   var ml := EnergyMoveList.new(); ml.size = Vector2(440, 360)
 #   ml.bind(energy, energy.known); ml.bar_preview = bar
 #   ml.picked.connect(func(id): ...)      # a ready move chosen
 #   ml.hovered.connect(func(id): ...)     # the selection moved
-#   ml.end_turn.connect(func(): ...)      # the END TURN row (show_end)
 
 signal picked(id: String)
 signal hovered(id: String)
-signal end_turn()
 
 const ROW_H := 60.0
 const GAP := 7.0
-const END_ID := "_end"
 
 var energy: BattleEnergy
 var ids: Array = []
 var selected := 0
 var input_enabled := true
-var show_end := true
+var show_end := false            # (kept for callers: there is no END TURN row any more)
+var nav := UIInput.Nav.new()
 var bar_preview: EnergyBar
 var reach_fn: Callable           # optional (id) -> "" or a warning (the foe is out of reach of this move)
 var _anim := {}
@@ -69,21 +68,17 @@ func bind(e: BattleEnergy, moves = null) -> void:
 	queue_redraw()
 
 func _on_changed() -> void:
-	# nothing left he can pay for: END TURN comes up (it sits below a long list)
-	if show_end and not ids.is_empty() and not ids.any(func(id): return state_of(String(id)) == "ready"):
-		select(count() - 1)
 	if not _hold: _preview()
 	queue_redraw()
 
-func count() -> int: return ids.size() + (1 if show_end else 0)
+func count() -> int: return ids.size()
 
 func id_at(i: int) -> String:
-	if i < ids.size(): return String(ids[i])
-	return END_ID
+	if i >= 0 and i < ids.size(): return String(ids[i])
+	return ""
 
-# ready | short | locked (END TURN is always ready)
+# ready | short | locked
 func state_of(id: String) -> String:
-	if id == END_ID: return "ready"
 	if energy == null: return "short"
 	if energy.locked(id): return "locked"
 	return "ready" if energy.can_pay(id) else "short"
@@ -108,18 +103,13 @@ func _preview() -> void:
 	_hold = false
 	if bar_preview == null or not is_instance_valid(bar_preview): return
 	var id := id_at(selected)
-	if id == END_ID or count() == 0 or not is_visible_in_tree() or state_of(id) == "locked": bar_preview.clear_preview()
+	if id == "" or count() == 0 or not is_visible_in_tree() or state_of(id) == "locked": bar_preview.clear_preview()
 	else: bar_preview.preview_cost(id)
 
 func pick(i: int) -> void:
 	if i < 0 or i >= count(): return
 	selected = i
 	var id := id_at(i)
-	if id == END_ID:
-		_flash = i; _flash_t = 0.0
-		Sfx.ui("ui_confirm")
-		end_turn.emit()
-		return
 	if state_of(id) != "ready":
 		_shake = i; _shake_t = 0.0
 		Sfx.ui("ui_error")
@@ -139,10 +129,10 @@ func row_rect(i: int) -> Rect2:
 
 func handle(e: InputEvent) -> bool:
 	if count() == 0 or not is_visible_in_tree(): return false
-	if e.is_action_pressed("ui_up") or e.is_action_pressed("move_up"): move(-1); return true
-	if e.is_action_pressed("ui_down") or e.is_action_pressed("move_down"): move(1); return true
+	var d := nav.event(e)
+	if d.y != 0: move(d.y); return true
+	if d != Vector2i.ZERO or nav.swallow(e): return true
 	if e.is_action_pressed("use") or e.is_action_pressed("ui_accept"): pick(selected); return true
-	if show_end and (e.is_action_pressed("back") or e.is_action_pressed("ui_cancel")): pick(count() - 1); return true
 	if e is InputEventKey and e.pressed and not e.echo and e.keycode >= KEY_1 and e.keycode <= KEY_9:
 		var n: int = e.keycode - KEY_1
 		if n < ids.size(): pick(n); return true
@@ -162,7 +152,7 @@ func handle(e: InputEvent) -> bool:
 		for i in count():
 			if row_rect(i).grow_individual(0, GAP * 0.5, 0, GAP * 0.5).has_point(lp2):
 				# touch: the first tap selects (and previews), the second uses it
-				if (touch or UIInput.device == "touch") and i != selected and id_at(i) != END_ID:
+				if (touch or UIInput.device == "touch") and i != selected:
 					select(i); Sfx.ui("ui_cursor")
 				else: pick(i)
 				return true
@@ -173,6 +163,9 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func _process(dt: float) -> void:
 	t += dt
+	if input_enabled and is_visible_in_tree():
+		var d := nav.tick(dt)
+		if d.y != 0: move(d.y)
 	_appear = minf(1.0, _appear + dt / UITheme.SLOW)
 	for i in count():
 		var want := 1.0 if i == selected else 0.0
@@ -206,9 +199,9 @@ func _draw() -> void:
 		_row(r, id, st, k, a, i)
 
 func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
-	var m := BattleEnergy.move(id) if id != END_ID else {}
-	var kind := BattleEnergy.energy_of(String(m.get("type", "normal"))) if id != END_ID else ""
-	var tc := EnergyIcon.color(kind) if id != END_ID else UITheme.RED
+	var m := BattleEnergy.move(id)
+	var kind := BattleEnergy.energy_of(String(m.get("type", "normal")))
+	var tc := EnergyIcon.color(kind)
 	var ra := a * (1.0 if st == "ready" else (0.62 if st == "short" else 0.5))
 	var pts := UITheme.para_points(r, UITheme.SKEW)
 	if k > 0.01:
@@ -223,12 +216,6 @@ func _row(r: Rect2, id: String, st: String, k: float, a: float, i: int) -> void:
 	var fg := Color(UITheme.TEXT, ra).lerp(Color(UITheme.INK, ra), k)
 	var sub := Color(UITheme.TEXT_DIM, ra * 0.9).lerp(Color(UITheme.INK_SOFT, ra), k)
 	var cy := r.get_center().y
-	if id == END_ID:
-		UITheme.text_mid(self, Vector2(r.position.x + 30.0, cy), "END TURN", "display", 26, fg)
-		var gx := r.end.x - 40.0
-		if UIInput.device != "touch": UITheme.glyph(self, Vector2(gx, cy), "back", 28.0, a)
-		else: UITheme.chevrons(self, Vector2(gx - 8.0, cy), 18.0, Color(UITheme.RED, a), 2)
-		return
 	# the type disc
 	EnergyIcon.draw_icon(self, kind, Vector2(r.position.x + 34.0, cy), 15.0, ra)
 	# the name and what it does

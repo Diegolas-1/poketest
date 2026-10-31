@@ -66,8 +66,8 @@ func play(id: String, ev: Dictionary) -> void:
 	# ---- the throw: over his right shoulder, the Pokémon ahead ----
 	var a0 := battle.ash_pos
 	var f0 := battle.foe_pos
-	_cam(a0 - fwd * 2.1 - side * 1.5 + up * 1.55, a0.lerp(f0, 0.6) + up * 0.7, 48.0, 0.0)
-	_cam(a0 - fwd * 1.7 - side * 1.9 + up * 1.35, a0.lerp(f0, 0.55) + up * 0.75, 46.0, 1.2)
+	_cam(a0 - fwd * 2.1 + side * 1.5 + up * 1.55, a0.lerp(f0, 0.6) + up * 0.7, 48.0, 0.0)
+	_cam(a0 - fwd * 1.7 + side * 1.9 + up * 1.35, a0.lerp(f0, 0.55) + up * 0.75, 46.0, 1.2)
 	ball = PkmnBall.make(R, id)
 	battle.add_child(ball)
 	ball.visible = false
@@ -96,7 +96,7 @@ func play(id: String, ev: Dictionary) -> void:
 	var fly := clampf(dist / 8.5, 0.42, 0.8)
 	var apex := clampf(dist * 0.22, 0.6, 1.8)
 	var mid := from.lerp(hit, 0.5)
-	_cam(mid - side * 5.6 - fwd * 0.9 + up * 1.8, mid + up * 0.55, 46.0, 3.0)
+	_cam(mid + side * 5.6 - fwd * 0.9 + up * 1.8, mid + up * 0.55, 46.0, 3.0)
 	t = 0.0
 	var spin_ax := side
 	var b0 := ball.global_transform.basis.orthonormalized()
@@ -125,8 +125,8 @@ func play(id: String, ev: Dictionary) -> void:
 	# (a cut in close at the hit, then a slow push)
 	var look := (f0 + up * h * 0.4).lerp(hover, 0.5)
 	look.y = hover.y - 0.2
-	_cam(look - fwd * 1.0 - side * 2.9 + up * 0.25, look, 44.0, 0.0)
-	_cam(look - fwd * 0.8 - side * 2.4 + up * 0.2, look, 42.0, 0.6)
+	_cam(look - fwd * 1.0 + side * 2.9 + up * 0.25, look, 44.0, 0.0)
+	_cam(look - fwd * 0.8 + side * 2.4 + up * 0.2, look, 42.0, 0.6)
 	var bh := ball.global_transform.basis.orthonormalized()
 	var p0 := ball.global_position
 	t = 0.0
@@ -190,7 +190,7 @@ func play(id: String, ev: Dictionary) -> void:
 	land.y = battle._gy(land) + R * BIG
 	var rest := _face_basis(-fwd)              # (its button to Ash: the camera reads the wobbles)
 	_rest = land
-	_cam(land - fwd * 1.55 - side * 1.05 + up * 0.62, land + up * 0.08, 36.0, 2.6)
+	_cam(land - fwd * 1.55 + side * 1.05 + up * 0.62, land + up * 0.08, 36.0, 2.6)
 	await _drop(hover, land, face, rest)
 	_spin = rest
 	# ---- the wobbles ----
@@ -299,7 +299,7 @@ func _break_out(nm: String, n: int) -> void:
 	battle.catch_off = Vector3.ZERO
 	battle.fx.flash(battle.foe, Color.WHITE, 0.35, 1.0)
 	# (the close shot pulls back over the burst to show it whole)
-	_cam(_rest - battle.fwd * 2.6 - battle.side * 2.2 + Vector3.UP * 1.1, f0.lerp(_rest, 0.4) + Vector3.UP * 0.35, 44.0, 2.5)
+	_cam(_rest - battle.fwd * 2.6 + battle.side * 2.2 + Vector3.UP * 1.1, f0.lerp(_rest, 0.4) + Vector3.UP * 0.35, 44.0, 2.5)
 	t = 0.0
 	while t < 0.38:
 		t += get_process_delta_time()

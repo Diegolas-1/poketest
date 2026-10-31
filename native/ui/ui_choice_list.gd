@@ -30,6 +30,8 @@ var _flash := -1
 var _flash_t := 0.0
 var _tap_frame := -1
 
+var nav := UIInput.Nav.new()
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_process(false)
@@ -87,8 +89,9 @@ func row_rect(i: int) -> Rect2:
 
 func handle(e: InputEvent) -> bool:
 	if items.is_empty() or not is_visible_in_tree(): return false
-	if e.is_action_pressed("ui_up") or e.is_action_pressed("move_up"): move(-1); return true
-	if e.is_action_pressed("ui_down") or e.is_action_pressed("move_down"): move(1); return true
+	var d := nav.event(e)   # (one step a press: UIInput.Nav)
+	if d.y != 0: move(d.y); return true
+	if d != Vector2i.ZERO or nav.swallow(e): return true
 	if e.is_action_pressed("use") or e.is_action_pressed("ui_accept"): pick(selected); return true
 	if e is InputEventKey and e.pressed and not e.echo and e.keycode >= KEY_1 and e.keycode <= KEY_9:
 		var i: int = e.keycode - KEY_1
