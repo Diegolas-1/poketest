@@ -58,16 +58,21 @@ const ORDER = Object.keys(NAMES);
 let model, mixer, actions = {}, clipsRaw = {}, current = null, hips;
 // the model travels as base64 text (the host serves no .glb files), its images as .webp files
 status.textContent = 'Downloading Ash V2\u2026';
-const res = await fetch('ashv2.glb.txt');
-if (!res.ok) throw new Error('model download failed (' + res.status + ')');
-const b64 = (await res.text()).trim();
+// the one-file build (build.sh --single) carries everything inline in window.ASHV2
+const packed = window.ASHV2 || {};
+let b64 = packed.glb;
+if (!b64) {
+  const res = await fetch('ashv2.glb.txt');
+  if (!res.ok) throw new Error('model download failed (' + res.status + ')');
+  b64 = (await res.text()).trim();
+}
 status.textContent = 'Unpacking\u2026';
 const bin = atob(b64), bytes = new Uint8Array(bin.length);
 for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
 const gltf = await new GLTFLoader().parseAsync(bytes.buffer, '');
 status.textContent = 'Loading textures\u2026';
 const tl = new THREE.TextureLoader();
-const tex = async (f, srgb) => { const t = await tl.loadAsync(f); t.flipY = false; t.anisotropy = 4; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+const tex = async (f, srgb) => { const t = await tl.loadAsync(packed[f] ? 'data:image/webp;base64,' + packed[f] : f); t.flipY = false; t.anisotropy = 4; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
 const [map, normalMap, orm] = await Promise.all([tex('ashv2_color.webp', true), tex('ashv2_normal.webp'), tex('ashv2_orm.webp')]);
 model = gltf.scene;
 let tris = 0;
