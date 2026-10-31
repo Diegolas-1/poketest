@@ -116,7 +116,7 @@ func _draw_debug(S: Rect2) -> void:
 		"shown %.0f/s  repeated %.0f/s  dropped %.0f/s  late %.0f/s" % [st.presented, st.repeated, st.skipped, st.late],
 		"%s  %s  render %d×%d" % ["paced by the TV" if st.paced else "unpaced", st.backend, screens.game.size.x, screens.game.size.y],
 	]
-	var r := Rect2(S.position + Vector2(0, 70), Vector2(470, 18 + lines.size() * 24))
+	var r := Rect2(Vector2(S.get_center().x - 245.0, S.position.y), Vector2(490, 18 + lines.size() * 24))
 	draw_c.draw_rect(r, Color(0, 0, 0, 0.62))
 	var bad: bool = float(st.repeated) > 1.5 or float(st.skipped) > 0.5
 	draw_c.draw_rect(Rect2(r.position, Vector2(4, r.size.y)), UITheme.RED if bad else UITheme.GREEN)

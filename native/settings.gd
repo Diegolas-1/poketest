@@ -244,7 +244,7 @@ func fmt(key: String, v) -> String:
 		"clock": return "Real time" if v == "real" else "Game time"
 		"day_len": return "%d min" % int(v)
 		"island_side": return "Left" if v == "left" else "Right"
-		"tv_res": return "Auto (720p on AirPlay)" if str(v) == "auto" else "%dp" % int(v)
+		"tv_res": return "Auto" if str(v) == "auto" else "%dp" % int(v)
 		"wild_peek": return "Peeking (model visible)" if v == "peek" else "Hidden (grass only)"
 		"island_dx", "island_dy", "island_w", "island_h": return "%d pt" % int(v)
 	if typeof(v) == TYPE_INT and (v == 0 or v == 1): return "On" if v == 1 else "Off"
