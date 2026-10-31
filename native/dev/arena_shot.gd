@@ -8,6 +8,9 @@ extends Node
 #                      both sides by the AI (--manual: Ash's side by hand), --call /
 #                      --coin heads|tails, --preset=brock|misty|gary, --n=3 a side
 #                      --switch=turn,index: Ash switches by choice on that turn; --doubles
+#                      --ash=pidgeotto:22:fly+gust,... --foe=rattata:20,... the teams (the moves
+#                      its equip); --script=a:1:fly,b:2:gust
+#                      a side's moves on a turn instead of its AI's
 #   --case=wild        a staged wild battle (--start=hidden|startled|open, --alone)
 #   --case=results     a results card (a quick 3v3 played out headless, then shown)
 #   --case=hunt        a hunt (arena/arena_hunt.gd): --act=tells (Ash crouch-creeps into a
@@ -50,6 +53,13 @@ func _ready() -> void:
 	main = load("res://main.tscn").instantiate()
 	main.process_mode = Node.PROCESS_MODE_PAUSABLE   # (the game itself still pauses)
 	add_child(main)
+
+# species[:level[:move+move...]] (the moves its equip)
+static func _mon_arg(x: String) -> Dictionary:
+	var p := x.split(":")
+	var d := {"species": p[0], "level": int(p[1]) if p.size() > 1 else 22}
+	if p.size() > 2: d["equip"] = Array(p[2].split("+", false))
+	return d
 
 func _once(key: String) -> bool:
 	if _did.has(key): return false
@@ -135,12 +145,22 @@ func _process(dt: float) -> void:
 				ArenaSetups.apply_preset(s, String(A.get("preset", "brock")), "foe")
 				s.ash = ArenaSetups.preset_party("ash").slice(0, n)
 				s.foe.party = s.foe.party.slice(0, n)
-				if A.has("ash"): s.ash = Array(String(A.ash).split(",")).map(func(x): return {"species": x.get_slice(":", 0), "level": int(x.get_slice(":", 1)) if x.contains(":") else 22})
-				if A.has("foe"): s.foe.party = Array(String(A.foe).split(",")).map(func(x): return {"species": x.get_slice(":", 0), "level": int(x.get_slice(":", 1)) if x.contains(":") else 22})
+				if A.has("ash"): s.ash = Array(String(A.ash).split(",")).map(func(x): return _mon_arg(x))
+				if A.has("foe"): s.foe.party = Array(String(A.foe).split(",")).map(func(x): return _mon_arg(x))
 				s.type = "trainer"
 				if A.has("doubles"): s.foe.format = "doubles"
 				var ex := {"auto": not A.has("manual"), "call": String(A.get("call", "heads")), "coin": String(A.get("coin", "")), "seed": int(A.get("seed", "3"))}
 				if A.has("switch"): ex["script_switch"] = [int(String(A["switch"]).get_slice(",", 0)), int(String(A["switch"]).get_slice(",", 1))]
+				# --script=a:1:fly,b:2:gust: that side's moves on that turn instead of its AI's
+				if A.has("script"):
+					var sc := {}
+					for x in String(A.script).split(",", false):
+						var p := x.split(":")
+						if p.size() < 3: continue
+						if not sc.has(p[0]): sc[p[0]] = {}
+						if not sc[p[0]].has(p[1]): sc[p[0]][p[1]] = []
+						sc[p[0]][p[1]].append(p[2])
+					ex["script_pkmn"] = sc
 				ar.stage.run(s, ex)
 			if A.has("skip-at") and t >= float(A["skip-at"]) and ar.get_node_or_null("Opening") and _once("skip"):
 				ar.get_node("Opening")._skip()

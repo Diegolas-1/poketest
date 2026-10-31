@@ -15,7 +15,8 @@ extends RefCounted
 #   slots    level-gated: how many moves it can have equipped (usable)
 #
 #   var e := BattleEnergy.make("pidgey", 3)      # knows every move up to Lv 3
-#   e.begin_turn()                  # focus +gain, new chips into pools, spent chips back
+#   e.begin_turn()                  # focus +gain, new chips into pools, spent chips back;
+#                                   # at the cap a Colorless chip settles into its type (e.attuned)
 #   e.chips                         # the ready chips (energy kinds), e.g. ["flying", "colorless"]
 #   e.can_pay(cost) / e.pay(cost)   # TCG matching: typed costs first, Colorless from anything
 #   e.lock(move_id)                 # a reaction: its chips locked until triggered or expired
@@ -654,12 +655,33 @@ func begin_turn() -> Array:
 	disturbed = false
 	_last_gained = []
 	disrupted_n = 0
+	attuned = ""
+	var at_cap := earned() >= chip_cap()
 	if gain_ok: add_focus(gain_per_turn(), "gain")
 	else: _sync("turn")
 	if focus >= fmax() - 0.001 and not locked_in and gain_ok: _set_locked_in(true)
+	# at the cap the gain makes no chip: it settles a Colorless one into its own type
+	# instead (else a bar filled by items or the default pool keeps its typed pools short for good)
+	if gain_ok and at_cap and bool(BattleConfig.val("focus", "attune_at_cap", true)): _attune()
 	turn_started.emit(turn, [], _last_gained.duplicate())
 	changed.emit()
 	return chips
+
+# one ready Colorless chip into the typed pool a new chip would go to (the auto rule,
+# else what its moves lack most); attuned: that pool, or "" (none settled this turn)
+var attuned := ""
+func _attune() -> String:
+	if int(_pool(COLORLESS).ready) <= 0: return ""
+	var open := typed_pools().filter(func(k): return pool_room(k) > 0)
+	if open.is_empty(): return ""
+	var k := _rule_pool()
+	if k == "" or k == COLORLESS or pool_room(k) <= 0: k = auto_pool()
+	if k == COLORLESS or pool_room(k) <= 0: return ""
+	_pool(COLORLESS).ready -= 1
+	_pool(k).ready += 1
+	attuned = k
+	changed.emit()
+	return k
 
 # the end of a turn: locks past their expiry release
 func end_turn() -> Array:

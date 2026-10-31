@@ -43,6 +43,11 @@ extends Node
 #   shot         every other attack: a stream of motes in the move type's colour
 #   self         growl, tail_whip, double_team, protect, withdraw, focus, dodge...: rings off it, a hop
 #   dig, fly...  "commit": under the ground (a mound of dirt) or up in the air; "strike" from there
+#                (it comes back down first, a flyer's own flight landed); a move at one away is
+#                staged as a miss (no lunge, no shot at the empty spot). The stage follows the
+#                engine: one whose commit ended any other way (fainted, forced out, recalled,
+#                the battle over) is back on its spot. Scripted runs: opts "script_pkmn"
+#                {side ("a1": doubles place 1): {turn: [move ids]}} instead of the AI's plan.
 
 const DEFAULT_PARTNER := {"species": "pikachu", "level": 9, "focus": 30.0,
 	"known": ["thunder_shock", "growl", "tail_whip", "quick_attack", "dodge", "thunder_wave", "double_team"],
@@ -62,6 +67,8 @@ var _over := false
 var _semi := {"a": "", "b": "", "a1": "", "b1": ""}
 var _mound := {}
 var _lift := {"a": 0.0, "b": 0.0, "a1": 0.0, "b1": 0.0}
+const AIR := 2.4                     # how high one up in the air is (its own flight counted in)
+var staged: Array = []               # every move staged: {side, id, to, tkey, tsemi, tnode, whiff} (dev/twophase_test)
 # doubles
 var D: PkmnDoubles
 var _pl := {"a": 0, "b": 0}          # the place each side's staging is about now
@@ -92,6 +99,7 @@ func setup(b: Battle) -> void:
 	if o.has("foe_focus"): foe["focus"] = float(o.foe_focus)
 	var bo := {"a": a, "b": foe, "kind": String(o.get("kind", "wild"))}
 	if o.has("seed"): bo["seed"] = int(o.seed)
+	if o.get("script_pkmn", null) is Dictionary: bo["script"] = o.script_pkmn   # (scripted runs: {side: {turn: [moves]}})
 	if o.has("party_a") or o.has("party_b"):
 		# teams: the party layer (the leads from the lists, the rest on the bench)
 		var pa: Array = []
@@ -204,9 +212,10 @@ func _process(dt: float) -> void:
 		var keep: int = _pl[s]
 		_pl[s] = pl
 		var want := 0.0
-		if _semi[key] == "airborne": want = 2.4 + sin(Time.get_ticks_msec() * 0.003) * 0.1
-		_lift[key] = lerpf(float(_lift[key]), want, 1.0 - exp(-dt * 6.0))
 		var n := _node(s)
+		# (a bird's own flight already lifts it: the stage adds only the rest)
+		if _semi[key] == "airborne": want = maxf(0.0, AIR - _own_air(n)) + sin(Time.get_ticks_msec() * 0.003) * 0.1
+		_lift[key] = lerpf(float(_lift[key]), want, 1.0 - exp(-dt * 6.0))
 		if n and is_instance_valid(n): n.visible = not _semi[key] in ["underground", "underwater"]
 		if _mound.has(key) and is_instance_valid(_mound[key]):
 			_mound[key].visible = _semi[key] in ["underground", "underwater"]
@@ -366,6 +375,10 @@ func _on_party(i: int) -> void:
 		await _play(party().switch_to("a", i), 0.2)
 		_busy = false
 		await _after_faints()
+		return
+	if party().switch_block("a") != "":
+		hud.say(party().switch_block("a"), UITheme.RED)
+		hud.show_menu()
 		return
 	hud.busy()
 	_busy = true
@@ -546,6 +559,8 @@ func _after_faints() -> void:
 
 func _end() -> void:
 	hud.busy()
+	for k in ["a", "b"]: _land(k)
+	_follow_engine()
 	var oc := B.outcome
 	if oc != "caught": hud.say({"won": "You won!", "lost": "%s fainted..." % B.fighter("a").name, "fled": "Got away safely!", "wild_fled": "The wild one fled!", "blown_away": "Blown away!"}.get(oc, "The battle is over."), UITheme.YELLOW)
 	B.finish()
@@ -573,7 +588,8 @@ func _end() -> void:
 
 # ---------- the staging ----------
 func _play(evs: Array, gap: float) -> void:
-	for e in evs:
+	for ei in evs.size():
+		var e: Dictionary = evs[ei]
 		var cb = battle.opts.get("on_event")
 		if cb is Callable and cb.is_valid(): cb.call(e)
 		var t := String(e.get("t", ""))
@@ -591,7 +607,7 @@ func _play(evs: Array, gap: float) -> void:
 		_ash_react(t, s, e)
 		match t:
 			"move", "strike":
-				await _stage_move(s, String(e.move), t == "strike")
+				await _stage_move(s, String(e.move), t == "strike", _whiff(evs, ei))
 			"hit", "counter", "tick", "hurt_self":
 				_hit(s, e)
 				await _wait(0.5)
@@ -611,6 +627,7 @@ func _play(evs: Array, gap: float) -> void:
 				battle.fx.spawn("ring", _pos(s) + Vector3(0, 0.4, 0), Vector3.ZERO, {"life": 0.5, "size": 0.6, "size_end": 1.6, "col": Color(0.6, 0.9, 1.0, 0.9)})
 				await _wait(0.5)
 			"faint":
+				_land(s)
 				_cam_faint(s)
 				_mood(s, "faint")
 				battle.fx.dust(_pos(s), 8, Color("cdb68a"), 0.7, 0.3, 0.45)
@@ -621,6 +638,7 @@ func _play(evs: Array, gap: float) -> void:
 					battle.ui.pop(("%s UP" if int(e.d) > 0 else "%s DOWN") % String(e.get("stat", "")).to_upper(), _pos(s) + Vector3(0, 1.0, 0), UITheme.ORANGE, 22, "word")
 				await _wait(0.55)
 			"switch_out":
+				_land(s)
 				await _recall(s)
 			"switch_in":
 				await _send_out(s, String(e.get("species", B.fighter(s).species)))
@@ -630,23 +648,103 @@ func _play(evs: Array, gap: float) -> void:
 				pass
 			_:
 				await _wait(0.3)
+	_follow_engine()
 	if gap > 0.0: await _wait(gap)
 
-func _stage_move(s: String, id: String, strike: bool) -> void:
+# this move's events: a miss for being out of reach (up in the air, under the ground)
+func _whiff(evs: Array, i: int) -> bool:
+	for j in range(i + 1, evs.size()):
+		var t := String(evs[j].get("t", ""))
+		if t in ["move", "strike"]: return false
+		if t == "untargetable": return true
+	return false
+
+# the stage after the engine: one whose commit ended without a strike (fainted, forced
+# out, recalled, the battle over) comes back down, its own flight landed
+func _follow_engine() -> void:
+	for key in ["a", "b", "a1", "b1"]:
+		if String(_semi[key]) == "": continue
+		var s: String = key.substr(0, 1)
+		var pl := 1 if key.length() > 1 else 0
+		if pl == 1 and D == null: continue
+		var f: PkmnBattle.Fighter = D.at(s, pl) if D else B.fighter(s)
+		if f == null or f.fainted() or f.e.semi() == "" or B.over:
+			var was: int = _pl[s]
+			_pl[s] = pl
+			_land(s)
+			_pl[s] = was
+
+# a creature's own flight height (a bird's takeoff), else 0
+static func _own_air(n: Node) -> float:
+	if n == null or not is_instance_valid(n) or not "flying" in n or not n.flying: return 0.0
+	return float(n.get("fly_height")) if "fly_height" in n else 0.0
+
+# back down (or up from under): the stage's state cleared, a bird's own flight landed
+func _land(s: String) -> void:
+	_semi[_key(s)] = ""
+	var n := _node(s)
+	if n and is_instance_valid(n) and "flying" in n and n.flying:
+		if n.has_method("mood"): n.mood("land")
+		n.flying = false
+
+# singles: the over-the-shoulder shot kept on the real one when either is up in the air
+func _aim_shot(s: String, tside: String) -> void:
+	var up_s := lift(s) + _own_air(_node(s))
+	var up_t := lift(tside) + _own_air(_node(tside))
+	if up_s < 0.2 and up_t < 0.2: return
+	var sh: Dictionary = battle._shot_xf("pk_" + s).duplicate()
+	sh.pos = sh.pos + Vector3(0, up_s * 0.6, 0)
+	sh.look = sh.look + Vector3(0, up_t * 0.85, 0)
+	sh["rate"] = 4.0
+	sh["name"] = "_fixed"
+	battle._shot = sh
+
+# its spot at a place (doubles), the stage's _home
+func _home_at(s: String, pl: int) -> Vector3:
+	var was: int = _pl[s]
+	_pl[s] = pl
+	var h := _home(s)
+	_pl[s] = was
+	return h
+
+# where a Pokémon really is (the stage's spot, its lift and its own flight)
+func _real_at(s: String, pl: int) -> Vector3:
+	var was: int = _pl[s]
+	_pl[s] = pl
+	var n := _node(s)
+	var p := n.global_position if n and is_instance_valid(n) else _pos(s)
+	_pl[s] = was
+	return p
+
+func _stage_move(s: String, id: String, strike: bool, whiff := false) -> void:
 	var m := BattleEnergy.move(id)
 	var anim := String(m.get("anim", id))
 	var col: Color = TYPE_COL.get(String(m.get("type", "normal")), Color.WHITE)
 	var o := B.other(s)
 	battle.ui.say(String(_f(s).name).to_upper(), String(m.get("name", id)).to_upper() + "!", col if col != TYPE_COL.normal else UITheme.ORANGE)
-	_cam_move(s, id, strike)
-	# a committed strike comes out of wherever it went (up, under)
+	var tside := String(_tg.side) if D else o
+	var tpl := int(_tg.place) if D else 0
+	var tkey := tside if tpl == 0 else tside + "1"
+	# a committed strike comes out of wherever it went (up, under): back down first
+	var was := String(_semi[_key(s)])
 	if strike:
-		_semi[_key(s)] = ""
+		_land(s)
 		battle.fx.dust(_pos(s), 10, Color("cdb68a"), 1.0, 0.8, 0.5)
 		battle.shake = 0.4
+		if was == "airborne": anim = "tackle"   # (Fly, Bounce: a dive at it)
+		elif was in ["underground", "underwater"]: anim = "tackle"   # (Dig, Dive: up under it)
+	_cam_move(s, id, strike)
+	if D == null and String(battle._shot.get("name", "")) == "pk_" + s: _aim_shot(s, tside)   # (one up in the air: the lens follows it up)
 	var from := _pos(s)
-	var to := _pos_at(String(_tg.side), int(_tg.place)) if D else _pos(o)
+	var to := _real_at(tside, tpl)
+	to.y = maxf(to.y, battle._gy(to))
+	staged.append({"side": s, "id": id, "to": to, "tkey": tkey, "tsemi": String(_semi[tkey]), "tnode": _real_at(tside, tpl), "whiff": whiff})
 	var d := (to - from); d.y = 0.0; d = d.normalized()
+	if whiff:
+		# at one up in the air or under the ground: it looks for it and holds back (the line says it missed)
+		_mood(s, _act(s, "look_up" if String(_semi[tkey]) == "airborne" else "sniff", "look", "taunt"))
+		await _wait(0.5)
+		return
 	if anim in CONTACT:
 		var quick := anim == "quick_attack"
 		_mood(s, _act(s, id, anim, "quick_attack" if quick else "tackle"))
@@ -883,7 +981,7 @@ func _cam_faint(s: String) -> void:
 # doubles: the battle's over-the-shoulder shots, from whichever place acts at its target
 func _cut_doubles(s: String) -> void:
 	var from := _pos(s)
-	var to := _pos_at(String(_tg.side), int(_tg.place))
+	var to := _real_at(String(_tg.side), int(_tg.place))   # (the real one: up in the air too)
 	var f: Vector3 = battle.fwd
 	var sd: Vector3 = battle.side
 	var up := Vector3.UP

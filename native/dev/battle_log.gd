@@ -3,6 +3,9 @@ extends Node
 # writes each one's turn-by-turn log, so the text of a battle can be read.
 #   godot --headless --path native res://dev/battle_log.tscn -- [--out=dir] [--seed=n]
 #     [--fight=a:lv:ai,b:lv:ai (one matchup)] (both sides play by their AI)
+#     [--items=a:1:energy_shard,a:1:full_charge] (a side uses an item at a turn's start)
+#     [--script=a:1:fly,b:3:dig] (that side's moves on that turn instead of its AI's)
+#     [--focus=a:20,b:30] (a side's starting focus)
 const SET := [
 	["pikachu:9:aggressive", "pidgey:7:wild"],
 	["bulbasaur:12:balanced", "charmander:12:aggressive"],
@@ -42,8 +45,19 @@ func _ready() -> void:
 
 func _play(a: PackedStringArray, b: PackedStringArray, seed: int) -> Array:
 	var wild := b[2] == "wild"
-	var B := PkmnBattle.new({"a": {"species": a[0], "level": int(a[1]), "ai": a[2]},
-		"b": {"species": b[0], "level": int(b[1]), "ai": b[2]}, "kind": "wild" if wild else "trainer", "seed": seed})
+	var sc := {}
+	for x in _arg("script", "").split(",", false):
+		var p := x.split(":")
+		if p.size() < 3: continue
+		if not sc.has(p[0]): sc[p[0]] = {}
+		if not sc[p[0]].has(p[1]): sc[p[0]][p[1]] = []
+		sc[p[0]][p[1]].append(p[2])
+	var od := {"a": {"species": a[0], "level": int(a[1]), "ai": a[2]},
+		"b": {"species": b[0], "level": int(b[1]), "ai": b[2]}, "kind": "wild" if wild else "trainer", "seed": seed, "script": sc}
+	for x in _arg("focus", "").split(",", false):
+		var p := x.split(":")
+		if p.size() == 2: od[p[0]]["focus"] = float(p[1])
+	var B := PkmnBattle.new(od)
 	var L := ["%s Lv%s (%s AI) vs %s %s Lv%s (%s AI)" % [B.fighter("a").name, a[1], a[2], "wild" if wild else "trainer's", B.fighter("b").name, b[1], b[2]], ""]
 	_add(L, B.start())
 	var n := 0
@@ -52,6 +66,12 @@ func _play(a: PackedStringArray, b: PackedStringArray, seed: int) -> Array:
 		_add(L, B.begin_turn())
 		for s in ["a", "b"]:
 			if B.needs_pick(s): B.pick_pool(s)
+		for x in _arg("items", "").split(",", false):
+			var p := x.split(":")
+			if p.size() == 3 and int(p[1]) == B.turn:
+				var got := B.use_item(p[0], p[2])
+				L.append("  %s uses %s: +%d chip(s), focus %d%%" % [B.fighter(p[0]).name, p[2], got, int(B.fighter(p[0]).e.focus)])
+		L.append("  chips: %s %s | %s %s" % [B.fighter("a").name, _chips(B.fighter("a")), B.fighter("b").name, _chips(B.fighter("b"))])
 		var qa: Array = B.ai_queue("a")
 		var qb: Array = B.ai_queue("b")
 		L.append("  plans: %s %s | %s %s" % [B.fighter("a").name, str(qa), B.fighter("b").name, str(qb)])
@@ -62,6 +82,14 @@ func _play(a: PackedStringArray, b: PackedStringArray, seed: int) -> Array:
 	B.finish()
 	L.append("RESULT: %s after %d turns" % [B.outcome if B.over else "unfinished", n])
 	return L
+
+# the ready chips by pool, e.g. electric 3, colorless 2
+static func _chips(f) -> String:
+	var parts := []
+	for k in f.e.pool_kinds():
+		var n := int(f.e.pools.get(k, {}).get("ready", 0)) + int(f.e.pools.get(k, {}).get("spent", 0))
+		if n > 0: parts.append("%s %d" % [k, n])
+	return "[" + ", ".join(parts) + "]"
 
 func _add(L: Array, evs) -> void:
 	if not evs is Array: return

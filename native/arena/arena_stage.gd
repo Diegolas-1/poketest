@@ -84,6 +84,7 @@ func _trainer() -> void:
 		"auto": bool(_extra.get("auto", false)), "doubles": fmt == "doubles"}
 	if _extra.has("seed"): opts["seed"] = int(_extra.seed)
 	if _extra.has("script_switch"): opts["script_switch"] = _extra.script_switch
+	if _extra.has("script_pkmn"): opts["script_pkmn"] = _extra.script_pkmn
 	battle = Battle.start(game, opts)
 	var res: Dictionary = await battle.finished
 	await _done(res)

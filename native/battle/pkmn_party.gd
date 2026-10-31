@@ -87,6 +87,16 @@ func can_switch(s: String, i: int) -> bool:
 	if not pending[s] and (f.trapped or not f.e.commit.is_empty()): return false   # (held in place, or under the ground: no switching out)
 	return true
 
+# why the one out can't be switched out by choice now ("" when it can)
+func switch_block(s: String) -> String:
+	var f: Fighter = F[s]
+	if pending[s] or f.fainted(): return ""
+	if f.trapped: return "%s can't escape!" % f.name.to_upper()
+	if not f.e.commit.is_empty():
+		var w := {"airborne": "is up in the air", "underground": "is underground", "underwater": "is underwater"}
+		return "%s %s! It can't be recalled now." % [f.name.to_upper(), String(w.get(f.e.semi(), "is in the middle of its move"))]
+	return ""
+
 func switch_to(s: String, i: int) -> Array:
 	var out := []
 	if not can_switch(s, i): return out

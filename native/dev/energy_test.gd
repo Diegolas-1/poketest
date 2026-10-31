@@ -39,6 +39,7 @@ func _run() -> void:
 	_slots()
 	_persistence()
 	_items()
+	_focus_loop()
 	_finishers()
 	_plans()
 	_icons()
@@ -437,6 +438,86 @@ func _items() -> void:
 	fc.use_item("full_charge")
 	ok(fc.focus == 100.0 and fc.locked_in, "Full Charge: straight to max, Locked In")
 	ok(e.use_item("nonsense") == 0, "an unknown item does nothing")
+
+# ---- the whole focus loop: gain, items, slips, chips, slots, Locked In ----
+# (the hand-tested bug: Energy Shards filled the bar with Colorless chips; at full focus
+# no new chip ever came, so its own type's pool stayed short and the big typed moves
+# never became payable. At the cap the turn's gain now settles a Colorless chip into
+# its own type, one a turn: focus.attune_at_cap)
+func _pools_of(e: BattleEnergy) -> Dictionary:
+	var out := {}
+	for k in e.pools: out[k] = int(e.pools[k].ready) + int(e.pools[k].spent)
+	return out
+
+func _focus_loop() -> void:
+	# gain per turn: each threshold crossed is a chip, into its own type first
+	var g := _fresh("pikachu", 30, 0.0)
+	g.pick_mode = "player"
+	var kinds := []
+	for t in 10:
+		g.begin_turn()
+		if g.needs_pick(): g.pick_pool("electric")   # (the player picks each new chip's type: its own)
+		kinds.append(g.total())
+	ok(kinds == [0, 1, 1, 2, 2, 3, 3, 4, 4, 5], "gain: a chip every two turns up to the cap (%s)" % [kinds])
+	ok(_pools_of(g) == {"electric": 3, "colorless": 2}, "gain: its own type first, then Colorless (%s)" % [_pools_of(g)])
+	ok(g.locked_in and g.can_pay("thunder"), "gain: at 100 Locked In, Thunder (3 Lightning + 1) payable")
+	# the item case: Energy Shards to a full bar, the chips all Colorless
+	var e := _fresh("pikachu", 30, 20.0)
+	e.pick_mode = "player"
+	for i in 4: ok(e.use_item("energy_shard") == 1, "shard %d: one more chip" % (i + 1))
+	ok(e.focus == 100.0 and e.total() == 5 and e.locked_in, "shards: the bar full (%s), 5 chips, Locked In" % e.focus)
+	ok(_pools_of(e) == {"electric": 1, "colorless": 4}, "shards: the new chips are Colorless (%s)" % [_pools_of(e)])
+	ok(e.use_item("energy_shard") == 0, "a shard on a full bar adds nothing")
+	ok(not e.can_pay("thunder") and not e.can_pay("thunderbolt"), "one Lightning chip: Thunderbolt and Thunder out of reach")
+	e.begin_turn()
+	ok(_pools_of(e) == {"electric": 2, "colorless": 3} and e.total() == 5, "at the cap a turn settles a Colorless chip into Lightning (%s)" % [_pools_of(e)])
+	ok(e.can_pay("thunderbolt") and not e.can_pay("thunder"), "two Lightning: Thunderbolt now")
+	e.pay("thunderbolt", "thunderbolt")
+	e.begin_turn()
+	ok(_pools_of(e) == {"electric": 3, "colorless": 2} and e.available() == 5, "the next turn the third, the spent ones back (%s)" % [_pools_of(e)])
+	ok(e.can_pay("thunder") and e.can_pay("volt_tackle"), "three Lightning: Thunder and Volt Tackle payable")
+	e.begin_turn()
+	ok(_pools_of(e) == {"electric": 3, "colorless": 2}, "its own pool full: nothing more to settle")
+	# no settling below the cap, none on a disturbed turn, none for a Colorless-only one
+	var lo := _fresh("pikachu", 30, 20.0)
+	lo.use_item("energy_shard")
+	lo.begin_turn()
+	ok(_pools_of(lo).colorless == 1, "below the cap the gain makes chips, it doesn't settle any (%s)" % [_pools_of(lo)])
+	var dz := _fresh("pikachu", 30, 20.0)
+	for i in 4: dz.use_item("energy_shard")
+	dz.disturbed = true
+	dz.begin_turn()
+	ok(_pools_of(dz).electric == 1, "a disturbed turn settles nothing (%s)" % [_pools_of(dz)])
+	var sn := _fresh("snorlax", 30, 100.0)
+	sn.begin_turn()
+	ok(_pools_of(sn) == {"colorless": 8}, "Colorless only: nothing to settle")
+	# Full Charge from low focus: the chips placed by the auto rule (no pick left hanging)
+	var fc := _fresh("pikachu", 30, 10.0)
+	fc.pick_mode = "player"
+	ok(fc.use_item("full_charge") == 5 and fc.pending == 0, "Full Charge: five chips at once, none waiting")
+	ok(_pools_of(fc) == {"electric": 3, "colorless": 2} and fc.locked_in and fc.can_pay("thunder"), "Full Charge: its own type first, Locked In (%s)" % [_pools_of(fc)])
+	var bt := _fresh("bulbasaur", 30, 0.0)
+	bt.pick_mode = "player"
+	bt.use_item("focus_tonic")
+	ok(bt.pending == 0 and bt.total() == 1 and not bt.needs_pick(), "Focus Tonic on a dual type: its chip placed, no pick left hanging")
+	# focus slipped: a step down, the chip over the line lost (Colorless first), Locked In gone
+	var s := _fresh("pikachu", 30, 90.0)
+	s.begin_turn()
+	ok(s.focus == 100.0 and s.locked_in, "100: Locked In")
+	var lost := s.disrupt(15.0)
+	ok(s.focus == 85.0 and s.total() == 4 and lost == ["colorless"] and not s.locked_in, "slipped: 100 -> 85, a Colorless chip lost, Locked In gone (%s)" % [lost])
+	ok(_pools_of(s).electric == 3, "the typed chips are kept")
+	s.begin_turn()
+	ok(s.focus == 85.0, "no gain the turn after a slip")
+	s.begin_turn()
+	ok(s.focus > 85.0 and s.focus < 100.0 and s.total() == 4 and not s.locked_in, "gain again: %s, four chips" % s.focus)
+	s.begin_turn()
+	ok(s.focus == 100.0 and s.total() == 5 and s.locked_in, "back to 100: five chips, Locked In")
+	# slots: every equipped move a full bar can pay is usable
+	var sl := BattleEnergy.make("pikachu", 30)
+	ok(sl.equipped.size() <= sl.slots and sl.usable().size() == sl.equipped.size(), "slots: %d equipped of %d, all usable" % [sl.equipped.size(), sl.slots])
+	sl.set_focus(100.0, "test")
+	ok(sl.affordable_moves().size() == sl.usable().size(), "a full bar of its own pools pays every equipped move (%s)" % [sl.affordable_moves()])
 
 # ---- finishers (every chip), tiers ----
 func _finishers() -> void:

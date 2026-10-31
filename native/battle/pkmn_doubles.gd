@@ -138,7 +138,8 @@ func ai_queue(s: String) -> Array:
 		if best == null: continue
 		select(s, k)
 		F[other(s)] = best
-		for id in PkmnAI.plan(self, s):
+		var sc = scripted(s, k)
+		for id in (sc if sc is Array else PkmnAI.plan(self, s)):
 			if queue(s, id):
 				me.queue.back()["user"] = me
 				me.queue.back()["target"] = best
@@ -156,7 +157,7 @@ func _order4(_b: PkmnBattle, _queues: Dictionary) -> Array:
 			var i := 0
 			for q in f.queue:
 				if not q.has("user"): q["user"] = f
-				var pri := 0 if q.get("free", false) else int(PkmnBattle.mv(q.move).get("priority", 0))
+				var pri := 1000 if q.get("free", false) else int(PkmnBattle.mv(q.move).get("priority", 0))   # (its strike first)
 				rows.append([-pri, i, q]); i += 1
 			rows.sort_custom(func(x, y): return x[0] < y[0] or (x[0] == y[0] and x[1] < y[1]))
 			if not rows.is_empty(): fs.append({"f": f, "rows": rows.map(func(r): return r[2])})
