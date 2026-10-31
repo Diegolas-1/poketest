@@ -1,0 +1,110 @@
+<title>Ash V2 Stage</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a rehearsal stage filling the screen; one control rail docked at the side (bottom sheet on phones) */
+:root {
+  --bg: #e9e6e0; --panel: rgba(250, 248, 244, 0.92); --ink: #1f2228; --muted: #6a6e78; --line: #d3cec5;
+  --accent: #d2452f; --accent-ink: #ffffff; --chip: #ffffff; --ok: #2f8a57; --wip: #c98a1e;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #17181c; --panel: rgba(28, 30, 36, 0.92); --ink: #ecebe7; --muted: #9a9ca5; --line: #34363e;
+  --accent: #ef6a51; --accent-ink: #1a0f0c; --chip: #23252c; --ok: #5cc48a; --wip: #e3ad4c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #17181c; --panel: rgba(28, 30, 36, 0.92); --ink: #ecebe7; --muted: #9a9ca5; --line: #34363e;
+  --accent: #ef6a51; --accent-ink: #1a0f0c; --chip: #23252c; --ok: #5cc48a; --wip: #e3ad4c; color-scheme: dark }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.rail { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  width: 320px; display: flex; flex-direction: column; gap: 14px; padding-block: 16px; padding-inline: 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(10px); overflow-y: auto; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 26px; margin: 0; letter-spacing: -0.01em; line-height: 1.05; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+.label { font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.mode, .clip { border: 1px solid var(--line); background: var(--chip); border-radius: 9px; padding: 9px 10px; text-align: left; }
+.mode[aria-pressed="true"], .clip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.mode:focus-visible, .clip:focus-visible, .tog:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.clips { display: grid; grid-template-columns: 1fr; gap: 5px; }
+.clip { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.clip .t { font-family: var(--mono); font-size: 11.5px; opacity: 0.75; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--accent); }
+.tog { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 6px 12px; font-size: 13px; }
+.tog[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.mono { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.phases { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.phases li { display: flex; gap: 8px; align-items: baseline; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; transform: translateY(-1px); }
+.done .dot { background: var(--ok); } .now .dot { background: var(--wip); } .next .dot { background: var(--line); }
+.hint { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin: 0; }
+#status.err { color: var(--accent); max-width: 60%; }
+#status { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(16px + env(safe-area-inset-top, 0px)); font-family: var(--mono); font-size: 12px; color: var(--muted); }
+#pad { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: 132px; height: 132px; border-radius: 50%;
+  border: 1.5px solid var(--line); background: var(--panel); touch-action: none; }
+#knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: var(--accent); opacity: 0.9; }
+#sprint { position: fixed; left: calc(max(24px, env(safe-area-inset-left, 0px)) + 148px); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 720px) {
+  .rail { top: auto; left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); width: auto; max-height: 42%; }
+  #pad { bottom: calc(42% + 30px); } #sprint { bottom: calc(42% + 60px); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div id="stage" aria-label="3D stage with Ash"></div>
+<div id="status">Loading Ash V2&hellip;</div>
+<div id="pad" hidden><div id="knob"></div></div>
+<button id="sprint" class="tog" hidden aria-pressed="false">Sprint</button>
+
+<aside class="rail" aria-label="Controls">
+  <div>
+    <h1>Ash V2 Stage</h1>
+    <p class="sub">Closed test stage. Nothing here touches the game.</p>
+  </div>
+  <div>
+    <p class="label">Mode</p>
+    <div class="modes">
+      <button class="mode" id="m-clips" aria-pressed="true">Clips</button>
+      <button class="mode" id="m-roam" aria-pressed="false">Walk around</button>
+    </div>
+  </div>
+  <div id="clipBox">
+    <p class="label">Animations &middot; 30 fps</p>
+    <div class="clips" id="clips"></div>
+  </div>
+  <div id="roamBox" hidden>
+    <p class="hint">WASD or arrow keys to move, Shift to sprint, C to crouch, Space for a running jump. On a phone, use the pad and the Sprint button.</p>
+  </div>
+  <div>
+    <p class="label">Playback</p>
+    <div class="row">
+      <input type="range" id="speed" min="0.1" max="2" step="0.05" value="1" aria-label="Playback speed">
+      <span class="mono" id="speedV">1.00&times;</span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="tog" id="pause" aria-pressed="false">Pause</button>
+      <button class="tog" id="inplace" aria-pressed="true">In place</button>
+      <button class="tog" id="turn" aria-pressed="false">Turntable</button>
+    </div>
+  </div>
+  <div>
+    <p class="label">Model</p>
+    <p class="mono" id="stats">&ndash;</p>
+  </div>
+  <div>
+    <p class="label">Progress</p>
+    <ul class="phases">
+      <li class="done"><span class="dot"></span><span>Phase 1 &middot; model and its 10 animations on the stage</span></li>
+      <li class="now"><span class="dot"></span><span>Phase 2 &middot; his clothes, made from scratch</span></li>
+      <li class="next"><span class="dot"></span><span>Phase 3 &middot; three new animations at the same quality</span></li>
+    </ul>
+  </div>
+</aside>
+
+<script src="stage.js"></script>
