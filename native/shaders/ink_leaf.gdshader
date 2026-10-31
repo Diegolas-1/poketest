@@ -84,5 +84,5 @@ void fragment() {
 		vec3 fN = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 		if (abs(dot(fN, VIEW)) < 0.12) discard;
 	}
-	ALBEDO = aces_three(ink_color.rgb);
+	ALBEDO = aces_three(ink_color.rgb * dn_unlit());
 }

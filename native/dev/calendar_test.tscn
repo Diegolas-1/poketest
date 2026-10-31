@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://dev/calendar_test.gd" id="1"]
+
+[node name="CalendarTest" type="Node"]
+script = ExtResource("1")

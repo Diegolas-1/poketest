@@ -167,3 +167,47 @@ battle_arena_v={
 "type": "float",
 "value": 0.0
 }
+dn_sun={
+"type": "vec4",
+"value": Vector4(1, 1, 1, 0)
+}
+dn_amb={
+"type": "vec4",
+"value": Vector4(1, 1, 1, 0)
+}
+dn_dir={
+"type": "vec4",
+"value": Vector4(-0.532, 0.726, 0.435, 0)
+}
+dn_sun_pos={
+"type": "vec4",
+"value": Vector4(-0.532, 0.726, 0.435, 0)
+}
+dn_moon={
+"type": "vec4",
+"value": Vector4(0, 1, 0, 0.5)
+}
+dn_sky_top={
+"type": "vec4",
+"value": Vector4(0.07, 0.3, 0.82, 0)
+}
+dn_sky_mid={
+"type": "vec4",
+"value": Vector4(0.28, 0.6, 0.95, 1)
+}
+dn_sky_hor={
+"type": "vec4",
+"value": Vector4(0.8, 0.92, 0.96, 0)
+}
+dn_fog={
+"type": "vec4",
+"value": Vector4(0.769, 0.886, 0.941, 0)
+}
+dn_glow={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+dn_view={
+"type": "vec4",
+"value": Vector4(1, 1, 1, 0)
+}

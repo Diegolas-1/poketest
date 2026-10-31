@@ -92,7 +92,7 @@ void light() {
 	vec3 k = mix(deep, shade, s0);
 	k = mix(k, vec3(1.0), s1);
 	k = mix(k, lit, s2);
-	DIFFUSE_LIGHT += tone_factor(ALBEDO, ALBEDO * k + lit_add * s2);
+	DIFFUSE_LIGHT += dn_tone(ALBEDO, ALBEDO * k + lit_add * s2, t);
 	if (gloss > 0.0) {
 		vec3 h = normalize(LIGHT + VIEW);
 		float sp = pow(clamp(dot(NORMAL, h), 0.0, 1.0), 60.0) * ATTENUATION;

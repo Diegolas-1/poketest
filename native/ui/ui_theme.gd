@@ -469,6 +469,25 @@ static func icon(ci: CanvasItem, id: String, c: Vector2, r: float, col := Color.
 			ci.draw_arc(c, 11.0 * k, 0.0, TAU, 24, col, 2.6 * k, true)
 			ci.draw_line(c, c + Vector2(0, -7) * k, col, 2.6 * k, true)
 			ci.draw_line(c, c + Vector2(5, 2) * k, col, 2.6 * k, true)
+		"calendar":
+			# a wall calendar: a page with a coloured head, two rings and day squares
+			var cr := Rect2(c + Vector2(-12, -10) * k, Vector2(24, 23) * k)
+			ci.draw_colored_polygon(chamfer_points(cr, 4.0 * k), col)
+			ci.draw_rect(Rect2(cr.position, Vector2(cr.size.x, 6.5 * k)), Color(RED, col.a))
+			for rx in [-6.0, 6.0]: ci.draw_line(c + Vector2(rx, -13) * k, c + Vector2(rx, -7) * k, Color(INK, col.a), 2.4 * k, true)
+			for j in 2:
+				for i in 3:
+					ci.draw_rect(Rect2(c + Vector2(-8.5 + i * 6.5, -0.5 + j * 6.0) * k, Vector2(4, 3.6) * k), Color(INK, col.a * (0.9 if i == 1 and j == 0 else 0.45)))
+		"moon":
+			# a crescent
+			var mpts := PackedVector2Array()
+			for i in 17:
+				var t5 := -PI * 0.5 + PI * i / 16.0
+				mpts.append(c + Vector2(-cos(t5), sin(t5)) * 11.0 * k)
+			for i in 17:
+				var t6 := PI * 0.5 - PI * i / 16.0
+				mpts.append(c + Vector2(-cos(t6) * 5.0 - 1.0, sin(t6) * 11.0) * k)
+			ci.draw_colored_polygon(mpts, col)
 		"update":
 			ci.draw_arc(c, 10.0 * k, -PI * 0.15, PI * 1.45, 20, col, 3.0 * k, true)
 			var tip := c + Vector2(cos(-PI * 0.15), sin(-PI * 0.15)) * 10.0 * k

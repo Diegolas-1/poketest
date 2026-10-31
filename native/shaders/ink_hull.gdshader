@@ -49,7 +49,7 @@ void vertex() {
 	POSITION = c;
 	if (fl * w <= 0.003) POSITION = vec4(0.0, 0.0, -2.0, 1.0);   // too far: nothing to draw
 	v_alpha = fl * min(core, 1.0) * ink_color.a;
-	v_col = aces_three(ink_color.rgb);
+	v_col = aces_three(ink_color.rgb * dn_unlit());
 }
 
 void fragment() {

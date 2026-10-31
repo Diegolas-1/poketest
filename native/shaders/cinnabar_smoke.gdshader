@@ -3,6 +3,7 @@
 // rises and drifts east on the wind, grows and fades, then starts again.
 shader_type spatial;
 render_mode unshaded, fog_disabled, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+#include "res://shaders/aces.gdshaderinc"
 
 varying float v_a;
 varying float v_t;
@@ -23,6 +24,6 @@ void fragment() {
 	float a = (1.0 - smoothstep(0.55, 1.0, d)) * v_a * 0.8;
 	if (a < 0.01) discard;
 	vec3 c = mix(vec3(0.42, 0.42, 0.44), vec3(0.75, 0.77, 0.8), smoothstep(-0.6, 0.6, UV.y + 0.3) * 0.7 + v_t * 0.3);
-	ALBEDO = mix(c, vec3(0.78, 0.9, 0.93), 0.3);
+	ALBEDO = dn_relight(mix(c, vec3(0.78, 0.9, 0.93), 0.3), dn_unlit());
 	ALPHA = a;
 }

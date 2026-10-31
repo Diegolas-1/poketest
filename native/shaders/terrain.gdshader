@@ -121,7 +121,7 @@ void fragment() {
 	float e = e_s + (det - 0.45) * 0.08 * (1.0 - far_k);
 	float aa = max(fwidth(e), 1e-3);
 	float on_dirt = smoothstep(aa, -aa, e);
-	vec3 ldw = normalize(sun_dir);
+	vec3 ldw = normalize(dn_light_dir(sun_dir));
 	vec2 s_off = -normalize(ldw.xz + 1e-4) * 0.035;
 	float blade = 0.0, b_shade = 0.0, b_tip = 0.5, b_tone = 0.5;
 	if (far_k < 0.999 && e_s > -0.42 && e_s < 0.36) {
@@ -249,5 +249,5 @@ void light() {
 		wm *= mix(lo, lb * 0.92, 0.6) / max(dot(wm, LW), 1e-4);
 		outc = mix(outc, wm, shd * v_dirt * 0.8);
 	}
-	DIFFUSE_LIGHT += tone_factor(ALBEDO, outc);
+	DIFFUSE_LIGHT += dn_tone(ALBEDO, outc, t);
 }
