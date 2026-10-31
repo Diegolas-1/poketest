@@ -170,7 +170,7 @@ for (const n of ORDER) {
   if (!actions[n]) continue;
   const b = document.createElement('button'); b.className = 'clip'; b.dataset.name = n; b.setAttribute('aria-pressed', 'false');
   const c = clipsRaw[n]; b.innerHTML = `<span>${NAMES[n]}</span><span class="t">${Math.round(c.duration * 30)}f \u00b7 ${c.duration.toFixed(2)}s</span>`;
-  b.addEventListener('click', () => { setMode('clips'); play(n); });
+  b.addEventListener('click', () => { if (resting) setRest(false); setMode('clips'); play(n); });
   list.appendChild(b);
 }
 play('HumanStandingIdle', 0);
@@ -186,6 +186,18 @@ ip.addEventListener('click', () => {
   model.position.set(0, 0, 0);
   if (name && mode === 'clips') play(name, 0.15);
 });
+// the rest pose (an A-pose): what the clothes are fitted on; stood on the floor
+const apose = document.getElementById('apose');
+let resting = false;
+function setRest(on) {
+  resting = on; apose.setAttribute('aria-pressed', String(on));
+  if (on) {
+    mixer.stopAllAction(); current = null; body.skeleton.pose(); model.position.set(0, 0, 0); model.rotation.y = 0;
+    model.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(body, true); model.position.y = -box.min.y;
+  } else { model.position.set(0, 0, 0); if (mode === 'clips') play('HumanStandingIdle', 0.2); else { mode = ''; setMode('roam'); } }
+}
+apose.addEventListener('click', () => setRest(!resting));
 const turn = document.getElementById('turn');
 turn.addEventListener('click', () => turn.setAttribute('aria-pressed', String(turn.getAttribute('aria-pressed') !== 'true')));
 
@@ -267,9 +279,9 @@ const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(0.05, clock.getDelta());
   const k = pause.getAttribute('aria-pressed') === 'true' ? 0 : +speed.value;
-  if (mode === 'roam') roam(dt * k);
+  if (mode === 'roam' && !resting) roam(dt * k);
   else if (turn.getAttribute('aria-pressed') === 'true') model.rotation.y += dt * 0.5;
-  mixer.update(dt * k);
+  if (!resting) mixer.update(dt * k);
   key.position.set(model.position.x + 3.5, 6, model.position.z + 4); key.target.position.copy(model.position);
   controls.update();
   renderer.render(scene, camera);
@@ -278,7 +290,7 @@ renderer.setAnimationLoop(() => {
 const q = new URLSearchParams(location.search);
 if (q.get('cam')) { const c = q.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
 if (q.get('clip') && actions[q.get('clip')]) { play(q.get('clip'), 0); if (q.get('t')) { mixer.update(+q.get('t')); pause.setAttribute('aria-pressed', 'true'); } }
-if (q.get('rest') === '1') { mixer.stopAllAction(); body.skeleton.pose(); pause.setAttribute('aria-pressed', 'true'); }
+if (q.get('rest') === '1') setRest(true);
 if (q.get('ui') === '0') document.querySelector('.rail').style.display = 'none';
 window.ash = { THREE, model, gltf, outfit, body, scene, camera, controls, renderer, mixer, actions, play };
 window.stageReady = true;
