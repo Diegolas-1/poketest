@@ -34,7 +34,7 @@ extends RefCounted
 #   turn, gain, pick, move, commit, strike, lock, trigger, wasted, expired, broken,
 #   miss, untargetable, dodged, protected, hit, counter, pulled_out, forced_out,
 #   no_effect, stat, status, disrupt, locked_in, flinch, asleep, woke, paralysed,
-#   confused, hurt_self, tick, faint, fled, end
+#   confused, hurt_self, tick, faint, fled, end, attuned (a chip settled into its type at full focus)
 
 const SIDES := ["a", "b"]
 
@@ -89,6 +89,7 @@ class Fighter:
 
 func _init(o := {}) -> void:
 	kind = String(o.get("kind", "wild"))
+	if o.get("script", null) is Dictionary: scripts = o.script
 	if o.has("seed"): rng.seed = int(o.seed)
 	else: rng.randomize()
 	for s in SIDES:
@@ -176,6 +177,8 @@ func begin_turn() -> Array:
 		out.append(_ev({"t": "gain", "side": s, "focus": f.e.focus, "gained": f.e.focus - before, "chips": f.e.total(),
 			"text": "%s focus %d%%%s." % [_nm(f), int(f.e.focus), " (asleep: no gain)" if f.status == "sleep" else ""]}))
 		if f.e.locked_in and not was_li: out.append(_ev({"t": "locked_in", "side": s, "on": true, "text": "%s is LOCKED IN!" % _nm(f)}))
+		if f.e.attuned != "": out.append(_ev({"t": "attuned", "side": s, "kind": f.e.attuned,
+			"text": "%s's full focus settles a chip into its %s pool." % [_nm(f), BattleEnergy.energy_name(f.e.attuned)]}))
 		if f.e.needs_pick(): out.append(_ev({"t": "pick", "side": s, "n": f.e.pending, "text": "A new chip: pick a pool."}))
 		# a committed two-phase move strikes this turn, free
 		if not f.e.commit.is_empty() and int(f.e.commit.turn) < turn:
@@ -229,11 +232,21 @@ func unqueue(s: String) -> String:
 			return q.move
 	return ""
 
+# scripted runs (renders, tests): o.script {side (doubles: "a1" for place 1): {turn: [move ids]}}
+# that side's moves on that turn instead of its AI's; null when none is set
+var scripts := {}
+func scripted(s: String, place := 0) -> Variant:
+	var by = scripts.get(s if place == 0 else s + str(place), {})
+	if not by is Dictionary: return null
+	var v = by.get(str(turn), null)
+	return v if v is Array else null
+
 func queued(s: String) -> Array:
 	return F[s].queue.map(func(q): return q.move)
 
 func ai_queue(s: String) -> Array:
-	var plan := PkmnAI.plan(self, s)
+	var sc = scripted(s)
+	var plan: Array = sc if sc is Array else PkmnAI.plan(self, s)
 	var out := []
 	for id in plan:
 		if queue(s, id): out.append(id)
@@ -256,7 +269,9 @@ static func speed_interleave(b: PkmnBattle, queues: Dictionary) -> Array:
 		var rows := []
 		var i := 0
 		for q in queues[s]:
-			var pri := 0 if q.get("free", false) else int(mv(q.move).get("priority", 0))
+			# (a committed strike comes first of its own side's actions: up in the air or under
+			# the ground it does nothing else first)
+			var pri := 1000 if q.get("free", false) else int(mv(q.move).get("priority", 0))
 			rows.append([-pri, i, q]); i += 1
 		rows.sort_custom(func(x, y): return x[0] < y[0] or (x[0] == y[0] and x[1] < y[1]))
 		Q[s] = rows.map(func(r): return r[2])
@@ -521,7 +536,9 @@ func _use_on(u: Fighter, tg: Fighter, id: String, chips := 0) -> Array:
 	if semi != "":
 		row = interaction(id, semi)
 		if semi != "charging" and not row.get("hits", false):
-			out.append(_ev({"t": "untargetable", "side": tg.side, "move": id, "semi": semi, "text": "%s is out of reach!" % _nm(tg)}))
+			var where := {"airborne": "is up in the air", "underground": "is underground", "underwater": "is underwater"}
+			out.append(_ev({"t": "untargetable", "side": tg.side, "move": id, "semi": semi,
+				"text": "%s %s! %s" % [_nm(tg), String(where.get(semi, "is out of reach")), "The attack missed." if is_attack(id) else "It missed."]}))
 			return out
 	var attack := is_attack(id)
 	# 2. the target's set traps
