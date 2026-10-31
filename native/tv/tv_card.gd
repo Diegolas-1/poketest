@@ -110,13 +110,15 @@ func _draw_card() -> void:
 # the pacing overlay: numbers the player can read off the TV and tell us
 func _draw_debug(S: Rect2) -> void:
 	var st: Dictionary = screens.tv.stats()
+	var gap: float = st.gap_ms if float(st.gap_ms) >= 0.0 else st.render_gap_ms
 	var lines := [
-		"TV %d×%d  %s  link %.1f Hz" % [st.width, st.height, String(st.route).to_upper(), st.link_hz],
-		"game frame %.1f ms  (engine %d fps)" % [st.game_ms, Engine.get_frames_per_second()],
+		"TV %d×%d  %s  link %.1f Hz (%.1f-%.1f)" % [st.width, st.height, String(st.route).to_upper(), st.link_hz, st.link_min, st.link_max],
+		"game frame %.1f ms  gpu %.1f  cpu %.1f  (engine %d fps)" % [st.game_ms, st.gpu_ms, st.cpu_ms, Engine.get_frames_per_second()],
 		"shown %.0f/s  repeated %.0f/s  dropped %.0f/s  late %.0f/s" % [st.presented, st.repeated, st.skipped, st.late],
-		"%s  %s  render %d×%d" % ["paced by the TV" if st.paced else "unpaced", st.backend, screens.game.size.x, screens.game.size.y],
+		"longest gap %.0f ms  present %s ms" % [gap, ("%.2f" % st.blit_ms) if float(st.blit_ms) >= 0.0 else "-"],
+		"%s  render %d×%d  3D %d%%  preview %s" % ["paced" if st.paced else "unpaced", screens.game.size.x, screens.game.size.y, roundi(Settings.render_scale() * 100.0), "on" if int(Settings.get_value("tv_preview")) == 1 else "off"],
 	]
-	var r := Rect2(Vector2(S.get_center().x - 245.0, S.position.y), Vector2(490, 18 + lines.size() * 24))
+	var r := Rect2(Vector2(S.get_center().x - 290.0, S.position.y), Vector2(580, 18 + lines.size() * 24))
 	draw_c.draw_rect(r, Color(0, 0, 0, 0.62))
 	var bad: bool = float(st.repeated) > 1.5 or float(st.skipped) > 0.5
 	draw_c.draw_rect(Rect2(r.position, Vector2(4, r.size.y)), UITheme.RED if bad else UITheme.GREEN)

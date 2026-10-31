@@ -19,7 +19,10 @@ typedef struct {
 	double inset_l, inset_t, inset_r, inset_b;   // overscan insets the system suggests, pixels
 	int audio_airplay;  // sound goes to an AirPlay receiver (with or without a screen)
 	double link_hz;     // the TV's measured refresh
-	double presented, repeated, skipped, late;   // per second: frames shown, refreshes that showed the last frame again, frames dropped, frames sent at the next refresh
+	double presented, repeated, skipped, late;
+	double link_min, link_max;  // the TV's slowest and fastest refresh in the last second, Hz
+	double gap_ms;      // the longest time between two frames shown in the last second
+	double blit_ms;     // GPU time of a present (the copy into the TV's drawable)   // per second: frames shown, refreshes that showed the last frame again, frames dropped, frames sent at the next refresh
 	char name[128];     // the AirPlay receiver's or adapter's name, UTF-8
 	char route[32];     // "airplay", "hdmi", "other"
 } pt_tv_status_t;

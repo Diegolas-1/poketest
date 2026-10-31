@@ -105,8 +105,28 @@ jobs:
           APP=$(find dd/Build/Products -name '*.app' -maxdepth 2 | head -1)
           echo "app: $APP"
           mkdir -p Payload && cp -R "$APP" Payload/
+          # an ad hoc signature carrying the app's entitlements (the unsigned build
+          # has none): SideStore re-signs with the entitlements it finds in the app
+          A="Payload/$(basename "$APP")"
+          ENT=$(find PalletTown -maxdepth 2 -name '*.entitlements' | head -1)
+          echo "entitlements file: $ENT"; cat "$ENT"
+          find "$A" -name '*.framework' -o -name '*.dylib' | while read -r f; do codesign --force --sign - "$f"; done
+          codesign --force --sign - --entitlements "$ENT" --timestamp=none "$A"
           zip -qr PalletTown.ipa Payload
           ls -la PalletTown.ipa
+
+      - name: Check the built app (Info.plist keys, entitlements)
+        working-directory: native/build/ios
+        run: |
+          rm -rf check && mkdir check && cd check && unzip -q ../PalletTown.ipa
+          A=$(ls -d Payload/*.app); P="$A/Info.plist"
+          for k in LSApplicationCategoryType GCSupportsGameMode GCSupportsControllerUserInteraction CADisableMinimumFrameDurationOnPhone; do
+            printf '%s = ' "$k"; plutil -extract "$k" raw -o - "$P" || { echo "missing $k"; exit 1; }
+          done
+          plutil -extract GCSupportedGameControllers json -o - "$P"; echo
+          plutil -extract UIApplicationSceneManifest json -o - "$P"; echo
+          echo "entitlements:"; codesign -d --entitlements - --xml "$A" 2>/dev/null | plutil -convert xml1 -o - - || codesign -d --entitlements - "$A"
+          codesign -d --entitlements - --xml "$A" 2>/dev/null | grep -q increased-memory-limit || { echo "the memory entitlement is not in the app"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:

@@ -107,6 +107,7 @@ func _ready() -> void:
 	companion.screens = self
 	add_child(companion)
 	Settings.changed.connect(func(k, _v):
+		if k == "tv_preview" and tv_on: companion.refresh()
 		if k in ["tv_margin", "tv_res"] and tv_on:
 			_size_key = ""
 			_fit()

@@ -27,6 +27,7 @@ var _a := 0.0
 var _shown := false
 var _entries_key := ""
 var _t := 0.0
+var _pulse_t := 0.0
 
 const ROW_H := 78.0
 
@@ -79,7 +80,7 @@ func show_companion(on: bool) -> void:
 	if on:
 		if not visible: _a = 0.0; root.modulate.a = 0.0
 		visible = true
-		preview.texture = screens.game.get_texture() if screens else null
+		preview.texture = screens.game.get_texture() if screens and int(Settings.get_value("tv_preview")) == 1 else null
 		_layout()
 		refresh()
 	else:
@@ -92,6 +93,7 @@ func _set_satellites(on: bool) -> void:
 
 func refresh() -> void:
 	if screens == null: return
+	if _shown: preview.texture = screens.game.get_texture() if int(Settings.get_value("tv_preview")) == 1 else null
 	var paused: bool = screens.tv_paused
 	pause_btn.text = "Resume" if paused else "Pause"
 	pause_btn.icon_id = "play" if paused else "pause"
@@ -219,8 +221,11 @@ func _process(dt: float) -> void:
 	if key != _entries_key:
 		_entries_key = key
 		_layout()
-	# the live dot pulses
-	info.queue_redraw()
+	# the live dot pulses (at 15 Hz: the phone is only the menu here)
+	_pulse_t -= dt
+	if _pulse_t <= 0.0:
+		_pulse_t = 1.0 / 15.0
+		info.queue_redraw()
 	if screens and pause_btn.text != ("Resume" if screens.tv_paused else "Pause"): refresh()
 
 # ---------- drawing ----------
@@ -289,6 +294,10 @@ func _draw_preview_frame() -> void:
 
 func _draw_preview_over(ov: Control) -> void:
 	var paused: bool = screens != null and screens.tv_paused
+	if preview.texture == null:
+		UITheme.icon(ov, "tv", ov.size * 0.5 - Vector2(0, 14), 22.0, UITheme.TEXT_DIM)
+		UITheme.text(ov, ov.size * 0.5 + Vector2(0, 34), "LIVE PICTURE OFF (SETTINGS, TV)", "label", 16, UITheme.TEXT_DIM, 1)
+		return
 	UITheme.chip(ov, Vector2(18.0, 18.0), "PAUSED" if paused else "LIVE", UITheme.YELLOW if paused else UITheme.RED, UITheme.INK if paused else Color.WHITE, 15, 26.0)
 	if paused: ov.draw_rect(Rect2(Vector2(6, 6), ov.size - Vector2(12, 12)), Color(0.02, 0.03, 0.08, 0.45))
 
