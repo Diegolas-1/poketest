@@ -17,6 +17,9 @@ typedef struct {
 	int frames;         // frames shown on it since it connected
 	int generation;     // +1 at every connect and disconnect
 	double inset_l, inset_t, inset_r, inset_b;   // overscan insets the system suggests, pixels
+	int audio_airplay;  // sound goes to an AirPlay receiver (with or without a screen)
+	double link_hz;     // the TV's measured refresh
+	double presented, repeated, skipped, late;   // per second: frames shown, refreshes that showed the last frame again, frames dropped, frames sent at the next refresh
 	char name[128];     // the AirPlay receiver's or adapter's name, UTF-8
 	char route[32];     // "airplay", "hdmi", "other"
 } pt_tv_status_t;
@@ -26,6 +29,10 @@ void pt_tv_status(pt_tv_status_t *out);
 void pt_tv_set_source(uint64_t texture, uint64_t queue);
 // a new frame was drawn into the source texture: the next TV refresh shows it
 void pt_tv_frame_drawn(void);
+// TV refreshes since the last call (the game renders one frame per refresh)
+int pt_tv_take_ticks(void);
+// the TV mode's height to ask for (720, 1080; 0 = the screen's preferred mode)
+void pt_tv_set_mode_height(int h);
 // on: the game fills the TV; off: the TV shows black (the game is back on the phone)
 void pt_tv_set_active(int on);
 // the system AirPlay picker, anchored to this rect of the phone screen (points)

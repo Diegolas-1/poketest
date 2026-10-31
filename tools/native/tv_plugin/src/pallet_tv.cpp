@@ -25,6 +25,8 @@ protected:
 		ClassDB::bind_method(D_METHOD("set_active", "on"), &PalletTV::set_active);
 		ClassDB::bind_method(D_METHOD("show_route_picker", "rect_points"), &PalletTV::show_route_picker);
 		ClassDB::bind_method(D_METHOD("get_version"), &PalletTV::get_version);
+		ClassDB::bind_method(D_METHOD("take_ticks"), &PalletTV::take_ticks);
+		ClassDB::bind_method(D_METHOD("set_mode_height", "height"), &PalletTV::set_mode_height);
 	}
 
 public:
@@ -43,13 +45,21 @@ public:
 		d["insets"] = Rect2(s.inset_l, s.inset_t, s.inset_r, s.inset_b);
 		d["name"] = String::utf8(s.name);
 		d["route"] = String(s.route);
+		d["audio_airplay"] = s.audio_airplay != 0;
+		d["link_hz"] = s.link_hz;
+		d["presented"] = s.presented;
+		d["repeated"] = s.repeated;
+		d["skipped"] = s.skipped;
+		d["late"] = s.late;
 		return d;
 	}
 	void set_source(int64_t texture, int64_t queue) { pt_tv_set_source((uint64_t)texture, (uint64_t)queue); }
 	void frame_drawn() { pt_tv_frame_drawn(); }
 	void set_active(bool on) { pt_tv_set_active(on ? 1 : 0); }
 	void show_route_picker(const Rect2 &r) { pt_tv_show_route_picker(r.position.x, r.position.y, r.size.x, r.size.y); }
-	int64_t get_version() const { return 1; }
+	int64_t get_version() const { return 2; }
+	int64_t take_ticks() { return pt_tv_take_ticks(); }
+	void set_mode_height(int64_t h) { pt_tv_set_mode_height((int)h); }
 };
 
 static PalletTV *singleton = nullptr;

@@ -97,6 +97,14 @@ func _process(_dt: float) -> void:
 			_snap(screens.game, "tv_frame")
 			_snap(root, "phone_frame")
 			if screens.tv.fake_window(): _snap(screens.tv.fake_window(), "tv_window")
+			# the pacing overlay (Settings tv_debug)
+			Settings.set_value("tv_debug", 1)
+			step = 30; wait = 30
+		30:
+			_snap(screens.game, "tv_debug")
+			var stt: Dictionary = screens.tv.stats()
+			check(float(stt.presented) > 0.0 and float(stt.game_ms) > 0.0, "TV: the pacing overlay has numbers (%.1f frames/s, %.1f ms)" % [stt.presented, stt.game_ms])
+			Settings.set_value("tv_debug", 0)
 			# Start pauses on the TV
 			_press(JOY_BUTTON_START)
 			step = 4; wait = 3
@@ -126,7 +134,9 @@ func _process(_dt: float) -> void:
 		8:
 			var b: Node = Settings.menu.list.find_child("ConnectTV", true, false)
 			var st: Label = Settings.menu.list.find_child("TVStatus", true, false) as Label
-			check(b != null, "Settings: the TV tab has Connect to TV")
+			check(b != null and b.visible, "Settings: the TV tab has the stand-in's Connect button")
+			var gd: Control = Settings.menu.list.find_child("TVGuide", true, false)
+			check(gd != null and not gd.visible, "Settings: the how-to steps hide while connected")
 			check(st != null and st.text.contains("LIVING ROOM TV") and st.text.contains("1920"), "Settings: the status names the TV and its mode (%s)" % [st.text if st else "-"])
 			_snap(root, "settings_tv")
 			Settings.menu.close()
@@ -150,6 +160,26 @@ func _process(_dt: float) -> void:
 			step = 11; wait = 30
 		11:
 			_snap(root, "phone_after")
+			# not connected: the Settings tab walks through Screen Mirroring; sound alone
+			# on an AirPlay TV says so
+			Settings.open_menu()
+			Settings.menu._set_tab("TV", false)
+			step = 12; wait = 20
+		12:
+			var gd2: Control = Settings.menu.list.find_child("TVGuide", true, false)
+			check(gd2 != null and gd2.visible, "Settings: not connected, the Screen Mirroring steps show")
+			_snap(root, "settings_guide")
+			screens.tv.status.audio_airplay = true
+			screens.tv.status.name = "Samsung 7 Series"
+			screens.tv.changed.emit()
+			step = 13; wait = 5
+		13:
+			var st2: Label = Settings.menu.list.find_child("TVStatus", true, false) as Label
+			check(st2 != null and st2.text.contains("ONLY SOUND"), "Settings: sound alone on an AirPlay TV is called out (%s)" % [st2.text if st2 else "-"])
+			_snap(root, "settings_audio_only")
+			Settings.menu.close()
+			step = 14; wait = 2
+		14:
 			print("tv_test: %s" % ("PASS" if fails == 0 else "%d FAIL" % fails))
 			get_tree().quit(1 if fails > 0 else 0)
-			step = 12
+			step = 99

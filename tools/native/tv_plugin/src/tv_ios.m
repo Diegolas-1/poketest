@@ -87,6 +87,16 @@ static BOOL pt_is_tv_role(NSString *role) {
 @property(nonatomic) BOOL cleared;
 @property(nonatomic) int frames;
 @property(nonatomic) int generation;
+// pacing: the game renders once per TV refresh (pt_tv_take_ticks), each new frame
+// is presented once, at once, in order; these count what happens per second
+@property(nonatomic) int ticks;              // TV refreshes not yet taken by the game
+@property(nonatomic) BOOL fresh;             // a frame was presented since the last refresh
+@property(nonatomic) CFTimeInterval lastStamp;
+@property(nonatomic) double period;          // the TV's measured refresh period, seconds
+@property(nonatomic) CFTimeInterval statAt;
+@property(nonatomic) int nTicks, nPresented, nRepeated, nSkipped, nLate;
+@property(nonatomic) double rTicks, rPresented, rRepeated, rSkipped, rLate, rLink;
+@property(nonatomic) int wantHeight;         // the TV mode's height asked for (0 = the screen's own)
 + (instancetype)shared;
 - (void)attachScene:(UIWindowScene *)scene;
 - (void)detachScene:(UIScene *)scene;
@@ -180,6 +190,8 @@ static void pt_refocus(UIScene *tv) {
 	}
 }
 
+static _Atomic int pt_inflight = 0;
+
 @implementation PTTV
 
 + (void)load {
@@ -221,7 +233,11 @@ static void pt_refocus(UIScene *tv) {
 	[self layout];
 	self.cleared = NO;
 	self.frames = 0;
+	self.ticks = 0;
+	self.period = 0;
+	self.lastStamp = 0;
 	self.generation += 1;
+	[self applyMode];
 	CADisplayLink *link = [screen displayLinkWithTarget:self selector:@selector(tick:)];
 	if (@available(iOS 15.0, *)) {
 		float hz = (float)MAX(30, screen.maximumFramesPerSecond);
@@ -240,6 +256,26 @@ static void pt_refocus(UIScene *tv) {
 	CGSize px = screen.currentMode ? screen.currentMode.size : CGSizeMake(screen.bounds.size.width * screen.scale, screen.bounds.size.height * screen.scale);
 	// (an external mode is always wider than tall; a 0 size waits for the mode)
 	if (px.width > 0 && px.height > 0) self.layer.drawableSize = px;
+}
+
+// the TV's mode: the tallest one no taller than wantHeight (AirPlay encodes the
+// whole screen as video; 720p moves far less data than 1080p)
+- (void)applyMode {
+	UIScreen *screen = self.scene.screen;
+	if (screen == nil) return;
+	UIScreenMode *best = nil;
+	if (self.wantHeight > 0) {
+		for (UIScreenMode *m in screen.availableModes) {
+			if (m.size.height > self.wantHeight + 1) continue;
+			if (best == nil || m.size.height > best.size.height) best = m;
+		}
+	}
+	if (best == nil) best = screen.preferredMode;
+	if (best != nil && ![best isEqual:screen.currentMode]) {
+		screen.currentMode = best;
+		NSLog(@"[tv] mode %dx%d", (int)best.size.width, (int)best.size.height);
+	}
+	[self layout];
 }
 
 - (void)teardown {
@@ -327,6 +363,34 @@ static BOOL pt_is_srgb(MTLPixelFormat f) {
 }
 
 - (void)tick:(CADisplayLink *)link {
+	// the TV's real refresh, measured (AirPlay links can run slower than they report)
+	CFTimeInterval ts = link.timestamp;
+	if (self.lastStamp > 0) {
+		double d = ts - self.lastStamp;
+		if (d > 0.001 && d < 0.5) self.period = self.period > 0 ? self.period * 0.9 + d * 0.1 : d;
+	}
+	self.lastStamp = ts;
+	self.ticks = MIN(self.ticks + 1, 8);
+	self.nTicks += 1;
+	if (self.active && self.sourceView != nil) {
+		if (!self.fresh && !self.dirty) self.nRepeated += 1;   // the TV showed the same frame again
+		self.fresh = NO;
+	}
+	if (self.statAt == 0) self.statAt = ts;
+	if (ts - self.statAt >= 1.0) {
+		double k = 1.0 / (ts - self.statAt);
+		self.rTicks = self.nTicks * k; self.rPresented = self.nPresented * k; self.rRepeated = self.nRepeated * k;
+		self.rSkipped = self.nSkipped * k; self.rLate = self.nLate * k;
+		self.rLink = self.period > 0 ? 1.0 / self.period : self.rTicks;
+		self.nTicks = self.nPresented = self.nRepeated = self.nSkipped = self.nLate = 0;
+		self.statAt = ts;
+	}
+	// a frame the game drew that could not go out at once goes out now
+	if (self.dirty && self.sourceView != nil && self.active) self.nLate += 1;
+	[self present];
+}
+
+- (void)present {
 	CAMetalLayer *layer = self.layer;
 	if (layer == nil) return;
 	id<MTLTexture> src = self.active ? self.sourceView : nil;
@@ -351,6 +415,10 @@ static BOOL pt_is_srgb(MTLPixelFormat f) {
 	}
 	id<MTLRenderPipelineState> pipe = src ? [self pipelineFor:fmt] : nil;
 	if (src && pipe == nil) return;
+	// never wait for a drawable on the main thread (that would stall the game):
+	// with two frames still on their way to the TV, this one waits for the next
+	// refresh (tick), and is replaced if the game draws another before then
+	if (pt_inflight >= 2) return;
 	id<CAMetalDrawable> drawable = [layer nextDrawable];
 	if (drawable == nil) return;
 	id<MTLCommandBuffer> cb = [q commandBuffer];
@@ -381,10 +449,19 @@ static BOOL pt_is_srgb(MTLPixelFormat f) {
 		[enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 	}
 	[enc endEncoding];
-	[cb presentDrawable:drawable];
+	// each frame stays up for at least most of a refresh: two frames that reach the
+	// TV close together are shown one after the other, never one over the other
+	double per = self.period > 0 ? self.period : 1.0 / MAX(30, (double)self.scene.screen.maximumFramesPerSecond);
+	[cb presentDrawable:drawable afterMinimumDuration:per * 0.75];
+	pt_inflight += 1;
+	[cb addCompletedHandler:^(id<MTLCommandBuffer> b) {
+		pt_inflight -= 1;
+	}];
 	[cb commit];
 	if (src) {
 		self.dirty = NO;
+		self.fresh = YES;
+		self.nPresented += 1;
 		self.cleared = NO;
 		self.frames += 1;
 	} else {
@@ -458,7 +535,19 @@ void pt_tv_status(pt_tv_status_t *out) {
 	out->supported = 1;
 	out->generation = tv.generation;
 	out->frames = tv.frames;
+	out->link_hz = tv.rLink;
+	out->presented = tv.rPresented;
+	out->repeated = tv.rRepeated;
+	out->skipped = tv.rSkipped;
+	out->late = tv.rLate;
 	pt_copy(out->route, sizeof(out->route), @"none");
+	// sound on an AirPlay receiver (the system picker, or AirPlay audio) but no screen
+	for (AVAudioSessionPortDescription *p in AVAudioSession.sharedInstance.currentRoute.outputs) {
+		if ([p.portType isEqualToString:AVAudioSessionPortAirPlay]) {
+			out->audio_airplay = 1;
+			pt_copy(out->name, sizeof(out->name), p.portName);
+		}
+	}
 	UIWindowScene *s = tv.scene;
 	if (s == nil || tv.window == nil) return;
 	UIScreen *screen = s.screen;
@@ -501,7 +590,24 @@ void pt_tv_set_source(uint64_t texture, uint64_t queue) {
 }
 
 void pt_tv_frame_drawn(void) {
-	[PTTV shared].dirty = YES;
+	PTTV *tv = [PTTV shared];
+	if (tv.dirty && tv.active && tv.sourceView != nil) tv.nSkipped += 1;   // the last one never reached the TV
+	tv.dirty = YES;
+	[tv present];
+}
+
+int pt_tv_take_ticks(void) {
+	PTTV *tv = [PTTV shared];
+	int n = tv.ticks;
+	tv.ticks = 0;
+	return n;
+}
+
+void pt_tv_set_mode_height(int h) {
+	PTTV *tv = [PTTV shared];
+	if (tv.wantHeight == h) return;
+	tv.wantHeight = h;
+	if (tv.scene) [tv applyMode];
 }
 
 void pt_tv_set_active(int on) {

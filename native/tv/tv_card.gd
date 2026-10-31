@@ -4,6 +4,8 @@ extends CanvasLayer
 #   - for a few seconds after the TV connects, a banner: "On the TV", the phone has
 #     the menu, Start pauses
 #   - while the game is paused from the phone or with Start: the pause screen
+#   - with Settings tv_debug on: the pacing overlay (top left): the game's frame time,
+#     frames shown, repeated and dropped per second, the TV link's measured rate
 # Nothing is drawn while the game is on the phone.
 
 var screens: Node
@@ -11,6 +13,7 @@ var draw_c: Control
 var dim: ColorRect
 var _banner_t := 99.0
 var _pause_a := 0.0
+var _dbg_t := -1.0
 
 const BANNER := 4.5
 
@@ -51,10 +54,19 @@ func _process(dt: float) -> void:
 	if _banner_t < BANNER + 0.5 or _pause_a != was:
 		_banner_t += dt
 		draw_c.queue_redraw()
+	if on_tv and int(Settings.get_value("tv_debug")) == 1:
+		_dbg_t -= dt
+		if _dbg_t <= 0.0:
+			_dbg_t = 0.25
+			draw_c.queue_redraw()
+	elif _dbg_t > -1.0:
+		_dbg_t = -1.0
+		draw_c.queue_redraw()
 
 func _draw_card() -> void:
 	if screens == null or not screens.tv_on: return
 	var S := UITheme.safe_rect(draw_c)
+	if int(Settings.get_value("tv_debug")) == 1: _draw_debug(S)
 	# the banner: slides in from the left, holds, slides back
 	if _banner_t < BANNER + 0.5:
 		var k := UITheme.envelope(_banner_t, 0.35, BANNER - 0.8, 0.45)
@@ -94,3 +106,19 @@ func _draw_card() -> void:
 		var x2 := pr.position.x + 116.0 + gw2 * 0.5 + 10.0 + UITheme.text_w("RESUME", "label", 22) + 34.0
 		UITheme.icon(draw_c, "phone", Vector2(x2 + 10.0, y2 - 7.0), 11.0, Color(UITheme.TEXT_DIM, a))
 		UITheme.text(draw_c, Vector2(x2 + 26.0, y2), "Menu on your phone", "body", 20, Color(UITheme.TEXT_DIM, a))
+
+# the pacing overlay: numbers the player can read off the TV and tell us
+func _draw_debug(S: Rect2) -> void:
+	var st: Dictionary = screens.tv.stats()
+	var lines := [
+		"TV %d×%d  %s  link %.1f Hz" % [st.width, st.height, String(st.route).to_upper(), st.link_hz],
+		"game frame %.1f ms  (engine %d fps)" % [st.game_ms, Engine.get_frames_per_second()],
+		"shown %.0f/s  repeated %.0f/s  dropped %.0f/s  late %.0f/s" % [st.presented, st.repeated, st.skipped, st.late],
+		"%s  %s  render %d×%d" % ["paced by the TV" if st.paced else "unpaced", st.backend, screens.game.size.x, screens.game.size.y],
+	]
+	var r := Rect2(S.position + Vector2(0, 70), Vector2(470, 18 + lines.size() * 24))
+	draw_c.draw_rect(r, Color(0, 0, 0, 0.62))
+	var bad: bool = float(st.repeated) > 1.5 or float(st.skipped) > 0.5
+	draw_c.draw_rect(Rect2(r.position, Vector2(4, r.size.y)), UITheme.RED if bad else UITheme.GREEN)
+	for i in lines.size():
+		UITheme.text(draw_c, r.position + Vector2(14, 26 + i * 24), lines[i], "number", 18, UITheme.TEXT)

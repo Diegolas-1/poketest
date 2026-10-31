@@ -61,7 +61,7 @@ const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "inv
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
 	"wild_peek": "hidden", "footprints": 1,
-	"tv_margin": 3, "tv_fps": 60,
+	"tv_margin": 3, "tv_fps": 60, "tv_res": "auto", "tv_debug": 0,
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
@@ -125,7 +125,9 @@ const ROWS := {
 	# the TV (screens.gd, tv/): the settings menu's TV tab shows Connect to TV above these
 	"TV": [
 		["tv_margin", "TV safe margin", [0, 2, 3, 5, 7], "keeps the HUD clear of the TV's edges (% of each side)"],
-		["tv_fps", "Frame rate on the TV", [30, 60], "60 matches most TVs; 30 saves battery"],
+		["tv_res", "TV picture", ["auto", 720, 1080], "Auto: 720p over AirPlay (smoother streaming), 1080p on a cable"],
+		["tv_fps", "Frame rate on the TV", [30, 60], "one game frame per TV refresh at 60; every second one at 30"],
+		["tv_debug", "TV pacing overlay", [0, 1], "frame time, frames shown, repeated and dropped, the link's rate"],
 	],
 	"Updates": [
 		["auto_update", "Auto-update", [0, 1], "download new versions in the background"],
@@ -214,7 +216,7 @@ func step(key: String, values: Array, d: int) -> void:
 			for k in values.size():
 				if absf(float(values[k]) - float(v)) < absf(float(values[i]) - float(v)): i = k
 	var n := values.size()
-	if key in ["preset", "face", "upscale", "aa", "clock", "island_side", "wild_peek"] or values == [0, 1]:
+	if key in ["preset", "face", "upscale", "aa", "clock", "island_side", "wild_peek", "tv_res"] or values == [0, 1]:
 		i = (i + d + n) % n                      # choices wrap round
 	else:
 		i = clampi(i + d, 0, n - 1)
@@ -242,6 +244,7 @@ func fmt(key: String, v) -> String:
 		"clock": return "Real time" if v == "real" else "Game time"
 		"day_len": return "%d min" % int(v)
 		"island_side": return "Left" if v == "left" else "Right"
+		"tv_res": return "Auto (720p on AirPlay)" if str(v) == "auto" else "%dp" % int(v)
 		"wild_peek": return "Peeking (model visible)" if v == "peek" else "Hidden (grass only)"
 		"island_dx", "island_dy", "island_w", "island_h": return "%d pt" % int(v)
 	if typeof(v) == TYPE_INT and (v == 0 or v == 1): return "On" if v == 1 else "Off"
@@ -318,6 +321,7 @@ func _ink(method: String, arg) -> void:
 # The render scale, upscaler, anti-aliasing and the timings go to it.
 var target_vp: Viewport = null
 var tv_hz := 0   # the TV's refresh while the game is on one (screens.gd), 0 = none
+var tv_paced := false   # the TV plugin paces the game's renders: the engine keeps the phone's pace
 
 func viewport() -> Viewport:
 	return target_vp if is_instance_valid(target_vp) else get_viewport()
@@ -329,14 +333,17 @@ func use_viewport(vp: Viewport) -> void:
 
 # on a TV: the game runs at the TV's pace (tv_fps, never above its refresh);
 # back on the phone: the frame cap of the preset (120 = ProMotion)
-func set_tv_hz(hz: int) -> void:
+func set_tv_hz(hz: int, paced := false) -> void:
 	tv_hz = hz
+	tv_paced = paced and hz > 0
 	Engine.max_fps = _max_fps()
 	_ar.need = 4; _ar.good = 0
 
 func _max_fps() -> int:
 	var cap := int(get_value("fps_cap"))
-	if tv_hz <= 0: return cap
+	# (paced by the TV, tv/tv_link.gd: the world renders per TV refresh, the engine
+	# runs at the phone's pace so a refresh is never waited on for a whole frame)
+	if tv_hz <= 0 or tv_paced: return cap
 	var t := mini(int(get_value("tv_fps")), tv_hz)
 	return t if cap <= 0 else mini(cap, t)
 
@@ -346,7 +353,7 @@ func refresh_rate() -> float:
 	return hz if is_finite(hz) and hz >= 20.0 and hz <= 500.0 else 60.0
 
 func target_fps() -> float:
-	if tv_hz > 0: return float(_max_fps())
+	if tv_hz > 0: return float(mini(int(get_value("tv_fps")), tv_hz))
 	var cap := int(get_value("fps_cap"))
 	var hz := refresh_rate()
 	return float(cap) if cap > 0 and cap < hz + 1.0 else hz

@@ -106,7 +106,11 @@ func _ready() -> void:
 	companion = Companion.new()
 	companion.screens = self
 	add_child(companion)
-	Settings.changed.connect(func(k, _v): if k == "tv_margin" and tv_on: _size_key = ""; _fit())
+	Settings.changed.connect(func(k, _v):
+		if k in ["tv_margin", "tv_res"] and tv_on:
+			_size_key = ""
+			_fit()
+			if k == "tv_res": _tv_mode())
 	if tv.connected(): _on_tv_changed.call_deferred()
 
 # ---------- sizes ----------
@@ -118,10 +122,10 @@ static func canvas_for(px: Vector2) -> Vector2:
 	if a >= base.x / base.y: return Vector2(roundf(base.y * a), base.y)
 	return Vector2(base.x, roundf(base.x / a))
 
-# the TV's picture size: its own pixels, but never past 1080 lines (a 4K TV gets a
+# the TV's picture size: its own pixels, but never past tv_lines() (a 4K TV gets a
 # 1080p frame scaled up on the GPU; the 3D render scale and upscaler apply on top)
-static func tv_render_size(px: Vector2i) -> Vector2i:
-	var s := minf(1.0, 1080.0 / maxf(1.0, float(px.y)))
+static func tv_render_size(px: Vector2i, lines := 1080) -> Vector2i:
+	var s := minf(1.0, float(lines) / maxf(1.0, float(px.y)))
 	return Vector2i(maxi(64, roundi(px.x * s)), maxi(64, roundi(px.y * s)))
 
 func _fit() -> void:
@@ -129,7 +133,7 @@ func _fit() -> void:
 	var key: String
 	if tv_on:
 		var px := Vector2i(int(tv.status.width), int(tv.status.height))
-		var rs := tv_render_size(px)
+		var rs := tv_render_size(px, tv_lines())
 		var c := canvas_for(Vector2(px))
 		key = "tv|%s|%s|%s" % [rs, c, Settings.get_value("tv_margin")]
 		if key == _size_key: return
@@ -148,6 +152,21 @@ func _fit() -> void:
 		game.size_2d_override = Vector2i(vis.round())
 		if game.has_meta("tv"): game.remove_meta("tv")
 		if game.has_meta("tv_safe"): game.remove_meta("tv_safe")
+
+# The TV picture's height (Settings tv_res). AirPlay re-encodes the whole external
+# screen as video over Wi-Fi: at 1080p, full-screen motion with grass and fine ink
+# lines is hard on the encoder and the picture stutters. "auto" = 720p on AirPlay
+# (the TV's mode too, so less is encoded and sent), 1080p on a cable.
+func tv_lines() -> int:
+	var v = Settings.get_value("tv_res")
+	if str(v) == "auto": return 720 if String(tv.status.route) == "airplay" else 1080
+	return int(v)
+
+func _tv_mode() -> void:
+	# the mode asked of the TV: on AirPlay (or when picked), no taller than the picture
+	var v = Settings.get_value("tv_res")
+	var airplay := String(tv.status.route) == "airplay"
+	tv.set_mode_height(tv_lines() if airplay or str(v) != "auto" else 0)
 
 # the HUD's area on the TV: the TV's own overscan insets if it reports any, at
 # least the margin from Settings (tv_margin, % of each side)
@@ -182,7 +201,8 @@ func _to_tv() -> void:
 	_island_to(self)
 	_keep_on = DisplayServer.screen_is_kept_on()
 	DisplayServer.screen_set_keep_on(true)
-	Settings.set_tv_hz(maxi(30, int(tv.status.hz)))
+	Settings.set_tv_hz(maxi(30, int(tv.status.hz)), tv.paced)
+	_tv_mode()
 	tv.set_active(true)
 	companion.show_companion(true)
 	card.connected()
