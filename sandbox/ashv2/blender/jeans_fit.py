@@ -31,6 +31,7 @@ arm = [sum(g.weight for g in v.groups if ('Arm' in gi[g.group] or 'Hand' in gi[g
 Z_WAIST = S + 0.6 * CM
 Z_CROTCH = (-0.271 + 1) * S - 2.0 * CM
 Z_HEM = (-0.9 + 1) * S
+Z_KNEE = (-0.5 + 1) * S
 def groin(p): return abs(p.x - XC) < 6.0 * CM and p.y < 0.0 and Z_CROTCH - 1 * CM < p.z < Z_CROTCH + 13 * CM
 LOW = [i for i, p in enumerate(P) if p.z < 0.62 * TOP and not arm[i]]
 
@@ -215,6 +216,30 @@ for v in V:
         r2 = R + (r - R) * 0.25
         dx += w * (c[0] + (p.x - c[0]) * r2 / r - p.x); dy += w * (c[1] + (p.y - c[1]) * r2 / r - p.y)
     p.x += dx; p.y += dy
+
+# 6. the outer thigh straight: on the outside of each leg, nothing past the straight line from the
+# jeans' own side at his hip down to their side at his knee (drawn most of the way in, and only on
+# the outer side: the front, back and inner leg, and the crotch, are left as they are)
+Z_HIPLINE = Z_CROTCH + 6 * CM
+def side_at(z, s):
+    xs = [s * (v.co.x - XC) for v in V if abs(v.co.z - z) < STEP and s * (v.co.x - XC) > 0]
+    return max(xs) if xs else None
+for s in (1, -1):
+    top, bot = side_at(Z_HIPLINE, s), side_at(Z_KNEE, s)
+    if top is None or bot is None: continue
+    for v in V:
+        p = v.co
+        if s * (p.x - XC) <= 0 or p.z > Z_HIPLINE + 4 * CM or p.z < Z_KNEE - 4 * CM: continue
+        c = leg_line(s, min(p.z, Z_CROTCH))
+        r = math.hypot(p.x - c[0], p.y - c[1]) or 1
+        outer = smoothstep(0.2, 0.8, s * (p.x - c[0]) / r)                       # how much it faces outward
+        t = max(0, min(1, (Z_HIPLINE - p.z) / (Z_HIPLINE - Z_KNEE)))
+        line = top + (bot - top) * t
+        band = smoothstep(Z_HIPLINE + 4 * CM, Z_HIPLINE, p.z) * smoothstep(Z_KNEE - 4 * CM, Z_KNEE, p.z)
+        x = s * (p.x - XC)
+        if x <= line: continue
+        x2 = line + (x - line) * 0.15
+        p.x += s * (x2 - x) * outer * band
 
 # which leg each point follows when he moves: below the seat the cloth is two tubes (outer shell
 # and lining alike), each a leg; above it, by his side
