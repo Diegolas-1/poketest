@@ -63,6 +63,28 @@ shirt = bpy.context.view_layer.objects.active; shirt.name = 'shirt'; shirt.paren
 shirt.data.transform(shirt.matrix_world); shirt.matrix_world.identity()
 for o in list(bpy.data.objects):
     if o.type == 'EMPTY': bpy.data.objects.remove(o)
+# made symmetrical (it was draped on a lopsided pose: one sleeve hangs lower than the other): its
+# middle put on x = 0, and the half whose sleeve hangs closest to his A-pose mirrored onto the
+# other (Blender's Symmetrize, which joins the halves down the middle: no seam, no hole)
+pts = [v.co for v in shirt.data.vertices]
+zt0 = max(p.z for p in pts); zb0 = min(p.z for p in pts); H0 = zt0 - zb0
+low0 = [p for p in pts if p.z < zb0 + H0 * 0.3]
+mid = (min(p.x for p in low0) + max(p.x for p in low0)) / 2; half0 = (max(p.x for p in low0) - min(p.x for p in low0)) / 2
+shirt.data.transform(__import__('mathutils').Matrix.Translation((-mid, 0, 0)))
+def droop(s):                              # how far below level its sleeve points (degrees)
+    piv = Vector((s * half0 * 0.85, 0, zt0 - H0 * 0.08)); d0 = Vector((s, 0, -1)).normalized()
+    cand = sorted((p for p in pts if s * p.x > half0 * 1.1), key=lambda p: -(p - piv).dot(d0))
+    tip = sum(cand[:max(20, len(cand) // 25)], Vector()) / max(20, len(cand) // 25)
+    return math.degrees(math.atan2(piv.z - tip.z, abs(tip.x - piv.x)))
+arm_droop = math.degrees(math.atan2(bones['LeftArm'].z - bones['LeftForeArm'].z, bones['LeftForeArm'].x - bones['LeftArm'].x))
+pts = [v.co.copy() for v in shirt.data.vertices]
+dl, dr = droop(1), droop(-1)
+keep = 1 if abs(dl - arm_droop) <= abs(dr - arm_droop) else -1
+print('sleeves droop %.0f / %.0f degrees, his arms %.0f: keeping the %s half' % (dl, dr, arm_droop, '+x' if keep > 0 else '-x'))
+bpy.context.view_layer.objects.active = shirt; shirt.select_set(True)
+bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+bpy.ops.mesh.symmetrize(direction='POSITIVE_X' if keep > 0 else 'NEGATIVE_X', threshold=0.5)
+bpy.ops.object.mode_set(mode='OBJECT')
 bm = bmesh.new(); bm.from_mesh(shirt.data); bm.verts.ensure_lookup_table()
 V = list(bm.verts)
 X0 = [v.co.copy() for v in V]
@@ -114,7 +136,7 @@ for k in range(STEPS + 1):
     bx0, bx1 = min(x for x, _ in bs), max(x for x, _ in bs); by0, by1 = min(y for _, y in bs), max(y for _, y in bs)
     ease = 2.2 * CM if za < Z_PIT else 1.4 * CM
     fit[k] = ((sx0 + sx1) / 2, (sy0 + sy1) / 2, (sx1 - sx0) / 2, (sy1 - sy0) / 2,
-              (bx0 + bx1) / 2, (by0 + by1) / 2, (bx1 - bx0) / 2 + ease, (by1 - by0) / 2 + ease)
+              XC, (by0 + by1) / 2, ((bx1 - XC) + (XC - bx0)) / 2 + ease, (by1 - by0) / 2 + ease)
 ks = sorted(fit)
 sm = {}
 for k in ks:                               # smoothed up and down
@@ -129,8 +151,11 @@ def torso(p):
     return Vector((f[4] + (p.x - f[0]) * f[6] / f[2], f[5] + (p.y - f[1]) * f[7] / f[3], zmap(p.z)))
 
 # ---------- the sleeves: swung about the shoulder onto his upper arm ----------
+def sym_bone(l, r, s):                     # a bone of his, the same on both sides (the average of his two)
+    L, R = bones[l], bones[r]
+    return Vector((XC + s * ((L.x - XC) + (XC - R.x)) / 2, (L.y + R.y) / 2, (L.z + R.z) / 2))
 for s, sv in sleeve.items():
-    A = bones['LeftArm' if s > 0 else 'RightArm']; F = bones['LeftForeArm' if s > 0 else 'RightForeArm']
+    A = sym_bone('LeftArm', 'RightArm', s); F = sym_bone('LeftForeArm', 'RightForeArm', s)
     piv_a = torso(sv['piv'])
     cuff_a = A + (F - A) * 0.5                                     # above the elbow
     ax_a = (cuff_a - piv_a); La = ax_a.length; ax_a.normalize()
@@ -149,12 +174,67 @@ def sleeve_w(p, s):
     out = s * (p.x - cx) - half_low * 0.9
     return smoothstep(-0.05, 0.3, t) * smoothstep(-0.06 * half_low, 0.12 * half_low, out)
 
+WSL = [0.0] * len(V)                      # how much of each point is sleeve
 for v, p in zip(V, X0):
     q = torso(p)
     for s in (1, -1):
         w = sleeve_w(p, s)
-        if w: q = q * (1 - w) + sleeve_map(p, sleeve[s]) * w
+        if w: q = q * (1 - w) + sleeve_map(p, sleeve[s]) * w; WSL[v.index] = max(WSL[v.index], w)
     v.co = q
+
+# ---------- the torso onto his own shape: round him, angle by angle, height by height ----------
+# (not just his width and depth: his chest and shoulder blades would come through it). At each
+# height and angle round his middle: his outline there (smoothed, bridging hollows, as cloth would)
+# and room; the shirt's own outline there; every point moved out or in by the ratio, its folds
+# softened a little on the way. All smooth in height and angle, so it stays one piece of cloth.
+NA = 72
+def polar(pts, c):
+    R = [0.0] * NA
+    for x, y in pts:
+        a = math.atan2(x - c[0], -(y - c[1])) % (2 * math.pi); b = int(a / (2 * math.pi) * NA) % NA
+        R[b] = max(R[b], math.hypot(x - c[0], y - c[1]))
+    for _ in range(NA):
+        if all(R): break
+        R = [r if r else max(R[(i - 1) % NA], R[(i + 1) % NA]) for i, r in enumerate(R)]
+    R = [max(R[(i + j) % NA] for j in range(-2, 3)) for i in range(NA)]          # bridge hollows
+    for _ in range(3): R = [sum(R[(i + j) % NA] for j in range(-3, 4)) / 7 for i in range(NA)]
+    return R
+Z_TOP_FIT = Z_PIT + 3 * CM
+bands = {}
+for k in range(math.floor((Z_HEM - 2 * CM) / CM), math.floor((Z_TOP_FIT + 2 * CM) / CM) + 1):
+    z = (k + 0.5) * CM
+    bs = torso_slice(min(max(z, Z_HEM + 1 * CM), Z_PIT))
+    sp = [(v.co.x, v.co.y) for v in V if abs(v.co.z - z) < 0.75 * CM and WSL[v.index] < 0.5]
+    if len(bs) < 12 or len(sp) < 12: continue
+    c = (XC, (min(y for _, y in bs) + max(y for _, y in bs)) / 2)
+    Rb = polar(bs, c); Rb = [(Rb[i] + Rb[(NA - i) % NA]) / 2 for i in range(NA)]       # the same left and right
+    bands[k] = (c, Rb, polar(sp, c))
+def lerp_band(z):                          # the band tables, read smoothly in height (and averaged over a few)
+    k = z / CM - 0.5; k0 = math.floor(k); t = k - k0
+    def get(kk):
+        near = [bands[j] for j in range(kk - 2, kk + 3) if j in bands]
+        if not near: return None
+        c = (sum(b[0][0] for b in near) / len(near), sum(b[0][1] for b in near) / len(near))
+        return c, [sum(b[1][i] for b in near) / len(near) for i in range(NA)], [sum(b[2][i] for b in near) / len(near) for i in range(NA)]
+    a, b = get(k0), get(k0 + 1)
+    if a is None: return b
+    if b is None: return a
+    return ((a[0][0] + (b[0][0] - a[0][0]) * t, a[0][1] + (b[0][1] - a[0][1]) * t),
+            [x + (y - x) * t for x, y in zip(a[1], b[1])], [x + (y - x) * t for x, y in zip(a[2], b[2])])
+EASE, SOFT = 1.6 * CM, 0.6
+for v in V:
+    w = (1 - WSL[v.index]) ** 2 * smoothstep(Z_TOP_FIT + 3 * CM, Z_TOP_FIT, v.co.z)
+    if not w: continue
+    t = lerp_band(v.co.z)
+    if not t: continue
+    c, Rb, Rs = t
+    dx, dy = v.co.x - c[0], v.co.y - c[1]; r = math.hypot(dx, dy)
+    if r == 0: continue
+    a = (math.atan2(dx, -dy) % (2 * math.pi)) / (2 * math.pi) * NA; i0 = int(a) % NA; i1 = (i0 + 1) % NA; f = a - int(a)
+    rb = Rb[i0] + (Rb[i1] - Rb[i0]) * f + EASE; rs = Rs[i0] + (Rs[i1] - Rs[i0]) * f
+    r2 = rb + SOFT * (r - rs) * rb / rs
+    k = 1 + (r2 / r - 1) * w
+    v.co.x = c[0] + dx * k; v.co.y = c[1] + dy * k
 
 # ---------- tucked: the hem inside his jeans ----------
 for v in V:
@@ -169,7 +249,7 @@ for v in V:
 
 # ---------- let out wherever he would come through (his upper arms included, not forearms or hands) ----------
 bvh = BVHTree.FromPolygons(P, [list(p.vertices) for p in body.data.polygons if not any(fore[i] for i in p.vertices)])
-GAP, SIG = 0.4 * CM, 2.0 * CM
+GAP, SIG = 0.4 * CM, 3.5 * CM
 for rnd in range(6):
     src = []
     for v in V:
