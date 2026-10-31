@@ -659,8 +659,6 @@ static BOOL pt_is_srgb(MTLPixelFormat f) {
 
 @end
 
-@end
-
 // ---------- the C API ----------
 static void pt_copy(char *dst, size_t n, NSString *s) {
 	const char *u = s.UTF8String ?: "";
