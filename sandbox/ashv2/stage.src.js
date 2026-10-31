@@ -120,7 +120,10 @@ for (const gm of baked.garments) {
   // a garment with its own texture (a modelled one: pockets, seams, wear) takes it, tinted by its colour
   let map = fabric(gm.fabric);
   if (gm.texture) { map = await tex(gm.texture, true); map.anisotropy = 8; }
-  const mat = new THREE.MeshStandardMaterial({ color: gm.pieceColors ? '#ffffff' : gm.color, vertexColors: !!gm.pieceColors, roughness: 0.9, side: gm.texture ? THREE.FrontSide : THREE.DoubleSide, map });
+  const mat = new THREE.MeshStandardMaterial({ color: gm.pieceColors ? '#ffffff' : gm.color, vertexColors: !!gm.pieceColors, roughness: 0.9, side: THREE.DoubleSide, map });
+  // a modelled garment whose faces don't all wind the same way carries normals that face out of him:
+  // both sides of every face are lit with them as they are (not turned round for the back side)
+  if (gm.outward) mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', '')); };
   const m = new THREE.SkinnedMesh(g, mat); m.name = gm.name + ' (sewn)'; m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
   body.parent.add(m); m.bind(body.skeleton, body.bindMatrix); sewn[gm.name] = m;
 }

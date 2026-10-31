@@ -84,20 +84,6 @@ for v in bm.verts:
 bmesh.ops.delete(bm, geom=drop, context='VERTS')
 V = list(bm.verts)
 print('kept', len(V), 'vertices')
-# its panels (the model is cut and sewn: each leg panel belongs to one leg)
-bm.verts.ensure_lookup_table()
-PANEL = [-1] * len(V); npan = 0
-for v in V:
-    if PANEL[v.index] >= 0: continue
-    stack = [v]; PANEL[v.index] = npan
-    while stack:
-        a = stack.pop()
-        for e in a.link_edges:
-            b = e.other_vert(a)
-            if PANEL[b.index] < 0: PANEL[b.index] = npan; stack.append(b)
-    npan += 1
-print('panels', npan)
-
 # its measurements: waistband top, hems, crotch (the highest height its two legs are apart)
 zt = max(v.co.z for v in V); zb = min(v.co.z for v in V); H = zt - zb
 jx = (min(v.co.x for v in V) + max(v.co.x for v in V)) / 2
@@ -123,8 +109,112 @@ for v in V:
     nz = Z_CROTCH + (z - zc) / (zt - zc) * (Z_WAIST - Z_CROTCH) if z >= zc else Z_HEM + (z - zb) / (zc - zb) * (Z_CROTCH - Z_HEM)
     v.co = Vector((XC + (v.co.x - jx) * k_xy, a_c[1] + (v.co.y - jy) * k_xy, nz))
 
-# which leg each point is: below the seat the cloth falls apart into tubes (the legs; outer
-# shell and lining alike), each a leg by where it is; above the seat, by his side
+# ---------- shaped to him by one smooth warp of the space it's in ----------
+# Nothing is cut, turned or moved on its own: every point moves by the same smooth rule of where it
+# is, so points side by side (the two edges of a seam, a pocket and the denim under it) always move
+# alike, and the model stays whole, like clay pressed into shape.
+def smoothstep(e0, e1, x):
+    t = min(1, max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t)
+def leg_line(s, z):
+    a = centre(body_slice(Z_CROTCH - 4 * CM, lambda p: s * (p.x - XC) > 0, 1.0 * CM))
+    b = centre(body_slice(Z_HEM + 4 * CM, lambda p: s * (p.x - XC) > 0, 1.0 * CM))
+    t = max(0, min(1, (Z_CROTCH - 4 * CM - z) / (Z_CROTCH - Z_HEM - 8 * CM)))
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+def lerp_table(tab, z, step):                        # a table by height, read smoothly between rows
+    k = z / step; k0 = math.floor(k); t = k - k0
+    a, b = tab.get(k0), tab.get(k0 + 1)
+    if a is None: a = b
+    if b is None: b = a
+    if a is None: return None
+    if isinstance(a, tuple): return tuple(x + (y - x) * t for x, y in zip(a, b))
+    return a + (b - a) * t
+def smoothed(tab, w=3):
+    out = {}
+    for k in tab:
+        vals = [tab[k2] for k2 in range(k - w, k + w + 1) if k2 in tab]
+        out[k] = tuple(sum(c) / len(vals) for c in zip(*vals)) if isinstance(vals[0], tuple) else sum(vals) / len(vals)
+    return out
+STEP = 1.0 * CM
+# how much of a point is in each leg (smooth across his centre line), and how far below the seat
+wside = lambda p, s: smoothstep(-5 * CM, 5 * CM, s * (p.x - XC))
+wleg = lambda z: smoothstep(Z_CROTCH + 8 * CM, Z_CROTCH - 14 * CM, z)
+# 1. each leg of the jeans hung along his leg: its middle to his leg's middle, height by height
+shift = {}
+for s in (1, -1):
+    tab = {}
+    for k in range(math.floor(Z_HEM / STEP), math.floor(Z_CROTCH / STEP) + 1):
+        z = (k + 0.5) * STEP
+        js = [(v.co.x, v.co.y) for v in V if abs(v.co.z - z) < STEP and s * (v.co.x - XC) > 0]
+        if not js: continue
+        jc, bc = centre(js), leg_line(s, z)
+        tab[k] = (bc[0] - jc[0], bc[1] - jc[1])
+    shift[s] = smoothed(tab)
+# 2. straight legs, a little bag at the feet: each leg's width, height by height, to his thigh and 1 cm
+def thigh_r(s):
+    sl = body_slice(Z_CROTCH - 4 * CM, lambda p: s * (p.x - XC) > 0, 1.0 * CM); c = centre(sl)
+    return max(math.hypot(x - c[0], y - c[1]) for x, y in sl)
+widen = {}
+for s in (1, -1):
+    want = thigh_r(s) + 1.0 * CM; tab = {}
+    for k in range(math.floor(Z_HEM / STEP), math.floor(Z_CROTCH / STEP) + 1):
+        z = (k + 0.5) * STEP; d = lerp_table(shift[s], z, STEP) or (0, 0); c = leg_line(s, z)
+        rs = sorted(math.hypot(v.co.x + d[0] - c[0], v.co.y + d[1] - c[1]) for v in V if abs(v.co.z - z) < STEP and s * (v.co.x - XC) > 0)
+        if len(rs) < 8: continue
+        tab[k] = want * (1 + 0.16 * smoothstep(Z_HEM + 18 * CM, Z_HEM, z)) / (rs[len(rs) // 2] * 1.25)
+    widen[s] = smoothed(tab)
+# 3. hips no wider at the sides than his and 3.5 cm
+hips = {}
+for k in range(math.floor(Z_CROTCH / STEP) - 4, math.floor(Z_WAIST / STEP) + 3):
+    z = (k + 0.5) * STEP
+    ring = [abs(v.co.x - XC) for v in V if abs(v.co.z - z) < STEP]
+    sl = body_slice(max(z, Z_CROTCH + 2 * CM), band=1.0 * CM)
+    if ring and sl: hips[k] = min(1, (max(abs(x - XC) for x, _ in sl) + 3.5 * CM) / max(ring))
+hips = smoothed(hips, 6)
+def warp(p):
+    q = p.copy()
+    hk = lerp_table(hips, p.z, STEP)
+    if hk is not None:
+        fade = smoothstep(Z_CROTCH - 22 * CM, Z_CROTCH + 4 * CM, p.z)       # taken in, easing off down the thigh
+        q.x = XC + (q.x - XC) * (1 + (hk - 1) * fade)
+    wl = wleg(p.z)
+    if wl:
+        dx = dy = 0.0
+        for s in (1, -1):
+            w = wside(p, s) * wl
+            if not w: continue
+            d = lerp_table(shift[s], min(p.z, Z_CROTCH), STEP) or (0, 0)
+            k = lerp_table(widen[s], min(p.z, Z_CROTCH), STEP) or 1
+            c = leg_line(s, p.z)
+            x, y = p.x + d[0], p.y + d[1]
+            dx += w * (c[0] + (x - c[0]) * k - p.x); dy += w * (c[1] + (y - c[1]) * k - p.y)
+        q.x += dx; q.y += dy
+    return q
+for v in V: v.co = warp(v.co)
+
+# 4. let out wherever he would come through: a smooth swelling of the space round those points
+# (everything within a few cm moves with them, layers and seams together)
+bvh = BVHTree.FromPolygons(P, [list(p.vertices) for p in body.data.polygons if not any(arm[i] or groin(P[i]) for i in p.vertices)])
+GAP, SIG = 0.6 * CM, 2.5 * CM
+for rnd in range(6):
+    src = []
+    for v in V:
+        hit = bvh.find_nearest(v.co, 8 * CM)
+        if hit[0] is None: continue
+        d = (v.co - hit[0]).dot(hit[1])
+        if d < GAP: src.append((v.co.copy(), hit[1] * (GAP - d)))
+    if not src: break
+    kd = kdtree.KDTree(len(src))
+    for i, (co, _) in enumerate(src): kd.insert(co, i)
+    kd.balance()
+    for v in V:
+        acc = Vector(); ws = 0
+        for co, i, d in kd.find_range(v.co, 2.5 * SIG):
+            w = math.exp(-(d / SIG) ** 2); acc += src[i][1] * w; ws += w
+        if ws: v.co += acc / max(1.0, ws)
+    print('round', rnd, 'points let out', len(src))
+
+# which leg each point follows when he moves: below the seat the cloth is two tubes (outer shell
+# and lining alike), each a leg; above it, by his side
 SIDE = [0] * len(V)
 cut = Z_CROTCH - 1.5 * CM
 for v in V:
@@ -139,168 +229,20 @@ for v in V:
     for a in comp: SIDE[a.index] = sx
 for v in V:
     if not SIDE[v.index]: SIDE[v.index] = 1 if v.co.x > XC else -1
-# where every point is before it's shaped to him (the shaping below is then smoothed: see after it)
-BEFORE = [v.co.copy() for v in V]
-# each leg along his leg: shift by (his leg's centre - its leg's centre) at each height, from the seat down
-def smoothstep(e0, e1, x):
-    t = min(1, max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t)
-shift = {}
-for s in (1, -1):
-    for k in range(60):
-        z = Z_CROTCH - (Z_CROTCH - Z_HEM) * k / 59
-        js = [(v.co.x, v.co.y) for v in V if abs(v.co.z - z) < 1.0 * CM and s * (v.co.x - XC) > 0]
-        bs = body_slice(min(z, Z_CROTCH - 3 * CM), lambda p: s * (p.x - XC) > 0, 1.0 * CM) or body_slice(Z_HEM + 4 * CM, lambda p: s * (p.x - XC) > 0, 1.0 * CM)
-        if js and bs:
-            jc, bc = centre(js), centre(bs)
-            shift[(s, k)] = (bc[0] - jc[0], bc[1] - jc[1])
-def shift_at(s, z):
-    k = (Z_CROTCH - z) / (Z_CROTCH - Z_HEM) * 59
-    k0 = int(max(0, min(59, math.floor(k)))); k1 = min(59, k0 + 1); t = max(0, min(1, k - k0))
-    a = shift.get((s, k0), (0, 0)); b = shift.get((s, k1), a)
-    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
-def leg_line(s, z):
-    a = centre(body_slice(Z_CROTCH - 4 * CM, lambda p: s * (p.x - XC) > 0, 1.0 * CM))
-    b = centre(body_slice(Z_HEM + 4 * CM, lambda p: s * (p.x - XC) > 0, 1.0 * CM))
-    t = max(0, min(1, (Z_CROTCH - 4 * CM - z) / (Z_CROTCH - Z_HEM - 8 * CM)))
-    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
-for v in V:
-    s = SIDE[v.index]
-    w = smoothstep(Z_CROTCH + 4 * CM, Z_CROTCH - 6 * CM, v.co.z)
-    d = shift_at(s, min(v.co.z, Z_CROTCH))
-    v.co.x += d[0] * w; v.co.y += d[1] * w
 
-# the shape Ash wears: straight legs (as wide at the shin as at the thigh, a little bag at the
-# feet) and hips not much wider than his own
-def thigh_r(s):
-    sl = body_slice(Z_CROTCH - 4 * CM, lambda p: s * (p.x - XC) > 0, 1.0 * CM); c = centre(sl)
-    return max(math.hypot(x - c[0], y - c[1]) for x, y in sl)
-TARGET = {s: thigh_r(s) + 2.0 * CM for s in (1, -1)}
-def leg_target(s, z):
-    bag = smoothstep(Z_HEM + 16 * CM, Z_HEM, z)
-    return TARGET[s] * (1 + 0.12 * bag)
-side_now = {v.index: SIDE[v.index] for v in V}
-# how much each height is taken in or let out, per cm band, smoothed up and down, and read at
-# each point's exact height (no steps between bands: they'd show as zigzags in the cloth)
-def smooth_bands(f, keys, w=3):
-    out = {}
-    for k in keys:
-        vals = [f[k2] for k2 in range(k - w, k + w + 1) if k2 in f]
-        out[k] = sum(vals) / len(vals)
-    return out
-def at(f, z):
-    b = z / CM; k0 = math.floor(b); t = b - k0
-    a, c = f.get(k0), f.get(k0 + 1)
-    if a is None: return c if c is not None else 1
-    if c is None: return a
-    return a + (c - a) * t
-bands = {}
-for v in V:
-    if v.co.z >= Z_CROTCH + 1 * CM: continue
-    s = side_now[v.index]; c = leg_line(s, v.co.z)
-    bands.setdefault((s, math.floor(v.co.z / CM)), []).append(math.hypot(v.co.x - c[0], v.co.y - c[1]))
-legk = {}
-for s in (1, -1):
-    raw = {k: leg_target(s, (k + 0.5) * CM) / (sorted(r)[len(r) // 2] * 1.25) for (ss, k), r in bands.items() if ss == s}
-    legk[s] = smooth_bands(raw, raw.keys())
-for v in V:
-    w = smoothstep(Z_CROTCH + 1 * CM, Z_CROTCH - 7 * CM, v.co.z)
-    if not w: continue
-    s = side_now[v.index]; c = leg_line(s, v.co.z)
-    k = 1 + (at(legk[s], v.co.z) - 1) * w
-    v.co.x = c[0] + (v.co.x - c[0]) * k; v.co.y = c[1] + (v.co.y - c[1]) * k
-# hips: no wider at the sides than his hips and 2.5 cm
-hipk = {}
-for kb in range(math.floor(Z_CROTCH / CM) - 4, math.floor(Z_WAIST / CM) + 3):
-    z = (kb + 0.5) * CM
-    ring = [v for v in V if kb * CM <= v.co.z < (kb + 1) * CM]
-    sl = body_slice(max(z, Z_CROTCH + 2 * CM), band=1.0 * CM)
-    if not ring or not sl: continue
-    half_b = max(abs(x - XC) for x, _ in sl) + 2.5 * CM
-    half_j = max(abs(v.co.x - XC) for v in ring)
-    hipk[kb] = min(1, half_b / half_j)
-hipk = smooth_bands(hipk, hipk.keys())
-for v in V:
-    if v.co.z < (min(hipk) - 1) * CM: continue
-    v.co.x = XC + (v.co.x - XC) * at(hipk, v.co.z)
-# the shaping (legs hung along his, straightened, hips taken in) moves the two sides differently;
-# smoothed through the cloth within 3 cm, so the halves of a seam (the fly, the seat) and the
-# layers of a pocket or fly flap all move together and stay matched (below the seat, within a leg)
-kd = kdtree.KDTree(len(V))
-for v in V: kd.insert(BEFORE[v.index], v.index)
-kd.balance()
-D = [v.co - BEFORE[v.index] for v in V]
-R = 3.0 * CM
-for _ in range(3):
-    D2 = []
-    for v in V:
-        i = v.index; acc = Vector(); wsum = 0
-        for co, j, d in kd.find_range(BEFORE[i], R):
-            if BEFORE[i].z < Z_CROTCH - 3 * CM and SIDE[j] != SIDE[i]: continue
-            w = math.exp(-(d / (R * 0.5)) ** 2); acc += D[j] * w; wsum += w
-        D2.append(acc / wsum if wsum else D[i])
-    D = D2
-for v in V: v.co = BEFORE[v.index] + D[v.index]
-
-# ---------- let it out wherever he would come through: each such point pushed off him, and the
-# push spread smoothly through the cloth round it (so it lifts as cloth would, not in dents) ----------
-bvh = BVHTree.FromPolygons(P, [list(p.vertices) for p in body.data.polygons if not any(arm[i] or groin(P[i]) for i in p.vertices)])
-GAP = 0.6 * CM
-bm.verts.ensure_lookup_table(); V = list(bm.verts)
-nbr = [[e.other_vert(v).index for e in v.link_edges] for v in V]
-for rnd in range(5):
-    src = {}
-    for v in V:
-        hit = bvh.find_nearest(v.co, 8 * CM)
-        if hit[0] is None: continue
-        d = (v.co - hit[0]).dot(hit[1])
-        if d < GAP: src[v.index] = hit[1] * (GAP - d)
-    if not src: break
-    D = [src.get(i, Vector()) for i in range(len(V))]
-    for it in range(30):
-        D2 = []
-        for i in range(len(V)):
-            if i in src: D2.append(src[i]); continue
-            nb = nbr[i]
-            D2.append(sum((D[j] for j in nb), Vector()) / len(nb) * 0.97 if nb else Vector())
-        D = D2
-    # layers move together: a pocket bag or the waistband's lining can't be pushed through the denim
-    # over it (each point moves as far as the most-moved point within 1.2 cm)
-    kd = kdtree.KDTree(len(V))
-    for v in V: kd.insert(v.co, v.index)
-    kd.balance()
-    D3 = []
-    for v in V:
-        best = D[v.index]
-        for co, j, d in kd.find_range(v.co, 1.2 * CM):
-            if D[j].length > best.length: best = D[j]
-        D3.append(best)
-    for i, v in enumerate(V): v.co += D3[i]
-    print('round', rnd, 'points pushed off him', len(src))
-# every face the right way out: facing away from him (from his hips' middle above the seat, his
-# leg's line below it). The model has faces wound inside out, which show as holes or black.
-flipped = 0
+# its lighting: a smooth normal at every point, facing out of him (the same for points in the same
+# place, so there are no shading seams where its panels meet; the model's faces don't all wind the
+# same way, so a face's facing is taken from where it is, and the faces themselves are left as they are)
+OUTN = [Vector() for _ in V]
 for f in bm.faces:
-    c = f.calc_center_median(); n = f.normal
-    if c.z >= Z_CROTCH: ax = (XC, a_c[1])
-    else: ax = leg_line(SIDE[f.verts[0].index], c.z)
-    if n.x * (c.x - ax[0]) + n.y * (c.y - ax[1]) < 0: f.normal_flip(); flipped += 1
-print('faces turned the right way out', flipped, 'of', len(bm.faces))
-# the layers under the outside (linings, the shell under a pocket or the yoke): kept, but sunk
-# 3 mm under the denim over them, so they can't show through it in jagged lines
-bm.faces.ensure_lookup_table()
-tree = BVHTree.FromBMesh(bm)
-under = set()
-for f in bm.faces:
-    c = f.calc_center_median(); n = f.normal
-    hit = tree.ray_cast(c + n * 0.05 * CM, n, 1.5 * CM)
-    if hit[0] is not None and hit[2] != f.index: under.add(f.index)
-sunk = 0
-for v in bm.verts:
-    fs = v.link_faces
-    if fs and all(f.index in under for f in fs):
-        n = sum((f.normal for f in fs), Vector()).normalized()
-        v.co -= n * 0.3 * CM; sunk += 1
-print('points of layers under the outside sunk', sunk)
+    c = f.calc_center_median(); n = f.normal * f.calc_area()
+    ax = (XC, a_c[1]) if c.z >= Z_CROTCH else leg_line(SIDE[f.verts[0].index], c.z)
+    if n.x * (c.x - ax[0]) + n.y * (c.y - ax[1]) < 0: n = -n
+    for v in f.verts: OUTN[v.index] += n
+kdn = kdtree.KDTree(len(V))
+for v in V: kdn.insert(v.co, v.index)
+kdn.balance()
+OUTN = [sum((OUTN[j] for co, j, d in kdn.find_range(v.co, 0.08 * CM)), Vector()).normalized() for v in V]
 bm.to_mesh(jeans.data); bm.free()
 for p in jeans.data.polygons: p.use_smooth = True
 
@@ -429,7 +371,7 @@ def skin(o, legs_apart=True, z_split=Z_CROTCH + 1 * CM):
     o.parent = arm_obj; mod = o.modifiers.new('Armature', 'ARMATURE'); mod.object = arm_obj
     return out
 
-def record(o, sk, color, uv_layer=True, sort_key=None, **extra):
+def record(o, sk, color, uv_layer=True, sort_key=None, normals=None, **extra):
     me = o.data; me.calc_loop_triangles()
     n = len(me.vertices)
     # one stage vertex per Blender vertex and UV (a UV seam splits a vertex)
@@ -447,7 +389,7 @@ def record(o, sk, color, uv_layer=True, sort_key=None, **extra):
         verts = [verts[k] for k in order]; idx = [inv[i] for i in idx]
     pos, nrm, uvs, J, Wt = [], [], [], [], []
     for vi, uv in verts:
-        v = me.vertices[vi]; pos += list(to_stage(v.co)); nn = v.normal; nrm += [nn.x, nn.z, -nn.y]
+        v = me.vertices[vi]; pos += list(to_stage(v.co)); nn = normals[vi] if normals else v.normal; nrm += [nn.x, nn.z, -nn.y]
         uvs += [uv[0], 1 - uv[1]]
         ws = sk[vi] + [(0, 0)] * (4 - len(sk[vi])); J += [j for j, _ in ws]; Wt += [w for _, w in ws]
     b = lambda fmt, a: base64.b64encode(struct.pack('<%d%s' % (len(a), fmt), *a)).decode()
@@ -458,7 +400,7 @@ def record(o, sk, color, uv_layer=True, sort_key=None, **extra):
 
 sk_j = skin(jeans)
 sk_b = skin(belt, legs_apart=False)
-gj, _ = record(jeans, sk_j, '#b8d6f8', texture='jeans_color.webp', credit='"Baggy gray denim jeans" by jaket vintage (sketchfab.com/biasagadianggap1266), CC-BY-4.0',
+gj, _ = record(jeans, sk_j, '#b8d6f8', normals=OUTN, outward=True, texture='jeans_color.webp', credit='"Baggy gray denim jeans" by jaket vintage (sketchfab.com/biasagadianggap1266), CC-BY-4.0',
                pieces=[{'name': 'jeans', 'start': 0, 'n': 0}])
 gb, bverts = record(belt, sk_b, '#1c1c1e', uv_layer=False, sort_key=lambda vi: vi >= nb)
 gj['pieces'][0]['n'] = gj['count']
