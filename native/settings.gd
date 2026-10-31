@@ -61,7 +61,7 @@ const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "inv
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
 	"wild_peek": "hidden", "footprints": 1,
-	"tv_margin": 3, "tv_fps": 60, "tv_res": "auto", "tv_debug": 0,
+	"tv_margin": 3, "tv_fps": 60, "tv_res": 1080, "tv_debug": 0, "tv_preview": 1,
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
 var EXTRA := T.dict("settings", "extra", EXTRA0)
 
@@ -125,8 +125,9 @@ const ROWS := {
 	# the TV (screens.gd, tv/): the settings menu's TV tab shows Connect to TV above these
 	"TV": [
 		["tv_margin", "TV safe margin", [0, 2, 3, 5, 7], "keeps the HUD clear of the TV's edges (% of each side)"],
-		["tv_res", "TV picture", ["auto", 720, 1080], "Auto: 720p over AirPlay (smoother streaming), 1080p on a cable"],
+		["tv_res", "TV picture", [720, 1080], "1080p is sharpest; 720p streams more easily over AirPlay"],
 		["tv_fps", "Frame rate on the TV", [30, 60], "one game frame per TV refresh at 60; every second one at 30"],
+		["tv_preview", "Live picture on the phone", [0, 1], "the TV's picture in the phone's menu (off saves a little work)"],
 		["tv_debug", "TV pacing overlay", [0, 1], "frame time, frames shown, repeated and dropped, the link's rate"],
 	],
 	"Updates": [
@@ -343,7 +344,10 @@ func _max_fps() -> int:
 	var cap := int(get_value("fps_cap"))
 	# (paced by the TV, tv/tv_link.gd: the world renders per TV refresh, the engine
 	# runs at the phone's pace so a refresh is never waited on for a whole frame)
-	if tv_hz <= 0 or tv_paced: return cap
+	if tv_hz <= 0: return cap
+	# (on a TV the phone only shows the menu: 60 is plenty to catch every TV refresh
+	# within a frame, and leaves the GPU to the TV's picture and AirPlay's encoder)
+	if tv_paced: return mini(cap, 60) if cap > 0 else 60
 	var t := mini(int(get_value("tv_fps")), tv_hz)
 	return t if cap <= 0 else mini(cap, t)
 

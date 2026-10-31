@@ -47,6 +47,10 @@ var _game_ms := 0.0       # time between game renders (smoothed)
 var _renders := 0
 var _stat_t := 0.0
 var _fake_rate := 0.0
+var _gap_max := 0.0
+var _gap_shown := 0.0
+var _gpu_ms := 0.0
+var _cpu_ms := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -113,6 +117,8 @@ func _process(dt: float) -> void:
 	_stat_t += dt
 	if _stat_t >= 1.0:
 		_fake_rate = _renders / _stat_t
+		_gap_shown = _gap_max
+		_gap_max = 0.0
 		_renders = 0
 		_stat_t = 0.0
 
@@ -121,7 +127,13 @@ func _drawn() -> void:
 	var rendered := _pending or not paced
 	if rendered:
 		var now := Time.get_ticks_usec()
-		if _last_render > 0: _game_ms = lerpf(_game_ms, (now - _last_render) / 1000.0, 0.1)
+		if _last_render > 0:
+			var gap := (now - _last_render) / 1000.0
+			_game_ms = lerpf(_game_ms, gap, 0.1)
+			_gap_max = maxf(_gap_max, gap)
+		if vp:
+			_gpu_ms = lerpf(_gpu_ms, RenderingServer.viewport_get_measured_render_time_gpu(vp.get_viewport_rid()), 0.1)
+			_cpu_ms = lerpf(_cpu_ms, RenderingServer.viewport_get_measured_render_time_cpu(vp.get_viewport_rid()), 0.1)
 		_last_render = now
 		_renders += 1
 	if native and _tex != 0 and rendered: native.frame_drawn()
@@ -136,7 +148,9 @@ func _poll() -> void:
 		"hz": int(s.get("hz", 60)), "route": String(s.get("route", "")), "insets": s.get("insets", Rect2()),
 		"audio_airplay": bool(s.get("audio_airplay", false)), "link_hz": float(s.get("link_hz", 0.0)),
 		"presented": float(s.get("presented", 0.0)), "repeated": float(s.get("repeated", 0.0)),
-		"skipped": float(s.get("skipped", 0.0)), "late": float(s.get("late", 0.0))}
+		"skipped": float(s.get("skipped", 0.0)), "late": float(s.get("late", 0.0)),
+		"link_min": float(s.get("link_min", 0.0)), "link_max": float(s.get("link_max", 0.0)),
+		"gap_ms": float(s.get("gap_ms", -1.0)), "blit_ms": float(s.get("blit_ms", -1.0))}
 	var gen := int(s.get("generation", 0))
 	if bool(status.connected) and (int(status.width) <= 0 or int(status.height) <= 0):
 		status.connected = false   # (its mode is not known yet: wait for it)
@@ -164,7 +178,10 @@ func stats() -> Dictionary:
 	var d := {"game_ms": _game_ms, "renders": _fake_rate, "paced": paced, "backend": backend,
 		"link_hz": float(status.get("link_hz", 0.0)), "presented": float(status.get("presented", _fake_rate)),
 		"repeated": float(status.get("repeated", 0.0)), "skipped": float(status.get("skipped", 0.0)), "late": float(status.get("late", 0.0)),
-		"width": int(status.width), "height": int(status.height), "route": String(status.route), "hz": int(status.hz)}
+		"width": int(status.width), "height": int(status.height), "route": String(status.route), "hz": int(status.hz),
+		"link_min": float(status.get("link_min", 0.0)), "link_max": float(status.get("link_max", 0.0)),
+		"gap_ms": float(status.get("gap_ms", -1.0)), "blit_ms": float(status.get("blit_ms", -1.0)),
+		"render_gap_ms": _gap_shown, "gpu_ms": _gpu_ms, "cpu_ms": _cpu_ms}
 	if backend != "native":
 		d.link_hz = 60.0
 		d.presented = _fake_rate
