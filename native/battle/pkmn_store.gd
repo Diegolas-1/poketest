@@ -2,7 +2,8 @@ class_name PkmnStore
 extends RefCounted
 # Ash's Pokémon and his Poké Balls between battles: the party (up to six), the
 # PC box behind it, the Pokédex's seen and caught flags, and the bag's balls
-# (counts per ball type). Saved as JSON like quests.save.
+# and its items (counts per id: balls, medicine, the energy items; battle_config
+# bag). Saved as JSON like quests.save.
 #   PkmnStore.main()     the game's: user://pkmn.save
 #   PkmnStore.arena()    the Battle Arena's, kept apart: user://arena_pkmn.save
 #                        (its balls unlimited unless a setup says otherwise)
@@ -10,7 +11,9 @@ extends RefCounted
 #
 #   s.balls() -> [{id, name, n}]     what the bag holds (n -1: unlimited)
 #   s.use_ball(id) -> bool           one spent
-#   s.stock_once()                   the start bag (battle_config catch.start_bag), once
+#   s.items(pocket) -> [{id, name, n, desc}]   medicine | battle (battle_config bag)
+#   s.use(id) -> bool                one of anything spent (use_ball for a ball)
+#   s.stock_once()                   the start bag (catch.start_bag and bag.start), once each
 #   s.can_take() -> bool             room in the party or the PC
 #   s.ensure_party(list)             an empty party takes these (the battle's team)
 #   s.add_caught(mon) -> "party" | "box" | ""   and marks the dex
@@ -31,6 +34,7 @@ var box: Array = []
 var dex := {"seen": {}, "caught": {}}
 var bag := {}
 var stocked := false
+var stocked_items := false        # the bag's items came later than its balls: their own once
 var unlimited := false            # (not saved: the arena's staging option)
 
 static func main() -> PkmnStore:
@@ -69,7 +73,21 @@ func balls() -> Array:
 
 func has_balls() -> bool: return not balls().is_empty()
 
-func use_ball(id: String) -> bool:
+func items(pocket: String) -> Array:
+	var out := []
+	var ids: Array = []
+	var bg := BattleConfig.sect("bag")
+	if pocket == "medicine": ids = (bg.get("medicine", {}) as Dictionary).keys()
+	elif pocket == "battle": ids = bg.get("battle", [])
+	for id in ids:
+		var n := count(String(id))
+		var it := PkmnBattle.bag_item(String(id))
+		if n != 0 and not it.is_empty(): out.append({"id": String(id), "name": String(it.get("name", id)), "n": n, "desc": String(it.get("desc", ""))})
+	return out
+
+func use_ball(id: String) -> bool: return use(id)
+
+func use(id: String) -> bool:
 	if unlimited: return true
 	var n := int(bag.get(id, 0))
 	if n <= 0: return false
@@ -83,12 +101,18 @@ func give(id: String, n := 1) -> void:
 	save()
 
 func stock_once() -> void:
-	if stocked: return
-	stocked = true
-	var sb = C().get("start_bag", {})
+	if stocked and stocked_items: return
+	if not stocked:
+		stocked = true
+		_add(C().get("start_bag", {}))
+	if not stocked_items:
+		stocked_items = true
+		_add(BattleConfig.sect("bag").get("start", {}))
+	save()
+
+func _add(sb) -> void:
 	if sb is Dictionary:
 		for id in sb: bag[String(id)] = int(bag.get(String(id), 0)) + int(sb[id])
-	save()
 
 # ---------- the party and the PC ----------
 func can_take() -> bool:
@@ -146,7 +170,7 @@ static func party_source(_game = null) -> Array:
 
 # ---------- saving ----------
 func to_dict() -> Dictionary:
-	return {"v": 1, "party": party, "box": box, "dex": dex, "bag": bag, "stocked": stocked}
+	return {"v": 1, "party": party, "box": box, "dex": dex, "bag": bag, "stocked": stocked, "stocked_items": stocked_items}
 
 func from_dict(v: Dictionary) -> void:
 	party = v.get("party", []) if v.get("party") is Array else []
@@ -159,6 +183,7 @@ func from_dict(v: Dictionary) -> void:
 	if b is Dictionary:
 		for k in b: bag[String(k)] = int(b[k])
 	stocked = bool(v.get("stocked", false))
+	stocked_items = bool(v.get("stocked_items", false))
 	for list in [party, box]:
 		for m in list:
 			if m is Dictionary and m.has("level"): m.level = int(m.level)

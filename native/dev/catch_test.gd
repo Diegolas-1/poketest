@@ -4,7 +4,9 @@ extends Node
 # the Great Ball beating the Ultra Ball at full HP, the shakes), the dice seeded
 # and the sampled rate matching the exact one; the battle engine's throw (a
 # catch ends a wild battle, a trainer blocks it); the store (battle/pkmn_store.gd:
-# the bag, a full party sending a catch to the PC, a full PC, the save round-trip).
+# the bag, a full party sending a catch to the PC, a full PC, the save round-trip);
+# the bag's items (battle_config bag: a Potion heals and is refused at full HP, the
+# cures, the energy items; the counts drop and save; an old save gets its items once).
 #   godot --headless --path native res://dev/catch_test.tscn
 
 var fails := 0
@@ -28,6 +30,7 @@ func _run() -> void:
 	_dice()
 	_engine()
 	_store()
+	_bag()
 	_ui()
 	print("catch_test: %d checks, %d failures" % [checks, fails])
 	print("CATCH TEST GREEN" if fails == 0 else "CATCH TEST RED")
@@ -207,6 +210,64 @@ func _store() -> void:
 	PkmnStore.forget()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP))
 
+func _bag() -> void:
+	var B := PkmnBattle.new({"a": {"species": "pikachu", "level": 12}, "b": {"species": "rattata", "level": 5, "ai": "wild"}, "kind": "wild", "seed": 4})
+	B.start(); B.begin_turn()
+	var a := B.fighter("a")
+	ok(B.item_refusal("a", "potion") != "" and B.use_bag("a", "potion").is_empty(), "a Potion at full HP: no effect")
+	a.hp = a.max_hp - 30
+	var ev := B.use_bag("a", "potion")
+	ok(ev.size() == 2 and ev[0].t == "item_used" and ev[1].t == "healed" and int(ev[1].n) == 20 and a.hp == a.max_hp - 10, "a Potion heals 20 HP")
+	ok(String(ev[0].text) == "Ash used a POTION!" and String(ev[1].text).contains("regained 20 HP"), "its lines (%s / %s)" % [ev[0].text, ev[1].text])
+	B.use_bag("a", "super_potion")
+	ok(a.hp == a.max_hp, "a Super Potion: up to full, not past it")
+	ok(B.item_refusal("a", "antidote") != "", "an Antidote with no poison: no effect")
+	a.status = "poison"
+	ok(B.item_refusal("a", "paralyze_heal") != "" and B.use_bag("a", "antidote")[1].t == "cured" and a.status == "", "an Antidote cures poison (a Paralyze Heal doesn't)")
+	a.status = "para"
+	B.use_bag("a", "paralyze_heal")
+	ok(a.status == "", "a Paralyze Heal cures paralysis")
+	var f0 := a.e.focus
+	var ce := B.use_bag("a", "focus_tonic")
+	ok(ce.size() == 2 and ce[1].t == "charged" and a.e.focus > f0, "a Focus Tonic: a burst of focus (%.0f -> %.0f)" % [f0, a.e.focus])
+	B.use_bag("a", "full_charge")
+	ok(a.e.focus >= a.e.fmax() - 0.001 and B.item_refusal("a", "focus_tonic") != "", "Full Charge: max focus; then a Focus Tonic would do nothing")
+	ok(B.item_refusal("a", "bright_powder") != "" and B.item_refusal("a", "nonsense") != "", "a held item or an unknown id isn't a bag item")
+	var lines: Dictionary = BattleConfig.sect("bag").get("lines", {})
+	var txt := JSON.stringify(BattleConfig.sect("bag"))
+	ok(not txt.contains(String.chr(0x2014)), "no em dash in the bag's text")
+	ok(lines.has("two_out") and lines.has("no_effect"), "the bag's lines")
+	# the trainer's: a ball is refused, the items still work
+	var T := PkmnBattle.new({"a": {"species": "pikachu", "level": 12}, "b": {"species": "geodude", "level": 12, "ai": "balanced"}, "kind": "trainer", "seed": 3})
+	T.start(); T.begin_turn()
+	var tb := T.throw_ball("a", "poke_ball")
+	ok(tb.t == "ball_blocked" and not T.over, "balls are refused in trainer battles")
+	T.fighter("a").hp -= 25
+	ok(not T.use_bag("a", "potion").is_empty(), "a Potion works in a trainer battle")
+	# the store: the items' counts drop and save
+	if FileAccess.file_exists(TMP): DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP))
+	var s := PkmnStore.new(TMP)
+	ok(s.items("medicine").is_empty(), "a new store: no medicine")
+	s.stock_once()
+	var si: Dictionary = BattleConfig.sect("bag").get("start", {})
+	ok(s.count("potion") == int(si.get("potion", 0)) and s.count("potion") > 0, "the start bag: %d Potions" % s.count("potion"))
+	ok(s.items("medicine").map(func(it): return it.id).has("super_potion") and s.items("battle").map(func(it): return it.id).has("focus_tonic"), "the pockets list them")
+	ok(s.use("potion") and s.count("potion") == int(si.potion) - 1, "a Potion spent")
+	var t := PkmnStore.new(TMP)
+	ok(t.count("potion") == s.count("potion") and t.count("focus_tonic") == s.count("focus_tonic") and t.stocked_items, "loaded: the item counts")
+	for i in 20: t.use("antidote")
+	ok(t.count("antidote") == 0 and not t.use("antidote") and not t.items("medicine").map(func(it): return it.id).has("antidote"), "none left: not listed, can't be used")
+	# an older save (stocked balls, no items yet): its items come once, its balls don't again
+	var o := PkmnStore.new("")
+	o.from_dict({"stocked": true, "bag": {"poke_ball": 2}})
+	o.stock_once()
+	ok(o.count("poke_ball") == 2 and o.count("potion") == int(si.potion), "an older save gets its items once, not its balls again")
+	o.stock_once()
+	ok(o.count("potion") == int(si.potion), "once only")
+	ok(PkmnStore.arena().count("potion") == -1 and PkmnStore.arena().use("super_potion"), "unlimited items in the arena")
+	PkmnStore.forget()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP))
+
 func _ui() -> void:
 	var ui := BattleUI.new()
 	ui.set_balls([])
@@ -217,5 +278,5 @@ func _ui() -> void:
 	ok(BattleUI.ITEMS.size() == 3, "the menu's own list is untouched")
 	ui.free()
 	var hud := PkmnHud.new()
-	ok(PkmnHud.MENU.size() == 4 and PkmnHud.BALL == 4, "the HUD: four cells and BALL over them")
+	ok(PkmnHud.MENU.size() == 4 and String(PkmnHud.MENU[2][0]) == "items" and not "ball_on" in hud, "the HUD: four cells, the balls in ITEMS (no BALL bar)")
 	hud.free()

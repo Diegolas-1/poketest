@@ -10,7 +10,12 @@ extends Node
 # stick's flood and the key echo step once); taps hit the menu, the tiles, the rows;
 # the camera stays on one side of the line while choosing and while the turn plays;
 # the spacing (the two Pokémon apart, Ash back behind his); Ash in his battle stance
-# and acting, never a random idle. --shots=DIR (with a renderer) saves labelled stills;
+# and acting, never a random idle. The layout: the opponent's plate at the top left,
+# its energy an icon and a count per pool on the name line, the focus a strip inside
+# each HP bar, his pools bottom left and his plate bottom right. ITEMS: the bag's
+# pockets (balls, medicine), B goes back, a Potion at full HP is refused, one that
+# heals takes the turn and leaves one fewer; doubles: which of his it's for, the balls
+# refused (two out). --shots=DIR (with a renderer) saves labelled stills (no FPS counter);
 # --frames=DIR --every=n every n-th frame of the first turn played out (singles, doubles).
 # Prints PASS / FAIL lines and "BATTLE UI TEST GREEN".
 
@@ -42,6 +47,10 @@ func _ready() -> void:
 		if a.begins_with("--frames="): frames_dir = a.get_slice("=", 1)
 		if a.begins_with("--every="): every = maxi(1, int(a.get_slice("=", 1)))
 	UIInput.force("pad")
+	if shots != "" and Settings.get("overlay"):
+		# clean stills: the dev FPS counter off for this run (not saved)
+		Settings.extra["fps"] = 0
+		Settings.overlay.refresh()
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
 	_run.call_deferred()
@@ -182,7 +191,9 @@ func _row_of(id: String) -> int:
 	return -1
 
 func _singles() -> void:
-	await _start({"partner": {"species": "pikachu", "level": 9, "focus": 30.0,
+	var st := PkmnStore.new("")
+	st.stock_once()
+	await _start({"store": st, "partner": {"species": "pikachu", "level": 9, "focus": 30.0,
 			"known": ["thunder_shock", "growl", "tail_whip", "quick_attack", "dodge", "thunder_wave", "double_team"],
 			"equip": ["thunder_shock", "quick_attack", "dodge", "thunder_wave", "growl"]},
 		"species": "pidgey", "level": 8, "ai": "wild", "state": "startled", "kind": "wild"})
@@ -212,6 +223,7 @@ func _singles() -> void:
 	ok(hud.mode == "menu" and not pk.B.needs_pick("a") and int(pk.B.fighter("a").e.pools.electric.ready) >= 1, "a tap on the Lightning tile picks it (%s)" % hud.mode)
 	await _wait(0.5)
 	await shot("01_menu")
+	_layout_checks()
 	# the camera while choosing: the choosing frame, on Ash's side
 	ok(String(battle._shot.get("name", "")) == "overview", "choosing: the steady choosing frame (%s)" % battle._shot.get("name", ""))
 	var turn0 := pk.B.turn
@@ -308,8 +320,9 @@ func _singles() -> void:
 	ok(not hud.log_open and hud.mode in ["menu", "pick"], "B closes the log (and nothing else)")
 	await tap(hud.log_btn_rect().get_center())
 	ok(hud.log_open, "a tap on LOG opens it")
-	await tap(Vector2(hud.get_viewport_rect().size.x * 0.8, hud.get_viewport_rect().size.y * 0.5))
+	await tap(Vector2(hud.get_viewport_rect().size.x * 0.2, hud.get_viewport_rect().size.y * 0.5))   # (the log is on the right)
 	ok(not hud.log_open, "a tap off it closes it")
+	await _items(st)
 	# a few more turns by hand: the pick every turn a chip waits
 	var guard := 0
 	while is_instance_valid(battle) and is_instance_valid(pk) and not pk.B.over and guard < 4:
@@ -338,6 +351,89 @@ func _singles() -> void:
 	ok(not is_instance_valid(battle) or battle.done, "the battle ran to its end")
 	await _wait(2.5)
 
+# where things sit: the opponent's plate top left (its energy compact, on the name
+# line), his pools and plate swapped (pools bottom left, plate bottom right), the
+# focus a strip inside each HP bar
+func _layout_checks() -> void:
+	var R := hud._rects()
+	var vs := hud.get_viewport_rect().size
+	var pb: Rect2 = R.plate_b
+	var pa: Rect2 = R.plate_a
+	var ba: Rect2 = R.bar_a
+	ok(pb.position.x < vs.x * 0.1 and pb.position.y < vs.y * 0.1, "the opponent's plate is at the top left (%s)" % pb)
+	ok(pa.end.x > vs.x * 0.9 and pa.end.y > vs.y * 0.9, "his plate is at the bottom right, where his pools were (%s)" % pa)
+	ok(ba.position.x < vs.x * 0.1 and ba.end.y > vs.y * 0.9 and ba.end.x <= pa.position.x, "his pools are at the bottom left, where his plate was (%s)" % ba)
+	var m0 := hud.menu_rect(0)
+	ok(m0.end.y < pa.position.y and m0.position.x > ba.position.x + 200.0, "the menu sits over his plate (%s)" % m0)
+	var bb := hud.bar_b
+	var cl := bb.position.x + bb.size.x - bb.shown_w()
+	ok(bb.compact and pb.encloses(Rect2(cl, bb.position.y, bb.shown_w(), bb.size.y)), "the opponent's energy sits inside its plate")
+	ok(bb.position.y + bb.size.y * 0.5 < pb.position.y + 40.0 and cl > pb.position.x + pb.size.x * 0.45, "the opponent's energy is on the name line, at the plate's right")
+	var e: BattleEnergy = pk.B.fighter("b").e
+	var np := e.pool_kinds().size()
+	ok(bb.shown_w() <= (np + 1) * EnergyBar.CMP_PITCH + 1.0 and bb.size.y <= 30.0, "the opponent's energy: an icon and a count per pool (%d pools, %.0f px wide)" % [np, bb.shown_w()])
+	for sd in ["a", "b"]:
+		var hb := hud.hp_bar_rect(sd)
+		var sr2 := hud.strip_rect(sd)
+		ok(hb.encloses(sr2) and sr2.size.y <= hb.size.y * 0.35 and absf(sr2.end.y - hb.end.y) < 0.5, "%s: the focus strip runs inside the HP bar, along its bottom (%.0f of %.0f px)" % [sd, sr2.size.y, hb.size.y])
+	ok(not hud.bar_a.focus_row and not hud.bar_b.focus_row or hud.bar_b.compact, "no separate focus bars")
+	ok(not "ball_on" in hud, "no BALL bar over the menu")
+
+# ITEMS: the bag, B back, a refusal, a Potion that takes the turn
+func _items(st: PkmnStore) -> void:
+	if not await _wait_mode(["pick", "menu"], 40.0): return
+	if hud.mode == "pick":
+		send(_act("use")); await _frames(2)
+	await _wait_mode(["menu"], 10.0)
+	var turn0 := pk.B.turn
+	await tap(hud.menu_rect(2).get_center())
+	ok(hud.mode == "bag" and hud.bag_pocket() == "balls", "a tap on ITEMS opens the bag at the balls (%s)" % hud.mode)
+	var ids: Array = hud.bag_items().map(func(it): return String(it.id))
+	ok(ids == ["poke_ball", "great_ball", "ultra_ball", "master_ball"], "the balls pocket holds the four balls (%s)" % [ids])
+	ok(hud.bag_items().all(func(it): return int(it.n) > 0), "with their counts")
+	await _wait(0.4)
+	await shot("10_bag_balls")
+	send(_act("back"))
+	await _frames(2)
+	ok(hud.mode == "menu" and pk.B.turn == turn0 and not pk._busy, "B in the bag goes back to the menu (no turn)")
+	hud.sel = 2
+	send(_act("use"))
+	ok(hud.mode == "bag", "A on ITEMS opens it again")
+	send(_act("ui_right"))
+	ok(hud.bag_pocket() == "medicine", "right: the medicine pocket (%s)" % hud.bag_pocket())
+	var med: Array = hud.bag_items().map(func(it): return String(it.id))
+	ok(med.has("potion") and med.has("super_potion"), "it holds Potions and Super Potions (%s)" % [med])
+	ok(hud.bag_items().all(func(it): return not String(it.name).contains(String.chr(0x2014)) and not String(it.desc).contains(String.chr(0x2014))), "no em dash in the items' text")
+	send(_act("ui_right"))
+	var bat: Array = hud.bag_items().map(func(it): return String(it.id))
+	ok(hud.bag_pocket() == "battle" and bat.has("focus_tonic") and bat.has("energy_shard"), "right again: the battle items (%s)" % [bat])
+	send(_act("ui_left"))
+	await _wait(0.3)
+	await shot("11_bag_medicine")
+	# a Potion at full HP: refused, nothing spent, still choosing
+	var a := pk.B.fighter("a")
+	a.hp = a.max_hp
+	hud.bag_sel = med.find("potion")
+	var n0 := st.count("potion")
+	send(_act("use"))
+	await _frames(2)
+	ok(st.count("potion") == n0 and pk.B.turn == turn0 and not pk._busy and hud.mode == "bag", "a Potion at full HP is refused (nothing spent, no turn)")
+	# hurt: a Potion heals 20 and takes the turn
+	a.hp = maxi(1, a.max_hp - 25)
+	var hp0 := a.hp
+	var hist0 := pk.B.history.size()
+	send(_act("use"))
+	await _frames(2)
+	ok(pk._busy and hud.mode == "busy", "a Potion on a hurt Pokémon: used, the turn goes")
+	await _wait(0.9)
+	await shot("12_potion")
+	await _wait_mode(["pick", "menu"], 40.0)
+	var healed := pk.B.history.slice(hist0).filter(func(e): return String(e.get("t", "")) == "healed")
+	ok(not healed.is_empty() and int(healed[0].n) == 20, "it healed 20 HP (%s)" % [healed.map(func(e): return e.n)])
+	ok(a.hp >= mini(a.max_hp, hp0 + 20) - 30 and pk.B.turn > turn0, "the turn was taken (turn %d; the foe moved)" % pk.B.turn)
+	ok(st.count("potion") == n0 - 1, "one Potion fewer in the bag (%d)" % st.count("potion"))
+	ok(not pk.turn_log.is_empty() and pk.turn_log.back().a.is_empty(), "no move of his that turn")
+
 # ends the battle at Ash's next choice (as if it fled), and waits for it to close
 func _end_battle() -> void:
 	if is_instance_valid(battle) and is_instance_valid(pk) and not pk.B.over:
@@ -354,7 +450,9 @@ func _doubles() -> void:
 	ash_acts = {}
 	await _place(Vector2(-13.0, -100.0))
 	while Battle.active: await get_tree().process_frame
-	await _start({"partner": {"species": "pikachu", "level": 14}, "party_a": [{"species": "pikachu", "level": 14}, {"species": "bulbasaur", "level": 14}],
+	var st := PkmnStore.new("")
+	st.stock_once()
+	await _start({"store": st, "partner": {"species": "pikachu", "level": 14}, "party_a": [{"species": "pikachu", "level": 14}, {"species": "bulbasaur", "level": 14}],
 		"party_b": [{"species": "pidgey", "level": 10}, {"species": "rattata", "level": 10}], "doubles": true, "kind": "trainer", "trainer": "Camper",
 		"species": "pidgey", "level": 10, "ai": "balanced"})
 	watching = true
@@ -384,6 +482,34 @@ func _doubles() -> void:
 	await shot("09_doubles_resolve")
 	await _wait_mode(["pick", "menu"], 60.0)
 	grab = ""
+	if hud.mode == "pick": send(_act("use")); await _frames(2)
+	await _wait(0.3)
+	# ITEMS in doubles: balls refused (two out), a Potion asks which of his
+	hud.sel = 2
+	send(_act("use"))
+	ok(hud.mode == "bag" and String(hud.bag[0].get("note", "")) != "", "doubles: the bag opens, the balls marked (%s)" % hud.bag[0].get("note", ""))
+	hud.bag_tab = 0; hud.bag_sel = 0
+	var hist1 := pk.B.history.size()
+	send(_act("use"))
+	await _frames(2)
+	ok(hud.mode == "bag" and not pk._busy and pk.B.history.slice(hist1).filter(func(e): return String(e.get("t", "")).begins_with("ball")).is_empty(), "doubles: a ball is refused (no throw, no turn)")
+	send(_act("ui_right"))
+	var other = pk.D.at("a", 0)
+	other.hp = maxi(1, other.max_hp - 30)
+	hud.bag_sel = hud.bag_items().map(func(it): return String(it.id)).find("potion")
+	send(_act("use"))
+	ok(hud.mode == "target" and hud.targets.size() == 2 and hud.target_title == "USE IT ON?", "doubles: a Potion asks which of his (%s)" % [hud.targets])
+	await _wait(0.4)
+	await shot("13_doubles_item_target")
+	send(_act("back"))
+	ok(hud.mode == "bag", "doubles: B from the target goes back to the bag")
+	send(_act("use"))
+	var hpo: int = other.hp
+	send(_act("use"))   # (the first: his left one)
+	await _frames(2)
+	ok(pk._busy, "doubles: the Potion is used on the one picked")
+	await _wait_mode(["pick", "menu", "fight"], 20.0)
+	ok(other.hp > hpo and pk._inp == 1 and not pk._busy, "doubles: it healed the left one, that one's turn taken: on to the second (%d -> %d)" % [hpo, other.hp])
 	await _end_battle()
 	ok(cam_min > 0.0, "doubles: the camera kept one side of the line (%.2f over %d frames)" % [cam_min, cam_frames])
 	watching = false

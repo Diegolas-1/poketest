@@ -52,6 +52,13 @@ func refresh() -> void:
 
 func _process(dt: float) -> void:
 	if not fps_label.visible and not panel.visible: return
+	# a Pokémon battle's HUD has the opponent's plate at the top left: the counter
+	# steps right, under the top row (between the plate and the ticker)
+	var pk = Battle.current.get("pk") if Battle.active and is_instance_valid(Battle.current) else null
+	if pk != null and pk.get("hud") != null:
+		var S := UITheme.safe_rect(fps_label)
+		fps_label.position = Vector2(roundf(S.position.x + S.size.x * 0.42 - fps_label.size.x * 0.5), S.position.y + 96.0)
+	else: fps_label.position = Vector2(96, 26)
 	var rid: RID = Settings.viewport().get_viewport_rid()
 	acc += dt; n += 1; worst = maxf(worst, dt)
 	cpu += RenderingServer.viewport_get_measured_render_time_cpu(rid)

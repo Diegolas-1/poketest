@@ -4,13 +4,15 @@ extends Control
 # "The look"), over any 3D arena. Everything sits inside the safe area (UITheme.
 # safe_rect; safe_override pretends one for shots), so nothing is under the
 # notch or the home indicator:
-#   bottom left    the player's nameplate: name, level, status, HP bar and numbers,
-#                  a committed move's badge (UNDERGROUND...), LOCKED IN
-#   top right      the opponent's nameplate, its focus bar and pools under it
-#                  (the same EnergyBar; its locks face down)
-#   bottom right   the player's focus bar and pools; above it the menu (FIGHT,
-#                  POKEMON, ITEMS, FLEE, the BALL bar over them)
-#   top left       the battle's ticker: the last line or two, fading; LOG (the L
+#   top left       the opponent's nameplate: name and level, its energy on the
+#                  name line's right (an icon and a count per pool: the same
+#                  EnergyBar, compact; its locks face down), the HP bar with the
+#                  focus as a thin strip along its bottom, status tags under it
+#   bottom left    the player's pools (the EnergyBar's trays, to tap in the pick)
+#   bottom right   the player's nameplate: name, level, status, the HP bar and its
+#                  focus strip, the numbers; above it the menu (FIGHT, POKEMON,
+#                  ITEMS, FLEE)
+#   top right      the battle's ticker: the last line or two, fading; LOG (the L
 #                  button, or a tap) opens the whole battle's log, by turn, to scroll
 # FIGHT opens the FIGHT window (ui/pkmn_fight.gd): the moves, the energy, the
 # turn's queue (reorder, remove), BACK and CONFIRM. Only CONFIRM ends the turn; B
@@ -34,9 +36,11 @@ extends Control
 #   first foe, a smaller plate each the other one out; hud.choosing names whose
 #   turn it is to choose; hud.show_targets(labels) asks where a move goes
 #   ("WHO|NAME" each); signals target_picked(index), target_cancel()
-# Poké Balls (battle/catch_rules.gd): hud.ball_on puts a BALL bar over the menu
-#   (command "ball"); hud.show_balls(list) lists the bag's balls ({id, name, n}, n -1:
-#   unlimited); signals ball_picked(id), ball_cancel()
+# ITEMS (command "items"): hud.show_bag(pockets) opens the bag, a pocket a tab
+#   ([{id, label, items: [{id, name, n, desc}], note, dim}], n -1: unlimited): Poké
+#   Balls, medicine, battle items (left / right: the pocket, up / down, A; a tap
+#   on a tab or a row; B or a tap outside: back); signals item_picked(pocket, id),
+#   bag_cancel(). show_targets(labels, title) also asks which of his an item is for.
 
 signal command(name: String)
 signal move_picked(id: String)
@@ -50,11 +54,12 @@ signal party_picked(index: int)
 signal party_cancel()
 signal target_picked(index: int)
 signal target_cancel()
-signal ball_picked(id: String)
-signal ball_cancel()
+signal item_picked(pocket: String, id: String)
+signal bag_cancel()
 
 const MENU := [["fight", "FIGHT", "ee3b33"], ["pokemon", "POKéMON", "3fcf72"], ["items", "ITEMS", "ffcb05"], ["flee", "FLEE", "3fb6f5"]]
-const PLATE_W := 400.0
+const PLATE_W := 430.0
+const SMALL_W := 300.0           # doubles: the other one out's plate
 const RIGHT_W := 440.0
 const M := 16.0                  # margin inside the safe area
 
@@ -64,7 +69,7 @@ var safe_override := Rect2():
 var bar_a: EnergyBar
 var bar_b: EnergyBar
 var fight: PkmnFightWindow
-var mode := "busy"               # busy | menu | fight | pick | party | target | balls
+var mode := "busy"               # busy | menu | fight | pick | party | target | bag
 var sel := 0                     # the menu's selection
 var t := 0.0
 var _line := {}
@@ -84,10 +89,12 @@ var doubles: PkmnDoubles
 var choosing := ""
 var targets: Array = []
 var target_sel := 0
-var ball_on := false             # the BALL bar over the menu (index 4)
-var ball_list: Array = []        # show_balls: [{id, name, n}]
-var ball_sel := 0
-const BALL := 4
+var target_title := "WHERE DOES IT GO?"
+var bag: Array = []              # show_bag: [{id, label, items: [{id, name, n, desc}], note, dim}]
+var bag_tab := 0
+var bag_sel := 0
+var _bag_sels := {}              # the cursor kept per pocket
+const BAG_ROWS := 4
 var pick_opts: Array = []        # the energy pick's tiles: [{kind, room, unlocks, ready}]
 var pick_sel := 0
 var nav := UIInput.Nav.new()
@@ -101,12 +108,14 @@ func _ready() -> void:
 	bar_b = EnergyBar.new()
 	bar_b.side = "foe"
 	bar_b.align_right = true
+	bar_b.compact = true
 	bar_b.owner_view = false
 	bar_b.input_enabled = false
 	add_child(bar_b)
 	bar_a = EnergyBar.new()
 	bar_a.side = "ally"
-	bar_a.align_right = true
+	bar_a.align_right = false
+	bar_a.focus_row = false
 	bar_a.owner_view = true
 	add_child(bar_a)
 	bar_a.pool_tapped.connect(func(k): if mode == "pick": _pick(k))
@@ -248,27 +257,53 @@ func show_party(forced := false) -> void:
 		if party.can_switch("a", i): party_sel = i; break
 	_appear["party"] = 0.0
 
-# the bag's balls: pick one to throw (B backs out)
-func show_balls(list: Array) -> void:
-	mode = "balls"
-	ball_list = list
-	nav.reset()
-	ball_sel = clampi(ball_sel, 0, maxi(0, list.size() - 1))
-	_appear["balls"] = 0.0
+# the bag: a pocket a tab (B backs out); the cursor kept per pocket
+func show_bag(pockets: Array) -> void:
+	var was := mode
+	mode = "bag"
+	bag = pockets
+	if was != "bag": _appear["bag"] = 0.0; nav.reset()
+	bag_tab = clampi(bag_tab, 0, maxi(0, bag.size() - 1))
+	bag_sel = clampi(int(_bag_sels.get(bag_tab, 0)), 0, maxi(0, bag_items().size() - 1))
 
-func balls_rect() -> Rect2:
+func bag_items() -> Array:
+	if bag_tab < 0 or bag_tab >= bag.size(): return []
+	return bag[bag_tab].get("items", [])
+
+func bag_pocket() -> String:
+	return String(bag[bag_tab].id) if bag_tab >= 0 and bag_tab < bag.size() else ""
+
+func set_bag_tab(i: int) -> void:
+	if bag.is_empty(): return
+	i = (i + bag.size()) % bag.size()
+	if i == bag_tab: return
+	_bag_sels[bag_tab] = bag_sel
+	bag_tab = i
+	bag_sel = clampi(int(_bag_sels.get(i, 0)), 0, maxi(0, bag_items().size() - 1))
+	_appear["bag_tab"] = 0.0
+	Sfx.ui("ui_tab")
+
+func bag_rect() -> Rect2:
 	var S := sr()
-	var w := 440.0
-	var h := 64.0 + ball_list.size() * 58.0
-	return Rect2(S.end.x - M - w - 10.0, S.end.y - M - 110.0 - h, w, h)
+	var w := 560.0
+	var h := 118.0 + BAG_ROWS * 60.0 + (32.0 if bag.any(func(pk): return String(pk.get("note", "")) != "") else 6.0)
+	var bot: float = _rects().plate_a.position.y - 16.0
+	return Rect2(S.end.x - M - w - 6.0, maxf(S.position.y + M, bot - h), w, h)
 
-func balls_row(i: int) -> Rect2:
-	var r := balls_rect()
-	return Rect2(r.position.x + 18.0, r.position.y + 54.0 + i * 58.0, r.size.x - 36.0, 50.0)
+func bag_tab_rect(i: int) -> Rect2:
+	var r := bag_rect()
+	var n := maxi(1, bag.size())
+	var tw := (r.size.x - 48.0 - 8.0 * (n - 1)) / n
+	return Rect2(r.position.x + 26.0 + i * (tw + 8.0), r.position.y + 58.0, tw, 42.0)
 
-func show_targets(labels: Array) -> void:
+func bag_row(i: int) -> Rect2:
+	var r := bag_rect()
+	return Rect2(r.position.x + 18.0, r.position.y + 112.0 + i * 60.0, r.size.x - 36.0, 54.0)
+
+func show_targets(labels: Array, title := "WHERE DOES IT GO?") -> void:
 	mode = "target"
 	if fight.on: fight.close()
+	target_title = title
 	targets = labels
 	target_sel = 0
 	nav.reset()
@@ -314,14 +349,20 @@ func pick_tile(i: int) -> Rect2:
 # ---------- layout ----------
 func _rects() -> Dictionary:
 	var S := sr()
-	var plate_b := Rect2(S.end.x - M - PLATE_W, S.position.y + M + 4.0, PLATE_W, 100.0 if party else 78.0)
-	var bar_b_r := Rect2(S.end.x - M - RIGHT_W - 60.0, plate_b.end.y + 18.0, RIGHT_W + 60.0, 72.0)
-	var plate_a := Rect2(S.position.x + M, S.end.y - M - 98.0, PLATE_W, 98.0)
-	var bar_a_r := Rect2(S.end.x - M - RIGHT_W - 60.0, S.end.y - M - 84.0, RIGHT_W + 60.0, 84.0)
-	var menu := Rect2(S.end.x - M - RIGHT_W, bar_a_r.position.y - 20.0 - 122.0, RIGHT_W, 122.0)
-	var line := Rect2(S.position.x + M, S.position.y + M + 4.0, minf(520.0, S.size.x - PLATE_W - 3 * M - 60.0), 34.0)
-	var logp := Rect2(S.position.x + M, S.position.y + M + 4.0, minf(560.0, S.size.x * 0.42), plate_a.position.y - S.position.y - M - 24.0)
-	return {"plate_a": plate_a, "plate_b": plate_b, "bar_a": bar_a_r, "bar_b": bar_b_r, "menu": menu, "line": line, "log": logp, "safe": S}
+	var plate_b := Rect2(S.position.x + M, S.position.y + M + 4.0, PLATE_W, 100.0 if party else 78.0)
+	var plate_a := Rect2(S.end.x - M - PLATE_W, S.end.y - M - 92.0, PLATE_W, 92.0)
+	# the opponent's energy: its counters on the name line, right-aligned
+	var bar_b_r := Rect2(plate_b.position.x + 150.0, plate_b.position.y + 11.0, plate_b.size.x - 150.0 - 24.0, 28.0)
+	# his own pools: bottom left, as far as the plates on the right
+	var right := plate_a.position.x - (22.0 + SMALL_W if doubles else 0.0) - 20.0
+	var bar_a_r := Rect2(S.position.x + M, S.end.y - M - 58.0, right - S.position.x - M, 58.0)
+	var menu := Rect2(S.end.x - M - RIGHT_W, plate_a.position.y - 26.0 - 118.0, RIGHT_W, 118.0)
+	var logb := Rect2(S.end.x - M - 92.0, S.position.y + M + 4.0, 92.0, 34.0)
+	var x0 := plate_b.end.x + 28.0 + (SMALL_W + 22.0 if doubles else 0.0)
+	var line := Rect2(x0, logb.position.y, maxf(120.0, logb.position.x - 12.0 - x0), 34.0)
+	var lw := minf(600.0, S.size.x * 0.48)
+	var logp := Rect2(S.end.x - M - lw, logb.position.y, lw, plate_a.position.y - 18.0 - logb.position.y)
+	return {"plate_a": plate_a, "plate_b": plate_b, "bar_a": bar_a_r, "bar_b": bar_b_r, "menu": menu, "line": line, "log": logp, "logb": logb, "safe": S}
 
 func _layout() -> void:
 	var R := _rects()
@@ -330,19 +371,13 @@ func _layout() -> void:
 
 func menu_rect(i: int) -> Rect2:
 	var r: Rect2 = _rects().menu
-	if i == BALL:
-		# the BALL bar: the width of the grid, one row above it
-		var bh := 44.0
-		return Rect2(r.position + Vector2((bh + 10.0) * UITheme.SKEW, -bh - 10.0), Vector2(r.size.x, bh))
 	var w := (r.size.x - 12.0) * 0.5
 	var h := (r.size.y - 10.0) * 0.5
 	return Rect2(r.position + Vector2((i % 2) * (w + 12.0) - (i / 2) * h * UITheme.SKEW, (i / 2) * (h + 10.0)), Vector2(w, h))
 
-# the LOG button: at the head of the ticker
+# the LOG button: at the top right, the ticker's lines to its left (open: the log's corner)
 func log_btn_rect() -> Rect2:
-	var r: Rect2 = _rects().line
-	if log_open: r = _rects().log
-	return Rect2(r.position, Vector2(92.0, 34.0))
+	return _rects().logb
 
 # ---------- input ----------
 func _local(p: Vector2) -> Vector2: return get_global_transform_with_canvas().affine_inverse() * p
@@ -379,15 +414,15 @@ func _unhandled_input(e: InputEvent) -> void:
 		"pick": _pick_input(e, d)
 		"party": _party_input(e, d)
 		"target": _target_input(e, d)
-		"balls": _balls_input(e, d)
+		"bag": _bag_input(e, d)
 		"menu": _menu_input(e, d)
 
 func _menu_input(e: InputEvent, d: Vector2i) -> void:
 	if d != Vector2i.ZERO:
-		if d.x < 0: _sel(sel - 1 if sel % 2 == 1 and sel != BALL else sel)
-		elif d.x > 0: _sel(sel + 1 if sel % 2 == 0 and sel != BALL else sel)
-		elif d.y < 0: _sel(sel - 2 if sel >= 2 and sel != BALL else (BALL if ball_on and sel < 2 else sel))
-		elif d.y > 0: _sel(0 if sel == BALL else (sel + 2 if sel < 2 else sel))
+		if d.x < 0: _sel(sel - 1 if sel % 2 == 1 else sel)
+		elif d.x > 0: _sel(sel + 1 if sel % 2 == 0 else sel)
+		elif d.y < 0: _sel(sel - 2 if sel >= 2 else sel)
+		elif d.y > 0: _sel(sel + 2 if sel < 2 else sel)
 		_handled()
 		return
 	if nav.swallow(e): _handled(); return
@@ -396,7 +431,7 @@ func _menu_input(e: InputEvent, d: Vector2i) -> void:
 	if e.is_action_pressed("back") or e.is_action_pressed("ui_cancel"): _handled(); return
 	var lp := _tap(e)
 	if lp == Vector2.INF: return
-	for i in (5 if ball_on else 4):
+	for i in 4:
 		if UITheme.touch_rect(self, menu_rect(i)).has_point(lp): _cmd(i); _handled(); break
 
 func _pick_input(e: InputEvent, d: Vector2i) -> void:
@@ -451,21 +486,39 @@ func _target_input(e: InputEvent, d: Vector2i) -> void:
 	for i in n:
 		if UITheme.touch_rect(self, target_rect(i)).has_point(lp): target_sel = i; Sfx.ui("ui_confirm"); target_picked.emit(i); return
 
-func _balls_input(e: InputEvent, d: Vector2i) -> void:
-	var n := ball_list.size()
-	if n == 0: return
+func _bag_input(e: InputEvent, d: Vector2i) -> void:
+	var n := bag_items().size()
+	if d.x != 0:
+		set_bag_tab(bag_tab + d.x); _handled(); return
 	if d.y != 0:
-		ball_sel = clampi(ball_sel + d.y, 0, n - 1); Sfx.ui("ui_cursor"); _handled(); return
+		if n > 0:
+			var s2 := clampi(bag_sel + d.y, 0, n - 1)
+			if s2 != bag_sel: bag_sel = s2; Sfx.ui("ui_cursor")
+		_handled(); return
 	if d != Vector2i.ZERO or nav.swallow(e): _handled(); return
-	if e.is_action_pressed("use") or e.is_action_pressed("ui_accept"): Sfx.ui("ui_confirm"); ball_picked.emit(String(ball_list[ball_sel].id)); _handled(); return
-	if e.is_action_pressed("back") or e.is_action_pressed("ui_cancel"): Sfx.ui("ui_cancel"); ball_cancel.emit(); _handled(); return
+	if e.is_action_pressed("use") or e.is_action_pressed("ui_accept"):
+		if n > 0: _bag_pick(bag_sel)
+		else: Sfx.ui("ui_error")
+		_handled(); return
+	# B: back to the menu (never the turn)
+	if e.is_action_pressed("back") or e.is_action_pressed("ui_cancel"): Sfx.ui("ui_cancel"); bag_cancel.emit(); _handled(); return
 	var lp := _tap(e)
 	if lp == Vector2.INF: return
 	_handled()
-	for i in n:
-		if balls_row(i).grow_individual(0, 4, 0, 4).has_point(lp):
-			ball_sel = i; Sfx.ui("ui_confirm"); ball_picked.emit(String(ball_list[i].id)); return
-	if not balls_rect().has_point(lp): Sfx.ui("ui_cancel"); ball_cancel.emit()
+	for i in bag.size():
+		if bag_tab_rect(i).grow_individual(0, 6, 0, 6).has_point(lp): set_bag_tab(i); return
+	for i in mini(n, BAG_ROWS):
+		if bag_row(i).grow_individual(0, 3, 0, 3).has_point(lp):
+			bag_sel = i; _bag_pick(i); return
+	if not bag_rect().has_point(lp): Sfx.ui("ui_cancel"); bag_cancel.emit()
+
+func _bag_pick(i: int) -> void:
+	var L := bag_items()
+	if i < 0 or i >= L.size(): return
+	_bump["bag:%d" % i] = 0.0
+	_bag_sels[bag_tab] = i
+	Sfx.ui("ui_confirm")
+	item_picked.emit(bag_pocket(), String(L[i].id))
 
 # the open log: drag to scroll, a tap off it (or on LOG) closes it
 func _log_pointer(e: InputEvent) -> void:
@@ -498,7 +551,7 @@ func _party_pick(i: int) -> void:
 	party_picked.emit(i)
 
 func _sel(i: int) -> void:
-	i = clampi(i, 0, BALL if ball_on else 3)
+	i = clampi(i, 0, 3)
 	if i != sel: Sfx.ui("ui_cursor")
 	sel = i
 
@@ -506,7 +559,7 @@ func _cmd(i: int) -> void:
 	sel = i
 	_bump["menu:%d" % i] = 0.0
 	Sfx.ui("ui_confirm")
-	command.emit("ball" if i == BALL else String(MENU[i][0]))
+	command.emit(String(MENU[i][0]))
 
 # ---------- frame ----------
 func _process(dt: float) -> void:
@@ -520,8 +573,8 @@ func _process(dt: float) -> void:
 	if d != Vector2i.ZERO and not log_open:
 		match mode:
 			"party": party_sel = clampi(party_sel + d.y, 0, party.team.a.size() - 1) if d.y != 0 else party_sel
-			"balls": ball_sel = clampi(ball_sel + d.y, 0, ball_list.size() - 1) if d.y != 0 else ball_sel
-		if mode in ["party", "balls"] and d.y != 0: Sfx.ui("ui_cursor")
+			"bag": bag_sel = clampi(bag_sel + d.y, 0, maxi(0, bag_items().size() - 1)) if d.y != 0 else bag_sel
+		if mode in ["party", "bag"] and d.y != 0: Sfx.ui("ui_cursor")
 	elif d.y != 0 and log_open: log_scroll = clampf(log_scroll + d.y * 27.0, 0.0, _log_max())
 	if battle:
 		for s in ["a", "b"]:
@@ -541,10 +594,13 @@ func _draw() -> void:
 	if mode == "pick": _pick_card()
 	if mode == "party": _party_list()
 	if mode == "target": _target_list()
-	if mode == "balls": _ball_list()
-	if choosing != "" and mode in ["menu", "pick"]:
+	if mode == "bag": _bag_panel()
+	if choosing != "" and mode in ["menu", "pick", "bag"]:
 		var cw := UITheme.text_w("CHOOSING FOR " + choosing, "label", 15) + 30.0
-		UITheme.chip(self, Vector2(R.bar_a.end.x - cw - 10.0, R.bar_a.position.y - 34.0 - (150.0 if mode == "menu" else 0.0)), "CHOOSING FOR " + choosing, UITheme.SKY, UITheme.INK, 15, 26.0)
+		var at := Vector2(R.menu.end.x - cw, R.menu.position.y - 70.0)
+		if mode == "pick": at = Vector2(R.bar_a.position.x + 10.0, R.bar_a.position.y - 62.0)
+		if mode == "bag": at = Vector2(bag_rect().end.x - cw, bag_rect().position.y - 34.0)
+		UITheme.chip(self, at, "CHOOSING FOR " + choosing, UITheme.SKY, UITheme.INK, 15, 26.0)
 	if log_open: _log(R.log)
 
 # ---------- the ticker and the log ----------
@@ -569,9 +625,9 @@ func _ticker(r: Rect2) -> void:
 		var fade := clampf((TICK_T - age) / 0.6, 0.0, 1.0) if shown == 0 else clampf((TICK_T * 0.6 - age) / 0.6, 0.0, 1.0) * 0.7
 		if fade <= 0.0: break
 		var ck := UITheme.ease_out_expo(age / 0.25)
-		var y := r.position.y + (shown * 0.0) + (0.0 if shown == 0 else r.size.y + 4.0)
-		var x := b.end.x + 14.0 + (1.0 - ck) * -30.0
-		var w := minf(r.end.x - x, UITheme.text_w(String(L.text), "body_bold" if shown == 0 else "body", 18 if shown == 0 else 15) + 46.0)
+		var y := r.position.y + (0.0 if shown == 0 else r.size.y + 4.0)
+		var w := minf(r.size.x, UITheme.text_w(String(L.text), "body_bold" if shown == 0 else "body", 18 if shown == 0 else 15) + 46.0)
+		var x := r.end.x - w + (1.0 - ck) * 30.0
 		var lr := Rect2(x, y if shown == 0 else y, w, r.size.y if shown == 0 else 26.0)
 		var a := fade * ck
 		UITheme.plate(self, lr, a * (0.92 if shown == 0 else 0.7), UITheme.SKEW, UITheme.PLATE, 0.0)
@@ -595,19 +651,19 @@ func _log_max() -> float:
 
 func _log(r: Rect2) -> void:
 	var ap := UITheme.ease_out(float(_appear.get("log", 1.0)))
-	r.position.x += (1.0 - ap) * -40.0
+	r.position.x += (1.0 - ap) * 40.0
 	draw_rect(Rect2(Vector2(-40, -40), get_viewport_rect().size + Vector2(80, 80)), Color(UITheme.DIM, UITheme.DIM.a * 0.6 * ap))
 	var pts := UITheme.chamfer_points(r, 16.0)
 	UITheme.shadow(self, pts, ap, Vector2(0, 6))
 	UITheme.fill_v(self, pts, Color(Color("1a2236"), 0.96 * ap), Color(Color("10162a"), 0.96 * ap))
 	UITheme.outline(self, pts, Color(1, 1, 1, 0.12 * ap), 1.5)
 	var b := log_btn_rect()
-	b.position.x += (1.0 - ap) * -40.0
+	b.position.x += (1.0 - ap) * 40.0
 	UITheme.para(self, b, Color(UITheme.YELLOW, ap))
 	var gx := b.position.x + 16.0
 	if UIInput.device != "touch": gx += UITheme.glyph(self, Vector2(gx + 6.0, b.get_center().y), "recenter", 22.0, ap) * 0.5 + 12.0
 	UITheme.text_mid(self, Vector2(gx, b.get_center().y), "LOG", "label", 14, Color(UITheme.INK, ap))
-	UITheme.text_mid(self, Vector2(b.end.x + 16.0, b.get_center().y), "BATTLE LOG  ·  TURN %d" % battle.turn, "heading", 18, Color(UITheme.TEXT, ap))
+	UITheme.text_mid(self, Vector2(r.position.x + 22.0, b.get_center().y), "BATTLE LOG  ·  TURN %d" % battle.turn, "heading", 18, Color(UITheme.TEXT, ap))
 	var hint := "DRAG TO SCROLL  ·  TAP OUTSIDE TO CLOSE" if UIInput.device == "touch" else "UP / DOWN: SCROLL  ·  B: CLOSE"
 	UITheme.text(self, Vector2(r.position.x + 22.0, r.end.y - 14.0), hint, "label", 12, Color(UITheme.TEXT_DIM, ap))
 	var top := r.position.y + 50.0
@@ -686,28 +742,33 @@ func _pick_card() -> void:
 	UITheme.text(self, Vector2(r.position.x + 32.0, r.end.y - 20.0), hint, "label", 13, Color(UITheme.TEXT_DIM, ap))
 	UITheme.text(self, Vector2(r.end.x - 30.0, r.end.y - 20.0), "TYPED CHIPS PAY THEIR TYPE AND COLORLESS COSTS", "label", 12, Color(UITheme.TEXT_DIM, ap * 0.8), 2)
 
-# doubles: the other one out on each side, a smaller plate beside the main one
+# doubles: the other one out on each side, a smaller plate in the same look beside
+# the main one (the foe's right of it, his left of his): name and level, the energy
+# counters on the name line, the HP bar and its focus strip
 func _doubles_plates(R: Dictionary) -> void:
 	for side in ["a", "b"]:
 		for f in doubles.actives(side):
 			if f == null or f == battle.fighter(side): continue
 			var r: Rect2
-			if side == "b": r = Rect2(R.plate_b.position.x - 300.0, R.plate_b.position.y, 280.0, 64.0)
-			else: r = Rect2(R.plate_a.end.x + 22.0, R.plate_a.end.y - 64.0, 280.0, 64.0)
+			if side == "b": r = Rect2(R.plate_b.end.x + 22.0, R.plate_b.position.y, SMALL_W, 66.0)
+			else: r = Rect2(R.plate_a.position.x - 22.0 - SMALL_W, R.plate_a.end.y - 66.0, SMALL_W, 66.0)
 			var pts := UITheme.plate(self, r, 0.9, UITheme.SKEW, UITheme.PLATE, 8)
 			UITheme.outline(self, pts, Color(1, 1, 1, 0.08), 1.0)
 			UITheme.para(self, Rect2(r.position + Vector2(14, -4), Vector2(70, 5)), UITheme.SKY if side == "a" else UITheme.YELLOW)
 			var a := 0.45 if f.fainted() else 1.0
-			var nw := UITheme.text(self, r.position + Vector2(22, 28), String(f.name).to_upper(), "display", 22, Color(UITheme.TEXT, a))
-			UITheme.text(self, r.position + Vector2(28 + nw, 28), "Lv%d" % int(f.level), "heading", 15, Color(UITheme.TEXT_DIM, a))
+			var cw := 0.0
+			if not f.fainted(): cw = EnergyBar.draw_counters(self, f.e, Vector2(r.end.x - 14.0, r.position.y + 20.0), 19.0, side == "a", a)
+			var lv := "Lv%d" % int(f.level)
+			var nw := UITheme.text(self, r.position + Vector2(22, 29), String(f.name).to_upper(), "display", 21, Color(UITheme.TEXT, a), 0, r.size.x - cw - UITheme.text_w(lv, "heading", 14) - 44.0)
+			UITheme.text(self, r.position + Vector2(27 + nw, 29), lv, "heading", 14, Color(UITheme.TEXT_DIM, a))
 			var hk := float(f.hp) / maxf(1.0, f.max_hp)
-			UITheme.bar(self, Rect2(r.position + Vector2(24, 40), Vector2(r.size.x - 60.0, 10)), hk, UITheme.GREEN if hk > 0.5 else (UITheme.YELLOW if hk > 0.2 else UITheme.RED), a, 0)
-			if f.fainted(): UITheme.chip(self, Vector2(r.end.x - 90.0, r.position.y + 10.0), "FAINTED", UITheme.RED, UITheme.WHITE, 12, 20.0)
+			_hp_bar(Rect2(r.position + Vector2(24, 39), Vector2(r.size.x - 64.0, 14)), hk, f.e, null, a, 9.0)
+			if f.fainted(): UITheme.chip(self, Vector2(r.end.x - 96.0, r.position.y + 9.0), "FAINTED", UITheme.RED, UITheme.WHITE, 12, 20.0)
 
 func _target_list() -> void:
 	var ap := UITheme.ease_out(float(_appear.get("target", 1.0)))
 	var S := sr()
-	UITheme.text_mid(self, Vector2(S.get_center().x, target_rect(0).position.y - 34.0), "WHERE DOES IT GO?", "display", 34, Color(UITheme.YELLOW, ap), 1, 6)
+	UITheme.text_mid(self, Vector2(S.get_center().x, target_rect(0).position.y - 34.0), target_title, "display", 34, Color(UITheme.YELLOW, ap), 1, 6)
 	for i in targets.size():
 		var r := target_rect(i)
 		r.position.y += (1.0 - ap) * 50.0
@@ -717,7 +778,7 @@ func _target_list() -> void:
 		UITheme.shadow(self, pts, ap, Vector2(0, 5))
 		if on: UITheme.fill_v(self, pts, Color(UITheme.WHITE, ap), Color(UITheme.PAPER, ap))
 		else: UITheme.fill(self, pts, Color(UITheme.PLATE_HI, ap))
-		var col := UITheme.SKY if parts[0] == "ALLY" else UITheme.RED
+		var col := UITheme.SKY if parts[0] in ["ALLY", "LEFT", "RIGHT"] else UITheme.RED
 		UITheme.accent_bar(self, r, Color(col, ap), ap, UITheme.SKEW, 9.0 if on else 6.0)
 		UITheme.text(self, r.position + Vector2(30, 30), parts[0], "label", 15, Color(col, ap))
 		UITheme.text(self, r.position + Vector2(30, 66), parts[1] if parts.size() > 1 else "", "display", 32, Color(UITheme.INK if on else UITheme.TEXT, ap))
@@ -769,29 +830,97 @@ static func draw_ball_kind(ci: CanvasItem, c: Vector2, r: float, id: String) -> 
 	ci.draw_circle(c, r * 0.36, UITheme.INK, true, -1.0, true)
 	ci.draw_circle(c, r * 0.22, bot, true, -1.0, true)
 
-func _ball_list() -> void:
-	var ap := UITheme.ease_out(float(_appear.get("balls", 1.0)))
-	var r := balls_rect()
-	r.position.x += (1.0 - ap) * 60.0
-	UITheme.panel(self, r, UITheme.RED, ap)
-	UITheme.text(self, r.position + Vector2(22, 38), "THROW A BALL", "display", 30, Color(UITheme.INK, ap))
-	UITheme.text(self, Vector2(r.end.x - 22.0, r.position.y + 36.0), "B: BACK" if UIInput.device != "touch" else "TAP OUTSIDE: BACK", "label", 14, Color(UITheme.INK_SOFT, ap), 2)
-	for i in ball_list.size():
-		var b: Dictionary = ball_list[i]
-		var rr := balls_row(i)
-		rr.position.x += (1.0 - ap) * (30.0 + i * 12.0)
-		var on: bool = i == ball_sel
+func _bag_panel() -> void:
+	var ap := UITheme.ease_out(float(_appear.get("bag", 1.0)))
+	var tk := UITheme.ease_out(float(_appear.get("bag_tab", 1.0)))
+	var r := bag_rect()
+	var dx := (1.0 - ap) * 60.0
+	r.position.x += dx
+	UITheme.panel(self, r, UITheme.YELLOW, ap)
+	UITheme.text(self, r.position + Vector2(24, 40), "ITEMS", "display", 30, Color(UITheme.INK, ap))
+	var hint := "TAP OUTSIDE: BACK" if UIInput.device == "touch" else "LEFT / RIGHT: POCKET  ·  B: BACK"
+	UITheme.text(self, Vector2(r.end.x - 22.0, r.position.y + 37.0), hint, "label", 13, Color(UITheme.INK_SOFT, ap), 2)
+	# the pockets: a skewed tab each, the open one ink with a red foot
+	for i in bag.size():
+		var tr := bag_tab_rect(i)
+		tr.position.x += dx
+		var on := i == bag_tab
+		var tp := UITheme.para_points(tr)
 		if on:
-			UITheme.shadow(self, UITheme.para_points(rr), ap, Vector2(0, 3))
-			UITheme.fill(self, UITheme.para_points(rr), Color(UITheme.INK, ap))
+			UITheme.shadow(self, tp, ap * 0.8, Vector2(0, 3))
+			UITheme.fill_v(self, tp, Color(UITheme.INK.lightened(0.12), ap), Color(UITheme.INK, ap))
+			UITheme.para(self, Rect2(tr.position.x, tr.end.y - 4.0, tr.size.x, 4.0), Color(UITheme.RED, ap))
 		else:
-			UITheme.fill(self, UITheme.para_points(rr), Color(UITheme.INK, 0.08 * ap))
+			UITheme.fill(self, tp, Color(UITheme.INK, 0.07 * ap))
+		var lab := String(bag[i].get("label", bag[i].id))
+		var n := (bag[i].get("items", []) as Array).size()
+		var tw := UITheme.text_w(lab, "label", 16)
+		var x := tr.get_center().x - (tw + 26.0) * 0.5
+		UITheme.text_mid(self, Vector2(x, tr.get_center().y - 1.0), lab, "label", 16, Color(UITheme.WHITE if on else UITheme.INK, ap))
+		var cr := Rect2(x + tw + 8.0, tr.get_center().y - 9.0, 20.0, 18.0)
+		UITheme.para(self, cr, Color(UITheme.RED, ap) if on else Color(UITheme.INK, 0.18 * ap))
+		UITheme.text_mid(self, Vector2(cr.get_center().x, cr.get_center().y), str(n), "number", 14, Color(UITheme.WHITE, ap), 1)
+	if bag.is_empty(): return
+	var pk: Dictionary = bag[bag_tab]
+	var L := bag_items()
+	var dim := bool(pk.get("dim", false))
+	if L.is_empty():
+		UITheme.text(self, Vector2(r.get_center().x, bag_row(1).get_center().y + 6.0), "NOTHING IN THIS POCKET", "heading", 22, Color(UITheme.INK_SOFT, ap), 1)
+	for i in mini(L.size(), BAG_ROWS):
+		var it: Dictionary = L[i]
+		var rr := bag_row(i)
+		rr.position.x += dx + (1.0 - tk) * (16.0 + i * 8.0)
+		var bump := float(_bump.get("bag:%d" % i, 9.0))
+		if bump < 0.2: rr = rr.grow(3.0 * (1.0 - bump / 0.2))
+		var on: bool = i == bag_sel
+		var a := ap * tk * (0.5 if dim else 1.0)
+		if on:
+			UITheme.shadow(self, UITheme.para_points(rr), a, Vector2(0, 3))
+			UITheme.fill(self, UITheme.para_points(rr), Color(UITheme.INK, a))
+		else:
+			UITheme.fill(self, UITheme.para_points(rr), Color(UITheme.INK, 0.06 * a))
 		var tc := UITheme.TEXT if on else UITheme.INK
-		draw_ball_kind(self, rr.position + Vector2(32, 25), 13.0, String(b.id))
-		UITheme.text_mid(self, rr.position + Vector2(58, 26), String(b.name).to_upper(), "heading", 26, Color(tc, ap))
-		var n := int(b.get("n", 0))
-		UITheme.text_mid(self, Vector2(rr.end.x - 22.0, rr.position.y + 26.0), "x%d" % n if n >= 0 else "UNLIMITED", "number" if n >= 0 else "label", 22 if n >= 0 else 14, Color(tc, ap), 2)
-		if on and UIInput.device != "touch": UITheme.glyph(self, Vector2(rr.end.x - 110.0, rr.get_center().y), "use", 24.0, ap)
+		draw_item(self, rr.position + Vector2(36, 27), 18.0, String(it.id))
+		UITheme.text(self, rr.position + Vector2(68, 26), String(it.name).to_upper(), "heading", 23, Color(tc, a))
+		UITheme.text(self, rr.position + Vector2(66, 45), String(it.get("desc", "")), "label", 14, Color(tc, a * 0.7), 0, rr.size.x - 170.0)
+		var n := int(it.get("n", 0))
+		UITheme.text_mid(self, Vector2(rr.end.x - 20.0, rr.position.y + 27.0), "x%d" % n if n >= 0 else "UNLIMITED", "number" if n >= 0 else "label", 22 if n >= 0 else 13, Color(tc, a), 2)
+		if on and UIInput.device != "touch": UITheme.glyph(self, Vector2(rr.end.x - (82.0 if n >= 0 else 122.0), rr.get_center().y), "use", 24.0, a)
+	var note := String(pk.get("note", ""))
+	if note != "":
+		var nw := UITheme.text_w(note, "label", 13) + 18.0
+		UITheme.chip(self, Vector2(r.end.x - 24.0 - nw, r.end.y - 30.0), note, Color(UITheme.RED, ap), UITheme.WHITE, 13, 20.0)
+
+# an item's icon: a ball of its kind, a spray bottle for medicine, the energy items
+static func draw_item(ci: CanvasItem, c: Vector2, r: float, id: String) -> void:
+	if id in CatchRules.ball_ids():
+		draw_ball_kind(ci, c, r * 0.9, id)
+		return
+	match id:
+		"energy_shard":
+			EnergyIcon.draw_icon(ci, BattleEnergy.COLORLESS, c, r * 0.9)
+			return
+		"full_charge":
+			UITheme.glow(ci, c, r * 1.2, UITheme.YELLOW, 0.8)
+			ci.draw_circle(c, r * 0.9, UITheme.YELLOW, true, -1.0, true)
+			ci.draw_arc(c, r * 0.9, 0.0, TAU, 24, UITheme.WHITE, maxf(1.5, r * 0.12), true)
+			var bolt := PackedVector2Array([c + Vector2(0.12, -0.62) * r, c + Vector2(-0.34, 0.08) * r, c + Vector2(-0.02, 0.08) * r,
+				c + Vector2(-0.14, 0.62) * r, c + Vector2(0.34, -0.1) * r, c + Vector2(0.02, -0.1) * r])
+			ci.draw_colored_polygon(bolt, UITheme.INK)
+			return
+	var cols := {"potion": Color("9a5be0"), "super_potion": Color("f08a24"), "antidote": Color("3fbf66"), "paralyze_heal": Color("f2c230"), "focus_tonic": Color("3fb6f5")}
+	var col: Color = cols.get(id, UITheme.SKY)
+	# a spray bottle: the body, a white band, the neck and the nozzle
+	var body := Rect2(c + Vector2(-0.52, -0.3) * r, Vector2(1.04, 1.18) * r)
+	ci.draw_colored_polygon(UITheme.rounded_points(body.grow(1.5), r * 0.3, 3), UITheme.INK)
+	ci.draw_colored_polygon(UITheme.rounded_points(body, r * 0.26, 3), col)
+	ci.draw_rect(Rect2(body.position + Vector2(0, body.size.y * 0.32), Vector2(body.size.x, body.size.y * 0.3)), Color(UITheme.WHITE, 0.92))
+	var neck := Rect2(c + Vector2(-0.22, -0.62) * r, Vector2(0.44, 0.34) * r)
+	ci.draw_rect(neck.grow(1.0), UITheme.INK)
+	ci.draw_rect(neck, Color("d9dee8"))
+	ci.draw_rect(Rect2(c + Vector2(0.22, -0.58) * r, Vector2(0.3, 0.14) * r), Color("d9dee8"))
+	ci.draw_line(body.position + Vector2(r * 0.18, r * 0.1), body.position + Vector2(r * 0.18, r * 0.3), Color(1, 1, 1, 0.6), maxf(1.0, r * 0.12), true)
+	if id == "focus_tonic": UITheme.text_mid(ci, body.get_center() + Vector2(0, 1), "+", "display", int(r * 0.9), col.darkened(0.35), 1)
 
 func _party_list() -> void:
 	var ap := UITheme.ease_out(float(_appear.get("party", 1.0)))
@@ -829,6 +958,10 @@ func _party_list() -> void:
 		UITheme.text(self, rr.position + Vector2(54, 50), "FOCUS %d%%" % int(f.e.focus), "label", 12, Color(tc, a * 0.7))
 
 
+# a nameplate: the name and level (the opponent's: its energy counters on the
+# line's right), the HP bar with the focus strip and its percentage, status tags
+# (his: on the top row's right; the opponent's: under the plate), the party's
+# balls, his HP numbers
 func _plate(r: Rect2, f, own: bool) -> void:
 	var pts := UITheme.plate(self, r, 1.0, UITheme.SKEW, UITheme.PLATE, UITheme.CUT)
 	UITheme.outline(self, pts, Color(1, 1, 1, 0.1), 1.0)
@@ -836,9 +969,12 @@ func _plate(r: Rect2, f, own: bool) -> void:
 	var e: BattleEnergy = f.e
 	var nx := r.position.x + 28.0
 	var ny := r.position.y + 36.0
-	var nw := UITheme.text(self, Vector2(nx, ny), String(f.name).to_upper(), "display", 32, UITheme.TEXT)
+	# the room the name has: up to the counters (the opponent's) or the tags (his)
+	var room := r.size.x - 60.0
+	if not own: room = bar_b.position.x + bar_b.size.x - bar_b.shown_w() - nx - UITheme.text_w("Lv%d" % int(f.level), "heading", 19) - 22.0
+	var nw := UITheme.text(self, Vector2(nx, ny), String(f.name).to_upper(), "display", 32, UITheme.TEXT, 0, maxf(80.0, room))
 	UITheme.text(self, Vector2(nx + nw + 8.0, ny), "Lv%d" % int(f.level), "heading", 19, UITheme.TEXT_DIM)
-	# status and states, right-aligned on the top row
+	# status and states
 	var tags := []
 	var st := {"para": ["PAR", "f2b91a"], "sleep": ["SLP", "8a8fa3"], "poison": ["PSN", "ad3c9c"], "burn": ["BRN", "e5432c"]}
 	if st.has(f.status): tags.append(st[f.status])
@@ -848,38 +984,54 @@ func _plate(r: Rect2, f, own: bool) -> void:
 	if semi_t.has(semi): tags.append(semi_t[semi])
 	if e.locked_in: tags.append(["LOCKED IN", "ffcb05"])
 	var tx := r.end.x - 18.0
+	var ux := r.position.x + 22.0
 	for tg in tags:
 		var w := UITheme.text_w(tg[0], "label", 13) + 18.0
-		tx -= w + 6.0
 		var pulse := 0.85 + 0.15 * sin(t * 5.0) if tg[0] in ["UNDERGROUND", "IN THE AIR", "UNDERWATER", "LOCKED IN", "CHARGING"] else 1.0
-		UITheme.chip(self, Vector2(tx, r.position.y + 12.0), tg[0], Color(Color(tg[1]), pulse), UITheme.INK, 13, 21.0)
-	# HP
+		if own:
+			tx -= w + 6.0
+			UITheme.chip(self, Vector2(tx, r.position.y + 12.0), tg[0], Color(Color(tg[1]), pulse), UITheme.INK, 13, 21.0)
+		else:
+			UITheme.chip(self, Vector2(ux, r.end.y + 6.0), tg[0], Color(Color(tg[1]), pulse), UITheme.INK, 13, 21.0)
+			ux += w + 6.0
+	# HP, the focus strip along its bottom
 	var hk: float = _hp[f.side]
-	var col := UITheme.GREEN if hk > 0.5 else (UITheme.YELLOW if hk > 0.2 else UITheme.RED)
-	var bar := Rect2(r.position + Vector2(58, 52), Vector2(r.size.x - 104.0, 15))
-	UITheme.text_mid(self, bar.position + Vector2(-30, 7.5), "HP", "label", 16, UITheme.YELLOW)
-	UITheme.bar(self, bar, hk, col, 1.0, 0)
+	var bar := hp_bar_rect(r)
+	UITheme.text_mid(self, Vector2(bar.position.x - 30.0, bar.position.y + 7.0), "HP", "label", 16, UITheme.YELLOW)
+	_hp_bar(bar, hk, e, bar_a if own else bar_b, 1.0)
+	# the focus as a number by the strip's end
+	var fpc := "%d%%" % int(round(e.focus / e.fmax() * 100.0))
+	var fx := bar.end.x + 18.0
+	UITheme.text(self, Vector2(fx, bar.position.y + 7.0), "FOCUS", "label", 11, UITheme.YELLOW if e.locked_in else UITheme.TEXT_DIM)
+	UITheme.text(self, Vector2(fx, bar.end.y + 1.0), fpc, "number", 17, UITheme.YELLOW if e.locked_in else UITheme.TEXT)
 	if party:
-		_balls(Vector2(r.position.x + 40.0, r.position.y + 86.0), f.side)
+		_balls(Vector2(r.position.x + 40.0, r.position.y + (80.0 if own else 86.0)), f.side)
 	if own:
 		var hp_now := int(round(hk * f.max_hp))
-		UITheme.text(self, Vector2(r.end.x - 34.0, r.position.y + 90.0), "%d / %d" % [hp_now, int(f.max_hp)], "number", 22, UITheme.TEXT, 2)
+		UITheme.text(self, Vector2(bar.end.x, bar.end.y + 21.0), "%d / %d" % [hp_now, int(f.max_hp)], "number", 21, UITheme.TEXT, 2)
+
+# a nameplate's HP bar (a side's, or a plate rect's); its focus strip along the bottom
+func hp_bar_rect(of) -> Rect2:
+	var r: Rect2 = of if of is Rect2 else _rects()["plate_a" if String(of) == "a" else "plate_b"]
+	return Rect2(r.position + Vector2(58, 48), Vector2(r.size.x - 58.0 - 96.0, 20))
+
+func strip_rect(of, hp_h := 13.0) -> Rect2:
+	var b := hp_bar_rect(of)
+	return Rect2(b.position.x, b.position.y + hp_h + 2.0, b.size.x, b.size.y - hp_h - 2.0)
+
+# the HP bar with the focus as a thin strip along its bottom (bar: its EnergyBar,
+# for the eased fill and a disruption's red; null: drawn straight from the energy)
+func _hp_bar(r: Rect2, hk: float, e: BattleEnergy, bar: EnergyBar, a := 1.0, hp_h := 13.0) -> void:
+	var col := UITheme.GREEN if hk > 0.5 else (UITheme.YELLOW if hk > 0.2 else UITheme.RED)
+	UITheme.para(self, r.grow(2.0), Color(0, 0, 0, 0.5 * a))
+	var hr := Rect2(r.position + Vector2((r.size.y - hp_h) * UITheme.SKEW, 0), Vector2(r.size.x, hp_h))
+	UITheme.bar(self, hr, hk, col, a, 0)
+	var fs := Rect2(r.position.x, r.position.y + hp_h + 2.0, r.size.x, r.size.y - hp_h - 2.0)
+	if bar != null and bar.energy == e: bar.draw_strip(self, fs, a)
+	elif e != null: EnergyBar.strip(self, fs, e, e.focus, 0.0, t, a)
 
 func _menu() -> void:
 	var ap := UITheme.ease_out(float(_appear.menu))
-	if ball_on:
-		var r := menu_rect(BALL)
-		r.position.x += (1.0 - ap) * 40.0
-		var on := sel == BALL
-		if on:
-			UITheme.shadow(self, UITheme.para_points(r), ap, Vector2(0, 4))
-			UITheme.fill_v(self, UITheme.para_points(r), Color(UITheme.WHITE, ap), Color(UITheme.PAPER, ap))
-		else:
-			UITheme.plate(self, r, ap)
-		UITheme.accent_bar(self, r, Color(UITheme.RED, ap), ap, UITheme.SKEW, 8.0 if on else 6.0)
-		draw_ball(self, r.position + Vector2(36, r.size.y * 0.5), 12.0, "ok")
-		UITheme.text_mid(self, r.position + Vector2(58, r.size.y * 0.5), "BALL", "display", 28, Color(UITheme.INK if on else UITheme.TEXT, ap))
-		if on and UIInput.device != "touch": UITheme.glyph(self, Vector2(r.end.x - 30, r.get_center().y), "use", 24.0, ap)
 	for i in 4:
 		var r := menu_rect(i)
 		r.position.x += (1.0 - ap) * (40.0 + i * 10.0)
@@ -901,6 +1053,6 @@ func _menu() -> void:
 			var qt := "%d QUEUED" % qn
 			UITheme.chip(self, Vector2(r.position.x + 14.0, r.position.y - 12.0), qt, UITheme.YELLOW, UITheme.INK, 12, 20.0, ap)
 	# the turn's prompt over the menu
-	var mr := menu_rect(BALL if ball_on else 0)
+	var mr := menu_rect(0)
 	var who := String(battle.fighter("a").name).to_upper()
 	UITheme.text(self, Vector2(mr.position.x + 6.0, mr.position.y - 12.0), "WHAT WILL %s DO?" % who, "heading", 18, Color(UITheme.TEXT, ap), 0, -1.0, 4)

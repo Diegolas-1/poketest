@@ -27,6 +27,8 @@ extends RefCounted
 #     until B.over                      # B.outcome: won | lost | fled | blown_away | wild_fled | caught
 #   B.finish()                          # each side's after_battle (persistence, warm-up, faint)
 # Other: B.flee("a") -> bool, B.use_item("a", id), B.throw_ball("a", ball) -> event (ball | ball_blocked),
+# the bag (battle_config bag): B.item_refusal("a", id, f) -> "" | why, B.use_bag("a", id, f) -> events
+# (item_used, then healed | cured | charged; f: one of the side's, its own by default),
 # B.fighter(side), B.order_fn
 # (the action ordering: a Callable(battle, queues) -> [[side, action]],
 # default PkmnBattle.speed_interleave; swap it to change the turn order).
@@ -1097,6 +1099,61 @@ func throw_ball(s: String, ball: String, force := {}) -> Dictionary:
 	return _ev({"t": "ball", "side": s, "ball": ball, "caught": r.caught, "wobbles": int(r.wobbles), "species": tg.species, "level": tg.level,
 		"hp": tg.hp, "max_hp": tg.max_hp, "status": tg.status,
 		"text": CatchRules.line("caught", {"NAME": nm}) if r.caught else CatchRules.break_line(int(r.wobbles), nm), "throw": CatchRules.line("throw", {"BALL": bn.to_upper()})})
+
+# ---------- the bag (battle_config bag: medicine, the energy items) ----------
+static func bag_item(id: String) -> Dictionary:
+	var M: Dictionary = BattleConfig.sect("bag").get("medicine", {})
+	if M.get(id) is Dictionary: return M[id]
+	var I = BattleEnergy.items().get(id)
+	return I if I is Dictionary and id in BattleConfig.sect("bag").get("battle", []) else {}
+
+static func bag_line(k: String, vars := {}) -> String:
+	var s := String(BattleConfig.sect("bag").get("lines", {}).get(k, k))
+	for v in vars: s = s.replace("{" + String(v) + "}", str(vars[v]))
+	return s
+
+# why an item would do nothing now ("" when it would work)
+func item_refusal(s: String, id: String, f: Fighter = null) -> String:
+	if f == null: f = F[s]
+	var it := bag_item(id)
+	if it.is_empty() or over or f.fainted(): return bag_line("no_effect")
+	if it.has("heal") and f.hp >= f.max_hp: return bag_line("no_effect")
+	if it.has("cure") and f.status != String(it.cure): return bag_line("no_effect")
+	var e: BattleEnergy = f.e
+	if it.has("chips") or it.has("restore"):
+		if e.held() + e.pending >= e.chip_cap(): return bag_line("no_effect")
+	elif it.has("focus") or it.has("focus_to"):
+		if e.focus >= e.fmax() - 0.001: return bag_line("no_effect")
+	return ""
+
+# an item from the bag on one of the side's (its turn: the caller ends it)
+func use_bag(s: String, id: String, f: Fighter = null) -> Array:
+	if f == null: f = F[s]
+	var out := []
+	if item_refusal(s, id, f) != "": return out
+	var it := bag_item(id)
+	var nm := f.name.to_upper()
+	var base := {"side": s, "item": id, "target": f.name}
+	if self is PkmnDoubles: base["place"] = (self as PkmnDoubles).place_of(f)
+	var ev := base.duplicate()
+	ev.merge({"t": "item_used", "text": bag_line("used", {"ITEM": String(it.get("name", id)).to_upper()})})
+	out.append(_ev(ev))
+	var r := base.duplicate()
+	if it.has("heal"):
+		var was := f.hp
+		f.hp = mini(f.max_hp, f.hp + int(it.heal))
+		r.merge({"t": "healed", "n": f.hp - was, "hp": f.hp, "max_hp": f.max_hp, "text": bag_line("healed", {"NAME": nm, "N": f.hp - was})})
+	elif it.has("cure"):
+		f.status = ""
+		f.para_turn = -1
+		r.merge({"t": "cured", "status": String(it.cure), "text": bag_line("cured", {"NAME": nm})})
+	else:
+		var before := f.e.focus
+		var n: int = f.e.use_item(id)
+		var line := bag_line("chips", {"NAME": nm, "N": n, "S": "" if n == 1 else "s"}) if n > 0 else bag_line("focus", {"NAME": nm})
+		r.merge({"t": "charged", "n": n, "focus": f.e.focus - before, "text": line})
+	out.append(_ev(r))
+	return out
 
 # persistence: each side's after_battle (the player's warm-up, a faint to zero)
 func finish() -> void:
