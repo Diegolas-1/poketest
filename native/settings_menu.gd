@@ -75,7 +75,40 @@ func open(pad := false) -> void:
 	tw.tween_property(panel, "modulate:a", 1.0, UITheme.FAST)
 	tw.tween_property(dim, "modulate:a", 1.0, UITheme.BASE)
 
+# the face tool (ui/face_tool_ui.gd) in the menu's place: the V2 model's eyes and mouth
+# moved and sized on him, live; Close brings the menu back
+var face_tool: FaceToolUI = null
+func _face_tool() -> void:
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_top", 10)
+	m.add_theme_constant_override("margin_left", 16)
+	m.add_theme_constant_override("margin_bottom", 10)
+	list.add_child(m)
+	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 6); m.add_child(box)
+	var b := UIButton.new()
+	b.text = "Place Ash's face"
+	b.variant = "secondary"
+	b.font_size = 20
+	b.custom_minimum_size = Vector2(320, 54)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.pressed.connect(func():
+		Sfx.ui("ui_confirm")
+		face_tool = FaceToolUI.new()
+		root.add_child(face_tool)
+		panel.visible = false
+		face_tool.closed.connect(func():
+			if is_instance_valid(face_tool): face_tool.queue_free()
+			face_tool = null
+			panel.visible = true))
+	box.add_child(b)
+	var hl := UITheme.label("the V2 model's eyes and mouth: where they sit on his head and how big, saved on this phone", "body", 16, UITheme.TEXT_DIM)
+	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(hl)
+
 func close() -> void:
+	if is_instance_valid(face_tool): face_tool.queue_free()
+	face_tool = null
+	panel.visible = true
 	if not root.visible: return
 	root.visible = false
 	Sfx.ui("ui_menu_close")
@@ -206,6 +239,7 @@ func _fill() -> void:
 	for r in Settings.ROWS[tab]:
 		_row(r[0], r[1], r[2], r[3])
 	if tab == "TV": _tv()
+	if tab == "World": _face_tool()
 	if tab == "Controls": _legend()
 	if tab == "Updates": _updates()
 	if tab == "Audio": _audio_credits()

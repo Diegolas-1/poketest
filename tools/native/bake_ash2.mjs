@@ -45,6 +45,7 @@ const SRC = process.argv[2];
 if (!SRC) { console.error('usage: bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000]'); process.exit(1); }
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const TRIS = +arg('tris', 20000);
+const HEAD_SCALE = +arg('head', 0.93);   // the model's head shrunk about its centre (the hair, cap and face follow)
 const GLB = SRC.endsWith('.glb') ? SRC : path.join(SRC, 'base_basic_pbr.glb');
 
 // the rig's joints -> the game's bone names (actor.gd and friends)
@@ -288,8 +289,18 @@ for (let i = 0; i < NV; i++) if (isSkin(rgbAt(uv[i * 2], uv[i * 2 + 1]))) skinV[
 
 // ---------- the head: the model's own, measured; the old hair and cap scaled to it ----------
 const neckY = new THREE.Vector3().setFromMatrixPosition(restOf('Neck')).y;
-const headPts = []; for (let i = 0; i < NV; i++) if (skinV[i] && pos[i * 3 + 1] > neckY + 0.085) headPts.push(new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]));
-const head = sphereFit(headPts);
+const headOf = () => { const pts = []; for (let i = 0; i < NV; i++) if (skinV[i] && pos[i * 3 + 1] > neckY + 0.085) pts.push(new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2])); return sphereFit(pts); };
+if (HEAD_SCALE !== 1) {   // the head drawn toward its centre, easing in up the neck
+  const c0 = headOf().c;
+  for (let i = 0; i < NV; i++) {
+    if (!skinV[i]) continue;
+    const y = pos[i * 3 + 1], t = Math.max(0, Math.min(1, (y - (neckY + 0.015)) / 0.06)), w = t * t * (3 - 2 * t);
+    const k = 1 - w * (1 - HEAD_SCALE);
+    pos[i * 3] = c0.x + (pos[i * 3] - c0.x) * k; pos[i * 3 + 1] = c0.y + (y - c0.y) * k; pos[i * 3 + 2] = c0.z + (pos[i * 3 + 2] - c0.z) * k;
+  }
+  log('head scaled', HEAD_SCALE, 'about', c0.toArray().map((x) => x.toFixed(3)).join(','));
+}
+const head = headOf();
 const kHead = head.r / oldHead.r;
 // the old head's things onto the new one: scaled about its centre, moved to the new centre
 const onHead = (p) => p.clone().sub(oldHead.c).multiplyScalar(kHead).add(head.c);

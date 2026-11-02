@@ -60,6 +60,16 @@ var rest_pos: Array[Vector3] = []
 var idles: IdleActions
 var eyes: ShaderMaterial
 var face_mats := {}      # face decal key ("eyes", "mouth") -> {mat, grid}: the V2 look's decals (set_face)
+# the face placement saved on this device (ui/face_tool_ui.gd, user://face.json): over the look's
+static var _face_dev = null
+static func face_dev() -> Dictionary:
+	if _face_dev == null:
+		_face_dev = {}
+		if FileAccess.file_exists("user://face.json"):
+			var j = JSON.parse_string(FileAccess.get_file_as_string("user://face.json"))
+			if j is Dictionary: _face_dev = j
+	return _face_dev
+static func face_dev_changed() -> void: _face_dev = null
 var face_cell := Vector2.ZERO   # the eyes' expression: its atlas cell's uv offset (set_expression)
 var meshes: Array[MeshInstance3D] = []
 var mat_src := {}           # ShaderMaterial -> its cast.json material name (body.gd: the wet look per material)
@@ -291,7 +301,7 @@ func _materials(root: Node, mats: Array, face: Dictionary = {}) -> void:
 				var g: Array = info.grid
 				m.set_shader_parameter("uv_pivot", Vector2(0.5 / float(g[0]), 0.5 / float(g[1])))
 				face_mats[info.face] = {"mat": m, "grid": g}
-				var pl = face.get(info.face, {})
+				var pl = face_dev().get(info.face, face.get(info.face, {}))
 				set_face(info.face, float(pl.get("x", 0.0)), float(pl.get("y", 0.0)), float(pl.get("scale", 1.0)))
 			mat_src[m] = String(info.get("src", nm)) + ("|eyes" if info.get("eyes", false) else "")
 			if not info.get("shadow", true): shadow = false
