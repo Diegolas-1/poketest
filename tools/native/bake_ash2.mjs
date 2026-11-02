@@ -29,7 +29,7 @@
 //   - the old hair, cap, hair spikes and cap logo ride along, scaled to the new head
 //     with their hair-chain and cap bones grafted under its Head.
 //
-//   node tools/native/bake_ash2.mjs <dir with base_basic_pbr.glb> [--look=ash2|ash3] [--tris=20000] [--head=0.88]
+//   node tools/native/bake_ash2.mjs <dir with base_basic_pbr.glb> [--look=ash2|ash3] [--tris=20000] [--head=0.88] [--height=0.9]
 //       [--clips-from=<the V2's base_basic_pbr.glb>]   (a model without clips of its own)
 //       [--texture=<cleaned png>]   (the colour texture cleaned by tools/native/clean_texture.mjs)
 //   (the model's zip unpacked into web/world/local/ash2/, say: local/ stays on this
@@ -55,13 +55,16 @@ const LOOK = arg('look', 'ash2');
 // cap and face follow), the old look's hair, cap, spikes and logo brought over (keep) with
 // their hair-chain and cap bones grafted under the Head (graft; the hair's cloth chains
 // come with them); the V3 has its own hat and hair, so none of that
+// height: the whole model over the neck-matched size (the generated bodies stand as tall
+// as the grown-ups at the old rig's neck height; a kid should not)
 const LOOKS = {
-  ash2: { head: 0.88, keep: ['hair01_on', 'hathun', 'ash_extra', 'ash_logo'], graft: ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'], root: 'AshV2' },
-  ash3: { head: 1.0, keep: [], graft: [], root: 'AshV3' },
+  ash2: { head: 0.88, height: 1.0, keep: ['hair01_on', 'hathun', 'ash_extra', 'ash_logo'], graft: ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'], root: 'AshV2' },
+  ash3: { head: 0.88, height: 0.9, keep: [], graft: [], root: 'AshV3' },
 };
 if (!LOOKS[LOOK]) { console.error(`unknown look ${LOOK} (one of ${Object.keys(LOOKS).join(', ')})`); process.exit(1); }
 const CFG = LOOKS[LOOK];
 const HEAD_SCALE = +arg('head', CFG.head);
+const HEIGHT = +arg('height', CFG.height);   // the whole model, over the neck-matched size
 const CLIPS_FROM = arg('clips-from', '');   // a glTF of the same rig whose clips go onto this one, when it has none
 const TEXTURE = arg('texture', '');         // the model's colour texture from this file instead (tools/native/clean_texture.mjs)
 const GLB = SRC.endsWith('.glb') ? SRC : path.join(SRC, 'base_basic_pbr.glb');
@@ -134,8 +137,8 @@ const by = new Map(root.listNodes().map((n) => [n.getName(), n]));
 const hips = by.get('Hips');
 if (!hips) throw new Error('no Hips joint');
 const world = (n) => new THREE.Matrix4().fromArray(n.getWorldMatrix());
-const S = NECK_Y / new THREE.Vector3().setFromMatrixPosition(world(by.get('Neck'))).y;
-log('scale', S.toFixed(4), '(neck to', NECK_Y.toFixed(4) + ')');
+const S = NECK_Y / new THREE.Vector3().setFromMatrixPosition(world(by.get('Neck'))).y * HEIGHT;
+log('scale', S.toFixed(4), `(neck to ${NECK_Y.toFixed(4)}${HEIGHT !== 1 ? `, then ${HEIGHT} of that` : ''})`);
 const joints = []; (function walk(n) { joints.push(n); n.listChildren().forEach(walk); })(hips);
 for (const n of joints) n.setTranslation(n.getTranslation().map((x) => x * S));
 const meshNode = root.listNodes().find((n) => n.getMesh());
@@ -400,10 +403,10 @@ for (let i = 0; i < NV; i++) if (isSkin(rgbAt(uv[i * 2], uv[i * 2 + 1]))) skinV[
 // ---------- the head: the model's own, measured; the old hair and cap scaled to it ----------
 const neckY = new THREE.Vector3().setFromMatrixPosition(restOf('Neck')).y;
 const headOf = () => { const pts = []; for (let i = 0; i < NV; i++) if (skinV[i] && pos[i * 3 + 1] > neckY + 0.085) pts.push(new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2])); return sphereFit(pts); };
-if (HEAD_SCALE !== 1) {   // the head drawn toward its centre, easing in up the neck
+if (HEAD_SCALE !== 1) {   // the head drawn toward its centre, easing in up the neck (a model's own hair and cap with it)
   const c0 = headOf().c;
   for (let i = 0; i < NV; i++) {
-    if (!skinV[i]) continue;
+    if (!skinV[i] && KEEP.length) continue;   // (the V2's head alone: its hair and cap come scaled from the old look)
     const y = pos[i * 3 + 1], t = Math.max(0, Math.min(1, (y - (neckY + 0.015)) / 0.06)), w = t * t * (3 - 2 * t);
     const k = 1 - w * (1 - HEAD_SCALE);
     pos[i * 3] = c0.x + (pos[i * 3] - c0.x) * k; pos[i * 3 + 1] = c0.y + (y - c0.y) * k; pos[i * 3 + 2] = c0.z + (pos[i * 3 + 2] - c0.z) * k;
