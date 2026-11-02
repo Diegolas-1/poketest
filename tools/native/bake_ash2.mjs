@@ -65,8 +65,13 @@ const GAITS = ['walk', 'jog', 'sprint', 'sneak'];   // cut to one cycle (two ste
 const KEEP = ['hair01_on', 'hathun', 'ash_extra', 'ash_logo'];   // the old hair, cap, spikes and logo
 const FACE = ['face_on_1', 'face_on_0'];                          // the old face and its eye patch: drawn into the decal
 const HEAD_GRAFT = ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'];
-const ATLAS = [2048, 1024];   // the face decal: eyes open | eyes shut
+const ATLAS = [2048, 1024];   // the projected fallback atlas: eyes open | eyes shut
 const LIFT = 0.004;           // the decal this far off the head (model units)
+// the face drawn for this head (tools/native/ash2_face.py from its expression sheets):
+// eight cells, four by two, each the head's front two radii wide in the projection's
+// frame; the game shows the first, its blink the third (half a texture to the right)
+const FACE_PNG = arg('face', path.join(ROOT, 'tools/native/ash2_face/atlas.png'));
+const FACE_GRID = [4, 2];
 // where the face sits on the new head, in head radii: the eyes' centre line this far below
 // the head sphere's centre, and the features this big (the old round head had them at
 // 1.0; this head's jaw is long and its fringe hangs low, so they go smaller and lower).
@@ -410,7 +415,9 @@ async function faceAtlas() {
   }
   return sharp(out, { raw: { width: W, height: H, channels: 4 } }).png({ compressionLevel: 9 }).toBuffer();
 }
-const facePng = await faceAtlas();
+const drawn = FACE_PNG !== 'none' && fs.existsSync(FACE_PNG);
+const facePng = drawn ? fs.readFileSync(FACE_PNG) : await faceAtlas();
+log(drawn ? `face: the drawn atlas ${path.relative(ROOT, FACE_PNG)}` : 'face: projected from the old face');
 
 // ---------- the materials and meshes ----------
 const mats = [];
@@ -452,8 +459,11 @@ for (const [tris, name, celSrc] of [[cloth, 'ash2_body', 'topsjer'], [skinI, 'as
 modelRoot.addChild(doc.createNode('ash2_body').setMesh(bodyMesh).setSkin(skin));
 // the face decal: the head's front triangles again, with the frontal projection's UVs
 {
-  const fr = head.r * FACE_R, fcy = head.c.y + EYE_Y * head.r - EYE_V * fr;
-  log('face: eyes at', (head.c.y + EYE_Y * head.r).toFixed(3), 'mouth at', (fcy - 0.68 * fr).toFixed(3), 'features', FACE_R, 'of the head radius');
+  // the drawn atlas is authored in head radii about the sphere's centre; the projected
+  // fallback is set by EYE_Y / FACE_R
+  const fr = drawn ? head.r : head.r * FACE_R, fcy = drawn ? head.c.y : head.c.y + EYE_Y * head.r - EYE_V * fr;
+  const [gx, gy] = drawn ? FACE_GRID : [2, 1];
+  if (!drawn) log('face: eyes at', (head.c.y + EYE_Y * head.r).toFixed(3), 'mouth at', (fcy - 0.68 * fr).toFixed(3), 'features', FACE_R, 'of the head radius');
   const fu = (i) => (pos[i * 3] - head.c.x) / fr, fv = (i) => (pos[i * 3 + 1] - fcy) / fr;
   const front = (i) => skinV[i] && pos[i * 3 + 1] > head.c.y - 1.1 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
   const map = new Map(), fp = [], fn = [], fuv = [], fj = [], fw = [], fi = [];
@@ -464,7 +474,7 @@ modelRoot.addChild(doc.createNode('ash2_body').setMesh(bodyMesh).setSkin(skin));
       if (!map.has(o)) {
         map.set(o, fp.length / 3);
         fp.push(pos[o * 3], pos[o * 3 + 1], pos[o * 3 + 2]); fn.push(nrm[o * 3], nrm[o * 3 + 1], nrm[o * 3 + 2]);
-        fuv.push((0.5 + fu(o) / 2) * 0.5, 0.5 - fv(o) / 2);
+        fuv.push((0.5 + fu(o) / 2) / gx, (0.5 - fv(o) / 2) / gy);
         for (let k = 0; k < 4; k++) { fj.push(J0[o * 4 + k]); fw.push(W0[o * 4 + k]); }
       }
       fi.push(map.get(o));
