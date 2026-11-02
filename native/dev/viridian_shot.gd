@@ -48,6 +48,7 @@ func _ready() -> void:
 		elif a.begins_with("--views="): views = Array(a.substr(8).split(","))
 		elif a == "--stats": stats = true
 	if out != "": DirAccess.make_dir_recursive_absolute(out)
+	Settings.set_value("daynight", 1)   # (a dev machine may have it switched off)
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
 	for p in views:
@@ -93,6 +94,7 @@ func _process(dt: float) -> void:
 	c.real = false; c.ff = 1.0
 	c.set_time(fmod(float(jj[1]), 24.0), 1)
 	_place(jj[0])
+	main.daynight.enabled = true
 	main.daynight.force_update()
 	wait = 24
 	_times.clear()
