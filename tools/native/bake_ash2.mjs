@@ -31,6 +31,7 @@
 //
 //   node tools/native/bake_ash2.mjs <dir with base_basic_pbr.glb> [--look=ash2|ash3] [--tris=20000] [--head=0.88]
 //       [--clips-from=<the V2's base_basic_pbr.glb>]   (a model without clips of its own)
+//       [--texture=<cleaned png>]   (the colour texture cleaned by tools/native/clean_texture.mjs)
 //   (the model's zip unpacked into web/world/local/ash2/, say: local/ stays on this
 //   machine; npm install in tools/native first)
 //
@@ -62,6 +63,7 @@ if (!LOOKS[LOOK]) { console.error(`unknown look ${LOOK} (one of ${Object.keys(LO
 const CFG = LOOKS[LOOK];
 const HEAD_SCALE = +arg('head', CFG.head);
 const CLIPS_FROM = arg('clips-from', '');   // a glTF of the same rig whose clips go onto this one, when it has none
+const TEXTURE = arg('texture', '');         // the model's colour texture from this file instead (tools/native/clean_texture.mjs)
 const GLB = SRC.endsWith('.glb') ? SRC : path.join(SRC, 'base_basic_pbr.glb');
 
 // the rig's joints -> the game's bone names (actor.gd and friends)
@@ -374,8 +376,10 @@ const nrm = new Float32Array(NV * 3);
 }
 // the texture: skin or cloth under each vertex; the 1024 copy
 const texImg = prim.getMaterial().getBaseColorTexture();
-const texRaw = await sharp(Buffer.from(texImg.getImage())).raw().toBuffer({ resolveWithObject: true });
-const texPng = await sharp(Buffer.from(texImg.getImage())).resize(1024, 1024).png({ compressionLevel: 9 }).toBuffer();
+const texSrc = TEXTURE ? fs.readFileSync(TEXTURE) : Buffer.from(texImg.getImage());
+if (TEXTURE) log('texture from', path.relative(ROOT, TEXTURE));
+const texRaw = await sharp(texSrc).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+const texPng = await sharp(texSrc).removeAlpha().resize(1024, 1024).png({ compressionLevel: 9 }).toBuffer();
 const rgbAt = (u, v) => {
   const { width: W, height: H, channels: C } = texRaw.info;
   const x = Math.min(W - 1, Math.max(0, Math.floor(u * W))), y = Math.min(H - 1, Math.max(0, Math.floor(v * H)));
