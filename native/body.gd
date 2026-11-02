@@ -85,10 +85,20 @@ var DRIPS := T.num("body", "drips", 14.0)                  # drops a second soak
 
 func setup(g: Node, c: Node, a: CastActor, conditions: Conditions) -> void:
 	name = "AshBody"
-	game = g; cast = c; actor = a; cond = conditions
+	game = g; cast = c; cond = conditions
 	rng.randomize()
 	fx = WaterFx.new()
 	add_child(fx)
+	rebind(a)
+	stamina = clampf(float(cond.body.get("stamina", 1.0)), 0.0, 1.0)
+	wet_line = cond.strength("wet") * height
+	_apply_wet_look()
+	_apply_dirt()
+
+# his model: the one made at the start, or the other one when the settings swap it
+# (cast.gd): his height from its meshes, and its materials for the wet and the dirt
+func rebind(a: CastActor) -> void:
+	actor = a
 	# his height: the top of his meshes over his feet
 	var top := 0.0
 	for mi in a.meshes:
@@ -97,18 +107,21 @@ func setup(g: Node, c: Node, a: CastActor, conditions: Conditions) -> void:
 		top = maxf(top, (xf * bb).end.y)
 	if top > 0.8 and top < 3.0: height = top
 	# how much each material shows the wet: cloth and hair fully, the skin a little, the eyes not
+	_mats = []
 	for m in a.mat_src:
 		var src: String = a.mat_src[m]
 		var k := 1.0
 		if src.ends_with("|eyes"): k = 0.0
-		elif src.begins_with("face"): k = 0.15
+		elif src.begins_with("face") or src.ends_with("_skin"): k = 0.15
 		elif src.contains("logo"): k = 0.8
 		_mats.append([m, k])
 		m.set_shader_parameter("wet_k", k)
-	stamina = clampf(float(cond.body.get("stamina", 1.0)), 0.0, 1.0)
-	wet_line = cond.strength("wet") * height
-	_apply_wet_look()
-	_apply_dirt()
+	# (a swap: the new materials get the look the old ones had)
+	_wet_y_set = NAN
+	_dirt_set = -1.0
+	if cond:
+		_apply_wet_look()
+		_apply_dirt()
 
 # ---------- what main.gd asks ----------
 func depth_frac() -> float: return clampf(depth / DEEP, 0.0, 1.0)

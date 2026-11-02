@@ -20,7 +20,8 @@ extends Node
 # the fixed midday look), clock_hud, town_debug (clock.gd, life.gd), bike_assist / bike_goal / bike_cruise
 # (the road assist, its routing to the compass's goal, double-tap cruise: bike/assist.gd), auto_update
 # (updater.gd), music, music_vol (music.gd), sfx_vol, amb_vol, ui_sfx (sfx.gd), wild_peek
-# ("hidden" | "peek": a wild Pokémon in the tall grass shows only by the grass, or peeks out; wild/wild.gd).
+# ("hidden" | "peek": a wild Pokémon in the tall grass shows only by the grass, or peeks out; wild/wild.gd),
+# ash_model ("v1" | "v2": Ash's model, the original or the V2 body baked by tools/native/bake_ash2.mjs; cast.gd).
 #
 # Viewport-wide things (render scale, upscaler, anti-aliasing, frame cap,
 # shadow atlas size and filter, outlines through the Ink autoload) are applied
@@ -62,7 +63,7 @@ const EXTRA0 := {"fps": 1, "perf": 0, "face": "nintendo", "cam_speed": 1.0, "inv
 	"clock": "game", "day_len": 120, "daynight": 1, "clock_hud": 1, "town_debug": 0, "auto_update": 1,
 	"music": 1, "music_vol": 0.7, "sfx_vol": 0.8, "amb_vol": 0.7, "ui_sfx": 1,
 	"bike_assist": 1, "bike_goal": 1, "bike_cruise": 1,
-	"wild_peek": "hidden", "footprints": 1,
+	"wild_peek": "hidden", "footprints": 1, "ash_model": "v1",
 	"tv_margin": 3, "tv_fps": 60, "tv_res": 1080, "tv_debug": 0, "tv_preview": 1,
 	"ink_px": 1.1, "tv_ink_px": 2.0, "tv_aa": "msaa4", "tv_scale": 1.0,
 	"island": 1, "island_side": "left", "island_outline": 0, "island_dx": 0, "island_dy": 0, "island_w": 37, "island_h": 126}
@@ -103,6 +104,7 @@ const ROWS := {
 		["fog", "Haze distance", [0.6, 0.8, 1.0, 1.25, 1.5, 2.0], ""],
 		["wild_peek", "Pokémon in the grass", ["hidden", "peek"], "a wild Pokémon hiding in tall grass: only the grass gives it away, or it peeks out"],
 		["footprints", "Footprints", [0, 1], "tracks left in sand, dirt and mud; follow a fleeing Pokémon's"],
+		["ash_model", "Ash's model", ["v1", "v2"], "V2 is the new body model; its face and hair are still the old ones for now"],
 	],
 	"Controls": [
 		["face", "Face buttons", ["nintendo", "xbox"], "Switch / GameCube pads: A right"],
@@ -228,7 +230,7 @@ func step(key: String, values: Array, d: int) -> void:
 			for k in values.size():
 				if absf(float(values[k]) - float(v)) < absf(float(values[i]) - float(v)): i = k
 	var n := values.size()
-	if key in ["preset", "face", "upscale", "aa", "tv_aa", "clock", "island_side", "wild_peek", "tv_res"] or values == [0, 1]:
+	if key in ["preset", "face", "upscale", "aa", "tv_aa", "clock", "island_side", "wild_peek", "tv_res", "ash_model"] or values == [0, 1]:
 		i = (i + d + n) % n                      # choices wrap round
 	else:
 		i = clampi(i + d, 0, n - 1)
@@ -260,6 +262,7 @@ func fmt(key: String, v) -> String:
 		"island_side": return "Left" if v == "left" else "Right"
 		"tv_res": return "Auto" if str(v) == "auto" else "%dp" % int(v)
 		"wild_peek": return "Peeking (model visible)" if v == "peek" else "Hidden (grass only)"
+		"ash_model": return "V2 (new body)" if v == "v2" else "Original"
 		"island_dx", "island_dy", "island_w", "island_h": return "%d pt" % int(v)
 	if typeof(v) == TYPE_INT and (v == 0 or v == 1): return "On" if v == 1 else "Off"
 	return str(v)

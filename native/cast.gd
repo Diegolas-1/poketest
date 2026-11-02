@@ -63,8 +63,9 @@ func setup(g: Node3D) -> void:
 	_actions()
 	_test_init()
 	var d := CastActor.data()
-	player = CastActor.make("ash")
+	player = CastActor.make(player_look())
 	add_child(player)
+	Settings.changed.connect(_on_setting)
 	# the ground under him (sitting, and his cloth): the world's, or the interior's when inside
 	player.ground = func(x: float, z: float) -> float: return game.world.ash_ground(x, z)
 	for n in d.npcs:
@@ -307,6 +308,43 @@ func _residents_tick(dt: float) -> void:
 		for p in life.people:
 			if p.state == "inside" and String(p.inside) == h and not npcs.any(func(n): return n.get("person") == p): _resident_in(p)
 
+# ---------- his model ----------
+# Ash's model from the settings ("ash_model"): "ash", the original, or "ash2", the V2
+# body on the same rig (tools/native/bake_ash2.mjs)
+static func player_look() -> String:
+	return "ash2" if str(Settings.get_value("ash_model")) == "v2" else "ash"
+
+var _want_look := ""
+
+func _on_setting(key: String, _v) -> void:
+	if key == "ash_model": _want_look = player_look()
+
+# the model changed in the settings: a new actor in the old one's place and state, once
+# he is free (not riding, in a battle, talking or eating: those hold on to the actor)
+func _swap_player() -> void:
+	var look := _want_look
+	if player == null or player.look == look:
+		_want_look = ""
+		return
+	if bike.riding() or Battle.active or convo.busy() or meal.busy() or dialog.open: return
+	_want_look = ""
+	var old := player
+	var a := CastActor.make(look)
+	add_child(a)
+	a.ground = old.ground
+	a.position = old.position
+	a.rotation = old.rotation
+	a.visible = old.visible
+	a.crouch = old.crouch
+	a.crouch_w = old.crouch_w
+	a.tired = old.tired
+	a.limp = old.limp
+	a.look_yaw = old.look_yaw
+	a.cloth_far = old.cloth_far
+	player = a
+	body.rebind(a)
+	old.queue_free()
+
 # put the player on the ground at once (after a door: no fall from the old height)
 func land(y: float) -> void:
 	_air_y = y; vy = 0.0; ground = true
@@ -421,6 +459,7 @@ func _voice(n: Dictionary) -> void:
 # ---------- the frame ----------
 func update(dt: float) -> void:
 	ready_t += dt
+	if _want_look != "": _swap_player()
 	if _test != "": _test_step(dt)
 	var use := _pressed("use")
 	var jmp := _pressed("jump")

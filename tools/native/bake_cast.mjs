@@ -277,6 +277,11 @@ if (ONLY.length) {
   await b.close();
   process.exit(0);
 }
+// looks baked by other tools stay (ash2: bake_ash2.mjs, Ash's V2 body)
+if (fs.existsSync(path.join(OUT, 'cast.json'))) {
+  const old = JSON.parse(fs.readFileSync(path.join(OUT, 'cast.json'), 'utf8'));
+  for (const k of ['ash2']) if (old.looks[k] && !res.looks[k]) res.looks[k] = old.looks[k];
+}
 fs.writeFileSync(path.join(OUT, 'cast.json'), JSON.stringify(res));
 console.log('npcs', res.npcs.length, 'use', res.use.length);
 await b.close();

@@ -31,6 +31,9 @@ var cad_run := 0.0
 
 static var _data: Dictionary = {}
 static var _scenes: Dictionary = {}
+# Ash's looks: "ash" (the original model) and "ash2" (the V2 body on the same rig,
+# tools/native/bake_ash2.mjs); cast.gd makes the player from the settings' choice
+const ASH_LOOKS := ["ash", "ash2"]
 
 var look := ""
 var skel: Skeleton3D
@@ -235,7 +238,7 @@ func _build(look_name: String) -> void:
 	L = {"t": _rng.randf() * 20.0, "yaw": 0.0, "pitch": 0.0, "vy": 0.0, "vp": 0.0, "ty": 0.0, "tp": 0.0,
 		"look": 2.0 + _rng.randf() * 3.0, "side": -1.0 if _rng.randf() < 0.5 else 1.0, "cp": 0.0, "swap": 15.0 + _rng.randf() * 15.0}
 	L.cp = L.side
-	idles = IdleActions.new(self, look != "ash", look == "ash")
+	idles = IdleActions.new(self, not is_ash(), is_ash())
 	cloth = ClothSim.make(self)
 
 func _materials(root: Node, mats: Array) -> void:
@@ -280,6 +283,9 @@ func _materials(root: Node, mats: Array) -> void:
 		if not shadow: m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 # ---------- helpers ----------
+func is_ash() -> bool:
+	return look in ASH_LOOKS
+
 static func _sm(a: float, b: float, x: float) -> float:
 	var t := clampf((x - a) / (b - a), 0.0, 1.0)
 	return t * t * (3.0 - 2.0 * t)
