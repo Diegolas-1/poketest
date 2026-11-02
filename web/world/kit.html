@@ -15,6 +15,7 @@ import * as O from './props/outdoor.js';
 import * as B from './props/buildings.js';
 import * as FA from './props/farm.js';
 import * as BO from './props/boats.js';
+import * as VR from './props/viridian.js';
 import { buildProp } from './props/index.js';
 import { CATALOG } from './props/catalog.js';
 const q = new URLSearchParams(location.search);
@@ -31,7 +32,7 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI
 ground.receiveShadow = true; scene.add(ground); ground.userData.outline = 'ground';
 const ink = createOutline(r, { scale: 1 }); if (q.get('ink') === '0') ink.enabled = false;
 const flat0 = () => 0;
-const G = new THREE.Group(); scene.add(G);
+const G = new THREE.Group(); scene.add(G); window.__kitG = G;   // (tools/native/bake_prop.mjs reads it)
 const put = (o, x, z, ry = 0, y = 0) => { o.position.set(x, y, z); o.rotation.y = ry; G.add(o); return o; };
 const SCENES = {
   crops: () => {
@@ -73,6 +74,7 @@ SCENES.catalog_outdoor = () => {
 };
 for (const [k, f] of Object.entries(B.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
 for (const [k, f] of Object.entries(BO.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
+for (const [k, f] of Object.entries(VR.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
 for (const [k, f] of Object.entries(FA.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
 for (const [k, f] of Object.entries(O.PREVIEW || {})) SCENES[k] = f.bind(null, G, put);
 const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 2000);
