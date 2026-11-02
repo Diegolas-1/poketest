@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://50cgvnxlxi5j"
-path="res://.godot/imported/ash2_3.png-2e32ee9044a05ae417119cf643c1740e.ctex"
+uid="uid://cx6k2jpvgwoxa"
+path="res://.godot/imported/ash2_face_on_0.png-4b2108d7efa8679fc5d69af138d2afc4.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "60d8d49d95044a199f8b3302364daf96"
+"md5": "a348362d82ebf567a319e29ab8f544a9"
 }
 
 [deps]
 
-source_file="res://cast/ash2_3.png"
-dest_files=["res://.godot/imported/ash2_3.png-2e32ee9044a05ae417119cf643c1740e.ctex"]
+source_file="res://cast/ash2_face_on_0.png"
+dest_files=["res://.godot/imported/ash2_face_on_0.png-4b2108d7efa8679fc5d69af138d2afc4.ctex"]
 
 [params]
 

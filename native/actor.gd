@@ -191,6 +191,10 @@ func _build(look_name: String) -> void:
 	var ap: AnimationPlayer = root.find_child("AnimationPlayer", true, false)
 	for an in ["idle", "walk", "run"]:
 		anims[an] = ap.get_animation(an)
+	# a fourth gait (the V2 look's realistic clips: walk, run and sprint at their own paces)
+	if ap.has_animation("sprint"):
+		anims.sprint = ap.get_animation("sprint")
+		w.sprint = 0.0
 	# the clips are sampled by hand; the player itself is not needed
 	ap.get_parent().remove_child(ap)
 	ap.free()
@@ -326,15 +330,35 @@ func animate(dt: float, speed: float, air: bool) -> void:
 func _clips(dt: float, speed: float, air: bool) -> void:
 	var dW: float = anims.walk.length
 	var dR: float = anims.run.length
+	var has_sp: bool = anims.has("sprint")
+	var dS: float = anims.sprint.length if has_sp else dR
 	var loco := _sm(0.05, 0.7, speed)
-	var rb := _sm(walk_v * 1.05, walk_v + (run_v - walk_v) * 0.7, speed)
-	var tw := {"idle": 1.0 - loco, "walk": loco * (1.0 - rb), "run": loco * rb}
+	# the walk -> run crossfade: the actor's walk_v / run_v (the chibi clips are styled for
+	# them); clips that know their own pace (meta.<clip>.v: the V2 look's realistic ones)
+	# cross between the walk's and a little under the run's, so each plays near its own
+	# tempo; a sprint clip then takes over from the run over walk_v / run_v
+	var rb: float
+	var sp := 0.0
+	if meta.walk.has("v"):
+		rb = _sm(float(meta.walk.v) * 1.1, float(meta.run.v) * 0.8, speed)
+		if has_sp: sp = _sm(walk_v * 1.05, walk_v + (run_v - walk_v) * 0.7, speed)
+	else:
+		rb = _sm(walk_v * 1.05, walk_v + (run_v - walk_v) * 0.7, speed)
+	var tw := {"idle": 1.0 - loco, "walk": loco * (1.0 - rb), "run": loco * rb * (1.0 - sp)}
+	if has_sp: tw.sprint = loco * rb * sp
 	var e := 1.0 - exp(-dt * 10.0)
 	for n in tw: w[n] += (tw[n] - w[n]) * e
 	var sw: float = float(meta.walk.stride)
 	var sr: float = float(meta.run.stride)
-	var stride := lerpf(sw, sr, w.run / maxf(1e-3, w.walk + w.run)) * k
-	var tempo := lerpf(1.0 / dW, 1.0 / dR, rb)
+	var ss: float = float(meta.sprint.stride) if has_sp else sr
+	var wsp: float = w.get("sprint", 0.0)
+	var gw: float = w.walk + w.run + wsp
+	var stride := sw
+	var tempo := 1.0 / dW
+	if gw > 1e-3:
+		stride = (sw * w.walk + sr * w.run + ss * wsp) / gw
+		tempo = (w.walk / dW + w.run / dR + wsp / dS) / gw
+	stride *= k
 	var cad := lerpf(cad_walk, cad_run, rb)
 	gait = clampf(maxf(speed, 0.8) / (cad * stride), 0.35, 1.0) if cad > 0.0 else 1.0
 	# the crouch: eased in and out (a critically damped spring), and its own step rate
@@ -353,6 +377,7 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 			Footprints.person(self, half)   # (a print where the foot comes down, on soft ground)
 	idle_t = fmod(idle_t + dt, float(anims.idle.length))
 	var times := {"idle": idle_t, "walk": fmod(phase + float(meta.walk.lead), 1.0) * dW, "run": fmod(phase + float(meta.run.lead), 1.0) * dR}
+	if has_sp: times.sprint = fmod(phase + float(meta.sprint.lead), 1.0) * dS
 	# blended clip pose (weights add to one; a clip without a track holds the rest pose)
 	var wi: float = w.idle
 	var ww: float = w.walk
@@ -360,12 +385,15 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var Ai: Animation = anims.idle
 	var Aw: Animation = anims.walk
 	var Ar: Animation = anims.run
+	var As: Animation = anims.sprint if has_sp else anims.run
 	var ti: float = times.idle
 	var tw2: float = times.walk
 	var tr2: float = times.run
+	var ts2: float = times.sprint if has_sp else 0.0
 	var ki: PackedInt32Array = trk.idle
 	var kw: PackedInt32Array = trk.walk
 	var kr: PackedInt32Array = trk.run
+	var ks: PackedInt32Array = trk.sprint if has_sp else trk.run
 	for j in used.size():
 		var bi := used[j]
 		var rq := rest_q[bi]
@@ -383,6 +411,11 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 			if gait < 1.0: r2 = still.slerp(r2, gait)
 			if acc.dot(r2) < 0.0: r2 = -r2
 			acc += r2 * wr
+		if wsp > 0.001:
+			var r3: Quaternion = As.rotation_track_interpolate(ks[j], ts2) if ks[j] >= 0 else rq
+			if gait < 1.0: r3 = still.slerp(r3, gait)
+			if acc.dot(r3) < 0.0: r3 = -r3
+			acc += r3 * wsp
 		q[bi] = acc.normalized() if acc.length_squared() > 1e-8 else rq
 	if waist >= 0:
 		var p := Vector3.ZERO
@@ -410,7 +443,7 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	if wwk > 0.001:
 		for s in [["L", 1.0], ["R", -1.0]]:
 			bend(s[0] + "Thigh", 0, 0, 1, s[1] * 0.05 * wwk); bend(s[0] + "Foot", 0, 0, 1, -s[1] * 0.05 * wwk)
-	var wa: float = (w.walk * 0.06 + w.run * 0.08) * (1.0 - air_w)
+	var wa: float = (w.walk * 0.06 + (w.run + w.get("sprint", 0.0)) * 0.08) * (1.0 - air_w)
 	if wa > 0.001:
 		for s in [["L", 1.0], ["R", -1.0]]: bend(s[0] + "ArmA", 0, 0, 1, s[1] * wa)
 	if tired > 0.001: _tired(speed)
@@ -485,7 +518,7 @@ func _idle_life(dt: float, wI: float, wP: float) -> void:
 # again quickly: the trunk tips to the left over the good leg, the hip drops, the
 # sore knee kept stiffer, the head bobbing down with the hitch
 func _limp() -> void:
-	var lk := limp * clampf(w.walk + w.run * 0.7, 0.0, 1.0) * (1.0 - air_w)
+	var lk := limp * clampf(w.walk + (w.run + w.get("sprint", 0.0)) * 0.7, 0.0, 1.0) * (1.0 - air_w)
 	if lk < 0.001: return
 	var sore := maxf(0.0, sin((phase - 0.5) * TAU))   # the right foot's stance
 	var good := maxf(0.0, sin(phase * TAU))

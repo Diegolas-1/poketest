@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dsnggcug3m5vv"
-path="res://.godot/imported/ash2_2.png-98bdc2ee8cacca87c29234b81a82f8bf.ctex"
+uid="uid://ct8ynnpwk1h52"
+path="res://.godot/imported/ash2_ash_logo.png-74aa131e4b8aa2c8f669dadd7bdacae6.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "8f067847ea04e3537550483f6d552932"
+"md5": "f0fe3cc979fd25de8b968f2ec8c48c4a"
 }
 
 [deps]
 
-source_file="res://cast/ash2_2.png"
-dest_files=["res://.godot/imported/ash2_2.png-98bdc2ee8cacca87c29234b81a82f8bf.ctex"]
+source_file="res://cast/ash2_ash_logo.png"
+dest_files=["res://.godot/imported/ash2_ash_logo.png-74aa131e4b8aa2c8f669dadd7bdacae6.ctex"]
 
 [params]
 

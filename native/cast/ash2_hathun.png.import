@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dc4q2bsscqops"
-path="res://.godot/imported/ash2_0.png-516cf26013c0db4c8a26cef27c504034.ctex"
+uid="uid://cchee67145p5w"
+path="res://.godot/imported/ash2_hathun.png-68343b95145a8abccded77ebbaab838e.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "3f0126a4211b64ba5f8a0abdb491b357"
+"md5": "60d8d49d95044a199f8b3302364daf96"
 }
 
 [deps]
 
-source_file="res://cast/ash2_0.png"
-dest_files=["res://.godot/imported/ash2_0.png-516cf26013c0db4c8a26cef27c504034.ctex"]
+source_file="res://cast/ash2_hathun.png"
+dest_files=["res://.godot/imported/ash2_hathun.png-68343b95145a8abccded77ebbaab838e.ctex"]
 
 [params]
 
