@@ -28,6 +28,7 @@ The player (without any ROM) is published to GitHub Pages, from the `gh-pages` b
 - `town.js` Red's and Blue's cottages, Oak's hilltop lab, fences, signs, lamps and the dock, with painted textures and ink outlines.
 - `terrain.js` ground, roads, the pond, the sea, Oak's hill and its stairs; `nature.js` sky, clouds and the painted mountains.
 - `main.js` the player, camera, collisions, villagers, dialog and Oak stopping you at the tall grass.
+- `viridian.js` (layout and land: the valley, the crater lake, the cutting, the walkable streets), `viridian_city.js` (what stands on it: paving, the Old Town, downtown's tower kit, the terraces, the lining of every street edge, the gates) and `viridian_spots.js` (the pads of the Center and the Gym, and the places the story needs): Viridian City past Route 1's gate.
 - `foliage.html` and `oldtree.html` (`?ink=1` for outlines, `ink.js`) preview the plants on their own.
 
 ## HD-2D (work in progress)

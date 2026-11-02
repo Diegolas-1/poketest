@@ -136,15 +136,17 @@ function slopes(x, z) {
   if (e < 0.74) return 0;
   // terraces: a rising band in steps (each a level street of houses)
   const t = smooth(0.74, 1.04, e) * 34, step = 4.2, k = Math.floor(t / step), f = t / step - k;
-  let h = k * step + step * smooth(0.62, 0.95, f);
+  let h = k * step + step * smooth(0.45, 0.97, f);
   // Route 1's pass: the rim is lower where the road comes over it
   h *= 1 - 0.55 * (1 - smooth(50, 170, Math.abs(x - 5))) * smooth(-600, -500, z);
   h += (fbm2(x * 0.02 + 2, z * 0.02 - 5, 3) - 0.5) * 6 * smooth(0.8, 1.0, e);
   // the mountains: rounded, then craggy summits
-  const m = smooth(0.98, 1.32, e) * (1 - 0.55 * smooth(1.4, 1.9, e));   // (the ridge line inside the terrain's edge)
+  // (slopes kept under ~35 degrees: green and wooded, not bare earth; the
+  // ridge line inside the terrain's edge)
+  const m = smooth(0.95, 1.6, e) * (1 - 0.5 * smooth(1.65, 2.0, e));
   if (m > 0) {
     const n = fbm2(x * 0.0065 + 11, z * 0.0065 + 3, 5), r = Math.abs(fbm2(x * 0.018 - 7, z * 0.018 + 1, 3) - 0.5) * 2;
-    h += m * (55 + n * 210 + (1 - r) * 40 * m);
+    h += m * (40 + n * 160 + (1 - r) * 25 * m);
   }
   return h;
 }
@@ -157,7 +159,7 @@ function cutting(x, z, h) {
   // cut through with steep sides (the cliffs come from the walk edge)
   const steep = smooth(-466, -480, z);
   const w0 = CUT.hw + 0.4, w1 = lerp(CUT.hw + 7, CUT.hw + 1.6, steep);
-  return lerp(c.y, h, smooth(w0, w1, c.d));
+  return lerp(h, lerp(c.y, h, smooth(w0, w1, c.d)), smooth(-447, -453, z));
 }
 // the crater lake: a round basin with a stone quay on the city side
 export function lakeDepth(x, z) {
@@ -166,11 +168,13 @@ export function lakeDepth(x, z) {
 }
 function lake(x, z, h) {
   const d = Math.hypot(x - LAKE.x, z - LAKE.z);
-  if (d > LAKE.r + 14) return h;
+  if (d > LAKE.r + 60) return h;
   const R = LAKE.r + (vnoise(Math.atan2(z - LAKE.z, x - LAKE.x) * 3 + 9, 3) - 0.5) * 5;
   if (d < R) return Math.min(h, LAKE.y - 1.2 - LAKE.bed * smooth(R - 3, R - 60, d));
-  // the shore: a steep bank up out of the water (the east quay is built over it)
-  return Math.min(h, lerp(LAKE.y - 1.2, Math.max(h, LAKE.y + 0.8), smooth(R, R + 6, d)));
+  // the shore: a steep bank up out of the water on the city side (the quay is
+  // built over it), a long green slope up to the mountains on the far side
+  const bw = 6 + 50 * smooth(0.62, 0.95, bowlE(x, z));
+  return Math.min(h, lerp(LAKE.y - 1.2, Math.max(h, LAKE.y + 0.8), smooth(R, R + bw, d)));
 }
 // pads: level at their own height, the land easing back to its own
 function pads(x, z, h) {
@@ -196,7 +200,8 @@ export function land(x, z, legacy) {
   }
   // the ridge the road cuts through, just north of the gate's woods
   // (a plateau from -462 to -490 the road cuts deep into, falling away north of the crest)
-  if (z < -440 && z > -540) h += 15 * smooth(-440, -462, z) * smooth(-506, -490, z) * (0.8 + 0.4 * vnoise(x * 0.04 + 3, 7));
+  // (nothing changes south of -447: Route 1's edges and plants were seeded on the land as it was)
+  if (z < -447 && z > -540) h += 15 * smooth(-448, -466, z) * smooth(-506, -490, z) * (0.8 + 0.4 * vnoise(x * 0.04 + 3, 7));
   h = lake(x, z, h);
   h = pads(x, z, h);
   h = streetsLevel(x, z, h);
@@ -226,7 +231,7 @@ export const walkable = (x, z) => walkF(x, z) < 0;
 // the cutting's, its own lining, its own plants)
 export const inCityZone = (x, z) => z < CITY_Z;
 // the cutting's sides that are bare rock (terrain.js draws them as cliffs)
-export const cutRock = (x, z) => z < -466 && z > -508 && cutY(x, z).d < CUT.hw + 6;
+export const cutRock = (x, z) => z < -480 && z > -508 && cutY(x, z).d < CUT.hw + 6;
 // no grass on the paving, the pads, the lake's quay
 export function grassOff(x, z) {
   if (walkF(x, z) < 0.5) return true;

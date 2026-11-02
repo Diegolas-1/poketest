@@ -249,7 +249,7 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   // ferns along the cliffs: at their feet and over their tops, thick round the
   // falls (the rock itself keeps plants off: inCliff)
   for (const run of edgeRuns()) {
-    if (run.kind !== 'up') continue;
+    if (run.kind !== 'up' || run.src === 'city') continue;   // (Viridian's cutting: its own ferns, viridian_city.js)
     for (let i = 1; i < run.pts.length - 1; i += 2) {
       const [x0, z0] = run.pts[i], [nx, nz] = run.n[i];
       const wetK = FALLS.reduce((k, F) => Math.max(k, 1 - Math.min(1, Math.hypot(x0 - F.x, z0 - F.z) / 9)), 0);
@@ -316,7 +316,7 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   // forest past Route 2's gate, the slopes' gardens, planters; their own
   // models and random numbers (every plant above keeps its place)
   {
-    const V = cityPlants(makeTree, makeBush, makeClump, TILE, quality);
+    const V = cityPlants(makeTree, makeBush, makeClump, TILE);
     for (const [ms, list, kind] of V) {
       if (!list.length) continue;
       if (kind === 'tree' || kind === 'bush') sow(ms, [], (m) => { const imp = new Impostor(renderer, m, { size: lowQ ? (kind === 'tree' ? 96 : 40) : (kind === 'tree' ? 128 : 56), lights: L }); impostors.push(imp); return { chunk: kind === 'tree' ? 56 : 44, fade: kind === 'tree' ? [treeD - 4, treeD + 2] : [bushD - 4, bushD + 1], wind: 0, impostor: imp }; }, list);

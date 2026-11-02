@@ -1807,7 +1807,10 @@ function cellMerge(world) {
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
     c.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);
     const attrs = Object.keys(o.geometry.attributes).filter((k) => k !== 'color' || !bake).sort().join() + (o.geometry.index ? '#i' : '');
-    const key = `${Math.floor(c.x / CELL)},${Math.floor(c.z / CELL)}|${matKey(m, bake)}|${o.castShadow ? 1 : 0}${o.receiveShadow ? 1 : 0}|${o.renderOrder}|${mk}|${o.layers.mask}|${attrs}`;
+    // (Viridian City past the gate in bigger cells: a street of a city is many
+    // buildings, and it is mostly seen from afar)
+    const cs = c.z < -436 ? 96 : CELL;
+    const key = `${Math.floor(c.x / cs)},${Math.floor(c.z / cs)},${cs}|${matKey(m, bake)}|${o.castShadow ? 1 : 0}${o.receiveShadow ? 1 : 0}|${o.renderOrder}|${mk}|${o.layers.mask}|${attrs}`;
     if (!cells.has(key)) cells.set(key, { m: matFor(m, bake), bake, o, mk, list: [] });
     cells.get(key).list.push(o);
   }

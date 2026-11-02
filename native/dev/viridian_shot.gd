@@ -23,9 +23,9 @@ var _times: Array = []
 var _eye: Array = []
 # view: Ash at (x, z), camera yaw, pitch, distance; or eye + look (a fixed camera)
 const V := {
-	"reveal": {"pos": Vector2(1.6, -498.0), "yaw": PI, "pitch": 0.12, "dist": 6.0},
+	"reveal": {"pos": Vector2(1.6, -500.0), "yaw": 0.0, "pitch": 0.1, "dist": 6.5},
 	"reveal_wide": {"pos": Vector2(1.6, -498.0), "eye": Vector3(1.0, 31.5, -494.0), "look": Vector3(-20.0, 18.0, -680.0)},
-	"cutting": {"pos": Vector2(0.0, -478.0), "yaw": PI * 0.08, "pitch": 0.18, "dist": 7.5},
+	"cutting": {"pos": Vector2(0.0, -478.0), "yaw": 0.08, "pitch": 0.18, "dist": 7.5},
 	"plaza": {"pos": Vector2(9.0, -612.0), "yaw": 0.25, "pitch": 0.2, "dist": 9.0},
 	"avenue": {"pos": Vector2(40.0, -624.0), "yaw": -PI / 2 + 0.2, "pitch": 0.18, "dist": 8.0},
 	"lakeside": {"pos": Vector2(-128.0, -716.0), "yaw": 0.9, "pitch": 0.16, "dist": 8.0},
@@ -34,6 +34,9 @@ const V := {
 	"aerial": {"pos": Vector2(6.0, -590.0), "eye": Vector3(60.0, 150.0, -420.0), "look": Vector3(-20.0, 10.0, -740.0)},
 	"aerial_w": {"pos": Vector2(-128.0, -716.0), "eye": Vector3(-60.0, 110.0, -560.0), "look": Vector3(-200.0, 10.0, -760.0)},
 	"gate": {"pos": Vector2(-2.3, -425.0), "yaw": 0.0, "pitch": 0.2, "dist": 7.5},
+	# references for the cost: Route 1 (the tall grass, the tea house) and Pallet's square
+	"route1": {"pos": Vector2(-10.0, -240.0), "yaw": 0.0, "pitch": 0.2, "dist": 7.5},
+	"pallet": {"pos": Vector2(-3.0, -2.0), "yaw": 2.6, "pitch": 0.22, "dist": 9.0},
 }
 
 func _ready() -> void:

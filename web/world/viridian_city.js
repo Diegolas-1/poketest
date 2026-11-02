@@ -236,7 +236,6 @@ export function viridianFill(world) {
   const G = world.group;
   const col = (c) => { c.ed = 1; world.colliders.push(c); return c; };   // (ed: the plants seeded before keep their places)
   const use = (x, z, label, lines, r = 1.3) => world.use.push({ x, z, r, label, lines });
-  const footY = (x, z, r) => { let m = Infinity; for (let a = 0; a < 8; a++) m = Math.min(m, height(x + Math.cos(a * 0.785) * r, z + Math.sin(a * 0.785) * r)); return Math.min(m, height(x, z)); };
   const place = (g, x, z, rot = 0, y = null) => { g.position.set(x, y ?? height(x, z), z); g.rotation.y = rot; G.add(g); return g; };
   const yawTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
   const vc = world.viridian = { buildings: [], trees: [], lamps: [] };
@@ -246,8 +245,8 @@ export function viridianFill(world) {
   lots(G, world, col, use, fronts);
   slopes(G, fronts);
   lining(G, world, col, fronts);
-  cutting(G, world, col, use, place, footY);
-  lakeside(G, world, col, use, place, yawTo);
+  cutting(G, world, col, use, place);
+  lakeside(G, world, col, use);
   gates(G, world, col, use, place);
   furniture(G, world, col, use, place, yawTo, vc);
   plantsPlan(fronts);
@@ -267,10 +266,12 @@ function paving(G) {
       groundMesh(P, ribbon(S.pts, -S.hw, S.hw, 0.04, 0.5, 1.5, yAt), flags, 'vc_pave_' + S.id);
       const rw = S.hw - 3.2;
       groundMesh(P, ribbon(S.pts, -rw, rw, 0.07, 0.25, 1.5, yAt), asphalt, 'vc_road_' + S.id);
-      // the kerbs: a darker stone line, a little proud
-      for (const s of [-1, 1]) groundMesh(P, ribbon(S.pts, s * rw - 0.15, s * rw + 0.15, 0.1, 0.5, 1.5, yAt), matCache('vc_kerb', () => O.flat('#cfc7b4')), 'vc_kerb');
+      // the kerbs: a darker stone line, a little proud (broken where another
+      // street's road or a round place crosses)
+      const other = (x, z) => VC.ROUNDS.some((R) => Math.hypot(x - R.x, z - R.z) < R.r + 0.5) || VC.STREETS.some((S2) => S2 !== S && S2.kind !== 'prom' && VC.streetNear(S2.pts, x, z).d < S2.hw - (S2.kind === 'road' ? 3.0 : -0.3));
+      for (const s of [-1, 1]) for (const run of runsOf(S.pts, s * rw, other)) groundMesh(P, ribbon(run, s * rw - 0.15, s * rw + 0.15, 0.1, 0.5, 1.5, yAt), matCache('vc_kerb', () => O.flat('#cfc7b4')), 'vc_kerb');
       // the centre line, dashed
-      dashes(P, S.pts, 0, 0.09, lines);
+      for (const run of runsOf(S.pts, 0, other)) dashes(P, run, 0, 0.09, lines);
     } else if (S.kind === 'old' || S.kind === 'cut' || S.kind === 'lane') {
       groundMesh(P, ribbon(S.pts, -S.hw, S.hw, 0.05, 0.5, 1.5, yAt), cob, 'vc_cobble_' + (S.id || 'cut'));
       if (S.kind === 'cut') dashes(P, S.pts, 0, 0.09, lines, 3, 5);
@@ -285,6 +286,21 @@ function paving(G) {
     const pts = [[(R.x0 + R.x1) / 2, R.z1], [(R.x0 + R.x1) / 2, R.z0]];
     groundMesh(P, ribbon(pts, -(R.x1 - R.x0) / 2, (R.x1 - R.x0) / 2, 0.08), flags, 'vc_rect_' + R.id);
   }
+}
+// the stretches of a polyline (offset `off` to its left) where skip() is false
+function runsOf(pts, off, skip) {
+  const out = []; let run = [];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], l = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / l, nz = (bx - ax) / l;
+    for (let d = 0; d < l; d += 0.5) {
+      const x = ax + (bx - ax) * d / l, z = az + (bz - az) * d / l;
+      if (skip(x + nx * off, z + nz * off)) { if (run.length > 2) out.push(run); run = []; }
+      else run.push([x, z]);
+    }
+  }
+  run.push(pts[pts.length - 1].slice(0, 2));
+  if (run.length > 2) out.push(run);
+  return out;
 }
 function dashes(P, pts, off, lift, m, on = 3, gap = 4) {
   const geos = [];
@@ -307,9 +323,6 @@ function dashes(P, pts, off, lift, m, on = 3, gap = 4) {
 // footprints of everything built: [x, z, hw, hd, rot] (for the lining)
 function buildings(G, world, col, use, vc) {
   const fronts = [];
-  const K = () => (world.__bk ||= null);
-  void K;
-  const BK = O.__kit ? O.__kit() : null; void BK;
   const add = (g, P, id) => {
     g.position.set(P.x, P.y, P.z); g.rotation.y = P.rot || 0; eid(g, 'viridian/' + id); G.add(g);
     col({ box: true, x: P.x, z: P.z, hw: (P.rot && Math.abs(Math.sin(P.rot)) > 0.7 ? P.d : P.w) / 2, hd: (P.rot && Math.abs(Math.sin(P.rot)) > 0.7 ? P.w : P.d) / 2, rot: 0 });
@@ -338,18 +351,15 @@ function buildings(G, world, col, use, vc) {
 // a stand-in massing for a building to come: walls, a band of windows per
 // floor, a roof (flat with a parapet, or a gable), a sign over the door
 function placeholder({ W, D, floors, wall, roof, band, sign = null, signCol = '#2f5a4a', flat = false, gable = false }) {
-  const BK = O.__buildingKit ? O.__buildingKit() : null;
-  void BK;
   const G = new THREE.Group(), FH = 3.2;
   O.box(W, 0.5, D, '#b4ad98', 0, 0.0, 0, G);
   O.box(W, floors * FH, D, wall, 0, 0.25 + floors * FH / 2, 0, G);
   const gl = texVC(glassBandTex(), 'glassband');
-  for (let f = 0; f < floors; f++) for (const [fw, rz] of [[W, 0], [W, Math.PI], [D, Math.PI / 2], [D, -Math.PI / 2]]) {
+  for (let f = 0; f < floors; f++) for (const rz of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
     const len = (rz === 0 || rz === Math.PI) ? W : D, dd = (rz === 0 || rz === Math.PI) ? D : W;
     const g = new THREE.PlaneGeometry(len - 1.2, 1.5); const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setX(i, u.getX(i) * (len - 1.2) / 3);
     colorize(g, '#ffffff');
     const m = new THREE.Mesh(g, gl); m.position.set(Math.sin(rz) * (dd / 2 + 0.03), 0.25 + f * FH + 1.7, Math.cos(rz) * (dd / 2 + 0.03)); m.rotation.y = rz; G.add(m);
-    void fw;
   }
   O.box(W + 0.1, 0.35, D + 0.1, band, 0, 0.25 + FH * floors - 0.2, 0, G);
   if (flat) { O.box(W + 0.4, 0.6, D + 0.4, roof, 0, 0.25 + floors * FH + 0.3, 0, G); }
@@ -416,7 +426,7 @@ function lining(G, world, col, fronts) {
   }
   // hedges: trimmed boxes with a leafy skin, 1.1 m, a collider per metre
   {
-    const B = new Batch(), m = matCache('vc_hedge', () => O.flat('#4f9a46'));
+    const B = new Batch(), m = matCache('vc_hedge', () => O.flat('#3f8a3e'));
     for (const p of hedge) {
       const ry = Math.atan2(p.nx, p.nz), y = height(p.x, p.z);
       B.box('hedge', m, 1.15, 1.25, 0.95, p.x, y + 0.55, p.z, ry);
@@ -434,6 +444,8 @@ function lining(G, world, col, fronts) {
       if (p.i % 2 === 0) B.box('post', iron, 0.08, 1.1, 0.08, p.x, y + 0.75, p.z, ry);
       B.box('rail', iron, 1.05, 0.06, 0.06, p.x, y + 1.25, p.z, ry);
       B.box('rail2', iron, 1.05, 0.04, 0.04, p.x, y + 0.75, p.z, ry);
+      // the quay's stone face down into the water
+      B.box('quay', kerb, 1.08, 3.2, 0.7, p.x + p.nx * 0.45, Math.min(y, 14.6) - 1.55, p.z + p.nz * 0.45, ry);
       col({ box: true, x: p.x, z: p.z, hw: 0.55, hd: 0.3, rot: ry });
     }
     const H = new THREE.Group(); H.name = 'vc_rails'; G.add(H); B.flush(H, { shadow: true, outline: false, name: 'vc_rail' });
@@ -456,12 +468,12 @@ function leafSkin(H, list, h, d) {
   const n = new THREE.Vector3();
   for (const p of list) {
     const y0 = height(p.x, p.z) - 0.05;
-    for (let k = 0; k < 5; k++) {
-      const s = R() * 2 - 1, u = (R() - 0.5) * 1.0, top = R() < 0.4;
+    for (let k = 0; k < 9; k++) {
+      const s = R() < 0.5 ? -1 : 1, u = (R() - 0.5) * 1.1, top = R() < 0.35;
       const along = V(p.nz, 0, -p.nx);
       const c = V(p.x, y0 + (top ? h : 0.3 + R() * (h - 0.4)), p.z).addScaledVector(along, u);
       if (top) n.set(0, 1, 0); else { n.set(p.nx * s, 0.3, p.nz * s).normalize(); c.addScaledVector(V(p.nx, 0, p.nz), s * d / 2); }
-      pushCard(out, c, n.clone(), 0.55 + R() * 0.25, R() < 0.5 ? TILE.bushA : TILE.bushB, R() * 6.28, V(p.x, y0 + h / 2, p.z), 0);
+      pushCard(out, c, n.clone(), 0.6 + R() * 0.3, R() < 0.5 ? TILE.bushA : TILE.bushB, R() * 6.28, V(p.x, y0 + h / 2, p.z), 0);
     }
   }
   const g = toGeometry(out);
@@ -472,8 +484,7 @@ function leafSkin(H, list, h, d) {
 
 // ---------- the cutting ----------
 // ---------- the lake: the quay wall, the pier ----------
-function lakeside(G, world, col, use, place, yawTo) {
-  void yawTo;
+function lakeside(G, world, col, use) {
   const P = VC.PIER, y = P.y;
   const D = new THREE.Group(); D.name = 'vc_pier'; G.add(D);
   const deck = O.texm(O.planks('#b88a5a'));
@@ -534,8 +545,7 @@ export function plantOff(x, z, r = 1) {
   return Math.hypot(x - VC.LAKE.x, z - VC.LAKE.z) < VC.LAKE.r + 4;
 }
 // the city's own plants: [[models, points, kind]] (points {x, y, z, rot, s})
-export function cityPlants(makeTree, makeBush, makeClump, TILE, quality) {
-  void makeClump; void TILE; void quality;
+export function cityPlants(makeTree, makeBush, makeClump, TILE) {
   const out = [];
   const byKind = new Map();
   for (const t of PLANTS.trees) { if (!byKind.has(t.k)) byKind.set(t.k, []); byKind.get(t.k).push(t); }
@@ -624,7 +634,7 @@ function lots(G, world, col, use, fronts) {
   for (const L of towers) {
     const g = new THREE.Group(), B = new Batch();
     const floors = L.landmark ? 26 : 7 + Math.floor(R() * 12 * (0.6 + 0.4 * VC.smooth(60, 180, L.x)));
-    towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[n % TOWER_WALLS.length], accent: ACCENTS[(n * 3) % ACCENTS.length], podium: true, top: L.landmark ? 'spire' : ['garden', 'garden', 'crown', 'flat'][n % 4], seed: 500 + n }, R);
+    towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[n % TOWER_WALLS.length], accent: ACCENTS[(n * 3) % ACCENTS.length], podium: true, top: L.landmark ? 'spire' : ['garden', 'garden', 'crown', 'flat'][n % 4], seed: 500 + n });
     B.flush(g, { shadow: true, outline: undefined, name: 'vc_tower' });
     n++;
     const y = lotY(L) - 0.3;
@@ -670,7 +680,7 @@ function oldHouse(L, R, i) {
 // a podium (two tall floors of shop glass, a canopy), the shaft (a band of
 // glass on every floor, accent fins at the corners), a setback for the upper
 // floors, and a top: a roof garden, a crown, a spire or a plain parapet
-function towerInto(B, { w, d, floors, wall, accent, podium = true, top = 'garden', seed = 1, far = false }, R0) {
+function towerInto(B, { w, d, floors, wall, accent, podium = true, top = 'garden', seed = 1, far = false }) {
   const R = rng(seed), wm = vcMat('vc_wall_vc'), gm = texVC(glassBandTex(), 'glassband');
   const FH = 3.3, PH = podium ? 9 : 0;
   let y = 0;
@@ -729,7 +739,6 @@ function towerInto(B, { w, d, floors, wall, accent, podium = true, top = 'garden
   } else {
     B.box('wall', wm, 2.4, 2.2, 2.4, (R() - 0.5) * (tw - 3), y + 2.0, (R() - 0.5) * (td - 3), 0, shade2(wall, 0.88));
   }
-  void R0;
   return y;
 }
 const shade2 = (hex, k) => '#' + new THREE.Color(hex).multiplyScalar(k).getHexString();
@@ -739,12 +748,10 @@ const shade2 = (hex, k) => '#' + new THREE.Color(hex).multiplyScalar(k).getHexSt
 // terraces of houses up the bowl's sides: merged boxes, no ink
 function slopes(G, fronts) {
   const R = rng(3420), taken = fronts.map((P) => ({ x: P.x, z: P.z, w: P.w, d: P.d, rot: P.rot || 0 }));
-  const towers = new Batch(), houses = new Batch(), near = new Batch();
+  const towers = new Batch(), houses = new Batch();
   const wm = vcMat('vc_wall_vc');
   const roofM = vcMat('vc_roof_vc');
   const winM = texVC(houseWinTex(), 'housewin');
-  const cellOf = (x, z) => Math.floor(x / 160) + ',' + Math.floor(z / 160);
-  void cellOf;
   // downtown beyond the walkable streets: towers on a slightly turned grid,
   // thickest east of the avenue's end and round the Center's north-east,
   // with a few skyscrapers; lower toward the slopes
@@ -760,7 +767,7 @@ function slopes(G, fronts) {
     const sky = core > 0.55 && R() < 0.35;
     const floors = Math.round((sky ? 28 + R() * 16 : 6 + R() * 8 + 16 * core) * (1 - 0.5 * VC.smooth(0.62, 0.8, e)));
     const B = new Batch();
-    towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[Math.floor(R() * TOWER_WALLS.length)], accent: ACCENTS[Math.floor(R() * ACCENTS.length)], podium: false, top: sky ? (R() < 0.5 ? 'spire' : 'crown') : (R() < 0.6 ? 'garden' : 'crown'), seed: Math.round(gx * 31 - gz) }, R);
+    towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[Math.floor(R() * TOWER_WALLS.length)], accent: ACCENTS[Math.floor(R() * ACCENTS.length)], podium: false, top: sky ? (R() < 0.5 ? 'spire' : 'crown') : (R() < 0.6 ? 'garden' : 'crown'), seed: Math.round(gx * 31 - gz) });
     moveBatch(B, towers, L.x, lotY(L) - 0.5, L.z, L.rot);
   }
   // the terraces: rows of small houses round the bowl's sides
@@ -780,7 +787,6 @@ function slopes(G, fronts) {
   }
   const T = new THREE.Group(); T.name = 'vc_downtown'; G.add(T); towers.flush(T, { shadow: false, outline: false, name: 'vc_far_tower' });
   const H = new THREE.Group(); H.name = 'vc_terraces'; G.add(H); houses.flush(H, { shadow: false, outline: false, name: 'vc_house' });
-  void near;
   for (const L of taken.slice(fronts.length)) OCC.push([L.x, L.z, L.w / 2, L.d / 2, L.rot]);
   SLOPE_LOTS.push(...taken.slice(fronts.length));
 }
@@ -820,18 +826,18 @@ function houseInto(B, L, R, wm, roofM, winM) {
 }
 
 // ---------- the cutting: the slide, mostly cleared ----------
-function cutting(G, world, col, use, place, footY) {
-  void footY;
+function cutting(G, world, col, use, place) {
   const R = rng(3430), C = new THREE.Group(); C.name = 'vc_roadworks'; G.add(C);
-  const at = (z, off) => { const q = VC.cutY(0, z); let best = null; for (let i = 0; i + 1 < VC.CUT.pts.length; i++) { const a = VC.CUT.pts[i], b = VC.CUT.pts[i + 1]; if (z <= a[1] && z >= b[1]) { const t = (z - a[1]) / (b[1] - a[1]), x = a[0] + (b[0] - a[0]) * t, dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); best = { x: x + (-dz / l) * off, z: z + (dx / l) * off, y: a[2] + (b[2] - a[2]) * t, ry: Math.atan2(dx, dz) }; } } void q; return best; };
+  const at = (z, off) => { let best = null; for (let i = 0; i + 1 < VC.CUT.pts.length; i++) { const a = VC.CUT.pts[i], b = VC.CUT.pts[i + 1]; if (z <= a[1] && z >= b[1]) { const t = (z - a[1]) / (b[1] - a[1]), x = a[0] + (b[0] - a[0]) * t, dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); best = { x: x + (-dz / l) * off, z: z + (dx / l) * off, y: a[2] + (b[2] - a[2]) * t, ry: Math.atan2(dx, dz) }; } } return best; };
   // the slide: a heap of rubble along the west side of the deep stretch,
   // pushed back off the road; boulders on its foot
   const rocks = [];
-  for (let z = -472; z > -500; z -= 1.6) for (let k = 0; k < 3; k++) {
-    const p = at(z + (R() - 0.5), -(VC.CUT.hw - 0.4 + k * 0.9 + R() * 0.4));
+  for (let z = -470; z > -503; z -= 1.3) for (let k = 0; k < 5; k++) {
+    // a heap against the west wall: big blocks at its foot, smaller up the slope
+    const p = at(z + (R() - 0.5), -(VC.CUT.hw - 0.3 + k * 1.0 + R() * 0.5));
     if (!p) continue;
-    const s = 0.5 + R() * 0.9 - k * 0.1;
-    rocks.push([p.x, p.z, s, R() * 6.28, height(p.x, p.z) - 0.15 + k * 0.35]);
+    const s = (k === 0 ? 0.6 : 1.0 + R() * 1.3) * (1 - k * 0.08);
+    rocks.push([p.x, p.z, s, R() * 6.28, height(p.x, p.z) - 0.2 + k * 0.55]);
   }
   {
     const geos = [0, 1, 2, 3].map((k) => boulderGeo(3430 + k));
@@ -858,11 +864,10 @@ function cutting(G, world, col, use, place, footY) {
     use(p.x - 0.8, p.z + 0.6, 'Read', ['ROAD WORKS AHEAD', 'The slide the earthquake brought down has been cleared to one lane. Walkers keep right.', '- VIRIDIAN CITY WORKS']);
   }
 }
-let _boulder = null;
 function boulderGeo(seed) {
   const g = new THREE.IcosahedronGeometry(0.6, 1), p = g.attributes.position, R = rng(seed);
   for (let i = 0; i < p.count; i++) { const k = 0.75 + R() * 0.4; p.setXYZ(i, p.getX(i) * k, Math.max(-0.2, p.getY(i)) * k, p.getZ(i) * k); }
-  g.computeVertexNormals(); void _boulder; return g.toNonIndexed();
+  g.computeVertexNormals(); return g.toNonIndexed();
 }
 
 // ---------- the gates: Route 2 north, Route 22 west (both shut, with a reason) ----------
@@ -907,6 +912,8 @@ function signs(G, world, col, use, place, yawTo) {
   // the GYM's sign, ominous
   board(64, -767, Math.PI / 4, 'VIRIDIAN GYM', ['VIRIDIAN CITY', 'POKéMON GYM', 'LEADER: ...', 'The leader is away.'],
     ['VIRIDIAN CITY POKéMON GYM', 'The leader is away.', '...The doors are locked. No one remembers when the GYM was last open.'], { roof: '#5a3a2a', accent: '#8a2a2a' });
+  // the CENTER's sign beside its approach
+  board(19.5, -641.5, Math.PI * 0.85, 'POKéMON CENTER', ['POKéMON CENTER', 'Heal your POKéMON!', 'Open day and night.'], ['POKéMON CENTER', 'Heal your POKéMON! Open day and night.'], { roof: '#d8403a', accent: '#d8403a' });
   // the MART's sign by its door
   { const [dx, dz] = PADS.mart.door; board(dx - 2.5, dz + 6.5, -Math.PI / 2, 'POKé MART', ['POKé MART', 'for all your', 'POKéMON needs!'], ['POKé MART', 'For all your POKéMON needs!'], { roof: '#2f6fc8', accent: '#2f6fc8' }); }
   // Officer Jenny's notice board by the police box

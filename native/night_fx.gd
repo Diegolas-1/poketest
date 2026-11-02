@@ -17,7 +17,8 @@ extends Node3D
 # glass and lamps: "night_glass" (texture file names), "night_lamps" (colours).
 
 const T := preload("res://tunables.gd")
-const GLASS := ["c22689634c0b394c.png", "a68d746faa4921d1.png", "c2d6449cb01e9349.png"]
+# (and Viridian City's: the towers' glass bands, the terraces' window strips: web/world/viridian_city.js)
+const GLASS := ["c22689634c0b394c.png", "a68d746faa4921d1.png", "c2d6449cb01e9349.png", "cdd06bef67178b6c.png", "388364a8f72850a6.png"]
 const LAMPS := ["fff1c4", "ffe7a6", "fffbea", "fff3c0"]
 const HALO := preload("res://shaders/night_halo.gdshader")
 const POOL := preload("res://shaders/night_pool.gdshader")
