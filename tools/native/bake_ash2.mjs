@@ -45,7 +45,7 @@ const SRC = process.argv[2];
 if (!SRC) { console.error('usage: bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000]'); process.exit(1); }
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const TRIS = +arg('tris', 20000);
-const HEAD_SCALE = +arg('head', 0.93);   // the model's head shrunk about its centre (the hair, cap and face follow)
+const HEAD_SCALE = +arg('head', 0.88);   // the model's head shrunk about its centre (the hair, cap and face follow)
 const GLB = SRC.endsWith('.glb') ? SRC : path.join(SRC, 'base_basic_pbr.glb');
 
 // the rig's joints -> the game's bone names (actor.gd and friends)
