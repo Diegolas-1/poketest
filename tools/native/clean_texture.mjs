@@ -212,6 +212,27 @@ for (let round = 0; round < 3; round++) {
   if (!n) break;
 }
 
+// the junction's crease faces left over (each a patch of its own) go with their neighbours'
+// final class when it is a flattened one: the hairline one clean edge
+{
+  const finalOf = (f) => fnew[f] >= 0 ? fnew[f] : (flatOf[f] >= 0 ? flats[flatOf[f]].k : fcls[f]);
+  for (let round = 0; round < 3; round++) {
+    const votes = new Map();
+    for (let i = 0; i < edgeList.length; i += 2) {
+      const a = edgeList[i], b = edgeList[i + 1];
+      for (const [c, o] of [[a, b], [b, a]]) if (crease[c] && fnew[c] < 0 && flatOf[c] < 0) { let m = votes.get(c); if (!m) { m = new Int32Array(7); votes.set(c, m); } m[finalOf(o)]++; }
+    }
+    let n = 0;
+    for (const [c, m] of votes) {
+      let best = 0; for (let k = 1; k < 7; k++) if (m[k] > m[best]) best = k;
+      const fm = flatMedian(best);
+      if (!fm || m[best] < 2 || best === fcls[c]) continue;
+      fnew[c] = best; fnewCol[c * 3] = fm[0]; fnewCol[c * 3 + 1] = fm[1]; fnewCol[c * 3 + 2] = fm[2]; n++;
+    }
+    if (!n) break;
+  }
+}
+
 // ---------- the texture: the flattened parts' texels, then the repainted faces' ----------
 const out = Buffer.from(px);
 const touched = new Uint8Array(W * H);
