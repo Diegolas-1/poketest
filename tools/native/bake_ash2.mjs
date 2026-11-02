@@ -4,24 +4,29 @@
 // The source is the generated model as a rigged, animated glTF (Tripo's "basic" rig:
 // 52 Mixamo-named joints, ten clips with root motion, a 1M-triangle mesh with up to
 // eight weights a vertex, the head bald and blank, no face). The bake keeps that
-// skeleton and those clips and makes them the game's:
+// skeleton, that head and those clips and makes them the game's:
 //   - the joints get the game's bone names (RENAME below: Hips -> Waist, Spine ->
 //     Spine1 .. LeftArm -> LArmA, LeftHandIndex1 -> LFingerB1, LeftUpLeg -> LThigh ...),
 //     a "Hips" bone goes in between the waist and the thighs (the old rig's legs-only
 //     pivot: crouch, sitting, the limp bend it), so actor.gd, idles.gd, rider.gd,
 //     meal.gd and cloth.gd work unchanged; the model is scaled so the Neck joint sits
-//     at the old rig's height (the head, the camera and the talk all look there);
+//     at the old rig's height (the camera and the talk look there);
 //   - the clips are named (CLIPS), their root motion taken out of the Waist track
 //     (the game drives the phase by ground speed and keeps the bob), the forward
 //     distance per cycle becoming the look's stride and the left footfall its lead;
-//   - the mesh is decimated to --tris (meshoptimizer), kept to four weights, the
-//     head cut off at the neck (hidden inside the old head), split into skin and
-//     cloth by the texture's colour for the two cel profiles, the texture 1024;
-//   - the old head rides along: ash.glb's face, eyes, hair, cap and logo meshes with
-//     their jaw, lip and hair-chain bones grafted under the new Head, put where the
-//     new neck ends; the face and eye textures are recoloured to the body's skin.
+//     clips of several strides are cut to one cycle; each gait's own pace (meta v)
+//     lets actor.gd play it near its own tempo;
+//   - the mesh is decimated to --tris (meshoptimizer), kept to four weights, split into
+//     skin and cloth by the texture's colour for the two cel profiles, the texture 1024;
+//   - the face: the model's own head stays (its skin lit and shadowed like the body);
+//     the old look's face and eye textures are drawn from the front through their
+//     meshes into an atlas (eyes open | eyes shut, for the blink's uv_off), the painted
+//     flesh made transparent so only the features remain, and laid over the head's
+//     front as a cutout decal (projected from the front, lifted off the surface);
+//   - the old hair, cap, hair spikes and cap logo ride along, scaled to the new head
+//     with their hair-chain and cap bones grafted under its Head.
 //
-//   node tools/native/bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000] [--lift=0.012]
+//   node tools/native/bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000]
 //   (the model's zip unpacked into web/world/local/ash2/, say: local/ stays on this
 //   machine; npm install in tools/native first)
 //
@@ -29,7 +34,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
-import { Document, NodeIO } from '@gltf-transform/core';
+import { NodeIO } from '@gltf-transform/core';
 import { weld, simplify, prune } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
 import * as THREE from '../../web/lib/three/three.module.min.js';
@@ -37,10 +42,9 @@ import * as THREE from '../../web/lib/three/three.module.min.js';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const OUT = path.join(ROOT, 'native/cast');
 const SRC = process.argv[2];
-if (!SRC) { console.error('usage: bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000] [--lift=0.012]'); process.exit(1); }
+if (!SRC) { console.error('usage: bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000]'); process.exit(1); }
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const TRIS = +arg('tris', 20000);
-const LIFT = +arg('lift', 0.012);     // the old head this much higher on the new neck than the old Head joint had it
 const GLB = SRC.endsWith('.glb') ? SRC : path.join(SRC, 'base_basic_pbr.glb');
 
 // the rig's joints -> the game's bone names (actor.gd and friends)
@@ -58,8 +62,11 @@ const CLIPS = { '09b96219': 'walk', '14d6899b': 'jump', '2f46551b': 'sprint', '7
 // walks at 4.5 m/s, where the sprint plays near its own tempo); the rest keep their names
 const GAME = { walk: 'walk', run: 'sprint' };
 const GAITS = ['walk', 'jog', 'sprint', 'sneak'];   // cut to one cycle (two steps), from a left footfall
-const KEEP = ['face_on_1', 'face_on_0', 'hair01_on', 'hathun', 'ash_extra', 'ash_logo'];   // the old head
-const HEAD_GRAFT = ['FJlipL', 'FJteethL', 'FJlipU', 'FJteethU', 'LFJLipS', 'RFJLipS', 'loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'];
+const KEEP = ['hair01_on', 'hathun', 'ash_extra', 'ash_logo'];   // the old hair, cap, spikes and logo
+const FACE = ['face_on_1', 'face_on_0'];                          // the old face and its eye patch: drawn into the decal
+const HEAD_GRAFT = ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'];
+const ATLAS = [2048, 1024];   // the face decal: eyes open | eyes shut
+const LIFT = 0.004;           // the decal this far off the head (model units)
 
 const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const t0 = Date.now();
@@ -75,7 +82,21 @@ const oldBy = new Map(old.getRoot().listNodes().map((n) => [n.getName(), n]));
 const oldCalemInv = new THREE.Matrix4().fromArray(oldBy.get('Calem').getWorldMatrix()).invert();
 const oldWorld = (n) => new THREE.Matrix4().fromArray(n.getWorldMatrix()).premultiply(oldCalemInv);   // the old model's frame
 const NECK_Y = new THREE.Vector3().setFromMatrixPosition(oldWorld(oldBy.get('Neck'))).y;
-const oldHeadP = new THREE.Vector3().setFromMatrixPosition(oldWorld(oldBy.get('Head')));
+const oldPrim = (name) => oldBy.get(name).getMesh().listPrimitives()[0];
+// a sphere through points (iterated least squares): the old head's from its face and hair
+function sphereFit(pts) {
+  const c = new THREE.Vector3(); for (const p of pts) c.add(p); c.divideScalar(pts.length);
+  let r = 0;
+  for (let it = 0; it < 40; it++) {
+    const g = new THREE.Vector3(); r = 0;
+    for (const p of pts) r += p.distanceTo(c); r /= pts.length;
+    for (const p of pts) { const d = p.clone().sub(c); const l = d.length() || 1; g.add(d.multiplyScalar((l - r) / l)); }
+    c.add(g.divideScalar(pts.length));
+  }
+  return { c, r };
+}
+const oldHead = sphereFit(['face_on_1', 'hair01_on'].flatMap((n) => { const P = oldPrim(n).getAttribute('POSITION').getArray(); const o = []; for (let i = 0; i < P.length; i += 3) o.push(new THREE.Vector3(P[i], P[i + 1], P[i + 2])); return o; }));
+log('old head: centre', oldHead.c.toArray().map((x) => x.toFixed(4)).join(','), 'radius', oldHead.r.toFixed(4));
 
 // ---------- the rigged model ----------
 log('reading', GLB);
@@ -92,22 +113,24 @@ for (const n of joints) n.setTranslation(n.getTranslation().map((x) => x * S));
 const meshNode = root.listNodes().find((n) => n.getMesh());
 const prim0 = meshNode.getMesh().listPrimitives()[0];
 { const P = prim0.getAttribute('POSITION'), a = Float32Array.from(P.getArray()); for (let i = 0; i < a.length; i++) a[i] *= S; P.setArray(a); }
+const buffer = root.listBuffers()[0];
+const acc = (type, arr) => doc.createAccessor().setType(type).setArray(arr).setBuffer(buffer);
 
-// ---------- the clips: names, scale, root motion out, strides and leads ----------
+// ---------- the clips: names, scale, one cycle, root motion out, strides and leads ----------
 const meta = { idle: { stride: 0, lead: 0 } };
-const fkSampler = (anim) => {   // name -> {t, q[]} and the Waist's {t, p[]}
+const fkSampler = (anim) => {   // model-frame joint positions at a time (the clip's pose, root motion in)
   const rot = new Map(); let pos = null;
   for (const ch of anim.listChannels()) {
     const n = ch.getTargetNode(), s = ch.getSampler(), t = s.getInput().getArray(), v = s.getOutput().getArray();
     if (ch.getTargetPath() === 'rotation') rot.set(n, { t, v });
     else if (ch.getTargetPath() === 'translation' && n === hips) pos = { t, v };
   }
-  const at = (tr, time, k) => {   // linear sample of a k-vector track
+  const at = (tr, time, k) => {
     const { t, v } = tr; let i = 0; while (i + 1 < t.length && t[i + 1] < time) i++;
     const j = Math.min(i + 1, t.length - 1), f = j === i ? 0 : (time - t[i]) / (t[j] - t[i]);
     const o = new Array(k); for (let c = 0; c < k; c++) o[c] = v[i * k + c] * (1 - f) + v[j * k + c] * f; return o;
   };
-  return (time) => {   // model-frame position of each joint at a time (the clip's pose, root motion in)
+  return (time) => {
     const out = new Map();
     const walk = (n, parent) => {
       const r = rot.has(n) ? at(rot.get(n), time, 4) : n.getRotation();
@@ -145,8 +168,6 @@ const trim = (anim, t0, P) => {
     s.setInput(acc('SCALAR', nt)); s.setOutput(acc(k === 4 ? 'VEC4' : 'VEC3', nv));
   }
 };
-const buffer = root.listBuffers()[0];
-const acc = (type, arr) => doc.createAccessor().setType(type).setArray(arr).setBuffer(buffer);
 const restXZ = [hips.getTranslation()[0], hips.getTranslation()[2]];
 for (const anim of root.listAnimations()) {
   const name = CLIPS[anim.getName().slice(0, 8)] || anim.getName();
@@ -190,8 +211,7 @@ for (const anim of root.listAnimations()) {
     const time = T * i / 120, p = sample(time), rel = p.get(foot.L).z - p.get(hips).z;
     if (rel > best) { best = rel; lead = i / 120; }
   }
-  const sideways = Math.abs(foot.R && sample(T * ((lead + 0.5) % 1)).get(foot.R).z - sample(T * ((lead + 0.5) % 1)).get(hips).z);
-  log(`clip ${name.padEnd(8)}${slot ? ` (the game's ${slot})` : ''} ${T.toFixed(2)}s  moves ${stride.toFixed(3)} / cycle  left footfall at ${lead.toFixed(3)}  (right foot then ${sideways.toFixed(2)} ahead)`);
+  log(`clip ${name.padEnd(8)}${slot ? ` (the game's ${slot})` : ''} ${T.toFixed(2)}s  moves ${stride.toFixed(3)} / cycle  left footfall at ${lead.toFixed(3)}`);
   // (v: the ground speed, world units a second, at which the clip plays at its own tempo)
   if (slot) meta[slot] = { stride: +stride.toFixed(4), lead: +lead.toFixed(3), v: +(stride * ashLook.scale / T).toFixed(3) };
 }
@@ -201,24 +221,24 @@ if (!meta.walk || !meta.run) throw new Error('the walk or run clip is missing (C
 for (const n of joints) if (RENAME[n.getName()]) n.setName(RENAME[n.getName()]);
 const waist = hips;   // (renamed)
 const hipsBone = doc.createNode('Hips');
-for (const th of ['LThigh', 'RThigh']) { const n = by.get(th === 'LThigh' ? 'LeftUpLeg' : 'RightUpLeg'); waist.removeChild(n); hipsBone.addChild(n); }
+for (const th of ['LeftUpLeg', 'RightUpLeg']) { const n = by.get(th); waist.removeChild(n); hipsBone.addChild(n); }
 waist.addChild(hipsBone);
 const B = new Map(root.listNodes().map((n) => [n.getName(), n]));
 const restOf = (name) => world(B.get(name));
 
-// ---------- the mesh: decimated, four weights, the head off, skin and cloth apart ----------
+// ---------- the mesh: decimated, four weights, skin and cloth apart ----------
 await MeshoptSimplifier.ready;
 // (without the normals first: the export splits vertices at every shading seam, and the
-// simplifier will not collapse across them; smooth normals are made again at the end)
+// simplifier will not collapse across them; smooth normals are made again below)
 prim0.setAttribute('NORMAL', null);
 await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: TRIS / (prim0.getIndices().getCount() / 3), error: 1 }));
 const prim = meshNode.getMesh().listPrimitives()[0];
-let pos = Float32Array.from(prim.getAttribute('POSITION').getArray());
-let uv = Float32Array.from(prim.getAttribute('TEXCOORD_0').getArray());
-let idx = Uint32Array.from(prim.getIndices().getArray());
-let NV = pos.length / 3;
+const pos = Float32Array.from(prim.getAttribute('POSITION').getArray());
+const uv = Float32Array.from(prim.getAttribute('TEXCOORD_0').getArray());
+const idx = Uint32Array.from(prim.getIndices().getArray());
+const NV = pos.length / 3;
 log('decimated to', NV, 'vertices', idx.length / 3, 'triangles');
-let J0 = new Uint16Array(NV * 4), W0 = new Float32Array(NV * 4);
+const J0 = new Uint16Array(NV * 4), W0 = new Float32Array(NV * 4);
 {
   const sets = [0, 1].map((k) => [prim.getAttribute('JOINTS_' + k), prim.getAttribute('WEIGHTS_' + k)]).filter(([j]) => j);
   const j4 = [0, 0, 0, 0], w4 = [0, 0, 0, 0];
@@ -231,51 +251,6 @@ let J0 = new Uint16Array(NV * 4), W0 = new Float32Array(NV * 4);
   }
 }
 const skinJoints = meshNode.getSkin().listJoints();   // the body's JOINTS_0 index into these (52)
-// the texture: skin or cloth under each vertex; the 1024 copy
-const texImg = prim.getMaterial().getBaseColorTexture();
-const texRaw = await sharp(Buffer.from(texImg.getImage())).raw().toBuffer({ resolveWithObject: true });
-const texPng = await sharp(Buffer.from(texImg.getImage())).resize(1024, 1024).png({ compressionLevel: 9 }).toBuffer();
-const rgbAt = (u, v) => {
-  const { width: W, height: H, channels: C } = texRaw.info;
-  const x = Math.min(W - 1, Math.max(0, Math.floor(u * W))), y = Math.min(H - 1, Math.max(0, Math.floor(v * H)));
-  const o = (y * W + x) * C; return [texRaw.data[o], texRaw.data[o + 1], texRaw.data[o + 2]];
-};
-const isSkin = ([r, g, b]) => r > 150 && r - b > 60 && g - b > 15 && r - g > 20 && r - g < 110;
-let skinV = new Uint8Array(NV);
-const skinSum = [0, 0, 0]; let skinN = 0;
-for (let i = 0; i < NV; i++) { const c = rgbAt(uv[i * 2], uv[i * 2 + 1]); if (isSkin(c)) { skinV[i] = 1; skinN++; for (let k = 0; k < 3; k++) skinSum[k] += c[k]; } }
-const bodySkin = skinSum.map((x) => x / Math.max(1, skinN));
-// where the old head goes: its centre over the new Head joint, as it sat over the old one, plus the lift
-const newHeadP = new THREE.Vector3().setFromMatrixPosition(restOf('Head'));
-const delta = newHeadP.clone().sub(oldHeadP).add(new THREE.Vector3(0, LIFT, 0));
-const headCenterY = 1.191 + delta.y;   // (the old head's sphere: centre y 1.191, radius 0.0985)
-const cutY = headCenterY - 0.065;
-// the model's own head goes: its skin above the cut, and above the neck's base anything
-// wider than the neck (its chin and jaw hang lower than the old head's bottom)
-const neckY = new THREE.Vector3().setFromMatrixPosition(restOf('Neck')).y + 0.015, NECK_R = 0.062;
-log('head joint', newHeadP.toArray().map((x) => x.toFixed(3)).join(','), 'delta', delta.toArray().map((x) => x.toFixed(3)).join(','), 'neck cut at', cutY.toFixed(3), 'neck axis', newHeadP.x.toFixed(3), newHeadP.z.toFixed(3));
-{
-  const keep = [];
-  const isHead = (v) => { const y = pos[v * 3 + 1]; if (y > cutY + 0.05) return true; if (!skinV[v]) return false; const r = Math.hypot(pos[v * 3] - newHeadP.x, pos[v * 3 + 2] - newHeadP.z); return y > cutY || (y > neckY && r > NECK_R); };
-  for (let t = 0; t < idx.length; t += 3) {
-    const a = idx[t], b = idx[t + 1], c = idx[t + 2];
-    if (isHead(a) + isHead(b) + isHead(c) >= 2) continue;
-    keep.push(a, b, c);
-  }
-  const map = new Int32Array(NV).fill(-1), np = [], nn = [], nu = [], ns = [], nj = [], nw = [];
-  const out = new Uint32Array(keep.length);
-  for (let i = 0; i < keep.length; i++) {
-    const o = keep[i];
-    if (map[o] < 0) {
-      map[o] = np.length / 3;
-      np.push(pos[o * 3], pos[o * 3 + 1], pos[o * 3 + 2]); nu.push(uv[o * 2], uv[o * 2 + 1]); ns.push(skinV[o]);
-      for (let k = 0; k < 4; k++) { nj.push(J0[o * 4 + k]); nw.push(W0[o * 4 + k]); }
-    }
-    out[i] = map[o];
-  }
-  pos = new Float32Array(np); uv = new Float32Array(nu); skinV = new Uint8Array(ns); J0 = new Uint16Array(nj); W0 = new Float32Array(nw); idx = out; NV = pos.length / 3;
-  log('head cut:', NV, 'vertices', idx.length / 3, 'triangles left');
-}
 // smooth normals, shared across the seams (vertices joined by position)
 const nrm = new Float32Array(NV * 3);
 {
@@ -290,19 +265,42 @@ const nrm = new Float32Array(NV * 3);
   }
   for (let i = 0; i < NV; i++) { const n = new THREE.Vector3().fromArray(acc3, vid[i] * 3).normalize(); nrm[i * 3] = n.x; nrm[i * 3 + 1] = n.y; nrm[i * 3 + 2] = n.z; }
 }
+// the texture: skin or cloth under each vertex; the 1024 copy
+const texImg = prim.getMaterial().getBaseColorTexture();
+const texRaw = await sharp(Buffer.from(texImg.getImage())).raw().toBuffer({ resolveWithObject: true });
+const texPng = await sharp(Buffer.from(texImg.getImage())).resize(1024, 1024).png({ compressionLevel: 9 }).toBuffer();
+const rgbAt = (u, v) => {
+  const { width: W, height: H, channels: C } = texRaw.info;
+  const x = Math.min(W - 1, Math.max(0, Math.floor(u * W))), y = Math.min(H - 1, Math.max(0, Math.floor(v * H)));
+  const o = (y * W + x) * C; return [texRaw.data[o], texRaw.data[o + 1], texRaw.data[o + 2]];
+};
+const isSkin = ([r, g, b]) => r > 150 && r - b > 60 && g - b > 15 && r - g > 20 && r - g < 110;
+const skinV = new Uint8Array(NV);
+for (let i = 0; i < NV; i++) if (isSkin(rgbAt(uv[i * 2], uv[i * 2 + 1]))) skinV[i] = 1;
 
-// ---------- the old head: its bones under the new Head, its meshes moved with it ----------
-const graft = (oldName, newParent, shift) => {
+// ---------- the head: the model's own, measured; the old hair and cap scaled to it ----------
+const neckY = new THREE.Vector3().setFromMatrixPosition(restOf('Neck')).y;
+const headPts = []; for (let i = 0; i < NV; i++) if (skinV[i] && pos[i * 3 + 1] > neckY + 0.085) headPts.push(new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]));
+const head = sphereFit(headPts);
+const kHead = head.r / oldHead.r;
+// the old head's things onto the new one: scaled about its centre, moved to the new centre
+const onHead = (p) => p.clone().sub(oldHead.c).multiplyScalar(kHead).add(head.c);
+log('new head: centre', head.c.toArray().map((x) => x.toFixed(4)).join(','), 'radius', head.r.toFixed(4), 'x', kHead.toFixed(3), 'over the old');
+
+// the old hair-chain and cap bones under the new Head, where the hair and cap now are
+const graft = (oldName, newParent) => {
   const o = oldBy.get(oldName), n = doc.createNode(oldName);
-  const G = oldWorld(o).premultiply(new THREE.Matrix4().makeTranslation(shift.x, shift.y, shift.z));
-  const L = world(newParent).invert().multiply(G), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+  const G = oldWorld(o), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+  G.decompose(p, q, s);
+  const Gn = new THREE.Matrix4().compose(onHead(p), q, new THREE.Vector3(1, 1, 1));
+  const L = world(newParent).invert().multiply(Gn);
   L.decompose(p, q, s);
   n.setTranslation(p.toArray()).setRotation(q.toArray()).setScale([1, 1, 1]);
   newParent.addChild(n);
-  for (const c of o.listChildren()) graft(c.getName(), n, shift);
+  for (const c of o.listChildren()) graft(c.getName(), n);
   return n;
 };
-for (const c of oldBy.get('Head').listChildren()) graft(c.getName(), B.get('Head'), delta);
+for (const name of HEAD_GRAFT) graft(name, B.get('Head'));
 // the ball in his hand (battle, idles): along the fingers, on the palm side
 const ballNode = doc.createNode('pc_g_ball').setTranslation([0, 0.045, 0.04]);
 B.get('RHand').addChild(ballNode);
@@ -313,40 +311,117 @@ allJoints.forEach((n, i) => world(n).invert().toArray(ibm, i * 16));
 const skin = doc.createSkin('ash2').setInverseBindMatrices(acc('MAT4', ibm));
 for (const n of allJoints) skin.addJoint(n);
 
-// the face and eye textures in the body's skin colour (the painted skin tone scaled to it)
-const oldMats = [];
-async function recolour(png, from, to) {
-  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const gain = to.map((v, k) => v / from[k]);
-  for (let o = 0; o < data.length; o += 4) {
-    const d = Math.hypot(data[o] - from[0], data[o + 1] - from[1], data[o + 2] - from[2]);
-    const m = Math.max(0, Math.min(1, (90 - d) / 50));   // the skin tone fully, lines, mouth and eyes not
-    if (m <= 0) continue;
-    for (let k = 0; k < 3; k++) data[o + k] = Math.round(Math.min(255, data[o + k] * (1 - m) + data[o + k] * gain[k] * m));
+// ---------- the face decal: the old face drawn from the front, its flesh made clear ----------
+// the old face and eye meshes are rasterised orthographically from the front into an atlas
+// (left: eyes open, right: shut, which the game shows with uv_off 0.5), in head radii; then
+// each source's painted flesh colour (its median) becomes transparent, so only the features
+// stay; the atlas goes on the new head's front with the same frontal projection
+async function faceAtlas() {
+  const [W, H] = ATLAS, half = W / 2;
+  const rgb = new Float32Array(W * H * 3), alpha = new Float32Array(W * H), depth = new Float32Array(W * H).fill(-Infinity), srcOf = new Int8Array(W * H).fill(-1);
+  const sources = [];
+  for (const name of FACE) {
+    const op = oldPrim(name), om = op.getMaterial(), img = await sharp(Buffer.from(om.getBaseColorTexture().getImage())).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    sources.push({ name, P: op.getAttribute('POSITION').getArray(), UV: op.getAttribute('TEXCOORD_0').getArray(), I: op.getIndices().getArray(), img, eyes: name === 'face_on_0' });
   }
-  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png({ compressionLevel: 9 }).toBuffer();
+  const sampleTex = (img, u, v) => {   // bilinear, wrapping
+    const { width: w, height: h } = img.info, data = img.data;
+    const x = ((u % 1) + 1) % 1 * w - 0.5, y = ((v % 1) + 1) % 1 * h - 0.5;
+    const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, out = [0, 0, 0, 0];
+    for (const [dx, dy, wgt] of [[0, 0, (1 - fx) * (1 - fy)], [1, 0, fx * (1 - fy)], [0, 1, (1 - fx) * fy], [1, 1, fx * fy]]) {
+      const o = ((((y0 + dy) % h) + h) % h * w + (((x0 + dx) % w) + w) % w) * 4;
+      for (let c = 0; c < 4; c++) out[c] += data[o + c] * wgt;
+    }
+    return out;
+  };
+  for (let state = 0; state < 2; state++) {
+    const xoff = state * half;
+    sources.forEach((s, si) => {
+      const { P, UV, I, img, eyes } = s;
+      const px = (i) => xoff + (0.5 + (P[i * 3] - oldHead.c.x) / oldHead.r / 2) * half;
+      const py = (i) => (0.5 - (P[i * 3 + 1] - oldHead.c.y) / oldHead.r / 2) * H;
+      for (let t = 0; t < I.length; t += 3) {
+        const a = I[t], b = I[t + 1], c = I[t + 2];
+        const ax = px(a), ay = py(a), bx = px(b), by = py(b), cx = px(c), cy = py(c);
+        const area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+        if (Math.abs(area) < 1e-9) continue;
+        const x0 = Math.max(xoff, Math.floor(Math.min(ax, bx, cx))), x1 = Math.min(xoff + half - 1, Math.ceil(Math.max(ax, bx, cx)));
+        const y0 = Math.max(0, Math.floor(Math.min(ay, by, cy))), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by, cy)));
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const qx = x + 0.5, qy = y + 0.5;
+          let w0 = ((bx - qx) * (cy - qy) - (cx - qx) * (by - qy)) / area, w1 = ((cx - qx) * (ay - qy) - (ax - qx) * (cy - qy)) / area, w2 = 1 - w0 - w1;
+          if (w0 < -1e-4 || w1 < -1e-4 || w2 < -1e-4) continue;
+          const z = w0 * P[a * 3 + 2] + w1 * P[b * 3 + 2] + w2 * P[c * 3 + 2], o = y * W + x;
+          if (z <= depth[o]) continue;
+          const u = w0 * UV[a * 2] + w1 * UV[b * 2] + w2 * UV[c * 2] + (eyes && state ? 0.5 : 0), v = w0 * UV[a * 2 + 1] + w1 * UV[b * 2 + 1] + w2 * UV[c * 2 + 1];
+          const [r, g, bb, al] = sampleTex(img, u, v);
+          depth[o] = z; srcOf[o] = si; rgb[o * 3] = r; rgb[o * 3 + 1] = g; rgb[o * 3 + 2] = bb; alpha[o] = al / 255;
+        }
+      }
+    });
+  }
+  // each source's flesh: the median colour of what it drew
+  const flesh = sources.map((_, si) => {
+    const ch = [[], [], []];
+    for (let o = 0; o < W * H; o++) if (srcOf[o] === si) for (let c = 0; c < 3; c++) ch[c].push(rgb[o * 3 + c]);
+    return ch.map((a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; });
+  });
+  log('face flesh:', sources.map((s, i) => `${s.name} ${flesh[i].map((x) => x.toFixed(0)).join(',')}`).join('  '));
+  // what stays: dark lines and pupils, and anything off the flesh's own hue (the whites of
+  // the eyes, the mouth, the cheek marks). The painted flesh and all its shading lie along
+  // one line through black in colour space, so a pixel's distance from that line, not from
+  // one flesh colour, tells the two apart.
+  // Thin lines painted in a darker flesh (the mouth, the nose) lie on that line too: they
+  // show by local contrast, darker along it than their blurred surroundings, where the
+  // broad shading is not.
+  const sm = (lo, hi, x) => Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
+  const tt = new Float32Array(W * H), offs = new Float32Array(W * H);
+  for (let o = 0; o < W * H; o++) {
+    const si = srcOf[o]; if (si < 0) continue;
+    const r = rgb[o * 3], g = rgb[o * 3 + 1], bb = rgb[o * 3 + 2], f = flesh[si];
+    tt[o] = (r * f[0] + g * f[1] + bb * f[2]) / (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]);
+    offs[o] = Math.hypot(r - tt[o] * f[0], g - tt[o] * f[1], bb - tt[o] * f[2]);
+  }
+  // the surroundings' brightness along the flesh line: a box blur over the pixels of the
+  // same source (the face and the eye patch are painted in different flesh: across their
+  // seam there is no contrast to find)
+  const R = Math.round(H / 80), blur = (src, si) => {
+    const tmp = new Float32Array(W * H), cnt = new Float32Array(W * H), out2 = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) { let s = 0, n = 0; for (let x = -R; x < W; x++) { const i = x + R; if (i < W && srcOf[y * W + i] === si) { s += src[y * W + i]; n++; } const j = x - R - 1; if (j >= 0 && srcOf[y * W + j] === si) { s -= src[y * W + j]; n--; } if (x >= 0) { tmp[y * W + x] = s; cnt[y * W + x] = n; } } }
+    for (let x = 0; x < W; x++) { let s = 0, n = 0; for (let y = -R; y < H; y++) { const i = y + R; if (i < H) { s += tmp[i * W + x]; n += cnt[i * W + x]; } const j = y - R - 1; if (j >= 0) { s -= tmp[j * W + x]; n -= cnt[j * W + x]; } if (y >= 0) out2[y * W + x] = n > 0 ? s / n : 0; } }
+    return out2;
+  };
+  const blurs = sources.map((_, si) => blur(tt, si));
+  const tBlur = new Float32Array(W * H);
+  for (let o = 0; o < W * H; o++) if (srcOf[o] >= 0) tBlur[o] = blurs[srcOf[o]][o];
+  const out = Buffer.alloc(W * H * 4);
+  for (let o = 0; o < W * H; o++) {
+    const si = srcOf[o]; if (si < 0) continue;
+    const r = rgb[o * 3], g = rgb[o * 3 + 1], bb = rgb[o * 3 + 2], lum = 0.3 * r + 0.59 * g + 0.11 * bb;
+    const a = Math.max(sm(150, 120, lum), sm(16, 30, offs[o]), sm(0.045, 0.09, tBlur[o] - tt[o])) * alpha[o];
+    out[o * 4] = r; out[o * 4 + 1] = g; out[o * 4 + 2] = bb; out[o * 4 + 3] = Math.round(a * 255);
+  }
+  return sharp(out, { raw: { width: W, height: H, channels: 4 } }).png({ compressionLevel: 9 }).toBuffer();
 }
-const faceSkin = [246, 210, 198];   // the old face texture's skin (measured)
-log('skin: body', bodySkin.map((x) => x.toFixed(0)).join(','), 'face', faceSkin.join(','));
+const facePng = await faceAtlas();
+
+// ---------- the materials and meshes ----------
 const mats = [];
+const celOf = (src) => ashLook.mats.find((m) => m.src === src).cel;
 const newMat = (name, src, celSrc, extra = {}) => {
-  mats.push({ src, cel: ashLook.mats.find((m) => m.src === celSrc).cel, ds: false, alpha: 0, blend: false, decal: false, vc: false, eyes: false, shadow: true, ink: true, ...extra });
+  mats.push({ src, cel: celOf(celSrc), ds: false, alpha: 0, blend: false, decal: false, vc: false, eyes: false, shadow: true, ink: true, ...extra });
   return doc.createMaterial('c' + (mats.length - 1)).setMetallicFactor(0).setRoughnessFactor(1);
 };
 const modelRoot = doc.createNode('AshV2');
 for (const name of KEEP) {
   const on = oldBy.get(name), op = on.getMesh().listPrimitives()[0], om = op.getMaterial();
-  const entry = ashLook.mats[+om.getName().slice(1)];
-  mats.push(entry);
+  mats.push(ashLook.mats[+om.getName().slice(1)]);
   const m = doc.createMaterial('c' + (mats.length - 1)).setMetallicFactor(0).setRoughnessFactor(1).setDoubleSided(om.getDoubleSided()).setAlphaMode(om.getAlphaMode()).setAlphaCutoff(om.getAlphaCutoff());
   const ot = om.getBaseColorTexture();
-  if (ot) {
-    let png = Buffer.from(ot.getImage());
-    if (name === 'face_on_1' || name === 'face_on_0') png = await recolour(png, faceSkin, bodySkin);
-    m.setBaseColorTexture(doc.createTexture(name).setImage(png).setMimeType('image/png'));
-  } else m.setBaseColorFactor(om.getBaseColorFactor());
-  const P = Float32Array.from(op.getAttribute('POSITION').getArray());
-  for (let i = 0; i < P.length; i += 3) { P[i] += delta.x; P[i + 1] += delta.y; P[i + 2] += delta.z; }
+  if (ot) m.setBaseColorTexture(doc.createTexture(name).setImage(Buffer.from(ot.getImage())).setMimeType('image/png'));
+  else m.setBaseColorFactor(om.getBaseColorFactor());
+  const P = Float32Array.from(op.getAttribute('POSITION').getArray()), p = new THREE.Vector3();
+  for (let i = 0; i < P.length; i += 3) { p.set(P[i], P[i + 1], P[i + 2]); onHead(p).toArray(P, i); }
   const oj = on.getSkin().listJoints().map((j) => jointIx.get(j.getName()));
   const J = Uint16Array.from(op.getAttribute('JOINTS_0').getArray(), (j) => oj[j] ?? 0);
   const np = doc.createPrimitive().setAttribute('POSITION', acc('VEC3', P)).setAttribute('NORMAL', acc('VEC3', Float32Array.from(op.getAttribute('NORMAL').getArray())))
@@ -368,6 +443,32 @@ for (const [tris, name, celSrc] of [[cloth, 'ash2_body', 'topsjer'], [skinI, 'as
     .setAttribute('JOINTS_0', JA).setAttribute('WEIGHTS_0', WA).setIndices(acc('SCALAR', Uint32Array.from(tris))).setMaterial(newMat(name, name, celSrc).setBaseColorTexture(tex)));
 }
 modelRoot.addChild(doc.createNode('ash2_body').setMesh(bodyMesh).setSkin(skin));
+// the face decal: the head's front triangles again, with the frontal projection's UVs
+{
+  const fu = (i) => (pos[i * 3] - head.c.x) / head.r, fv = (i) => (pos[i * 3 + 1] - head.c.y) / head.r;
+  const front = (i) => skinV[i] && pos[i * 3 + 1] > head.c.y - 1.05 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
+  const map = new Map(), fp = [], fn = [], fuv = [], fj = [], fw = [], fi = [];
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t], b = idx[t + 1], c = idx[t + 2];
+    if (!(front(a) && front(b) && front(c))) continue;
+    for (const o of [a, b, c]) {
+      if (!map.has(o)) {
+        map.set(o, fp.length / 3);
+        fp.push(pos[o * 3], pos[o * 3 + 1], pos[o * 3 + 2]); fn.push(nrm[o * 3], nrm[o * 3 + 1], nrm[o * 3 + 2]);
+        fuv.push((0.5 + fu(o) / 2) * 0.5, 0.5 - fv(o) / 2);
+        for (let k = 0; k < 4; k++) { fj.push(J0[o * 4 + k]); fw.push(W0[o * 4 + k]); }
+      }
+      fi.push(map.get(o));
+    }
+  }
+  const fm = newMat('ash2_face', 'ash2_face', 'face_on_1', { alpha: 0.5, decal: true, eyes: true, shadow: false, ink: false, lift: LIFT })
+    .setBaseColorTexture(doc.createTexture('ash2_face').setImage(facePng).setMimeType('image/png')).setAlphaMode('MASK').setAlphaCutoff(0.5);
+  const fprim = doc.createPrimitive().setAttribute('POSITION', acc('VEC3', Float32Array.from(fp))).setAttribute('NORMAL', acc('VEC3', Float32Array.from(fn)))
+    .setAttribute('TEXCOORD_0', acc('VEC2', Float32Array.from(fuv))).setAttribute('JOINTS_0', acc('VEC4', Uint16Array.from(fj))).setAttribute('WEIGHTS_0', acc('VEC4', Float32Array.from(fw)))
+    .setIndices(acc('SCALAR', Uint32Array.from(fi))).setMaterial(fm);
+  modelRoot.addChild(doc.createNode('ash2_face').setMesh(doc.createMesh('ash2_face').addPrimitive(fprim)).setSkin(skin));
+  log('face decal:', fi.length / 3, 'triangles over the head');
+}
 
 // ---------- the scene: holder (the look's scale and y0) -> model -> skeleton and meshes ----------
 meshNode.getMesh().dispose(); meshNode.dispose();
@@ -385,12 +486,14 @@ log('wrote ash2.glb:', cloth.length / 3, 'cloth and', skinI.length / 3, 'skin tr
 
 // ---------- the look ----------
 const sim = JSON.parse(JSON.stringify(ashLook.sim));
+const r5 = (x) => +x.toFixed(5);
+const onHeadA = (a) => onHead(V3(a)).toArray().map(r5);
 const hair = sim.chains.map((c, i) => [c, i]).filter(([c]) => c.bones.every((b) => /^hr/.test(b)));
 const first = hair.length ? hair[0][1] : 0;
-sim.chains = hair.map(([c]) => ({ ...c, rest: c.rest.map((p) => [p[0] + delta.x, p[1] + delta.y, p[2] + delta.z].map((x) => +x.toFixed(5))) }));
-sim.links = sim.links.filter((l) => l[0] >= first && l[2] >= first).map((l) => [l[0] - first, l[1], l[2] - first, l[3], l[4]]);
+sim.chains = hair.map(([c]) => ({ ...c, rest: c.rest.map(onHeadA) }));
+sim.links = sim.links.filter((l) => l[0] >= first && l[2] >= first).map((l) => [l[0] - first, l[1], l[2] - first, l[3], r5(l[4] * kHead)]);
 sim.groups = sim.chains.length ? [[0, sim.chains.length, false]] : [];
-for (const c of sim.caps) if (c.bone === 'Head' || c.bone === 'Neck') for (const k of ['a', 'b']) c[k] = [c[k][0] + delta.x, c[k][1] + delta.y, c[k][2] + delta.z].map((x) => +x.toFixed(5));
+for (const c of sim.caps) if (c.bone === 'Head' || c.bone === 'Neck') { c.a = onHeadA(c.a); c.b = onHeadA(c.b); c.r0 = r5(c.r0 * kHead); c.r1 = r5(c.r1 * kHead); }
 cast.looks.ash2 = { mats, meta, scale: ashLook.scale, y0: ashLook.y0, sim };
 fs.writeFileSync(castPath, JSON.stringify(cast));
 log('cast.json: looks.ash2 written; meta', JSON.stringify(meta));
