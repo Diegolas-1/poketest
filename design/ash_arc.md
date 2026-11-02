@@ -151,7 +151,7 @@ Each chapter lists the **theme**, the **show anchor**, **what happens in the gam
 - **Show anchor:** EP001–EP002.
 - **In game:** catching a Pidgey goes wrong; the **Spearow rock** is a real choice (throw it or don't). If he throws it, the Spearow flock chases him in the rain, Pikachu is **hurt**, Ash ends up **Wet** and **Scraped**, and he has to **carry Pikachu** (the Carrying Pikachu condition: no running speed bonus, can't throw) to Viridian. Officer Jenny gives him a lift on the last stretch. **The Spearow remember** (flag `spearow_grudge`; it pays off in the last chapter as the show's Fearow).
 - If he **doesn't** throw the rock, the flock still comes (a storm spooks them), and he still shields Pikachu. The grudge is softer: the flag is `spearow_wary`, and the Fearow later can be won over instead of fought.
-- **Setbacks:** Pokémon hurt; a broken bike (Misty's, an IOU, see Money in the mechanics doc).
+- **Setbacks:** Pokémon hurt; a broken bike (Misty's, taken at the brook near Viridian, an IOU, see Money in the mechanics doc). The full thread: *The Spearow thread* after Chapter 20.
 - **Caring adults:** Officer Jenny, Nurse Joy. **Antagonist:** Team Rocket (first appearance).
 - **Growth:** Courage (shields Pikachu), Openness (first call home).
 - **First call home (videophone)**:
@@ -309,6 +309,27 @@ Each chapter lists the **theme**, the **show anchor**, **what happens in the gam
 - **Show anchor:** EP081.
 - **In game:** a party at the lab with the whole town, and Team Rocket's **Spicy** food stall. Arbok poisons Pidgeotto, and Ash feels **Guilty**. Then the payoff of the first chapter: **the Spearow from Route 1 returns as a Fearow** leading a flock against the Pidgey. With `spearow_grudge`, it's a fight. With `spearow_wary`, Ash can **apologise** (a long-delayed Make It Right: Responsibility +3, the biggest single award in the game). Pidgeotto evolves, and the **release of Pidgeot** to protect the flock (Heart +3).
 - **Closing:** Delia waves him off to the Orange Islands from the **pier**, not the lab gate, because she's about to board Kai's boat for Cinnabar herself (§5, stage 7).
+
+### The Spearow thread (Chapter 1 → Chapter 20)
+The game's first consequence: one impulsive act on Route 1 comes back at the end of Kanto (EP001 → EP081). It uses systems already in the game (Ash's rock throw, the wild ambush and swarm, the bike) and is committed to the plot, though no beat is scripted yet. **The city must leave room for every beat marked _City_.**
+
+1. **The setup (Route 1, day one).** Pikachu won't ride in his ball and won't help, so the Pidgey catch fails. A lone Spearow pecks in the grass by the road. It is **marked**: a torn crest feather, the same model tag all the way to the Fearow (`spearow_marked`). Ash can pick up a rock (the existing rock throw); Pikachu is watching.
+   - **Throw it:** it hits, the Spearow shrieks, the flock rises. Flag `spearow_grudge`.
+   - **Don't:** the storm breaks, thunder spooks the flock, and it comes anyway, not personal. Flag `spearow_wary`.
+2. **The chase in the storm.** The EP001 rain; the flock dives at Ash along the road north (the swarm system, scripted). Pikachu is hurt. Ash falls into the brook by the little stone bridge near Viridian; **Misty** is fishing there, hauls him out, and he takes **her bike** (the bike system) to get away. Lightning wrecks it. Misty: *"You owe me a bike!"* (the IOU, see Money in the mechanics doc; she follows him from here).
+3. **The stand.** Cornered, Ash shields Pikachu with his own body and shouts at the flock. Pikachu climbs onto him and lets go a huge Thunder Shock; the flock scatters. This is where they become partners. A rainbow, and a faint silhouette of the legendary bird crossing it (never explained).
+4. **Into Viridian.** Ash is Wet and Scraped and **carries Pikachu** (no running, no throwing). Officer Jenny is at the gate (the road works) and races him to the Pokémon Center on her motorbike. Nurse Joy takes Pikachu; the first call home on the videophone. With `spearow_grudge`, Jenny pins a notice: *"Spearow flock on Route 1. Keep your Pokémon close."* _City:_ the gate, a motorbike route from the gate to the Center, the Center's doors, counter and videophone booths, Jenny's notice board.
+5. **Echoes (mid game, cheap).**
+   - **The feather:** a Spearow feather stuck in Ash's cap that night; a keepsake in the journal (`spearow_feather`).
+   - **Watching:** the marked Spearow is sometimes perched on a Viridian rooftop or the Center's dome. With `spearow_wary` it flies off; with `spearow_grudge` it dives once, then leaves. _City:_ named perch points on rooftops and the dome.
+   - **Making amends early:** food left at its perch a few times (a dawn visit) softens `spearow_grudge` to `spearow_wary` (`spearow_fed_N`). Mistakes can be repaired, the growth system's point. _City:_ one perch reachable on foot (a low roof, a wall, a lamp on the lakeside).
+   - **Speary:** in the nickname house, a gentle tame Spearow shows they can trust people. _City:_ the nickname house, with a perch inside.
+   - **Rain rescue (Chapter 5, EP011):** Ash shields a Pokémon from Spearow in the rain again, and this time he knows what to do.
+   - **Rumours:** later, travellers talk of a huge Fearow leading the flocks near Viridian Forest. _City:_ the Center's lobby and the Route 2 street, where travellers sit.
+6. **The payoff (Chapter 20).** In Viridian Forest, the Fearow with the torn crest leads its flock against Pidgeotto's Pidgey. `spearow_grudge`: a battle. `spearow_wary`: Ash can **apologise** (Responsibility +3). Pidgeotto evolves; Ash releases Pidgeot to guard them.
+7. **After.** An apology: the Fearow drops Ash's old feather on the path and the flocks stop bothering him. A battle: driven off, but the Fearow stays out there as a roaming rival.
+
+Needs that are not built yet: the storm, the Wet / Scraped / Carrying Pikachu conditions, the scripted chase, the marked-bird tag, Misty at the brook, Jenny's gate scene and motorbike, the feather keepsake.
 
 ---
 
@@ -488,6 +509,10 @@ Each person has a **care style** (used by the condition dialogue in `conditions.
 | Flag | Set by | Used by |
 |---|---|---|
 | `spearow_grudge` / `spearow_wary` | Route 1 rock choice | Chapter 20 Fearow |
+| `spearow_marked` | the Route 1 Spearow (torn crest) | perches in Viridian; the Fearow |
+| `spearow_fed_N` | food at its Viridian perch | softens grudge to wary |
+| `spearow_feather` | Chapter 1 night | journal keepsake; Chapter 20 return |
+| `misty_bike_owed` | the brook, Chapter 1 | Misty's IOU |
 | `told_mom_truth_N` | honest answer on call N | Delia's lines; Ada's Telephone |
 | `badge_cascade_given` / `_earned` | Cerulean choice | Marina's line; Humility |
 | `mom_garden_done` | q_delia | Delia stage 0; the rose cutting |
