@@ -31,9 +31,10 @@ var cad_run := 0.0
 
 static var _data: Dictionary = {}
 static var _scenes: Dictionary = {}
-# Ash's looks: "ash" (the original model) and "ash2" (the V2 body on the same rig,
-# tools/native/bake_ash2.mjs); cast.gd makes the player from the settings' choice
-const ASH_LOOKS := ["ash", "ash2"]
+# Ash's looks: "ash" (the original model), "ash2" (the V2 body) and "ash3" (the V3, with
+# its own hat and hair; both tools/native/bake_ash2.mjs); cast.gd makes the player from
+# the settings' choice
+const ASH_LOOKS := ["ash", "ash2", "ash3"]
 
 var look := ""
 var skel: Skeleton3D
@@ -61,13 +62,17 @@ var idles: IdleActions
 var eyes: ShaderMaterial
 var face_mats := {}      # face decal key ("eyes", "mouth") -> {mat, grid}: the V2 look's decals (set_face)
 # the face placement saved on this device (ui/face_tool_ui.gd, user://face.json): over the look's
+# placement; the file holds {look: {eyes, mouth}} (an older one the V2's placement alone)
 static var _face_dev = null
-static func face_dev() -> Dictionary:
+static func face_dev(look_name := "ash2") -> Dictionary:
+	var d = face_dev_all().get(look_name, {})
+	return d if d is Dictionary else {}
+static func face_dev_all() -> Dictionary:
 	if _face_dev == null:
 		_face_dev = {}
 		if FileAccess.file_exists("user://face.json"):
 			var j = JSON.parse_string(FileAccess.get_file_as_string("user://face.json"))
-			if j is Dictionary: _face_dev = j
+			if j is Dictionary: _face_dev = {"ash2": j} if j.has("eyes") or j.has("mouth") else j
 	return _face_dev
 static func face_dev_changed() -> void: _face_dev = null
 var face_cell := Vector2.ZERO   # the eyes' expression: its atlas cell's uv offset (set_expression)
@@ -301,7 +306,7 @@ func _materials(root: Node, mats: Array, face: Dictionary = {}) -> void:
 				var g: Array = info.grid
 				m.set_shader_parameter("uv_pivot", Vector2(0.5 / float(g[0]), 0.5 / float(g[1])))
 				face_mats[info.face] = {"mat": m, "grid": g}
-				var pl = face_dev().get(info.face, face.get(info.face, {}))
+				var pl = face_dev(look).get(info.face, face.get(info.face, {}))
 				set_face(info.face, float(pl.get("x", 0.0)), float(pl.get("y", 0.0)), float(pl.get("scale", 1.0)), float(pl.get("gap", 0.0)))
 			mat_src[m] = String(info.get("src", nm)) + ("|eyes" if info.get("eyes", false) else "")
 			if not info.get("shadow", true): shadow = false

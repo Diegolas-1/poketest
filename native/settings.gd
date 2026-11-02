@@ -21,7 +21,7 @@ extends Node
 # (the road assist, its routing to the compass's goal, double-tap cruise: bike/assist.gd), auto_update
 # (updater.gd), music, music_vol (music.gd), sfx_vol, amb_vol, ui_sfx (sfx.gd), wild_peek
 # ("hidden" | "peek": a wild Pokémon in the tall grass shows only by the grass, or peeks out; wild/wild.gd),
-# ash_model ("v1" | "v2": Ash's model, the original or the V2 body baked by tools/native/bake_ash2.mjs; cast.gd).
+# ash_model ("v1" | "v2" | "v3": Ash's model, the original, the V2 body or the V3 with its own hat and hair, baked by tools/native/bake_ash2.mjs; cast.gd).
 #
 # Viewport-wide things (render scale, upscaler, anti-aliasing, frame cap,
 # shadow atlas size and filter, outlines through the Ink autoload) are applied
@@ -104,7 +104,7 @@ const ROWS := {
 		["fog", "Haze distance", [0.6, 0.8, 1.0, 1.25, 1.5, 2.0], ""],
 		["wild_peek", "Pokémon in the grass", ["hidden", "peek"], "a wild Pokémon hiding in tall grass: only the grass gives it away, or it peeks out"],
 		["footprints", "Footprints", [0, 1], "tracks left in sand, dirt and mud; follow a fleeing Pokémon's"],
-		["ash_model", "Ash's model", ["v1", "v2"], "V2 is the new body model; its face and hair are still the old ones for now"],
+		["ash_model", "Ash's model", ["v1", "v2", "v3"], "V2 is the new body with a hand-drawn face; V3 has its own hat and hair as well"],
 	],
 	"Controls": [
 		["face", "Face buttons", ["nintendo", "xbox"], "Switch / GameCube pads: A right"],
@@ -262,7 +262,7 @@ func fmt(key: String, v) -> String:
 		"island_side": return "Left" if v == "left" else "Right"
 		"tv_res": return "Auto" if str(v) == "auto" else "%dp" % int(v)
 		"wild_peek": return "Peeking (model visible)" if v == "peek" else "Hidden (grass only)"
-		"ash_model": return "V2 (new body)" if v == "v2" else "Original"
+		"ash_model": return {"v2": "V2 (new body)", "v3": "V3 (own hat and hair)"}.get(str(v), "Original")
 		"island_dx", "island_dy", "island_w", "island_h": return "%d pt" % int(v)
 	if typeof(v) == TYPE_INT and (v == 0 or v == 1): return "On" if v == 1 else "Off"
 	return str(v)

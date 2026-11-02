@@ -1,5 +1,8 @@
-// Bakes Ash's V2 model for the game: native/cast/ash2.glb and the "ash2" look in
-// native/cast/cast.json (the settings' "Ash's model" row picks it; cast.gd).
+// Bakes Ash's generated models for the game: native/cast/<look>.glb and the look in
+// native/cast/cast.json (the settings' "Ash's model" row picks it; cast.gd). Two looks
+// (LOOKS): "ash2", the V2 body, which came bald and blank (the old hair and cap ride
+// along, its head drawn in a little), and "ash3", the V3 with its own hat and hair, which
+// came without clips (--clips-from the V2's file: retargeted onto its rig).
 //
 // The source is the generated model as a rigged, animated glTF (Tripo's "basic" rig:
 // 52 Mixamo-named joints, ten clips with root motion, a 1M-triangle mesh with up to
@@ -26,7 +29,8 @@
 //   - the old hair, cap, hair spikes and cap logo ride along, scaled to the new head
 //     with their hair-chain and cap bones grafted under its Head.
 //
-//   node tools/native/bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000]
+//   node tools/native/bake_ash2.mjs <dir with base_basic_pbr.glb> [--look=ash2|ash3] [--tris=20000] [--head=0.88]
+//       [--clips-from=<the V2's base_basic_pbr.glb>]   (a model without clips of its own)
 //   (the model's zip unpacked into web/world/local/ash2/, say: local/ stays on this
 //   machine; npm install in tools/native first)
 //
@@ -42,10 +46,22 @@ import * as THREE from '../../web/lib/three/three.module.min.js';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const OUT = path.join(ROOT, 'native/cast');
 const SRC = process.argv[2];
-if (!SRC) { console.error('usage: bake_ash2.mjs <dir with base_basic_pbr.glb> [--tris=20000]'); process.exit(1); }
+if (!SRC) { console.error('usage: bake_ash2.mjs <dir with base_basic_pbr.glb> [--look=ash2|ash3] [--tris=20000] [--clips-from=glb]'); process.exit(1); }
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const TRIS = +arg('tris', 20000);
-const HEAD_SCALE = +arg('head', 0.88);   // the model's head shrunk about its centre (the hair, cap and face follow)
+const LOOK = arg('look', 'ash2');
+// per look: the head drawn in about its centre (the V2's is big for his body; its hair,
+// cap and face follow), the old look's hair, cap, spikes and logo brought over (keep) with
+// their hair-chain and cap bones grafted under the Head (graft; the hair's cloth chains
+// come with them); the V3 has its own hat and hair, so none of that
+const LOOKS = {
+  ash2: { head: 0.88, keep: ['hair01_on', 'hathun', 'ash_extra', 'ash_logo'], graft: ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'], root: 'AshV2' },
+  ash3: { head: 1.0, keep: [], graft: [], root: 'AshV3' },
+};
+if (!LOOKS[LOOK]) { console.error(`unknown look ${LOOK} (one of ${Object.keys(LOOKS).join(', ')})`); process.exit(1); }
+const CFG = LOOKS[LOOK];
+const HEAD_SCALE = +arg('head', CFG.head);
+const CLIPS_FROM = arg('clips-from', '');   // a glTF of the same rig whose clips go onto this one, when it has none
 const GLB = SRC.endsWith('.glb') ? SRC : path.join(SRC, 'base_basic_pbr.glb');
 
 // the rig's joints -> the game's bone names (actor.gd and friends)
@@ -64,9 +80,9 @@ const CLIPS = { '09b96219': 'walk', '14d6899b': 'jump', '2f46551b': 'sprint', '7
 // the crouch, the jump and the roll the jump's, sit, gesture and fall are idle acts)
 const GAME = { walk: 'walk', run: 'jog', sprint: 'sprint' };
 const GAITS = ['walk', 'jog', 'sprint', 'sneak'];   // cut to one cycle (two steps), from a left footfall
-const KEEP = ['hair01_on', 'hathun', 'ash_extra', 'ash_logo'];   // the old hair, cap, spikes and logo
-const FACE = ['face_on_1', 'face_on_0'];                          // the old face and its eye patch: drawn into the decal
-const HEAD_GRAFT = ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'];
+const KEEP = CFG.keep;                    // the old hair, cap, spikes and logo (the V2)
+const FACE = ['face_on_1', 'face_on_0'];  // the old face and its eye patch: drawn into the decal
+const HEAD_GRAFT = CFG.graft;
 const ATLAS = [2048, 1024];   // the projected fallback atlas: eyes open | eyes shut
 const LIFT = 0.004;           // the decal this far off the head (model units)
 // the face drawn for this head (tools/native/ash2_face.py): the eyes' atlas, eight cells
@@ -125,6 +141,63 @@ const prim0 = meshNode.getMesh().listPrimitives()[0];
 { const P = prim0.getAttribute('POSITION'), a = Float32Array.from(P.getArray()); for (let i = 0; i < a.length; i++) a[i] *= S; P.setArray(a); }
 const buffer = root.listBuffers()[0];
 const acc = (type, arr) => doc.createAccessor().setType(type).setArray(arr).setBuffer(buffer);
+
+// ---------- clips from another model of the same rig (the V3 came without any) ----------
+// the donor's poses carried over joint by joint as turns from its rest pose in the world,
+// put on this rig's rest pose (the two rest poses differ by a few degrees a joint), its
+// hips track scaled to this rig's hips height; the clips keep their names (CLIPS)
+if (root.listAnimations().length === 0) {
+  if (!CLIPS_FROM) throw new Error('the model has no clips of its own: give --clips-from=<a glTF of the same rig with them>');
+  const donor = await io.read(CLIPS_FROM), dRoot = donor.getRoot();
+  const dHips = dRoot.listNodes().find((n) => n.getName() === 'Hips');
+  const Q = (a) => new THREE.Quaternion(a[0], a[1], a[2], a[3]);
+  const worldQ = (n) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().fromArray(n.getWorldMatrix()));
+  const aboveQ = (n) => n.getParentNode() ? worldQ(n.getParentNode()) : new THREE.Quaternion();
+  const hipsRatio = Math.hypot(...hips.getTranslation()) / S / Math.hypot(...dHips.getTranslation());   // (this rig's joints are scaled by S already; the tracks get it below)
+  const at = (s, time, k) => { const t = s.getInput().getArray(), v = s.getOutput().getArray(); let i = 0; while (i + 1 < t.length && t[i + 1] < time) i++; const j = Math.min(i + 1, t.length - 1), f = j === i ? 0 : (time - t[i]) / (t[j] - t[i]); const o = []; for (let c = 0; c < k; c++) o.push(v[i * k + c] * (1 - f) + v[j * k + c] * f); return o; };
+  const order = []; (function walk(n) { order.push(n); n.listChildren().forEach(walk); })(dHips);
+  const restD = new Map(order.map((n) => [n.getName(), worldQ(n)]));
+  const restN = new Map(joints.map((n) => [n.getName(), worldQ(n)]));
+  const armD = aboveQ(dHips), armN = aboveQ(hips);
+  for (const da of dRoot.listAnimations()) {
+    const rot = new Map(); let tr = null;
+    for (const ch of da.listChannels()) {
+      const s = ch.getSampler();
+      if (ch.getTargetPath() === 'rotation') rot.set(ch.getTargetNode().getName(), s);
+      else if (ch.getTargetPath() === 'translation' && ch.getTargetNode() === dHips) tr = s;
+    }
+    const times = Float32Array.from((tr || rot.get('Hips')).getInput().getArray());
+    const out = new Map(order.map((n) => [n.getName(), new Float32Array(times.length * 4)]));
+    for (let f = 0; f < times.length; f++) {
+      const time = times[f], wD = new Map(), wN = new Map();
+      for (const n of order) {
+        const name = n.getName(), nn = by.get(name);
+        const pD = n === dHips ? armD : wD.get(n.getParentNode().getName());
+        const WD = pD.clone().multiply(rot.has(name) ? Q(at(rot.get(name), time, 4)).normalize() : Q(n.getRotation()));
+        wD.set(name, WD);
+        if (!nn) continue;
+        const WN = WD.clone().multiply(restD.get(name).clone().invert()).multiply(restN.get(name));
+        const pN = nn === hips ? armN : wN.get(nn.getParentNode().getName());
+        wN.set(name, WN);
+        pN.clone().invert().multiply(WN).toArray(out.get(name), f * 4);
+      }
+    }
+    const anim = doc.createAnimation(da.getName());
+    const input = acc('SCALAR', times);
+    for (const n of order) {
+      const nn = by.get(n.getName()); if (!nn) continue;
+      const s = doc.createAnimationSampler().setInput(input).setOutput(acc('VEC4', out.get(n.getName()))).setInterpolation('LINEAR');
+      anim.addSampler(s).addChannel(doc.createAnimationChannel().setTargetNode(nn).setTargetPath('rotation').setSampler(s));
+    }
+    if (tr) {
+      const v = new Float32Array(times.length * 3);
+      for (let f = 0; f < times.length; f++) { const p = at(tr, times[f], 3); for (let c = 0; c < 3; c++) v[f * 3 + c] = p[c] * hipsRatio; }
+      const s = doc.createAnimationSampler().setInput(input).setOutput(acc('VEC3', v)).setInterpolation('LINEAR');
+      anim.addSampler(s).addChannel(doc.createAnimationChannel().setTargetNode(hips).setTargetPath('translation').setSampler(s));
+    }
+  }
+  log(`clips from ${path.basename(CLIPS_FROM)}: ${dRoot.listAnimations().length} retargeted (the hips ${hipsRatio.toFixed(3)} of the donor's)`);
+}
 
 // ---------- the clips: names, scale, one cycle, root motion out, strides and leads ----------
 const meta = { idle: { stride: 0, lead: 0 } };
@@ -352,7 +425,7 @@ const allJoints = [...skinJoints, hipsBone, ...HEAD_GRAFT.map((n) => root.listNo
 const jointIx = new Map(allJoints.map((n, i) => [n.getName(), i]));
 const ibm = new Float32Array(allJoints.length * 16);
 allJoints.forEach((n, i) => world(n).invert().toArray(ibm, i * 16));
-const skin = doc.createSkin('ash2').setInverseBindMatrices(acc('MAT4', ibm));
+const skin = doc.createSkin(LOOK).setInverseBindMatrices(acc('MAT4', ibm));
 for (const n of allJoints) skin.addJoint(n);
 
 // ---------- the face decal: the old face drawn from the front, its flesh made clear ----------
@@ -453,9 +526,9 @@ const oldFacePng = await faceAtlas();
 fs.mkdirSync(FACE_DIR, { recursive: true });
 fs.writeFileSync(path.join(FACE_DIR, 'old_face.png'), oldFacePng);
 const decals = [];
-if (fs.existsSync(EYES_PNG)) { const m = await sharp(EYES_PNG).metadata(); decals.push({ key: 'eyes', name: 'ash2_face', png: fs.readFileSync(EYES_PNG), grid: [4, Math.round(m.height / (m.width / 4))], eyes: true }); }
-else { log('face: no', path.relative(ROOT, EYES_PNG), '(run tools/native/ash2_face.py): the old face projected instead'); decals.push({ key: 'eyes', name: 'ash2_face', png: oldFacePng, grid: [2, 1], eyes: true }); }
-if (fs.existsSync(MOUTH_PNG)) decals.push({ key: 'mouth', name: 'ash2_mouth', png: fs.readFileSync(MOUTH_PNG), grid: [1, 1], eyes: false });
+if (fs.existsSync(EYES_PNG)) { const m = await sharp(EYES_PNG).metadata(); decals.push({ key: 'eyes', name: `${LOOK}_face`, png: fs.readFileSync(EYES_PNG), grid: [4, Math.round(m.height / (m.width / 4))], eyes: true }); }
+else { log('face: no', path.relative(ROOT, EYES_PNG), '(run tools/native/ash2_face.py): the old face projected instead'); decals.push({ key: 'eyes', name: `${LOOK}_face`, png: oldFacePng, grid: [2, 1], eyes: true }); }
+if (fs.existsSync(MOUTH_PNG)) decals.push({ key: 'mouth', name: `${LOOK}_mouth`, png: fs.readFileSync(MOUTH_PNG), grid: [1, 1], eyes: false });
 else log('face: no', path.relative(ROOT, MOUTH_PNG), '(run tools/native/ash2_face.py): no mouth decal');
 
 // ---------- the materials and meshes ----------
@@ -465,7 +538,7 @@ const newMat = (name, src, celSrc, extra = {}) => {
   mats.push({ src, cel: celOf(celSrc), ds: false, alpha: 0, blend: false, decal: false, vc: false, eyes: false, shadow: true, ink: true, ...extra });
   return doc.createMaterial('c' + (mats.length - 1)).setMetallicFactor(0).setRoughnessFactor(1);
 };
-const modelRoot = doc.createNode('AshV2');
+const modelRoot = doc.createNode(CFG.root);
 for (const name of KEEP) {
   const on = oldBy.get(name), op = on.getMesh().listPrimitives()[0], om = op.getMaterial();
   mats.push(ashLook.mats[+om.getName().slice(1)]);
@@ -485,17 +558,17 @@ for (const name of KEEP) {
   modelRoot.addChild(nn);
 }
 // the body: cloth and skin surfaces
-const tex = doc.createTexture('ash2').setImage(texPng).setMimeType('image/png');
+const tex = doc.createTexture(LOOK).setImage(texPng).setMimeType('image/png');
 const P = acc('VEC3', pos), N = acc('VEC3', nrm), U = acc('VEC2', uv), JA = acc('VEC4', J0), WA = acc('VEC4', W0);
 const cloth = [], skinI = [];
 for (let t = 0; t < idx.length; t += 3) ((skinV[idx[t]] + skinV[idx[t + 1]] + skinV[idx[t + 2]] >= 2) ? skinI : cloth).push(idx[t], idx[t + 1], idx[t + 2]);
-const bodyMesh = doc.createMesh('ash2_body');
-for (const [tris, name, celSrc] of [[cloth, 'ash2_body', 'topsjer'], [skinI, 'ash2_skin', 'face_on_1']]) {
+const bodyMesh = doc.createMesh(`${LOOK}_body`);
+for (const [tris, name, celSrc] of [[cloth, `${LOOK}_body`, 'topsjer'], [skinI, `${LOOK}_skin`, 'face_on_1']]) {
   if (!tris.length) continue;
   bodyMesh.addPrimitive(doc.createPrimitive().setAttribute('POSITION', P).setAttribute('NORMAL', N).setAttribute('TEXCOORD_0', U)
     .setAttribute('JOINTS_0', JA).setAttribute('WEIGHTS_0', WA).setIndices(acc('SCALAR', Uint32Array.from(tris))).setMaterial(newMat(name, name, celSrc).setBaseColorTexture(tex)));
 }
-modelRoot.addChild(doc.createNode('ash2_body').setMesh(bodyMesh).setSkin(skin));
+modelRoot.addChild(doc.createNode(`${LOOK}_body`).setMesh(bodyMesh).setSkin(skin));
 // the face decals: the head's front triangles again, with the frontal projection's UVs
 // into the atlas's first cell (the atlases are authored in head radii about the sphere's centre)
 for (const dc of decals) {
@@ -536,19 +609,20 @@ holder.addChild(modelRoot);
 scene.addChild(holder);
 for (const sk of root.listSkins()) if (sk !== skin) sk.dispose();
 await doc.transform(prune());
-await io.write(path.join(OUT, 'ash2.glb'), doc);
-log('wrote ash2.glb:', cloth.length / 3, 'cloth and', skinI.length / 3, 'skin triangles,', allJoints.length, 'bones, clips', root.listAnimations().map((a) => a.getName()).join(' '));
+await io.write(path.join(OUT, `${LOOK}.glb`), doc);
+log(`wrote ${LOOK}.glb:`, cloth.length / 3, 'cloth and', skinI.length / 3, 'skin triangles,', allJoints.length, 'bones, clips', root.listAnimations().map((a) => a.getName()).join(' '));
 
 // ---------- the look ----------
 const sim = JSON.parse(JSON.stringify(ashLook.sim));
 const r5 = (x) => +x.toFixed(5);
 const onHeadA = (a) => onHead(V3(a)).toArray().map(r5);
-const hair = sim.chains.map((c, i) => [c, i]).filter(([c]) => c.bones.every((b) => /^hr/.test(b)));
+// (the old hair's chains, when it came along; a model with its own hair has no cloth)
+const hair = HEAD_GRAFT.length ? sim.chains.map((c, i) => [c, i]).filter(([c]) => c.bones.every((b) => /^hr/.test(b))) : [];
 const first = hair.length ? hair[0][1] : 0;
 sim.chains = hair.map(([c]) => ({ ...c, rest: c.rest.map(onHeadA) }));
-sim.links = sim.links.filter((l) => l[0] >= first && l[2] >= first).map((l) => [l[0] - first, l[1], l[2] - first, l[3], r5(l[4] * kHead)]);
+sim.links = hair.length ? sim.links.filter((l) => l[0] >= first && l[2] >= first).map((l) => [l[0] - first, l[1], l[2] - first, l[3], r5(l[4] * kHead)]) : [];
 sim.groups = sim.chains.length ? [[0, sim.chains.length, false]] : [];
 for (const c of sim.caps) if (c.bone === 'Head' || c.bone === 'Neck') { c.a = onHeadA(c.a); c.b = onHeadA(c.b); c.r0 = r5(c.r0 * kHead); c.r1 = r5(c.r1 * kHead); }
-cast.looks.ash2 = { mats, meta, scale: ashLook.scale, y0: ashLook.y0, sim, face: FACE_PLACE };
+cast.looks[LOOK] = { mats, meta, scale: ashLook.scale, y0: ashLook.y0, sim, face: FACE_PLACE };
 fs.writeFileSync(castPath, JSON.stringify(cast));
-log('cast.json: looks.ash2 written; meta', JSON.stringify(meta));
+log(`cast.json: looks.${LOOK} written; meta`, JSON.stringify(meta));

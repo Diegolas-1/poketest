@@ -309,10 +309,10 @@ func _residents_tick(dt: float) -> void:
 			if p.state == "inside" and String(p.inside) == h and not npcs.any(func(n): return n.get("person") == p): _resident_in(p)
 
 # ---------- his model ----------
-# Ash's model from the settings ("ash_model"): "ash", the original, or "ash2", the V2
-# body on the same rig (tools/native/bake_ash2.mjs)
+# Ash's model from the settings ("ash_model"): "ash", the original, "ash2", the V2 body,
+# or "ash3", the V3 with its own hat and hair (both tools/native/bake_ash2.mjs)
 static func player_look() -> String:
-	return "ash2" if str(Settings.get_value("ash_model")) == "v2" else "ash"
+	return {"v2": "ash2", "v3": "ash3"}.get(str(Settings.get_value("ash_model")), "ash")
 
 var _want_look := ""
 

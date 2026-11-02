@@ -2,7 +2,7 @@ extends Node
 # Dev (desktop): the game's face tool (ui/face_tool_ui.gd, Settings > World > Place Ash's
 # face) on its own, full screen. Save writes user://face.json as on the phone; Copy puts
 # the tunables' JSON on the clipboard (res://tunables/cast.json, looks.ash2.face).
-#   godot --path native res://dev/face_tool.tscn
+#   godot --path native res://dev/face_tool.tscn -- [--look=ash2|ash3]
 #   headless check: -- --set=eyes:x,y,scale[,gap] --set=mouth:x,y,scale [--save] [--shot=/tmp/a.png]
 var A := {}
 var ft: FaceToolUI
@@ -13,7 +13,9 @@ func _ready() -> void:
 		var kv := x.trim_prefix("--").split("=", true, 1)
 		A[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var cl := CanvasLayer.new(); add_child(cl)
-	ft = FaceToolUI.new(); cl.add_child(ft)
+	ft = FaceToolUI.new()
+	if A.has("look"): ft.look = String(A.look)
+	cl.add_child(ft)
 	ft.closed.connect(func(): get_tree().quit())
 	for s in OS.get_cmdline_user_args():
 		if s.begins_with("--set="):

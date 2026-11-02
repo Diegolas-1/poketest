@@ -5,21 +5,27 @@ extends Control
 # from the head's centre, +y up, +x his left; actor.gd set_face), and for how far apart
 # the two eyes are (gap: each slid out from the middle, or in). A change shows at once
 # on the picture and on him in the world (every actor of the look). Save keeps it in
-# user://face.json, which actor.gd lays over the look's placement (cast.json, the tunables)
-# on this device from then on; Copy puts it on the clipboard as the tunables' JSON
-# (res://tunables/cast.json, looks.ash2.face) for the repo and everyone's phone; Reset
-# drops the device's and shows the look's own again. Opened from Settings > World >
-# "Place Ash's face"; dev/face_tool.tscn hosts it on the desktop.
+# user://face.json (by look), which actor.gd lays over the look's placement (cast.json,
+# the tunables) on this device from then on; Copy puts it on the clipboard as the tunables'
+# JSON (res://tunables/cast.json, looks.<look>.face) for the repo and everyone's phone;
+# Reset drops the device's and shows the look's own again. The look is the player's model
+# when it has a placed face (the V2 or the V3), else the V2 (current_look). Opened from
+# Settings > World > "Place Ash's face"; dev/face_tool.tscn hosts it on the desktop.
 signal closed
 
-const LOOK := "ash2"
 const KEYS := ["eyes", "mouth"]
 const RANGE := {"x": [-0.6, 0.6], "y": [-1.2, 0.8], "scale": [0.4, 1.8], "gap": [-0.3, 0.3]}
 const FIELDS := {"eyes": ["x", "y", "scale", "gap"], "mouth": ["x", "y", "scale"]}
 const PATH := "user://face.json"
 
+var look := "ash2"   # (set before it enters the tree)
 var place := {}
 var preview: CastActor
+
+# the look to place: the player's, when it has a placed face, else the V2
+static func current_look() -> String:
+	var l := Cast.player_look()
+	return l if CastActor.data().looks.get(l, {}).has("face") else "ash2"
 var cam: Camera3D
 var yaw := 0.0
 var dist := 0.85
@@ -63,7 +69,7 @@ func _preview() -> Control:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR; env.ambient_light_color = Color(0.7, 0.72, 0.8); env.ambient_light_energy = 0.6
 	var we := WorldEnvironment.new(); we.environment = env; vp.add_child(we)
 	var sun := DirectionalLight3D.new(); vp.add_child(sun); sun.look_at_from_position(Vector3(-0.55, 0.75, 0.45) * 10, Vector3.ZERO)
-	preview = CastActor.make(LOOK); vp.add_child(preview)
+	preview = CastActor.make(look); vp.add_child(preview)
 	preview.ground = func(_x: float, _z: float) -> float: return 0.0
 	cam = Camera3D.new(); vp.add_child(cam); cam.fov = 30; cam.current = true
 	box.gui_input.connect(func(e: InputEvent):
@@ -118,10 +124,10 @@ func _controls() -> Control:
 # ---------- the values ----------
 # the look's own placement (cast.json with the tunables over it), the device's over that
 func _load() -> void:
-	var look: Dictionary = CastActor.data().looks.get(LOOK, {})
-	var dev := CastActor.face_dev()
+	var L: Dictionary = CastActor.data().looks.get(look, {})
+	var dev := CastActor.face_dev(look)
 	for k in KEYS:
-		var p: Dictionary = dev.get(k, look.get("face", {}).get(k, {}))
+		var p: Dictionary = dev.get(k, L.get("face", {}).get(k, {}))
 		place[k] = {"x": float(p.get("x", 0.0)), "y": float(p.get("y", 0.0)), "scale": float(p.get("scale", 1.0)), "gap": float(p.get("gap", 0.0))}
 	status.text = "Saved on this phone." if not dev.is_empty() else "The game's own placement."
 
@@ -134,7 +140,7 @@ func _apply(changed := "") -> void:
 		var p: Dictionary = place[k]
 		preview.set_face(k, p.x, p.y, p.scale, p.gap)
 		for n in get_tree().get_nodes_in_group("characters"):   # him in the world too
-			if n is CastActor and n.look == LOOK and n != preview: n.set_face(k, p.x, p.y, p.scale, p.gap)
+			if n is CastActor and n.look == look and n != preview: n.set_face(k, p.x, p.y, p.scale, p.gap)
 		for f in FIELDS[k]:
 			var sl: HSlider = sliders[k + "." + f][0]
 			if k + "." + f != changed: sl.set_value_no_signal(p[f])
@@ -149,23 +155,34 @@ func _face() -> Dictionary:
 
 # kept on this device, over the look's placement from now on (actor.gd face_dev)
 func save() -> void:
-	var f := FileAccess.open(PATH, FileAccess.WRITE)
-	if f == null:
-		status.text = "Could not write " + PATH
-		return
-	f.store_string(JSON.stringify(_face()) + "\n"); f.close()
-	CastActor.face_dev_changed()
+	var all := CastActor.face_dev_all().duplicate(true)
+	all[look] = _face()
+	if not _write(all): return
 	status.text = "Saved on this phone: eyes %s, mouth %s. Copy puts it on the clipboard for the game's files." % [_fmt(place.eyes), _fmt(place.mouth)]
 
-# the tunables' JSON (res://tunables/cast.json: looks.ash2.face) on the clipboard
+# the device's file: every look's placement; gone when none is left
+func _write(all: Dictionary) -> bool:
+	if all.is_empty():
+		if FileAccess.file_exists(PATH): DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
+	else:
+		var f := FileAccess.open(PATH, FileAccess.WRITE)
+		if f == null:
+			status.text = "Could not write " + PATH
+			return false
+		f.store_string(JSON.stringify(all) + "\n"); f.close()
+	CastActor.face_dev_changed()
+	return true
+
+# the tunables' JSON (res://tunables/cast.json: looks.<look>.face) on the clipboard
 func copy_json() -> void:
-	DisplayServer.clipboard_set(JSON.stringify({"looks": {LOOK: {"face": _face()}}}, " "))
-	status.text = "Copied: paste into native/tunables/cast.json (looks.ash2.face) to make it everyone's."
+	DisplayServer.clipboard_set(JSON.stringify({"looks": {look: {"face": _face()}}}, " "))
+	status.text = "Copied: paste into native/tunables/cast.json (looks.%s.face) to make it everyone's." % look
 
 # back to the look's own placement; the device's forgotten
 func reset() -> void:
-	if FileAccess.file_exists(PATH): DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
-	CastActor.face_dev_changed()
+	var all := CastActor.face_dev_all().duplicate(true)
+	all.erase(look)
+	if not _write(all): return
 	_load()
 	_apply()
 	status.text = "Back to the game's own placement."

@@ -94,6 +94,7 @@ func _face_tool() -> void:
 	b.pressed.connect(func():
 		Sfx.ui("ui_confirm")
 		face_tool = FaceToolUI.new()
+		face_tool.look = FaceToolUI.current_look()
 		root.add_child(face_tool)
 		panel.visible = false
 		face_tool.closed.connect(func():
