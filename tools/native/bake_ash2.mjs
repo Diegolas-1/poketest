@@ -569,12 +569,15 @@ for (const [tris, name, celSrc] of [[cloth, `${LOOK}_body`, 'topsjer'], [skinI, 
     .setAttribute('JOINTS_0', JA).setAttribute('WEIGHTS_0', WA).setIndices(acc('SCALAR', Uint32Array.from(tris))).setMaterial(newMat(name, name, celSrc).setBaseColorTexture(tex)));
 }
 modelRoot.addChild(doc.createNode(`${LOOK}_body`).setMesh(bodyMesh).setSkin(skin));
-// the face decals: the head's front triangles again, with the frontal projection's UVs
-// into the atlas's first cell (the atlases are authored in head radii about the sphere's centre)
+// the face decals: the head's front triangles again (skin, hair and cap alike: the atlas is
+// clear where there is no feature), with the frontal projection's UVs into the atlas's
+// first cell (the atlases are authored in head radii about the sphere's centre)
 for (const dc of decals) {
   const fr = head.r, fcy = head.c.y, [gx, gy] = dc.grid;
   const fu = (i) => (pos[i * 3] - head.c.x) / fr, fv = (i) => (pos[i * 3 + 1] - fcy) / fr;
-  const front = (i) => skinV[i] && pos[i * 3 + 1] > head.c.y - 1.1 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
+  // (every surface in the window, skin or not: the atlas is clear where there is no feature,
+  // and a brow may run under the hairline; skin painted dark near the hair would leave holes)
+  const front = (i) => pos[i * 3 + 1] > head.c.y - 1.1 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
   const map = new Map(), fp = [], fn = [], fuv = [], fj = [], fw = [], fi = [];
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t], b = idx[t + 1], c = idx[t + 2];
