@@ -381,7 +381,15 @@ const rgbAt = (u, v) => {
   const x = Math.min(W - 1, Math.max(0, Math.floor(u * W))), y = Math.min(H - 1, Math.max(0, Math.floor(v * H)));
   const o = (y * W + x) * C; return [texRaw.data[o], texRaw.data[o + 1], texRaw.data[o + 2]];
 };
-const isSkin = ([r, g, b]) => r > 150 && r - b > 60 && g - b > 15 && r - g > 20 && r - g < 110;
+// skin by hue and saturation (an orange-brown, however shaded), so the skin painted dark
+// beside the hair still counts; the hair is dark, the cap white or red, the clothes other hues
+const isSkin = ([r, g, b]) => {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), v = mx / 255, sat = mx ? (mx - mn) / mx : 0;
+  if (v < 0.2 || sat < 0.25 || sat > 0.82) return false;
+  let h = mx === r ? 60 * (((g - b) / (mx - mn)) % 6) : mx === g ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - g) / (mx - mn) + 4);
+  if (h < 0) h += 360;
+  return h >= 10 && h <= 42;
+};
 const skinV = new Uint8Array(NV);
 for (let i = 0; i < NV; i++) if (isSkin(rgbAt(uv[i * 2], uv[i * 2 + 1]))) skinV[i] = 1;
 
@@ -569,19 +577,18 @@ for (const [tris, name, celSrc] of [[cloth, `${LOOK}_body`, 'topsjer'], [skinI, 
     .setAttribute('JOINTS_0', JA).setAttribute('WEIGHTS_0', WA).setIndices(acc('SCALAR', Uint32Array.from(tris))).setMaterial(newMat(name, name, celSrc).setBaseColorTexture(tex)));
 }
 modelRoot.addChild(doc.createNode(`${LOOK}_body`).setMesh(bodyMesh).setSkin(skin));
-// the face decals: the head's front triangles again (skin, hair and cap alike: the atlas is
-// clear where there is no feature), with the frontal projection's UVs into the atlas's
-// first cell (the atlases are authored in head radii about the sphere's centre)
+// the face decals: the head's front skin triangles again, with the frontal projection's
+// UVs into the atlas's first cell (the atlases are authored in head radii about the sphere's centre)
 for (const dc of decals) {
   const fr = head.r, fcy = head.c.y, [gx, gy] = dc.grid;
   const fu = (i) => (pos[i * 3] - head.c.x) / fr, fv = (i) => (pos[i * 3 + 1] - fcy) / fr;
-  // (every surface in the window, skin or not: the atlas is clear where there is no feature,
-  // and a brow may run under the hairline; skin painted dark near the hair would leave holes)
+  // (the skin only, so the hair and the cap in front of it hide a brow or an eye moved up
+  // under them; a triangle counts with two skin corners, so a stray dark corner leaves no hole)
   const front = (i) => pos[i * 3 + 1] > head.c.y - 1.1 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
   const map = new Map(), fp = [], fn = [], fuv = [], fj = [], fw = [], fi = [];
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t], b = idx[t + 1], c = idx[t + 2];
-    if (!(front(a) && front(b) && front(c))) continue;
+    if (!(front(a) && front(b) && front(c)) || skinV[a] + skinV[b] + skinV[c] < 2) continue;
     for (const o of [a, b, c]) {
       if (!map.has(o)) {
         map.set(o, fp.length / 3);
