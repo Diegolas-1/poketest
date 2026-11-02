@@ -11,12 +11,12 @@ head radii wide, in the frame the bake projects onto the head (u right, v up, th
 sphere's centre at the middle). The game shows cell 0; its blink moves half a texture to
 the right, which is cell 2, the shut eyes.
 
-  python3 tools/native/ash2_face.py [--eye-y=-0.40] [--eye-sep=0.72] [--mouth-gap=0.10] [--cell=512]
+  python3 tools/native/ash2_face.py [--eye-y=-0.31] [--eye-sep=0.72] [--mouth-top=-0.82] [--cell=512]
   -> tools/native/ash2_face/atlas.png (and atlas_preview.png over a skin colour)
 
-eye-y: the eyes' centre line, head radii from the centre (down is negative); eye-sep:
-the eyes' centres apart, head radii (the features' size); mouth-gap: from the nose's
-bottom to the mouth's top, head radii.
+eye-y: the eyes' centre line, head radii from the centre (down is negative; the nose
+and brows go with it); eye-sep: the eyes' centres apart, head radii (the features'
+size); mouth-top: the mouth's top edge, head radii from the centre.
 """
 import sys, os
 import numpy as np
@@ -24,9 +24,9 @@ from PIL import Image, ImageFilter
 
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ash2_face')
 args = {k.lstrip('-'): float(v) for k, v in (a.split('=') for a in sys.argv[1:] if '=' in a)}
-EYE_Y = args.get('eye-y', -0.40)
+EYE_Y = args.get('eye-y', -0.31)
 EYE_SEP = args.get('eye-sep', 0.72)
-MOUTH_GAP = args.get('mouth-gap', 0.10)
+MOUTH_TOP_V = args.get('mouth-top', -0.82)
 CELL = int(args.get('cell', 512))
 COLS, ROWS = 4, 2
 
@@ -123,8 +123,7 @@ f0, p0 = features(c0)
 s = EYE_SEP / (rx - lx)
 nx0, ny0, nb0 = nose(c0, p0)
 NOSE_V = EYE_Y - (ny0 - (ly + ry) / 2) * s   # the nose this far below the eye line, in every cell
-MOUTH_TOP_V = EYE_Y - (nb0 - (ly + ry) / 2) * s - MOUTH_GAP
-print(f'scale {s:.5f} radii/px  eye line y {(ly + ry) / 2:.1f}  nose at v {NOSE_V:.3f}  mouths from v {MOUTH_TOP_V:.3f}')
+print(f'scale {s:.5f} radii/px  eye line y {(ly + ry) / 2:.1f}  nose at v {NOSE_V:.3f} (bottom {EYE_Y - (nb0 - (ly + ry) / 2) * s:.3f})  mouths from v {MOUTH_TOP_V:.3f}')
 
 atlas = Image.new('RGBA', (CELL * COLS, CELL * ROWS), (0, 0, 0, 0))
 for r in range(ROWS):
@@ -135,7 +134,7 @@ for r in range(ROWS):
         nx, ny, _ = nose(cell, p)
         out = place(f, nx, ny, 0.0, NOSE_V, s, CELL)
         # the mouth: the second sheet's features below its nose, round the middle, its top
-        # set MOUTH_GAP under the nose
+        # at MOUTH_TOP_V
         mx0, my0, mx1, my1 = gm[r][c]
         mcell = mouth_img[my0:my1, mx0:mx1]
         mf, mp = features(mcell)
