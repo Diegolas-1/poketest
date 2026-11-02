@@ -250,13 +250,16 @@ const newHeadP = new THREE.Vector3().setFromMatrixPosition(restOf('Head'));
 const delta = newHeadP.clone().sub(oldHeadP).add(new THREE.Vector3(0, LIFT, 0));
 const headCenterY = 1.191 + delta.y;   // (the old head's sphere: centre y 1.191, radius 0.0985)
 const cutY = headCenterY - 0.065;
-log('head joint', newHeadP.toArray().map((x) => x.toFixed(3)).join(','), 'delta', delta.toArray().map((x) => x.toFixed(3)).join(','), 'neck cut at', cutY.toFixed(3));
+// the model's own head goes: its skin above the cut, and above the neck's base anything
+// wider than the neck (its chin and jaw hang lower than the old head's bottom)
+const neckY = new THREE.Vector3().setFromMatrixPosition(restOf('Neck')).y + 0.015, NECK_R = 0.062;
+log('head joint', newHeadP.toArray().map((x) => x.toFixed(3)).join(','), 'delta', delta.toArray().map((x) => x.toFixed(3)).join(','), 'neck cut at', cutY.toFixed(3), 'neck axis', newHeadP.x.toFixed(3), newHeadP.z.toFixed(3));
 {
   const keep = [];
+  const isHead = (v) => { const y = pos[v * 3 + 1]; if (y > cutY + 0.05) return true; if (!skinV[v]) return false; const r = Math.hypot(pos[v * 3] - newHeadP.x, pos[v * 3 + 2] - newHeadP.z); return y > cutY || (y > neckY && r > NECK_R); };
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t], b = idx[t + 1], c = idx[t + 2];
-    const lo = Math.min(pos[a * 3 + 1], pos[b * 3 + 1], pos[c * 3 + 1]), skin = skinV[a] + skinV[b] + skinV[c];
-    if ((lo > cutY && skin >= 2) || lo > cutY + 0.05) continue;
+    if (isHead(a) + isHead(b) + isHead(c) >= 2) continue;
     keep.push(a, b, c);
   }
   const map = new Int32Array(NV).fill(-1), np = [], nn = [], nu = [], ns = [], nj = [], nw = [];
