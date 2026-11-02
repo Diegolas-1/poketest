@@ -67,18 +67,14 @@ const FACE = ['face_on_1', 'face_on_0'];                          // the old fac
 const HEAD_GRAFT = ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'];
 const ATLAS = [2048, 1024];   // the projected fallback atlas: eyes open | eyes shut
 const LIFT = 0.004;           // the decal this far off the head (model units)
-// the face drawn for this head (tools/native/ash2_face.py from its expression sheets):
-// eight cells, four by two, each the head's front two radii wide in the projection's
-// frame; the game shows the first, its blink the third (half a texture to the right)
-const FACE_PNG = arg('face', path.join(ROOT, 'tools/native/ash2_face/atlas.png'));
-const FACE_GRID = [4, 2];
-// where the face sits on the new head, in head radii: the eyes' centre line this far below
-// the head sphere's centre, and the features this big (the old round head had them at
-// 1.0; this head's jaw is long and its fringe hangs low, so they go smaller and lower).
-// EYE_V: the eyes' centre line in the atlas, in old head radii (measured).
-const EYE_Y = +arg('eye-y', -0.42);
-const FACE_R = +arg('face-r', 0.8);
-const EYE_V = -0.10;
+// the face drawn for this head (tools/native/ash2_face.py): the eyes' atlas, eight cells
+// four by two, each the head's front two radii wide in the projection's frame (the game
+// shows the first, its blink the third, half a texture to the right), and the mouth's,
+// one cell. Where they sit and how big is the look's "face" placement (cast.json, the
+// tunables over it; dev/face_tool.gd), applied in the shader, so no rebake moves them.
+const FACE_DIR = path.join(ROOT, 'tools/native/ash2_face');
+const EYES_PNG = arg('eyes', path.join(FACE_DIR, 'atlas.png')), MOUTH_PNG = arg('mouth', path.join(FACE_DIR, 'mouth.png'));
+const FACE_PLACE = { eyes: { x: 0, y: 0, scale: 1 }, mouth: { x: 0, y: -0.17, scale: 1 } };
 
 const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const t0 = Date.now();
@@ -415,9 +411,16 @@ async function faceAtlas() {
   }
   return sharp(out, { raw: { width: W, height: H, channels: 4 } }).png({ compressionLevel: 9 }).toBuffer();
 }
-const drawn = FACE_PNG !== 'none' && fs.existsSync(FACE_PNG);
-const facePng = drawn ? fs.readFileSync(FACE_PNG) : await faceAtlas();
-log(drawn ? `face: the drawn atlas ${path.relative(ROOT, FACE_PNG)}` : 'face: projected from the old face');
+// the old face's projection: the compositor cuts the mouth out of it (and it stands in
+// for the eyes' atlas while there is none)
+const oldFacePng = await faceAtlas();
+fs.mkdirSync(FACE_DIR, { recursive: true });
+fs.writeFileSync(path.join(FACE_DIR, 'old_face.png'), oldFacePng);
+const decals = [];
+if (fs.existsSync(EYES_PNG)) { const m = await sharp(EYES_PNG).metadata(); decals.push({ key: 'eyes', name: 'ash2_face', png: fs.readFileSync(EYES_PNG), grid: [4, Math.round(m.height / (m.width / 4))], eyes: true }); }
+else { log('face: no', path.relative(ROOT, EYES_PNG), '(run tools/native/ash2_face.py): the old face projected instead'); decals.push({ key: 'eyes', name: 'ash2_face', png: oldFacePng, grid: [2, 1], eyes: true }); }
+if (fs.existsSync(MOUTH_PNG)) decals.push({ key: 'mouth', name: 'ash2_mouth', png: fs.readFileSync(MOUTH_PNG), grid: [1, 1], eyes: false });
+else log('face: no', path.relative(ROOT, MOUTH_PNG), '(run tools/native/ash2_face.py): no mouth decal');
 
 // ---------- the materials and meshes ----------
 const mats = [];
@@ -457,13 +460,10 @@ for (const [tris, name, celSrc] of [[cloth, 'ash2_body', 'topsjer'], [skinI, 'as
     .setAttribute('JOINTS_0', JA).setAttribute('WEIGHTS_0', WA).setIndices(acc('SCALAR', Uint32Array.from(tris))).setMaterial(newMat(name, name, celSrc).setBaseColorTexture(tex)));
 }
 modelRoot.addChild(doc.createNode('ash2_body').setMesh(bodyMesh).setSkin(skin));
-// the face decal: the head's front triangles again, with the frontal projection's UVs
-{
-  // the drawn atlas is authored in head radii about the sphere's centre; the projected
-  // fallback is set by EYE_Y / FACE_R
-  const fr = drawn ? head.r : head.r * FACE_R, fcy = drawn ? head.c.y : head.c.y + EYE_Y * head.r - EYE_V * fr;
-  const [gx, gy] = drawn ? FACE_GRID : [2, 1];
-  if (!drawn) log('face: eyes at', (head.c.y + EYE_Y * head.r).toFixed(3), 'mouth at', (fcy - 0.68 * fr).toFixed(3), 'features', FACE_R, 'of the head radius');
+// the face decals: the head's front triangles again, with the frontal projection's UVs
+// into the atlas's first cell (the atlases are authored in head radii about the sphere's centre)
+for (const dc of decals) {
+  const fr = head.r, fcy = head.c.y, [gx, gy] = dc.grid;
   const fu = (i) => (pos[i * 3] - head.c.x) / fr, fv = (i) => (pos[i * 3 + 1] - fcy) / fr;
   const front = (i) => skinV[i] && pos[i * 3 + 1] > head.c.y - 1.1 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
   const map = new Map(), fp = [], fn = [], fuv = [], fj = [], fw = [], fi = [];
@@ -480,13 +480,13 @@ modelRoot.addChild(doc.createNode('ash2_body').setMesh(bodyMesh).setSkin(skin));
       fi.push(map.get(o));
     }
   }
-  const fm = newMat('ash2_face', 'ash2_face', 'face_on_1', { alpha: 0.5, decal: true, eyes: true, shadow: false, ink: false, lift: LIFT })
-    .setBaseColorTexture(doc.createTexture('ash2_face').setImage(facePng).setMimeType('image/png')).setAlphaMode('MASK').setAlphaCutoff(0.5);
+  const fm = newMat(dc.name, dc.name, 'face_on_1', { alpha: 0.5, decal: true, eyes: dc.eyes, shadow: false, ink: false, lift: LIFT, face: dc.key, grid: dc.grid })
+    .setBaseColorTexture(doc.createTexture(dc.name).setImage(dc.png).setMimeType('image/png')).setAlphaMode('MASK').setAlphaCutoff(0.5);
   const fprim = doc.createPrimitive().setAttribute('POSITION', acc('VEC3', Float32Array.from(fp))).setAttribute('NORMAL', acc('VEC3', Float32Array.from(fn)))
     .setAttribute('TEXCOORD_0', acc('VEC2', Float32Array.from(fuv))).setAttribute('JOINTS_0', acc('VEC4', Uint16Array.from(fj))).setAttribute('WEIGHTS_0', acc('VEC4', Float32Array.from(fw)))
     .setIndices(acc('SCALAR', Uint32Array.from(fi))).setMaterial(fm);
-  modelRoot.addChild(doc.createNode('ash2_face').setMesh(doc.createMesh('ash2_face').addPrimitive(fprim)).setSkin(skin));
-  log('face decal:', fi.length / 3, 'triangles over the head');
+  modelRoot.addChild(doc.createNode(dc.name).setMesh(doc.createMesh(dc.name).addPrimitive(fprim)).setSkin(skin));
+  log(`${dc.name}: ${fi.length / 3} triangles over the head`);
 }
 
 // ---------- the scene: holder (the look's scale and y0) -> model -> skeleton and meshes ----------
@@ -513,6 +513,6 @@ sim.chains = hair.map(([c]) => ({ ...c, rest: c.rest.map(onHeadA) }));
 sim.links = sim.links.filter((l) => l[0] >= first && l[2] >= first).map((l) => [l[0] - first, l[1], l[2] - first, l[3], r5(l[4] * kHead)]);
 sim.groups = sim.chains.length ? [[0, sim.chains.length, false]] : [];
 for (const c of sim.caps) if (c.bone === 'Head' || c.bone === 'Neck') { c.a = onHeadA(c.a); c.b = onHeadA(c.b); c.r0 = r5(c.r0 * kHead); c.r1 = r5(c.r1 * kHead); }
-cast.looks.ash2 = { mats, meta, scale: ashLook.scale, y0: ashLook.y0, sim };
+cast.looks.ash2 = { mats, meta, scale: ashLook.scale, y0: ashLook.y0, sim, face: FACE_PLACE };
 fs.writeFileSync(castPath, JSON.stringify(cast));
 log('cast.json: looks.ash2 written; meta', JSON.stringify(meta));

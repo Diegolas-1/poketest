@@ -111,7 +111,7 @@ func rebind(a: CastActor) -> void:
 	for m in a.mat_src:
 		var src: String = a.mat_src[m]
 		var k := 1.0
-		if src.ends_with("|eyes"): k = 0.0
+		if src.ends_with("|eyes") or src.ends_with("_mouth"): k = 0.0
 		elif src.begins_with("face") or src.ends_with("_skin"): k = 0.15
 		elif src.contains("logo"): k = 0.8
 		_mats.append([m, k])

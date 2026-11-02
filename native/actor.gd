@@ -59,6 +59,8 @@ var waist_pos := Vector3.ZERO
 var rest_pos: Array[Vector3] = []
 var idles: IdleActions
 var eyes: ShaderMaterial
+var face_mats := {}      # face decal key ("eyes", "mouth") -> {mat, grid}: the V2 look's decals (set_face)
+var face_cell := Vector2.ZERO   # the eyes' expression: its atlas cell's uv offset (set_expression)
 var meshes: Array[MeshInstance3D] = []
 var mat_src := {}           # ShaderMaterial -> its cast.json material name (body.gd: the wet look per material)
 # worn out (body.gd, fatigue): 0..1, a hunched, panting posture on top of the clips
@@ -141,6 +143,10 @@ static func _overrides(d: Dictionary) -> void:
 					for ck in me.cel: m.cel[ck] = me.cel[ck]
 		if e.get("meta") is Dictionary:
 			for cn in e.meta: if L.meta.has(cn) and e.meta[cn] is Dictionary: for mk in e.meta[cn]: L.meta[cn][mk] = e.meta[cn][mk]
+		# face.<decal> {x, y, scale}: where the V2 look's eyes and mouth sit (dev/face_tool.gd saves them)
+		if e.get("face") is Dictionary:
+			if not L.get("face") is Dictionary: L.face = {}
+			for fk in e.face: if e.face[fk] is Dictionary: L.face[fk] = e.face[fk]
 		if e.get("sim") is Dictionary and e.sim.get("chains") is Dictionary and L.get("sim") is Dictionary:
 			for ci in e.sim.chains:
 				var i := int(ci)
@@ -235,7 +241,7 @@ func _build(look_name: String) -> void:
 		var arr := PackedInt32Array()
 		for bi in used: arr.append(rot_tr[an].get(bi, -1))
 		trk[an] = arr
-	_materials(root, d.mats)
+	_materials(root, d.mats, d.get("face", {}))
 	add_to_group("characters")   # for the ink pass: meshes in .meshes, opt-outs in meta "no_ink"
 	idle_t = _rng.randf() * float(anims.idle.length)
 	blink = 2.0 + _rng.randf() * 3.0
@@ -245,7 +251,7 @@ func _build(look_name: String) -> void:
 	idles = IdleActions.new(self, not is_ash(), is_ash())
 	cloth = ClothSim.make(self)
 
-func _materials(root: Node, mats: Array) -> void:
+func _materials(root: Node, mats: Array, face: Dictionary = {}) -> void:
 	var made := {}
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		var m3 := mi as MeshInstance3D
@@ -279,6 +285,14 @@ func _materials(root: Node, mats: Array) -> void:
 						var v: Array = cel[key[0]]
 						m.set_shader_parameter(key[1], Vector3(v[0], v[1], v[2]))
 			if info.get("eyes", false): eyes = m
+			# a decal over its own surface (the V2 look's eyes and mouth): its atlas cell's centre is
+			# the pivot the look's placement (cast.json face, the tunables' over it) moves and sizes it about
+			if info.get("face") is String and info.get("grid") is Array:
+				var g: Array = info.grid
+				m.set_shader_parameter("uv_pivot", Vector2(0.5 / float(g[0]), 0.5 / float(g[1])))
+				face_mats[info.face] = {"mat": m, "grid": g}
+				var pl = face.get(info.face, {})
+				set_face(info.face, float(pl.get("x", 0.0)), float(pl.get("y", 0.0)), float(pl.get("scale", 1.0)))
 			mat_src[m] = String(info.get("src", nm)) + ("|eyes" if info.get("eyes", false) else "")
 			if not info.get("shadow", true): shadow = false
 			# ink lines: the web leaves the logo out (outline: false); the eye patch draws with the face
@@ -291,6 +305,23 @@ func _materials(root: Node, mats: Array) -> void:
 # ---------- helpers ----------
 func is_ash() -> bool:
 	return look in ASH_LOOKS
+
+# where a face decal sits on the head: x, y in head radii from the projection's centre
+# (+y up, +x his left), scale its size; live (dev/face_tool.gd), saved in the tunables
+func set_face(key: String, x: float, y: float, scale: float) -> void:
+	if not face_mats.has(key): return
+	var g: Array = face_mats[key].grid
+	var m: ShaderMaterial = face_mats[key].mat
+	m.set_shader_parameter("uv_shift", Vector2(x * 0.5 / float(g[0]), -y * 0.5 / float(g[1])))
+	m.set_shader_parameter("uv_zoom", maxf(0.05, scale))
+
+# the eyes' expression: a cell of the eyes' atlas (tools/native/ash2_face.py: column, row
+# from the top left; 0, 0 the usual look, which blinks with the cell two to its right)
+func set_expression(col: int, row: int) -> void:
+	if not face_mats.has("eyes"): return
+	var g: Array = face_mats.eyes.grid
+	face_cell = Vector2(float(col) / float(g[0]), float(row) / float(g[1]))
+	_shut = not _shut   # (so the blink writes the offset again)
 
 static func _sm(a: float, b: float, x: float) -> float:
 	var t := clampf((x - a) / (b - a), 0.0, 1.0)
@@ -1051,5 +1082,7 @@ func _blink(dt: float) -> void:
 		var shut: bool = blink < 0.0 or idles.eyes
 		if shut != _shut:
 			_shut = shut
-			eyes.set_shader_parameter("uv_off", Vector2(0.5 if shut else 0.0, 0.0))
+			# (the V2 look's other expressions have no shut-eyed cell beside them: no blink)
+			var can_blink := face_cell == Vector2.ZERO
+			eyes.set_shader_parameter("uv_off", face_cell + Vector2(0.5 if shut and can_blink else 0.0, 0.0))
 	if blink < -0.12: blink = 2.0 + _rng.randf() * 4.0
