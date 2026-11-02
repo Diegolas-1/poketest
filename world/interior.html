@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Interior preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#222}canvas{display:block}#i{position:fixed;left:8px;top:8px;font:12px monospace;color:#fff;text-shadow:0 1px 2px #000}</style></head>
+<body><div id="i"></div><script type="module">
+// An interior on its own (web/world/interior.js), for looking at and for the
+// native bake (tools/native/bake_interior.mjs). ?map=oak_lab (web/world/maps/),
+// ?cam=px,py,pz,tx,ty,tz or ?view=<name>, ?ink=0, ?live (orbit with the mouse).
+import * as THREE from 'three';
+import { createOutline, addEdgeLines, setInkFocus, INK_LAYER } from './outline.js';
+import { buildInterior } from './interior.js';
+import { SUN_I } from './toon.js';
+const q = new URLSearchParams(location.search);
+const bp = await (await fetch(`maps/${q.get('map') || 'oak_lab'}.json`)).json();
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color((bp.lights && bp.lights.bg) || '#222');
+const t0 = performance.now();
+const I = buildInterior(bp);
+scene.add(I.group);
+const edges = q.get('ink') === '0' ? 0 : addEdgeLines(I.group);
+// the key light of the space (the cel bands read it), shadows inside the room
+const k = (bp.lights && bp.lights.key) || { dir: [0.2, 0.95, 0.2] };
+const [x0, z0, x1, z1] = bp.bounds, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+const sun = new THREE.DirectionalLight('#ffffff', SUN_I);
+sun.position.set(cx + k.dir[0] * 40, k.dir[1] * 40, cz + k.dir[2] * 40); sun.target.position.set(cx, 0, cz);
+sun.castShadow = k.shadow !== false; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 90 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
+scene.add(sun, sun.target);
+// lamp halos: camera-facing sprites
+const halo = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+for (const l of I.lamps) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: l.color, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 })); s.position.set(...l.pos); s.scale.setScalar(Math.min(1.6, l.r * 0.5)); scene.add(s); }
+const ink = createOutline(r, { scale: 1 }); if (q.get('ink') === '0') ink.enabled = false;
+const VIEWS = {
+  door: '1.6,2.3,0.4,10,2.6,0.2', hall: '2,3.2,-3.6,15,3.4,2', back: '17,3.6,3.5,4,2.8,-2.5', wing: '3.6,2.4,7.0,10,1.0,11.5', top: '9,38,3.5,9,0,3.4',
+  mezz: '15.2,5.5,-4.6,4,5.6,2', tank: '7,2.2,0.5,11,2.2,4.6', axo: '-8,26,-14,9,0,3.5',
+};
+const cam = new THREE.PerspectiveCamera(Number(q.get('fov') || 56), innerWidth / innerHeight, 0.1, 300);
+const c = (q.get('cam') || VIEWS[q.get('view') || 'door']).split(',').map(Number);
+cam.position.set(c[0], c[1], c[2]); cam.lookAt(c[3], c[4], c[5]);
+let tris = 0; I.group.traverse((o) => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+document.getElementById('i').textContent = `${bp.name} · meshes ${I.stats.meshes} · tris ${Math.round(tris)} · edges ${edges} · ${Math.round(performance.now() - t0)} ms`;
+window.interior = I; window.stats = { ...I.stats, edges, ms: performance.now() - t0 };
+setInkFocus(new THREE.Vector3(c[3], 0, c[5]));
+const draw = () => { r.render(scene, cam); ink.render(scene, cam); const bg = scene.background; scene.background = null; cam.layers.set(INK_LAYER); r.autoClear = false; r.render(scene, cam); r.autoClear = true; cam.layers.set(0); scene.background = bg; };
+draw();
+if (q.has('live')) {
+  // drag to turn round the target, wheel to come closer
+  const T = new THREE.Vector3(c[3], c[4], c[5]); let d = cam.position.distanceTo(T), yaw = Math.atan2(cam.position.x - T.x, cam.position.z - T.z), pit = Math.asin((cam.position.y - T.y) / d), drag = null;
+  addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY]; }); addEventListener('pointerup', () => { drag = null; });
+  addEventListener('pointermove', (e) => { if (!drag) return; yaw -= (e.clientX - drag[0]) * 0.006; pit = Math.max(-1.2, Math.min(1.4, pit + (e.clientY - drag[1]) * 0.006)); drag = [e.clientX, e.clientY]; });
+  addEventListener('wheel', (e) => { d = Math.max(0.5, d * (e.deltaY > 0 ? 1.1 : 0.9)); });
+  const loop = () => { cam.position.set(T.x + Math.sin(yaw) * Math.cos(pit) * d, T.y + Math.sin(pit) * d, T.z + Math.cos(yaw) * Math.cos(pit) * d); cam.lookAt(T); draw(); requestAnimationFrame(loop); }; loop();
+}
+setTimeout(() => { window.ready = true; }, 300);
+</script></body></html>

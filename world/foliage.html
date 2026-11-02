@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Foliage lineup</title>
+<script type="importmap">{ "imports": { "three": "../lib/three/three.module.min.js", "three/addons/": "../lib/three/addons/" } }</script>
+<style>html,body{margin:0;height:100%;overflow:hidden}canvas{display:block}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { makeTree, makeBush, TILE, leafAtlas } from './foliage.js';
+import { buildSky } from './nature.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+const sunDir = new THREE.Vector3(-0.6, 0.7, 0.5).normalize();
+scene.add(buildSky(sunDir)); scene.fog = new THREE.Fog('#cfe2e8', 40, 200);
+scene.add(new THREE.HemisphereLight('#dff0ff', '#6d7f4c', 1.2));
+const sun = new THREE.DirectionalLight('#fff0d4', 2.9); sun.position.copy(sunDir).multiplyScalar(40); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 100 }); sun.shadow.bias = -0.0005; scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#79c84a' }));
+ground.receiveShadow = true; scene.add(ground);
+const items = [['round', 1], ['cypress', 2], ['round', 3], ['blossom', 4], ['cypress', 5], ['round', 6]];
+items.forEach(([k, s], i) => {
+  const m = makeTree(k, s * 101);
+  const g = new THREE.Group(); g.position.set(-25 + i * 10, 0, 0);
+  for (const p of m.parts) { const mesh = new THREE.Mesh(p.geometry, p.material); mesh.castShadow = mesh.receiveShadow = true; g.add(mesh); }
+  scene.add(g);
+});
+for (let i = 0; i < 6; i++) {
+  const m = makeBush(i * 7 + 1, { size: 1 + (i % 3) * 0.3, flowers: i % 2 ? TILE.flowersR : null });
+  const g = new THREE.Group(); g.position.set(-22 + i * 9, 0, 8);
+  for (const p of m.parts) { const mesh = new THREE.Mesh(p.geometry, p.material); mesh.castShadow = true; g.add(mesh); }
+  scene.add(g);
+}
+const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
+const c = (q.get('cam') || '0,6,30,0,4,0').split(',').map(Number);
+cam.position.set(c[0], c[1], c[2]); cam.lookAt(c[3], c[4], c[5]);
+if (q.has('atlas')) { const p = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ map: leafAtlas(), transparent: true })); p.position.set(0, 10, 10); scene.add(p); cam.position.set(0, 10, 30); cam.lookAt(0, 10, 10); }
+r.render(scene, cam); window.ready = true;
+</script></body></html>

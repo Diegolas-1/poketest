@@ -1,0 +1,2169 @@
+{
+ "format": "pallet-map",
+ "version": 1,
+ "grid": 0.05,
+ "id": "ketchum_house",
+ "name": "Ash's House",
+ "kind": "interior",
+ "bounds": [
+  -3.7,
+  -3.3,
+  3.7,
+  3.3
+ ],
+ "props": [
+  {
+   "id": "fridge_1",
+   "type": "fridge",
+   "pos": [
+    3.05,
+    -2.6
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "color": "#f7f3e6"
+   }
+  },
+  {
+   "id": "stove_1",
+   "type": "stove",
+   "pos": [
+    1.35,
+    -2.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "color": "#f4ead0"
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A big pot of MOM's stew bubbles on the stove.",
+     "It smells like home."
+    ]
+   }
+  },
+  {
+   "id": "range_hood_1",
+   "type": "range_hood",
+   "pos": [
+    1.35,
+    -2.771
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.85
+  },
+  {
+   "id": "kitchen_counter_1",
+   "type": "kitchen_counter",
+   "pos": [
+    2.2,
+    -2.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     0.85,
+     0.62,
+     0.9
+    ],
+    "sink": 0.05,
+    "clutter": "cook",
+    "body": "#f2e6c8",
+    "top": "#e8b8a0"
+   }
+  },
+  {
+   "id": "wall_cabinets_1",
+   "type": "wall_cabinets",
+   "pos": [
+    2.2,
+    -2.826
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.95,
+   "params": {
+    "size3": [
+     0.85,
+     0.34,
+     0.7
+    ],
+    "glass": 0
+   }
+  },
+  {
+   "id": "apron_hook_1",
+   "type": "apron_hook",
+   "pos": [
+    3.336,
+    -1.65
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 1.45,
+   "params": {
+    "color": "#f08aa6"
+   }
+  },
+  {
+   "id": "wall_clock_1",
+   "type": "wall_clock",
+   "pos": [
+    3.366,
+    0.4
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 2.15
+  },
+  {
+   "id": "dining_table_1",
+   "type": "dining_table",
+   "pos": [
+    1.75,
+    -0.15
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#b5784a",
+    "cloth": "#e8706a",
+    "clothKind": "gingham",
+    "size3": [
+     1.1,
+     0.85,
+     0.74
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_1",
+   "type": "dining_chair",
+   "pos": [
+    1.75,
+    -0.8
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#a8693e",
+    "cushion": "#e8a33a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "home",
+    "seat": [
+     1.75,
+     0.46,
+     -0.8,
+     0.0
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     1.75,
+     0.751,
+     -0.375
+    ],
+    "lines": [
+     "Your place at the table.",
+     "MOM always says: no POKéMON cards at dinner!"
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_2",
+   "type": "dining_chair",
+   "pos": [
+    1.75,
+    0.5
+   ],
+   "rot": 180,
+   "level": "ground",
+   "params": {
+    "wood": "#a8693e",
+    "cushion": "#e8a33a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "home",
+    "seat": [
+     1.75,
+     0.46,
+     0.5,
+     3.142
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     1.75,
+     0.751,
+     0.075
+    ],
+    "lines": [
+     "Your place at the table.",
+     "MOM always says: no POKéMON cards at dinner!"
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_3",
+   "type": "dining_chair",
+   "pos": [
+    0.95,
+    -0.15
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "wood": "#a8693e",
+    "cushion": "#e8a33a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "home",
+    "seat": [
+     0.95,
+     0.46,
+     -0.15,
+     1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     1.4,
+     0.751,
+     -0.15
+    ],
+    "lines": [
+     "Your place at the table.",
+     "MOM always says: no POKéMON cards at dinner!"
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_4",
+   "type": "dining_chair",
+   "pos": [
+    2.55,
+    -0.15
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "wood": "#a8693e",
+    "cushion": "#e8a33a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "home",
+    "seat": [
+     2.55,
+     0.46,
+     -0.15,
+     -1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     2.1,
+     0.751,
+     -0.15
+    ],
+    "lines": [
+     "Your place at the table.",
+     "MOM always says: no POKéMON cards at dinner!"
+    ]
+   }
+  },
+  {
+   "id": "flower_vase_1",
+   "type": "flower_vase",
+   "pos": [
+    1.6,
+    -0.25
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.745,
+   "params": {
+    "vase": "#7ab0d8",
+    "n": 8,
+    "seed": 2
+   },
+   "use": false
+  },
+  {
+   "id": "hanging_lamp_1",
+   "type": "hanging_lamp",
+   "pos": [
+    1.75,
+    -0.15
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.9,
+   "params": {
+    "style": "pendant",
+    "drop": 0.85,
+    "color": "#f4c890"
+   }
+  },
+  {
+   "id": "door_mat_1",
+   "type": "door_mat",
+   "pos": [
+    1.75,
+    2.6
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.1,
+     0.7,
+     0.02
+    ],
+    "color": "#c85a3a"
+   }
+  },
+  {
+   "id": "broom_1",
+   "type": "broom",
+   "pos": [
+    0.85,
+    2.85
+   ],
+   "rot": 180,
+   "level": "ground"
+  },
+  {
+   "id": "entry_bench_1",
+   "type": "entry_bench",
+   "pos": [
+    3.2,
+    2.2
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "size3": [
+     0.9,
+     0.36,
+     0.46
+    ]
+   }
+  },
+  {
+   "id": "umbrella_stand_1",
+   "type": "umbrella_stand",
+   "pos": [
+    3.2,
+    2.85
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "framed_picture_1",
+   "type": "framed_picture",
+   "pos": [
+    3.377,
+    2.15
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 1.55,
+   "params": {
+    "art": "trainer",
+    "frame": "#c99a62",
+    "scale": 0.75
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A photo of you in front of PROF. OAK's windmill.",
+     "MOM took it the day you said you'd be a POKéMON MASTER."
+    ]
+   }
+  },
+  {
+   "id": "potted_plant_1",
+   "type": "potted_plant",
+   "pos": [
+    0.55,
+    2.7
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "seed": 5,
+    "size": 0.5,
+    "pot": "#d8704a"
+   }
+  },
+  {
+   "id": "rug_1",
+   "type": "rug",
+   "pos": [
+    -2.0,
+    0.55
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "size3": [
+     2.6,
+     1.9,
+     0.02
+    ],
+    "color": "#c86a5a"
+   }
+  },
+  {
+   "id": "tv_set_1",
+   "type": "tv_set",
+   "pos": [
+    -3.15,
+    0.55
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "wood": "#8a5a36"
+   }
+  },
+  {
+   "id": "home_sofa_1",
+   "type": "home_sofa",
+   "pos": [
+    -0.75,
+    0.55
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "color": "#e9a35a",
+    "pillows": [
+     "#f4e3b8",
+     "#7aa6d8"
+    ]
+   }
+  },
+  {
+   "id": "coffee_table_1",
+   "type": "coffee_table",
+   "pos": [
+    -2.0,
+    0.55
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "size3": [
+     0.95,
+     0.55,
+     0.42
+    ]
+   }
+  },
+  {
+   "id": "armchair_1",
+   "type": "armchair",
+   "pos": [
+    -2.3,
+    2.2
+   ],
+   "rot": 145,
+   "level": "ground",
+   "params": {
+    "color": "#d86a5a"
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "MOM's armchair by the window.",
+     "Her knitting basket is tucked beside it."
+    ]
+   }
+  },
+  {
+   "id": "side_table_1",
+   "type": "side_table",
+   "pos": [
+    -3.15,
+    2.65
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "flower_vase_2",
+   "type": "flower_vase",
+   "pos": [
+    -3.15,
+    2.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.62,
+   "params": {
+    "vase": "#f2ead6",
+    "kind": "rose",
+    "flowers": [
+     "#f08aa6",
+     "#e8473a",
+     "#fbd0dc"
+    ],
+    "n": 7,
+    "seed": 4
+   }
+  },
+  {
+   "id": "curtains_1",
+   "type": "curtains",
+   "pos": [
+    -1.7,
+    2.916
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.75,
+   "params": {
+    "size3": [
+     2.6,
+     0.16,
+     1.85
+    ],
+    "color": "#f2b8c6",
+    "kind": "gingham"
+   }
+  },
+  {
+   "id": "curtains_2",
+   "type": "curtains",
+   "pos": [
+    -3.316,
+    1.4
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.85,
+   "params": {
+    "size3": [
+     1.2,
+     0.16,
+     1.4
+    ],
+    "color": "#f2b8c6",
+    "kind": "gingham",
+    "valance": true
+   }
+  },
+  {
+   "id": "curtains_3",
+   "type": "curtains",
+   "pos": [
+    3.316,
+    1.4
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 1.85,
+   "params": {
+    "size3": [
+     1.2,
+     0.16,
+     1.4
+    ],
+    "color": "#f2b8c6",
+    "kind": "gingham"
+   }
+  },
+  {
+   "id": "curtains_4",
+   "type": "curtains",
+   "pos": [
+    -3.316,
+    -1.4
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.85,
+   "params": {
+    "size3": [
+     1.2,
+     0.16,
+     1.4
+    ],
+    "color": "#f2b8c6",
+    "kind": "gingham",
+    "valance": true
+   }
+  },
+  {
+   "id": "curtains_5",
+   "type": "curtains",
+   "pos": [
+    3.316,
+    -1.4
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 1.85,
+   "params": {
+    "size3": [
+     1.2,
+     0.16,
+     1.4
+    ],
+    "color": "#bfe0d8",
+    "kind": "gingham"
+   }
+  },
+  {
+   "id": "wall_shelf_1",
+   "type": "wall_shelf",
+   "pos": [
+    -3.271,
+    0.55
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.75,
+   "params": {
+    "size3": [
+     1.1,
+     0.25,
+     0.4
+    ],
+    "items": "books",
+    "seed": 7
+   }
+  },
+  {
+   "id": "photo_frame_1",
+   "type": "photo_frame",
+   "pos": [
+    -3.35,
+    0.2
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.565,
+   "params": {
+    "art": "baby"
+   }
+  },
+  {
+   "id": "photo_frame_2",
+   "type": "photo_frame",
+   "pos": [
+    -3.35,
+    0.95
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.565,
+   "params": {
+    "art": "garden"
+   }
+  },
+  {
+   "id": "framed_picture_2",
+   "type": "framed_picture",
+   "pos": [
+    -2.6,
+    2.978
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.95,
+   "params": {
+    "art": "family",
+    "frame": "#b8864e",
+    "scale": 0.7
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A photo of you and MOM at the beach.",
+     "You were so little! You're holding up a shell like a prize."
+    ]
+   }
+  },
+  {
+   "id": "framed_picture_3",
+   "type": "framed_picture",
+   "pos": [
+    -0.8,
+    2.982
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 2.0,
+   "params": {
+    "art": "house",
+    "frame": "#b8864e",
+    "scale": 0.55
+   }
+  },
+  {
+   "id": "potted_plant_2",
+   "type": "potted_plant",
+   "pos": [
+    -3.05,
+    -1.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "seed": 9,
+    "size": 0.6,
+    "pot": "#c86a3e"
+   }
+  },
+  {
+   "id": "hanging_lamp_2",
+   "type": "hanging_lamp",
+   "pos": [
+    -2.0,
+    0.6
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.9,
+   "params": {
+    "style": "dome"
+   }
+  },
+  {
+   "id": "staircase_1",
+   "type": "staircase",
+   "pos": [
+    -0.85,
+    -2.5
+   ],
+   "rot": 0,
+   "level": "ground",
+   "walk": "free",
+   "params": {
+    "size3": [
+     3.5,
+     0.95,
+     3.0
+    ],
+    "steps": 16,
+    "wood": "#a8693e",
+    "carpet": "#c8463c"
+   },
+   "use": false
+  },
+  {
+   "id": "side_table_2",
+   "type": "side_table",
+   "pos": [
+    0.0,
+    -1.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     0.42,
+     0.42,
+     0.7
+    ]
+   }
+  },
+  {
+   "id": "telephone_1",
+   "type": "telephone",
+   "pos": [
+    0.0,
+    -1.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.7
+  },
+  {
+   "id": "bed_1",
+   "type": "bed",
+   "pos": [
+    -2.85,
+    1.15
+   ],
+   "rot": 0,
+   "level": "up",
+   "params": {
+    "blanket": "#3f7ad0"
+   },
+   "use": {
+    "label": "Rest",
+    "rest": "ash_bed",
+    "lines": [
+     "Your bed. The blanket is still in a heap from this morning.",
+     "A quick nap...? No! There's a whole world out there!"
+    ]
+   }
+  },
+  {
+   "id": "plush_1",
+   "type": "plush",
+   "pos": [
+    -2.6,
+    0.45
+   ],
+   "rot": 160,
+   "level": "up",
+   "y": 0.5,
+   "params": {
+    "kind": "mouse",
+    "size3": [
+     0.26,
+     0.26,
+     0.4
+    ]
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A plush of a little yellow electric mouse.",
+     "You've had it since you were five."
+    ]
+   }
+  },
+  {
+   "id": "side_table_3",
+   "type": "side_table",
+   "pos": [
+    -2.95,
+    -0.25
+   ],
+   "rot": 0,
+   "level": "up",
+   "params": {
+    "size3": [
+     0.42,
+     0.42,
+     0.52
+    ],
+    "wood": "#b5784a"
+   }
+  },
+  {
+   "id": "alarm_clock_1",
+   "type": "alarm_clock",
+   "pos": [
+    -2.95,
+    -0.25
+   ],
+   "rot": 200,
+   "level": "up",
+   "y": 0.52
+  },
+  {
+   "id": "rug_2",
+   "type": "rug",
+   "pos": [
+    0.1,
+    0.6
+   ],
+   "rot": 0,
+   "level": "up",
+   "params": {
+    "size3": [
+     2.4,
+     1.7,
+     0.02
+    ],
+    "color": "#4f7ad0"
+   }
+  },
+  {
+   "id": "tv_set_2",
+   "type": "tv_set",
+   "pos": [
+    3.0,
+    0.5
+   ],
+   "rot": 270,
+   "level": "up",
+   "params": {
+    "wood": "#a8693e",
+    "color": "#d8d4cc",
+    "console": true
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "Your TV and your game console.",
+     "Last night's POKéMON LEAGUE replay is still paused on the screen."
+    ]
+   }
+  },
+  {
+   "id": "desk_1",
+   "type": "desk",
+   "pos": [
+    0.0,
+    2.55
+   ],
+   "rot": 180,
+   "level": "up",
+   "params": {
+    "wood": "#c9874f",
+    "drawers": "left"
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "Your desk. Homework at the bottom, POKéMON cards on top."
+    ]
+   }
+  },
+  {
+   "id": "desk_lamp_1",
+   "type": "desk_lamp",
+   "pos": [
+    0.5,
+    2.7
+   ],
+   "rot": 160,
+   "level": "up",
+   "y": 0.78,
+   "params": {
+    "color": "#e0473e"
+   }
+  },
+  {
+   "id": "dining_chair_5",
+   "type": "dining_chair",
+   "pos": [
+    0.05,
+    1.85
+   ],
+   "rot": 0,
+   "level": "up",
+   "walk": "free",
+   "params": {
+    "wood": "#c9874f",
+    "cushion": "#e0473e",
+    "style": "cafe"
+   }
+  },
+  {
+   "id": "backpack_1",
+   "type": "backpack",
+   "pos": [
+    1.05,
+    2.45
+   ],
+   "rot": 200,
+   "level": "up",
+   "use": {
+    "label": "Look",
+    "lines": [
+     "Your backpack, all packed for the journey.",
+     "Well... half packed."
+    ]
+   }
+  },
+  {
+   "id": "bookshelf_1",
+   "type": "bookshelf",
+   "pos": [
+    2.2,
+    -2.8
+   ],
+   "rot": 0,
+   "level": "up",
+   "params": {
+    "size3": [
+     1.3,
+     0.4,
+     1.15
+    ],
+    "shelves": 2,
+    "wood": "#c9874f",
+    "seed": 9
+   },
+   "use": {
+    "label": "Read",
+    "lines": [
+     "Comics, a POKéMON handbook, and a book called HOW TO BE A MASTER. Its spine has never been cracked."
+    ]
+   }
+  },
+  {
+   "id": "plush_2",
+   "type": "plush",
+   "pos": [
+    1.8,
+    -2.8
+   ],
+   "rot": 20,
+   "level": "up",
+   "y": 1.15,
+   "params": {
+    "kind": "lizard",
+    "size3": [
+     0.26,
+     0.26,
+     0.4
+    ]
+   }
+  },
+  {
+   "id": "plush_3",
+   "type": "plush",
+   "pos": [
+    2.25,
+    -2.75
+   ],
+   "rot": 0,
+   "level": "up",
+   "y": 1.15,
+   "params": {
+    "kind": "ball",
+    "size3": [
+     0.26,
+     0.26,
+     0.26
+    ]
+   }
+  },
+  {
+   "id": "plush_4",
+   "type": "plush",
+   "pos": [
+    2.65,
+    -2.8
+   ],
+   "rot": 340,
+   "level": "up",
+   "y": 1.15,
+   "params": {
+    "kind": "blob",
+    "size3": [
+     0.24,
+     0.24,
+     0.36
+    ]
+   }
+  },
+  {
+   "id": "plush_5",
+   "type": "plush",
+   "pos": [
+    -0.6,
+    0.95
+   ],
+   "rot": 0,
+   "level": "up",
+   "y": 0,
+   "params": {
+    "kind": "ball",
+    "size3": [
+     0.3,
+     0.3,
+     0.3
+    ]
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A toy POKé BALL.",
+     "You've thrown it at the wall about a thousand times, practising."
+    ]
+   }
+  },
+  {
+   "id": "clothes_pile_1",
+   "type": "clothes_pile",
+   "pos": [
+    -0.8,
+    0.0
+   ],
+   "rot": 30,
+   "level": "up"
+  },
+  {
+   "id": "clothes_pile_2",
+   "type": "clothes_pile",
+   "pos": [
+    -1.85,
+    2.45
+   ],
+   "rot": 200,
+   "level": "up",
+   "params": {
+    "colors": [
+     "#e0473e",
+     "#f4f2ea"
+    ]
+   }
+  },
+  {
+   "id": "poster_1",
+   "type": "poster",
+   "pos": [
+    -1.75,
+    2.986
+   ],
+   "rot": 180,
+   "level": "up",
+   "y": 1.45,
+   "params": {
+    "art": "mouse",
+    "tilt": 0.04
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A poster of a little yellow electric mouse. ZAP!"
+    ]
+   }
+  },
+  {
+   "id": "poster_2",
+   "type": "poster",
+   "pos": [
+    1.75,
+    2.986
+   ],
+   "rot": 180,
+   "level": "up",
+   "y": 1.45,
+   "params": {
+    "art": "lizard",
+    "tilt": -0.03
+   }
+  },
+  {
+   "id": "poster_3",
+   "type": "poster",
+   "pos": [
+    2.2,
+    -2.986
+   ],
+   "rot": 0,
+   "level": "up",
+   "y": 1.85,
+   "params": {
+    "art": "league",
+    "size3": [
+     0.66,
+     0.02,
+     0.9
+    ]
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "POKéMON LEAGUE - INDIGO PLATEAU.",
+     "One day, you'll be there. One day soon."
+    ]
+   }
+  },
+  {
+   "id": "poster_4",
+   "type": "poster",
+   "pos": [
+    -1.0,
+    -2.986
+   ],
+   "rot": 0,
+   "level": "up",
+   "y": 1.7,
+   "params": {
+    "art": "ball",
+    "tilt": 0.05
+   }
+  },
+  {
+   "id": "hanging_lamp_3",
+   "type": "hanging_lamp",
+   "pos": [
+    0.0,
+    0.4
+   ],
+   "rot": 0,
+   "level": "up",
+   "y": 5.7,
+   "params": {
+    "style": "dome"
+   }
+  },
+  {
+   "id": "crate_1",
+   "type": "crate",
+   "pos": [
+    3.0,
+    -1.45
+   ],
+   "rot": 10,
+   "level": "up",
+   "params": {
+    "seed": 17,
+    "scale": 0.75
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "Your toy box. It doesn't close any more."
+    ]
+   }
+  },
+  {
+   "id": "plush_6",
+   "type": "plush",
+   "pos": [
+    2.95,
+    -1.45
+   ],
+   "rot": 330,
+   "level": "up",
+   "y": 0.6,
+   "params": {
+    "kind": "mouse",
+    "size3": [
+     0.22,
+     0.22,
+     0.34
+    ]
+   }
+  },
+  {
+   "id": "plush_7",
+   "type": "plush",
+   "pos": [
+    2.2,
+    1.35
+   ],
+   "rot": 120,
+   "level": "up",
+   "y": 0,
+   "params": {
+    "kind": "blob",
+    "size3": [
+     0.26,
+     0.26,
+     0.4
+    ]
+   }
+  },
+  {
+   "id": "photo_frame_3",
+   "type": "photo_frame",
+   "pos": [
+    -0.45,
+    2.75
+   ],
+   "rot": 200,
+   "level": "up",
+   "y": 0.78,
+   "params": {
+    "art": "family"
+   }
+  },
+  {
+   "id": "tablet_1",
+   "type": "tablet",
+   "pos": [
+    0.2,
+    2.45
+   ],
+   "rot": 170,
+   "level": "up",
+   "y": 0.78
+  },
+  {
+   "id": "clothes_pile_3",
+   "type": "clothes_pile",
+   "pos": [
+    2.3,
+    -0.45
+   ],
+   "rot": 80,
+   "level": "up",
+   "params": {
+    "colors": [
+     "#3a6ad0",
+     "#3a3d46"
+    ]
+   }
+  }
+ ],
+ "walls": [
+  {
+   "id": "w_south",
+   "level": "ground",
+   "path": [
+    [
+     -3.5,
+     3.1
+    ],
+    [
+     3.5,
+     3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 2.9,
+   "mat": "paper",
+   "openings": [
+    {
+     "id": "big_window",
+     "type": "window",
+     "at": 1.8,
+     "w": 2.2,
+     "h": 1.6,
+     "sill": 0.95,
+     "style": "grid",
+     "panes": [
+      4,
+      3
+     ],
+     "outside": "garden"
+    },
+    {
+     "id": "front_door",
+     "type": "door",
+     "at": 5.25,
+     "w": 1.2,
+     "h": 2.2,
+     "style": "panel",
+     "portal": "to_town",
+     "wood": "#f4f1e6"
+    }
+   ],
+   "wainscot": {
+    "h": 0.9,
+    "mat": "wood_panel"
+   },
+   "cornice": true
+  },
+  {
+   "id": "w_west",
+   "level": "ground",
+   "path": [
+    [
+     -3.5,
+     3.1
+    ],
+    [
+     -3.5,
+     -3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 2.9,
+   "mat": "paper",
+   "openings": [
+    {
+     "id": "win_w1",
+     "type": "window",
+     "at": 1.7,
+     "w": 0.9,
+     "h": 1.2,
+     "sill": 1.25,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "trees"
+    },
+    {
+     "id": "win_w2",
+     "type": "window",
+     "at": 4.5,
+     "w": 0.9,
+     "h": 1.2,
+     "sill": 1.25,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "trees"
+    }
+   ],
+   "wainscot": {
+    "h": 0.9,
+    "mat": "wood_panel"
+   },
+   "cornice": true
+  },
+  {
+   "id": "w_north_w",
+   "level": "ground",
+   "path": [
+    [
+     -3.5,
+     -3.1
+    ],
+    [
+     0.2,
+     -3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 2.9,
+   "mat": "paper",
+   "openings": [],
+   "wainscot": {
+    "h": 0.9,
+    "mat": "wood_panel"
+   },
+   "cornice": true
+  },
+  {
+   "id": "w_north_e",
+   "level": "ground",
+   "path": [
+    [
+     0.2,
+     -3.1
+    ],
+    [
+     3.5,
+     -3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 2.9,
+   "mat": "kitchen_wall",
+   "openings": [],
+   "wainscot": {
+    "h": 1.45,
+    "mat": "tile_wain"
+   },
+   "cornice": true
+  },
+  {
+   "id": "w_east",
+   "level": "ground",
+   "path": [
+    [
+     3.5,
+     -3.1
+    ],
+    [
+     3.5,
+     3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 2.9,
+   "mat": "paper",
+   "openings": [
+    {
+     "id": "win_e1",
+     "type": "window",
+     "at": 1.7,
+     "w": 0.9,
+     "h": 1.2,
+     "sill": 1.25,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "garden"
+    },
+    {
+     "id": "win_e2",
+     "type": "window",
+     "at": 4.5,
+     "w": 0.9,
+     "h": 1.2,
+     "sill": 1.25,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "trees"
+    }
+   ],
+   "wainscot": {
+    "h": 0.9,
+    "mat": "wood_panel"
+   },
+   "cornice": true
+  },
+  {
+   "id": "w_up_s",
+   "level": "up",
+   "path": [
+    [
+     -3.5,
+     3.1
+    ],
+    [
+     3.5,
+     3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 1.25,
+   "mat": "room_wall",
+   "openings": [
+    {
+     "id": "gable_window",
+     "type": "window",
+     "at": 3.5,
+     "w": 1.0,
+     "h": 1.05,
+     "sill": 1.05,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "garden"
+    }
+   ],
+   "gable": {
+    "axis": "x",
+    "c": 0,
+    "half": 3.5,
+    "rise": 2.1
+   }
+  },
+  {
+   "id": "w_up_n",
+   "level": "up",
+   "path": [
+    [
+     3.5,
+     -3.1
+    ],
+    [
+     -3.5,
+     -3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 1.25,
+   "mat": "room_wall",
+   "openings": [],
+   "gable": {
+    "axis": "x",
+    "c": 0,
+    "half": 3.5,
+    "rise": 2.1
+   }
+  },
+  {
+   "id": "w_up_w",
+   "level": "up",
+   "path": [
+    [
+     -3.5,
+     3.1
+    ],
+    [
+     -3.5,
+     -3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 1.25,
+   "mat": "room_wall",
+   "openings": [
+    {
+     "id": "bed_window",
+     "type": "window",
+     "at": 1.95,
+     "w": 0.85,
+     "h": 0.62,
+     "sill": 0.52,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "trees"
+    }
+   ]
+  },
+  {
+   "id": "w_up_e",
+   "level": "up",
+   "path": [
+    [
+     3.5,
+     -3.1
+    ],
+    [
+     3.5,
+     3.1
+    ]
+   ],
+   "t": 0.2,
+   "h": 1.25,
+   "mat": "room_wall",
+   "openings": [
+    {
+     "id": "tv_window",
+     "type": "window",
+     "at": 4.5,
+     "w": 0.8,
+     "h": 0.6,
+     "sill": 0.55,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "trees"
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "id": "living",
+   "name": "Living room",
+   "level": "ground",
+   "poly": [
+    [
+     -3.5,
+     -3.1
+    ],
+    [
+     0.2,
+     -3.1
+    ],
+    [
+     0.2,
+     3.1
+    ],
+    [
+     -3.5,
+     3.1
+    ]
+   ],
+   "floor": "boards",
+   "ceiling": {
+    "type": "flat",
+    "h": 2.9,
+    "mat": "ceiling",
+    "holes": [
+     [
+      -2.6,
+      -3.0,
+      0.2,
+      -2.05
+     ]
+    ],
+    "well": false
+   }
+  },
+  {
+   "id": "kitchen",
+   "name": "Kitchen",
+   "level": "ground",
+   "poly": [
+    [
+     0.2,
+     -3.1
+    ],
+    [
+     3.5,
+     -3.1
+    ],
+    [
+     3.5,
+     -1.0
+    ],
+    [
+     0.2,
+     -1.0
+    ]
+   ],
+   "floor": "lino",
+   "ceiling": {
+    "type": "flat",
+    "h": 2.9,
+    "mat": "ceiling",
+    "holes": [
+     [
+      0.2,
+      -3.0,
+      0.9,
+      -2.05
+     ]
+    ],
+    "well": false
+   }
+  },
+  {
+   "id": "ash_room",
+   "name": "Ash's room",
+   "level": "up",
+   "poly": [
+    [
+     -3.5,
+     -3.1
+    ],
+    [
+     -2.6,
+     -3.1
+    ],
+    [
+     -2.6,
+     -2.0
+    ],
+    [
+     0.9,
+     -2.0
+    ],
+    [
+     0.9,
+     -3.1
+    ],
+    [
+     3.5,
+     -3.1
+    ],
+    [
+     3.5,
+     3.1
+    ],
+    [
+     -3.5,
+     3.1
+    ]
+   ],
+   "floor": "room_boards",
+   "ceiling": {
+    "type": "vault",
+    "axis": "z",
+    "spring": 1.25,
+    "rise": 1.45,
+    "ribs": 1.2,
+    "mat": "attic",
+    "rib": "rafter"
+   }
+  },
+  {
+   "id": "dining",
+   "name": "Dining and entrance",
+   "level": "ground",
+   "poly": [
+    [
+     0.2,
+     -1.0
+    ],
+    [
+     3.5,
+     -1.0
+    ],
+    [
+     3.5,
+     3.1
+    ],
+    [
+     0.2,
+     3.1
+    ]
+   ],
+   "floor": "boards",
+   "ceiling": {
+    "type": "flat",
+    "h": 2.9,
+    "mat": "ceiling"
+   }
+  }
+ ],
+ "place": {
+  "map": "pallet_town",
+  "house": "red",
+  "at": [
+   -24,
+   -28
+  ],
+  "rot": 6.88,
+  "door": {
+   "use": [
+    1.75,
+    4.3
+   ],
+   "exit": [
+    1.75,
+    4.45
+   ],
+   "r": 1.2
+  },
+  "note": "the red-roofed house (terrain.js HOUSES red): local = the house frame, (0, 0) its centre; the door at (1.75, 3.2)"
+ },
+ "palette": {
+  "boards": {
+   "color": "#c48a58",
+   "label": "honey floorboards",
+   "pattern": "boards",
+   "gloss": 0.07
+  },
+  "lino": {
+   "color": "#e8c8a0",
+   "color2": "#f8f2e4",
+   "label": "kitchen checks",
+   "pattern": "checker",
+   "gloss": 0.09
+  },
+  "paper": {
+   "color": "#f3dfc2",
+   "color2": "#ebd0ae",
+   "label": "cream wallpaper with sprigs",
+   "pattern": "wallpaper"
+  },
+  "kitchen_wall": {
+   "color": "#f8f0dc",
+   "label": "kitchen plaster"
+  },
+  "wood_panel": {
+   "color": "#b8805a",
+   "label": "wood wainscot"
+  },
+  "tile_wain": {
+   "color": "#bfe0d8",
+   "label": "mint tiles"
+  },
+  "ceiling": {
+   "color": "#f2e6d0",
+   "label": "cream ceiling"
+  },
+  "room_boards": {
+   "color": "#c8925e",
+   "label": "his floorboards",
+   "pattern": "boards",
+   "gloss": 0.06
+  },
+  "room_wall": {
+   "color": "#d6e8f2",
+   "label": "sky blue plaster"
+  },
+  "attic": {
+   "color": "#f4ecda",
+   "label": "attic ceiling"
+  },
+  "rafter": {
+   "color": "#a8784a",
+   "label": "rafters"
+  }
+ },
+ "levels": [
+  {
+   "id": "ground",
+   "name": "Ground floor",
+   "y": 0
+  },
+  {
+   "id": "up",
+   "name": "Ash's room",
+   "y": 3.0
+  }
+ ],
+ "stairs": [
+  {
+   "id": "stairs_up",
+   "from": "ground",
+   "to": "up",
+   "a": [
+    -2.6,
+    -2.525
+   ],
+   "b": [
+    0.9,
+    -2.525
+   ],
+   "w": 0.95,
+   "steps": 16,
+   "style": "hidden",
+   "rails": "none"
+  }
+ ],
+ "rails": [
+  {
+   "id": "well_rail",
+   "level": "up",
+   "path": [
+    [
+     -2.6,
+     -3.0
+    ],
+    [
+     -2.6,
+     -2.0
+    ],
+    [
+     0.9,
+     -2.0
+    ]
+   ],
+   "h": 0.9,
+   "style": "bars",
+   "mat": "rafter"
+  }
+ ],
+ "actors": [],
+ "residents": {
+  "house": "red",
+  "people": {
+   "delia": {
+    "breakfast": [
+     1.45,
+     -1.95,
+     180
+    ],
+    "supper": [
+     1.45,
+     -1.95,
+     180
+    ],
+    "home": [
+     -0.2,
+     2.0,
+     225
+    ],
+    "_": [
+     1.0,
+     1.2,
+     200
+    ]
+   }
+  },
+  "default": [
+   0.8,
+   1.6,
+   180
+  ],
+  "hide": [
+   "sleep"
+  ]
+ },
+ "dialogue": {},
+ "spawns": [
+  {
+   "id": "from_town",
+   "pos": [
+    1.75,
+    1.55
+   ],
+   "level": "ground",
+   "rot": 180
+  }
+ ],
+ "portals": [
+  {
+   "id": "to_town",
+   "level": "ground",
+   "rect": [
+    1.25,
+    2.8,
+    2.25,
+    3.1
+   ],
+   "trigger": "walk",
+   "spawn": "from_town",
+   "to": {
+    "map": "pallet_town",
+    "spawn": "red_door"
+   },
+   "label": "Outside"
+  }
+ ],
+ "lights": {
+  "key": {
+   "dir": [
+    -0.35,
+    0.9,
+    0.45
+   ],
+   "shadow": true,
+   "dist": 14
+  },
+  "upperShadows": false,
+  "palette": {
+   "bands": [
+    0.02,
+    0.14,
+    0.58
+   ],
+   "deep": [
+    0.8,
+    0.7,
+    0.74
+   ],
+   "shade": [
+    0.9,
+    0.82,
+    0.82
+   ],
+   "lit": [
+    1.07,
+    1.03,
+    0.95
+   ],
+   "litAdd": [
+    0.05,
+    0.035,
+    0.01
+   ]
+  },
+  "bg": "#2c2228",
+  "lamps": [
+   {
+    "id": "table_lamp",
+    "pos": [
+     1.75,
+     2.0,
+     -0.15
+    ],
+    "r": 2.0,
+    "color": "#ffdca0",
+    "kind": "pendant"
+   },
+   {
+    "id": "living_lamp",
+    "pos": [
+     -2.0,
+     2.7,
+     0.6
+    ],
+    "r": 2.4,
+    "color": "#fff0c8",
+    "kind": "panel"
+   },
+   {
+    "id": "tv",
+    "pos": [
+     -2.85,
+     0.95,
+     0.55
+    ],
+    "r": 1.1,
+    "color": "#a8d8ff",
+    "kind": "screen"
+   },
+   {
+    "id": "hood",
+    "pos": [
+     1.35,
+     1.6,
+     -2.6
+    ],
+    "r": 0.9,
+    "color": "#fff2c8",
+    "kind": "desk"
+   },
+   {
+    "id": "room_lamp",
+    "pos": [
+     0.0,
+     5.45,
+     0.4
+    ],
+    "r": 2.6,
+    "color": "#fff0c8",
+    "kind": "panel"
+   },
+   {
+    "id": "room_tv",
+    "pos": [
+     2.75,
+     3.95,
+     0.5
+    ],
+    "r": 1.1,
+    "color": "#a8d8ff",
+    "kind": "screen"
+   },
+   {
+    "id": "desk_lamp",
+    "pos": [
+     0.45,
+     4.25,
+     2.65
+    ],
+    "r": 0.9,
+    "color": "#ffe8a8",
+    "kind": "desk"
+   }
+  ]
+ },
+ "camera": {
+  "default": {
+   "dist": 3.3,
+   "pitch": 0.42,
+   "fov": 60,
+   "height": 1.35
+  },
+  "margin": 0.22,
+  "volumes": [
+   {
+    "id": "door",
+    "box": [
+     1.15,
+     0,
+     2.85,
+     2.35,
+     2.2,
+     3.15
+    ],
+    "dist": 2.8,
+    "pitch": 0.38
+   },
+   {
+    "id": "stairs",
+    "box": [
+     -3.4,
+     0,
+     -3.0,
+     0.9,
+     4.9,
+     -1.95
+    ],
+    "dist": 2.6,
+    "pitch": 0.35
+   },
+   {
+    "id": "room",
+    "box": [
+     -3.4,
+     3.0,
+     -3.0,
+     3.4,
+     5.7,
+     3.0
+    ],
+    "vault": {
+     "axis": "z",
+     "spring": 4.25,
+     "rise": 1.45
+    },
+    "dist": 3.0,
+    "pitch": 0.48
+   },
+   {
+    "id": "house",
+    "box": [
+     -3.4,
+     0,
+     -3.0,
+     3.4,
+     2.9,
+     3.0
+    ],
+    "dist": 3.3,
+    "pitch": 0.42
+   }
+  ]
+ }
+}

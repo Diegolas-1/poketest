@@ -1,0 +1,1294 @@
+{
+ "format": "pallet-map",
+ "version": 1,
+ "grid": 0.05,
+ "id": "tea_house",
+ "name": "Tea House",
+ "kind": "interior",
+ "bounds": [
+  -4.3,
+  -2.9,
+  4.3,
+  1.7
+ ],
+ "props": [
+  {
+   "id": "tokonoma_1",
+   "type": "tokonoma",
+   "pos": [
+    0.0,
+    -2.25
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.8,
+     0.7,
+     0.15
+    ],
+    "post": 2.5
+   }
+  },
+  {
+   "id": "hanging_scroll_1",
+   "type": "hanging_scroll",
+   "pos": [
+    0.0,
+    -2.601
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.45,
+   "params": {
+    "art": "tea",
+    "size3": [
+     0.62,
+     0.05,
+     1.45
+    ]
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A hanging scroll with one big brushed character: TEA.",
+     "The keeper says her grandfather painted it."
+    ]
+   }
+  },
+  {
+   "id": "ikebana_1",
+   "type": "ikebana",
+   "pos": [
+    0.45,
+    -2.3
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.15,
+   "params": {
+    "flower": "#d8303a"
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A branch of pine and two red camellias in a shallow dish."
+    ]
+   }
+  },
+  {
+   "id": "bonsai_1",
+   "type": "bonsai",
+   "pos": [
+    1.45,
+    -2.35
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "tea_counter_1",
+   "type": "tea_counter",
+   "pos": [
+    2.75,
+    0.1
+   ],
+   "rot": 180,
+   "level": "ground",
+   "params": {
+    "size3": [
+     2.4,
+     0.6,
+     0.95
+    ],
+    "wood": "#8a5b38"
+   },
+   "use": {
+    "label": "Order",
+    "food_place": "tea_house",
+    "at": [
+     2.6,
+     -0.6
+    ],
+    "r": 1.3,
+    "lines": [
+     "The tea counter. The kettle hums on the coals."
+    ]
+   }
+  },
+  {
+   "id": "wall_shelf_1",
+   "type": "wall_shelf",
+   "pos": [
+    2.75,
+    1.301
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.85,
+   "params": {
+    "size3": [
+     2.0,
+     0.25,
+     0.35
+    ],
+    "items": "tea",
+    "wood": "#5a3a22",
+    "seed": 21
+   }
+  },
+  {
+   "id": "menu_board_1",
+   "type": "menu_board",
+   "pos": [
+    -2.6,
+    -2.586
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.55,
+   "params": {
+    "size3": [
+     1.0,
+     0.08,
+     0.75
+    ],
+    "title": "TODAY'S TEA",
+    "frame": "#5a3a22",
+    "items": [
+     [
+      "Green tea",
+      "50"
+     ],
+     [
+      "Barley tea",
+      "40"
+     ],
+     [
+      "Sweet dumplings",
+      "80"
+     ],
+     [
+      "Lemonade",
+      "60"
+     ]
+    ],
+    "special": "~ please rest a while ~"
+   },
+   "use": {
+    "label": "Read",
+    "lines": [
+     "TODAY'S TEA: green tea 50, barley tea 40, sweet dumplings 80, lemonade 60.",
+     "~ please rest a while ~"
+    ]
+   }
+  },
+  {
+   "id": "low_table_1",
+   "type": "low_table",
+   "pos": [
+    -2.5,
+    -0.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "color": "#4a2e22",
+    "size3": [
+     1.1,
+     0.75,
+     0.33
+    ]
+   }
+  },
+  {
+   "id": "zabuton_1",
+   "type": "zabuton",
+   "pos": [
+    -2.5,
+    -1.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "color": "#b8443a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "tea_house",
+    "seat": [
+     -2.5,
+     0.1,
+     -1.65,
+     0.0
+    ],
+    "seat_h": 0.0,
+    "table_top": [
+     -2.5,
+     0.335,
+     -1.125
+    ],
+    "lines": [
+     "A cushion by the low table.",
+     "The tatami smells of fresh grass."
+    ]
+   }
+  },
+  {
+   "id": "zabuton_2",
+   "type": "zabuton",
+   "pos": [
+    -2.5,
+    -0.25
+   ],
+   "rot": 180,
+   "level": "ground",
+   "params": {
+    "color": "#b8443a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "tea_house",
+    "seat": [
+     -2.5,
+     0.1,
+     -0.25,
+     3.142
+    ],
+    "seat_h": 0.0,
+    "table_top": [
+     -2.5,
+     0.335,
+     -0.775
+    ],
+    "lines": [
+     "A cushion by the low table.",
+     "The tatami smells of fresh grass."
+    ]
+   }
+  },
+  {
+   "id": "zabuton_3",
+   "type": "zabuton",
+   "pos": [
+    -3.35,
+    -0.95
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "color": "#b8443a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "tea_house",
+    "seat": [
+     -3.35,
+     0.1,
+     -0.95,
+     1.571
+    ],
+    "seat_h": 0.0,
+    "table_top": [
+     -2.85,
+     0.335,
+     -0.95
+    ],
+    "lines": [
+     "A cushion by the low table.",
+     "The tatami smells of fresh grass."
+    ]
+   }
+  },
+  {
+   "id": "zabuton_4",
+   "type": "zabuton",
+   "pos": [
+    -1.65,
+    -0.95
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "color": "#b8443a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "tea_house",
+    "seat": [
+     -1.65,
+     0.1,
+     -0.95,
+     -1.571
+    ],
+    "seat_h": 0.0,
+    "table_top": [
+     -2.15,
+     0.335,
+     -0.95
+    ],
+    "lines": [
+     "A cushion by the low table.",
+     "The tatami smells of fresh grass."
+    ]
+   }
+  },
+  {
+   "id": "low_table_2",
+   "type": "low_table",
+   "pos": [
+    2.5,
+    -1.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "color": "#4a2e22",
+    "size3": [
+     1.0,
+     0.7,
+     0.33
+    ]
+   }
+  },
+  {
+   "id": "zabuton_5",
+   "type": "zabuton",
+   "pos": [
+    2.5,
+    -2.3
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "color": "#3f5f7a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "tea_house",
+    "seat": [
+     2.5,
+     0.1,
+     -2.3,
+     0.0
+    ],
+    "seat_h": 0.0,
+    "table_top": [
+     2.5,
+     0.335,
+     -1.8
+    ],
+    "lines": [
+     "A cushion by the low table.",
+     "The tatami smells of fresh grass."
+    ]
+   }
+  },
+  {
+   "id": "zabuton_6",
+   "type": "zabuton",
+   "pos": [
+    1.7,
+    -1.65
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "color": "#3f5f7a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "tea_house",
+    "seat": [
+     1.7,
+     0.1,
+     -1.65,
+     1.571
+    ],
+    "seat_h": 0.0,
+    "table_top": [
+     2.2,
+     0.335,
+     -1.65
+    ],
+    "lines": [
+     "A cushion by the low table.",
+     "The tatami smells of fresh grass."
+    ]
+   }
+  },
+  {
+   "id": "zabuton_7",
+   "type": "zabuton",
+   "pos": [
+    3.3,
+    -1.65
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "color": "#3f5f7a"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "tea_house",
+    "seat": [
+     3.3,
+     0.1,
+     -1.65,
+     -1.571
+    ],
+    "seat_h": 0.0,
+    "table_top": [
+     2.8,
+     0.335,
+     -1.65
+    ],
+    "lines": [
+     "A cushion by the low table.",
+     "The tatami smells of fresh grass."
+    ]
+   }
+  },
+  {
+   "id": "tea_set_1",
+   "type": "tea_set",
+   "pos": [
+    -2.55,
+    -0.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.33,
+   "params": {
+    "color": "#5f7f6a"
+   },
+   "use": false
+  },
+  {
+   "id": "tea_set_2",
+   "type": "tea_set",
+   "pos": [
+    2.55,
+    -1.65
+   ],
+   "rot": 15,
+   "level": "ground",
+   "y": 0.33,
+   "params": {
+    "color": "#8a5a3a",
+    "cups": 3
+   },
+   "use": false
+  },
+  {
+   "id": "andon_1",
+   "type": "andon",
+   "pos": [
+    -3.7,
+    -2.3
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "andon_2",
+   "type": "andon",
+   "pos": [
+    3.7,
+    -2.3
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "andon_3",
+   "type": "andon",
+   "pos": [
+    -0.9,
+    1.2
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "paper_lantern_1",
+   "type": "paper_lantern",
+   "pos": [
+    -2.5,
+    -0.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.5,
+   "params": {
+    "color": "#e0402c",
+    "drop": 0.6,
+    "text": ""
+   }
+  },
+  {
+   "id": "paper_lantern_2",
+   "type": "paper_lantern",
+   "pos": [
+    2.5,
+    -1.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.5,
+   "params": {
+    "color": "#f4ead0",
+    "drop": 0.6
+   }
+  },
+  {
+   "id": "folding_screen_1",
+   "type": "folding_screen",
+   "pos": [
+    -3.75,
+    -1.05
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.8,
+     0.35,
+     1.3
+    ]
+   }
+  },
+  {
+   "id": "shoji_panel_1",
+   "type": "shoji_panel",
+   "pos": [
+    3.996,
+    -1.55
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 1.0,
+   "params": {
+    "size3": [
+     1.6,
+     0.06,
+     2.0
+    ],
+    "panels": 2
+   }
+  },
+  {
+   "id": "potted_plant_1",
+   "type": "potted_plant",
+   "pos": [
+    1.15,
+    1.1
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "seed": 51,
+    "size": 0.5,
+    "pot": "#6a7a8a"
+   }
+  },
+  {
+   "id": "potted_plant_2",
+   "type": "potted_plant",
+   "pos": [
+    -3.7,
+    1.1
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "seed": 52,
+    "size": 0.55,
+    "pot": "#6a7a8a"
+   }
+  },
+  {
+   "id": "door_mat_1",
+   "type": "door_mat",
+   "pos": [
+    0.0,
+    1.15
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.4,
+     0.5,
+     0.02
+    ],
+    "color": "#6a7a5a"
+   }
+  }
+ ],
+ "walls": [
+  {
+   "id": "w_front",
+   "level": "ground",
+   "path": [
+    [
+     -4.1,
+     1.5
+    ],
+    [
+     4.1,
+     1.5
+    ]
+   ],
+   "t": 0.14,
+   "h": 2.5,
+   "mat": "plaster",
+   "openings": [
+    {
+     "id": "shoji_l",
+     "type": "window",
+     "at": 1.4,
+     "w": 2.3,
+     "h": 1.25,
+     "sill": 0.8,
+     "style": "shoji",
+     "frame": "#5a3a22"
+    },
+    {
+     "id": "way_in",
+     "type": "door",
+     "at": 4.1,
+     "w": 1.6,
+     "h": 2.05,
+     "style": "shoji",
+     "portal": "to_road",
+     "wood": "#5a3a22",
+     "frame": "#5a3a22"
+    },
+    {
+     "id": "serving",
+     "type": "window",
+     "at": 6.8,
+     "w": 2.3,
+     "h": 1.15,
+     "sill": 0.97,
+     "style": "plain",
+     "outside": "trees",
+     "frame": "#5a3a22"
+    }
+   ],
+   "wainscot": {
+    "h": 0.75,
+    "mat": "dado"
+   },
+   "rail": {
+    "y": 2.0,
+    "col": "#5a3a22"
+   },
+   "cornice": "#5a3a22"
+  },
+  {
+   "id": "w_back",
+   "level": "ground",
+   "path": [
+    [
+     4.1,
+     -2.7
+    ],
+    [
+     -4.1,
+     -2.7
+    ]
+   ],
+   "t": 0.14,
+   "h": 2.5,
+   "mat": "plaster",
+   "openings": [],
+   "wainscot": {
+    "h": 0.75,
+    "mat": "dado"
+   },
+   "rail": {
+    "y": 2.0,
+    "col": "#5a3a22"
+   },
+   "cornice": "#5a3a22"
+  },
+  {
+   "id": "w_west",
+   "level": "ground",
+   "path": [
+    [
+     -4.1,
+     -2.7
+    ],
+    [
+     -4.1,
+     1.5
+    ]
+   ],
+   "t": 0.14,
+   "h": 2.5,
+   "mat": "plaster",
+   "openings": [
+    {
+     "id": "round_win",
+     "type": "window",
+     "at": 2.08,
+     "w": 0.86,
+     "h": 0.86,
+     "sill": 1.07,
+     "style": "round",
+     "outside": "trees",
+     "frame": "#5a3a22"
+    }
+   ],
+   "wainscot": {
+    "h": 0.75,
+    "mat": "dado"
+   },
+   "rail": {
+    "y": 2.0,
+    "col": "#5a3a22"
+   },
+   "cornice": "#5a3a22"
+  },
+  {
+   "id": "w_east",
+   "level": "ground",
+   "path": [
+    [
+     4.1,
+     1.5
+    ],
+    [
+     4.1,
+     -2.7
+    ]
+   ],
+   "t": 0.14,
+   "h": 2.5,
+   "mat": "plaster",
+   "openings": [
+    {
+     "id": "shoji_e",
+     "type": "window",
+     "at": 2.6,
+     "w": 1.6,
+     "h": 1.1,
+     "sill": 0.85,
+     "style": "shoji",
+     "frame": "#5a3a22"
+    }
+   ],
+   "wainscot": {
+    "h": 0.75,
+    "mat": "dado"
+   },
+   "rail": {
+    "y": 2.0,
+    "col": "#5a3a22"
+   },
+   "cornice": "#5a3a22"
+  }
+ ],
+ "zones": [
+  {
+   "id": "room",
+   "name": "Tea room",
+   "level": "ground",
+   "poly": [
+    [
+     -4.1,
+     -2.7
+    ],
+    [
+     4.1,
+     -2.7
+    ],
+    [
+     4.1,
+     0.9
+    ],
+    [
+     -4.1,
+     0.9
+    ]
+   ],
+   "floor": "tatami",
+   "ceiling": {
+    "type": "flat",
+    "h": 2.5,
+    "mat": "ceiling",
+    "beams": {
+     "axis": "x",
+     "step": 1.2
+    },
+    "beamCol": "#5a3a22"
+   }
+  },
+  {
+   "id": "genkan",
+   "name": "Entrance and counter",
+   "level": "ground",
+   "poly": [
+    [
+     -4.1,
+     0.9
+    ],
+    [
+     4.1,
+     0.9
+    ],
+    [
+     4.1,
+     1.5
+    ],
+    [
+     -4.1,
+     1.5
+    ]
+   ],
+   "floor": "engawa",
+   "boards": "x",
+   "ceiling": {
+    "type": "flat",
+    "h": 2.5,
+    "mat": "ceiling"
+   }
+  }
+ ],
+ "place": {
+  "map": "pallet_town",
+  "house": "",
+  "at": [
+   -76,
+   -262
+  ],
+  "rot": 75.68,
+  "door": {
+   "use": [
+    0,
+    2.35
+   ],
+   "exit": [
+    0,
+    2.3
+   ],
+   "r": 1.2
+  },
+  "note": "the Route 1 tea house (route1land.js TEA): local = its frame; the way in at (0, 1.5)"
+ },
+ "palette": {
+  "tatami": {
+   "color": "#c8c68a",
+   "label": "tatami",
+   "pattern": "tatami"
+  },
+  "engawa": {
+   "color": "#b08458",
+   "label": "polished boards",
+   "pattern": "boards",
+   "gloss": 0.1
+  },
+  "plaster": {
+   "color": "#e6d6b8",
+   "label": "clay plaster"
+  },
+  "dado": {
+   "color": "#8a5b38",
+   "label": "wood dado"
+  },
+  "ceiling": {
+   "color": "#c8a272",
+   "label": "cedar boards",
+   "pattern": "boards"
+  }
+ },
+ "levels": [
+  {
+   "id": "ground",
+   "name": "Tea room",
+   "y": 0
+  }
+ ],
+ "runs": [
+  {
+   "id": "post_0",
+   "type": "timber",
+   "pts": [
+    [
+     -3.95,
+     0,
+     1.4
+    ],
+    [
+     -3.95,
+     2.5,
+     1.4
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_1",
+   "type": "timber",
+   "pts": [
+    [
+     -1.4,
+     0,
+     1.4
+    ],
+    [
+     -1.4,
+     2.5,
+     1.4
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_2",
+   "type": "timber",
+   "pts": [
+    [
+     1.4,
+     0,
+     1.4
+    ],
+    [
+     1.4,
+     2.5,
+     1.4
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_3",
+   "type": "timber",
+   "pts": [
+    [
+     3.95,
+     0,
+     1.4
+    ],
+    [
+     3.95,
+     2.5,
+     1.4
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_4",
+   "type": "timber",
+   "pts": [
+    [
+     -3.95,
+     0,
+     -2.6
+    ],
+    [
+     -3.95,
+     2.5,
+     -2.6
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_5",
+   "type": "timber",
+   "pts": [
+    [
+     3.95,
+     0,
+     -2.6
+    ],
+    [
+     3.95,
+     2.5,
+     -2.6
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_6",
+   "type": "timber",
+   "pts": [
+    [
+     -0.98,
+     0,
+     -2.6
+    ],
+    [
+     -0.98,
+     2.5,
+     -2.6
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_7",
+   "type": "timber",
+   "pts": [
+    [
+     0.98,
+     0,
+     -2.6
+    ],
+    [
+     0.98,
+     2.5,
+     -2.6
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_8",
+   "type": "timber",
+   "pts": [
+    [
+     -3.95,
+     0,
+     -0.6
+    ],
+    [
+     -3.95,
+     2.5,
+     -0.6
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  },
+  {
+   "id": "post_9",
+   "type": "timber",
+   "pts": [
+    [
+     3.95,
+     0,
+     -0.6
+    ],
+    [
+     3.95,
+     2.5,
+     -0.6
+    ]
+   ],
+   "r": 0.08,
+   "mat": "dado"
+  }
+ ],
+ "actors": [
+  {
+   "id": "tea_keeper",
+   "look": "rose",
+   "name": "Tea keeper Hana",
+   "pos": [
+    2.6,
+    0.8
+   ],
+   "rot": 180,
+   "level": "ground",
+   "pose": "stand",
+   "dialogue": "keeper"
+  }
+ ],
+ "dialogue": {
+  "keeper": [
+   "Welcome, welcome! Sit down and rest your legs.",
+   "Travellers from PALLET TOWN always stop here before VIRIDIAN CITY.",
+   "The tea is green tea from my own bushes, and the water comes from the spring up the hill."
+  ]
+ },
+ "spawns": [
+  {
+   "id": "from_road",
+   "pos": [
+    0.0,
+    0.55
+   ],
+   "level": "ground",
+   "rot": 180
+  }
+ ],
+ "portals": [
+  {
+   "id": "to_road",
+   "level": "ground",
+   "rect": [
+    -0.75,
+    1.2,
+    0.75,
+    1.5
+   ],
+   "trigger": "walk",
+   "spawn": "from_road",
+   "to": {
+    "map": "pallet_town",
+    "spawn": "tea_house_door"
+   },
+   "label": "Outside"
+  }
+ ],
+ "lights": {
+  "key": {
+   "dir": [
+    0.2,
+    0.92,
+    0.35
+   ],
+   "shadow": true,
+   "dist": 14
+  },
+  "palette": {
+   "bands": [
+    0.02,
+    0.15,
+    0.58
+   ],
+   "deep": [
+    0.74,
+    0.66,
+    0.62
+   ],
+   "shade": [
+    0.88,
+    0.8,
+    0.74
+   ],
+   "lit": [
+    1.06,
+    1.02,
+    0.9
+   ],
+   "litAdd": [
+    0.06,
+    0.045,
+    0.01
+   ]
+  },
+  "bg": "#241c18",
+  "lamps": [
+   {
+    "id": "andon_1",
+    "pos": [
+     -3.7,
+     0.55,
+     -2.3
+    ],
+    "r": 1.3,
+    "color": "#ffd890",
+    "kind": "desk"
+   },
+   {
+    "id": "andon_2",
+    "pos": [
+     3.7,
+     0.55,
+     -2.3
+    ],
+    "r": 1.3,
+    "color": "#ffd890",
+    "kind": "desk"
+   },
+   {
+    "id": "andon_3",
+    "pos": [
+     -0.9,
+     0.55,
+     1.2
+    ],
+    "r": 1.1,
+    "color": "#ffd890",
+    "kind": "desk"
+   },
+   {
+    "id": "lantern_1",
+    "pos": [
+     -2.5,
+     1.65,
+     -0.95
+    ],
+    "r": 1.7,
+    "color": "#ffb070",
+    "kind": "pendant"
+   },
+   {
+    "id": "lantern_2",
+    "pos": [
+     2.5,
+     1.65,
+     -1.65
+    ],
+    "r": 1.6,
+    "color": "#fff0c8",
+    "kind": "pendant"
+   },
+   {
+    "id": "brazier",
+    "pos": [
+     1.95,
+     1.15,
+     0.1
+    ],
+    "r": 0.9,
+    "color": "#ff9a50",
+    "kind": "fire"
+   }
+  ]
+ },
+ "camera": {
+  "default": {
+   "dist": 3.1,
+   "pitch": 0.44,
+   "fov": 60,
+   "height": 1.3
+  },
+  "margin": 0.2,
+  "volumes": [
+   {
+    "id": "room",
+    "box": [
+     -4.0,
+     0,
+     -2.6,
+     4.0,
+     2.5,
+     1.43
+    ],
+    "dist": 3.1,
+    "pitch": 0.44
+   },
+   {
+    "id": "door",
+    "box": [
+     -0.8,
+     0,
+     1.2,
+     0.8,
+     2.0,
+     1.56
+    ],
+    "dist": 2.6,
+    "pitch": 0.4
+   }
+  ]
+ }
+}

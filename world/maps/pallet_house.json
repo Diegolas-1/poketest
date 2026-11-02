@@ -1,0 +1,2246 @@
+{
+ "format": "pallet-map",
+ "version": 1,
+ "grid": 0.05,
+ "id": "pallet_house",
+ "name": "PALLET HOUSE",
+ "kind": "interior",
+ "bounds": [
+  -6.6,
+  -6.6,
+  6.6,
+  2.6
+ ],
+ "props": [
+  {
+   "id": "inn_counter_1",
+   "type": "inn_counter",
+   "pos": [
+    1.9,
+    -2.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     3.0,
+     0.7,
+     1.05
+    ],
+    "wood": "#8a5634"
+   },
+   "use": {
+    "label": "Order",
+    "food_place": "inn",
+    "at": [
+     1.9,
+     -2.15
+    ],
+    "r": 1.4,
+    "lines": [
+     "The counter of PALLET HOUSE.",
+     "\"Home cooking since Grandma's day.\""
+    ]
+   }
+  },
+  {
+   "id": "menu_board_1",
+   "type": "menu_board",
+   "pos": [
+    1.0,
+    -4.056
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.05,
+   "params": {
+    "size3": [
+     1.4,
+     0.08,
+     1.0
+    ],
+    "title": "PALLET HOUSE",
+    "special": "TODAY: GRANDMA'S STEW",
+    "items": [
+     [
+      "Cream stew",
+      "450"
+     ],
+     [
+      "Omelette rice",
+      "400"
+     ],
+     [
+      "Curry & rice",
+      "420"
+     ],
+     [
+      "Berry tart",
+      "250"
+     ],
+     [
+      "Tea / Cocoa",
+      "120"
+     ]
+    ]
+   },
+   "use": {
+    "label": "Read",
+    "lines": [
+     "PALLET HOUSE  -  MENU",
+     "Cream stew 450 · Omelette rice 400 · Curry & rice 420",
+     "Berry tart 250 · Tea or cocoa 120",
+     "TODAY: GRANDMA'S STEW"
+    ]
+   }
+  },
+  {
+   "id": "wall_shelf_1",
+   "type": "wall_shelf",
+   "pos": [
+    3.6,
+    -3.971
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.75,
+   "params": {
+    "size3": [
+     1.2,
+     0.25,
+     0.4
+    ],
+    "items": "jars",
+    "seed": 11,
+    "wood": "#7a4a2e"
+   }
+  },
+  {
+   "id": "wall_shelf_2",
+   "type": "wall_shelf",
+   "pos": [
+    3.6,
+    -3.971
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.35,
+   "params": {
+    "size3": [
+     1.2,
+     0.25,
+     0.4
+    ],
+    "items": "bottles",
+    "seed": 12,
+    "wood": "#7a4a2e"
+   }
+  },
+  {
+   "id": "barrel_1",
+   "type": "barrel",
+   "pos": [
+    3.85,
+    -2.75
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "barrel_2",
+   "type": "barrel",
+   "pos": [
+    4.0,
+    -3.55
+   ],
+   "rot": 25,
+   "level": "ground",
+   "params": {
+    "scale": 0.85
+   }
+  },
+  {
+   "id": "flower_vase_1",
+   "type": "flower_vase",
+   "pos": [
+    0.75,
+    -2.9
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.05,
+   "params": {
+    "vase": "#f2ead6",
+    "n": 7,
+    "seed": 6
+   },
+   "use": false
+  },
+  {
+   "id": "hanging_lamp_1",
+   "type": "hanging_lamp",
+   "pos": [
+    1.2,
+    -2.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "tiffany",
+    "drop": 0.85
+   }
+  },
+  {
+   "id": "hanging_lamp_2",
+   "type": "hanging_lamp",
+   "pos": [
+    2.6,
+    -2.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "tiffany",
+    "drop": 0.85
+   }
+  },
+  {
+   "id": "fireplace_1",
+   "type": "fireplace",
+   "pos": [
+    -3.6,
+    -3.8
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.9,
+     0.6,
+     1.45
+    ],
+    "stone": "#c9b89a"
+   }
+  },
+  {
+   "id": "framed_picture_1",
+   "type": "framed_picture",
+   "pos": [
+    -3.6,
+    -4.071
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.2,
+   "params": {
+    "art": "landscape",
+    "seed": 12,
+    "frame": "#7a4a2e",
+    "size3": [
+     0.9,
+     0.05,
+     0.62
+    ]
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "A painting of PALLET TOWN from the sea.",
+     "Grandma painted it the summer she opened the restaurant."
+    ]
+   }
+  },
+  {
+   "id": "armchair_1",
+   "type": "armchair",
+   "pos": [
+    -4.9,
+    -2.2
+   ],
+   "rot": 150,
+   "level": "ground",
+   "params": {
+    "color": "#a8463c"
+   }
+  },
+  {
+   "id": "armchair_2",
+   "type": "armchair",
+   "pos": [
+    -2.3,
+    -2.2
+   ],
+   "rot": 210,
+   "level": "ground",
+   "params": {
+    "color": "#a8463c"
+   }
+  },
+  {
+   "id": "side_table_1",
+   "type": "side_table",
+   "pos": [
+    -3.6,
+    -2.0
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     0.45,
+     0.45,
+     0.55
+    ]
+   }
+  },
+  {
+   "id": "rug_1",
+   "type": "rug",
+   "pos": [
+    -3.6,
+    -2.55
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     3.0,
+     1.7,
+     0.02
+    ],
+    "color": "#8a3a3a"
+   }
+  },
+  {
+   "id": "plate_dresser_1",
+   "type": "plate_dresser",
+   "pos": [
+    -1.2,
+    -3.85
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.5,
+     0.5,
+     2.1
+    ]
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "The dresser is full of Grandma's blue and white plates.",
+     "Not one of them is chipped."
+    ]
+   }
+  },
+  {
+   "id": "dining_table_1",
+   "type": "dining_table",
+   "pos": [
+    -4.4,
+    0.5
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#8a5634",
+    "cloth": "#c8463c",
+    "clothKind": "gingham",
+    "size3": [
+     0.9,
+     0.9,
+     0.74
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_1",
+   "type": "dining_chair",
+   "pos": [
+    -4.4,
+    -0.2
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -4.4,
+     0.46,
+     -0.2,
+     0.0
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -4.4,
+     0.751,
+     0.25
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_2",
+   "type": "dining_chair",
+   "pos": [
+    -4.4,
+    1.2
+   ],
+   "rot": 180,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -4.4,
+     0.46,
+     1.2,
+     3.142
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -4.4,
+     0.751,
+     0.75
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_3",
+   "type": "dining_chair",
+   "pos": [
+    -5.1,
+    0.5
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -5.1,
+     0.46,
+     0.5,
+     1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -4.65,
+     0.751,
+     0.5
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_4",
+   "type": "dining_chair",
+   "pos": [
+    -3.7,
+    0.5
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -3.7,
+     0.46,
+     0.5,
+     -1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -4.15,
+     0.751,
+     0.5
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_table_2",
+   "type": "dining_table",
+   "pos": [
+    -1.9,
+    0.9
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#8a5634",
+    "cloth": "#f4efe2",
+    "clothKind": "lace",
+    "round": true,
+    "size3": [
+     0.95,
+     0.95,
+     0.74
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_5",
+   "type": "dining_chair",
+   "pos": [
+    -1.9,
+    0.2
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -1.9,
+     0.46,
+     0.2,
+     0.0
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -1.9,
+     0.751,
+     0.625
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_6",
+   "type": "dining_chair",
+   "pos": [
+    -1.9,
+    1.6
+   ],
+   "rot": 180,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -1.9,
+     0.46,
+     1.6,
+     3.142
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -1.9,
+     0.751,
+     1.175
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_7",
+   "type": "dining_chair",
+   "pos": [
+    -2.6,
+    0.9
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -2.6,
+     0.46,
+     0.9,
+     1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -2.175,
+     0.751,
+     0.9
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_8",
+   "type": "dining_chair",
+   "pos": [
+    -1.2,
+    0.9
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     -1.2,
+     0.46,
+     0.9,
+     -1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     -1.625,
+     0.751,
+     0.9
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_table_3",
+   "type": "dining_table",
+   "pos": [
+    2.4,
+    0.7
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#8a5634",
+    "cloth": "#3f7a52",
+    "clothKind": "gingham",
+    "size3": [
+     0.9,
+     0.9,
+     0.74
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_9",
+   "type": "dining_chair",
+   "pos": [
+    2.4,
+    0.0
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     2.4,
+     0.46,
+     0.0,
+     0.0
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     2.4,
+     0.751,
+     0.45
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_10",
+   "type": "dining_chair",
+   "pos": [
+    2.4,
+    1.4
+   ],
+   "rot": 180,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     2.4,
+     0.46,
+     1.4,
+     3.142
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     2.4,
+     0.751,
+     0.95
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_11",
+   "type": "dining_chair",
+   "pos": [
+    1.7,
+    0.7
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     1.7,
+     0.46,
+     0.7,
+     1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     2.15,
+     0.751,
+     0.7
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_12",
+   "type": "dining_chair",
+   "pos": [
+    3.1,
+    0.7
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     3.1,
+     0.46,
+     0.7,
+     -1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     2.65,
+     0.751,
+     0.7
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_table_4",
+   "type": "dining_table",
+   "pos": [
+    4.75,
+    1.3
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "wood": "#8a5634",
+    "cloth": "#c8463c",
+    "clothKind": "gingham",
+    "size3": [
+     0.8,
+     0.75,
+     0.74
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_13",
+   "type": "dining_chair",
+   "pos": [
+    4.1,
+    1.3
+   ],
+   "rot": 90,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     4.1,
+     0.46,
+     1.3,
+     1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     4.55,
+     0.751,
+     1.3
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "dining_chair_14",
+   "type": "dining_chair",
+   "pos": [
+    5.4,
+    1.3
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "wood": "#7a4a2e",
+    "style": "ladder"
+   },
+   "use": {
+    "label": "Eat",
+    "food_place": "inn",
+    "seat": [
+     5.4,
+     0.46,
+     1.3,
+     -1.571
+    ],
+    "seat_h": 0.46,
+    "table_top": [
+     4.95,
+     0.751,
+     1.3
+    ],
+    "lines": [
+     "A table by the window.",
+     "The tablecloth smells of sunshine."
+    ]
+   }
+  },
+  {
+   "id": "flower_vase_2",
+   "type": "flower_vase",
+   "pos": [
+    -4.35,
+    0.45
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.745,
+   "params": {
+    "vase": "#f2ead6",
+    "n": 5,
+    "seed": 21,
+    "size3": [
+     0.22,
+     0.22,
+     0.38
+    ],
+    "kind": "daisy"
+   },
+   "use": false
+  },
+  {
+   "id": "hanging_lamp_3",
+   "type": "hanging_lamp",
+   "pos": [
+    -4.4,
+    0.5
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "cone",
+    "drop": 0.7,
+    "color": "#3f7a52"
+   }
+  },
+  {
+   "id": "flower_vase_3",
+   "type": "flower_vase",
+   "pos": [
+    -1.85,
+    0.85
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.745,
+   "params": {
+    "vase": "#7ab0d8",
+    "n": 5,
+    "seed": 22,
+    "size3": [
+     0.22,
+     0.22,
+     0.38
+    ],
+    "kind": "rose"
+   },
+   "use": false
+  },
+  {
+   "id": "hanging_lamp_4",
+   "type": "hanging_lamp",
+   "pos": [
+    -1.9,
+    0.9
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "cone",
+    "drop": 0.7,
+    "color": "#c8463c"
+   }
+  },
+  {
+   "id": "flower_vase_4",
+   "type": "flower_vase",
+   "pos": [
+    2.45,
+    0.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.745,
+   "params": {
+    "vase": "#e8c46a",
+    "n": 5,
+    "seed": 23,
+    "size3": [
+     0.22,
+     0.22,
+     0.38
+    ],
+    "kind": "tulip"
+   },
+   "use": false
+  },
+  {
+   "id": "hanging_lamp_5",
+   "type": "hanging_lamp",
+   "pos": [
+    2.4,
+    0.7
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "cone",
+    "drop": 0.7,
+    "color": "#3f7a52"
+   }
+  },
+  {
+   "id": "flower_vase_5",
+   "type": "flower_vase",
+   "pos": [
+    4.8,
+    1.25
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 0.745,
+   "params": {
+    "vase": "#f2ead6",
+    "n": 5,
+    "seed": 24,
+    "size3": [
+     0.22,
+     0.22,
+     0.38
+    ],
+    "kind": "daisy"
+   },
+   "use": false
+  },
+  {
+   "id": "hanging_lamp_6",
+   "type": "hanging_lamp",
+   "pos": [
+    4.75,
+    1.3
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "cone",
+    "drop": 0.7,
+    "color": "#c8463c"
+   }
+  },
+  {
+   "id": "door_mat_1",
+   "type": "door_mat",
+   "pos": [
+    0.0,
+    1.9
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.6,
+     0.8,
+     0.02
+    ],
+    "color": "#7a3a2a"
+   }
+  },
+  {
+   "id": "coat_stand_1",
+   "type": "coat_stand",
+   "pos": [
+    -1.1,
+    2.0
+   ],
+   "rot": 0,
+   "level": "ground"
+  },
+  {
+   "id": "potted_plant_1",
+   "type": "potted_plant",
+   "pos": [
+    1.15,
+    1.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "seed": 31,
+    "size": 0.62,
+    "pot": "#c86a3e"
+   }
+  },
+  {
+   "id": "potted_plant_2",
+   "type": "potted_plant",
+   "pos": [
+    -6.0,
+    2.0
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "seed": 32,
+    "size": 0.55,
+    "pot": "#b05a3a"
+   }
+  },
+  {
+   "id": "potted_plant_3",
+   "type": "potted_plant",
+   "pos": [
+    -6.0,
+    -3.75
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "seed": 33,
+    "size": 0.5,
+    "pot": "#c86a3e"
+   }
+  },
+  {
+   "id": "curtains_1",
+   "type": "curtains",
+   "pos": [
+    -4.4,
+    2.216
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.65,
+   "params": {
+    "size3": [
+     2.0,
+     0.16,
+     1.55
+    ],
+    "color": "#c8463c",
+    "kind": "gingham"
+   }
+  },
+  {
+   "id": "curtains_2",
+   "type": "curtains",
+   "pos": [
+    4.4,
+    2.216
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.65,
+   "params": {
+    "size3": [
+     2.0,
+     0.16,
+     1.55
+    ],
+    "color": "#c8463c",
+    "kind": "gingham"
+   }
+  },
+  {
+   "id": "curtains_3",
+   "type": "curtains",
+   "pos": [
+    -6.216,
+    0.0
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.65,
+   "params": {
+    "size3": [
+     1.7,
+     0.16,
+     1.45
+    ],
+    "color": "#c8463c",
+    "kind": "gingham"
+   }
+  },
+  {
+   "id": "curtains_4",
+   "type": "curtains",
+   "pos": [
+    6.216,
+    0.0
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 1.65,
+   "params": {
+    "size3": [
+     1.7,
+     0.16,
+     1.45
+    ],
+    "color": "#c8463c",
+    "kind": "gingham"
+   }
+  },
+  {
+   "id": "framed_picture_2",
+   "type": "framed_picture",
+   "pos": [
+    -6.276,
+    -2.0
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.65,
+   "params": {
+    "art": "garden",
+    "frame": "#7a4a2e",
+    "scale": 0.8
+   }
+  },
+  {
+   "id": "framed_picture_3",
+   "type": "framed_picture",
+   "pos": [
+    6.279,
+    1.7
+   ],
+   "rot": 270,
+   "level": "ground",
+   "y": 1.6,
+   "params": {
+    "art": "house",
+    "frame": "#7a4a2e",
+    "scale": 0.7
+   }
+  },
+  {
+   "id": "notice_board_1",
+   "type": "notice_board",
+   "pos": [
+    3.0,
+    2.266
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.65,
+   "params": {
+    "title": "ROOMS UPSTAIRS",
+    "lines": [
+     "Two rooms, sea view",
+     "Breakfast included",
+     "Ask DELIA at the counter"
+    ],
+    "style": "pinned",
+    "size3": [
+     1.1,
+     0.06,
+     0.8
+    ]
+   },
+   "use": {
+    "label": "Read",
+    "lines": [
+     "ROOMS UPSTAIRS: two rooms with a sea view.",
+     "Breakfast included. Ask DELIA at the counter!"
+    ]
+   }
+  },
+  {
+   "id": "wall_clock_1",
+   "type": "wall_clock",
+   "pos": [
+    -2.5,
+    2.266
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 2.35
+  },
+  {
+   "id": "wall_lamp_1",
+   "type": "wall_lamp",
+   "pos": [
+    -5.6,
+    2.186
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.85
+  },
+  {
+   "id": "wall_lamp_2",
+   "type": "wall_lamp",
+   "pos": [
+    -0.6,
+    2.186
+   ],
+   "rot": 180,
+   "level": "ground",
+   "y": 1.85
+  },
+  {
+   "id": "wall_lamp_3",
+   "type": "wall_lamp",
+   "pos": [
+    -6.186,
+    -1.0
+   ],
+   "rot": 90,
+   "level": "ground",
+   "y": 1.85
+  },
+  {
+   "id": "staircase_1",
+   "type": "staircase",
+   "pos": [
+    5.8,
+    -2.2
+   ],
+   "rot": 270,
+   "level": "ground",
+   "params": {
+    "size3": [
+     3.4,
+     0.95,
+     3.0
+    ],
+    "wood": "#8a5634",
+    "carpet": "#3f7a52"
+   },
+   "use": {
+    "label": "Look",
+    "lines": [
+     "The stairs up to the guest rooms.",
+     "A little sign says: GUESTS ONLY, PLEASE."
+    ]
+   }
+  },
+  {
+   "id": "stove_1",
+   "type": "stove",
+   "pos": [
+    -1.9,
+    -5.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "color": "#efe4c8",
+    "kettle": "#3f7a52"
+   }
+  },
+  {
+   "id": "range_hood_1",
+   "type": "range_hood",
+   "pos": [
+    -1.9,
+    -6.071
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.9
+  },
+  {
+   "id": "kitchen_counter_1",
+   "type": "kitchen_counter",
+   "pos": [
+    -0.15,
+    -5.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     2.6,
+     0.62,
+     0.9
+    ],
+    "clutter": "cook",
+    "body": "#efe4c8",
+    "top": "#d8c8a8",
+    "seed": 4
+   }
+  },
+  {
+   "id": "kitchen_counter_2",
+   "type": "kitchen_counter",
+   "pos": [
+    3.6,
+    -5.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     2.2,
+     0.62,
+     0.9
+    ],
+    "sink": 0.2,
+    "clutter": "cook",
+    "body": "#efe4c8",
+    "top": "#d8c8a8",
+    "seed": 5
+   }
+  },
+  {
+   "id": "wall_cabinets_1",
+   "type": "wall_cabinets",
+   "pos": [
+    -0.15,
+    -6.126
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.05,
+   "params": {
+    "size3": [
+     2.4,
+     0.34,
+     0.65
+    ],
+    "body": "#efe4c8",
+    "glass": 2
+   }
+  },
+  {
+   "id": "fridge_1",
+   "type": "fridge",
+   "pos": [
+    5.6,
+    -5.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "color": "#f2eee2"
+   }
+  },
+  {
+   "id": "wall_shelf_3",
+   "type": "wall_shelf",
+   "pos": [
+    -4.6,
+    -6.171
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 1.7,
+   "params": {
+    "size3": [
+     1.6,
+     0.25,
+     0.4
+    ],
+    "items": "plates",
+    "seed": 13
+   }
+  },
+  {
+   "id": "wall_shelf_4",
+   "type": "wall_shelf",
+   "pos": [
+    -4.6,
+    -6.171
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 2.3,
+   "params": {
+    "size3": [
+     1.6,
+     0.25,
+     0.4
+    ],
+    "items": "jars",
+    "seed": 14
+   }
+  },
+  {
+   "id": "kitchen_counter_3",
+   "type": "kitchen_counter",
+   "pos": [
+    -4.6,
+    -5.95
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "size3": [
+     1.6,
+     0.62,
+     0.9
+    ],
+    "clutter": "tea",
+    "body": "#efe4c8",
+    "top": "#d8c8a8",
+    "seed": 6
+   }
+  },
+  {
+   "id": "barrel_3",
+   "type": "barrel",
+   "pos": [
+    -6.0,
+    -4.65
+   ],
+   "rot": 0,
+   "level": "ground",
+   "params": {
+    "scale": 0.8
+   }
+  },
+  {
+   "id": "hanging_lamp_7",
+   "type": "hanging_lamp",
+   "pos": [
+    -0.5,
+    -5.3
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "cone",
+    "drop": 0.8,
+    "color": "#efe4c8"
+   }
+  },
+  {
+   "id": "hanging_lamp_8",
+   "type": "hanging_lamp",
+   "pos": [
+    3.4,
+    -5.3
+   ],
+   "rot": 0,
+   "level": "ground",
+   "y": 3.0,
+   "params": {
+    "style": "cone",
+    "drop": 0.8,
+    "color": "#efe4c8"
+   }
+  }
+ ],
+ "walls": [
+  {
+   "id": "w_front",
+   "level": "ground",
+   "path": [
+    [
+     -6.4,
+     2.4
+    ],
+    [
+     6.4,
+     2.4
+    ]
+   ],
+   "t": 0.2,
+   "h": 3.0,
+   "mat": "plaster",
+   "openings": [
+    {
+     "id": "win_fl",
+     "type": "window",
+     "at": 2.0,
+     "w": 1.6,
+     "h": 1.3,
+     "sill": 0.95,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "sea",
+     "frame": "#fbf3e0"
+    },
+    {
+     "id": "front_door",
+     "type": "door",
+     "at": 6.4,
+     "w": 1.7,
+     "h": 2.3,
+     "style": "double",
+     "portal": "to_town",
+     "wood": "#7a4a2e",
+     "frame": "#6b4a33"
+    },
+    {
+     "id": "win_fr",
+     "type": "window",
+     "at": 10.8,
+     "w": 1.6,
+     "h": 1.3,
+     "sill": 0.95,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "sea",
+     "frame": "#fbf3e0"
+    }
+   ],
+   "wainscot": {
+    "h": 1.0,
+    "mat": "panel"
+   },
+   "cornice": "#6b4a33",
+   "rail": {
+    "y": 2.1,
+    "col": "#6b4a33"
+   }
+  },
+  {
+   "id": "w_west",
+   "level": "ground",
+   "path": [
+    [
+     -6.4,
+     2.4
+    ],
+    [
+     -6.4,
+     -6.4
+    ]
+   ],
+   "t": 0.2,
+   "h": 3.0,
+   "mat": "plaster",
+   "openings": [
+    {
+     "id": "win_w1",
+     "type": "window",
+     "at": 2.4,
+     "w": 1.3,
+     "h": 1.2,
+     "sill": 1.0,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "sea",
+     "frame": "#fbf3e0"
+    }
+   ],
+   "wainscot": {
+    "h": 1.0,
+    "mat": "panel"
+   },
+   "cornice": "#6b4a33",
+   "rail": {
+    "y": 2.1,
+    "col": "#6b4a33"
+   }
+  },
+  {
+   "id": "w_east",
+   "level": "ground",
+   "path": [
+    [
+     6.4,
+     -6.4
+    ],
+    [
+     6.4,
+     2.4
+    ]
+   ],
+   "t": 0.2,
+   "h": 3.0,
+   "mat": "plaster",
+   "openings": [
+    {
+     "id": "win_e1",
+     "type": "window",
+     "at": 6.4,
+     "w": 1.3,
+     "h": 1.2,
+     "sill": 1.0,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "trees",
+     "frame": "#fbf3e0"
+    },
+    {
+     "id": "win_e2",
+     "type": "window",
+     "at": 1.0,
+     "w": 0.9,
+     "h": 1.0,
+     "sill": 1.2,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "trees",
+     "frame": "#fbf3e0"
+    }
+   ],
+   "wainscot": {
+    "h": 1.0,
+    "mat": "panel"
+   },
+   "cornice": "#6b4a33",
+   "rail": {
+    "y": 2.1,
+    "col": "#6b4a33"
+   }
+  },
+  {
+   "id": "w_back",
+   "level": "ground",
+   "path": [
+    [
+     6.4,
+     -6.4
+    ],
+    [
+     -6.4,
+     -6.4
+    ]
+   ],
+   "t": 0.2,
+   "h": 3.0,
+   "mat": "kplaster",
+   "openings": [
+    {
+     "id": "win_k",
+     "type": "window",
+     "at": 3.8,
+     "w": 1.4,
+     "h": 1.0,
+     "sill": 1.2,
+     "style": "grid",
+     "panes": [
+      2,
+      2
+     ],
+     "outside": "garden",
+     "frame": "#fbf3e0"
+    },
+    {
+     "id": "back_door",
+     "type": "door",
+     "at": 10.0,
+     "w": 1.0,
+     "h": 2.15,
+     "style": "panel",
+     "locked": true,
+     "wood": "#7a4a2e",
+     "use": {
+      "label": "Door",
+      "lines": [
+       "The kitchen door out to the herb garden.",
+       "Better use the front door."
+      ],
+      "side": -1
+     }
+    }
+   ],
+   "wainscot": {
+    "h": 1.4,
+    "mat": "ktile"
+   },
+   "cornice": true
+  },
+  {
+   "id": "w_part",
+   "level": "ground",
+   "path": [
+    [
+     -6.4,
+     -4.2
+    ],
+    [
+     6.4,
+     -4.2
+    ]
+   ],
+   "t": 0.2,
+   "h": 3.0,
+   "mat": "plaster",
+   "openings": [
+    {
+     "id": "kitchen_arch",
+     "type": "arch",
+     "at": 8.6,
+     "w": 1.2,
+     "h": 2.3
+    }
+   ],
+   "wainscot": {
+    "h": 1.0,
+    "mat": "panel"
+   },
+   "cornice": "#6b4a33",
+   "rail": {
+    "y": 2.1,
+    "col": "#6b4a33"
+   }
+  }
+ ],
+ "zones": [
+  {
+   "id": "dining",
+   "name": "Dining room",
+   "level": "ground",
+   "poly": [
+    [
+     -6.4,
+     -4.2
+    ],
+    [
+     6.4,
+     -4.2
+    ],
+    [
+     6.4,
+     2.4
+    ],
+    [
+     -6.4,
+     2.4
+    ]
+   ],
+   "floor": "boards",
+   "ceiling": {
+    "type": "flat",
+    "h": 3.0,
+    "mat": "ceiling",
+    "beams": {
+     "axis": "z",
+     "step": 1.6
+    },
+    "beamCol": "#6b4a33",
+    "holes": [
+     [
+      5.35,
+      -1.95,
+      6.3,
+      -0.55
+     ]
+    ]
+   }
+  },
+  {
+   "id": "kitchen",
+   "name": "Kitchen",
+   "level": "ground",
+   "poly": [
+    [
+     -6.4,
+     -6.4
+    ],
+    [
+     6.4,
+     -6.4
+    ],
+    [
+     6.4,
+     -4.2
+    ],
+    [
+     -6.4,
+     -4.2
+    ]
+   ],
+   "floor": "kboards",
+   "ceiling": {
+    "type": "flat",
+    "h": 3.0,
+    "mat": "ceiling"
+   }
+  }
+ ],
+ "place": {
+  "map": "pallet_town",
+  "house": "pallet_house",
+  "at": [
+   144,
+   98
+  ],
+  "rot": -34.38,
+  "door": {
+   "use": [
+    0,
+    3.4
+   ],
+   "exit": [
+    0,
+    3.6
+   ],
+   "r": 1.3
+  },
+  "note": "PALLET HOUSE (terrain.js PALLET_HOUSE): local = the house frame; its front door at (0, 2.5)"
+ },
+ "palette": {
+  "boards": {
+   "color": "#b07848",
+   "label": "oak floorboards",
+   "pattern": "boards",
+   "gloss": 0.08
+  },
+  "kboards": {
+   "color": "#c8a070",
+   "label": "kitchen tiles",
+   "pattern": "checker",
+   "color2": "#efe4cc",
+   "gloss": 0.08
+  },
+  "plaster": {
+   "color": "#f2e2b8",
+   "label": "cream plaster"
+  },
+  "kplaster": {
+   "color": "#f6ecd4",
+   "label": "kitchen plaster"
+  },
+  "panel": {
+   "color": "#8a5634",
+   "label": "dark wainscot"
+  },
+  "ktile": {
+   "color": "#f2f0e6",
+   "label": "white tiles"
+  },
+  "ceiling": {
+   "color": "#d8b888",
+   "label": "board ceiling",
+   "pattern": "boards"
+  },
+  "beam": {
+   "color": "#6b4a33",
+   "label": "beams"
+  }
+ },
+ "levels": [
+  {
+   "id": "ground",
+   "name": "Ground floor",
+   "y": 0
+  }
+ ],
+ "actors": [],
+ "residents": {
+  "house": "pallet_house",
+  "people": {
+   "delia": {
+    "cook": [
+     1.9,
+     -3.75,
+     0
+    ],
+    "_": [
+     1.9,
+     -3.75,
+     0
+    ]
+   }
+  },
+  "default": [
+   -0.4,
+   -2.6,
+   180
+  ],
+  "hide": [
+   "sleep"
+  ]
+ },
+ "dialogue": {},
+ "spawns": [
+  {
+   "id": "from_town",
+   "pos": [
+    0.0,
+    1.35
+   ],
+   "level": "ground",
+   "rot": 180
+  }
+ ],
+ "portals": [
+  {
+   "id": "to_town",
+   "level": "ground",
+   "rect": [
+    -0.8,
+    2.05,
+    0.8,
+    2.4
+   ],
+   "trigger": "walk",
+   "spawn": "from_town",
+   "to": {
+    "map": "pallet_town",
+    "spawn": "pallet_house_door"
+   },
+   "label": "Outside"
+  }
+ ],
+ "lights": {
+  "key": {
+   "dir": [
+    0.25,
+    0.9,
+    0.5
+   ],
+   "shadow": true,
+   "dist": 18
+  },
+  "palette": {
+   "bands": [
+    0.02,
+    0.14,
+    0.58
+   ],
+   "deep": [
+    0.76,
+    0.64,
+    0.66
+   ],
+   "shade": [
+    0.88,
+    0.78,
+    0.76
+   ],
+   "lit": [
+    1.08,
+    1.02,
+    0.92
+   ],
+   "litAdd": [
+    0.06,
+    0.04,
+    0.01
+   ]
+  },
+  "bg": "#2a1e1c",
+  "lamps": [
+   {
+    "id": "fire",
+    "pos": [
+     -3.6,
+     0.45,
+     -3.55
+    ],
+    "r": 2.2,
+    "color": "#ffa860",
+    "kind": "fire"
+   },
+   {
+    "id": "counter_1",
+    "pos": [
+     1.2,
+     2.0,
+     -2.95
+    ],
+    "r": 1.4,
+    "color": "#ffd890",
+    "kind": "pendant"
+   },
+   {
+    "id": "counter_2",
+    "pos": [
+     2.6,
+     2.0,
+     -2.95
+    ],
+    "r": 1.4,
+    "color": "#ffd890",
+    "kind": "pendant"
+   },
+   {
+    "id": "t1",
+    "pos": [
+     -4.4,
+     2.2,
+     0.5
+    ],
+    "r": 1.6,
+    "color": "#ffe2a8",
+    "kind": "pendant"
+   },
+   {
+    "id": "t2",
+    "pos": [
+     -1.9,
+     2.2,
+     0.9
+    ],
+    "r": 1.6,
+    "color": "#ffe2a8",
+    "kind": "pendant"
+   },
+   {
+    "id": "t3",
+    "pos": [
+     2.4,
+     2.2,
+     0.7
+    ],
+    "r": 1.6,
+    "color": "#ffe2a8",
+    "kind": "pendant"
+   },
+   {
+    "id": "t4",
+    "pos": [
+     4.75,
+     2.2,
+     1.3
+    ],
+    "r": 1.3,
+    "color": "#ffe2a8",
+    "kind": "pendant"
+   },
+   {
+    "id": "sconce_1",
+    "pos": [
+     -5.6,
+     1.9,
+     2.15
+    ],
+    "r": 0.9,
+    "color": "#fff0c0",
+    "kind": "desk"
+   },
+   {
+    "id": "sconce_2",
+    "pos": [
+     -0.6,
+     1.9,
+     2.15
+    ],
+    "r": 0.9,
+    "color": "#fff0c0",
+    "kind": "desk"
+   },
+   {
+    "id": "sconce_3",
+    "pos": [
+     -6.15,
+     1.9,
+     -1.0
+    ],
+    "r": 0.9,
+    "color": "#fff0c0",
+    "kind": "desk"
+   },
+   {
+    "id": "k1",
+    "pos": [
+     -0.5,
+     2.0,
+     -5.3
+    ],
+    "r": 1.6,
+    "color": "#fff4d8",
+    "kind": "pendant"
+   },
+   {
+    "id": "k2",
+    "pos": [
+     3.4,
+     2.0,
+     -5.3
+    ],
+    "r": 1.6,
+    "color": "#fff4d8",
+    "kind": "pendant"
+   }
+  ]
+ },
+ "camera": {
+  "default": {
+   "dist": 4.2,
+   "pitch": 0.4,
+   "fov": 58,
+   "height": 1.35
+  },
+  "margin": 0.22,
+  "volumes": [
+   {
+    "id": "door",
+    "box": [
+     -0.85,
+     0,
+     2.2,
+     0.85,
+     2.3,
+     2.5
+    ],
+    "dist": 3.0,
+    "pitch": 0.38
+   },
+   {
+    "id": "arch",
+    "box": [
+     1.4,
+     0,
+     -4.45,
+     2.6,
+     2.3,
+     -3.95
+    ],
+    "dist": 3.0,
+    "pitch": 0.4
+   },
+   {
+    "id": "kitchen",
+    "box": [
+     -6.3,
+     0,
+     -6.3,
+     6.3,
+     3.0,
+     -4.3
+    ],
+    "dist": 3.0,
+    "pitch": 0.48
+   },
+   {
+    "id": "dining",
+    "box": [
+     -6.3,
+     0,
+     -4.1,
+     6.3,
+     3.0,
+     2.3
+    ],
+    "dist": 4.2,
+    "pitch": 0.4
+   }
+  ]
+ }
+}
