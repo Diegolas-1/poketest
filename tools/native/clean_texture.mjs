@@ -21,7 +21,7 @@ const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith(`--${k}=
 const ANGLE = +arg('angle', 20), SMOOTH = +arg('smooth', 10), BAND = +arg('band', 14), FIX = arg('classes', 'skin,hair').split(','), DEBUG = arg('debug', ''), GROUPS = arg('map', '');
 // --flatten=skin:0.5,hair:1 : a class's big parts painted in one colour (the part's median),
 // keeping this much of their own light and shade (the tints that spilled onto them go)
-const FLAT = Object.fromEntries(arg('flatten', 'skin:0.5,hair:1').split(',').filter(Boolean).map((x) => { const [c, k] = x.split(':'); return [c, +(k ?? 1)]; }));
+const FLAT = Object.fromEntries(arg('flatten', 'skin:0.5,hair:0').split(',').filter(Boolean).map((x) => { const [c, k] = x.split(':'); return [c, +(k ?? 1)]; }));
 const MIN_FACES = 300;         // groups smaller than this fold into a neighbour
 const MAJORITY = 0.6;          // a group's class must hold this much of it
 const MINORITY_MAX = 0.35;     // and the strays no more than this (else the group truly holds two parts)
@@ -132,25 +132,62 @@ for (let i = 0; i < edgeList.length; i += 2) {
   const a = edgeList[i], b = edgeList[i + 1]; if (patch[a] === patch[b]) continue;
   for (const [x, y] of [[a, b], [b, a]]) { pbound[patch[x]]++; contact[patch[x] * 7 + fcls[y]] += (crease[x] || crease[y]) ? CREASE_W : 1; }
 }
-// the bleed: a thin patch (small, or long and narrow) whose smooth border runs mostly
-// against another class that we fix into -> it takes that class's colour from that border
-const MAX_FACES = 40000, MAX_RATIO = 6, BORDER_MIN = 0.3;
+// the bleed: a patch whose border is mostly another class that we fix into takes that
+// class: a thin one (a strip along a junction) at ENCLOSED_THIN of its border, any other
+// (a tinted zone inside the hair) at ENCLOSED; never a whole part (a share of the class)
+const MAX_FACES = 40000, MAX_RATIO = 6, ENCLOSED_THIN = 0.45, ENCLOSED = 0.6, PART_MAX = 0.15;
+const pclass = new Uint8Array(NP); for (let f = 0; f < NF; f++) pclass[patch[f]] = fcls[f];
+const classFaces = new Int32Array(7); for (let f = 0; f < NF; f++) classFaces[fcls[f]]++;
 const target = new Int8Array(NP).fill(-1);
 const fill = new Float32Array(NP * 3), filln = new Int32Array(NP);
 let nfix = 0; const fixFaces = new Int32Array(49);
 for (let p = 0; p < NP; p++) {
-  if (psize[p] > MAX_FACES || psize[p] / Math.max(pbound[p], 1) > MAX_RATIO) continue;
-  let best = -1, n = 0;
-  for (let k = 0; k < 7; k++) { const v = contact[p * 7 + k]; if (v > n) { n = v; best = k; } }
-  if (best < 0 || !FIX.includes(CLASSES[best])) continue;
-  target[p] = best; nfix++;
+  let best = -1, n = 0, tot = 0;
+  for (let k = 0; k < 7; k++) { const v = contact[p * 7 + k]; tot += v; if (v > n) { n = v; best = k; } }
+  if (best < 0 || best === pclass[p] || !FIX.includes(CLASSES[best]) || !tot) continue;
+  if (psize[p] > PART_MAX * classFaces[best]) continue;
+  const thin = psize[p] <= MAX_FACES && psize[p] / Math.max(pbound[p], 1) <= MAX_RATIO;
+  if (n / tot < (thin ? ENCLOSED_THIN : ENCLOSED)) continue;
+  target[p] = best; nfix++; fixFaces[pclass[p] * 7 + best] += psize[p];
 }
-// the patch's own class (from any of its faces) must differ from the target
-const pclass = new Uint8Array(NP); for (let f = 0; f < NF; f++) pclass[patch[f]] = fcls[f];
-nfix = 0;
-for (let p = 0; p < NP; p++) { if (target[p] >= 0 && (target[p] === pclass[p] || contact[p * 7 + target[p]] < BORDER_MIN * pbound[p])) target[p] = -1; if (target[p] >= 0) { nfix++; fixFaces[pclass[p] * 7 + target[p]] += psize[p]; } }
 log(`patches to repaint: ${nfix}`, CLASSES.flatMap((a, i) => CLASSES.map((b, j) => fixFaces[i * 7 + j] ? `${a}->${b} ${fixFaces[i * 7 + j]} faces` : '')).filter(Boolean).join(', '));
-// the colour: the mean of the bordering faces of the target class
+// ---------- the big parts of a class in one colour: a tint that spilled over goes ----------
+// the class's big patches (the face, the hands; the hair), the patches repainted to it, the
+// class's own patches that border the set, and the crease faces of the class touching it;
+// each texel keeps part of its own brightness (FLAT) over the median of the big patches
+const BIG = { skin: 2000, hair: 20000 };
+const flatOf = new Int8Array(NF).fill(-1);   // face -> the flatten set (index into flats)
+const flats = [];
+for (const cname of Object.keys(FLAT)) {
+  const k = CLASSES.indexOf(cname); if (k < 0) continue;
+  const inSet = new Uint8Array(NP);
+  for (let p = 0; p < NP; p++) if ((pclass[p] === k && psize[p] >= (BIG[cname] || 2000) && target[p] < 0) || target[p] === k) inSet[p] = 1;
+  if (!inSet.some((x) => x)) continue;
+  for (let round = 0; round < 3; round++) {   // the class's other patches, where they mostly border the set
+    const toSet = new Float32Array(NP), tot = new Float32Array(NP);
+    for (let i = 0; i < edgeList.length; i += 2) {
+      const a = edgeList[i], b = edgeList[i + 1]; if (patch[a] === patch[b]) continue;
+      for (const [x, y] of [[a, b], [b, a]]) { const w = (crease[x] || crease[y]) ? CREASE_W : 1; tot[patch[x]] += w; if (inSet[patch[y]]) toSet[patch[x]] += w; }
+    }
+    let grown = 0;
+    for (let p = 0; p < NP; p++) if (!inSet[p] && pclass[p] === k && target[p] < 0 && tot[p] && toSet[p] / tot[p] >= 0.5) { inSet[p] = 1; grown++; }
+    if (!grown) break;
+  }
+  const id = flats.length; flats.push({ cname, k, keep: FLAT[cname], faces: [], big: [] });
+  for (let f = 0; f < NF; f++) if (inSet[patch[f]]) { flatOf[f] = id; flats[id].faces.push(f); if (pclass[patch[f]] === k && target[patch[f]] < 0) flats[id].big.push(f); }
+  for (let i = 0; i < edgeList.length; i += 2) {
+    const a = edgeList[i], b = edgeList[i + 1];
+    for (const [c, o] of [[a, b], [b, a]]) if (crease[c] && flatOf[c] < 0 && fcls[c] === k && flatOf[o] === id) { flatOf[c] = id; flats[id].faces.push(c); }
+  }
+}
+for (const fl of flats) {
+  const ch = [[], [], []]; for (const f of fl.big) for (let c = 0; c < 3; c++) ch[c].push(fcol[f * 3 + c]);
+  fl.median = ch.map((a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; });
+  fl.lum = 0.3 * fl.median[0] + 0.59 * fl.median[1] + 0.11 * fl.median[2];
+  log(`${fl.cname}: ${fl.faces.length} faces painted ${fl.median.map((x) => x.toFixed(0)).join(',')} keeping ${fl.keep} of their shading`);
+}
+const flatMedian = (k) => { const fl = flats.find((x) => x.k === k); return fl ? fl.median : null; };
+// the colour of a repainted patch: the flat colour of its class, else the mean of the bordering faces of that class
 for (let i = 0; i < edgeList.length; i += 2) {
   const a = edgeList[i], b = edgeList[i + 1];
   for (const [x, y] of [[a, b], [b, a]]) { const p = patch[x]; if (target[p] >= 0 && patch[y] !== p && fcls[y] === target[p] && target[patch[y]] < 0) { fill[p * 3] += fcol[y * 3]; fill[p * 3 + 1] += fcol[y * 3 + 1]; fill[p * 3 + 2] += fcol[y * 3 + 2]; filln[p]++; } }
@@ -158,7 +195,12 @@ for (let i = 0; i < edgeList.length; i += 2) {
 // the crease faces along a repainted patch, of its old colour, go with it (the rounded
 // junction's half on that side), by their neighbours
 const fnew = new Int8Array(NF).fill(-1), fnewCol = new Float32Array(NF * 3);
-for (let f = 0; f < NF; f++) { const p = patch[f]; if (target[p] >= 0 && filln[p]) { fnew[f] = target[p]; fnewCol[f * 3] = fill[p * 3] / filln[p]; fnewCol[f * 3 + 1] = fill[p * 3 + 1] / filln[p]; fnewCol[f * 3 + 2] = fill[p * 3 + 2] / filln[p]; } }
+for (let f = 0; f < NF; f++) {
+  const p = patch[f]; if (target[p] < 0) continue;
+  const fm = flatMedian(target[p]);
+  if (fm) { fnew[f] = target[p]; fnewCol[f * 3] = fm[0]; fnewCol[f * 3 + 1] = fm[1]; fnewCol[f * 3 + 2] = fm[2]; }
+  else if (filln[p]) { fnew[f] = target[p]; fnewCol[f * 3] = fill[p * 3] / filln[p]; fnewCol[f * 3 + 1] = fill[p * 3 + 1] / filln[p]; fnewCol[f * 3 + 2] = fill[p * 3 + 2] / filln[p]; }
+}
 for (let round = 0; round < 3; round++) {
   const votes = new Map();
   for (let i = 0; i < edgeList.length; i += 2) {
@@ -168,30 +210,6 @@ for (let round = 0; round < 3; round++) {
   let n = 0;
   for (const [c, os] of votes) { if (os.length < 2) continue; fnew[c] = fnew[os[0]]; fnewCol[c * 3] = fnewCol[os[0] * 3]; fnewCol[c * 3 + 1] = fnewCol[os[0] * 3 + 1]; fnewCol[c * 3 + 2] = fnewCol[os[0] * 3 + 2]; n++; }
   if (!n) break;
-}
-
-// ---------- the big parts of a class in one colour: a tint that spilled over goes ----------
-// the class's big patches (the face, the hands; the hair), with the crease faces of that
-// class touching them; each texel keeps part of its own brightness (FLAT) over the median
-const BIG = { skin: 2000, hair: 20000 };
-const flatOf = new Int8Array(NF).fill(-1);   // face -> the flatten set (index into flats)
-const flats = [];
-for (const cname of Object.keys(FLAT)) {
-  const k = CLASSES.indexOf(cname); if (k < 0) continue;
-  const big = new Set(); for (let p = 0; p < NP; p++) if (pclass[p] === k && psize[p] >= (BIG[cname] || 2000) && target[p] < 0) big.add(p);
-  if (!big.size) continue;
-  const id = flats.length; flats.push({ cname, k, keep: FLAT[cname], faces: [] });
-  for (let f = 0; f < NF; f++) if (big.has(patch[f]) && fnew[f] < 0) { flatOf[f] = id; flats[id].faces.push(f); }
-  for (let i = 0; i < edgeList.length; i += 2) {
-    const a = edgeList[i], b = edgeList[i + 1];
-    for (const [c, o] of [[a, b], [b, a]]) if (crease[c] && flatOf[c] < 0 && fcls[c] === k && flatOf[o] === id && fnew[c] < 0) { flatOf[c] = id; flats[id].faces.push(c); }
-  }
-}
-for (const fl of flats) {
-  const ch = [[], [], []]; for (const f of fl.faces) for (let c = 0; c < 3; c++) ch[c].push(fcol[f * 3 + c]);
-  fl.median = ch.map((a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; });
-  fl.lum = 0.3 * fl.median[0] + 0.59 * fl.median[1] + 0.11 * fl.median[2];
-  log(`${fl.cname}: ${fl.faces.length} faces painted ${fl.median.map((x) => x.toFixed(0)).join(',')} keeping ${fl.keep} of their shading`);
 }
 
 // ---------- the texture: the flattened parts' texels, then the repainted faces' ----------
