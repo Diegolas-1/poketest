@@ -24,8 +24,10 @@ var dist := 0.85
 var sliders := {}
 var status: Label
 
+func _init() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)   # (before the tree: a top-level control sizes itself on entry)
+
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = UITheme.theme()
@@ -36,6 +38,9 @@ func _ready() -> void:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 16); m.add_child(h)
 	h.add_child(_preview())
 	h.add_child(_controls())
+	# (in the tree now: the actor posed and the camera aimed need its world)
+	preview.animate(1.0 / 60.0, 0.0, false)   # the idle's first frame
+	_aim()
 	_load()
 	_apply()
 
@@ -58,9 +63,7 @@ func _preview() -> Control:
 	var sun := DirectionalLight3D.new(); vp.add_child(sun); sun.look_at_from_position(Vector3(-0.55, 0.75, 0.45) * 10, Vector3.ZERO)
 	preview = CastActor.make(LOOK); vp.add_child(preview)
 	preview.ground = func(_x: float, _z: float) -> float: return 0.0
-	preview.animate(1.0 / 60.0, 0.0, false)   # the idle's first frame
 	cam = Camera3D.new(); vp.add_child(cam); cam.fov = 30; cam.current = true
-	_aim()
 	box.gui_input.connect(func(e: InputEvent):
 		if e is InputEventScreenDrag: yaw += e.relative.x * 0.01; _aim()
 		elif e is InputEventMouseMotion and e.button_mask & MOUSE_BUTTON_MASK_LEFT: yaw += e.relative.x * 0.01; _aim()
