@@ -254,6 +254,9 @@ export function viridianFill(world) {
   gates(G, world, col, use, place);
   furniture(G, world, col, use, place, yawTo, vc);
   plantsPlan(fronts);
+  // the perches as built: the downtown tower nearest STORY's ledge, at its real roof
+  vc.perches = { ...STORY.perches };
+  { const [px, , pz] = STORY.perches.towerLedge; let best = null; for (const P of fronts) if (P.top !== undefined && (!best || Math.hypot(P.x - px, P.z - pz) < Math.hypot(best.x - px, best.z - pz))) best = P; if (best) vc.perches.towerLedge = [+best.x.toFixed(2), +(best.y + best.top).toFixed(2), +best.z.toFixed(2)]; }
   for (const P of fronts) OCC.push([P.x, P.z, P.w / 2, P.d / 2, P.rot || 0]);
   return root;
 }
@@ -622,13 +625,13 @@ function lots(G, world, col, use, fronts) {
   for (const L of towers) {
     const g = new THREE.Group(), B = new Batch();
     const floors = L.landmark ? 26 : 7 + Math.floor(R() * 12 * (0.6 + 0.4 * VC.smooth(60, 180, L.x)));
-    towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[n % TOWER_WALLS.length], accent: ACCENTS[(n * 3) % ACCENTS.length], podium: true, top: L.landmark ? 'spire' : ['garden', 'garden', 'crown', 'flat'][n % 4], seed: 500 + n });
+    const top = towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[n % TOWER_WALLS.length], accent: ACCENTS[(n * 3) % ACCENTS.length], podium: true, top: L.landmark ? 'spire' : ['garden', 'garden', 'crown', 'flat'][n % 4], seed: 500 + n });
     B.flush(g, { shadow: true, outline: undefined, name: 'vc_tower' });
     n++;
     const y = lotY(L) - 0.3;
     g.position.set(L.x, y, L.z); g.rotation.y = L.rot; eid(g, `viridian/tower/${n}`); G.add(g);
     col({ box: true, x: L.x, z: L.z, hw: L.w / 2, hd: L.d / 2, rot: L.rot });
-    fronts.push({ ...L, y });
+    fronts.push({ ...L, y, top });
   }
 }
 const lotY = (L) => { let m = Infinity; for (const [x, z] of lotPts(L)) m = Math.min(m, height(x, z)); return m; };
