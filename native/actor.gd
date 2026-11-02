@@ -205,12 +205,12 @@ func _build(look_name: String) -> void:
 	k = holder.scale.x
 	skel = root.find_child("Skeleton3D", true, false)
 	var ap: AnimationPlayer = root.find_child("AnimationPlayer", true, false)
-	for an in ["idle", "walk", "run"]:
-		anims[an] = ap.get_animation(an)
-	# a fourth gait (the V2 look's realistic clips: walk, run and sprint at their own paces)
-	if ap.has_animation("sprint"):
-		anims.sprint = ap.get_animation("sprint")
-		w.sprint = 0.0
+	# every clip in the file: idle, walk and run (the gaits, blended by speed), and the V2
+	# look's others (bake_ash2.mjs): its sprint (a fourth gait, at its own pace), its sneak
+	# (the crouch: _crouch_clip), its jump and roll (_jump_clip), its sit, gesture and fall
+	# (idles.gd: the clip acts)
+	for an in ap.get_animation_list(): anims[an] = ap.get_animation(an)
+	if anims.has("sprint"): w.sprint = 0.0
 	# the clips are sampled by hand; the player itself is not needed
 	ap.get_parent().remove_child(ap)
 	ap.free()
@@ -377,14 +377,19 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	var dS: float = anims.sprint.length if has_sp else dR
 	var loco := _sm(0.05, 0.7, speed)
 	# the walk -> run crossfade: the actor's walk_v / run_v (the chibi clips are styled for
-	# them); clips that know their own pace (meta.<clip>.v: the V2 look's realistic ones)
-	# cross between the walk's and a little under the run's, so each plays near its own
-	# tempo; a sprint clip then takes over from the run over walk_v / run_v
+	# them); clips that know their own pace (meta.<clip>.v: the V2 look's realistic walk,
+	# jog and sprint) cross by it: the walk gives way to the jog past its own pace, the jog
+	# to the sprint from twice its pace up to the sprint's, so each plays near its own tempo
 	var rb: float
 	var sp := 0.0
 	if meta.walk.has("v"):
-		rb = _sm(float(meta.walk.v) * 1.1, float(meta.run.v) * 0.8, speed)
-		if has_sp: sp = _sm(walk_v * 1.05, walk_v + (run_v - walk_v) * 0.7, speed)
+		var vw := float(meta.walk.v)
+		var vr := float(meta.run.v)
+		if has_sp:
+			rb = _sm(vw * 1.1, maxf(vw * 1.3, vr * 1.6), speed)
+			sp = _sm(vr * 2.0, maxf(vr * 2.2, float(meta.sprint.v)), speed)
+		else:
+			rb = _sm(vw * 1.1, vr * 0.8, speed)
 	else:
 		rb = _sm(walk_v * 1.05, walk_v + (run_v - walk_v) * 0.7, speed)
 	var tw := {"idle": 1.0 - loco, "walk": loco * (1.0 - rb), "run": loco * rb * (1.0 - sp)}
@@ -492,7 +497,9 @@ func _clips(dt: float, speed: float, air: bool) -> void:
 	if tired > 0.001: _tired(speed)
 	if limp > 0.001: _limp()
 	_jump(dt, speed, air)
-	if crouch_w > 0.0: _crouch(dt, speed)
+	if crouch_w > 0.0:
+		if anims.has("sneak"): _crouch_clip(dt, speed)
+		else: _crouch(dt, speed)
 	idles.post(dt)
 
 # a bone's transform in the skeleton's space, from the pose being built this frame
@@ -768,6 +775,55 @@ func _jump_apply(P: Dictionary, wt: float, lead: int, spin := 0.0) -> void:
 		for f in FIST:
 			for j in range(1, 4): bend("%sFinger%s%d" % [s, f, j], 0, 0, 1, -sg * cu * (1.1 if j == 1 else 1.3))
 
+# ---------- the V2 look's own clips (bake_ash2.mjs), laid over the pose ----------
+# a clip's pose at a time over the pose being built, by wt: its rotation tracks (not the
+# bones in skip) and, when with_pos, its waist track (the clip's own height off the ground)
+func clip_over(an: String, time: float, wt: float, with_pos := true, skip: Dictionary = {}) -> void:
+	if wt < 0.002 or not anims.has(an): return
+	var A: Animation = anims[an]
+	var rt: Dictionary = rot_tr[an]
+	var tm := clampf(time, 0.0, A.length)
+	for bi in rt:
+		if skip.has(bi): continue
+		var r: Quaternion = A.rotation_track_interpolate(rt[bi], tm)
+		q[bi] = r if wt >= 1.0 else q[bi].slerp(r, wt)
+	if with_pos and waist >= 0 and pos_tr[an] >= 0:
+		waist_pos = waist_pos.lerp(A.position_track_interpolate(pos_tr[an], tm), wt)
+		skel.set_bone_pose_position(waist, waist_pos)
+
+# the jump clip (meta.jump: off its take-off, apex, land its first touch, crouch the
+# landing's low point): the flight stretched over the air time (from the apex when he
+# only stepped off something; the rise itself is the actor's), the landing played out on
+# the ground and held in its crouch by the impact; from a heavy drop at a run the roll
+# clip, from its dive (meta.roll.dive), the clips' own heights in their waist tracks
+func _jump_clip(dt: float, speed: float, air: bool, landing: bool) -> void:
+	holder.position.y = y0
+	if air_w < 0.002 and not landing: return
+	var J: Dictionary = meta.jump
+	var A: Animation = anims.jump
+	if air_w > 0.002:
+		if air: jump.t += dt
+		var u: float = clampf(jump.t / jump.air_t, 0.0, 1.0)
+		var t0: float = float(J.off) if jump.kind != "drop" else float(J.apex)
+		clip_over("jump", lerpf(t0, float(J.land), u), air_w, false)
+	if not landing: return
+	if jump.ld == "roll" and anims.has("roll"):
+		var R: Animation = anims.roll
+		var d0: float = float(meta.roll.get("dive", 0.0))
+		var rd: float = R.length - d0
+		jump.land = minf(1.0, jump.land + dt / rd)
+		clip_over("roll", d0 + jump.land * rd, (1.0 - air_w) * (1.0 - _sm(0.85, 1.0, jump.land)))
+		return
+	var hold: float = 0.35 * jump.impact
+	var a: float = float(J.crouch) - float(J.land)
+	var dur: float = (A.length - float(J.land)) + hold
+	jump.land = minf(1.0, jump.land + dt / dur)
+	var s: float = jump.land * dur
+	var tc: float = float(J.land) + s if s < a else (float(J.crouch) if s < a + hold else float(J.crouch) + (s - a - hold))
+	var wt: float = (1.0 - air_w) * (1.0 - _sm(0.72, 1.0, jump.land)) * (0.5 + 0.5 * jump.impact)
+	wt *= 1.0 - 0.3 * _sm(2.0, WALK_V, speed)   # (at a run the gait keeps some of it)
+	clip_over("jump", tc, wt)
+
 # the lowest point of the body (feet, knees, hands, head; skeleton space)
 func _low_pt() -> float:
 	var lo := INF
@@ -789,6 +845,8 @@ func _jpick(set_name: String) -> String:
 	return names[-1]
 
 func _lpick(drop: float, speed: float) -> String:
+	if anims.has("jump"):   # the V2 look: its jump's own landing, or its roll from a heavy drop at a run
+		return "roll" if anims.has("roll") and (land_pick == "roll" or (land_pick == "" and speed > RUN_FROM and drop > 2.8)) else "jclip"
 	if land_pick != "" and LAND.has(land_pick): return land_pick
 	for L in LANDS:
 		if drop > float(L.max): continue
@@ -830,7 +888,7 @@ func _jump(dt: float, speed: float, air: bool) -> void:
 		jump.var = _jpick(st)
 		jump.run = 1.0 if st == "run" else 0.0
 		jump.lead = (0 if phase < 0.5 else 1) if speed > 0.8 else _rng.randi() % 2
-		jump.spin = float(JV[jump.var].get("spin", 0.0)) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		jump.spin = 0.0 if anims.has("jump") else float(JV[jump.var].get("spin", 0.0)) * (1.0 if _rng.randf() < 0.5 else -1.0)
 		jump.air_t = maxf(0.3, 2.0 * maxf(raw, 0.0) / JGRAV)
 	if air: jump.top = maxf(jump.top, y)
 	if not air and was_air:
@@ -842,6 +900,9 @@ func _jump(dt: float, speed: float, air: bool) -> void:
 	# (a jump snaps into its crouch: the anticipation is only a few frames)
 	air_w += ((1.0 if air else 0.0) - air_w) * (1.0 - exp(-dt * ((40.0 if jump.kind == "jump" else 18.0) if air else 12.0)))
 	var landing: bool = jump.land < 1.0
+	if anims.has("jump"):   # (the V2 look: its own jump and roll clips)
+		_jump_clip(dt, speed, air, landing)
+		return
 	if air_w < 0.002 and not landing and absf(jump.sa) < 1e-4:
 		holder.position.y = y0
 		return
@@ -934,6 +995,7 @@ func _crn(key: String, d):
 
 # step cycles a second while crouched (main.gd: the step rate is the actor's phase)
 func crouch_rate(speed: float) -> float:
+	if anims.has("sneak"): return maxf(speed, 0.3) / maxf(0.05, float(meta.sneak.stride) * k)   # (the sneak clip at its own stride)
 	return float(_crn("cad0", 0.8)) + float(_crn("cad1", 0.35)) * maxf(speed, 0.0)
 
 func _crouch_geo() -> void:
@@ -958,6 +1020,63 @@ func _sneak_foot(u: float, ss: float) -> Vector3:
 	p = lerpf(p, 0.12, _sm(0.62, 1.0, s2))
 	return Vector3(z, lift, p)
 
+# the crouch's life: the head scanning about (wider when still), the weight from leg to
+# leg, and now and then a peek up over the grass when still (may_peek); returns the peek
+func _crouch_timers(dt: float, mv: float, may_peek: bool) -> float:
+	var C := _cr
+	# the head: scanning about (wider when still), and the weight from leg to leg
+	C.lt -= dt
+	if C.lt <= 0.0:
+		C.lt = _rng.randf_range(1.2, 3.6)
+		var wide := lerpf(0.75, 0.32, mv)
+		C.lgoal = _rng.randf_range(-wide, wide) if _rng.randf() < 0.75 else 0.0
+		C.pgoal = _rng.randf_range(-0.12, 0.06)
+	var sp := Creature.spring(Vector2(C.look, C.lv), C.lgoal, 5.0, dt, 0.8)
+	C.look = sp.x; C.lv = sp.y
+	var pp := Creature.spring(Vector2(C.pitch, C.pv), C.pgoal, 4.0, dt)
+	C.pitch = pp.x; C.pv = pp.y
+	C.swap -= dt
+	if C.swap <= 0.0:
+		C.swap = _rng.randf_range(2.8, 6.0); C.side = -C.side
+		if may_peek and mv < 0.2 and C.peek < 0.0 and _rng.randf() < 0.35: C.peek = 0.0   # a peek over the grass
+	var sh := Creature.spring(Vector2(C.shift, C.sv), C.side * (1.0 - mv), 3.0, dt)
+	C.shift = sh.x; C.sv = sh.y
+	var peek := 0.0
+	if C.peek >= 0.0:
+		C.peek += dt
+		peek = _sm(0.0, 0.45, C.peek) * (1.0 - _sm(1.5, 2.1, C.peek)) * (1.0 - mv)
+		if C.peek > 2.1: C.peek = -1.0
+	return peek
+
+# the V2 look's sneak clip as its crouch: on the stride phase when moving, held at its
+# stance frame (meta.sneak.still) when standing, the two mixed by the speed, blended in
+# by crouch_w; the head scanning and a breath on top (the clip has its own height: the
+# hips track)
+func _crouch_clip(dt: float, speed: float) -> void:
+	var W := crouch_w * (1.0 - air_w)
+	if W < 0.002: return
+	var C := _cr
+	C.t += dt
+	var mv := _sm(0.12, 0.9, speed)
+	var A: Animation = anims.sneak
+	var tm := fmod(phase + float(meta.sneak.lead), 1.0) * A.length
+	var ts := float(meta.sneak.get("still", 0.3)) * A.length
+	var rt: Dictionary = rot_tr.sneak
+	for bi in rt:
+		var r: Quaternion = A.rotation_track_interpolate(rt[bi], tm)
+		if mv < 1.0: r = A.rotation_track_interpolate(rt[bi], ts).slerp(r, mv)
+		q[bi] = q[bi].slerp(r, W)
+	if waist >= 0 and pos_tr.sneak >= 0:
+		var p: Vector3 = A.position_track_interpolate(pos_tr.sneak, tm)
+		if mv < 1.0: p = A.position_track_interpolate(pos_tr.sneak, ts).lerp(p, mv)
+		waist_pos = waist_pos.lerp(p, W)
+		skel.set_bone_pose_position(waist, waist_pos)
+	_crouch_timers(dt, mv, false)
+	var br := sin(C.t * 2.1) * (1.0 - mv)
+	bend("Spine1", 1, 0, 0, 0.012 * br * W); bend("Spine2", 1, 0, 0, 0.018 * br * W)
+	bend("Spine3", 0, 1, 0, C.look * 0.15 * W); bend("Neck", 0, 1, 0, C.look * 0.35 * W)
+	bend("Head", 0, 1, 0, C.look * 0.5 * W); bend("Head", 1, 0, 0, (C.pitch - 0.012 * br) * W)
+
 const CROUCH_BONES := ["Waist", "Hips", "Spine1", "Spine2", "Spine3", "Neck", "Head", "LArmA", "RArmA", "LForeArm", "RForeArm"]
 func _crouch(dt: float, speed: float) -> void:
 	var W := crouch_w * (1.0 - air_w)
@@ -978,28 +1097,7 @@ func _crouch(dt: float, speed: float) -> void:
 		clip_q.append(ff.basis.get_rotation_quaternion())
 		var kp := lf.origin - (tf.origin + ff.origin) * 0.5
 		clip_p.append(kp.normalized() if kp.length() > 1e-4 else Vector3.BACK)
-	# the head: scanning about (wider when still), and the weight from leg to leg
-	C.lt -= dt
-	if C.lt <= 0.0:
-		C.lt = _rng.randf_range(1.2, 3.6)
-		var wide := lerpf(0.75, 0.32, mv)
-		C.lgoal = _rng.randf_range(-wide, wide) if _rng.randf() < 0.75 else 0.0
-		C.pgoal = _rng.randf_range(-0.12, 0.06)
-	var sp := Creature.spring(Vector2(C.look, C.lv), C.lgoal, 5.0, dt, 0.8)
-	C.look = sp.x; C.lv = sp.y
-	var pp := Creature.spring(Vector2(C.pitch, C.pv), C.pgoal, 4.0, dt)
-	C.pitch = pp.x; C.pv = pp.y
-	C.swap -= dt
-	if C.swap <= 0.0:
-		C.swap = _rng.randf_range(2.8, 6.0); C.side = -C.side
-		if mv < 0.2 and C.peek < 0.0 and _rng.randf() < 0.35: C.peek = 0.0   # a peek over the grass
-	var sh := Creature.spring(Vector2(C.shift, C.sv), C.side * (1.0 - mv), 3.0, dt)
-	C.shift = sh.x; C.sv = sh.y
-	var peek := 0.0
-	if C.peek >= 0.0:
-		C.peek += dt
-		peek = _sm(0.0, 0.45, C.peek) * (1.0 - _sm(1.5, 2.1, C.peek)) * (1.0 - mv)
-		if C.peek > 2.1: C.peek = -1.0
+	var peek := _crouch_timers(dt, mv, true)
 	# ---- the body: hips, spine, head, arms (posed, then blended in by W) ----
 	var saved := []
 	for n in CROUCH_BONES: saved.append(q[bones[n]] if bones.has(n) else Quaternion())

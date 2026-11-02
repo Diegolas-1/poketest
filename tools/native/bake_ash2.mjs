@@ -59,9 +59,10 @@ for (const [S, s] of [['Left', 'L'], ['Right', 'R']]) {
 const CLIPS = { '09b96219': 'walk', '14d6899b': 'jump', '2f46551b': 'sprint', '70a0ed84': 'gesture', '892fb4ae': 'roll',
   'b5fe15d7': 'sneak', 'bdf52c4c': 'jog', 'eac8c0a8': 'sit', '15536454': 'fall', 'fb65f1fa': 'idle' };
 // the gaits the game plays (actor.gd), one stride cycle each, named in the file by their
-// slot: its walk, and the sprint as its run (the jog's own pace is a walking one; the game
-// walks at 4.5 m/s, where the sprint plays near its own tempo); the rest keep their names
-const GAME = { walk: 'walk', run: 'sprint' };
+// slot: its walk, the jog as its run and the sprint as its sprint (each at its own pace:
+// actor.gd crosses between them by the speed); the rest keep their names (the sneak is
+// the crouch, the jump and the roll the jump's, sit, gesture and fall are idle acts)
+const GAME = { walk: 'walk', run: 'jog', sprint: 'sprint' };
 const GAITS = ['walk', 'jog', 'sprint', 'sneak'];   // cut to one cycle (two steps), from a left footfall
 const KEEP = ['hair01_on', 'hathun', 'ash_extra', 'ash_logo'];   // the old hair, cap, spikes and logo
 const FACE = ['face_on_1', 'face_on_0'];                          // the old face and its eye patch: drawn into the decal
@@ -154,6 +155,7 @@ const fkSampler = (anim) => {   // model-frame joint positions at a time (the cl
   };
 };
 const foot = { L: by.get('LeftFoot'), R: by.get('RightFoot') };
+const toe = { L: by.get('LeftToeBase'), R: by.get('RightToeBase') };
 // the left foot's reach ahead of the hips through a clip: its peaks are the left footfalls
 const footfalls = (anim) => {
   const sample = fkSampler(anim), T = anim.listSamplers()[0].getInput().getMax([])[0], N = 240, z = [];
@@ -222,9 +224,32 @@ for (const anim of root.listAnimations()) {
   }
   log(`clip ${name.padEnd(8)}${slot ? ` (the game's ${slot})` : ''} ${T.toFixed(2)}s  moves ${stride.toFixed(3)} / cycle  left footfall at ${lead.toFixed(3)}`);
   // (v: the ground speed, world units a second, at which the clip plays at its own tempo)
-  if (slot) meta[slot] = { stride: +stride.toFixed(4), lead: +lead.toFixed(3), v: +(stride * ashLook.scale / T).toFixed(3) };
+  const entry = { stride: +stride.toFixed(4), lead: +lead.toFixed(3), v: +(stride * ashLook.scale / T).toFixed(3) };
+  // the game's marks in the clip (actor.gd): the sneak's stance frame (both feet down; a
+  // fraction of the clip), the jump's take-off, apex, first touch and landing crouch, the
+  // roll's dive (seconds); feet heights over the rest pose's soles
+  const restP = fkSampler({ listChannels: () => [] })(0);
+  const ground = Math.min(...['L', 'R'].flatMap((s) => [restP.get(foot[s]).y, restP.get(toe[s]).y]));
+  const fh = (p, s) => Math.min(p.get(foot[s]).y, p.get(toe[s]).y) - ground;
+  const N = 200, F = [];
+  for (let i = 0; i <= N; i++) { const p = sample(T * i / N); F.push({ t: T * i / N, l: fh(p, 'L'), r: fh(p, 'R'), h: p.get(hips).y }); }
+  if (name === 'sneak') entry.still = +(F.reduce((b, f, i) => (f.l + f.r < F[b].l + F[b].r ? i : b), 0) / N).toFixed(3);
+  if (name === 'jump') {
+    const iOff = Math.max(0, F.findIndex((f) => Math.min(f.l, f.r) > 0.02 * S));
+    const iApex = F.reduce((b, f, i) => (f.h > F[b].h ? i : b), 0);
+    const iLand = F.findIndex((f, i) => i > iApex && Math.min(f.l, f.r) < 0.012 * S);
+    Object.assign(entry, { off: +F[iOff].t.toFixed(3), apex: +F[iApex].t.toFixed(3), land: +F[iLand < 0 ? iApex : iLand].t.toFixed(3) });
+    entry.crouch = +Math.min(T, entry.land + 0.08).toFixed(3);
+    log(`clip jump: off the ground at ${entry.off}s, apex ${entry.apex}s, down at ${entry.land}s`);
+  }
+  if (name === 'roll') {
+    const i = F.findIndex((f) => f.h < F[0].h - 0.03 * S);
+    entry.dive = +Math.max(0, (i < 0 ? 0 : F[i].t) - 0.04).toFixed(3);
+    log(`clip roll: the dive from ${entry.dive}s`);
+  }
+  meta[slot || name] = entry;
 }
-if (!meta.walk || !meta.run) throw new Error('the walk or run clip is missing (CLIPS / GAME)');
+if (!meta.walk || !meta.run || !meta.sprint) throw new Error('the walk, jog or sprint clip is missing (CLIPS / GAME)');
 
 // ---------- the bones: the game's names, a Hips pivot for the legs ----------
 for (const n of joints) if (RENAME[n.getName()]) n.setName(RENAME[n.getName()]);

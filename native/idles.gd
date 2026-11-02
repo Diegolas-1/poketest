@@ -177,6 +177,7 @@ static func _defs() -> Dictionary:
 				[4.4, {"at": GR(-0.22, 0.08, 0.31), "pole": [-0.6, 0, -1], "wf": -0.3, "cu": 0.05}], [5.2, ONKNEE.call("R", -1)], [6.2, ONKNEE.call("R", -1)], [7.2, null]],
 			"gaze": [[0, {"y": 0, "p": 0}], [1.2, {"y": -0.1, "p": 0.1}], [3.6, {"y": -0.2, "p": 0.15}], [5, {"y": 0.2, "p": 0.0}], [6.4, {"y": 0, "p": 0.0}], [7.4, {"y": 0, "p": 0}], [8, {"y": 0, "p": 0}]]},
 		"sit": {"dur": 16.0, "len": [10, 25], "stretch": [4, 12], "w": 1.2, "legs": true, "kup": 1.0, "need": 40, "player": true,
+			"clip": "sit", "clip_loop": true, "clip_ik_arms": true,   # (the V2 look: its sit clip over the seat solver's legs)
 			"body": [[0, {}], [0.5, {"dy": -0.03, "lean": 0.06, "hp": 0.08}], [1.6, {"dy": -0.45, "dz": -0.12, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.4, "hp": 0.1, "gap": 0.2}],
 				[2.4, {"dy": -0.58, "dz": -0.42, "wp": 0.1, "lean": 0.15, "ko": 0.36, "heel": 0.05, "hp": 0.02, "seat": 0.45, "gap": 0.05}], [3.4, SIT],
 				[12, SIT], [12.8, {"dy": -0.63, "dz": -0.52, "wp": 0.25, "lean": 0.3, "ko": 0.37, "seat": 1, "gap": 0}],
@@ -190,7 +191,7 @@ static func _defs() -> Dictionary:
 		"shoulders": {"dur": 1.8, "w": 0.6, "fx": "shoulders"},
 		# talking gestures (conversation.gd forces them; never picked at random): an open
 		# hand out in front of the chest while making a point, and a little shrug
-		"explain": {"dur": 2.4, "talk": true,
+		"explain": {"dur": 2.4, "talk": true, "clip": "gesture",   # (the V2 look: its gesture clip)
 			"armR": [[0, null], [0.45, {"at": CH(-0.13, -0.14, 0.27), "pole": [-1, -0.6, -0.3], "wt": 1.1, "wf": -0.2, "cu": 0.05}],
 				[1.1, {"at": CH(-0.15, -0.1, 0.31), "pole": [-1, -0.6, -0.3], "wt": 1.2, "wf": -0.25, "cu": 0.0}],
 				[1.7, {"at": CH(-0.14, -0.13, 0.28), "pole": [-1, -0.6, -0.3], "wt": 1.1, "wf": -0.2, "cu": 0.05}], [2.4, null]],
@@ -328,6 +329,7 @@ static func _battle_defs() -> Dictionary:
 			"body": [[0, {}], [0.1, {"lean": -0.42, "hp": -0.35, "sh": 0.1, "side": 0.06, "jaw": 0.3, "eye": 1}], [0.45, {"lean": -0.18, "hp": -0.1, "sh": 0.04, "jaw": 0.1}], [0.75, {"lean": 0.12, "hp": 0.15}], [1.15, {}]]},
 		# down: the knees go, a hand down to the ground, sitting slumped, a hand to his side
 		"b_crumple": {"dur": 30.0, "stretch": [2.0, 28.0], "talk": true, "player": true, "legs": true, "kup": 1.0,
+			"clip": "fall", "clip_whole": true,   # (the V2 look: its fall clip, down and lying still)
 			"body": [[0, {}], [0.25, {"dy": -0.2, "lean": 0.25, "hp": 0.2, "ko": 0.2, "eye": 1}], [0.75, {"dy": -0.5, "dz": -0.1, "wp": 0.3, "lean": 0.5, "ko": 0.4, "heel": 0.5, "hp": 0.35, "gap": 0.2}],
 				[1.35, {"dy": -0.6, "dz": -0.42, "wp": 0.2, "lean": 0.4, "ko": 0.36, "heel": 0.05, "seat": 0.5, "gap": 0.05, "hp": 0.4}], [2.0, SLUMP], [28.0, SLUMP],
 				[29.0, {"dy": -0.45, "dz": -0.12, "wp": 0.3, "lean": 0.25, "ko": 0.4, "heel": 0.35, "gap": 0.2}], [30.0, {}]],
@@ -480,9 +482,12 @@ func update(dt: float, wI: float) -> void:
 			if P.wait < 0.0: _start(_choose())
 		elif wI < 0.5: P.wait = maxf(P.wait, rng.randf_range(8, 15))
 		return
+	var by_clip: bool = a.def.has("clip") and A.anims.has(a.def.clip)
 	if a.ab < 0.0 and wI < 0.6: a.ab = 0.0
+	# (a clip act has no keyed way back to standing: eased out before its time is up)
+	if by_clip and a.ab < 0.0 and a.t >= a.len - (1.0 if a.def.get("legs", false) else 0.35): a.ab = 0.0
 	if a.ab >= 0.0:
-		a.ab += dt / (0.5 if a.def.get("legs", false) else 0.35)
+		a.ab += dt / ((1.0 if by_clip else 0.5) if a.def.get("legs", false) else 0.35)
 		a.env = 1.0 - _ease(a.ab)
 		if a.ab >= 1.0: _end(); return
 	else:
@@ -576,36 +581,59 @@ func post(_dt: float) -> void:
 		a.feet = feet
 	var Bo: Dictionary = _sc(d, "body", t) if d.has("body") else {}
 	var k := env
-	if d.get("legs", false):
+	# the V2 look's own clip for the action ("clip" in its def, one the actor has): the body
+	# from it instead of the body keys, eased in; looped (clip_loop) or held at its end; the
+	# whole of it, waist and legs too (clip_whole: lying down), or over the legs the seat
+	# solver places (legs); its arms, or the arm keys' IK on top (clip_ik_arms: hands on the knees)
+	var clip := String(d.get("clip", ""))
+	var by_clip: bool = clip != "" and A.anims.has(clip)
+	var whole: bool = by_clip and d.get("clip_whole", false)
+	var solver_legs: bool = d.get("legs", false) and not whole
+	if solver_legs:
 		A.holder.position.x = Bo.get("dx", 0.0) * k; A.holder.position.z = Bo.get("dz", 0.0) * k; A.holder.position.y += Bo.get("dy", 0.0) * k
-	var b := A.bend
-	var v: float
-	v = Bo.get("wp", 0.0)
-	if v: b.call("Waist", 1, 0, 0, v * k)
-	v = Bo.get("lean", 0.0)
-	if v: b.call("Spine1", 1, 0, 0, v * 0.3 * k); b.call("Spine2", 1, 0, 0, v * 0.35 * k); b.call("Spine3", 1, 0, 0, v * 0.35 * k)
-	v = Bo.get("side", 0.0)
-	if v: b.call("Spine1", 0, 0, 1, v * 0.4 * k); b.call("Spine2", 0, 0, 1, v * 0.3 * k); b.call("Spine3", 0, 0, 1, v * 0.3 * k)
-	v = Bo.get("tw", 0.0)
-	if v: b.call("Spine1", 0, 1, 0, v * 0.3 * k); b.call("Spine2", 0, 1, 0, v * 0.35 * k); b.call("Spine3", 0, 1, 0, v * 0.35 * k)
-	v = Bo.get("sh", 0.0)
-	if v: b.call("LShoulder", 0, 0, 1, v * k); b.call("RShoulder", 0, 0, 1, -v * k)
-	v = Bo.get("hp", 0.0)
-	if v: b.call("Neck", 1, 0, 0, v * 0.4 * k); b.call("Head", 1, 0, 0, v * 0.6 * k)
-	v = Bo.get("hy", 0.0)
-	if v: b.call("Neck", 0, 1, 0, v * 0.4 * k); b.call("Head", 0, 1, 0, v * 0.6 * k)
-	v = Bo.get("hr", 0.0)
-	if v: b.call("Neck", 0, 0, 1, v * 0.4 * k); b.call("Head", 0, 0, 1, v * 0.6 * k)
-	v = Bo.get("jaw", 0.0)
-	var jb := _bi("FJlipL")
-	if v and jb >= 0: A.q[jb] = A.q[jb] * Quaternion(Vector3.UP, v * k)   # its own axis opens the mouth
+	if by_clip:
+		var ln: float = A.anims[clip].length
+		var tc: float = fmod(a.t, ln) if d.get("clip_loop", false) else minf(a.t, ln)
+		A.clip_over(clip, tc, env * _sm(0.0, 0.3, a.t), whole, {} if whole else _leg_ids())
+		if whole: A.holder.position.y = A.y0
+	else:
+		var b := A.bend
+		var v: float
+		v = Bo.get("wp", 0.0)
+		if v: b.call("Waist", 1, 0, 0, v * k)
+		v = Bo.get("lean", 0.0)
+		if v: b.call("Spine1", 1, 0, 0, v * 0.3 * k); b.call("Spine2", 1, 0, 0, v * 0.35 * k); b.call("Spine3", 1, 0, 0, v * 0.35 * k)
+		v = Bo.get("side", 0.0)
+		if v: b.call("Spine1", 0, 0, 1, v * 0.4 * k); b.call("Spine2", 0, 0, 1, v * 0.3 * k); b.call("Spine3", 0, 0, 1, v * 0.3 * k)
+		v = Bo.get("tw", 0.0)
+		if v: b.call("Spine1", 0, 1, 0, v * 0.3 * k); b.call("Spine2", 0, 1, 0, v * 0.35 * k); b.call("Spine3", 0, 1, 0, v * 0.35 * k)
+		v = Bo.get("sh", 0.0)
+		if v: b.call("LShoulder", 0, 0, 1, v * k); b.call("RShoulder", 0, 0, 1, -v * k)
+		v = Bo.get("hp", 0.0)
+		if v: b.call("Neck", 1, 0, 0, v * 0.4 * k); b.call("Head", 1, 0, 0, v * 0.6 * k)
+		v = Bo.get("hy", 0.0)
+		if v: b.call("Neck", 0, 1, 0, v * 0.4 * k); b.call("Head", 0, 1, 0, v * 0.6 * k)
+		v = Bo.get("hr", 0.0)
+		if v: b.call("Neck", 0, 0, 1, v * 0.4 * k); b.call("Head", 0, 0, 1, v * 0.6 * k)
+		v = Bo.get("jaw", 0.0)
+		var jb := _bi("FJlipL")
+		if v and jb >= 0: A.q[jb] = A.q[jb] * Quaternion(Vector3.UP, v * k)   # its own axis opens the mouth
 	P.eyes = Bo.get("eye", 0.0) * k > 0.5
 	a.wob.L = 0.0; a.wob.R = 0.0
-	if d.has("fx"): _fx(d.fx, a, t, env)
-	if d.get("legs", false): _legs(a, Bo, env)
-	for s in ["L", "R"]:
-		if d.has("arm" + s): _arm(a, s, t, env)
+	if d.has("fx") and not by_clip: _fx(d.fx, a, t, env)
+	if solver_legs: _legs(a, Bo, env)
+	if not by_clip or d.get("clip_ik_arms", false):
+		for s in ["L", "R"]:
+			if d.has("arm" + s): _arm(a, s, t, env)
 	if d.has("prop") and ball: _ball(a, t, env)
+
+# the leg bones (the seat solver's), for a clip laid over the rest of the body
+var _leg_skip := {}
+func _leg_ids() -> Dictionary:
+	if _leg_skip.is_empty():
+		for n in LEG_BONES:
+			if A.bones.has(n): _leg_skip[A.bones[n]] = true
+	return _leg_skip
 
 func _fx(id: String, a: Dictionary, t: float, env0: float) -> void:
 	var b := A.bend
