@@ -15,6 +15,7 @@ import { STONE, boulderGeometry, blockGeometry, mergeAll, wallGeometry, wallMesh
 const WALL_FADE = [300, 310];   // native: walls stay drawn this far (m)
 import { welcomeSign, routeSign, nameplate, fingerpost, labPlate, noticeBoard } from './signs.js';
 import { route1Fill } from './route1.js';   // Route 1's places (worker 12)
+import { viridianFill } from './viridian_city.js';   // Viridian City (worker 34)
 import { trackTown, applyTown } from './editlayer/objects.js';   // the world editor's edits
 import * as BK from './props/buildings.js';   // the building kit
 import * as OD from './props/outdoor.js';
@@ -1670,6 +1671,7 @@ export function buildTown() {
     FIELDS.forEach((f, i) => { if (f.z > -60) FA.cropField(world.group, f, ground, { seed: 900 + i * 17, skip: (x, z) => onPath(x, z, 0.4) }); });
     for (const f of FIELDS) world.noVeg.push({ box: true, x: f.x, z: f.z, hw: f.w / 2 + 0.3, hd: f.d / 2 + 0.3, rot: f.rot }); }
   route1Fill(world);
+  viridianFill(world);
   // every line where the walkable land ends is rock you can see (terrain.js
   // edgeRuns): cliffs rising from the grass, lips dropping to the sea
   const cliffs = buildCliffs(edgeRuns(), { heightAt: height, wet: fallWet, notch: fallNotch });
@@ -1805,7 +1807,10 @@ function cellMerge(world) {
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
     c.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);
     const attrs = Object.keys(o.geometry.attributes).filter((k) => k !== 'color' || !bake).sort().join() + (o.geometry.index ? '#i' : '');
-    const key = `${Math.floor(c.x / CELL)},${Math.floor(c.z / CELL)}|${matKey(m, bake)}|${o.castShadow ? 1 : 0}${o.receiveShadow ? 1 : 0}|${o.renderOrder}|${mk}|${o.layers.mask}|${attrs}`;
+    // (Viridian City past the gate in bigger cells: a street of a city is many
+    // buildings, and it is mostly seen from afar)
+    const cs = c.z < -436 ? 96 : CELL;
+    const key = `${Math.floor(c.x / cs)},${Math.floor(c.z / cs)},${cs}|${matKey(m, bake)}|${o.castShadow ? 1 : 0}${o.receiveShadow ? 1 : 0}|${o.renderOrder}|${mk}|${o.layers.mask}|${attrs}`;
     if (!cells.has(key)) cells.set(key, { m: matFor(m, bake), bake, o, mk, list: [] });
     cells.get(key).list.push(o);
   }

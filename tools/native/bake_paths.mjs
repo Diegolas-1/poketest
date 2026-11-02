@@ -89,7 +89,7 @@ for (const id of world.regions) {
   const t = rj.tiles && rj.tiles.ground;
   if (!t) continue;
   const b = fs.readFileSync(path.join(ROOT, 'native/world/r', id, 'ground.bin'));
-  flagTiles.push({ i0: t[0], j0: t[1], w: t[2], h: t[3], f: b.subarray(t[2] * t[3] * 2) });
+  flagTiles.push({ i0: t[0], j0: t[1] + (G.tj || 0), w: t[2], h: t[3], f: b.subarray(t[2] * t[3] * 2) });   // (tj: rows added north of where the grid began: regions.mjs)
 }
 function flagAt(x, z) {
   const i = Math.floor((x - G.x0) / G.res), j = Math.floor((z - G.z0) / G.res);

@@ -17,8 +17,11 @@ extends Node3D
 # glass and lamps: "night_glass" (texture file names), "night_lamps" (colours).
 
 const T := preload("res://tunables.gd")
-const GLASS := ["c22689634c0b394c.png", "a68d746faa4921d1.png", "c2d6449cb01e9349.png"]
+# (and Viridian City's: the towers' glass bands, the terraces' window strips: web/world/viridian_city.js)
+const GLASS := ["c22689634c0b394c.png", "a68d746faa4921d1.png", "c2d6449cb01e9349.png", "cdd06bef67178b6c.png", "388364a8f72850a6.png"]
 const LAMPS := ["fff1c4", "ffe7a6", "fffbea", "fff3c0"]
+# offices (Viridian's tower glass, the web's glassBandTex): few windows lit at night
+const OFFICE := ["cdd06bef67178b6c.png"]
 const HALO := preload("res://shaders/night_halo.gdshader")
 const POOL := preload("res://shaders/night_pool.gdshader")
 const FLIES := preload("res://shaders/night_flies.gdshader")
@@ -59,7 +62,7 @@ func setup(m: Node3D) -> void:
 				var sm: ShaderMaterial = mat
 				var kind := _kind(sm, glass, lamp_cols)
 				if kind == 0: continue
-				sm.set_shader_parameter("night_glow", float(kind))
+				sm.set_shader_parameter("night_glow", 1.25 if kind == 1 and _is_office(sm) else float(kind))
 				if kind == 3: continue
 				if kind == 1:
 					if not seen.has(sm): windows += 1
@@ -78,6 +81,10 @@ func setup(m: Node3D) -> void:
 	_build_flies()
 	visible = false
 	print("night: %d lamps, %d window materials, %d fireflies, %d ms" % [lamps.size(), windows, FLY_N, (Time.get_ticks_usec() - t0) / 1000])
+
+func _is_office(sm: ShaderMaterial) -> bool:
+	var tex = sm.get_shader_parameter("albedo_tex")
+	return tex is Texture2D and OFFICE.has(String((tex as Texture2D).resource_path).get_file())
 
 # 1 window glass, 2 a lamp's globe, 3 vertex coloured (may hold globes), 0 none
 func _kind(sm: ShaderMaterial, glass: Array, lamp_cols: Array) -> int:

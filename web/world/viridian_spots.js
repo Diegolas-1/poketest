@@ -35,10 +35,10 @@ export const STORY = {
   // perch points for the marked Spearow: rooftops and the Center's dome
   perches: {
     centerDome: [10, 33.5, -672],             // the dome's crown (w35's model may refine)
-    martRoof: [68, 27.6, -690],
-    schoolRoof: [-46, 28.5, -705],
-    clockTower: [-4, 37.0, -790],             // the old clock tower on Old Street
-    towerLedge: [120, 61.0, -650],            // a downtown tower's roof garden
+    martRoof: [68, 27.9, -690],              // (the placeholder's roof; the MART's model may move it)
+    schoolRoof: [-46, 29.6, -705],            // the ridge of the placeholder's roof
+    clockTower: [-12.6, 47.0, -790],          // the old clock tower on Old Street (its belfry ledge)
+    towerLedge: [120, 61.0, -650],            // a downtown tower's roof (world.viridian.perches has the built height)
     lakeLamp: [-131.5, 18.6, -737],           // reachable on foot: the lamp at the pier's root (a low lamp, a wall beside it)
   },
   nicknameHouse: { door: [-37.5, 20.6, -752], perch: [-44, 21.9, -753] },   // Speary's perch inside

@@ -622,11 +622,13 @@ func update(dt: float) -> void:
 	var now := "town"
 	if me2.z < -66.0: now = "route1"
 	if me2.z < -420.0: now = "viridian_gate"
+	if me2.z < -515.0: now = "viridian"   # over the crest of the cutting: the valley opens
 	if now != area:
 		var was := area
 		area = now
 		if now == "route1" and was != "viridian_gate": dialog.banner("Route 1", "Pallet Town - Viridian City")
-		elif now == "viridian_gate": dialog.banner("Viridian City ahead", "The road beyond the gate is closed for now")
+		elif now == "viridian": dialog.banner("Viridian City", "The Eternally Green Paradise")
+		elif now == "viridian_gate" and was != "viridian": dialog.banner("Viridian City ahead", "The road over the rim is open again: one lane")
 		elif now == "town": dialog.banner("Pallet Town", "A quiet seaside village")
 	# (Prof. Oak no longer stops you at the tall grass: Route 1 is open. His
 	# scene is still here for the cast test, --cast-test=oak)

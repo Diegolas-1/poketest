@@ -22,6 +22,7 @@ const DIR := "res://world/base/"   # (WorldRegions.BASE)
 var main: Node3D
 var veg: Node3D
 var mts: MeshInstance3D
+var vmts: MeshInstance3D   # Viridian's ranges (mountains kind 1)
 var clouds: MeshInstance3D
 
 func setup(m: Node3D, town_root: Node, water_root: Node, terrain_mat: ShaderMaterial) -> void:
@@ -59,6 +60,52 @@ func update(cam_pos: Vector3) -> void:
 		_plants()
 		_underwater(veg)
 	if veg: veg.update(cam_pos)
+	_viridian(cam_pos)
+	_valley_haze(cam_pos)
+
+# Viridian's valley is big: the mountains round it stand 0.5 to 1.5 km away
+# and the far shore of its lake 300 m. Route 1's haze (90 to 430 m, made for
+# its near woods) would white them all out, so from north of the gate the
+# haze reaches much further and builds up slowly (an aerial perspective:
+# every ridge a little paler than the one in front). Costs nothing: the same
+# fog, other distances.
+var _haze_k := -1.0
+func _valley_haze(cam_pos: Vector3) -> void:
+	var k := smoothstep(-436.0, -500.0, cam_pos.z)
+	if absf(k - _haze_k) < 0.002 or main.indoors: return
+	_haze_k = k
+	var env: Environment = main.outdoor_env if main.outdoor_env else main.get_viewport().world_3d.environment
+	if env == null: return
+	var f := float(Settings.get_value("fog"))
+	env.fog_depth_begin = lerpf(90.0, 220.0, k) * f
+	env.fog_depth_end = lerpf(430.0, 1900.0, k) * f
+	env.fog_depth_curve = lerpf(1.0, 1.25, k)
+	# the clouds' ring (centred on Pallet, 660 to 800 m out) would stand in
+	# the valley itself: there it is centred on the valley and lifted, so the
+	# towers rise behind the mountains
+	if clouds and clouds.material_override:
+		clouds.material_override.set_shader_parameter("shift", Vector3(20.0, 70.0, -760.0) * k)
+
+# Viridian City's buildings (the regions viridian_*) are drawn only from north
+# of Route 1's gate: south of it the ridge and the woods hide the city, so
+# Pallet and Route 1 pay nothing for it. The far towers (vc_far_*: a few merged
+# meshes) stay, for the skyline over the trees.
+var _vir_on := -1
+var _vir_nodes: Array = []
+func _viridian(cam_pos: Vector3) -> void:
+	var on := 1 if cam_pos.z < -428.0 else 0
+	if on == _vir_on or main.town_root == null: return
+	if _vir_on == -1:
+		for rn in ["viridian_south", "viridian_north"]:
+			var n: Node = main.town_root.get_node_or_null(rn)
+			if n == null: continue
+			for gi in n.find_children("*", "GeometryInstance3D", true, false):
+				var nm := String(gi.name)
+				if nm.begins_with("I_") or nm.contains("vc_far") or not gi.visible: continue
+				_vir_nodes.append(gi)
+	_vir_on = on
+	for gi in _vir_nodes: gi.visible = on == 1
+	if vmts: vmts.visible = on == 1
 
 # ---------- the town's repeated parts ----------
 func _town_parts(root: Node) -> void:
@@ -170,6 +217,7 @@ func _mountains() -> void:
 	if layers.is_empty(): return
 	var f := FileAccess.get_file_as_bytes(DIR + "mountains.bin").to_float32_array()
 	var m := ArrayMesh.new()
+	var vm := ArrayMesh.new()   # (kind 1: Viridian's ranges, shown only from the valley)
 	var o := 0
 	for L in layers:
 		var nv := int(L.v); var ni := int(L.i)
@@ -185,17 +233,28 @@ func _mountains() -> void:
 		var a := []
 		a.resize(Mesh.ARRAY_MAX)
 		a[Mesh.ARRAY_VERTEX] = pos; a[Mesh.ARRAY_NORMAL] = nrm; a[Mesh.ARRAY_TEX_UV] = uv; a[Mesh.ARRAY_INDEX] = idx
-		m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+		var kind := int(L.get("kind", 0))
+		var dst := vm if kind == 1 else m
+		dst.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
 		var mat := ShaderMaterial.new()
 		mat.shader = MOUNTAINS
 		mat.set_shader_parameter("far", float(L.far))
+		mat.set_shader_parameter("kind", float(kind))
 		mat.set_shader_parameter("sun", main.SUN_DIR.normalized())
-		m.surface_set_material(m.get_surface_count() - 1, mat)
+		dst.surface_set_material(dst.get_surface_count() - 1, mat)
 	mts = MeshInstance3D.new()
 	mts.mesh = m
 	mts.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mts.custom_aabb = AABB(Vector3(-1450, -60, -1650), Vector3(2900, 520, 2900))
 	add_child(mts)
+	if vm.get_surface_count() > 0:
+		vmts = MeshInstance3D.new()
+		vmts.name = "valley_ranges"
+		vmts.mesh = vm
+		vmts.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		vmts.custom_aabb = AABB(Vector3(-900, -60, -1700), Vector3(1800, 760, 1300))
+		vmts.visible = false
+		add_child(vmts)
 
 # ---------- under the sea: a flat dark copy of what dips below the waterline ----------
 # The sea is drawn after the solid world and hides what is under it; each
@@ -419,7 +478,7 @@ func _clouds() -> void:
 	clouds.mesh = m
 	clouds.material_override = mat
 	clouds.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	clouds.custom_aabb = AABB(Vector3(-1000, -100, -1000), Vector3(2000, 600, 2000))
+	clouds.custom_aabb = AABB(Vector3(-1000, -100, -1700), Vector3(2000, 700, 2700))
 	add_child(clouds)
 
 # the town's own leaves (garden trees and bushes, ivy, vines, green roofs,

@@ -11,6 +11,7 @@ import { STONE } from './stone.js';
 import { BEDS } from './town.js';
 import * as R1 from './route1land.js';
 import { meadowFlowers, handTrees } from './route1veg.js';
+import { plantOff, cityPlants } from './viridian_city.js';
 import { E } from './editlayer/index.js';
 
 
@@ -142,6 +143,8 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   }
   // nothing stands on the dirt: drop any tree whose trunk base is on a path
   for (const k of Object.keys(pts)) keepOff(pts[k], Math.max(0.6, baseR(models[k])));
+  // Viridian's streets and buildings past the gate (marked off after the sowing)
+  for (const t of all) if (!t.off && plantOff(t.x, t.z, Math.max(1.5, t.trunk + 1))) t.off = true;
   for (const t of all) if (!t.off) colliders.push({ x: E.at(t).x, z: E.at(t).z, r: Math.max(0.45, E.at(t).trunk + 0.1) });
   // nothing grows on the streams' cut faces (props/banks.js; marked after
   // the sowing, so every other plant keeps its place), and roots show on
@@ -195,6 +198,7 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   }
   // nothing on the dirt (marked off, not removed, so the seeded layout stays)
   keepOff(bp, baseR(bushes)); keepOff(hedge, baseR(bushes));
+  for (const p of bp) if (!p.off && plantOff(p.x, p.z, 1)) p.off = true;
   // bushes and hedges: billboards past the model's range, out into the fog
   // (a far band in clear air would leave them standing half-dithered)
   const bushD = 70 * quality.lod;
@@ -245,7 +249,7 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   // ferns along the cliffs: at their feet and over their tops, thick round the
   // falls (the rock itself keeps plants off: inCliff)
   for (const run of edgeRuns()) {
-    if (run.kind !== 'up') continue;
+    if (run.kind !== 'up' || run.src === 'city') continue;   // (Viridian's cutting: its own ferns, viridian_city.js)
     for (let i = 1; i < run.pts.length - 1; i += 2) {
       const [x0, z0] = run.pts[i], [nx, nz] = run.n[i];
       const wetK = FALLS.reduce((k, F) => Math.max(k, 1 - Math.min(1, Math.hypot(x0 - F.x, z0 - F.z) / 9)), 0);
@@ -265,6 +269,7 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   }
   for (const list of [fp, fl]) for (const p of list) if (!p.off && inBank(p.x, p.z, 0.2)) p.off = true;
   keepOff(fp, baseR(ferns)); keepOff(fl, baseR(flowers));
+  for (const list of [fp, fl]) for (const p of list) if (!p.off && plantOff(p.x, p.z, 0.5)) p.off = true;
   // small plants fade out and sink into the ground past their range
   // (with the ferns in the pockets of the streams' cut faces and at their feet: props/banks.js)
   const bankFerns = bankPlants().map((p, i) => ({ x: p.x, z: p.z, y: p.y, rot: (i * 2.399) % 6.283, s: p.s }));
@@ -303,9 +308,22 @@ async function grow(scene, renderer, blocked, colliders, quality, onProgress) {
   for (const p of brp) if (!p.off) colliders.push({ x: E.at(p).x, z: E.at(p).z, r: 0.8 * E.at(p).s });
   for (const [x, z] of [[-56, 33], [-43, 40], [-52, 47]]) rp.push({ x, z, y: height(x, z) - 0.1, rot: R() * 6, s: 1.0 });
   keepOff(rp, baseR(rocks));
+  for (const p of rp) if (!p.off && plantOff(p.x, p.z, 1.5)) p.off = true;
   sow(rocks, rp, () => ({ chunk: 64, fade: [180, 186], shrink: 0.6, wind: 0 }));
   for (const p of rp) if (!p.off) colliders.push({ x: E.at(p).x, z: E.at(p).z, r: 0.8 * E.at(p).s });
 
+  // Viridian City's own plants (viridian_city.js): street and park trees, the
+  // forest past Route 2's gate, the slopes' gardens, planters; their own
+  // models and random numbers (every plant above keeps its place)
+  {
+    const V = cityPlants(makeTree, makeBush, makeClump, TILE);
+    for (const [ms, list, kind] of V) {
+      if (!list.length) continue;
+      if (kind === 'tree' || kind === 'bush') sow(ms, [], (m) => { const imp = new Impostor(renderer, m, { size: lowQ ? (kind === 'tree' ? 96 : 40) : (kind === 'tree' ? 128 : 56), lights: L }); impostors.push(imp); return { chunk: kind === 'tree' ? 56 : 44, fade: kind === 'tree' ? [treeD - 4, treeD + 2] : [bushD - 4, bushD + 1], wind: 0, impostor: imp }; }, list);
+      else sow(ms, [], () => ({ chunk: 36, fade: [60 * quality.lod - 3, 60 * quality.lod + 1], shrink: 0.35, wind: 0, shadows: false }), list);
+      if (kind === 'tree') for (const p of list) colliders.push({ x: p.x, z: p.z, r: Math.max(0.45, (ms[0].trunk || 0.4) * p.s + 0.1), ed: 1 });
+    }
+  }
   // plants sown in the world editor (doc.vegAdd; editor/scatter.js picks the same models)
   {
     const add = E.vegAdded();

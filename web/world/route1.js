@@ -468,9 +468,12 @@ export function route1Fill(world) {
   // the gate itself, and walls off into the woods from its piers
   {
     const gz = ROUTE1.gateZ, r = roadAt(gz), gx = r.x, y = footY(gx, gz, 4) - 0.05;
-    const g = O.viridianGate(); g.position.set(gx, y, gz); G.add(g);
-    world.colliders.push({ box: true, x: gx, z: gz, hw: 3.2, hd: 0.25 }, { x: gx - 3.8, z: gz, r: 1.0 }, { x: gx + 3.8, z: gz, r: 1.0 });
-    use(gx, gz + 1.8, 'Look', ['The gate to VIRIDIAN CITY is shut.', 'Through the bars: rooftops in the green, a clock tower in the haze... and a note: ROAD WORKS AHEAD. Come back another day!'], 2.2);
+    // open now: the road beyond is through (viridian_city.js has the cutting)
+    const g = O.viridianGate({ open: true }); g.position.set(gx, y, gz); G.add(g);
+    world.colliders.push({ x: gx - 3.8, z: gz, r: 1.0 }, { x: gx + 3.8, z: gz, r: 1.0 });
+    world.colliders.push({ box: true, x: gx, z: gz, hw: 3.2, hd: 0.25, off: 1 });   // (where the shut gate stood: only for seeding the plants, which keep their places)
+    for (const sx of [-1, 1]) world.colliders.push({ box: true, x: gx + sx * 3.0, z: gz - 1.55, hw: 0.12, hd: 1.5, ed: 1 });   // the swung leaves (ed: the plants keep their seeded places)
+    use(gx, gz + 1.8, 'Look', ['The gate to VIRIDIAN CITY stands open again.', 'A note on the pier: ROAD WORKS AHEAD. The slope that came down in the earthquake is mostly cleared. Walk on the left, mind the trucks!'], 2.2);
     const runs = [];
     for (const s of [-1, 1]) {
       const a = [gx + s * 4.6, gz], b = [gx + s * 30, gz - 2];
@@ -491,22 +494,7 @@ export function route1Fill(world) {
     }
     G.add(...wallMeshes(runs, 9200, { fade: WALL_FADE }).map((m) => { m.userData.barrier = 'wall'; return m; }));
   }
-  // the city beyond, in the haze: terraces of houses with gardens up both
-  // slopes, a clock tower in the middle
-  {
-    const R = rng(8080);
-    const city = new THREE.Group(); city.name = 'r1_city'; G.add(city);
-    { const x = 6, z = -560; const t = O.clockTower(); t.position.set(x, baseHeight(x, z) - 0.5, z); city.add(t); }
-    const roofs = ['#3d7a6a', '#c4553a', '#5a6a8a', '#d08a3a', '#4f8a6a'], walls = ['#efe2c8', '#f2d9c0', '#e8e0d0', '#f0e6c8'];
-    for (let i = 0; i < 34; i++) {
-      const z = -478 - R() * 150, side = R() < 0.5 ? -1 : 1, x = side * (14 + R() * 70) + (R() - 0.5) * 6;
-      if (Math.abs(x - 6) < 10 && Math.abs(z + 560) < 10) continue;
-      const W = 5 + R() * 4, D = 5 + R() * 3, f = 1 + Math.floor(R() * 3);
-      const b = O.cityBlock({ W, D, floors: f, wall: walls[i % walls.length], roof: roofs[i % roofs.length], seed: 600 + i, garden: true });
-      b.position.set(x, baseHeight(x, z) - 0.4, z); b.rotation.y = (R() - 0.5) * 0.5 + (side > 0 ? -0.2 : 0.2);
-      city.add(b);
-    }
-  }
+  // (the city beyond is Viridian itself now: viridian_city.js)
 }
 
 // ---------- helpers ----------

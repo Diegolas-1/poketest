@@ -70,5 +70,43 @@ func _init() -> void:
 			if p2.distance_to(p) > 0.05: got += 1
 			p = p2
 		check(got > steps * 0.9, "walk %s -> %s (%d of %d steps)" % [a, bb, got, steps])
+	# Viridian City (web/world/viridian.js): from Route 1 through the open gate,
+	# over the cutting to the plaza, and along every street; then walls that must
+	# stop you (a tower's front, the lake from the promenade, the shut gates)
+	var routes := [
+		[Vector2(-2.3, -425), Vector2(-2.3, -436), Vector2(-1.5, -452), Vector2(-0.6, -470), Vector2(1.6, -497), Vector2(5, -530), Vector2(6, -562), Vector2(6, -588), Vector2(8, -606), Vector2(10, -640), Vector2(10, -650)],
+		[Vector2(24, -624), Vector2(60, -624), Vector2(110, -625), Vector2(150, -624), Vector2(176, -624)],
+		[Vector2(-6, -627), Vector2(-30, -629), Vector2(-60, -632), Vector2(-95, -638), Vector2(-128, -646), Vector2(-150, -654)],
+		[Vector2(-150, -654), Vector2(-141, -670), Vector2(-132, -690), Vector2(-127, -712), Vector2(-126, -735), Vector2(-128, -758), Vector2(-135, -780), Vector2(-146, -800), Vector2(-158, -813)],
+		[Vector2(-126, -735), Vector2(-162, -735)],
+		[Vector2(48, -626), Vector2(48, -700), Vector2(48, -740), Vector2(50, -764), Vector2(62, -769), Vector2(75, -775)],
+		[Vector2(-22, -632), Vector2(-22, -730), Vector2(-22, -790), Vector2(-22, -878)],
+		[Vector2(-22, -727), Vector2(26, -728), Vector2(46, -729)],
+		[Vector2(1.6, -505), Vector2(-15, -512), Vector2(-15, -519)],   # onto the overlook at the crest
+	]
+	for r in routes:
+		var p := Vector3(r[0].x, W.height_at(r[0].x, r[0].y), r[0].y)
+		var total := 0; var got := 0
+		for k in range(1, r.size()):
+			var t: Vector2 = r[k]
+			var ns := int(Vector2(p.x, p.z).distance_to(t) / 0.1)
+			for i in ns:
+				var d := (t - Vector2(p.x, p.z)).normalized() * 0.1
+				var p2: Vector3 = W.step(p, d.x, d.y, true)
+				total += 1
+				if p2.distance_to(p) > 0.05: got += 1
+				p = p2
+		var end_d := Vector2(p.x, p.z).distance_to(r[r.size() - 1])
+		check(got > total * 0.93 and end_d < 2.0, "Viridian walk %s .. %s (%d of %d steps, ends %.1f m off)" % [r[0], r[r.size() - 1], got, total, end_d])
+	var stops := [[Vector2(80, -624), Vector2(80, -650), "a tower's front on Evergreen Avenue"], [Vector2(-126, -720), Vector2(-160, -720), "the railing over the lake"],
+		[Vector2(-22, -870), Vector2(-22, -900), "Route 2's gate"], [Vector2(-150, -805), Vector2(-185, -830), "Route 22's gate"], [Vector2(10, -646), Vector2(10, -672), "the Center's doors"],
+		[Vector2(0, -485), Vector2(-25, -485), "the cutting's side"], [Vector2(-15, -512), Vector2(-35, -512), "the overlook's parapet"],
+		[Vector2(-15, -512), Vector2(-15, -540), "the overlook's parapet (north)"]]
+	for st in stops:
+		var a2: Vector2 = st[0]; var b2: Vector2 = st[1]
+		var p := Vector3(a2.x, W.height_at(a2.x, a2.y), a2.y)
+		var d := (b2 - a2).normalized() * 0.1
+		for i in int(a2.distance_to(b2) / 0.1): p = W.step(p, d.x, d.y, true)
+		check(Vector2(p.x, p.z).distance_to(b2) > 2.0, "stopped by %s (got to %.1f, %.1f)" % [st[2], p.x, p.z])
 	print("walk test: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)

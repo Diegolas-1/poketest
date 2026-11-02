@@ -94,6 +94,21 @@ vec3 steep_ground(vec3 w, vec3 n, vec3 vc, vec3 flat_grass, out float earth) {
 	// grass darker where it hangs on over the earth (a soft edge, no line)
 	grass *= mix(1.0, 0.8, k);
 	earth = k;
+	// Viridian's mountains (north of its crest, above the valley): no strata
+	// of bare earth but forest, dark green crowns, and grey crags on the
+	// steepest faces (the painted ranges behind them are the same)
+	float vh0 = mix(30.0, 13.5, smoothstep(-560.0, -620.0, w.z) * smoothstep(-160.0, -230.0, w.x));
+	float vir = smoothstep(-505.0, -540.0, w.z) * smoothstep(vh0, vh0 + 14.0, w.y);
+	if (vir > 0.0) {
+		float cr = pvn(w.xz * 0.55 + w.y * 0.35);
+		vec3 fo = mix(vec3(0.11, 0.27, 0.13), vec3(0.22, 0.42, 0.18), pvn(w.xz * 0.06 + 3.0)) * (0.78 + 0.34 * cr);
+		float rk = smoothstep(0.62, 0.72, s + (pvn(w.xz * 0.09 + w.y * 0.05) - 0.5) * 0.3);
+		// (the lake's crater walls in the west: wooded cliffs, the rock only in patches)
+		fo = mix(fo, vec3(0.36, 0.38, 0.35) * (0.85 + 0.25 * pvn(vec2(ea * 0.3, w.y * 0.08))), rk * mix(0.7, 0.22, smoothstep(-170.0, -240.0, w.x)));
+		float kv = smoothstep(0.08, 0.25, s);
+		earth = mix(k, 0.0, vir);
+		return mix(mix(grass, e, k), mix(grass, fo, kv), vir);
+	}
 	return mix(grass, e, k);
 }
 

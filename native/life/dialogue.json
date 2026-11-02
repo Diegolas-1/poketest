@@ -1059,15 +1059,15 @@
       },
       "period": {
         "dawn": ["The surveyors come down at dawn to check the slope. Every morning. Without fail."],
-        "morning": ["Morning report: slope holding, crews digging, gate closed. Same as yesterday."],
+        "morning": ["Morning report: slope holding, crews digging, one lane open. Same as yesterday."],
         "midday": ["Lunch on duty. A rice ball. I eat it standing up. Duty doesn't sit down."],
-        "afternoon": ["Afternoons, the travellers come. I turn every one of them back. Politely."],
+        "afternoon": ["Afternoons, the travellers come. I send every one of them through on the right. Politely."],
         "evening": ["When the sun goes down I light the gate lamps. Then the night watch begins."],
-        "night": ["Night watch. Nobody goes over a closed gate on my shift. Nobody."]
+        "night": ["Night watch. Nobody goes near that slide in the dark on my shift. Nobody."]
       },
       "activity": {
         "guard": [
-          ["The quake brought the slope down just past this gate. Rocks right across the road.", "Until it's cleared and checked, nobody goes through. Not even you."],
+          ["The quake brought the slope down just past this gate. Rocks right across the road.", "One lane's clear now. Walkers keep right, and nobody stops under the slide. Not even you."],
           ["You felt it too, didn't you? Five past one in the morning. Eleven seconds.", "It came up from under Cinnabar's volcano, the observatory says. All the way up here."],
           ["We're checking all of Route 1. Every bridge, every ledge, every crack.", "If you see damage on your way home, report it. To me. Officially."],
           "I'm on guard. Standing very still and looking very alert. It's harder than it looks.",
@@ -1075,7 +1075,7 @@
         ],
         "night_watch": [
           ["The gate lamps are lit and so am I. Awake, I mean.", "A good officer never sleeps on watch. I've had a lot of coffee."],
-          ["Nights are the worst for travellers trying their luck.", "They see a dark gate and think, 'nobody's watching'. Somebody is. Me."],
+          ["Nights are the worst for travellers trying their luck.", "They see a dark cutting and think, 'shortcut over the rubble'. Somebody is watching. Me."],
           "Night watch. Listen... hear the crews' generator, past the gate? They work in shifts too."
         ],
         "commute": ["I'm not going anywhere. That's rather the point of a post."],
@@ -1083,8 +1083,8 @@
       },
       "place": {
         "viridian_gate": [
-          ["This is Viridian City's south gate. Normally it's wide open, day and night.", "Normally."],
-          "Viridian's just over that hill. The road's the problem. Rocks, and a crack you could lose a bicycle in."
+          ["This is Viridian City's south gate. Normally it's wide open, day and night.", "Today it's open. Just. One lane."],
+          "Viridian's just over the rise. Through the cutting, over the crest, and there it is. Mind the rocks."
         ],
         "route1_gate": ["Route 1. The longest stretch of road I've ever stood at the end of."]
       },

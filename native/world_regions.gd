@@ -60,10 +60,14 @@ static func files(name: String) -> PackedStringArray:
 # plane, stored one after the other (ground: 2 height bytes, then 1 flag byte)
 static func grid(key: String, nx: int, nz: int, planes: Array) -> PackedByteArray:
 	var tiles := []
+	# a grid that grew north keeps its regions' tiles where they were: tj rows
+	# came before its old north edge (tools/native/regions.mjs)
+	var gm = meta().get(key, {})
+	var tj := int(gm.get("tj", 0)) if gm is Dictionary else 0
 	for r in regions():
 		var t = r.get("tiles", {}).get(key)
 		if t == null: continue
-		tiles.append({"i0": int(t[0]), "j0": int(t[1]), "w": int(t[2]), "h": int(t[3]), "b": FileAccess.get_file_as_bytes(r.dir + key + ".bin")})
+		tiles.append({"i0": int(t[0]), "j0": int(t[1]) + tj, "w": int(t[2]), "h": int(t[3]), "b": FileAccess.get_file_as_bytes(r.dir + key + ".bin")})
 	tiles.sort_custom(func(a, b): return a.i0 < b.i0)
 	var out := PackedByteArray()
 	var cells := 0

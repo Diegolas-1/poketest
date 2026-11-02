@@ -46,7 +46,7 @@ import { spawnSync } from 'node:child_process';
 
 const I = Infinity;
 export const REGIONS = [
-  { id: 'viridian_outskirts', x0: -I, x1: I, z0: -I, z1: -384 },   // Route 1's north end, the gate, Viridian on the horizon
+  { id: 'viridian_outskirts', x0: -I, x1: I, z0: -470, z1: -384 }, // Route 1's north end, the gate, the cutting into Viridian
   { id: 'route1_north', x0: -I, x1: I, z0: -384, z1: -256 },        // tea house, shrine, lookout
   { id: 'route1_south', x0: -I, x1: I, z0: -256, z1: -64 },         // orchard, farm, cottage, the town's north edge
   { id: 'west_woods', x0: -I, x1: -128, z0: -64, z1: 64 },
@@ -55,6 +55,8 @@ export const REGIONS = [
   { id: 'lab_hill', x0: 32, x1: I, z0: -64, z1: 64 },               // Oak's lab on its hill, the stream
   { id: 'harbour_coast', x0: -I, x1: 64, z0: 64, z1: I },           // the harbour, the beach, the sea to the south
   { id: 'pallet_house_trail', x0: 64, x1: I, z0: 64, z1: I },       // the woodland trail to PALLET HOUSE
+  { id: 'viridian_south', x0: -I, x1: I, z0: -650, z1: -470 },      // Viridian City: the crest, the South Square, the plaza, the avenue
+  { id: 'viridian_north', x0: -I, x1: I, z0: -I, z1: -650 },        // Viridian City: the Center, the Old Town, the GYM, the lake, the forest, the mountains
 ];
 export const regionOf = (x, z) => {
   for (const r of REGIONS) if (x >= r.x0 && x < r.x1 && z >= r.z0 && z < r.z1) return r.id;
@@ -271,6 +273,7 @@ export function splitWorld(src, dest, parts = ['world', 'ink']) {
     const meta = JSON.parse(S('world.json'));
     // ---- base ----
     const { colliders, inst, ...global } = meta;
+    for (const key of ['ground', 'grassmap']) if (global[key]) { const tj = Math.round((({ ground: -456, grassmap: -452 })[key] - global[key].z0) / global[key].res); if (tj > 0) global[key] = { ...global[key], tj }; }
     out.put('base/world.json', JSON.stringify({ format: 2, regions: ids, ...global }));
     for (const f of BASE_FILES) if (f !== 'world.json' && has(f)) out.put('base/' + f, S(f));
     for (const [f, imp] of Object.entries(BASE_IMPORT)) if (has(f)) out.seedImport('base/' + f, imp);
@@ -335,6 +338,11 @@ export function splitWorld(src, dest, parts = ['world', 'ink']) {
     }
     for (const id of ids) if (tn[id].length) { out.put(`r/${id}/terrain.glb`, subsetGlb(terr, tn[id], () => '')); note(id, 'terrain chunks', tn[id].length); }
     // ---- the grids ----
+    // Grids that grew north (Viridian City) keep their regions' tiles where they
+    // were: a tile's j0 counts from the grid's old north edge (LEGACY_Z0), and
+    // world.json says how many rows came before it (tj; the game adds it back)
+    const LEGACY_Z0 = { ground: -456, grassmap: -452 };
+    const tjOf = (key, g) => (LEGACY_Z0[key] !== undefined && g.z0 < LEGACY_Z0[key] ? Math.round((LEGACY_Z0[key] - g.z0) / g.res) : 0);
     const grids = [
       ['ground', 'ground.bin', meta.ground, [2, 1]],
       ['pathmap', 'pathmap.rgba', { ...meta.pathmap, res: meta.pathmap.w / meta.pathmap.nx }, [4]],
@@ -348,7 +356,7 @@ export function splitWorld(src, dest, parts = ['world', 'ink']) {
       for (const r of REGIONS) {
         const t = tileOf(r, g);
         if (!t) continue;
-        tiles[r.id][key] = t;
+        tiles[r.id][key] = [t[0], t[1] - tjOf(key, g), t[2], t[3]];
         out.put(`r/${r.id}/${key}.bin`, cutGrid(data, g, planes, t));
         cells += t[2] * t[3];
       }
