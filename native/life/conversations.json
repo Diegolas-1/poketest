@@ -4168,39 +4168,39 @@
         "s": {
           "lines": [
             "Halt! Stop right there, young man!",
-            "N: (She steps smartly between you and the gate, one white glove raised.)",
-            "Officer Jenny, Viridian City Police. I'm afraid this gate is closed."
+            "N: (She steps smartly into the gateway, one white glove raised.)",
+            "Officer Jenny, Viridian City Police. The road beyond this gate has only just reopened. Walkers only, one lane."
           ],
           "choices": [
             {
-              "label": "Closed? Why?",
+              "label": "Reopened? What happened?",
               "tone": "curious",
-              "ash": "Closed? Why? What happened?",
+              "ash": "Reopened? Why, what happened?",
               "next": "why"
             },
             {
-              "label": "But I need to get through!",
+              "label": "So I can go through?",
               "tone": "eager",
-              "ash": "But I need to get to Viridian City!",
+              "ash": "So I can go through to Viridian City?",
               "next": "need"
             },
             {
-              "label": "Can't I just climb over?",
+              "label": "Can I climb the rubble?",
               "tone": "cheeky",
-              "ash": "Can't I just... climb over?",
+              "ash": "Can I climb up the rubble? It looks fun.",
               "next": "climb"
             }
           ]
         },
         "need": {
           "lines": [
-            "Everybody needs to get to Viridian. The road doesn't care, I'm afraid."
+            "You can. On foot, on the right, and you don't stop under the slide. Understood?"
           ],
           "next": "why"
         },
         "climb": {
           "lines": [
-            "Absolutely not! Climbing a closed gate is a violation of City Ordinance 47-B.",
+            "Absolutely not! Climbing a works site is a violation of City Ordinance 47-B.",
             "I'd have to write you a ticket. In triplicate. I have the forms right here.",
             "N: (She pats the pouch on her hip. It does look very full of forms.)"
           ],
@@ -4210,7 +4210,7 @@
           "lines": [
             "The earthquake. In the night, five past one. Eleven seconds of shaking. You felt it, I expect.",
             "Down in Pallet it was a shiver. But just past this gate, the road runs through a cutting.",
-            "The shaking brought the slope down. Rocks right across the road, and a crack down the middle."
+            "The shaking brought the slope down. Rocks right across the road. The crews have dug one lane clear."
           ],
           "do": {
             "know": "viridian_road_closed",
@@ -4231,9 +4231,9 @@
               "next": "volcano"
             },
             {
-              "label": "When will it open?",
+              "label": "When will it be finished?",
               "tone": "curious",
-              "ash": "So when will the road open again?",
+              "ash": "So when will the road be all clear?",
               "next": "when"
             }
           ]
@@ -4247,7 +4247,7 @@
         },
         "when": {
           "lines": [
-            "When the crews have cleared it and the surveyors say the slope will hold. Not a minute before.",
+            "When the crews have cleared the rest and the surveyors say the slope will hold. Not a minute before.",
             "Meanwhile my officers are checking all of Route 1. Every bridge, every ledge.",
             "If you see any damage on your way home, you report it. To me."
           ],
@@ -4265,9 +4265,9 @@
               "next": "good"
             },
             {
-              "label": "I guess I'll wait...",
+              "label": "I'll keep to the right...",
               "tone": "quiet",
-              "ash": "Okay... I guess I'll just have to wait.",
+              "ash": "Okay... I'll keep to the right.",
               "next": "wait"
             }
           ]
@@ -4320,7 +4320,7 @@
         },
         "walk": {
           "lines": [
-            "Walking is free. Walking past this gate is not. Neither is walking into tall grass without a POKéMON."
+            "Walking is free. Walking into tall grass without a POKéMON is not."
           ],
           "next": "soon"
         },

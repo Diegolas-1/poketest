@@ -88,8 +88,8 @@ func _init() -> void:
 		var total := 0; var got := 0
 		for k in range(1, r.size()):
 			var t: Vector2 = r[k]
-			var n := int(Vector2(p.x, p.z).distance_to(t) / 0.1)
-			for i in n:
+			var ns := int(Vector2(p.x, p.z).distance_to(t) / 0.1)
+			for i in ns:
 				var d := (t - Vector2(p.x, p.z)).normalized() * 0.1
 				var p2: Vector3 = W.step(p, d.x, d.y, true)
 				total += 1
