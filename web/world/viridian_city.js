@@ -435,7 +435,7 @@ function lining(G, world, col, fronts) {
       if (VC.cutRock(x, z)) continue;
       if (inFoot(x + nx * 0.6, z + nz * 0.6, 1.2)) continue;
       const wx = x + nx * 2.5, wz = z + nz * 2.5;
-      const lake = Math.hypot(wx - VC.LAKE.x, wz - VC.LAKE.z) < VC.LAKE.r + 3 || isWater(wx, wz);
+      const lake = VC.lakeSD(wx, wz) < 3 || isWater(wx, wz);
       const p = { x: x + nx * 0.45, z: z + nz * 0.45, nx, nz, i };
       if (lake) rail.push(p);
       else if (z > -592) wall.push(p);
@@ -474,7 +474,9 @@ function lining(G, world, col, fronts) {
     const B = new Batch(), st = matCache('vc_wall', () => O.texm(O.stonesTex('#c4bca6')));
     for (const p of wall) {
       const ry = Math.atan2(p.nx, p.nz), y = height(p.x, p.z);
-      B.box('wall', st, 1.08, 1.4, 0.7, p.x, y + 0.45, p.z, ry);
+      const ho = Math.min(height(p.x + p.nx * 1.2, p.z + p.nz * 1.2), height(p.x + p.nx * 2.4, p.z + p.nz * 2.4));
+      if (ho < y - 0.5) { const bot = ho - 0.6, top = y + 1.15; B.box('wall', st, 1.08, top - bot, 0.7, p.x, (top + bot) / 2, p.z, ry); }
+      else B.box('wall', st, 1.08, 1.4, 0.7, p.x, y + 0.45, p.z, ry);
       col({ box: true, x: p.x, z: p.z, hw: 0.55, hd: 0.36, rot: ry });
     }
     const H = new THREE.Group(); H.name = 'vc_walls'; G.add(H); B.flush(H, { shadow: true, outline: false, name: 'vc_wall' });
@@ -499,12 +501,125 @@ function lakeside(G, world, col, use) {
   for (const s of [-1, 1]) col({ box: true, x: (P.x0 + P.x1) / 2, z: P.z + s * (P.w / 2), hw: len / 2, hd: 0.12, rot: 0 });
   col({ box: true, x: P.x0 - 0.1, z: P.z, hw: 0.15, hd: P.w / 2, rot: 0 });
   use(P.x0 + 1.5, P.z, 'Look', ['The lake is deep and very still here.', 'A sign on the last post: FISHING FROM THE PIER WELCOME. PLEASE TAKE YOUR LINES HOME.'], 1.4);
+  farShore(G);
+}
+// the lake's far shores (worker 36): seen across the water, never walked:
+// boathouses on stilts with their slipways and boats, a beach with a
+// lifeguard's chair, parasols and pedalos, jetties, reeds in the coves, and
+// the wooded walls of the crater behind (plantsPlan sows those trees)
+function farShore(G) {
+  const R = rng(3460), B = new Batch();
+  const wm = vcMat('vc_wall_vc');
+  const wood = matCache('vc_shore_wood', () => O.texm(O.planks('#a07650'))), reedM = vcMat('vc_reed', { side: THREE.DoubleSide });
+  const Y = VC.LAKE.y;
+  // the shore line: walk round the lake's far side, sampling where lakeSD = 0
+  const shore = [];
+  for (let a = 0; a < 6.283; a += 0.004) {
+    const cx = VC.LAKE_DISC.x, cz = VC.LAKE_DISC.z, ux = Math.cos(a), uz = Math.sin(a);
+    let lo = 0, hi = VC.LAKE_DISC.r + 40;
+    for (let k = 0; k < 24; k++) { const m = (lo + hi) / 2; if (VC.lakeSD(cx + ux * m, cz + uz * m) < 0) lo = m; else hi = m; }
+    const x = cx + ux * lo, z = cz + uz * lo;
+    if (x > -190) continue;   // (the city's quay side has its own)
+    const gx = VC.lakeSD(x + 0.5, z) - VC.lakeSD(x - 0.5, z), gz = VC.lakeSD(x, z + 0.5) - VC.lakeSD(x, z - 0.5), gl = Math.hypot(gx, gz) || 1;
+    shore.push({ x, z, nx: gx / gl, nz: gz / gl, a });   // n: from the water up onto the land
+  }
+  const nearBeach = (x, z) => Math.hypot(x - VC.BEACH.x, z - VC.BEACH.z) < VC.BEACH.r * 0.8;
+  // boathouses: a few along the west and south shores
+  const houses = [];
+  for (let i = 0; i < shore.length && houses.length < 7; i += 70 + Math.floor(R() * 60)) {
+    const p = shore[i];
+    if (nearBeach(p.x, p.z) || houses.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 40)) continue;
+    if (height(p.x + p.nx * 6, p.z + p.nz * 6) > Y + 9) continue;   // (not under a cliff)
+    houses.push(p);
+    const ry = Math.atan2(-p.nx, -p.nz), w = 6 + R() * 2, d = 8 + R() * 2, x = p.x - p.nx * 1.5, z = p.z - p.nz * 1.5;
+    const S = new Batch(), wc = ['#c4553a', '#3d6fa8', '#3d7a6a', '#d0693e', '#f1e4cf'][Math.floor(R() * 5)];
+    // stilts, the deck, the shed with its big water door, the roof
+    for (const sx of [-1, 1]) for (let k = -1; k <= 1; k++) S.box('post', wm, 0.25, 4, 0.25, sx * w / 2, Y - 1.6, k * d / 2.2, 0, '#5a4532');
+    S.box('deck', wood, w + 1.6, 0.25, d + 2, 0, Y + 0.55, 0, 0);
+    S.box('wall', wm, w, 3.2, d, 0, Y + 2.25, 0.4, 0, wc);
+    S.box('wall', wm, w * 0.62, 2.4, 0.1, 0, Y + 1.9, d / 2 + 0.42, 0, '#3a3430');
+    S.box('wall', wm, w * 0.7, 0.18, 0.12, 0, Y + 3.2, d / 2 + 0.45, 0, '#f2efe2');
+    const rf = new THREE.CylinderGeometry(0.01, (w + 1.4) / Math.SQRT2, 2.0, 4, 1); rf.rotateY(Math.PI / 4); rf.scale(1, 1, (d + 1.6) / (w + 1.4)); rf.translate(0, Y + 4.85, 0.4);
+    colorize(rf, ['#6a4a3a', '#3f5a6a', '#7a3a2e'][Math.floor(R() * 3)]); S.add('roof', wm, rf);
+    // a little jetty off its side, a rowboat tied to it
+    S.box('deck', wood, 1.4, 0.18, 7, w / 2 + 1.4, Y + 0.45, d / 2 + 2.4, 0);
+    boatInto(S, wm, w / 2 + 3.1, Y + 0.05, d / 2 + 3, 0.1, R);
+    moveBatch(S, B, x, 0, z, ry);
+  }
+  // the beach: sand (terrain.js paints it), a lifeguard's chair, parasols,
+  // towels, pedalos pulled up and a jetty with a diving board
+  {
+    const sp = shore.filter((p) => nearBeach(p.x, p.z));
+    for (let i = 4; i < sp.length - 4; i += 18) {
+      const p = sp[i], t = 5 + R() * 9, x = p.x + p.nx * t, z = p.z + p.nz * t, y = height(x, z);
+      const S = new Batch(), c = ['#e8402e', '#3a74c8', '#f2c230', '#3f9a6a', '#f4f1ea'][Math.floor(R() * 5)];
+      S.box('post', wm, 0.06, 2.3, 0.06, 0, y + 1.1, 0, 0, '#e8e4dc');
+      const pa = new THREE.ConeGeometry(1.3, 0.55, 8); pa.translate(0, y + 2.35, 0); colorize(pa, c); S.add('roof', wm, pa);
+      S.box('wall', wm, 0.8, 0.03, 1.8, 0.9, y + 0.04, 0.6, R(), ['#f4f1ea', '#e8b8a0', '#9fd2ee'][Math.floor(R() * 3)]);
+      moveBatch(S, B, x, 0, z, 0);
+    }
+    if (sp.length > 20) {
+      const p = sp[Math.floor(sp.length / 2)], ry = Math.atan2(-p.nx, -p.nz), S = new Batch();
+      // the jetty with a diving board
+      S.box('deck', wood, 2.2, 0.22, 16, 0, Y + 0.5, 6, 0);
+      for (let k = 0; k < 5; k++) for (const sx of [-1, 1]) S.box('post', wm, 0.2, 3.5, 0.2, sx * 1.0, Y - 1.2, k * 3.6 - 0.5, 0, '#5a4532');
+      S.box('wall', wm, 0.6, 0.12, 2.6, 0, Y + 1.15, 14.6, 0, '#f4f1ea');
+      S.box('post', wm, 0.5, 0.6, 0.5, 0, Y + 0.85, 13.2, 0, '#9a9a96');
+      // the lifeguard's chair on the sand
+      const lx = -6, lz = -8;
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) S.box('post', wm, 0.12, 2.6, 0.12, lx + sx * 0.5, height(p.x, p.z) + 1.3, lz + sz * 0.5, 0, '#f4f1ea');
+      S.box('deck', wood, 1.2, 0.12, 1.2, lx, height(p.x, p.z) + 2.6, lz, 0);
+      S.box('wall', wm, 1.2, 0.8, 0.1, lx, height(p.x, p.z) + 3.0, lz - 0.55, 0, '#e8402e');
+      moveBatch(S, B, p.x - p.nx * 0.5, 0, p.z - p.nz * 0.5, ry);
+      // pedalos and rowboats pulled up, more out on the water
+      for (let k = 0; k < 4; k++) { const q = sp[(Math.floor(sp.length / 2) + 12 + k * 7) % sp.length]; const S2 = new Batch(); boatInto(S2, wm, 0, height(q.x + q.nx * 2, q.z + q.nz * 2) + 0.05, 0, R() - 0.5, R); moveBatch(S2, B, q.x + q.nx * 2.5, 0, q.z + q.nz * 2.5, Math.atan2(q.nx, q.nz) + (R() - 0.5)); }
+    }
+    for (let k = 0; k < 6; k++) { const p = shore[Math.floor(R() * shore.length)], o = 25 + R() * 60, x = p.x - p.nx * o, z = p.z - p.nz * o; if (VC.lakeSD(x, z) > -15) continue; const S2 = new Batch(); boatInto(S2, wm, 0, Y + 0.02, 0, 0, R); moveBatch(S2, B, x, 0, z, R() * 6.28); }
+  }
+  // reeds in the coves and on the gentle shores (not at the beach, not under the cliffs)
+  for (let i = 0; i < shore.length; i += 3) {
+    const p = shore[i];
+    if (nearBeach(p.x, p.z) || houses.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 14)) continue;
+    const cove = VC.fbm2(p.x * 0.05 + 2, p.z * 0.05, 2);
+    if (cove < 0.5 || R() < 0.35) continue;
+    for (let k = 0; k < 3; k++) {
+      const t = (R() - 0.65) * 4, x = p.x + p.nx * t + (R() - 0.5) * 2, z = p.z + p.nz * t + (R() - 0.5) * 2, y = Math.max(Y - 0.2, height(x, z));
+      const g = reedClump(R); g.translate(x, y, z); B.add('reed', reedM, g);
+    }
+  }
+  const T = new THREE.Group(); T.name = 'vc_farshore'; G.add(T); B.flush(T, { shadow: false, outline: false, name: 'vc_shore' });
+}
+// a rowboat (or a pedalo, when the dice say so), its keel at y
+function boatInto(S, wm, x, y, z, ry, R) {
+  const c = ['#f4f1ea', '#e8402e', '#3a74c8', '#2f8a6a', '#f2c230'][Math.floor(R() * 5)];
+  const g = new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2); g.scale(0.75, 0.45, 2.0); g.rotateY(ry); g.translate(x, y + 0.42, z); colorize(g, c); S.add('wall', wm, g);
+  S.box('wall', wm, 1.3, 0.06, 0.25, x, y + 0.44, z, ry, '#8a6a4a');
+}
+// a clump of reeds: thin blades and a few brown heads
+function reedClump(R) {
+  const pos = [], col = [], n = 6 + Math.floor(R() * 6), g0 = new THREE.Color('#5f8f3a'), g1 = new THREE.Color('#9fbf5a'), br = new THREE.Color('#7a5232');
+  for (let i = 0; i < n; i++) {
+    const a = R() * 6.28, r = R() * 0.5, h = 1.1 + R() * 1.1, bx = Math.cos(a) * r, bz = Math.sin(a) * r, lx = (R() - 0.5) * 0.4, lz = (R() - 0.5) * 0.4, w = 0.05, ta = R() * 3.14;
+    const ox = Math.cos(ta) * w, oz = Math.sin(ta) * w;
+    pos.push(bx - ox, 0, bz - oz, bx + ox, 0, bz + oz, bx + lx, h, bz + lz);
+    col.push(g0.r, g0.g, g0.b, g0.r, g0.g, g0.b, g1.r, g1.g, g1.b);
+    if (R() < 0.4) { const hy = h * 0.82; pos.push(bx + lx * 0.8 - ox * 1.6, hy, bz + lz * 0.8 - oz * 1.6, bx + lx * 0.8 + ox * 1.6, hy, bz + lz * 0.8 + oz * 1.6, bx + lx * 0.9, hy + 0.32, bz + lz * 0.9); for (let k = 0; k < 3; k++) col.push(br.r, br.g, br.b); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
+  g.computeVertexNormals();
+  const nr = g.attributes.normal; for (let i = 0; i < nr.count; i++) nr.setXYZ(i, 0, 1, 0);
+  g.setIndex([...Array(pos.length / 3).keys()]);
+  return g;
 }
 // ---------- the gates: Route 2 north, Route 22 west ----------
 // ---------- lamps, benches, signs ----------
 function furniture(G, world, col, use, place, yawTo, vc) {
   signs(G, world, col, use, place, yawTo);
   benches(G, world, col, place);
+  overlook(G, col, use, place);
+  streetLife(G, col, use, place, yawTo);
   clockTower(G, col, use);
   plaza(G, col);
   // the welcome sign at the South Square
@@ -543,15 +658,21 @@ export function plantOff(x, z, r = 1) {
   if (VC.walkF(x, z) < r) return true;
   for (const P of Object.values(PADS)) if (VC.padDist(P, x, z) < r + 1) return true;
   for (const [cx, cz, hw, hd, rot] of OCC) { const c = Math.cos(rot), s = Math.sin(rot), dx = x - cx, dz = z - cz; if (Math.abs(dx * c - dz * s) < hw + r && Math.abs(dx * s + dz * c) < hd + r) return true; }
-  return Math.hypot(x - VC.LAKE.x, z - VC.LAKE.z) < VC.LAKE.r + 4;
+  if (VC.terraceAt(x, z, r)) return true;
+  return VC.lakeSD(x, z) < 4;
 }
 // the city's own plants: [[models, points, kind]] (points {x, y, z, rot, s})
 export function cityPlants(makeTree, makeBush, makeClump, TILE) {
   const out = [];
   const byKind = new Map();
   for (const t of PLANTS.trees) { if (!byKind.has(t.k)) byKind.set(t.k, []); byKind.get(t.k).push(t); }
-  let seed = 3400;
-  for (const [k, list] of byKind) { const ms = [makeTree(k, seed)]; seed += 3; out.push([ms, list, 'tree']); }
+  // (each kind's model seed fixed by name, so the models and their billboards
+  // stay the same whichever kind is planted first)
+  const SEED = ['linden', 'tiered', 'scotspine', 'beech', 'cypress', 'giant', 'shade', 'oak'];
+  for (const k of [...byKind.keys()].sort((a, b) => ((SEED.indexOf(a) + 99) % 99) - ((SEED.indexOf(b) + 99) % 99))) {
+    const i = SEED.indexOf(k), ms = [makeTree(k, 3400 + 3 * (i < 0 ? SEED.length + 7 : i))];
+    out.push([ms, byKind.get(k), 'tree']);
+  }
   if (HEDGE_TOPS.length) out.push([[makeBush(3470, { size: 1.0 }), makeBush(3471, { size: 1.1 })], HEDGE_TOPS, 'bush']);
   if (PLANTS.bushes.length) out.push([[makeBush(3460, { size: 1.1 }), makeBush(3461, { size: 1.4, flowers: TILE.flowersR }), makeBush(3462, { size: 1.0, flowers: TILE.flowersY })], PLANTS.bushes, 'bush']);
   return out;
@@ -571,7 +692,7 @@ function lotFree(L, taken, { minE = 0, maxE = 0.86, margin = 0.6 } = {}) {
   for (const [x, z] of lotPts(L)) {
     if (VC.walkF(x, z) < margin) return false;
     const e = VC.bowlE(x, z); if (e > maxE || e < minE) return false;
-    if (Math.hypot(x - VC.LAKE.x, z - VC.LAKE.z) < VC.LAKE.r + 9) return false;
+    if (VC.lakeSD(x, z) < 9) return false;
     if (z > -548) return false;
   }
   for (const P of Object.values(PADS)) for (const [x, z] of lotPts(L)) if (VC.padDist(P, x, z) < 1.2) return false;
@@ -682,7 +803,7 @@ function oldHouse(L, R, i) {
 // a podium (two tall floors of shop glass, a canopy), the shaft (a band of
 // glass on every floor, accent fins at the corners), a setback for the upper
 // floors, and a top: a roof garden, a crown, a spire or a plain parapet
-function towerInto(B, { w, d, floors, wall, accent, podium = true, top = 'garden', seed = 1, far = false }) {
+function towerInto(B, { w, d, floors, wall, accent, podium = true, top = 'garden', seed = 1, far = false, green = false }) {
   const R = rng(seed), wm = vcMat('vc_wall_vc'), gm = texVC(glassBandTex(), 'glassband');
   const FH = 3.3, PH = podium ? 9 : 0;
   let y = 0;
@@ -726,6 +847,12 @@ function towerInto(B, { w, d, floors, wall, accent, podium = true, top = 'garden
     y += H2;
     var tw = w2, td = d2;
   } else { var tw = w, td = d; }
+  // (the eternally green city: a vertical garden up one face, planted balconies)
+  if (green) {
+    const gh = Math.min(y - PH, (R() * 0.5 + 0.5) * (y - PH)), gx = (R() - 0.5) * w * 0.5, gw = 2.2 + R() * 2.5;
+    B.box('green', wm, gw, gh, 0.5, gx, PH + gh / 2, d / 2 + 0.3, 0, '#4f9a46');
+    for (let f = 2; f * 3.3 < H1; f += 3) B.box('green', wm, w * 0.55, 0.6, 0.7, (R() - 0.5) * w * 0.3, PH + f * 3.3 + 0.2, -d / 2 - 0.35, 0, R() < 0.5 ? '#5aa04a' : '#6aae52');
+  }
   // the top
   B.box('acc', wm, tw + 0.5, 0.9, td + 0.5, 0, y + 0.45, 0, 0, accent);
   if (top === 'garden' && !far) {
@@ -750,47 +877,164 @@ const shade2 = (hex, k) => '#' + new THREE.Color(hex).multiplyScalar(k).getHexSt
 // terraces of houses up the bowl's sides: merged boxes, no ink
 function slopes(G, fronts) {
   const R = rng(3420), taken = fronts.map((P) => ({ x: P.x, z: P.z, w: P.w, d: P.d, rot: P.rot || 0 }));
-  const towers = new Batch(), houses = new Batch();
-  const wm = vcMat('vc_wall_vc');
-  const roofM = vcMat('vc_roof_vc');
-  const winM = texVC(houseWinTex(), 'housewin');
-  // downtown beyond the walkable streets: towers on a slightly turned grid,
-  // thickest east of the avenue's end and round the Center's north-east,
-  // with a few skyscrapers; lower toward the slopes
-  const DT = { x: 215, z: -690 };
-  for (let gx = 40; gx < 380; gx += 26) for (let gz = -556; gz > -990; gz -= 26) {
+  const towers = new Batch(), blocks = new Batch();
+  // downtown beyond the walkable streets (worker 36: denser and taller, so the
+  // skyline fills the valley floor out to the terraces): towers on a slightly
+  // turned grid, thickest east of the avenue's end and round the Center's
+  // north-east, with skyscrapers in the core; lower toward the slopes
+  const DT = { x: 205, z: -700 };
+  for (let gx = 30; gx < 400; gx += 21) for (let gz = -560; gz > -1000; gz -= 21) {
     const a = 0.18, ux = gx * Math.cos(a) - (gz + 700) * Math.sin(a), uz = gx * Math.sin(a) + (gz + 700) * Math.cos(a) - 700;
-    const x = ux + (R() - 0.5) * 6, z = uz + (R() - 0.5) * 6;
-    const e = VC.bowlE(x, z), core = Math.exp(-(((x - DT.x) / 120) ** 2 + ((z - DT.z) / 150) ** 2));
-    if (e > 0.8 || z > -572 || R() > 0.25 + 0.75 * core) continue;
-    const L = { x, z, w: 15 + R() * 10, d: 15 + R() * 10, rot: a + (R() < 0.2 ? Math.PI / 2 : 0) };
-    if (!lotFree(L, taken, { maxE: 0.82, margin: 8 })) continue;
+    const x = ux + (R() - 0.5) * 5, z = uz + (R() - 0.5) * 5;
+    const e = VC.bowlE(x, z), core = Math.exp(-(((x - DT.x) / 135) ** 2 + ((z - DT.z) / 165) ** 2));
+    if (e > 0.79 || z > -590 + Math.max(0, 110 - x) * 0.6 || R() > 0.55 + 0.45 * core) continue;
+    const L = { x, z, w: 13 + R() * 9, d: 13 + R() * 9, rot: a + (R() < 0.2 ? Math.PI / 2 : 0) };
+    if (!lotFree(L, taken, { maxE: 0.8, margin: 4 })) continue;
     taken.push(L);
-    const sky = core > 0.55 && R() < 0.35;
-    const floors = Math.round((sky ? 28 + R() * 16 : 6 + R() * 8 + 16 * core) * (1 - 0.5 * VC.smooth(0.62, 0.8, e)));
+    const sky = core > 0.45 && R() < 0.42;
+    const floors = Math.round((sky ? 30 + R() * 20 : 7 + R() * 9 + 18 * core) * (1 - 0.45 * VC.smooth(0.6, 0.8, e)));
     const B = new Batch();
-    towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[Math.floor(R() * TOWER_WALLS.length)], accent: ACCENTS[Math.floor(R() * ACCENTS.length)], podium: false, top: sky ? (R() < 0.5 ? 'spire' : 'crown') : (R() < 0.6 ? 'garden' : 'crown'), seed: Math.round(gx * 31 - gz) });
+    towerInto(B, { w: L.w, d: L.d, floors, wall: TOWER_WALLS[Math.floor(R() * TOWER_WALLS.length)], accent: ACCENTS[Math.floor(R() * ACCENTS.length)], podium: false, top: sky ? (R() < 0.5 ? 'spire' : 'crown') : (R() < 0.6 ? 'garden' : 'crown'), seed: Math.round(gx * 31 - gz), green: R() < 0.35 });
     moveBatch(B, towers, L.x, lotY(L) - 0.5, L.z, L.rot);
   }
-  // the terraces: rows of small houses round the bowl's sides
-  for (let gx = -480; gx < 470; gx += 11) for (let gz = -520; gz > -1060; gz -= 11) {
+  // the rest of the valley floor: blocks of flats and old houses between the
+  // streets (not lawns), low near the crest so its view stays open
+  for (let gx = -200; gx < 140; gx += 13) for (let gz = -560; gz > -900; gz -= 13) {
     const x = gx + (R() - 0.5) * 4, z = gz + (R() - 0.5) * 4, e = VC.bowlE(x, z);
-    if (e < 0.7 || e > 1.06) continue;
-    if (R() > 0.55) continue;
-    if (VC.walkF(x, z) < 22) continue;
-    // not in the forest north of Route 2's gate, not on the pass, not by the lake's water
-    if (z < -880 && Math.abs(x + 20) < 140) continue;
-    if (z > -560 && Math.abs(x - 5) < 60) continue;
-    const L = { x, z, w: 6 + R() * 3, d: 6 + R() * 2.5, rot: Math.atan2(BOWLX - x, BOWLZ - z) + (R() - 0.5) * 0.3 };
-    if (!lotFree(L, taken, { minE: 0.55, maxE: 1.08, margin: 5 })) continue;
-    if (!lotFree(L, [], { minE: 0.55, maxE: 1.08, margin: 5 })) continue;
+    if (e > 0.76 || VC.walkF(x, z) < 9 || VC.lakeSD(x, z) < 12) continue;
+    if (z < -868 && Math.abs(x + 20) < 165) continue;   // (the forest)
+    const dc = Math.hypot(x - 2, z + 505);
+    if (dc < 70 || R() < 0.12) continue;
+    const L = { x, z, w: 9 + R() * 6, d: 9 + R() * 5, rot: (R() - 0.5) * 0.25 };
+    if (!lotFree(L, taken, { maxE: 0.77, margin: 2.5 })) continue;
     taken.push(L);
-    houseInto(houses, L, R, wm, roofM, winM);
+    // taller further from the crest and east of Old Street
+    const cap = Math.max(2, Math.min(9, Math.floor((dc - 60) / 26) + (x > -10 ? 3 : 0)));
+    const floors = 2 + Math.floor(R() * (cap - 1));
+    const B = new Batch();
+    if (floors <= 3 && x < 30) houseInto(B, { x: 0, z: 0, w: L.w, d: L.d, rot: 0, y: 0 }, R, vcMat('vc_wall_vc'), vcMat('vc_roof_vc'), texVC(houseWinTex(), 'housewin'), floors);
+    else towerInto(B, { w: L.w, d: L.d, floors, wall: WALLS[Math.floor(R() * WALLS.length)], accent: ACCENTS[Math.floor(R() * ACCENTS.length)], podium: false, top: R() < 0.7 ? 'garden' : 'flat', seed: Math.round(gx * 17 - gz * 3), far: true, green: R() < 0.4 });
+    moveBatch(B, blocks, L.x, lotY(L) - 0.4, L.z, L.rot);
   }
   const T = new THREE.Group(); T.name = 'vc_downtown'; G.add(T); towers.flush(T, { shadow: false, outline: false, name: 'vc_far_tower' });
-  const H = new THREE.Group(); H.name = 'vc_terraces'; G.add(H); houses.flush(H, { shadow: false, outline: false, name: 'vc_house' });
+  const K = new THREE.Group(); K.name = 'vc_blocks'; G.add(K); blocks.flush(K, { shadow: false, outline: false, name: 'vc_block' });
+  terraces(G, taken, R);
   for (const L of taken.slice(fronts.length)) OCC.push([L.x, L.z, L.w / 2, L.d / 2, L.rot]);
   SLOPE_LOTS.push(...taken.slice(fronts.length));
+}
+// ---------- the terraces: streets of houses up the bowl's sides ----------
+// (viridian.js TERR: rings of the bowl; a platform each, level across, its
+// uphill edge flush with the hill, a stone retaining wall down its downhill
+// edge with a parapet, a lane along the wall, houses behind it facing the
+// valley, trees in the gaps)
+const TERR_LOTS = [];
+function terraces(G, taken, R) {
+  const wm = vcMat('vc_wall_vc'), roofM = vcMat('vc_roof_vc'), winM = texVC(houseWinTex(), 'housewin');
+  const stoneM = matCache('vc_terr_stone', () => O.texm(O.stonesTex('#cfc6b0'), '#ffffff', THREE.DoubleSide));
+  const B = new Batch(), H = new Batch();
+  const W = VC.TERR.W, LANE = 3.4;
+  const C = VC.BOWL;
+  for (let k = 0; k < VC.TERR.rings.length; k++) {
+    const e = VC.TERR.rings[k];
+    // the ring sampled every ~3.5 m of arc
+    const per = 2 * Math.PI * Math.sqrt((C.rx * C.rx + C.rz * C.rz) / 2) * e, n = Math.ceil(per / 3.5);
+    const P = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n * Math.PI * 2, ux = Math.sin(t), uz = -Math.cos(t);
+      const x = C.x + C.rx * e * ux, z = C.z + C.rz * e * uz;
+      let nx = ux / C.rx, nz = uz / C.rz; const nl = Math.hypot(nx, nz); nx /= nl; nz /= nl;   // outward (uphill)
+      const dx = x - nx * W, dz = z - nz * W;
+      const skip = VC.terraceSkip(x, z) || VC.terraceSkip(dx, dz) || x < -490 || x > 490 || z < -1255;
+      P.push({ x, z, nx, nz, dx, dz, skip, y: height(x + nx * 0.4, z + nz * 0.4) + 0.12 });
+    }
+    // runs of platform
+    let run = [];
+    const runs = [];
+    for (const p of P) { if (p.skip) { if (run.length > 4) runs.push(run); run = []; } else run.push(p); }
+    if (run.length > 4) runs.push(run);
+    for (const r of runs) {
+      // the level along the run, smoothed (no steps between samples)
+      const ys = r.map((p, i) => { let s = 0, w = 0; for (let j = Math.max(0, i - 2); j <= Math.min(r.length - 1, i + 2); j++) { s += r[j].y; w++; } return s / w; });
+      const top = [], uv = [], wall = [], wuv = [];
+      let len = 0;
+      for (let i = 0; i < r.length; i++) {
+        const p = r[i], y = ys[i];
+        if (i) len += Math.hypot(p.x - r[i - 1].x, p.z - r[i - 1].z);
+        const low = Math.min(height(p.dx, p.dz), y - 0.5) - 1.2;
+        top.push([p.x + p.nx * 0.5, y, p.z + p.nz * 0.5], [p.dx + p.nx * LANE, y + 0.02, p.dz + p.nz * LANE], [p.dx + p.nx * LANE, y + 0.03, p.dz + p.nz * LANE], [p.dx, y + 0.03, p.dz]);
+        wall.push([p.dx - p.nx * 0.15, y + 0.6, p.dz - p.nz * 0.15], [p.dx - p.nx * 0.15, low, p.dz - p.nz * 0.15], [p.dx + p.nx * 0.25, y + 0.6, p.dz + p.nz * 0.25], [p.dx + p.nx * 0.25, y, p.dz + p.nz * 0.25], len, y - low);
+      }
+      // the platform's top: the garden strip (green) and the lane (grey)
+      B.add('top', wm, strip(top, r.length, [[0, 1, '#78b45a'], [2, 3, '#a7a9a8']]));
+      // the wall: its face, its cap, its inner side
+      B.add('wall', stoneM, wallStrip(wall, r.length));
+      // the ends: a wall across the platform, down to the hill
+      for (const [i, s] of [[0, -1], [r.length - 1, 1]]) {
+        const p = r[i], y = ys[i], tx = -p.nz * s, tz = p.nx * s;
+        const g = new THREE.PlaneGeometry(W + 0.6, 6);
+        g.rotateY(Math.atan2(tx, tz)); g.translate((p.x + p.dx) / 2 + tx * 0.05, y - 3 + 0.6, (p.z + p.dz) / 2 + tz * 0.05);
+        B.add('wall', stoneM, g);
+      }
+      // houses behind the lane, facing the valley; a tree in some gaps
+      let s0 = 2 + R() * 4;
+      const cum = [0]; for (let i = 1; i < r.length; i++) cum.push(cum[i - 1] + Math.hypot(r[i].x - r[i - 1].x, r[i].z - r[i - 1].z));
+      const total = cum[cum.length - 1];
+      const at = (s) => { let i = 0; while (i < r.length - 2 && cum[i + 1] < s) i++; const t = (s - cum[i]) / (cum[i + 1] - cum[i] || 1), a = r[i], b = r[i + 1]; return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, nx: a.nx, nz: a.nz, y: ys[i] + (ys[i + 1] - ys[i]) * t }; };
+      while (s0 < total - 6) {
+        const w = 6.5 + R() * 3.5, q = at(s0 + w / 2), dep = W - LANE - 1.0;
+        const L = { x: q.x - q.nx * (0.5 + dep / 2 - 0.2), z: q.z - q.nz * (0.5 + dep / 2 - 0.2), w, d: Math.min(dep, 5.5 + R() * 1.5), rot: Math.atan2(-q.nx, -q.nz), y: q.y };
+        if (R() < 0.86 && lotFree(L, taken, { minE: 0, maxE: 1.2, margin: -50 })) {
+          houseInto(H, L, R, wm, roofM, winM);
+          taken.push(L); TERR_LOTS.push(L);
+        } else PLANTS.trees.push({ k: ['beech', 'tiered', 'linden', 'cypress'][Math.floor(R() * 4)], x: L.x, z: L.z, y: q.y - 0.02, rot: R() * 6.28, s: 0.6 + R() * 0.3 });
+        s0 += w + 1.2 + R() * 2.4;
+        if (R() < 0.3) { const t = at(s0 - 0.8); PLANTS.trees.push({ k: R() < 0.5 ? 'cypress' : 'tiered', x: t.x - t.nx * 2.2, z: t.z - t.nz * 2.2, y: t.y - 0.02, rot: R() * 6.28, s: 0.5 + R() * 0.25 }); }
+      }
+    }
+  }
+  const T = new THREE.Group(); T.name = 'vc_terraces'; G.add(T);
+  B.flush(T, { shadow: false, outline: false, name: 'vc_terr' });
+  H.flush(T, { shadow: false, outline: false, name: 'vc_house' });
+}
+// a ribbon of quads from rows of 4 points per sample: bands [a, b, colour]
+function strip(rows, n, bands) {
+  const pos = [], col = [], idx = [];
+  for (const [a, b, hex] of bands) {
+    const c = new THREE.Color(hex), base = pos.length / 3;
+    for (let i = 0; i < n; i++) for (const k of [a, b]) { const p = rows[i * 4 + k]; pos.push(p[0], p[1], p[2]); col.push(c.r, c.g, c.b); }
+    for (let i = 0; i + 1 < n; i++) { const q = base + i * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
+  g.setIndex(idx); g.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length), 3));
+  return fixWinding(g);
+}
+// a retaining wall from rows of [faceTop, faceBottom, capBack, innerBottom, s, h]
+function wallStrip(rows, n) {
+  const pos = [], uv = [], idx = [];
+  const quad = (a, b, c, d, u0, u1, v0, v1) => { const q = pos.length / 3; pos.push(...a, ...b, ...c, ...d); uv.push(u0, v1, u0, v0, u1, v1, u1, v0); idx.push(q, q + 1, q + 2, q + 2, q + 1, q + 3); };
+  for (let i = 0; i + 1 < n; i++) {
+    const A = rows.slice(i * 6, i * 6 + 6), Bq = rows.slice((i + 1) * 6, (i + 1) * 6 + 6), u0 = A[4] * 0.5, u1 = Bq[4] * 0.5;
+    quad(A[0], A[1], Bq[0], Bq[1], u0, u1, 0, A[5] * 0.5);   // the face
+    quad(A[2], A[0], Bq[2], Bq[0], u0, u1, 0, 0.2);          // the cap
+    quad(A[3], A[2], Bq[3], Bq[2], u0, u1, 0, 0.3);          // the parapet's inner side
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+// make every triangle face its vertex normals' way (the top strips' normals point up)
+function fixWinding(g) {
+  const p = g.attributes.position, n = g.attributes.normal, ix = g.index.array, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let t = 0; t < ix.length; t += 3) {
+    a.fromBufferAttribute(p, ix[t]); b.fromBufferAttribute(p, ix[t + 1]); c.fromBufferAttribute(p, ix[t + 2]);
+    const fy = (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);   // -(cross).y sign
+    if (fy > 0) { const k = ix[t + 1]; ix[t + 1] = ix[t + 2]; ix[t + 2] = k; }
+  }
+  for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0);
+  return g;
 }
 const SLOPE_LOTS = [];
 const BOWLX = VC.BOWL.x, BOWLZ = VC.BOWL.z;
@@ -801,8 +1045,8 @@ function moveBatch(src, dst, x, y, z, ry) {
   src.parts.clear();
 }
 // a small house: walls, a hip roof, a strip of windows each side, a garden wall
-function houseInto(B, L, R, wm, roofM, winM) {
-  const y = lotY(L) - 0.4, W = L.w, D = L.d, floors = R() < 0.3 ? 2 : 1 + (R() < 0.5 ? 1 : 0), H = floors * 2.8 + 0.4;
+function houseInto(B, L, R, wm, roofM, winM, nF = 0) {
+  const y = L.y !== undefined ? L.y - 0.05 : lotY(L) - 0.4, W = L.w, D = L.d, floors = nF || (R() < 0.3 ? 2 : 1 + (R() < 0.5 ? 1 : 0)), H = floors * 2.8 + 0.4;
   const wallC = WALLS[Math.floor(R() * WALLS.length)], roofC = R() < 0.55 ? (R() < 0.5 ? '#3d6fa8' : '#2f6f9a') : (R() < 0.6 ? '#c4553a' : '#b8483a');
   const S = new Batch();
   S.box('wall', wm, W, H, D, 0, H / 2, 0, 0, wallC);
@@ -822,8 +1066,10 @@ function houseInto(B, L, R, wm, roofM, winM) {
     const g = new THREE.PlaneGeometry(L2, 1.1); const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setX(i, u.getX(i) * L2 / 2.4);
     g.translate(0, 0.4 + f * 2.8 + 1.5, dd / 2 + 0.03); g.rotateY(ry); colorize(g, '#ffffff'); S.add('win', winM, g);
   }
-  // a low garden wall in front
-  if (R() < 0.5) S.box('wall', wm, W + 2, 0.7, 0.3, 0, 0.35 + 0.4, D / 2 + 1.8, 0, '#d8d0bc');
+  // a plinth under it (on a slope or a platform's edge it never floats), a
+  // low garden wall in front
+  S.box('wall', wm, W + 0.3, 2.0, D + 0.3, 0, -0.6, 0, 0, '#cbc3ae');
+  if (R() < 0.5 && L.y === undefined) S.box('wall', wm, W + 2, 0.7, 0.3, 0, 0.35 + 0.4, D / 2 + 1.8, 0, '#d8d0bc');
   moveBatch(S, B, L.x, y, L.z, L.rot);
 }
 
@@ -834,7 +1080,7 @@ function cutting(G, world, col, use, place) {
   // the slide: a heap of rubble along the west side of the deep stretch,
   // pushed back off the road; boulders on its foot
   const rocks = [];
-  for (let z = -470; z > -503; z -= 1.3) for (let k = 0; k < 5; k++) {
+  for (let z = -470; z > -490; z -= 1.3) for (let k = 0; k < 5; k++) {
     // a heap against the west wall: big blocks at its foot, smaller up the slope
     const p = at(z + (R() - 0.5), -(VC.CUT.hw - 0.3 + k * 1.0 + R() * 0.5));
     if (!p) continue;
@@ -849,10 +1095,10 @@ function cutting(G, world, col, use, place) {
   }
   // traffic cones along the rubble, two barriers, a ROAD WORKS sign, the crew's hut
   const cone = () => { const g = new THREE.Group(); O.cyl(0.03, 0.2, 0.62, '#f07a2a', 0, 0.33, 0, g, 10); O.cyl(0.13, 0.155, 0.12, '#ffffff', 0, 0.3, 0, g, 10); O.box(0.42, 0.04, 0.42, '#2a2a2a', 0, 0.02, 0, g); return g; };
-  for (let z = -470; z > -502; z -= 3.2) { const p = at(z, -(VC.CUT.hw - 1.4)); if (p) { place(cone(), p.x, p.z, R() * 6); col({ x: p.x, z: p.z, r: 0.25 }); } }
+  for (let z = -470; z > -489; z -= 3.2) { const p = at(z, -(VC.CUT.hw - 1.4)); if (p) { place(cone(), p.x, p.z, R() * 6); col({ x: p.x, z: p.z, r: 0.25 }); } }
   const barrier = () => { const g = new THREE.Group(), t = O.words('vc_barrier', 256, 32, (x, w, h) => { for (let k = 0; k < 8; k++) { x.fillStyle = k % 2 ? '#ffffff' : '#e8402e'; x.beginPath(); x.moveTo(k * 32, 0); x.lineTo(k * 32 + 32, 0); x.lineTo(k * 32 + 16, h); x.lineTo(k * 32 - 16, h); x.fill(); } });
     O.put(new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.28, 0.06), O.texm(t)), g, 0, 0.95, 0); for (const sx of [-0.95, 0.95]) { O.box(0.06, 1.0, 0.06, '#e8e2d2', sx, 0.5, 0, g); O.box(0.5, 0.06, 0.5, '#e8e2d2', sx, 0.03, 0, g); } return g; };
-  for (const z of [-468, -503]) { const p = at(z, -(VC.CUT.hw - 1.1)); if (p) { place(barrier(), p.x, p.z, p.ry + Math.PI / 2); col({ box: true, x: p.x, z: p.z, hw: 1.1, hd: 0.2, rot: p.ry + Math.PI / 2 }); } }
+  for (const z of [-468, -490]) { const p = at(z, -(VC.CUT.hw - 1.1)); if (p) { place(barrier(), p.x, p.z, p.ry + Math.PI / 2); col({ box: true, x: p.x, z: p.z, hw: 1.1, hd: 0.2, rot: p.ry + Math.PI / 2 }); } }
   {
     const p = at(-462, -(VC.CUT.hw + 4.2));
     const hut = O.shed({ W: 3.6, D: 2.6, wood: '#d8b23a', roof: '#6a7a8a' }); place(hut, p.x, p.z, p.ry + Math.PI / 2);
@@ -933,6 +1179,100 @@ function benches(G, world, col, place) {
   for (const [x, z, r] of [[-129, -700, -Math.PI / 2 + 0.2], [-123, -722, -Math.PI / 2], [-123, -750, -Math.PI / 2], [-129, -772, -Math.PI / 2 - 0.25]]) spots.push([x + 3.5, z, r + Math.PI]);
   for (const [x, z, r] of spots) { place(bench(), x, z, r); col({ box: true, x, z, hw: 0.95, hd: 0.35, rot: r }); }
 }
+// the overlook at the crest (viridian.js OVERLOOK): the parapet is the
+// lining's wall; two coin telescopes, a bench, a panorama board
+function overlook(G, col, use, place) {
+  const O2 = VC.OVERLOOK, y = O2.y;
+  for (const x of [-16.5, -8.5]) {
+    const g = O.coinTelescope({ col: '#3f7a74' }); place(g, x, O2.z0 + 1.1, Math.PI, y); col({ x, z: O2.z0 + 1.1, r: 0.4 });
+    use(x, O2.z0 + 2.4, 'Look', ['Through the telescope: the whole valley.', 'The lake with the mountains in it, the POKéMON CENTER\'s red dome, the towers of downtown, and the forest past Route 2 in the north.'], 1.2);
+  }
+  { const x = -20.2, z = (O2.z0 + O2.z1) / 2; const g = noticeBoard('VIRIDIAN VALLEY', ['VIRIDIAN CITY', 'The Eternally Green', 'Paradise', 'pop. 200,000'], { style: 'pinned', frame: '#7a5a3a', roof: '#3f7a5a', accent: '#3fa7a0' });
+    place(g, x, z, Math.PI / 2, y); col({ x, z, r: 0.5 });
+    use(x + 1.2, z, 'Read', ['VIRIDIAN VALLEY', 'An old crater ringed by mountains. The lake in the west fills its deepest part; the city grew round the old town in the middle.', 'VIRIDIAN CITY: The Eternally Green Paradise.']); }
+  { const bx = -12.5, bz = O2.z1 - 1.2; place(benchG(), bx, bz, Math.PI, y); col({ box: true, x: bx, z: bz, hw: 0.95, hd: 0.35, rot: 0 }); }
+  place(O.streetLamp({ h: 4.2 }), -3.6, O2.z1 - 1.2, 0, y); col({ x: -3.6, z: O2.z1 - 1.2, r: 0.22 });
+}
+const benchG = () => { const g = new THREE.Group(), w = O.texm(O.planks('#a87a4c'));
+  for (let i = 0; i < 3; i++) O.box(1.8, 0.06, 0.13, w, 0, 0.48, -0.16 + i * 0.16, g);
+  for (let i = 0; i < 2; i++) O.box(1.8, 0.13, 0.05, w, 0, 0.75 + i * 0.2, -0.28, g);
+  for (const sx of [-0.8, 0.8]) { O.box(0.07, 0.48, 0.5, '#2f4a40', sx, 0.24, 0, g); O.box(0.07, 0.6, 0.07, '#2f4a40', sx, 0.8, -0.3, g); } return g; };
+// the streets lived in (worker 36): zebra crossings, bins and planters along
+// the pavements, bus stops, vending machines, café tables by the shops
+function streetLife(G, col, use, place, yawTo) {
+  const R = rng(3470), B = new Batch(), wm = vcMat('vc_wall_vc');
+  const lines = matCache('vc_lines', () => { const m = O.flat('#f2efe2'); m.polygonOffset = true; m.polygonOffsetFactor = -3; m.polygonOffsetUnits = -3; return m; });
+  const Z = new THREE.Group(); Z.name = 'vc_crossings'; G.add(Z);
+  const clearOf = (x, z, r) => {
+    for (const q of STORY.bikeRoute) if (Math.hypot(q[0] - x, q[1] - z) < r + 4) return false;
+    for (const q of Object.values(STORY.perches)) if (q && Math.hypot(q[0] - x, q[2] - z) < r + 1) return false;
+    for (const q of STORY.travellers) if (Math.hypot(q[0] - x, q[1] - z) < r + 2) return false;
+    for (const P of Object.values(PADS)) if (VC.padDist(P, x, z) < r + 1.5) return false;
+    return true;
+  };
+  // the street's point and direction s metres along it
+  const ptAt = (S, s) => {
+    let acc = 0;
+    for (let i = 0; i + 1 < S.pts.length; i++) {
+      const [ax, az] = S.pts[i], [bx, bz] = S.pts[i + 1], l = Math.hypot(bx - ax, bz - az);
+      if (acc + l >= s || i + 2 === S.pts.length) { const t = Math.min(1, (s - acc) / l); return { x: ax + (bx - ax) * t, z: az + (bz - az) * t, tx: (bx - ax) / l, tz: (bz - az) / l }; }
+      acc += l;
+    }
+  };
+  // a crossing (only on the street's own asphalt: not in a round place, not
+  // where another street crosses)
+  const zebra = (S, s) => {
+    const { x, z, tx, tz } = ptAt(S, s), rw = S.hw - 3.4;
+    if (ROUNDS_NEAR(x, z, 5)) return false;
+    for (const S2 of VC.STREETS) if (S2 !== S && S2.kind !== 'prom' && VC.streetNear(S2.pts, x, z).d < S2.hw + 2) return false;
+    for (let o = -rw + 0.4; o < rw - 0.2; o += 1.0) groundMesh(Z, ribbon([[x - tx * 1.6, z - tz * 1.6], [x + tx * 1.6, z + tz * 1.6]], o, o + 0.5, 0.11, 1, 1), lines, 'vc_zebra');
+    return true;
+  };
+  const len = (S) => { let a = 0; for (let i = 0; i + 1 < S.pts.length; i++) a += Math.hypot(S.pts[i + 1][0] - S.pts[i][0], S.pts[i + 1][1] - S.pts[i][1]); return a; };
+  for (const S of VC.STREETS) {
+    if (S.kind !== 'road') continue;
+    const L = len(S);
+    // a crossing near each end, and every ~45 m on the long avenues
+    // a crossing near each end (the first place clear of the junction), and every ~45 m on the long avenues
+    for (let s = 2; s < L / 2; s += 1) if (zebra(S, s)) break;
+    for (let s = L - 2; s > L / 2; s -= 1) if (zebra(S, s)) break;
+    for (let s = 45; s < L - 30; s += 45) zebra(S, s);
+    // along both pavements: bins, planters with shrubs, every ~13 m, between the trees
+    for (let i = 0; i + 1 < S.pts.length; i++) {
+      const [ax, az] = S.pts[i], [bx, bz] = S.pts[i + 1], l = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / l, nz = (bx - ax) / l, ry = Math.atan2(bx - ax, bz - az);
+      for (let d = 10; d < l - 3; d += 13) for (const sd of [-1, 1]) {
+        const x = ax + (bx - ax) * d / l + nx * (S.hw - 1.0) * sd, z = az + (bz - az) * d / l + nz * (S.hw - 1.0) * sd;
+        if (VC.walkF(x, z) > -0.6 || !clearOf(x, z, 1) || ROUNDS_NEAR(x, z, 2)) continue;
+        let other = false; for (const S2 of VC.STREETS) if (S2 !== S && VC.streetNear(S2.pts, x, z).d < S2.hw + 1.5) other = true;
+        if (other) continue;
+        const y = height(x, z);
+        if (R() < 0.5) {
+          B.box('planter', wm, 1.8, 0.6, 0.9, x, y + 0.3, z, ry, '#c9bfa8');
+          B.box('planter', wm, 1.6, 0.12, 0.7, x, y + 0.6, z, ry, '#5a4636');
+          PLANTS.bushes.push({ x, z, y: y + 0.62, rot: R() * 6.28, s: 0.55 + R() * 0.2 });
+          col({ box: true, x, z, hw: 0.9, hd: 0.45, rot: ry });
+        } else {
+          const g = new THREE.CylinderGeometry(0.28, 0.24, 0.9, 10); g.translate(x, y + 0.45, z); colorize(g, '#2f5a4a'); B.add('planter', wm, g);
+          const t = new THREE.CylinderGeometry(0.31, 0.31, 0.08, 10); t.translate(x, y + 0.94, z); colorize(t, '#3a3d46'); B.add('planter', wm, t);
+          col({ x, z, r: 0.32 });
+        }
+      }
+    }
+  }
+  const P = new THREE.Group(); P.name = 'vc_streetlife'; G.add(P); B.flush(P, { shadow: true, outline: undefined, name: 'vc_street' });
+  // bus stops on Evergreen Avenue (both sides) and Lakeside Road
+  for (const [x, z, ry] of [[84, -632.2, Math.PI], [128, -616, 0], [-80, -640.6, Math.PI + 0.16]]) {
+    if (!clearOf(x, z, 2)) continue;
+    const g = O.busShelter({ col: '#3f8a5a', roof: '#d8d0bc' }); place(g, x, z, ry); col({ box: true, x, z, hw: 1.9, hd: 0.8, rot: ry });
+    use(x + Math.sin(ry) * 1.5, z + Math.cos(ry) * 1.5, 'Read', ['VIRIDIAN CITY BUS', 'Lines 1 and 2: Evergreen Ave, the POKéMON CENTER, the lake.', 'Every 10 minutes. (The Route 1 line is suspended: road works.)']);
+  }
+  // vending machines and café tables
+  for (const [x, z, ry, k] of [[28, -607, Math.PI, 'v'], [-6.5, -607, Math.PI, 'v'], [-60, -626.6, Math.PI, 'c'], [-48, -626.2, Math.PI, 'c'], [36, -615.5, 0, 'c']]) {
+    if (!clearOf(x, z, 1) || VC.walkF(x, z) > -0.5) continue;
+    if (k === 'v') { place(O.vendingMachine({ col: '#d23a34' }), x, z, ry); col({ box: true, x, z, hw: 0.6, hd: 0.45, rot: ry }); use(x + Math.sin(ry) * 1.1, z + Math.cos(ry) * 1.1, 'Look', ['A vending machine. FRESH WATER, SODA POP, LEMONADE.', 'You don\'t need anything right now.']); }
+    else { place(O.bistroSet({}), x, z, R() * 6); col({ x, z, r: 0.9 }); }
+  }
+}
 function clockTower(G, col, use) {
   const [tx, , tz] = STORY.perches.clockTower;
   const g = O.clockTower({ h: 22, w: 4.6 }); g.position.set(tx, height(tx, tz) - 0.3, tz); G.add(g);
@@ -959,7 +1299,7 @@ function plantsPlan(fronts) {
   const occ = (x, z, m) => lots.some((L) => inLot(L, x, z, m));
   const near = (x, z, r) => T.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < r * r);
   const tree = (k, x, z, s) => T.push({ k, x, z, y: height(x, z) - 0.05, rot: R() * 6.28, s });
-  const lakeD = (x, z) => Math.hypot(x - VC.LAKE.x, z - VC.LAKE.z) - VC.LAKE.r;
+  const lakeD = (x, z) => VC.lakeSD(x, z);
   // street trees in the pavements of the avenues, every ~12 m
   for (const S of VC.STREETS) {
     if (S.kind !== 'road') continue;
@@ -978,15 +1318,17 @@ function plantsPlan(fronts) {
   // gardens, parks and the slopes: wherever nothing is built and nobody walks
   for (let gx = -470; gx < 470; gx += 5.5) for (let gz = -470; gz > -1080; gz -= 5.5) {
     const x = gx + (R() - 0.5) * 4, z = gz + (R() - 0.5) * 4, e = VC.bowlE(x, z), ld = lakeD(x, z);
-    if (e > 1.4 || ld < 3) continue;
+    if (e > 1.5 || ld < 3) continue;
     const forest = z < -888 && Math.abs(x + 20) < 160 && e < 1.15;
-    const p = forest ? 0.55 : e > 1.15 ? 0.1 : e > 0.95 ? 0.32 : e > 0.6 ? 0.24 : ld < 30 ? 0.3 : 0.16;
+    // (the crater's wooded walls round the lake's far side, not the beach)
+    const rim = ld < 75 && x < -190 && Math.hypot(x - VC.BEACH.x, z - VC.BEACH.z) > VC.BEACH.r * 0.7;
+    const p = forest || rim ? 0.55 : e > 1.15 ? 0.26 : e > 0.95 ? 0.32 : e > 0.6 ? 0.24 : ld < 30 ? 0.3 : 0.16;
     if (R() > p) continue;
-    if (VC.walkF(x, z) < 2.2 || occ(x, z, 1.6)) continue;
+    if (VC.walkF(x, z) < 2.2 || occ(x, z, 1.6) || VC.terraceAt(x, z, 0.8)) continue;
     let pad = false; for (const P of Object.values(PADS)) if (VC.padDist(P, x, z) < 2) pad = true;
     if (pad || near(x, z, forest ? 4.5 : 6)) continue;
     if (VC.cutRock(x, z) || (z > -575 && z < -470 && Math.abs(x - 4) < 70 + (z + 470) * -0.6)) continue;   // (the view from the crest stays open)
-    const k = forest ? ['scotspine', 'giant', 'beech', 'linden', 'scotspine', 'oak'][Math.floor(R() * 6)]
+    const k = forest || rim ? ['scotspine', 'giant', 'beech', 'linden', 'scotspine', 'oak'][Math.floor(R() * 6)]
       : e > 0.97 ? ['scotspine', 'beech', 'giant', 'scotspine', 'linden', 'cypress'][Math.floor(R() * 6)]
       : e > 0.7 ? ['tiered', 'beech', 'cypress', 'linden', 'tiered', 'shade'][Math.floor(R() * 6)]
         : ['linden', 'tiered', 'shade', 'cypress', 'oak', 'linden'][Math.floor(R() * 6)];

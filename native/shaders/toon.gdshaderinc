@@ -64,6 +64,17 @@ void fragment() {
 			float dn_r = fract(sin(dot(floor(dn_wp.xz / 3.5) + floor(dn_wp.y / 2.6) * 7.0, vec2(12.9898, 78.233))) * 43758.5453);
 			float dn_on = 1.0 - smoothstep(dn_glow.y - 0.04, dn_glow.y, dn_r);
 			vec3 dn_room = mix(vec3(1.0, 0.66, 0.3), vec3(1.0, 0.82, 0.5), fract(dn_r * 17.0));
+			if (night_glow > 1.1) {
+				// offices (Viridian's towers): most dark by night, a few rooms and a
+				// few whole floors still lit (the cleaners, a late meeting), in a
+				// cooler light; each tower and floor its own
+				float dn_f = floor(dn_wp.y / 3.3);
+				float dn_b = fract(sin(dot(floor(dn_wp.xz / 19.0), vec2(41.3, 97.1))) * 24634.6345);
+				float dn_fl = fract(sin(dn_f * 17.17 + dn_b * 113.7) * 43758.5453);
+				float dn_k = dn_glow.y * 0.28;
+				dn_on = max(1.0 - smoothstep(dn_k - 0.03, dn_k, dn_r), 1.0 - smoothstep(dn_glow.y * 0.13 - 0.02, dn_glow.y * 0.13, dn_fl));
+				dn_room = mix(vec3(0.85, 0.93, 1.0), vec3(1.0, 0.86, 0.6), step(0.6, fract(dn_r * 23.0 + dn_b)));
+			}
 			EMISSION = mix(c.rgb * 0.25, dn_room, 0.85) * dn_on * dn_sun.a * 1.15;
 			ALBEDO = c.rgb * (1.0 - 0.6 * dn_on * dn_sun.a);
 		} else if (night_glow < 2.5 || (dn_glow.x > 0.0 && dn_is_lamp(albedo.rgb * COLOR.rgb))) {

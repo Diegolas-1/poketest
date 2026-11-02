@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://y6e21bqnlrbb"
-path="res://.godot/imported/4fdd8a6952b421e4.png-31818b6660b4b80f0cad502e51a3088f.ctex"
+uid="uid://r02v2007ulpj"
+path="res://.godot/imported/8e0f7f033e4dd817.png-17e47ab8b33dbcc2dadf0edbc153cc73.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://world/r/viridian_outskirts/4fdd8a6952b421e4.png"
-dest_files=["res://.godot/imported/4fdd8a6952b421e4.png-31818b6660b4b80f0cad502e51a3088f.ctex"]
+source_file="res://world/r/viridian_south/8e0f7f033e4dd817.png"
+dest_files=["res://.godot/imported/8e0f7f033e4dd817.png-17e47ab8b33dbcc2dadf0edbc153cc73.ctex"]
 
 [params]
 

@@ -813,6 +813,7 @@ func _on_setting(key: String, v) -> void:
 			env.fog_depth_begin = 90.0 * f
 			env.fog_depth_end = 430.0 * f
 			if cam and not indoors: cam.far = maxf(env.fog_depth_end + 50.0, 2000.0 * float(Settings.get_value("lod")))
+			if scenery: scenery.set("_haze_k", -1.0)  # (Viridian's valley haze: scenery.gd)
 		"exposure":
 			env.tonemap_exposure = float(v)
 			if interior: interior.env.tonemap_exposure = float(v)

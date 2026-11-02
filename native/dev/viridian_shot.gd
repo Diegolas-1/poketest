@@ -25,6 +25,9 @@ var _eye: Array = []
 const V := {
 	"reveal": {"pos": Vector2(1.6, -500.0), "yaw": 0.0, "pitch": 0.1, "dist": 6.5},
 	"reveal_wide": {"pos": Vector2(1.6, -498.0), "eye": Vector3(1.0, 31.5, -494.0), "look": Vector3(-20.0, 18.0, -680.0)},
+	# the overlook at the crest (viridian.js OVERLOOK): Ash at the parapet, and the wide view from it
+	"overlook": {"pos": Vector2(-12.0, -519.0), "yaw": 0.3, "pitch": 0.12, "dist": 7.0},
+	"overlook_wide": {"pos": Vector2(-12.0, -519.0), "eye": Vector3(-8.0, 31.0, -506.0), "look": Vector3(-70.0, 22.0, -700.0)},
 	"cutting": {"pos": Vector2(0.0, -478.0), "yaw": 0.08, "pitch": 0.18, "dist": 7.5},
 	"plaza": {"pos": Vector2(9.0, -612.0), "yaw": 0.25, "pitch": 0.2, "dist": 9.0},
 	"avenue": {"pos": Vector2(40.0, -624.0), "yaw": -PI / 2 + 0.2, "pitch": 0.18, "dist": 8.0},

@@ -867,7 +867,7 @@ export function height(x, z) {
 
 // water level at a point (sea, pond or stream)
 export function waterLevel(x, z) {
-  if (z < VC.CITY_Z - 150 && Math.hypot(x - VC.LAKE.x, z - VC.LAKE.z) < VC.LAKE.r + 10) return VC.LAKE.y;
+  if (z < VC.CITY_Z - 100 && VC.lakeSD(x, z) < 10) return VC.LAKE.y;
   if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 2) return POND.y;
   const s = streamAt(x, z);
   if (s.d < 4) return Math.max(SEA_Y, s.y);
@@ -883,6 +883,7 @@ const GRASS_A = C('#72c94a'), GRASS_B = C('#9ad655'), GRASS_C = C('#56b04a'), GR
 const DIRT_D = C('#cfa86e'), SAND = C('#f7dc9c'), SAND_W = C('#d9b67a'), SAND_DRY = C('#fde9b8');
 const ROCK = C('#a08890'), ROCK_D = C('#7a6070'), MUD = C('#8a7a52'), PLAZA_C = C('#ead7a6'), SOIL = C('#a0644a');
 
+const VIR_FOREST = new THREE.Color('#2f6a30'), VIR_FOREST_HI = new THREE.Color('#2f5a48');
 export function groundColor(x, z, h, slope, out) {
   const n = fbm(x * 0.08, z * 0.08, 3), n2 = fbm(x * 0.4 + 11, z * 0.4, 2);
   out.copy(GRASS_A).lerp(GRASS_B, smooth(0.35, 0.7, n)).lerp(GRASS_C, smooth(0.55, 0.85, n2) * 0.5);
@@ -909,6 +910,9 @@ export function groundColor(x, z, h, slope, out) {
     const s = SAND.clone().lerp(SAND_DRY, smooth(0.6, 1.4, h - SEA_Y)).lerp(SAND_W, 1 - smooth(0.05, 0.35, h - SEA_Y));
     out.lerp(s, sandK);
   }
+  // Viridian's mountains: wooded all the way up (darker, bluer greens with height)
+  if (z < VC.CITY_Z - 70) { const fk = Math.max(smooth(38, 70, h), smooth(0.86, 1.0, VC.bowlE(x, z)) * smooth(14, 30, h)); if (fk > 0) out.lerp(VIR_FOREST.clone().lerp(VIR_FOREST_HI, smooth(90, 260, h) * 0.6), fk * smooth(-506, -540, z) * 0.85); }
+  if (z < VC.CITY_Z - 200) { const bs = VC.beachSand(x, z); if (bs > 0) out.lerp(SAND.clone().lerp(SAND_W, 1 - smooth(VC.LAKE.y - 0.4, VC.LAKE.y + 0.3, h)), bs); }
   return ED.paint(x, z, R1.tint(x, z, out));
 }
 
@@ -1191,7 +1195,7 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
       void main(){
         vec3 V = normalize(cameraPosition - vW);
         float fr = pow(1.0 - max(V.y, 0.0), 3.0);
-        float edge = smoothstep(uR - 16.0, uR - 2.0, length(vW.xz - uC));
+        float edge = vUv.x;
         vec3 deep = vec3(0.10, 0.36, 0.52), shal = vec3(0.30, 0.66, 0.66), sky = vec3(0.74, 0.88, 0.95);
         vec3 c = mix(deep, shal, edge * 0.8);
         c = mix(c, sky, 0.25 + fr * 0.6);
@@ -1204,8 +1208,25 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
       }`;
     const m = new THREE.ShaderMaterial({ uniforms: { uTime, uFlow: { value: 5 }, fogColor: { value: C(fog.color) }, fogNear: { value: 160 }, fogFar: { value: 900 },
       uC: { value: new THREE.Vector2(VC.LAKE.x, VC.LAKE.z) }, uR: { value: VC.LAKE.r + 8 } }, vertexShader: freshVert, fragmentShader: lakeFrag, transparent: true });
-    const g = new THREE.CircleGeometry(VC.LAKE.r + 8, 120).rotateX(-Math.PI / 2);
-    g.translate(VC.LAKE.x, VC.LAKE.y, VC.LAKE.z);
+    // (a grid over the lake's shape, out to just under its banks; uv.x = the
+    // shallows' shelf at the edge: 1 at the shore, 0 out in the deep)
+    const D = VC.LAKE_DISC, st = 3, n = Math.ceil(2 * D.r / st), pos = [], uv = [], idx = [], at = new Map();
+    const vert = (i, j) => {
+      const k = i * 4096 + j; if (at.has(k)) return at.get(k);
+      const x = D.x - D.r + i * st, z = D.z - D.r + j * st, sd = VC.lakeSD(x, z);
+      at.set(k, pos.length / 3); pos.push(x, VC.LAKE.y, z); uv.push(1 - smooth(2, 18, -sd), 0);
+      return at.get(k);
+    };
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const x = D.x - D.r + (i + 0.5) * st, z = D.z - D.r + (j + 0.5) * st;
+      if (VC.lakeSD(x, z) > 7) continue;
+      const a = vert(i, j), b = vert(i + 1, j), c = vert(i + 1, j + 1), d = vert(i, j + 1);
+      idx.push(a, d, b, b, d, c);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(pos.map((v, i) => (i % 3 === 1 ? 1 : 0)), 3));
+    g.setIndex(idx);
     group.add(new THREE.Mesh(g, m));
   }
   // Route 1's creeks and their pools (route1land.js)

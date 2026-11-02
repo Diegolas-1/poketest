@@ -367,7 +367,7 @@ const res = await p.evaluate(async () => {
     mts.traverse((o) => {
       if (!o.isMesh) return;
       const a = o.geometry.attributes, idx = o.geometry.index.array;
-      layers.push({ v: a.position.count, i: idx.length, far: o.material.uniforms.far.value });
+      layers.push({ v: a.position.count, i: idx.length, far: o.material.uniforms.far.value, ...(o.material.uniforms.kind ? { kind: o.material.uniforms.kind.value } : {}) });
       for (let i = 0; i < a.position.count; i++) f.push(a.position.getX(i), a.position.getY(i), a.position.getZ(i), a.normal.getX(i), a.normal.getY(i), a.normal.getZ(i), a.h.getX(i), a.ang.getX(i));
       for (const k of idx) f.push(k);
     });

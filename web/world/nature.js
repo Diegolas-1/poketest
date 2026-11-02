@@ -113,20 +113,25 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
     }
     addMesh(pos, hv, av, idx, far);
   };
-  const addMesh = (pos, hv, av, idx, far) => {
+  const addMesh = (pos, hv, av, idx, far, kind = 0) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('h', new THREE.Float32BufferAttribute(hv, 1));
     g.setAttribute('ang', new THREE.Float32BufferAttribute(av, 1));
     g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.ShaderMaterial({
-      uniforms: { sun: { value: sunDir.clone().normalize() }, far: { value: far } },
+      uniforms: { sun: { value: sunDir.clone().normalize() }, far: { value: far }, ...(kind ? { kind: { value: kind } } : {}) },
       vertexShader: `attribute float h; attribute float ang; varying float vH; varying float vA; varying vec3 vN;
         void main(){ vH = h; vA = ang; vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
       fragmentShader: `uniform vec3 sun; uniform float far; varying float vH; varying float vA; varying vec3 vN;
         float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main(){
           float l = dot(normalize(vN), normalize(sun));
+          ${kind ? `{ vec3 c = mix(vec3(0.13, 0.30, 0.27), vec3(0.34, 0.56, 0.35), smoothstep(-0.05, 0.12, l));
+            c = mix(c, vec3(0.80, 0.90, 0.94), clamp(far + (1.0 - smoothstep(0.0, 0.7, vH)) * (0.45 + far * 0.4), 0.0, 0.94));
+            gl_FragColor = vec4(c, 1.0);
+            #include <colorspace_fragment>
+            return; }` : ''}
           vec3 lit = mix(vec3(0.36, 0.72, 0.86), vec3(0.62, 0.84, 0.92), far);
           vec3 shd = mix(vec3(0.17, 0.42, 0.63), vec3(0.42, 0.66, 0.82), far);
           vec3 c = mix(shd, lit, smoothstep(0.08, 0.16, l));
@@ -145,6 +150,7 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
     const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = -1;
     group.add(mesh);
   };
+  valleyRanges(addMesh);
   layer(1250, 80, 190, 420, 7, 1);
   layer(1000, 60, 90, 260, 3, 0);
   // the two conical peaks at the head of Route 1 (the old map's Mt. pair),
@@ -166,6 +172,56 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
   peak(-300, -1480, 330, 440, 11);
   peak(-20, -1640, 380, 520, 12);
   return group;
+}
+
+// Viridian City's mountains: the valley's own terrain rises into the rim's
+// mountains (viridian.js slopes) but the ground mesh ends 0.5 km out, so two
+// painted ranges stand just past its edges, all round but the south (where
+// Route 1 comes over the rim): a forested ridge line (craggy, with peaks and
+// saddles) and a higher, bluer range behind it. Each a sheet leaning back
+// from its foot (as the far ranges), uv (row, metres along / 10000), drawn
+// by mountains.gdshader kind 1; the native game shows them only from inside
+// the valley (scenery.gd).
+export const VALLEY_C = { x: 20, z: -760 };
+function valleyRanges(addMesh) {
+  const C = VALLEY_C;
+  // the ranges' footprint: a rounded box just past the ground's edges (terrain.js TB)
+  const rad = (t, RXw, RXe, RZ, p = 5) => { const sx = Math.sin(t), cz = Math.cos(t), RX = sx < 0 ? RXw : RXe; return 1 / Math.pow(Math.pow(Math.abs(sx) / RX, p) + Math.pow(Math.abs(cz) / RZ, p), 1 / p); };
+  const range = ({ RXw, RXe, RZ, depth, hMin, hMax, seed, far, t0 = -2.0, t1 = 2.0, step = 9, p = 5 }) => {
+    const r = rng(seed), ph = [r() * 9, r() * 9, r() * 9, r() * 9], rows = 14;
+    // the path, sampled every `step` metres
+    const P = []; let s = 0, prev = null;
+    for (let i = 0; i <= 4000; i++) {
+      const t = t0 + (t1 - t0) * i / 4000, R = rad(t, RXw, RXe, RZ, p), x = C.x + Math.sin(t) * R, z = C.z - Math.cos(t) * R;
+      if (prev) s += Math.hypot(x - prev[0], z - prev[1]);
+      if (!prev || s - P[P.length - 1].s >= step || i === 4000) P.push({ x, z, s, t });
+      prev = [x, z];
+    }
+    const L = P[P.length - 1].s, pos = [], hv = [], av = [], idx = [];
+    for (let i = 0; i < P.length; i++) {
+      const p = P[i], a = p.s / 260;
+      // the crest: big saddles and summits, craggy on top
+      let n = 0.5 + 0.26 * Math.sin(a * 0.9 + ph[0]) + 0.15 * Math.sin(a * 2.3 + ph[1]) + 0.08 * Math.sin(a * 5.1 + ph[2]);
+      n += 0.07 * Math.abs(Math.sin(a * 11.3 + ph[3])) - 0.035 + 0.025 * Math.sin(a * 23.7);
+      let h = hMin + (hMax - hMin) * Math.pow(Math.max(0, n), 1.25);
+      // the ends sink into the ground behind the rim
+      h *= Math.min(1, p.s / 260, (L - p.s) / 260);
+      // outward: away from the valley's middle
+      const q0 = P[Math.max(0, i - 1)], q1 = P[Math.min(P.length - 1, i + 1)];
+      let ox = q1.z - q0.z, oz = -(q1.x - q0.x); const ol = Math.hypot(ox, oz) || 1; ox /= ol; oz /= ol;
+      if (ox * (p.x - C.x) + oz * (p.z - C.z) < 0) { ox = -ox; oz = -oz; }
+      for (let j = 0; j <= rows; j++) {
+        const k = j / rows, rr = (1 - Math.cos(k * Math.PI / 2)) * depth * (0.7 + 0.6 * n);
+        const y = -30 + (h + 30) * Math.sin(k * Math.PI / 2);
+        pos.push(p.x + ox * rr, y, p.z + oz * rr); hv.push(k); av.push(p.s / 10000);
+      }
+      if (i > 0) for (let j = 0; j < rows; j++) { const p0 = (i - 1) * (rows + 1) + j, p1 = i * (rows + 1) + j; idx.push(p0, p0 + 1, p1, p1, p0 + 1, p1 + 1); }
+    }
+    addMesh(pos, hv, av, idx, far, 1);
+  };
+  // (the ground ends at x = +-495 and z = -1260)
+  range({ RXw: 585, RXe: 545, RZ: 560, depth: 90, hMin: 260, hMax: 520, seed: 361, far: 0.22, p: 9 });
+  range({ RXw: 860, RXe: 820, RZ: 840, depth: 120, hMin: 380, hMax: 700, seed: 362, far: 0.5, t0: -1.85, t1: 1.85 });
 }
 
 // ---------- Cinnabar Island ----------

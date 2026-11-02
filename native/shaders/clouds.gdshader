@@ -7,10 +7,11 @@ render_mode unshaded, fog_disabled, blend_mix, depth_draw_never, cull_disabled, 
 
 uniform sampler2D atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform float spin = 0.003;
+uniform vec3 shift = vec3(0.0);   // (in Viridian's valley: scenery.gd)
 
 void vertex() {
 	float a = TIME * spin, c = cos(a), s = sin(a);
-	vec3 p = vec3(VERTEX.x * c + VERTEX.z * s, VERTEX.y, -VERTEX.x * s + VERTEX.z * c);
+	vec3 p = vec3(VERTEX.x * c + VERTEX.z * s, VERTEX.y, -VERTEX.x * s + VERTEX.z * c) + shift;
 	vec4 vp = MODELVIEW_MATRIX * vec4(p, 1.0);
 	vp.xy += UV2;
 	POSITION = PROJECTION_MATRIX * vp;

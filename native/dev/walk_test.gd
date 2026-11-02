@@ -82,6 +82,7 @@ func _init() -> void:
 		[Vector2(48, -626), Vector2(48, -700), Vector2(48, -740), Vector2(50, -764), Vector2(62, -769), Vector2(75, -775)],
 		[Vector2(-22, -632), Vector2(-22, -730), Vector2(-22, -790), Vector2(-22, -878)],
 		[Vector2(-22, -727), Vector2(26, -728), Vector2(46, -729)],
+		[Vector2(1.6, -505), Vector2(-15, -512), Vector2(-15, -519)],   # onto the overlook at the crest
 	]
 	for r in routes:
 		var p := Vector3(r[0].x, W.height_at(r[0].x, r[0].y), r[0].y)
@@ -99,7 +100,8 @@ func _init() -> void:
 		check(got > total * 0.93 and end_d < 2.0, "Viridian walk %s .. %s (%d of %d steps, ends %.1f m off)" % [r[0], r[r.size() - 1], got, total, end_d])
 	var stops := [[Vector2(80, -624), Vector2(80, -650), "a tower's front on Evergreen Avenue"], [Vector2(-126, -720), Vector2(-160, -720), "the railing over the lake"],
 		[Vector2(-22, -870), Vector2(-22, -900), "Route 2's gate"], [Vector2(-150, -805), Vector2(-185, -830), "Route 22's gate"], [Vector2(10, -646), Vector2(10, -672), "the Center's doors"],
-		[Vector2(0, -485), Vector2(-25, -485), "the cutting's side"]]
+		[Vector2(0, -485), Vector2(-25, -485), "the cutting's side"], [Vector2(-15, -512), Vector2(-35, -512), "the overlook's parapet"],
+		[Vector2(-15, -512), Vector2(-15, -540), "the overlook's parapet (north)"]]
 	for st in stops:
 		var a2: Vector2 = st[0]; var b2: Vector2 = st[1]
 		var p := Vector3(a2.x, W.height_at(a2.x, a2.y), a2.y)

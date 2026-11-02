@@ -7,8 +7,6 @@ shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_always, cull_disabled;
 
 #include "res://shaders/aces.gdshaderinc"
-uniform vec2 centre = vec2(-245.0, -730.0);
-uniform float radius = 120.0;
 varying vec3 v_w;
 
 float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -27,13 +25,24 @@ void fragment() {
 	// the sky: its own bands (day and night), as the sky shader paints them
 	vec3 sky = mix(dn_sky_hor.rgb, dn_sky_mid.rgb, smoothstep(0.02, 0.3, el));
 	sky = mix(sky, dn_sky_top.rgb, smoothstep(0.3, 0.9, el));
-	// the mountains round the bowl, upside down near the horizon
-	float ridge = 0.07 + 0.08 * n(vec2(az * 5.0, 1.3)) + 0.03 * n(vec2(az * 17.0, 7.1));
-	float mtn = 1.0 - smoothstep(ridge - 0.01, ridge + 0.01, el);
-	vec3 mcol = mix(vec3(0.16, 0.34, 0.36), dn_fog.rgb * 0.8, 0.35);
-	vec3 refl = mix(sky, mcol * dn_water(), mtn * 0.85);
+	// the crater's walls round the lake, upside down: the near wooded rim (high
+	// where the mountains stand close, to the west), a bluer range over it,
+	// and toward the city (east) the low line of its roofs and towers
+	vec2 dir = -V.xz / max(length(V.xz), 1e-3);
+	float west = clamp(-dir.x * 0.8 + 0.25, 0.0, 1.0);
+	float rim = mix(0.07, 0.34, west) + 0.07 * n(vec2(az * 4.0, 1.3)) + 0.025 * n(vec2(az * 15.0, 7.1));
+	float back = rim + 0.05 + 0.08 * n(vec2(az * 2.6, 3.7)) + 0.02 * n(vec2(az * 9.0, 2.2));
+	float city = (1.0 - west) * step(0.0, dir.x) * (0.03 + 0.05 * step(0.55, n(vec2(az * 40.0, 4.0))));
+	rim = max(rim * mix(0.35, 1.0, west), city);
+	float m1 = 1.0 - smoothstep(rim - 0.006, rim + 0.006, el);
+	float m2 = 1.0 - smoothstep(back - 0.006, back + 0.006, el);
+	vec3 air = mix(dn_fog.rgb, dn_sky_hor.rgb, 0.3);
+	vec3 green = mix(vec3(0.12, 0.27, 0.22), vec3(0.22, 0.42, 0.30), n(vec2(az * 30.0, el * 60.0))) * dn_water();
+	vec3 blue = mix(vec3(0.26, 0.40, 0.50) * dn_water(), air, 0.5);
+	vec3 refl = mix(sky, blue, m2 * 0.9);
+	refl = mix(refl, mix(green, air, 0.18 + 0.3 * smoothstep(0.0, rim, el)), m1 * 0.92);
 	// the water itself: deep blue-green, lighter over the shelf at the edge
-	float edge = smoothstep(radius - 18.0, radius - 2.0, length(v_w.xz - centre));
+	float edge = UV.x;
 	vec3 deep = mix(vec3(0.07, 0.26, 0.38), vec3(0.24, 0.56, 0.56), edge * 0.8) * dn_water();
 	float fr = 0.35 + 0.6 * pow(1.0 - clamp(V.y, 0.0, 1.0), 3.0);
 	vec3 c = mix(deep, refl, fr);
