@@ -14,7 +14,9 @@ shows cell 0; its blink moves half a texture to the right, which is cell 2; the 
 cells are expressions for actor.gd set_expression(col, row).
 
 mouth.png is the old look's mouth: cut from old_face.png, the old face drawn from the
-front into the same frame by bake_ash2.mjs (run the bake once first), a single cell.
+front into the same frame by bake_ash2.mjs (run the bake once first), a single cell. The
+old mouth is a pale line on a pale face (it would read white on the V2's skin), so its
+shape is kept and inked dark (MOUTH_INK), its faint strokes firmed up (--mouth-gain).
 
 Where the eyes and the mouth sit on the head, and how big, is not here: the look's
 "face" placement (cast.json, the tunables over it, set live in dev/face_tool.gd).
@@ -29,6 +31,8 @@ HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ash2_face')
 args = {k.lstrip('-'): float(v) for k, v in (a.split('=') for a in sys.argv[1:] if '=' in a)}
 CELL = int(args.get('cell', 512))
 EYE_LINE = args.get('eye-line', -0.31)   # cell 0's eyes' centre line, head radii from the centre
+MOUTH_INK = (40, 18, 16)                 # the mouth line's colour (a dark, warm ink, like the eyes' lines)
+MOUTH_GAIN = args.get('mouth-gain', 1.6)  # the old mouth's faint alpha, firmed up
 COLS = 4
 
 def clear_flat(rgb, bg):
@@ -81,7 +85,8 @@ if os.path.exists(old):
     ys, xs = np.mgrid[0:half, 0:half]
     u = xs / half * 2 - 1; v = 1 - ys / half * 2
     keep = (v < -0.52) & (v > -0.95) & (np.abs(u) < 0.42)
-    a[..., 3] = (a[..., 3] * keep).astype(np.uint8)
+    a[..., 3] = np.clip(a[..., 3].astype(float) * keep * MOUTH_GAIN, 0, 255).astype(np.uint8)
+    a[..., :3] = MOUTH_INK                 # (its shape, inked)
     mouth = Image.fromarray(a, 'RGBA').resize((CELL, CELL), Image.LANCZOS)
     mouth.save(os.path.join(HERE, 'mouth.png'), optimize=True)
     rows = np.where(a[..., 3] > 128)[0]

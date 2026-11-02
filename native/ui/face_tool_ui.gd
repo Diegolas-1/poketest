@@ -2,7 +2,8 @@ class_name FaceToolUI
 extends Control
 # Placing Ash V2's face, on the phone: a live picture of his head (a viewport of its own,
 # drag it to turn him) and sliders for the eyes' and the mouth's x, y and size (head radii
-# from the head's centre, +y up, +x his left; actor.gd set_face). A change shows at once
+# from the head's centre, +y up, +x his left; actor.gd set_face), and for how far apart
+# the two eyes are (gap: each slid out from the middle, or in). A change shows at once
 # on the picture and on him in the world (every actor of the look). Save keeps it in
 # user://face.json, which actor.gd lays over the look's placement (cast.json, the tunables)
 # on this device from then on; Copy puts it on the clipboard as the tunables' JSON
@@ -13,7 +14,8 @@ signal closed
 
 const LOOK := "ash2"
 const KEYS := ["eyes", "mouth"]
-const RANGE := {"x": [-0.6, 0.6], "y": [-1.2, 0.8], "scale": [0.4, 1.8]}
+const RANGE := {"x": [-0.6, 0.6], "y": [-1.2, 0.8], "scale": [0.4, 1.8], "gap": [-0.3, 0.3]}
+const FIELDS := {"eyes": ["x", "y", "scale", "gap"], "mouth": ["x", "y", "scale"]}
 const PATH := "user://face.json"
 
 var place := {}
@@ -85,14 +87,14 @@ func _controls() -> Control:
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(box)
 	box.add_child(UITheme.label("PLACE ASH'S FACE", "label", 24, UITheme.TEXT))
-	var hint := UITheme.label("The V2 model's eyes and mouth: where they sit on his head and how big, in head radii. Drag the picture to turn him.", "body", 16, UITheme.TEXT_DIM)
+	var hint := UITheme.label("The V2 model's eyes and mouth: where they sit on his head, how big, and how far apart the eyes are, in head radii. Drag the picture to turn him.", "body", 16, UITheme.TEXT_DIM)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(hint)
 	for k in KEYS:
 		box.add_child(UITheme.label(k.capitalize(), "label", 20, UITheme.YELLOW))
-		for f in ["x", "y", "scale"]:
+		for f in FIELDS[k]:
 			var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); box.add_child(row)
-			var l := UITheme.label({"x": "across", "y": "up / down", "scale": "size"}[f], "body", 18, UITheme.TEXT)
+			var l := UITheme.label({"x": "across", "y": "up / down", "scale": "size", "gap": "apart"}[f], "body", 18, UITheme.TEXT)
 			l.custom_minimum_size.x = 120; row.add_child(l)
 			var s := HSlider.new()
 			s.min_value = RANGE[f][0]; s.max_value = RANGE[f][1]; s.step = 0.005
@@ -120,27 +122,29 @@ func _load() -> void:
 	var dev := CastActor.face_dev()
 	for k in KEYS:
 		var p: Dictionary = dev.get(k, look.get("face", {}).get(k, {}))
-		place[k] = {"x": float(p.get("x", 0.0)), "y": float(p.get("y", 0.0)), "scale": float(p.get("scale", 1.0))}
+		place[k] = {"x": float(p.get("x", 0.0)), "y": float(p.get("y", 0.0)), "scale": float(p.get("scale", 1.0)), "gap": float(p.get("gap", 0.0))}
 	status.text = "Saved on this phone." if not dev.is_empty() else "The game's own placement."
 
-func set_place(key: String, x: float, y: float, scale: float) -> void:
-	place[key] = {"x": x, "y": y, "scale": scale}
+func set_place(key: String, x: float, y: float, scale: float, gap := 0.0) -> void:
+	place[key] = {"x": x, "y": y, "scale": scale, "gap": gap}
 	_apply()
 
 func _apply(changed := "") -> void:
 	for k in KEYS:
 		var p: Dictionary = place[k]
-		preview.set_face(k, p.x, p.y, p.scale)
+		preview.set_face(k, p.x, p.y, p.scale, p.gap)
 		for n in get_tree().get_nodes_in_group("characters"):   # him in the world too
-			if n is CastActor and n.look == LOOK and n != preview: n.set_face(k, p.x, p.y, p.scale)
-		for f in ["x", "y", "scale"]:
+			if n is CastActor and n.look == LOOK and n != preview: n.set_face(k, p.x, p.y, p.scale, p.gap)
+		for f in FIELDS[k]:
 			var sl: HSlider = sliders[k + "." + f][0]
 			if k + "." + f != changed: sl.set_value_no_signal(p[f])
 			sliders[k + "." + f][1].text = "%.3f" % p[f]
 
 func _face() -> Dictionary:
 	var face := {}
-	for k in KEYS: face[k] = {"x": snappedf(place[k].x, 0.001), "y": snappedf(place[k].y, 0.001), "scale": snappedf(place[k].scale, 0.001)}
+	for k in KEYS:
+		face[k] = {"x": snappedf(place[k].x, 0.001), "y": snappedf(place[k].y, 0.001), "scale": snappedf(place[k].scale, 0.001)}
+		if FIELDS[k].has("gap"): face[k].gap = snappedf(place[k].gap, 0.001)
 	return face
 
 # kept on this device, over the look's placement from now on (actor.gd face_dev)

@@ -3,7 +3,7 @@ extends Node
 # face) on its own, full screen. Save writes user://face.json as on the phone; Copy puts
 # the tunables' JSON on the clipboard (res://tunables/cast.json, looks.ash2.face).
 #   godot --path native res://dev/face_tool.tscn
-#   headless check: -- --set=eyes:x,y,scale --set=mouth:x,y,scale [--save] [--shot=/tmp/a.png]
+#   headless check: -- --set=eyes:x,y,scale[,gap] --set=mouth:x,y,scale [--save] [--shot=/tmp/a.png]
 var A := {}
 var ft: FaceToolUI
 var frame := 0
@@ -19,7 +19,7 @@ func _ready() -> void:
 		if s.begins_with("--set="):
 			var kv := s.substr(6).split(":")
 			var v := kv[1].split(",")
-			ft.set_place(kv[0], float(v[0]), float(v[1]), float(v[2]))
+			ft.set_place(kv[0], float(v[0]), float(v[1]), float(v[2]), float(v[3]) if v.size() > 3 else 0.0)
 	if A.has("save"): ft.save()
 
 func _process(_dt: float) -> void:

@@ -302,7 +302,7 @@ func _materials(root: Node, mats: Array, face: Dictionary = {}) -> void:
 				m.set_shader_parameter("uv_pivot", Vector2(0.5 / float(g[0]), 0.5 / float(g[1])))
 				face_mats[info.face] = {"mat": m, "grid": g}
 				var pl = face_dev().get(info.face, face.get(info.face, {}))
-				set_face(info.face, float(pl.get("x", 0.0)), float(pl.get("y", 0.0)), float(pl.get("scale", 1.0)))
+				set_face(info.face, float(pl.get("x", 0.0)), float(pl.get("y", 0.0)), float(pl.get("scale", 1.0)), float(pl.get("gap", 0.0)))
 			mat_src[m] = String(info.get("src", nm)) + ("|eyes" if info.get("eyes", false) else "")
 			if not info.get("shadow", true): shadow = false
 			# ink lines: the web leaves the logo out (outline: false); the eye patch draws with the face
@@ -317,13 +317,15 @@ func is_ash() -> bool:
 	return look in ASH_LOOKS
 
 # where a face decal sits on the head: x, y in head radii from the projection's centre
-# (+y up, +x his left), scale its size; live (dev/face_tool.gd), saved in the tunables
-func set_face(key: String, x: float, y: float, scale: float) -> void:
+# (+y up, +x his left), scale its size, gap how far its two halves (the eyes) are pushed
+# apart (head radii; together when negative); live (dev/face_tool.gd), saved in the tunables
+func set_face(key: String, x: float, y: float, scale: float, gap := 0.0) -> void:
 	if not face_mats.has(key): return
 	var g: Array = face_mats[key].grid
 	var m: ShaderMaterial = face_mats[key].mat
 	m.set_shader_parameter("uv_shift", Vector2(x * 0.5 / float(g[0]), -y * 0.5 / float(g[1])))
 	m.set_shader_parameter("uv_zoom", maxf(0.05, scale))
+	m.set_shader_parameter("uv_gap", gap * 0.5 / float(g[0]))
 
 # the eyes' expression: a cell of the eyes' atlas (tools/native/ash2_face.py: column, row
 # from the top left; 0, 0 the usual look, which blinks with the cell two to its right)

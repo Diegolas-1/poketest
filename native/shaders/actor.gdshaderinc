@@ -19,6 +19,7 @@ uniform vec2 uv_off = vec2(0.0);
 uniform vec2 uv_pivot = vec2(0.0);
 uniform vec2 uv_shift = vec2(0.0);
 uniform float uv_zoom = 1.0;
+uniform float uv_gap = 0.0;    // the decal's two halves (the eyes) pushed apart by this much (texture u), together when negative
 uniform float lift = 0.0;
 uniform vec3 bands = vec3(0.1, 0.3, 0.62);
 uniform vec3 deep = vec3(0.5, 0.52, 0.7);
@@ -48,7 +49,11 @@ void vertex() {
 void fragment() {
 	vec4 c = albedo;
 	if (use_vc) c *= COLOR;
-	if (use_tex) c *= texture(albedo_tex, uv_pivot + (UV - uv_pivot - uv_shift) / uv_zoom + uv_off);
+	if (use_tex) {
+		vec2 s = UV - uv_pivot - uv_shift;
+		s.x -= sign(s.x) * min(abs(s.x), uv_gap);   // (each half of the decal slid out from, or in to, its centre line)
+		c *= texture(albedo_tex, uv_pivot + s / uv_zoom + uv_off);
+	}
 	if (alpha_scissor > 0.0 && c.a < alpha_scissor) discard;
 	if (wet_y > -9000.0 && wet_k > 0.0) {
 		// a ragged line: cloth soaks unevenly
