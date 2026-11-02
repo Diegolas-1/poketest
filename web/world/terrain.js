@@ -924,7 +924,7 @@ export const SEA_BOX = { x0: -460, z0: -640, n: 920 };
 // (z0 reaches north over the mountains round Viridian; the terrain blocks keep
 // their names: TB_CJ = the chunks added north of where the terrain began)
 export const TB = { x0: -495, x1: 495, z0: -1260, z1: 315, chunk: 45, fine: 1.5, coarse: 4.5 };
-const TB_CJ = 8;
+export const TB_CJ = 8;
 const FINE_ZONE = { x0: -240, x1: 240, z0: VC.NORTH_Z - 10, z1: 250 };
 let TCH = null;   // per chunk: { step, n, y (heights, (n+1)^2) } or null (dropped)
 function chunkInfo() {

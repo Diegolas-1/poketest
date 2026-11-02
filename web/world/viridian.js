@@ -146,7 +146,9 @@ function slopes(x, z) {
   const m = smooth(0.95, 1.6, e) * (1 - 0.5 * smooth(1.65, 2.0, e));
   if (m > 0) {
     const n = fbm2(x * 0.0065 + 11, z * 0.0065 + 3, 5), r = Math.abs(fbm2(x * 0.018 - 7, z * 0.018 + 1, 3) - 0.5) * 2;
-    h += m * (40 + n * 160 + (1 - r) * 25 * m);
+    // ridges and spurs (a ridged noise), and a second, higher range behind
+    const rid = 1 - Math.abs(fbm2(x * 0.009 + 4, z * 0.009 - 6, 4) * 2 - 1);
+    h += m * (35 + n * 120 + rid * rid * 70 + (1 - r) * 20 * m) + smooth(1.35, 1.8, e) * (60 + rid * 90);
   }
   return h;
 }

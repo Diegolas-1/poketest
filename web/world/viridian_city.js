@@ -28,8 +28,6 @@ import { traceEdges, finishLine } from './edges.js';
 import * as O from './props/outdoor.js';
 import { building } from './props/buildings.js';
 import { welcomeSign, noticeBoard, fingerpost } from './signs.js';
-import { wallMeshes } from './stone.js';
-import { leafMaterial, pushCard, toGeometry, cards, TILE } from './foliage.js';
 import * as VC from './viridian.js';
 import { PADS, STORY } from './viridian_spots.js';
 // the landmark models, when they exist (another builder's: props/viridian.js)
@@ -231,6 +229,12 @@ const decal = (t, col = '#ffffff', units = -2) => {
 function groundMesh(G, g, m, name) { const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true; mesh.userData.outline = false; mesh.name = name; G.add(mesh); return mesh; }
 
 // ---------- the build ----------
+// the landmark models' pads are walkable once the models stand there (their
+// own colliders keep you out of the walls): before anything reads walkF
+if (VP && VP.place) for (const k of ['center', 'gym']) {
+  const P = PADS[k], hw = (Math.abs(Math.sin(P.rot)) > 0.7 ? P.d : P.w) / 2, hd = (Math.abs(Math.sin(P.rot)) > 0.7 ? P.w : P.d) / 2;
+  if ((k === 'center' && VP.pokemonCenter) || (k === 'gym' && VP.viridianGym)) VC.RECTS.push({ id: k + 'Pad', x0: P.x - hw, x1: P.x + hw, z0: P.z - hd, z1: P.z + hd });
+}
 export function viridianFill(world) {
   const root = new THREE.Group(); root.name = 'viridian';
   const G = world.group;
@@ -282,7 +286,7 @@ function paving(G) {
     groundMesh(P, disc(R.x, R.z, R.r + 0.3, 0.09), decal(t, '#ffffff', -4), 'vc_round_' + R.id);
   }
   for (const R of VC.RECTS) {
-    if (R.deck) continue;
+    if (R.deck || R.id.endsWith('Pad')) continue;   // (a model's grounds: its own paving)
     const pts = [[(R.x0 + R.x1) / 2, R.z1], [(R.x0 + R.x1) / 2, R.z0]];
     groundMesh(P, ribbon(pts, -(R.x1 - R.x0) / 2, (R.x1 - R.x0) / 2, 0.08), flags, 'vc_rect_' + R.id);
   }
@@ -329,18 +333,18 @@ function buildings(G, world, col, use, vc) {
     fronts.push(P);
     return g;
   };
-  // the POKéMON CENTER and the GYM: the models, else stand-ins
-  {
-    const P = PADS.center;
-    const g = VP && VP.pokemonCenter ? VP.pokemonCenter() : centerStandIn();
-    add(g, P, 'center');
-    use(P.door[0], P.door[1] + 2.2, 'Read', ['POKéMON CENTER', 'Heal your POKéMON! Open around the clock.'], 1.6);
+  // the POKéMON CENTER and the GYM: their own models (props/viridian.js, with
+  // their colliders, decks and markers: its place()), whose pads are then
+  // walkable grounds lined like the streets; else stand-ins
+  vc.markers = {};
+  for (const [k, make, standIn] of [['center', VP && VP.pokemonCenter, centerStandIn], ['gym', VP && VP.viridianGym, gymStandIn]]) {
+    const P = PADS[k];
+    if (make && VP.place) {
+      const g = eid(make(), 'viridian/' + k);
+      vc.markers[k] = VP.place(world, g, P.x, P.y, P.z, P.rot);
+    } else add(standIn(), P, k);
   }
-  {
-    const P = PADS.gym;
-    const g = VP && VP.viridianGym ? VP.viridianGym() : gymStandIn();
-    add(g, P, 'gym');
-  }
+  use(PADS.center.door[0], PADS.center.door[1] + 2.2, 'Read', ['POKéMON CENTER', 'Heal your POKéMON! Open around the clock.'], 1.6);
   // the MART, the School, the nickname house, the police box: massing for now
   add(placeholder({ W: PADS.mart.w, D: PADS.mart.d, floors: 2, wall: '#f4f1ea', roof: '#2f6fc8', band: '#3a7ad8', sign: 'POKé MART', signCol: '#2f6fc8', flat: true }), PADS.mart, 'mart');
   add(placeholder({ W: PADS.school.w, D: PADS.school.d, floors: 2, wall: '#efe2c8', roof: '#c4553a', band: '#8a5a3a', sign: 'TRAINER SCHOOL', signCol: '#3f6a4a', gable: true }), PADS.school, 'school');
@@ -433,7 +437,8 @@ function lining(G, world, col, fronts) {
       col({ box: true, x: p.x, z: p.z, hw: 0.55, hd: 0.5, rot: ry });
     }
     const H = new THREE.Group(); H.name = 'vc_hedges'; G.add(H); B.flush(H, { shadow: true, outline: false, name: 'vc_hedge' });
-    leafSkin(H, hedge, 1.25, 0.95);
+    // a leafy crown along them: small bushes sitting on the trimmed box (veg.js sows them, with their own ink)
+    for (let k = 0; k < hedge.length; k += 2) { const p = hedge[k]; HEDGE_TOPS.push({ x: p.x, z: p.z, y: height(p.x, p.z) + 0.55, rot: (k * 2.39) % 6.28, s: 0.55 }); }
   }
   // railings over the water: posts and two rails, a stone kerb under
   {
@@ -461,25 +466,6 @@ function lining(G, world, col, fronts) {
     const H = new THREE.Group(); H.name = 'vc_walls'; G.add(H); B.flush(H, { shadow: true, outline: false, name: 'vc_wall' });
   }
   return { hedge, rail, wall };
-}
-// leaf cards over the hedges' boxes, so they read as clipped greenery
-function leafSkin(H, list, h, d) {
-  const out = cards(), R = rng(3404);
-  const n = new THREE.Vector3();
-  for (const p of list) {
-    const y0 = height(p.x, p.z) - 0.05;
-    for (let k = 0; k < 9; k++) {
-      const s = R() < 0.5 ? -1 : 1, u = (R() - 0.5) * 1.1, top = R() < 0.35;
-      const along = V(p.nz, 0, -p.nx);
-      const c = V(p.x, y0 + (top ? h : 0.3 + R() * (h - 0.4)), p.z).addScaledVector(along, u);
-      if (top) n.set(0, 1, 0); else { n.set(p.nx * s, 0.3, p.nz * s).normalize(); c.addScaledVector(V(p.nx, 0, p.nz), s * d / 2); }
-      pushCard(out, c, n.clone(), 0.6 + R() * 0.3, R() < 0.5 ? TILE.bushA : TILE.bushB, R() * 6.28, V(p.x, y0 + h / 2, p.z), 0);
-    }
-  }
-  const g = toGeometry(out);
-  const m = new THREE.Mesh(g, leafMaterial('#5fae4e', 0.02, 'green'));
-  m.castShadow = false; m.receiveShadow = true; m.name = 'vc_hedge_leaves'; m.userData.outline = false;
-  H.add(m);
 }
 
 // ---------- the cutting ----------
@@ -534,6 +520,7 @@ function furniture(G, world, col, use, place, yawTo, vc) {
 
 // ---------- for veg.js ----------
 const PLANTS = { trees: [], bushes: [] };
+const HEDGE_TOPS = [];
 // what the city keeps clear of the plants seeded before it (its streets, its
 // buildings, the lake)
 const OCC = [];   // [x, z, hw, hd, rot] footprints the city built
@@ -551,6 +538,7 @@ export function cityPlants(makeTree, makeBush, makeClump, TILE) {
   for (const t of PLANTS.trees) { if (!byKind.has(t.k)) byKind.set(t.k, []); byKind.get(t.k).push(t); }
   let seed = 3400;
   for (const [k, list] of byKind) { const ms = [makeTree(k, seed)]; seed += 3; out.push([ms, list, 'tree']); }
+  if (HEDGE_TOPS.length) out.push([[makeBush(3470, { size: 1.0 }), makeBush(3471, { size: 1.1 })], HEDGE_TOPS, 'bush']);
   if (PLANTS.bushes.length) out.push([[makeBush(3460, { size: 1.1 }), makeBush(3461, { size: 1.4, flowers: TILE.flowersR }), makeBush(3462, { size: 1.0, flowers: TILE.flowersY })], PLANTS.bushes, 'bush']);
   return out;
 }
@@ -976,15 +964,16 @@ function plantsPlan(fronts) {
   // gardens, parks and the slopes: wherever nothing is built and nobody walks
   for (let gx = -470; gx < 470; gx += 5.5) for (let gz = -470; gz > -1080; gz -= 5.5) {
     const x = gx + (R() - 0.5) * 4, z = gz + (R() - 0.5) * 4, e = VC.bowlE(x, z), ld = lakeD(x, z);
-    if (e > 1.25 || ld < 3) continue;
+    if (e > 1.4 || ld < 3) continue;
     const forest = z < -888 && Math.abs(x + 20) < 160 && e < 1.15;
-    const p = forest ? 0.55 : e > 0.98 ? 0.06 : e > 0.6 ? 0.22 : ld < 30 ? 0.3 : 0.16;
+    const p = forest ? 0.55 : e > 1.15 ? 0.1 : e > 0.95 ? 0.32 : e > 0.6 ? 0.24 : ld < 30 ? 0.3 : 0.16;
     if (R() > p) continue;
     if (VC.walkF(x, z) < 2.2 || occ(x, z, 1.6)) continue;
     let pad = false; for (const P of Object.values(PADS)) if (VC.padDist(P, x, z) < 2) pad = true;
     if (pad || near(x, z, forest ? 4.5 : 6)) continue;
     if (VC.cutRock(x, z) || (z > -575 && z < -470 && Math.abs(x - 4) < 70 + (z + 470) * -0.6)) continue;   // (the view from the crest stays open)
     const k = forest ? ['scotspine', 'giant', 'beech', 'linden', 'scotspine', 'oak'][Math.floor(R() * 6)]
+      : e > 0.97 ? ['scotspine', 'beech', 'giant', 'scotspine', 'linden', 'cypress'][Math.floor(R() * 6)]
       : e > 0.7 ? ['tiered', 'beech', 'cypress', 'linden', 'tiered', 'shade'][Math.floor(R() * 6)]
         : ['linden', 'tiered', 'shade', 'cypress', 'oak', 'linden'][Math.floor(R() * 6)];
     tree(k, x, z, (forest ? 0.85 : 0.7) + R() * 0.35);
