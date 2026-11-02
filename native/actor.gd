@@ -76,6 +76,28 @@ static func face_dev_all() -> Dictionary:
 	return _face_dev
 static func face_dev_changed() -> void: _face_dev = null
 var face_cell := Vector2.ZERO   # the eyes' expression: its atlas cell's uv offset (set_expression)
+# the face's expression (express): a name in EXPR, its eyes' cell (column, row of the eyes'
+# atlas, tools/native/ash2_face.py) and the mouth it comes with (MOUTHS); held until it is
+# let go (hold 0: idles.gd's acts) or for hold seconds; jaw_open is this frame's open mouth
+# from an act's jaw keys (idles.gd), which the talk's mouth joins
+const EXPR := {
+	"neutral": {"eyes": [0, 0]}, "surprised": {"eyes": [1, 0], "mouth": "o"}, "shut": {"eyes": [2, 0]}, "starry": {"eyes": [3, 0]},
+	"angry": {"eyes": [0, 1], "mouth": "grit"}, "worried": {"eyes": [1, 1]}, "glare": {"eyes": [2, 1]}, "happy": {"eyes": [3, 1], "mouth": "laugh"},
+	"alert": {"eyes": [0, 2]}, "bored": {"eyes": [1, 2]}, "sad": {"eyes": [2, 2]}, "wink": {"eyes": [3, 2]},
+	"pleading": {"eyes": [0, 6]}, "sideways": {"eyes": [1, 3]}, "sparkle": {"eyes": [2, 3], "mouth": "grin"}, "shocked": {"eyes": [3, 3], "mouth": "gasp"},
+	"dizzy": {"eyes": [0, 4], "mouth": "relaxed"}, "teary": {"eyes": [2, 4]}, "unimpressed": {"eyes": [3, 4]}, "skeptical": {"eyes": [0, 5]},
+	"sleepy": {"eyes": [3, 5]}, "excited": {"eyes": [1, 6], "mouth": "grin"}, "tired": {"eyes": [2, 6]}, "annoyed": {"eyes": [3, 6]},
+	"crying": {"eyes": [2, 7], "mouth": "gasp"}, "confused": {"eyes": [3, 7]}, "determined": {"eyes": [0, 0], "mouth": "clench"},
+}
+const SHUT_EXPR := ["shut", "happy", "wink", "sleepy", "dizzy"]   # (no blink over these)
+const MOUTHS := {"smile": 0, "o": 1, "relaxed": 2, "grin": 3, "grit": 4, "gasp": 5, "clench": 6, "laugh": 7}   # the mouths' atlas, in order
+const TALK_MOUTHS := ["smile", "relaxed", "o", "gasp"]   # the mouth as it opens, from TALK_OPEN up
+const TALK_OPEN := [0.05, 0.55, 0.9]                      # (the wide one only at the very top: a talk's peaks, a yawn, a startle)
+var expr := "neutral"
+var expr_t := 0.0
+var jaw_open := 0.0
+var _eye_cell := Vector2i(-1, -1)
+var _mouth_cell := -1
 var meshes: Array[MeshInstance3D] = []
 var mat_src := {}           # ShaderMaterial -> its cast.json material name (body.gd: the wet look per material)
 # worn out (body.gd, fatigue): 0..1, a hunched, panting posture on top of the clips
@@ -332,13 +354,24 @@ func set_face(key: String, x: float, y: float, scale: float, gap := 0.0) -> void
 	m.set_shader_parameter("uv_zoom", maxf(0.05, scale))
 	m.set_shader_parameter("uv_gap", gap * 0.5 / float(g[0]))
 
-# the eyes' expression: a cell of the eyes' atlas (tools/native/ash2_face.py: column, row
-# from the top left; 0, 0 the usual look, which blinks with the cell two to its right)
+# the face's expression by name (EXPR), held for hold seconds (0: until the next, or
+# express("neutral")); nothing on a look without the face decals
+func express(name: String, hold := 2.5) -> void:
+	if not face_mats.has("eyes") or not EXPR.has(name): return
+	expr = name
+	expr_t = hold
+
+# a cell of an atlas (column, row) as a uv offset
+func _cell_uv(key: String, col: int, row: int) -> Vector2:
+	var g: Array = face_mats[key].grid
+	return Vector2(float(col) / float(g[0]), float(row) / float(g[1]))
+
+# the eyes' expression as a cell of the eyes' atlas (tools/native/ash2_face.py: column, row from the top left)
 func set_expression(col: int, row: int) -> void:
 	if not face_mats.has("eyes"): return
 	var g: Array = face_mats.eyes.grid
 	face_cell = Vector2(float(col) / float(g[0]), float(row) / float(g[1]))
-	_shut = not _shut   # (so the blink writes the offset again)
+	_eye_cell = Vector2i(-1, -1)
 
 static func _sm(a: float, b: float, x: float) -> float:
 	var t := clampf((x - a) / (b - a), 0.0, 1.0)
@@ -1185,19 +1218,51 @@ func _talk_face(dt: float) -> void:
 	if _mouth > 0.002:
 		var jb: int = bones.get("FJlipL", -1)
 		if jb >= 0: q[jb] = q[jb] * Quaternion(Vector3.UP, _mouth * 0.3)
+	_mouth_face()
 	var p := nod - _lpitch
 	if absf(p) > 0.0005:
 		bend("Neck", 1, 0, 0, p * 0.4); bend("Head", 1, 0, 0, p * 0.6)
 
-# the eye atlas has the closed eyes half a texture to the right
+# the mouth's cell (a look with the mouths' atlas): open by the talk and an act's jaw keys
+# (TALK_MOUTHS, by how far), else the expression's own, else the smile
+func _mouth_face() -> void:
+	if not face_mats.has("mouth"): return
+	var g: Array = face_mats.mouth.grid
+	var n: int = g[0] * g[1]
+	var open: float = maxf(_mouth, jaw_open)
+	jaw_open = 0.0
+	var cell := 0
+	if n > 1:
+		if open > TALK_OPEN[0]:
+			var i := 1
+			while i < TALK_OPEN.size() and open >= TALK_OPEN[i]: i += 1
+			cell = MOUTHS.get(TALK_MOUTHS[i], 0)
+		else: cell = MOUTHS.get(EXPR.get(expr, {}).get("mouth", "smile"), 0)
+		cell = mini(cell, n - 1)
+	if cell != _mouth_cell:
+		_mouth_cell = cell
+		face_mats.mouth.mat.set_shader_parameter("uv_off", _cell_uv("mouth", cell % int(g[0]), cell / int(g[0])))
+
+# the eyes: the expression's cell, the shut cell over it for a blink (or an act with the
+# eyes closed) unless the expression is a closed one; a timed expression runs out to neutral.
+# The original look's eye atlas has its closed eyes half a texture to the right.
 var _shut := false
 func _blink(dt: float) -> void:
 	blink -= dt
-	if eyes:
+	if expr_t > 0.0:
+		expr_t -= dt
+		if expr_t <= 0.0: expr = "neutral"
+	if face_mats.has("eyes"):
+		var shut: bool = blink < 0.0 or idles.eyes
+		var e: Dictionary = EXPR.get(expr, EXPR.neutral)
+		var c: Array = EXPR.shut.eyes if shut and not SHUT_EXPR.has(expr) else e.eyes
+		var cell := Vector2i(int(c[0]), int(c[1]))
+		if cell != _eye_cell:
+			_eye_cell = cell
+			eyes.set_shader_parameter("uv_off", _cell_uv("eyes", cell.x, cell.y) if face_cell == Vector2.ZERO else face_cell)
+	elif eyes:
 		var shut: bool = blink < 0.0 or idles.eyes
 		if shut != _shut:
 			_shut = shut
-			# (the V2 look's other expressions have no shut-eyed cell beside them: no blink)
-			var can_blink := face_cell == Vector2.ZERO
-			eyes.set_shader_parameter("uv_off", face_cell + Vector2(0.5 if shut and can_blink else 0.0, 0.0))
+			eyes.set_shader_parameter("uv_off", Vector2(0.5 if shut else 0.0, 0.0))
 	if blink < -0.12: blink = 2.0 + _rng.randf() * 4.0

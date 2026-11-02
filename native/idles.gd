@@ -118,7 +118,7 @@ static func _defs() -> Dictionary:
 		"hip": {"dur": 9.0, "len": [7, 11], "stretch": [2, 7], "w": 1.2,
 			"armR": [[0, null], [0.9, HIP], [7.6, HIP], [8.6, null]],
 			"body": [[0, {}], [1, {"side": 0.025, "sh": 0.02}], [7.4, {"side": 0.025, "sh": 0.02}], [9, {}]]},
-		"scratch": {"dur": 4.2, "w": 1.0, "fx": "scratch",
+		"scratch": {"expr": "confused", "dur": 4.2, "w": 1.0, "fx": "scratch",
 			"armL": [[0, null], [0.4, {"at": CH(0.21, 0.0, 0.08), "pole": [1, -0.6, -0.2], "cu": 0.15}], [0.85, SCR], [3.0, SCR],
 				[3.55, {"at": CH(0.23, -0.06, 0.06), "pole": [1, -0.6, -0.3], "cu": 0.1}], [4.2, null]],
 			"body": [[0, {}], [0.8, {"hr": 0.08, "hp": 0.06}], [3.0, {"hr": 0.06, "hp": 0.08}], [4.2, {}]],
@@ -142,7 +142,7 @@ static func _defs() -> Dictionary:
 			"body": [[0, {}], [1.4, {"lean": 0.06, "sh": 0.05}], [2.4, {"lean": 0.07, "sh": 0.05}], [3.2, {"sh": -0.02}], [3.9, {"hr": 0.34, "hp": 0.06, "hy": 0.05}], [4.5, {"hr": 0.35, "hp": 0.06, "hy": 0.05}],
 				[5.2, {"hr": -0.32, "hp": 0.06, "hy": -0.05}], [5.7, {"hr": -0.33, "hp": 0.05, "hy": -0.05}], [6.4, {}]],
 			"gaze": [[0, {"y": 0, "p": 0}], [1.4, {"y": 0, "p": 0.05}], [3.2, {"y": 0, "p": 0}], [6.4, {"y": 0, "p": 0}]]},
-		"yawn": {"dur": 6.4, "w": 1.0,
+		"yawn": {"expr": "sleepy", "dur": 6.4, "w": 1.0,
 			"armL": [[0, null], [0.95, {"at": CH(0.24, 0.02, 0.06), "pole": [1, -0.8, -0.3], "wf": 0.2, "cu": 0.3}], [1.45, {"at": HD(0.2, 0.2, 0.0), "pole": [1, -0.3, -0.3], "wf": 0, "cu": 0.3}], [1.9, {"at": HD(0.1, 0.4, -0.02), "pole": [1, 0, -0.3], "wf": -0.3, "cu": 0.35}],
 				[3.1, {"at": HD(0.11, 0.41, -0.03), "pole": [1, 0, -0.3], "wf": -0.3, "cu": 0.35}], [3.9, {"at": CH(0.4, 0.02, 0.02), "pole": [0.3, -0.3, -1], "wf": 0, "cu": 0.1}],
 				[4.5, {"at": CH(0.3, -0.25, 0.02), "pole": [1, -0.3, -0.6], "cu": 0}], [5.2, null]],
@@ -196,42 +196,42 @@ static func _defs() -> Dictionary:
 				[1.1, {"at": CH(-0.15, -0.1, 0.31), "pole": [-1, -0.6, -0.3], "wt": 1.2, "wf": -0.25, "cu": 0.0}],
 				[1.7, {"at": CH(-0.14, -0.13, 0.28), "pole": [-1, -0.6, -0.3], "wt": 1.1, "wf": -0.2, "cu": 0.05}], [2.4, null]],
 			"body": [[0, {}], [0.5, {"hp": 0.05, "tw": -0.04}], [1.1, {"hp": -0.03, "tw": -0.06}], [1.8, {"hp": 0.03}], [2.4, {}]]},
-		"shrug": {"dur": 1.6, "talk": true, "fx": "shoulders",
+		"shrug": {"expr": "confused", "dur": 1.6, "talk": true, "fx": "shoulders",
 			"body": [[0, {}], [0.4, {"hr": 0.06, "hp": -0.03}], [1.0, {"hr": 0.05}], [1.6, {}]]},
 		# conversation emotes (conversation.gd picks them from what is said, or a line's
 		# "[name]" tag): a wave, a hand to the chin, pointing off, a laugh, a fist pump,
 		# hands on the hips, a gasp, hands clasped in worry
-		"wave": {"dur": 2.2, "talk": true,
+		"wave": {"expr": "happy", "dur": 2.2, "talk": true,
 			"armR": [[0, null], [0.35, {"at": HD(-0.27, 0.12, 0.08), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}],
 				[0.7, {"at": HD(-0.33, 0.1, 0.1), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}], [1.05, {"at": HD(-0.24, 0.13, 0.08), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}],
 				[1.4, {"at": HD(-0.33, 0.1, 0.1), "pole": [-1, -0.4, 0.2], "wt": 0.2, "cu": -0.2}], [2.2, null]],
 			"body": [[0, {}], [0.5, {"side": 0.03, "hr": -0.05}], [1.5, {"side": 0.03, "hr": -0.04}], [2.2, {}]]},
-		"think": {"dur": 3.0, "talk": true,
+		"think": {"expr": "sideways", "dur": 3.0, "talk": true,
 			"armR": [[0, null], [0.5, {"at": HD(-0.03, 0.0, 0.13), "pole": [-1, -1, 0.1], "wf": 0.3, "wt": 0.4, "cu": 0.5}], [2.4, {"at": HD(-0.03, 0.005, 0.13), "pole": [-1, -1, 0.1], "wf": 0.3, "wt": 0.4, "cu": 0.55}], [3.0, null]],
 			"armL": [[0, null], [0.55, {"at": CH(-0.06, -0.16, 0.2), "pole": [1, -0.8, -0.2], "cu": 0.3}], [2.4, {"at": CH(-0.06, -0.16, 0.2), "pole": [1, -0.8, -0.2], "cu": 0.3}], [3.0, null]],
 			"body": [[0, {}], [0.6, {"hr": 0.09, "hp": -0.04}], [2.4, {"hr": 0.1, "hp": -0.06}], [3.0, {}]],
 			"gaze": [[0, {"y": 0, "p": 0}], [0.7, {"y": 0.25, "p": -0.25}], [2.3, {"y": 0.3, "p": -0.2}], [3.0, {"y": 0, "p": 0}]]},
-		"point": {"dur": 2.4, "talk": true,
+		"point": {"expr": "alert", "dur": 2.4, "talk": true,
 			"armR": [[0, null], [0.4, {"at": CH(-0.3, 0.12, 0.38), "pole": [-1, -0.5, 0], "wt": 0.1, "wf": -0.1, "cu": 0.5}], [1.8, {"at": CH(-0.32, 0.13, 0.39), "pole": [-1, -0.5, 0], "wt": 0.1, "wf": -0.1, "cu": 0.5}], [2.4, null]],
 			"body": [[0, {}], [0.5, {"tw": -0.12, "lean": 0.03}], [1.8, {"tw": -0.12, "lean": 0.03}], [2.4, {}]],
 			"gaze": [[0, {"y": 0, "p": 0}], [0.45, {"y": -0.55, "p": -0.05}], [1.7, {"y": -0.5, "p": -0.05}], [2.4, {"y": 0, "p": 0}]]},
-		"laugh": {"dur": 2.2, "talk": true,
+		"laugh": {"expr": "happy", "dur": 2.2, "talk": true,
 			"armR": [[0, null], [0.35, {"at": H(-0.06, 0.17, 0.15), "pole": [-1, -0.4, -0.6], "wf": 0.2, "cu": 0.2}], [1.7, {"at": H(-0.06, 0.17, 0.15), "pole": [-1, -0.4, -0.6], "wf": 0.2, "cu": 0.2}], [2.2, null]],
 			"body": [[0, {}], [0.35, {"lean": -0.1, "hp": -0.16, "sh": 0.04}], [0.55, {"lean": -0.08, "hp": -0.12, "sh": 0.0}], [0.75, {"lean": -0.11, "hp": -0.16, "sh": 0.05}],
 				[0.95, {"lean": -0.08, "hp": -0.12, "sh": 0.0}], [1.15, {"lean": -0.1, "hp": -0.15, "sh": 0.04}], [1.4, {"lean": 0.04, "hp": 0.04}], [2.2, {}]]},
-		"fist": {"dur": 1.9, "talk": true,
+		"fist": {"expr": "sparkle", "dur": 1.9, "talk": true,
 			"armR": [[0, null], [0.3, {"at": CH(-0.2, -0.04, 0.26), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}], [0.55, {"at": CH(-0.17, 0.08, 0.25), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}],
 				[0.8, {"at": CH(-0.19, -0.1, 0.24), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}], [1.35, {"at": CH(-0.19, -0.08, 0.24), "pole": [-1, -0.8, -0.2], "wt": 0.3, "cu": 1.0}], [1.9, null]],
 			"body": [[0, {}], [0.55, {"lean": 0.06, "hp": 0.04, "tw": -0.05}], [0.8, {"lean": 0.08, "hp": 0.06}], [1.9, {}]]},
-		"hips": {"dur": 3.0, "talk": true,
+		"hips": {"expr": "glare", "dur": 3.0, "talk": true,
 			"armR": [[0, null], [0.6, HIPR], [2.4, HIPR], [3.0, null]],
 			"armL": [[0, null], [0.65, HIPL], [2.4, HIPL], [3.0, null]],
 			"body": [[0, {}], [0.6, {"lean": -0.04, "hp": 0.07, "side": 0.02}], [2.4, {"lean": -0.04, "hp": 0.06, "side": 0.02}], [3.0, {}]]},
-		"gasp": {"dur": 1.8, "talk": true,
+		"gasp": {"expr": "shocked", "dur": 1.8, "talk": true,
 			"armR": [[0, null], [0.2, {"at": CH(-0.12, 0.0, 0.24), "pole": [-1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.2, {"at": CH(-0.12, 0.01, 0.24), "pole": [-1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.8, null]],
 			"armL": [[0, null], [0.22, {"at": CH(0.12, 0.0, 0.24), "pole": [1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.2, {"at": CH(0.12, 0.01, 0.24), "pole": [1, -0.7, -0.2], "wt": 0.6, "wf": -0.3, "cu": -0.3}], [1.8, null]],
 			"body": [[0, {}], [0.2, {"lean": -0.12, "hp": -0.1, "sh": 0.06}], [1.2, {"lean": -0.09, "hp": -0.08, "sh": 0.04}], [1.8, {}]]},
-		"worry": {"dur": 2.8, "talk": true,
+		"worry": {"expr": "worried", "dur": 2.8, "talk": true,
 			"armR": [[0, null], [0.5, {"at": CH(-0.03, -0.06, 0.2), "pole": [-1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.2, {"at": CH(-0.03, -0.06, 0.2), "pole": [-1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.8, null]],
 			"armL": [[0, null], [0.5, {"at": CH(0.03, -0.07, 0.19), "pole": [1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.2, {"at": CH(0.03, -0.07, 0.19), "pole": [1, -0.8, -0.2], "wt": 0.4, "cu": 0.6}], [2.8, null]],
 			"body": [[0, {}], [0.5, {"hp": 0.08, "hr": 0.07, "sh": 0.03}], [2.2, {"hp": 0.07, "hr": 0.08, "sh": 0.03}], [2.8, {}]]},
@@ -243,7 +243,7 @@ static func _defs() -> Dictionary:
 			"armR": [[0, null], [0.85, THIGH.call("R", -1)], [8.6, THIGH.call("R", -1)], [9.6, null]]},
 		# a salute (forced: someone on duty greeting Ash, people.json "greet_act"): the
 		# right hand up smartly to the cap's brim at the temple, held, then back down
-		"salute": {"dur": 2.7, "talk": true,
+		"salute": {"expr": "determined", "dur": 2.7, "talk": true,
 			"armR": [[0, null], [0.28, {"at": CH(-0.2, 0.12, 0.16), "pole": [-1, -0.25, 0.1], "wf": 0.1, "wt": 0.3, "cu": -0.05}], [0.5, SAL], [1.95, SAL],
 				[2.25, {"at": CH(-0.2, 0.1, 0.15), "pole": [-1, -0.3, 0.1], "wf": 0.1, "wt": 0.3, "cu": 0.0}], [2.7, null]],
 			"body": [[0, {}], [0.45, {"lean": -0.05, "hp": -0.05, "sh": -0.01}], [1.95, {"lean": -0.05, "hp": -0.04, "sh": -0.01}], [2.7, {}]],
@@ -280,18 +280,18 @@ static func _battle_defs() -> Dictionary:
 	var SLUMP := {"dy": -0.63, "dz": -0.54, "wp": 0.2, "lean": 0.42, "ko": 0.35, "seat": 1, "gap": 0, "hp": 0.42, "side": 0.08, "sh": 0.04}
 	return {
 		# Kick Sand: weight back, the right foot swung through low and up, scooping the dirt at it
-		"b_kick": {"dur": 1.25, "talk": true, "player": true, "fx": "kick",
+		"b_kick": {"expr": "angry", "dur": 1.25, "talk": true, "player": true, "fx": "kick",
 			"armL": [[0, null], [0.25, {"at": CH(0.3, -0.22, 0.12), "pole": [1, -0.4, -0.2], "wf": -0.2, "cu": 0.2}], [0.75, {"at": CH(0.33, -0.25, 0.16), "pole": [1, -0.4, -0.2], "cu": 0.2}], [1.2, null]],
 			"armR": [[0, null], [0.25, {"at": CH(-0.26, 0.12, 0.06), "pole": [-1, -0.3, -0.5], "cu": 0.3}], [0.75, {"at": CH(-0.3, 0.15, 0.1), "pole": [-1, -0.3, -0.5], "cu": 0.3}], [1.2, null]],
 			"body": [[0, {}], [0.25, {"lean": 0.12, "tw": 0.12, "hp": 0.1}], [0.45, {"lean": -0.16, "tw": -0.16, "hp": -0.05, "side": -0.05}], [0.75, {"lean": -0.08, "tw": -0.08}], [1.25, {}]]},
 		# Startle: a big shout, both arms flung up and waving wide, leaning in at it
-		"b_startle": {"dur": 1.9, "talk": true, "player": true,
+		"b_startle": {"expr": "shocked", "dur": 1.9, "talk": true, "player": true,
 			"armL": [[0, null], [0.2, UP_L.call(0.3, 0.5)], [0.5, UP_L.call(0.48, 0.38)], [0.8, UP_L.call(0.28, 0.56)], [1.1, UP_L.call(0.48, 0.38)], [1.4, UP_L.call(0.3, 0.52)], [1.85, null]],
 			"armR": [[0, null], [0.22, UP_R.call(0.3, 0.5)], [0.55, UP_R.call(0.28, 0.56)], [0.85, UP_R.call(0.48, 0.38)], [1.15, UP_R.call(0.28, 0.56)], [1.45, UP_R.call(0.45, 0.4)], [1.85, null]],
 			"body": [[0, {}], [0.2, {"lean": 0.16, "hp": -0.18, "sh": 0.08, "jaw": 0.55}], [0.6, {"lean": 0.2, "hp": -0.22, "sh": 0.08, "jaw": 0.6, "side": 0.04}],
 				[1.0, {"lean": 0.18, "hp": -0.2, "sh": 0.07, "jaw": 0.5, "side": -0.04}], [1.4, {"lean": 0.12, "hp": -0.12, "sh": 0.04, "jaw": 0.3}], [1.9, {}]]},
 		# Throw a Rock: down for a stone, up, the arm back behind the head, the throw and the follow-through
-		"b_throw": {"dur": 1.75, "talk": true, "player": true, "legs": true,
+		"b_throw": {"expr": "angry", "dur": 1.75, "talk": true, "player": true, "legs": true,
 			"body": [[0, {}], [0.35, {"dy": -0.34, "dz": -0.04, "lean": 0.5, "ko": 0.3, "heel": 0.2, "hp": 0.3}], [0.55, {"dy": -0.33, "dz": -0.04, "lean": 0.48, "ko": 0.3, "heel": 0.2, "hp": 0.25}],
 				[0.85, {"dy": -0.04, "lean": -0.12, "tw": 0.4, "hp": -0.08}], [1.0, {"dy": -0.07, "lean": 0.3, "tw": -0.38, "hp": 0.02}], [1.25, {"dy": -0.05, "lean": 0.18, "tw": -0.22}], [1.75, {}]],
 			"armR": [[0, null], [0.35, {"at": GR(-0.17, 0.1, 0.42), "pole": [-1, 0, -1], "wf": -0.3, "cu": 0.4}], [0.55, {"at": GR(-0.17, 0.13, 0.4), "pole": [-1, 0, -1], "cu": 0.8}],
@@ -301,34 +301,34 @@ static func _battle_defs() -> Dictionary:
 				[1.1, {"at": CH(0.26, 0.05, 0.05), "pole": [1, -0.5, -0.4], "cu": 0.3}], [1.7, null]]},
 		# Hide: down in the grass as small as he can get, on his heels, arms wrapped
 		# over his head, peeking out under them and trembling (held: battle.gd releases it)
-		"b_hide": {"dur": 30.0, "stretch": [1.0, 28.0], "talk": true, "player": true, "legs": true, "fx": "shield",
+		"b_hide": {"expr": "worried", "dur": 30.0, "stretch": [1.0, 28.0], "talk": true, "player": true, "legs": true, "fx": "shield",
 			"body": [[0, {}], [0.3, {"dy": -0.3, "dz": -0.04, "lean": 0.4, "ko": 0.3, "heel": 0.3, "hp": 0.25}], [0.7, HIDE], [28.0, HIDE], [29.0, {"dy": -0.3, "lean": 0.3, "ko": 0.3, "heel": 0.3}], [30.0, {}]],
 			"armR": [[0, null], [0.4, SHIELD_R], [0.75, HIDE_R], [28.0, HIDE_R], [29.0, null]],
 			"armL": [[0, null], [0.45, SHIELD_L], [0.8, HIDE_L], [28.0, HIDE_L], [29.0, null]],
 			"gaze": [[0, {"y": 0, "p": 0}], [0.8, {"y": 0, "p": -0.15}], [28.0, {"y": 0.1, "p": -0.15}], [30.0, {"y": 0, "p": 0}]]},
 		# a flinch: hands up in front of the face, a duck of the head
-		"b_flinch": {"dur": 0.75, "talk": true, "player": true,
+		"b_flinch": {"expr": "shut", "dur": 0.75, "talk": true, "player": true,
 			"armR": [[0, null], [0.12, GUARD_R], [0.45, GUARD_R], [0.75, null]],
 			"armL": [[0, null], [0.14, GUARD_L], [0.45, GUARD_L], [0.75, null]],
 			"body": [[0, {}], [0.1, {"lean": -0.2, "hp": 0.15, "sh": 0.09, "side": 0.04}], [0.45, {"lean": -0.1, "hp": 0.1, "sh": 0.06}], [0.75, {}]]},
 		# Gust: arms crossed before his face, leaning into the wind, head down, trembling
-		"b_shield": {"dur": 2.6, "stretch": [0.5, 2.0], "talk": true, "player": true, "fx": "shield",
+		"b_shield": {"expr": "shut", "dur": 2.6, "stretch": [0.5, 2.0], "talk": true, "player": true, "fx": "shield",
 			"armR": [[0, null], [0.22, SHIELD_R], [2.2, SHIELD_R], [2.6, null]],
 			"armL": [[0, null], [0.25, SHIELD_L], [2.2, SHIELD_L], [2.6, null]],
 			"body": [[0, {}], [0.25, {"lean": 0.3, "hp": 0.3, "sh": 0.08, "side": 0.03}], [1.2, {"lean": 0.34, "hp": 0.32, "sh": 0.09, "side": -0.03}], [2.2, {"lean": 0.28, "hp": 0.25, "sh": 0.07}], [2.6, {}]]},
 		# sand in his eyes: both fists rubbing at them, head bowed, eyes screwed shut
-		"b_rub": {"dur": 2.2, "talk": true, "player": true, "fx": "rub",
+		"b_rub": {"expr": "shut", "dur": 2.2, "talk": true, "player": true, "fx": "rub",
 			"armR": [[0, null], [0.25, EYE_R], [1.9, EYE_R], [2.2, null]],
 			"armL": [[0, null], [0.3, EYE_L], [1.9, EYE_L], [2.2, null]],
 			"body": [[0, {}], [0.3, {"lean": 0.14, "hp": 0.28, "sh": 0.06, "eye": 1}], [1.0, {"lean": 0.12, "hp": 0.22, "sh": 0.05, "eye": 1, "hr": 0.08}], [1.9, {"lean": 0.1, "hp": 0.2, "eye": 1, "hr": -0.06}], [2.2, {}]],
 			"gaze": [[0, {"y": 0, "p": 0}], [2.2, {"y": 0, "p": 0}]]},
 		# knocked back by a hit: thrown back from the chest, arms flung out, then catching himself
-		"b_knock": {"dur": 1.15, "talk": true, "player": true,
+		"b_knock": {"expr": "teary", "dur": 1.15, "talk": true, "player": true,
 			"armR": [[0, null], [0.1, {"at": CH(-0.45, 0.12, 0.22), "pole": [-1, 0.2, -0.3], "wf": -0.3, "cu": -0.3}], [0.45, {"at": CH(-0.38, 0.05, 0.1), "pole": [-1, -0.3, -0.3], "cu": 0.1}], [1.0, null]],
 			"armL": [[0, null], [0.1, {"at": CH(0.45, 0.12, 0.25), "pole": [1, 0.2, -0.3], "wf": -0.3, "cu": -0.3}], [0.45, {"at": CH(0.38, 0.05, 0.1), "pole": [1, -0.3, -0.3], "cu": 0.1}], [1.0, null]],
 			"body": [[0, {}], [0.1, {"lean": -0.42, "hp": -0.35, "sh": 0.1, "side": 0.06, "jaw": 0.3, "eye": 1}], [0.45, {"lean": -0.18, "hp": -0.1, "sh": 0.04, "jaw": 0.1}], [0.75, {"lean": 0.12, "hp": 0.15}], [1.15, {}]]},
 		# down: the knees go, a hand down to the ground, sitting slumped, a hand to his side
-		"b_crumple": {"dur": 30.0, "stretch": [2.0, 28.0], "talk": true, "player": true, "legs": true, "kup": 1.0,
+		"b_crumple": {"expr": "dizzy", "dur": 30.0, "stretch": [2.0, 28.0], "talk": true, "player": true, "legs": true, "kup": 1.0,
 			"clip": "fall", "clip_whole": true,   # (the V2 look: its fall clip, down and lying still)
 			"body": [[0, {}], [0.25, {"dy": -0.2, "lean": 0.25, "hp": 0.2, "ko": 0.2, "eye": 1}], [0.75, {"dy": -0.5, "dz": -0.1, "wp": 0.3, "lean": 0.5, "ko": 0.4, "heel": 0.5, "hp": 0.35, "gap": 0.2}],
 				[1.35, {"dy": -0.6, "dz": -0.42, "wp": 0.2, "lean": 0.4, "ko": 0.36, "heel": 0.05, "seat": 0.5, "gap": 0.05, "hp": 0.4}], [2.0, SLUMP], [28.0, SLUMP],
@@ -416,6 +416,7 @@ func _start(n: String) -> void:
 	P.act = {"name": n, "def": d, "t": 0.0, "len": ln, "env": 1.0, "ab": -1.0, "feet": null, "lt": 0.0,
 		"wob": {"L": 0.0, "R": 0.0}, "side": "R" if d.get("mirror", false) and rng.randf() < 0.5 else "L", "rel": null}
 	P.last = n; P.busy = true
+	if d.has("expr"): A.express(d.expr, 0.0)   # (the look's face, held through the act)
 
 # start an action now (render checks)
 func force(n: String, ln := 0.0) -> void:
@@ -432,6 +433,7 @@ func acting() -> String: return String(P.act.name) if P.act else ""
 
 func _end() -> void:
 	if P.act and P.act.def.has("gaze"): A.L.look = rng.randf_range(0.5, 1.5)
+	if P.act and P.act.def.has("expr"): A.express("neutral", 0.0)
 	P.act = null; P.busy = false; P.eyes = false; P.wait = rng.randf_range(12, 30)
 	A.holder.position.x = 0.0; A.holder.position.z = 0.0
 	if ball: ball.visible = false
@@ -618,6 +620,7 @@ func post(_dt: float) -> void:
 		v = Bo.get("jaw", 0.0)
 		var jb := _bi("FJlipL")
 		if v and jb >= 0: A.q[jb] = A.q[jb] * Quaternion(Vector3.UP, v * k)   # its own axis opens the mouth
+		if v: A.jaw_open = maxf(A.jaw_open, v * k * 1.8)                     # (the V2 looks: a mouth cell by how far)
 	P.eyes = Bo.get("eye", 0.0) * k > 0.5
 	a.wob.L = 0.0; a.wob.R = 0.0
 	if d.has("fx") and not by_clip: _fx(d.fx, a, t, env)

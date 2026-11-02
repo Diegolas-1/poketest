@@ -3,22 +3,24 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bv807n2qlm3o4"
-path="res://.godot/imported/ash3_ash3_mouth.png-0d0c383462641bda41977a17a795f138.ctex"
+path.s3tc="res://.godot/imported/ash3_ash3_mouth.png-0d0c383462641bda41977a17a795f138.s3tc.ctex"
+path.etc2="res://.godot/imported/ash3_ash3_mouth.png-0d0c383462641bda41977a17a795f138.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
-"md5": "2857f21069a457692b8b6e3ac6ab5bd5"
+"md5": "032893d029ac46a81969aa6dbba12be8"
 }
 
 [deps]
 
 source_file="res://cast/ash3_ash3_mouth.png"
-dest_files=["res://.godot/imported/ash3_ash3_mouth.png-0d0c383462641bda41977a17a795f138.ctex"]
+dest_files=["res://.godot/imported/ash3_ash3_mouth.png-0d0c383462641bda41977a17a795f138.s3tc.ctex", "res://.godot/imported/ash3_ash3_mouth.png-0d0c383462641bda41977a17a795f138.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -92,7 +92,7 @@ const LIFT = 0.004;           // the decal this far off the head (model units)
 // tunables over it; dev/face_tool.gd), applied in the shader, so no rebake moves them.
 const FACE_DIR = path.join(ROOT, 'tools/native/ash2_face');
 const EYES_PNG = arg('eyes', path.join(FACE_DIR, 'atlas.png')), MOUTH_PNG = arg('mouth', path.join(FACE_DIR, 'mouth.png'));
-const FACE_PLACE = { eyes: { x: 0, y: 0, scale: 1 }, mouth: { x: 0, y: -0.17, scale: 1 } };
+const FACE_PLACE = { eyes: { x: 0, y: 0, scale: 1 }, mouth: { x: 0, y: 0, scale: 1 } };   // (the atlases put the features where they go; this moves them)
 
 const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const t0 = Date.now();
@@ -528,7 +528,7 @@ fs.writeFileSync(path.join(FACE_DIR, 'old_face.png'), oldFacePng);
 const decals = [];
 if (fs.existsSync(EYES_PNG)) { const m = await sharp(EYES_PNG).metadata(); decals.push({ key: 'eyes', name: `${LOOK}_face`, png: fs.readFileSync(EYES_PNG), grid: [4, Math.round(m.height / (m.width / 4))], eyes: true }); }
 else { log('face: no', path.relative(ROOT, EYES_PNG), '(run tools/native/ash2_face.py): the old face projected instead'); decals.push({ key: 'eyes', name: `${LOOK}_face`, png: oldFacePng, grid: [2, 1], eyes: true }); }
-if (fs.existsSync(MOUTH_PNG)) decals.push({ key: 'mouth', name: `${LOOK}_mouth`, png: fs.readFileSync(MOUTH_PNG), grid: [1, 1], eyes: false });
+if (fs.existsSync(MOUTH_PNG)) { const m = await sharp(MOUTH_PNG).metadata(); decals.push({ key: 'mouth', name: `${LOOK}_mouth`, png: fs.readFileSync(MOUTH_PNG), grid: m.width === m.height ? [1, 1] : [4, Math.round(m.height / (m.width / 4))], eyes: false }); }
 else log('face: no', path.relative(ROOT, MOUTH_PNG), '(run tools/native/ash2_face.py): no mouth decal');
 
 // ---------- the materials and meshes ----------
