@@ -37,7 +37,7 @@ export const STORY = {
     centerDome: [10, 33.5, -672],             // the dome's crown (w35's model may refine)
     martRoof: [68, 27.6, -690],
     schoolRoof: [-46, 28.5, -705],
-    clockTower: [-4, 37.0, -790],             // the old clock tower on Old Street
+    clockTower: [-12.6, 47.0, -790],          // the old clock tower on Old Street (its belfry ledge)
     towerLedge: [120, 61.0, -650],            // a downtown tower's roof garden
     lakeLamp: [-131.5, 18.6, -737],           // reachable on foot: the lamp at the pier's root (a low lamp, a wall beside it)
   },

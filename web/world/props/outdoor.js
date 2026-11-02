@@ -1172,7 +1172,7 @@ export function clockTower({ h = 18, w = 4 } = {}) {
 // Viridian's gate: two stone piers with lamps and tiled caps, an arch with
 // a green-tiled roof and the city's name, iron gates shut, ivy and vines.
 // Front toward +z (Route 1, the south); W the opening.
-export function viridianGate({ W = 6.2, name = 'VIRIDIAN CITY' } = {}) {
+export function viridianGate({ W = 6.2, name = 'VIRIDIAN CITY', open = false } = {}) {
   const G = new THREE.Group(), st = texm(stonesTex('#c4bca6'));
   const PH = 4.6;
   for (const sx of [-1, 1]) {
@@ -1196,9 +1196,10 @@ export function viridianGate({ W = 6.2, name = 'VIRIDIAN CITY' } = {}) {
   BK().roof(G, W + 3.2, 0.9, AY + 0.45, { type: 'gable', cover: 'kawara', col: '#3f7a5a', rise: 0.6, over: 0.45, gableOver: 0.5, gutters: false, th: 0.1, trim: '#2f5a4a', wall: st }); void rm;
   box(W + 4.4, 0.2, 0.25, '#2f5a4a', 0, AY + 1.18, 0, G);
   vines(G, V(-W / 2 - 1.6, AY - 0.45, 0.5), V(W / 2 + 1.6, AY - 0.45, 0.5), 16, 1.6, 138);
-  // the iron gates, shut
+  // the iron gates, shut (or swung open, back against the walls on the city side)
   for (const sx of [-1, 1]) {
     const L = new THREE.Group(); L.position.set(sx * W / 2, 0, 0); G.add(L);
+    if (open) L.rotation.y = -sx * 1.42;
     for (let k = 0; k < 8; k++) { const x = -sx * (0.2 + k * 0.38); cyl(0.025, 0.025, 3.2, '#2a3a34', x, 1.65, 0, L, 5); cone(0.06, 0.16, '#c9a24a', x, 3.32, 0, L, 5); }
     for (const y of [0.4, 1.6, 2.9]) box(W / 2, 0.06, 0.05, '#2a3a34', -sx * W / 4, y, 0, L);
     put(new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.03, 5, 18), flat('#c9a24a')), L, -sx * W / 4, 2.2, 0.02);

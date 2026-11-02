@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import * as R1 from './route1land.js';   // Route 1's pockets, trails and creeks (worker 12)
 import { traceEdges, finishLine, EdgeIndex, lineAt } from './edges.js';   // the world's edges (cliffs, worker 20)
 import { planBanks, BankIndex } from './bankplan.js';   // the streams' cut banks (props/banks.js)
+import * as VC from './viridian.js';   // Viridian City past Route 1's gate (worker 34)
 // the world editor's hand edits (editlayer/index.js); terrain.js?raw is this
 // same module without them, for the generators' decisions (see there)
 import { E, NOEDIT } from './editlayer/index.js';
@@ -366,6 +367,8 @@ function base(x, z) {
   // north of the rim the land is Route 1's valley and the peninsula's spine
   const wr = smooth(-56, -86, z);
   if (wr > 0) h = lerp(h, routeLand(x, z), wr);
+  // past Route 1's gate: Viridian City's valley (viridian.js)
+  if (z < VC.CITY_Z) h = VC.land(x, z, h);
   // the coast: a beach eases down to the waterline and on under the sea;
   // where the coast is rocky the land keeps its height to the edge and drops
   // in a cliff, and the sea floor falls away faster
@@ -746,6 +749,9 @@ export function onStairs(x, z, m = 0) { return x > STAIRS.x0 - 0.4 && x < STAIRS
 // past the town's hills, and the hillsides either side of Route 1 up to its
 // gate in the forest at the mainland end
 export const WALK = { x0: -186, x1: 186, z0: -452, z1: 230 };
+// the walk grid, the grass map and the fine terrain reach on north over Viridian
+// City (WALK stays as it was: the world's edges south of the gate come from it)
+export const GRID = { ...WALK, z0: VC.NORTH_Z };
 // Where the player may go, as a signed field: > 0 blocked. The town's bowl is
 // ringed by the hills (a wobbly line well inside the walk box, its corners
 // rounded, joining Route 1's valley sides in the north), Route 1 is its
@@ -777,10 +783,16 @@ function coastF(x, z) {
   for (const [dx, dz] of [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) b = Math.max(b, base(x + dx, z + dz));
   return Math.min(sd + 4, 4.5 - sd, (cl - 0.45) * 30, b - SEA_Y - 1.4);
 }
-export function boundsF(x, z) {
+function legacyBoundsF(x, z) {
   let f = Math.min(townRingF(x, z), routeF(x, z));
   f = Math.max(f, coastF(x, z), ROUTE1.gateZ - z, WALK.x0 - x, x - WALK.x1, WALK.z0 - z, z - WALK.z1);
   return f;
+}
+// (and through the open gate, Viridian City's streets: viridian.js walkF; the
+// world's edges south of the gate are traced from the field as it was)
+export function boundsF(x, z) {
+  const f = legacyBoundsF(x, z);
+  return z < ROUTE1.gateZ + 3 ? Math.min(f, VC.walkF(x, z)) : f;
 }
 export function outOfBounds(x, z) { return boundsF(x, z) > 0; }
 export function noWalk(x, z) {
@@ -855,6 +867,7 @@ export function height(x, z) {
 
 // water level at a point (sea, pond or stream)
 export function waterLevel(x, z) {
+  if (z < VC.CITY_Z - 150 && Math.hypot(x - VC.LAKE.x, z - VC.LAKE.z) < VC.LAKE.r + 10) return VC.LAKE.y;
   if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 2) return POND.y;
   const s = streamAt(x, z);
   if (s.d < 4) return Math.max(SEA_Y, s.y);
@@ -908,8 +921,11 @@ export function groundColor(x, z, h, slope, out) {
 // Chunks are merged into blocks of 4 x 4 (one mesh each, for culling).
 // the sea's depth map and fine mesh cover this square (native: seabed.bin)
 export const SEA_BOX = { x0: -460, z0: -640, n: 920 };
-export const TB = { x0: -495, x1: 495, z0: -900, z1: 315, chunk: 45, fine: 1.5, coarse: 4.5 };
-const FINE_ZONE = { x0: -240, x1: 240, z0: -500, z1: 250 };
+// (z0 reaches north over the mountains round Viridian; the terrain blocks keep
+// their names: TB_CJ = the chunks added north of where the terrain began)
+export const TB = { x0: -495, x1: 495, z0: -1260, z1: 315, chunk: 45, fine: 1.5, coarse: 4.5 };
+const TB_CJ = 8;
+const FINE_ZONE = { x0: -240, x1: 240, z0: VC.NORTH_Z - 10, z1: 250 };
 let TCH = null;   // per chunk: { step, n, y (heights, (n+1)^2) } or null (dropped)
 function chunkInfo() {
   if (TCH) return TCH;
@@ -988,7 +1004,7 @@ export function buildTerrain() {
     }
     ch.step = step; ch.n = n; ch.y = new Float32Array((n + 1) * (n + 1));
     for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) ch.y[j * (n + 1) + i] = Y[(j + 1) * W + i + 1];
-    const key = Math.floor(ch.ci / 4) + ',' + Math.floor(ch.cj / 4);
+    const key = Math.floor(ch.ci / 4) + ',' + Math.floor((ch.cj - TB_CJ) / 4);
     if (!blocks.has(key)) blocks.set(key, []);
     blocks.get(key).push({ pos, nrm, col, uv, idx });
   }
@@ -1163,6 +1179,34 @@ export function buildWater(uTime, fog = { color: '#cfe6f2', near: 160, far: 900 
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx);
     group.add(new THREE.Mesh(g, fresh(1)));
+  }
+  // Viridian's crater lake: still, deep, the sky in it (uFlow 5 tags it for
+  // the native game's lake shader, shaders/lake.gdshader)
+  {
+    const lakeFrag = `uniform float uTime; uniform vec3 fogColor; uniform float fogNear, fogFar; uniform vec2 uC; uniform float uR;
+      varying vec3 vW; varying vec2 vUv;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
+      float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+        return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
+      void main(){
+        vec3 V = normalize(cameraPosition - vW);
+        float fr = pow(1.0 - max(V.y, 0.0), 3.0);
+        float edge = smoothstep(uR - 16.0, uR - 2.0, length(vW.xz - uC));
+        vec3 deep = vec3(0.10, 0.36, 0.52), shal = vec3(0.30, 0.66, 0.66), sky = vec3(0.74, 0.88, 0.95);
+        vec3 c = mix(deep, shal, edge * 0.8);
+        c = mix(c, sky, 0.25 + fr * 0.6);
+        float s = n(vW.xz * vec2(0.08, 0.5) + vec2(uTime * 0.05, 0.0));
+        c = mix(c, vec3(0.92, 0.97, 1.0), step(0.78, s) * 0.35 * (1.0 - fr));
+        float d = length(vW - cameraPosition);
+        c = mix(c, fogColor, smoothstep(fogNear, fogFar, d));
+        gl_FragColor = vec4(c, 0.96);
+        #include <colorspace_fragment>
+      }`;
+    const m = new THREE.ShaderMaterial({ uniforms: { uTime, uFlow: { value: 5 }, fogColor: { value: C(fog.color) }, fogNear: { value: 160 }, fogFar: { value: 900 },
+      uC: { value: new THREE.Vector2(VC.LAKE.x, VC.LAKE.z) }, uR: { value: VC.LAKE.r + 8 } }, vertexShader: freshVert, fragmentShader: lakeFrag, transparent: true });
+    const g = new THREE.CircleGeometry(VC.LAKE.r + 8, 120).rotateX(-Math.PI / 2);
+    g.translate(VC.LAKE.x, VC.LAKE.y, VC.LAKE.z);
+    group.add(new THREE.Mesh(g, m));
   }
   // Route 1's creeks and their pools (route1land.js)
   for (const { g, flow } of R1.creekGeometries()) group.add(new THREE.Mesh(g, fresh(flow)));
@@ -1344,6 +1388,8 @@ export function grassMap(x0, z0, w, d, res) {
       const [lx, lz] = toLocal(PALLET_HOUSE, x, z);
       if (Math.abs(lx) < 8.2 && lz > -7.2 && lz < 10.4) g = 0;
     }
+    // none on Viridian's paving and its building pads (viridian.js)
+    if (z < VC.CITY_Z && VC.grassOff(x, z)) g = 0;
     // patchy: tufts and drifts, open lawn between
     g *= 0.12 + smooth(0.42, 0.68, fbm(x * 0.11 + 3, z * 0.11, 3)) * 0.88;
     g = Math.min(1, g * ED.grassK(x, z));   // the editor's grass brush
@@ -1375,14 +1421,18 @@ function buildEdges() {
   const S = STAIRS, LH = LAB_HILL;
   // the main boundary
   const box = { x0: WALK.x0 - 2, x1: WALK.x1 + 2, z0: WALK.z0 - 2, z1: WALK.z1 + 2, res: 1 };
-  const main = traceEdges(boundsF, box).map((L) => finishLine(L, boundsF)).filter(Boolean).map((L) => ({ ...L, src: 'bounds' }));
+  const main = traceEdges(legacyBoundsF, box).map((L) => finishLine(L, legacyBoundsF)).filter(Boolean).map((L) => ({ ...L, src: 'bounds' }));
+  // Viridian City's: only the cutting's sides are rock (the city's streets are
+  // lined with buildings, hedges and railings: viridian_city.js)
+  const cityF = (x, z) => VC.walkF(x, z);
+  const city = traceEdges(cityF, { x0: -60, x1: 60, z0: -540, z1: ROUTE1.gateZ + 6, res: 1 }).map((L) => finishLine(L, cityF)).filter(Boolean).map((L) => ({ ...L, src: 'city' }));
   // the foot of Oak's hill (the stairs and the retaining wall at their foot
   // are its way up and its wall: no cliff there; the hedge rings the top)
   const hillF = (x, z) => 0.985 - hillU(x, z);
   const hb = { x0: LH.x0 - LH.wW - 4, x1: LH.x1 + LH.wE + 4, z0: LH.z0 - LH.wN - 4, z1: LH.z1 + LH.wS + 4, res: 0.5 };
   const hill = traceEdges(hillF, hb).map((L) => finishLine(L, hillF)).filter(Boolean).map((L) => ({ ...L, src: 'hill' }));
   const gz = ROUTE1.gateZ, gx = routeX(gz);
-  for (const L of [...main, ...hill]) {
+  for (const L of [...main, ...hill, ...city]) {
     if (L.len < 2) continue;
     const N = L.pts.length;
     const keep = new Uint8Array(N), down = new Uint8Array(N);
@@ -1400,6 +1450,8 @@ function buildEdges() {
       }
       // Viridian's gate and the walls off it into the woods
       if (Math.abs(x - gx) < 31 && z < gz + 1.6 && z > gz - 4) k = 0;
+      // Viridian: rock only along the cutting's deep stretch
+      if (L.src === 'city' && !VC.cutRock(x, z)) k = 0;
       keep[i] = k;
       foot[i] = rawH(x - nx * 0.4, z - nz * 0.4);
       far[i] = Math.min(rawH(x + nx * 5, z + nz * 5), rawH(x + nx * 8, z + nz * 8));

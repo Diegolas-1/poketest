@@ -59,6 +59,27 @@ func update(cam_pos: Vector3) -> void:
 		_plants()
 		_underwater(veg)
 	if veg: veg.update(cam_pos)
+	_viridian(cam_pos)
+
+# Viridian City's buildings (the regions viridian_*) are drawn only from north
+# of Route 1's gate: south of it the ridge and the woods hide the city, so
+# Pallet and Route 1 pay nothing for it. The far towers (vc_far_*: a few merged
+# meshes) stay, for the skyline over the trees.
+var _vir_on := -1
+var _vir_nodes: Array = []
+func _viridian(cam_pos: Vector3) -> void:
+	var on := 1 if cam_pos.z < -428.0 else 0
+	if on == _vir_on or main.town_root == null: return
+	if _vir_on == -1:
+		for rn in ["viridian_south", "viridian_north"]:
+			var n: Node = main.town_root.get_node_or_null(rn)
+			if n == null: continue
+			for gi in n.find_children("*", "GeometryInstance3D", true, false):
+				var nm := String(gi.name)
+				if nm.begins_with("I_") or nm.contains("vc_far") or not gi.visible: continue
+				_vir_nodes.append(gi)
+	_vir_on = on
+	for gi in _vir_nodes: gi.visible = on == 1
 
 # ---------- the town's repeated parts ----------
 func _town_parts(root: Node) -> void:

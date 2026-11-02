@@ -449,7 +449,10 @@ const res = await p.evaluate(async () => {
   // walk grid: height + flags (1 water, 2 no-walk (the lab hill, cliffs, the
   // world's edges), 4 deck/walkway, 8 sea (not fresh water), 16 beach sand,
   // 32 a Route 1 ledge: entered only going south, never climbed)
-  const G = { x0: T.WALK.x0 - 4, z0: T.WALK.z0 - 4, w: T.WALK.x1 - T.WALK.x0 + 8, d: T.WALK.z1 - T.WALK.z0 + 8, res: 0.25 };
+  // (T.GRID: the walk box reaching on north over Viridian City; regions.mjs keeps
+  // the regions' tiles where they were: world.json ground.tj)
+  const WG = T.GRID || T.WALK;
+  const G = { x0: WG.x0 - 4, z0: WG.z0 - 4, w: WG.x1 - WG.x0 + 8, d: WG.z1 - WG.z0 + 8, res: 0.25 };
   const nx = Math.round(G.w / G.res), nz = Math.round(G.d / G.res);
   const hb = new Uint16Array(nx * nz), fb = new Uint8Array(nx * nz);
   const walk = w.town.walk;
@@ -489,7 +492,7 @@ const res = await p.evaluate(async () => {
   out.seabedGrid = S;
 
   // grass field: height + density (same rules as the web grass)
-  const GA = { x0: T.WALK.x0, z0: T.WALK.z0, w: T.WALK.x1 - T.WALK.x0, d: T.WALK.z1 - T.WALK.z0, res: 1 };
+  const GA = { x0: WG.x0, z0: WG.z0, w: WG.x1 - WG.x0, d: WG.z1 - WG.z0, res: 1 };
   const gm = T.grassMap(GA.x0, GA.z0, GA.w, GA.d, GA.res).image;
   const gp = new Float32Array(gm.width * gm.height * 2);
   for (let k = 0; k < gm.width * gm.height; k++) { gp[k * 2] = gm.data[k * 4]; gp[k * 2 + 1] = gm.data[k * 4 + 1]; }   // (the turf over walls' tops lifts it: terrain.js setGrassLift)

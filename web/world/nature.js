@@ -162,8 +162,9 @@ export function buildMountains(sunDir = new THREE.Vector3(-0.55, 0.75, 0.45)) {
     }
     addMesh(pos, hv, av, idx, 0.35);
   };
-  peak(-240, -1000, 210, 210, 11);
-  peak(-60, -1140, 250, 270, 12);
+  // (far north now, beyond the mountains round Viridian City's valley)
+  peak(-300, -1480, 330, 440, 11);
+  peak(-20, -1640, 380, 520, 12);
   return group;
 }
 

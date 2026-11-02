@@ -17,6 +17,7 @@ var lips: Node3D          # the fluffy grass lips over banks, walls and ledges (
 const SEA := preload("res://shaders/sea.gdshader")
 const FRESH := preload("res://shaders/fresh.gdshader")
 const FRESH_FALL := preload("res://shaders/fresh_fall.gdshader")
+const LAKE := preload("res://shaders/lake.gdshader")   # Viridian's crater lake (fresh5_*)
 var falls: Array = []   # the falling water's meshes (sfx_world.gd: where the falls roar)
 const SKY := preload("res://shaders/sky.gdshader")
 const Grass := preload("res://grass.gd")
@@ -285,6 +286,12 @@ func _water() -> void:
 			# falling water, its foam and its mist (shaders/fresh_fall.gdshader)
 			var kind := int(nm.substr(5, 1))
 			var f := ShaderMaterial.new()
+			if kind == 5:
+				# Viridian's crater lake (shaders/lake.gdshader): mirrors the sky and the mountains
+				f.shader = LAKE
+				mi.material_override = f
+				mi.extra_cull_margin = 4.0
+				continue
 			if kind >= 2:
 				f.shader = FRESH_FALL
 				f.set_shader_parameter("mode", float(kind))
