@@ -67,6 +67,13 @@ const FACE = ['face_on_1', 'face_on_0'];                          // the old fac
 const HEAD_GRAFT = ['loc_acchat', 'hrS0', 'hrS1', 'hrS2', 'hrS3', 'hrS4', 'hrS5', 'hrS6'];
 const ATLAS = [2048, 1024];   // the face decal: eyes open | eyes shut
 const LIFT = 0.004;           // the decal this far off the head (model units)
+// where the face sits on the new head, in head radii: the eyes' centre line this far below
+// the head sphere's centre, and the features this big (the old round head had them at
+// 1.0; this head's jaw is long and its fringe hangs low, so they go smaller and lower).
+// EYE_V: the eyes' centre line in the atlas, in old head radii (measured).
+const EYE_Y = +arg('eye-y', -0.42);
+const FACE_R = +arg('face-r', 0.8);
+const EYE_V = -0.10;
 
 const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const t0 = Date.now();
@@ -445,8 +452,10 @@ for (const [tris, name, celSrc] of [[cloth, 'ash2_body', 'topsjer'], [skinI, 'as
 modelRoot.addChild(doc.createNode('ash2_body').setMesh(bodyMesh).setSkin(skin));
 // the face decal: the head's front triangles again, with the frontal projection's UVs
 {
-  const fu = (i) => (pos[i * 3] - head.c.x) / head.r, fv = (i) => (pos[i * 3 + 1] - head.c.y) / head.r;
-  const front = (i) => skinV[i] && pos[i * 3 + 1] > head.c.y - 1.05 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
+  const fr = head.r * FACE_R, fcy = head.c.y + EYE_Y * head.r - EYE_V * fr;
+  log('face: eyes at', (head.c.y + EYE_Y * head.r).toFixed(3), 'mouth at', (fcy - 0.68 * fr).toFixed(3), 'features', FACE_R, 'of the head radius');
+  const fu = (i) => (pos[i * 3] - head.c.x) / fr, fv = (i) => (pos[i * 3 + 1] - fcy) / fr;
+  const front = (i) => skinV[i] && pos[i * 3 + 1] > head.c.y - 1.1 * head.r && pos[i * 3 + 2] > head.c.z - 0.15 * head.r && Math.abs(fu(i)) <= 1.02 && Math.abs(fv(i)) <= 1.02;
   const map = new Map(), fp = [], fn = [], fuv = [], fj = [], fw = [], fi = [];
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t], b = idx[t + 1], c = idx[t + 2];
