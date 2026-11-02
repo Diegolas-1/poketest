@@ -266,6 +266,23 @@ func _town() -> void:
 		var mesh: Mesh = mi.mesh
 		for s in mesh.get_surface_count():
 			mi.set_surface_override_material(s, toon_for(mesh.surface_get_material(s)))
+	lods(root)
+
+# Levels of detail baked with a building (web props/viridian.js): its meshes
+# named lodN_* are drawn near, lodF_* (a few hundred triangles, no ink, no
+# shadow) from LOD_SWAP metres; the margin keeps them from flickering at the line.
+const LOD_SWAP := 165.0
+const LOD_MARGIN := 6.0
+static func lods(root: Node) -> void:
+	for mi in root.find_children("lod*", "MeshInstance3D", true, false):
+		var nm := String(mi.name)
+		if nm.begins_with("lodN_"):
+			mi.visibility_range_end = LOD_SWAP
+			mi.visibility_range_end_margin = LOD_MARGIN
+		elif nm.begins_with("lodF_"):
+			mi.visibility_range_begin = LOD_SWAP
+			mi.visibility_range_begin_margin = LOD_MARGIN
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func _water() -> void:
 	var root := _scene(WorldRegions.BASE + "water.glb")

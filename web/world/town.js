@@ -1800,7 +1800,7 @@ function cellMerge(world) {
   const cells = new Map(), c = new THREE.Vector3();
   for (const o of meshes) {
     const mk = mark(o), m = o.material;
-    if (moving.has(o) || !shown(o) || Array.isArray(m) || (mk !== 'ground' && mk !== false) || o.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender) continue;
+    if (moving.has(o) || o.userData.lod || !shown(o) || Array.isArray(m) || (mk !== 'ground' && mk !== false) || o.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender) continue;
     const bake = bakeable(m);
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
     c.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);

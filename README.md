@@ -28,6 +28,7 @@ The player (without any ROM) is published to GitHub Pages, from the `gh-pages` b
 - `town.js` Red's and Blue's cottages, Oak's hilltop lab, fences, signs, lamps and the dock, with painted textures and ink outlines.
 - `terrain.js` ground, roads, the pond, the sea, Oak's hill and its stairs; `nature.js` sky, clouds and the painted mountains.
 - `main.js` the player, camera, collisions, villagers, dialog and Oak stopping you at the tall grass.
+- `props/viridian.js` Viridian City's Pokémon Center and Gym (near and far levels of detail, colliders, walk decks and markers for doors and perches; `place()` puts one in a town). `kit.html?show=pkcenter` / `?show=gym` preview them; `tools/native/bake_prop.mjs` + `native/dev/prop_shot.tscn` show one in the native game's light.
 - `foliage.html` and `oldtree.html` (`?ink=1` for outlines, `ink.js`) preview the plants on their own.
 
 ## HD-2D (work in progress)
