@@ -347,6 +347,17 @@ function buildings(G, world, col, use, vc) {
       vc.markers[k] = VP.place(world, g, P.x, P.y, P.z, P.rot);
     } else add(standIn(), P, k);
   }
+  // the story's places on the models, in world coordinates (their markers)
+  const mk = vc.markers, xyz = (m) => m && [m[0], m[1], m[2]];
+  if (mk.center) {
+    Object.assign(STORY.perches, { centerDome: xyz(mk.center.perch_dome) || STORY.perches.centerDome, centerLamp: xyz(mk.center.perch_lamp) });
+    for (const k of ['perch_dome_front', 'perch_rim_back', 'perch_rim_east', 'perch_rim_west']) if (mk.center[k]) STORY.perches['center_' + k.slice(6)] = xyz(mk.center[k]);
+    if (mk.center.door) STORY.centerDoors = xyz(mk.center.door);
+    if (mk.center.bike) STORY.centerBike = mk.center.bike;
+    if (mk.center.ramp_foot) STORY.bikeRoute[STORY.bikeRoute.length - 1] = [mk.center.ramp_foot[0], mk.center.ramp_foot[2]];
+    STORY.center = mk.center;
+  }
+  if (mk.gym) { for (const [k, v] of Object.entries(mk.gym)) if (k.startsWith('perch')) STORY.perches['gym_' + k.slice(6)] = xyz(v); STORY.gym = mk.gym; }
   use(PADS.center.door[0], PADS.center.door[1] + 2.2, 'Read', ['POKéMON CENTER', 'Heal your POKéMON! Open around the clock.'], 1.6);
   // the MART, the School, the nickname house, the police box: massing for now
   add(placeholder({ W: PADS.mart.w, D: PADS.mart.d, floors: 2, wall: '#f4f1ea', roof: '#2f6fc8', band: '#3a7ad8', sign: 'POKé MART', signCol: '#2f6fc8', flat: true }), PADS.mart, 'mart');
