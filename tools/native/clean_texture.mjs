@@ -102,6 +102,107 @@ for (let f = 0; f < NF; f++) {
   let best = classOf(...pts[0]); for (let k = 0; k < 7; k++) if (n[k] > n[best]) best = k;
   fcls[f] = best; fcol[f * 3] = pts[0][0]; fcol[f * 3 + 1] = pts[0][1]; fcol[f * 3 + 2] = pts[0][2];
 }
+// ---------- hair that is painted skin: a thin wedge about the head ----------
+// a hair spike is a thin sheet, its other side a centimetre or two behind it; the forehead
+// has nothing behind it for the depth of the skull. A skin-coloured face about the head
+// with another surface close behind it, facing away, is hair, except at the ears (a thin
+// sheet too, at the sides below the brow line). The hair is the same shape on both sides
+// of the head while the spill is not: skin whose mirror image is dark hair is hair. And the
+// cap sits on his hair: skin with the cap right above it is scalp, hair.
+const forced = new Uint8Array(NF);   // faces the geometry says are hair whatever their colour: painted hair, come what may
+{
+  const neckN = doc.getRoot().listNodes().find((n) => n.getName() === 'Neck');
+  const neckY = neckN ? neckN.getWorldTranslation()[1] : 0;
+  const cx = new Float32Array(NF), cy = new Float32Array(NF), cz = new Float32Array(NF);
+  for (let f = 0; f < NF; f++) { const a = idx[f * 3] * 3, b = idx[f * 3 + 1] * 3, c = idx[f * 3 + 2] * 3; cx[f] = (pos[a] + pos[b] + pos[c]) / 3; cy[f] = (pos[a + 1] + pos[b + 1] + pos[c + 1]) / 3; cz[f] = (pos[a + 2] + pos[b + 2] + pos[c + 2]) / 3; }
+  // the head: the skin faces well above the neck, fit by a sphere
+  let hc = [0, 0, 0], hr = 0, hn = 0;
+  for (let f = 0; f < NF; f++) if (fcls[f] === 1 && cy[f] > neckY + 0.085) { hc[0] += cx[f]; hc[1] += cy[f]; hc[2] += cz[f]; hn++; }
+  if (hn) {
+    hc = hc.map((x) => x / hn);
+    for (let it = 0; it < 20; it++) {
+      let r = 0, gx = 0, gy = 0, gz = 0;
+      for (let f = 0; f < NF; f++) if (fcls[f] === 1 && cy[f] > neckY + 0.085) r += Math.hypot(cx[f] - hc[0], cy[f] - hc[1], cz[f] - hc[2]);
+      r /= hn;
+      for (let f = 0; f < NF; f++) if (fcls[f] === 1 && cy[f] > neckY + 0.085) { const dx = cx[f] - hc[0], dy = cy[f] - hc[1], dz = cz[f] - hc[2], l = Math.hypot(dx, dy, dz) || 1, k = (l - r) / l; gx += dx * k; gy += dy * k; gz += dz * k; }
+      hc[0] += gx / hn; hc[1] += gy / hn; hc[2] += gz / hn; hr = r;
+    }
+  }
+  log(`head: centre ${hc.map((x) => x.toFixed(3)).join(',')} radius ${hr.toFixed(3)} (neck at ${neckY.toFixed(3)})`);
+  // a grid of the faces about the head
+  const CELL = 0.02, grid = new Map(), key = (x, y, z) => `${Math.floor(x / CELL)},${Math.floor(y / CELL)},${Math.floor(z / CELL)}`;
+  const about = (f) => cy[f] > neckY - 0.02 && Math.hypot(cx[f] - hc[0], cy[f] - hc[1], cz[f] - hc[2]) < hr * 2.2;
+  for (let f = 0; f < NF; f++) if (about(f)) { const k = key(cx[f], cy[f], cz[f]); let a = grid.get(k); if (!a) { a = []; grid.set(k, a); } a.push(f); }
+  const THIN = 0.03, LATERAL = 0.012;
+  let flipped = 0, ears = 0;
+  for (let f = 0; f < NF; f++) {
+    if ((fcls[f] !== 1 && fcls[f] !== 0) || !about(f) || cy[f] < neckY + 0.03) continue;
+    const ex = Math.abs(cx[f] - hc[0]) > 0.8 * hr && cz[f] < hc[2] + 0.15 * hr && cy[f] < hc[1] + 0.25 * hr && cy[f] > hc[1] - 0.4 * hr;   // the ears' zone
+    if (ex) { ears++; continue; }
+    let thin = false;
+    const bx = Math.floor(cx[f] / CELL), by = Math.floor(cy[f] / CELL), bz = Math.floor(cz[f] / CELL);
+    for (let i = -2; i <= 2 && !thin; i++) for (let j = -2; j <= 2 && !thin; j++) for (let k = -2; k <= 2 && !thin; k++) {
+      const a = grid.get(`${bx + i},${by + j},${bz + k}`); if (!a) continue;
+      for (const g of a) {
+        if (nx[f] * nx[g] + ny[f] * ny[g] + nz[f] * nz[g] > -0.3) continue;   // (facing away from this face)
+        const dx = cx[g] - cx[f], dy = cy[g] - cy[f], dz = cz[g] - cz[f];
+        const along = -(dx * nx[f] + dy * ny[f] + dz * nz[f]);                // behind this face, along its inward normal
+        if (along < 0.002 || along > THIN) continue;
+        const lat = Math.sqrt(Math.max(0, dx * dx + dy * dy + dz * dz - along * along));
+        if (lat < LATERAL) { thin = true; break; }
+      }
+    }
+    if (thin) { fcls[f] = 2; forced[f] = 1; flipped++; }
+  }
+  log(`thin skin about the head taken for hair: ${flipped} faces (${ears} left at the ears)`);
+  // the other side of the head: his hair is the same shape left and right, the texturer's
+  // spill is not; a skin-coloured face about the head whose mirror image lies on dark hair
+  // is hair painted flesh (only this way round: dark is hair wherever it is)
+  // (the surface nearest the mirrored spot, its few nearest faces: the spikes differ a little
+  // in shape side to side, so the mirror image lands in air now and then)
+  let mirrored = 0, dbgN = 0;
+  const DBG = arg('mirror-box', '') ? arg('mirror-box', '').split(',').map(Number) : null;
+  const R = 0.03, cls0 = Uint8Array.from(fcls), reach = Math.ceil(R / CELL);
+  for (let f = 0; f < NF; f++) {
+    if ((cls0[f] !== 1 && cls0[f] !== 0) || !about(f) || cy[f] < neckY + 0.03) continue;
+    const mx = 2 * hc[0] - cx[f], my = cy[f], mz = cz[f];
+    const bx = Math.floor(mx / CELL), by = Math.floor(my / CELL), bz = Math.floor(mz / CELL);
+    // the K faces nearest the mirrored spot: the surface there, not the volume about it
+    const K = 7, nd = new Float64Array(K).fill(Infinity), nc = new Int8Array(K);
+    for (let i = -reach; i <= reach; i++) for (let j = -reach; j <= reach; j++) for (let k = -reach; k <= reach; k++) {
+      const a = grid.get(`${bx + i},${by + j},${bz + k}`); if (!a) continue;
+      for (const g of a) {
+        const d = Math.hypot(cx[g] - mx, cy[g] - my, cz[g] - mz); if (d >= nd[K - 1]) continue;
+        let q = K - 1; while (q > 0 && nd[q - 1] > d) { nd[q] = nd[q - 1]; nc[q] = nc[q - 1]; q--; } nd[q] = d; nc[q] = cls0[g];
+      }
+    }
+    let hair = 0, n = 0; for (let q = 0; q < K; q++) if (nd[q] <= R) { n++; if (nc[q] === 2) hair++; }
+    if (n >= 5 && hair >= n - 1 && nd[0] < 0.012) { fcls[f] = 2; forced[f] = 1; mirrored++; }
+    if (DBG && dbgN < 12 && cx[f] >= DBG[0] && cx[f] <= DBG[1] && cy[f] >= DBG[2] && cy[f] <= DBG[3] && cz[f] >= DBG[4] && cz[f] <= DBG[5]) { dbgN++; console.log(`   face ${f} ${CLASSES[cls0[f]]} at ${cx[f].toFixed(3)},${cy[f].toFixed(3)},${cz[f].toFixed(3)} -> mirror: nearest ${nd[0].toFixed(4)} ${CLASSES[nc[0]]}, ${hair} of ${n} hair ${fcls[f] === 2 ? 'FLIPPED' : ''}`); }
+  }
+  log(`skin whose mirror image is hair taken for hair: ${mirrored} faces`);
+  // under the cap: the cap sits on his hair, so a skin-coloured face with the cap right
+  // above it (its brim or rim within a couple of centimetres up) is scalp, hair (not an ear)
+  let capped = 0;
+  for (let f = 0; f < NF; f++) {
+    if ((fcls[f] !== 1 && fcls[f] !== 0) || !about(f) || cy[f] < neckY + 0.03) continue;
+    const ex = Math.abs(cx[f] - hc[0]) > 0.8 * hr && cz[f] < hc[2] + 0.15 * hr && cy[f] < hc[1] + 0.25 * hr && cy[f] > hc[1] - 0.4 * hr;
+    if (ex) continue;
+    const bx = Math.floor(cx[f] / CELL), by = Math.floor(cy[f] / CELL), bz = Math.floor(cz[f] / CELL);
+    let under = false;
+    for (let i = -1; i <= 1 && !under; i++) for (let j = 0; j <= 2 && !under; j++) for (let k = -1; k <= 1 && !under; k++) {
+      const a = grid.get(`${bx + i},${by + j},${bz + k}`); if (!a) continue;
+      for (const g of a) {
+        if (cls0[g] !== 3 && cls0[g] !== 4) continue;
+        const dy = cy[g] - cy[f]; if (dy <= 0 || dy > 0.025) continue;
+        if (Math.hypot(cx[g] - cx[f], cz[g] - cz[f]) < 0.012) { under = true; break; }
+      }
+    }
+    if (under) { fcls[f] = 2; forced[f] = 1; capped++; }
+  }
+  log(`skin right under the cap taken for hair: ${capped} faces`);
+}
+
 const parent = new Int32Array(NF); for (let i = 0; i < NF; i++) parent[i] = i;
 const find = (a) => { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
 const union = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[a] = b; };
@@ -145,6 +246,7 @@ for (let p = 0; p < NP; p++) {
   let best = -1, n = 0, tot = 0;
   for (let k = 0; k < 7; k++) { const v = contact[p * 7 + k]; tot += v; if (v > n) { n = v; best = k; } }
   if (best < 0 || best === pclass[p] || !FIX.includes(CLASSES[best]) || !tot) continue;
+  if (pclass[p] === 2 && best === 1) continue;   // (dark is hair wherever it is: never skin)
   if (psize[p] > PART_MAX * classFaces[best]) continue;
   const thin = psize[p] <= MAX_FACES && psize[p] / Math.max(pbound[p], 1) <= MAX_RATIO;
   if (n / tot < (thin ? ENCLOSED_THIN : ENCLOSED)) continue;
@@ -212,6 +314,11 @@ for (let round = 0; round < 3; round++) {
   if (!n) break;
 }
 
+{
+  const fm = flatMedian(2); let n = 0;
+  if (fm) for (let f = 0; f < NF; f++) if (forced[f] && fnew[f] < 0 && (flatOf[f] < 0 || flats[flatOf[f]].k !== 2)) { fnew[f] = 2; fnewCol[f * 3] = fm[0]; fnewCol[f * 3 + 1] = fm[1]; fnewCol[f * 3 + 2] = fm[2]; n++; }
+  log(`hair by the geometry painted hair: ${n} faces more`);
+}
 // the junction's crease faces left over (each a patch of its own) go with their neighbours'
 // final class when it is a flattened one: the hairline one clean edge
 {
@@ -295,6 +402,26 @@ if (arg('box', '')) {
 }
 await sharp(out, { raw: { width: W, height: H, channels: 4 } }).png({ compressionLevel: 9 }).toFile(OUT);
 log('wrote', OUT);
+if (arg('classmap', '')) {   // each face's class (after the flips) as a flat colour, to bake and look at
+  const cm = Buffer.alloc(W * H * 4);
+  const pal = [[150, 150, 150], [235, 170, 110], [25, 35, 70], [220, 40, 40], [245, 245, 245], [60, 90, 220], [60, 180, 80]];
+  for (let o = 0; o < W * H; o++) { cm[o * 4] = 40; cm[o * 4 + 1] = 40; cm[o * 4 + 2] = 40; cm[o * 4 + 3] = 255; }
+  for (let f = 0; f < NF; f++) {
+    const a = idx[f * 3], b = idx[f * 3 + 1], c = idx[f * 3 + 2], col = pal[fcls[f]];
+    const ax = uv[a * 2] * W, ay = uv[a * 2 + 1] * H, bx = uv[b * 2] * W, by = uv[b * 2 + 1] * H, cx2 = uv[c * 2] * W, cy2 = uv[c * 2 + 1] * H;
+    const area = (bx - ax) * (cy2 - ay) - (cx2 - ax) * (by - ay); if (Math.abs(area) < 1e-9) continue;
+    const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx2))), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx, cx2)));
+    const y0 = Math.max(0, Math.floor(Math.min(ay, by, cy2))), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by, cy2)));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const qx = x + 0.5, qy = y + 0.5;
+      const w0 = ((bx - qx) * (cy2 - qy) - (cx2 - qx) * (by - qy)) / area, w1 = ((cx2 - qx) * (ay - qy) - (ax - qx) * (cy2 - qy)) / area, w2 = 1 - w0 - w1;
+      if (w0 < -0.02 || w1 < -0.02 || w2 < -0.02) continue;
+      const o = y * W + x; const k = crease[f] ? 0.6 : 1; cm[o * 4] = col[0] * k; cm[o * 4 + 1] = col[1] * k; cm[o * 4 + 2] = col[2] * k;
+    }
+  }
+  await sharp(cm, { raw: { width: W, height: H, channels: 4 } }).png().toFile(arg('classmap', ''));
+  log('class map texture', arg('classmap', ''));
+}
 if (GROUPS) {
   const gp = Buffer.alloc(W * H * 4);
   const pal = [[80, 80, 80], [230, 160, 100], [30, 30, 50], [220, 40, 40], [240, 240, 240], [60, 90, 220], [60, 180, 80]];
