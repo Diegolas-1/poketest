@@ -106,9 +106,9 @@ for (let f = 0; f < NF; f++) {
 // a hair spike is a thin sheet, its other side a centimetre or two behind it; the forehead
 // has nothing behind it for the depth of the skull. A skin-coloured face about the head
 // with another surface close behind it, facing away, is hair, except at the ears (a thin
-// sheet too, at the sides below the brow line). The hair is the same shape on both sides
-// of the head while the spill is not: skin whose mirror image is dark hair is hair. And the
-// cap sits on his hair: skin with the cap right above it is scalp, hair.
+// sheet too, at the sides below the brow line). And the hair stands up off the arc of the
+// forehead while the face lies on it: above the brow line, skin-coloured surface that rises
+// sharply off the skull's arc is hair, the ears (which rise too) left alone.
 const forced = new Uint8Array(NF);   // faces the geometry says are hair whatever their colour: painted hair, come what may
 {
   const neckN = doc.getRoot().listNodes().find((n) => n.getName() === 'Neck');
@@ -155,52 +155,37 @@ const forced = new Uint8Array(NF);   // faces the geometry says are hair whateve
     if (thin) { fcls[f] = 2; forced[f] = 1; flipped++; }
   }
   log(`thin skin about the head taken for hair: ${flipped} faces (${ears} left at the ears)`);
-  // the other side of the head: his hair is the same shape left and right, the texturer's
-  // spill is not; a skin-coloured face about the head whose mirror image lies on dark hair
-  // is hair painted flesh (only this way round: dark is hair wherever it is)
-  // (the surface nearest the mirrored spot, its few nearest faces: the spikes differ a little
-  // in shape side to side, so the mirror image lands in air now and then)
-  let mirrored = 0, dbgN = 0;
-  const DBG = arg('mirror-box', '') ? arg('mirror-box', '').split(',').map(Number) : null;
-  const R = 0.03, cls0 = Uint8Array.from(fcls), reach = Math.ceil(R / CELL);
-  for (let f = 0; f < NF; f++) {
-    if ((cls0[f] !== 1 && cls0[f] !== 0) || !about(f) || cy[f] < neckY + 0.03) continue;
-    const mx = 2 * hc[0] - cx[f], my = cy[f], mz = cz[f];
-    const bx = Math.floor(mx / CELL), by = Math.floor(my / CELL), bz = Math.floor(mz / CELL);
-    // the K faces nearest the mirrored spot: the surface there, not the volume about it
-    const K = 7, nd = new Float64Array(K).fill(Infinity), nc = new Int8Array(K);
-    for (let i = -reach; i <= reach; i++) for (let j = -reach; j <= reach; j++) for (let k = -reach; k <= reach; k++) {
-      const a = grid.get(`${bx + i},${by + j},${bz + k}`); if (!a) continue;
-      for (const g of a) {
-        const d = Math.hypot(cx[g] - mx, cy[g] - my, cz[g] - mz); if (d >= nd[K - 1]) continue;
-        let q = K - 1; while (q > 0 && nd[q - 1] > d) { nd[q] = nd[q - 1]; nc[q] = nc[q - 1]; q--; } nd[q] = d; nc[q] = cls0[g];
-      }
-    }
-    let hair = 0, n = 0; for (let q = 0; q < K; q++) if (nd[q] <= R) { n++; if (nc[q] === 2) hair++; }
-    if (n >= 5 && hair >= n - 1 && nd[0] < 0.012) { fcls[f] = 2; forced[f] = 1; mirrored++; }
-    if (DBG && dbgN < 12 && cx[f] >= DBG[0] && cx[f] <= DBG[1] && cy[f] >= DBG[2] && cy[f] <= DBG[3] && cz[f] >= DBG[4] && cz[f] <= DBG[5]) { dbgN++; console.log(`   face ${f} ${CLASSES[cls0[f]]} at ${cx[f].toFixed(3)},${cy[f].toFixed(3)},${cz[f].toFixed(3)} -> mirror: nearest ${nd[0].toFixed(4)} ${CLASSES[nc[0]]}, ${hair} of ${n} hair ${fcls[f] === 2 ? 'FLIPPED' : ''}`); }
+  // off the arc of the forehead: the hair stands up from the skull's arc while the face lies
+  // on it. The arc is a sphere fit to the face's skin (what lies within a centimetre of it,
+  // refit a few times so the raised hair painted flesh drops out), and above the brow line,
+  // around the brim, a skin-coloured face more than ARC_OFF outside it is hair. The ears
+  // stand off the arc too and are flesh: left alone.
+  const ARC_OFF = +arg('arc', 0.008);
+  let sc = hc.slice(), sr = hr;
+  const onFace = (f) => fcls[f] === 1 && cy[f] > neckY + 0.085 && cy[f] < hc[1] + 0.6 * hr;
+  for (let it = 0; it < 6; it++) {
+    let n = 0, r = 0; const keep = [];
+    for (let f = 0; f < NF; f++) if (onFace(f)) { const d = Math.hypot(cx[f] - sc[0], cy[f] - sc[1], cz[f] - sc[2]); if (it === 0 || Math.abs(d - sr) < 0.012) keep.push(f); }
+    for (const f of keep) r += Math.hypot(cx[f] - sc[0], cy[f] - sc[1], cz[f] - sc[2]); r /= keep.length || 1;
+    let gx = 0, gy = 0, gz = 0;
+    for (const f of keep) { const dx = cx[f] - sc[0], dy = cy[f] - sc[1], dz = cz[f] - sc[2], l = Math.hypot(dx, dy, dz) || 1, k = (l - r) / l; gx += dx * k; gy += dy * k; gz += dz * k; }
+    sc[0] += gx / (keep.length || 1); sc[1] += gy / (keep.length || 1); sc[2] += gz / (keep.length || 1); sr = r; n = keep.length;
+    if (it === 5) log(`the face's arc: centre ${sc.map((x) => x.toFixed(3)).join(',')} radius ${sr.toFixed(3)} from ${n} faces`);
   }
-  log(`skin whose mirror image is hair taken for hair: ${mirrored} faces`);
-  // under the cap: the cap sits on his hair, so a skin-coloured face with the cap right
-  // above it (its brim or rim within a couple of centimetres up) is scalp, hair (not an ear)
-  let capped = 0;
+  // (sharply: well clear of the arc, or a little clear and facing away from the arc's
+  // outward direction, as a spike's flank does; the face's own bumps face outward)
+  const browY = sc[1] - 0.05 * sr;
+  let arced = 0, steep = 0;
   for (let f = 0; f < NF; f++) {
-    if ((fcls[f] !== 1 && fcls[f] !== 0) || !about(f) || cy[f] < neckY + 0.03) continue;
-    const ex = Math.abs(cx[f] - hc[0]) > 0.8 * hr && cz[f] < hc[2] + 0.15 * hr && cy[f] < hc[1] + 0.25 * hr && cy[f] > hc[1] - 0.4 * hr;
+    if ((fcls[f] !== 1 && fcls[f] !== 0) || !about(f) || cy[f] < browY) continue;
+    const ex = Math.abs(cx[f] - sc[0]) > 0.8 * sr && cz[f] < sc[2] + 0.15 * sr && cy[f] < sc[1] + 0.25 * sr && cy[f] > sc[1] - 0.4 * sr;   // the ears' zone
     if (ex) continue;
-    const bx = Math.floor(cx[f] / CELL), by = Math.floor(cy[f] / CELL), bz = Math.floor(cz[f] / CELL);
-    let under = false;
-    for (let i = -1; i <= 1 && !under; i++) for (let j = 0; j <= 2 && !under; j++) for (let k = -1; k <= 1 && !under; k++) {
-      const a = grid.get(`${bx + i},${by + j},${bz + k}`); if (!a) continue;
-      for (const g of a) {
-        if (cls0[g] !== 3 && cls0[g] !== 4) continue;
-        const dy = cy[g] - cy[f]; if (dy <= 0 || dy > 0.025) continue;
-        if (Math.hypot(cx[g] - cx[f], cz[g] - cz[f]) < 0.012) { under = true; break; }
-      }
-    }
-    if (under) { fcls[f] = 2; forced[f] = 1; capped++; }
+    const dx = cx[f] - sc[0], dy = cy[f] - sc[1], dz = cz[f] - sc[2], l = Math.hypot(dx, dy, dz) || 1;
+    const off = l - sr, dot = (nx[f] * dx + ny[f] * dy + nz[f] * dz) / l;
+    if (off > ARC_OFF + 0.006) { fcls[f] = 2; forced[f] = 1; arced++; }
+    else if (off > 0.004 && dot < 0.6) { fcls[f] = 2; forced[f] = 1; steep++; }
   }
-  log(`skin right under the cap taken for hair: ${capped} faces`);
+  log(`skin standing off the forehead's arc taken for hair: ${arced} well clear (over ${((ARC_OFF + 0.006) * 1000).toFixed(0)} mm), ${steep} rising steeply`);
 }
 
 const parent = new Int32Array(NF); for (let i = 0; i < NF; i++) parent[i] = i;
